@@ -359,7 +359,7 @@ def inject_custom_css():
 
 
 inject_custom_css()
-APP_VERSION = "2026.08.20-16-WEBTEST"
+APP_VERSION = "2026.08.20-17-WEBTEST"
 DB_FILE = Path(__file__).with_name("turnering.db")
 
 
@@ -410,57 +410,88 @@ def require_admin_access():
 
 
 class CloudConnection:
-    """Liten DB-API-adapter så Turso-anslutningen beter sig konsekvent i appen."""
+    """DB-API-adapter som återanvänder Turso-anslutningen under Streamlit-sessionen."""
     def __init__(self, raw):
         self.raw = raw
+        self._dirty = False
 
     def __enter__(self):
         return self
 
     def __exit__(self, exc_type, exc, tb):
-        try:
-            if exc_type is None:
-                self.raw.commit()
-            else:
-                rollback = getattr(self.raw, "rollback", None)
-                if rollback:
-                    rollback()
-        finally:
-            close = getattr(self.raw, "close", None)
-            if close:
-                close()
+        # Turso-anslutningen hålls öppen mellan appens reruns. Att öppna/stänga en
+        # nätverksanslutning för varje SELECT var den största prestandaflaskhalsen.
+        if exc_type is None:
+            if self._dirty:
+                self.commit()
+        else:
+            self.rollback()
         return False
 
+    @staticmethod
+    def _is_write(sql):
+        first = sql.lstrip().split(None, 1)[0].upper() if sql and sql.strip() else ""
+        return first not in {"SELECT", "PRAGMA", "EXPLAIN"}
+
     def execute(self, sql, params=()):
+        if self._is_write(sql):
+            self._dirty = True
         return self.raw.execute(sql, params)
 
     def executemany(self, sql, params):
+        if self._is_write(sql):
+            self._dirty = True
         return self.raw.executemany(sql, params)
 
     def commit(self):
-        return self.raw.commit()
+        result = self.raw.commit()
+        self._dirty = False
+        return result
 
     def rollback(self):
         rollback = getattr(self.raw, "rollback", None)
+        self._dirty = False
         return rollback() if rollback else None
 
     def close(self):
-        close = getattr(self.raw, "close", None)
-        return close() if close else None
+        # Medvetet no-op i webbdrift. Sessionens anslutning återanvänds för att
+        # slippa nätverks-handshake vid varje liten databasfråga.
+        return None
+
+
+def _new_cloud_raw_connection():
+    try:
+        import libsql
+    except ImportError as exc:
+        raise RuntimeError(
+            "Turso är konfigurerat men Python-paketet libsql saknas. "
+            "Installera requirements.txt."
+        ) from exc
+    return libsql.connect(database=TURSO_DATABASE_URL, auth_token=TURSO_AUTH_TOKEN)
+
+
+def _cloud_raw_connection():
+    """En Turso-anslutning per Streamlit-session, med automatisk återanslutning."""
+    raw = st.session_state.get("_cupnavi_turso_connection")
+    if raw is not None:
+        try:
+            raw.execute("SELECT 1")
+            return raw
+        except Exception:
+            try:
+                raw.close()
+            except Exception:
+                pass
+            st.session_state.pop("_cupnavi_turso_connection", None)
+    raw = _new_cloud_raw_connection()
+    st.session_state["_cupnavi_turso_connection"] = raw
+    return raw
 
 
 def db():
     """Använd Turso i molnet och lokal SQLite på utvecklingsdatorn."""
     if CLOUD_DATABASE_ENABLED:
-        try:
-            import libsql
-        except ImportError as exc:
-            raise RuntimeError(
-                "Turso är konfigurerat men Python-paketet libsql saknas. "
-                "Installera requirements.txt."
-            ) from exc
-        raw = libsql.connect(database=TURSO_DATABASE_URL, auth_token=TURSO_AUTH_TOKEN)
-        return CloudConnection(raw)
+        return CloudConnection(_cloud_raw_connection())
 
     con = sqlite3.connect(DB_FILE)
     con.row_factory = sqlite3.Row
@@ -514,6 +545,11 @@ def columns(table):
 
 
 def init_db():
+    # Schema/migreringar behöver inte köras om vid varje klick/rerun. Mot en
+    # fjärrdatabas sparar detta många nätverksanrop, särskilt efter adminlogin.
+    schema_key = f"{APP_VERSION}:{'cloud' if CLOUD_DATABASE_ENABLED else 'local'}"
+    if st.session_state.get("_cupnavi_schema_ready") == schema_key:
+        return
     with db() as con:
         execute_script(
             con,
@@ -709,19 +745,51 @@ def init_db():
         if "consecutive_match_break_minutes" not in rule_cols:
             con.execute("ALTER TABLE schedule_rules ADD COLUMN consecutive_match_break_minutes INTEGER NOT NULL DEFAULT 15")
         con.execute("UPDATE tournaments SET start_date=COALESCE(start_date,tournament_date), end_date=COALESCE(end_date,tournament_date)")
+    st.session_state["_cupnavi_schema_ready"] = schema_key
 
+
+# Cache endast under ett enskilt Streamlit-renderingsvarv. Den återställs vid rerun,
+# så administratören ser alltid nya data efter en skrivning utan långlivad cache.
+_RENDER_QUERY_CACHE = {}
+
+def _cacheable_query(sql):
+    return sql.lstrip().upper().startswith(("SELECT", "PRAGMA"))
+
+def _query_cache_key(kind, sql, params):
+    try:
+        frozen_params = tuple(params)
+        hash(frozen_params)
+    except Exception:
+        return None
+    return (kind, sql, frozen_params)
+
+def _clear_render_query_cache():
+    _RENDER_QUERY_CACHE.clear()
 
 def all_rows(sql, params=()):
+    key = _query_cache_key("all", sql, params) if _cacheable_query(sql) else None
+    if key is not None and key in _RENDER_QUERY_CACHE:
+        return _RENDER_QUERY_CACHE[key]
     with db() as con:
-        return _rows_from_cursor(con.execute(sql, params))
+        result = _rows_from_cursor(con.execute(sql, params))
+    if key is not None:
+        _RENDER_QUERY_CACHE[key] = result
+    return result
 
 
 def one_row(sql, params=()):
+    key = _query_cache_key("one", sql, params) if _cacheable_query(sql) else None
+    if key is not None and key in _RENDER_QUERY_CACHE:
+        return _RENDER_QUERY_CACHE[key]
     with db() as con:
-        return _one_from_cursor(con.execute(sql, params))
+        result = _one_from_cursor(con.execute(sql, params))
+    if key is not None:
+        _RENDER_QUERY_CACHE[key] = result
+    return result
 
 
 def run(sql, params=()):
+    _clear_render_query_cache()
     with db() as con:
         cur = con.execute(sql, params)
         con.commit()
