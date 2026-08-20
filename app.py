@@ -359,7 +359,7 @@ def inject_custom_css():
 
 
 inject_custom_css()
-APP_VERSION = "2026.08.20-18-WEBTEST"
+APP_VERSION = "2026.08.20-19-WEBTEST"
 DB_FILE = Path(__file__).with_name("turnering.db")
 
 
@@ -1998,6 +1998,48 @@ if view_mode == "Turneringsvy":
     render_public_view(tid, tournament)
     st.stop()
 
+# SNABB ADMINNAVIGERING: visuellt som flikar, men bara vald sida körs.
+ADMIN_PAGES = [
+    "Adminöversikt", "Kontroller", "Lag", "Grupper", "Trupper", "Domare",
+    "Skapa och publicera schema", "Slutspel", "Matcher och resultat",
+    "Matchhändelser", "Tabeller", "Skytteligor",
+]
+ADMIN_NAV = [
+    ("Adminöversikt", "Översikt"),
+    ("Kontroller", "Kontroller"),
+    ("Lag", "Lag"),
+    ("Grupper", "Grupper"),
+    ("Trupper", "Trupper"),
+    ("Domare", "Domare"),
+    ("Skapa och publicera schema", "Schema"),
+    ("Slutspel", "Slutspel"),
+    ("Matcher och resultat", "Matcher"),
+    ("Matchhändelser", "Händelser"),
+    ("Tabeller", "Tabeller"),
+    ("Skytteligor", "Skytteligor"),
+]
+admin_page_key = f"admin_page_{tid}"
+if st.session_state.get(admin_page_key) not in ADMIN_PAGES:
+    st.session_state[admin_page_key] = "Adminöversikt"
+
+st.markdown("### Administration")
+st.caption("Välj administrationsdel. Endast den valda delen laddas, för snabbare webbdrift.")
+for nav_row in (ADMIN_NAV[:6], ADMIN_NAV[6:]):
+    nav_columns = st.columns(6)
+    for nav_column, (page_name, button_label) in zip(nav_columns, nav_row):
+        selected = st.session_state[admin_page_key] == page_name
+        if nav_column.button(
+            button_label,
+            key=f"admin_nav_{tid}_{page_name}",
+            type="primary" if selected else "secondary",
+            use_container_width=True,
+        ):
+            if not selected:
+                st.session_state[admin_page_key] = page_name
+                st.rerun()
+admin_page = st.session_state[admin_page_key]
+st.divider()
+
 sidebar_rules = one_row("SELECT * FROM schedule_rules WHERE tournament_id=?", (tid,))
 if sidebar_rules is None:
     run("INSERT INTO schedule_rules(tournament_id) VALUES(?)", (tid,))
@@ -2009,7 +2051,7 @@ sidebar_scheduled = one_row(
 validation_cache_key = f"_schedule_validation_{tid}"
 if st.session_state.get("_validation_dirty", True) or validation_cache_key not in st.session_state:
     # Full schemakontroll är relativt dyr mot Turso. Kör den bara på de sidor där den behövs.
-    if st.session_state.get(f"admin_page_{tid}", "Adminöversikt") in {"Kontroller", "Skapa och publicera schema"}:
+    if admin_page in {"Kontroller", "Skapa och publicera schema"}:
         st.session_state[validation_cache_key] = validate_schedule(tid, tournament, sidebar_rules)
         st.session_state["_validation_dirty"] = False
 sidebar_errors, sidebar_warnings, _sidebar_quality = st.session_state.get(validation_cache_key, ([], [], []))
@@ -2043,18 +2085,6 @@ elif sidebar_errors:
     st.sidebar.caption(f"Åtgärda {len(sidebar_errors)} schemafel före publicering.")
 elif sidebar_warnings and not sidebar_warnings_approved:
     st.sidebar.caption("Godkänn varningarna före publicering.")
-
-ADMIN_PAGES = [
-    "Adminöversikt", "Kontroller", "Lag", "Grupper", "Trupper", "Domare",
-    "Skapa och publicera schema", "Slutspel", "Matcher och resultat",
-    "Matchhändelser", "Tabeller", "Skytteligor",
-]
-admin_page = st.sidebar.radio(
-    "Administrationsdel",
-    ADMIN_PAGES,
-    key=f"admin_page_{tid}",
-)
-st.caption(f"Administrationsdel: **{admin_page}**")
 
 if admin_page == "Adminöversikt":
     st.header("Adminöversikt")
