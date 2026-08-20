@@ -343,14 +343,44 @@ def inject_custom_css():
             letter-spacing:.02em;
           }
 
+          /* ---------- Publik statistik ---------- */
+          .public-metric-grid {
+            display:grid;
+            grid-template-columns:repeat(4,minmax(0,1fr));
+            gap:12px;
+            margin:0 0 16px;
+          }
+          .public-metric {
+            background:#ffffff;
+            border:1px solid var(--cup-border);
+            border-radius:12px;
+            padding:13px 15px;
+            min-height:82px;
+          }
+          .public-metric .label { color:var(--cup-muted) !important; font-size:13px; margin-bottom:6px; }
+          .public-metric .value { color:var(--cup-ink) !important; font-size:30px; line-height:1; font-weight:850; }
+
           /* ---------- Mobil ---------- */
           @media (max-width:760px) {
-            .block-container { padding-left:.7rem; padding-right:.7rem; padding-top:1rem; }
-            .cup-hero { padding:17px 15px; border-radius:13px; }
-            .public-match-card { padding:12px !important; }
+            .block-container { padding-left:.65rem; padding-right:.65rem; padding-top:.55rem; }
+            .cup-hero { padding:15px 14px; border-radius:13px; margin-top:8px; margin-bottom:12px; }
+            .cup-hero .title { font-size:27px; }
+            .public-metric-grid { grid-template-columns:repeat(2,minmax(0,1fr)); gap:9px; margin-bottom:12px; }
+            .public-metric { min-height:70px; padding:11px 12px; }
+            .public-metric .value { font-size:25px; }
+            .public-match-card { padding:11px !important; }
             .public-match-card .public-team-name { font-size:15px !important; }
-            div[data-baseweb="tab-list"] { border-radius:9px !important; }
-            button[data-baseweb="tab"] { min-height:38px; }
+            .public-match-card .kit-label { display:none !important; }
+            .public-match-card .match-meta { font-size:12px !important; line-height:1.35 !important; }
+            div[data-baseweb="tab-list"] {
+              border-radius:9px !important;
+              overflow-x:auto !important;
+              flex-wrap:nowrap !important;
+              scrollbar-width:none;
+            }
+            div[data-baseweb="tab-list"]::-webkit-scrollbar { display:none; }
+            button[data-baseweb="tab"] { min-height:40px; white-space:nowrap !important; padding-left:10px !important; padding-right:10px !important; }
+            div[role="radiogroup"] { gap:.25rem !important; }
           }
         </style>
         """,
@@ -359,7 +389,7 @@ def inject_custom_css():
 
 
 inject_custom_css()
-APP_VERSION = "2026.08.20-19-WEBTEST"
+APP_VERSION = "2026.08.20-20-WEBTEST"
 DB_FILE = Path(__file__).with_name("turnering.db")
 
 
@@ -1778,18 +1808,6 @@ def render_public_view(tournament_id, tournament):
     now = datetime.now()
     next_match = next((m for m in published_matches if datetime.fromisoformat(m["scheduled_start"]) >= now and m["home_score"] is None), None)
     hero_meta = f"{cup_date_label(tournament)} · {html.escape(tournament['location'] or 'Spelort ej angiven')}"
-    st.markdown(
-        f"""<div class='cup-hero'><div class='eyebrow'>CupNavi · Turneringsöversikt</div>
-        <div class='title'>{html.escape(tournament['name'])}</div><div class='meta'>{hero_meta}</div></div>""",
-        unsafe_allow_html=True,
-    )
-    mc1, mc2, mc3, mc4 = st.columns(4)
-    mc1.metric("Lag", team_count)
-    mc2.metric("Matcher", len(published_matches))
-    mc3.metric("Spelade", len(played_matches))
-    mc4.metric("Gjorda mål", total_goals)
-    if next_match:
-        st.caption(f"Nästa match: {swedish_datetime(next_match['scheduled_start'])} · Plan {next_match['pitch_number']}")
     visitor_rows = []
     if tournament["arena_address"]:
         visitor_rows.append(f"<div><b>📍 Arena:</b> {html.escape(tournament['arena_address'])}</div>")
@@ -1805,6 +1823,22 @@ def render_public_view(tournament_id, tournament):
         ["Spelschema", "Tabeller", "Topplistor", "Slutspel", "Information"]
     )
     with schedule:
+        st.markdown(
+            f"""<div class='cup-hero'><div class='eyebrow'>CupNavi · Turneringsöversikt</div>
+            <div class='title'>{html.escape(tournament['name'])}</div><div class='meta'>{hero_meta}</div></div>""",
+            unsafe_allow_html=True,
+        )
+        st.markdown(
+            f"""<div class='public-metric-grid'>
+              <div class='public-metric'><div class='label'>Lag</div><div class='value'>{team_count}</div></div>
+              <div class='public-metric'><div class='label'>Matcher</div><div class='value'>{len(published_matches)}</div></div>
+              <div class='public-metric'><div class='label'>Spelade</div><div class='value'>{len(played_matches)}</div></div>
+              <div class='public-metric'><div class='label'>Gjorda mål</div><div class='value'>{total_goals}</div></div>
+            </div>""",
+            unsafe_allow_html=True,
+        )
+        if next_match:
+            st.caption(f"Nästa match: {swedish_datetime(next_match['scheduled_start'])} · Plan {next_match['pitch_number']}")
         st.markdown(
             """
             <style>
@@ -1941,7 +1975,18 @@ init_db()
 st.sidebar.title("⚽ Turneringar")
 st.sidebar.caption(f"CupNavi version {APP_VERSION}")
 st.sidebar.caption("Databas: Turso" if CLOUD_DATABASE_ENABLED else "Databas: Lokal SQLite")
-view_mode = st.sidebar.radio("Visningsläge", ["Turneringsvy", "Admin"] if CLOUD_DATABASE_ENABLED else ["Admin", "Turneringsvy"])
+mode_options = ["Turneringsvy", "Admin"] if CLOUD_DATABASE_ENABLED else ["Admin", "Turneringsvy"]
+if st.session_state.get("view_mode") not in mode_options:
+    st.session_state["view_mode"] = mode_options[0]
+st.caption("Välj läge")
+view_mode = st.radio(
+    "Visningsläge",
+    mode_options,
+    horizontal=True,
+    key="view_mode",
+    label_visibility="collapsed",
+)
+st.sidebar.caption(f"Visningsläge: {view_mode}")
 
 if view_mode == "Admin":
     require_admin_access()
@@ -1987,12 +2032,17 @@ tid = st.sidebar.selectbox("Aktiv turnering", [t["id"] for t in tournaments], fo
 tournament = next(t for t in tournaments if t["id"] == tid)
 if view_mode == "Admin":
     sync_placement_playoffs(tid, tournament["bronze_match"])
-st.title(f"⚽ {tournament['name']}")
-st.markdown(
-    f"<div class='cup-version-badge'>KÖR VERSION {APP_VERSION}</div>",
-    unsafe_allow_html=True,
-)
-st.caption(f"{tournament['location'] or 'Spelort saknas'} · {cup_date_label(tournament)} · Planerat antal lag: {tournament['expected_team_count'] or 'Ej angivet'}")
+    st.title(f"⚽ {tournament['name']}")
+    st.markdown(
+        f"<div class='cup-version-badge'>KÖR VERSION {APP_VERSION}</div>",
+        unsafe_allow_html=True,
+    )
+    st.caption(f"{tournament['location'] or 'Spelort saknas'} · {cup_date_label(tournament)} · Planerat antal lag: {tournament['expected_team_count'] or 'Ej angivet'}")
+else:
+    st.markdown(
+        f"<div class='cup-version-badge'>KÖR VERSION {APP_VERSION}</div>",
+        unsafe_allow_html=True,
+    )
 
 if view_mode == "Turneringsvy":
     render_public_view(tid, tournament)
