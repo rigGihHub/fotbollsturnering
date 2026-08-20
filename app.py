@@ -1,9 +1,7 @@
 import sqlite3
 import html
 import base64
-import hmac
 import json
-import os
 from datetime import datetime, timedelta
 from pathlib import Path
 from urllib.parse import urlencode
@@ -22,65 +20,7 @@ st.set_page_config(page_title="Fotbollsturnering", page_icon="⚽", layout="wide
 DB_FILE = Path(__file__).with_name("turnering.db")
 
 
-def setting(name):
-    """Hämta en hemlighet från Streamlit Cloud eller en miljövariabel."""
-    try:
-        value = st.secrets.get(name)
-    except (FileNotFoundError, KeyError):
-        value = None
-    return str(value).strip() if value else os.getenv(name, "").strip()
-
-
-TURSO_DATABASE_URL = setting("TURSO_DATABASE_URL")
-TURSO_AUTH_TOKEN = setting("TURSO_AUTH_TOKEN")
-CLOUD_DATABASE_ENABLED = bool(TURSO_DATABASE_URL and TURSO_AUTH_TOKEN)
-
-
-def require_admin_access():
-    """Stoppa administrationsvyn tills rätt lösenord har angetts."""
-    admin_password = setting("ADMIN_PASSWORD")
-    if not admin_password:
-        if CLOUD_DATABASE_ENABLED:
-            st.sidebar.error("Adminlösenord saknas i appens säkra inställningar.")
-            st.error("Administrationen är låst tills ADMIN_PASSWORD har lagts till i Streamlit Secrets.")
-            st.stop()
-        st.sidebar.warning("Lokalt läge utan adminlösenord")
-        return
-
-    if st.session_state.get("admin_authenticated"):
-        st.sidebar.success("Inloggad som administratör")
-        if st.sidebar.button("Logga ut från administrationen", use_container_width=True):
-            st.session_state["admin_authenticated"] = False
-            st.rerun()
-        return
-
-    st.title("Administratörsinloggning")
-    st.caption("Turneringsvyn är offentlig, men administrationen kräver lösenord.")
-    with st.form("admin_login"):
-        entered_password = st.text_input("Adminlösenord", type="password")
-        submitted = st.form_submit_button("Logga in", type="primary", use_container_width=True)
-    if submitted:
-        if hmac.compare_digest(entered_password, admin_password):
-            st.session_state["admin_authenticated"] = True
-            st.rerun()
-        else:
-            st.error("Fel lösenord.")
-    st.stop()
-
-
 def db():
-    if CLOUD_DATABASE_ENABLED:
-        try:
-            import libsql
-        except ImportError as exc:
-            raise RuntimeError(
-                "Molndatabasen är inställd men paketet libsql saknas. "
-                "Installera beroendena med: python -m pip install -r requirements.txt"
-            ) from exc
-        con = libsql.connect(database=TURSO_DATABASE_URL, auth_token=TURSO_AUTH_TOKEN)
-        con.row_factory = sqlite3.Row
-        con.execute("PRAGMA foreign_keys = ON")
-        return con
     con = sqlite3.connect(DB_FILE)
     con.row_factory = sqlite3.Row
     con.execute("PRAGMA foreign_keys = ON")
@@ -1247,37 +1187,31 @@ init_db()
 
 # SIDOMENY OCH TURNERING
 st.sidebar.title("⚽ Turneringar")
-view_mode = st.sidebar.radio("Visningsläge", ["Turneringsvy", "Admin"])
-if view_mode == "Admin":
-    require_admin_access()
-    with st.sidebar.expander("Skapa ny turnering"):
-        with st.form("new_tournament", clear_on_submit=True):
-            n = st.text_input("Namn")
-            place = st.text_input("Spelort")
-            start_date = st.date_input("Första cupdag")
-            end_date = st.date_input("Sista cupdag", value=start_date)
-            expected_teams = st.number_input("Planerat antal lag", 2, 500, 8)
-            st.caption("Poängregler och övriga cupinställningar görs på Adminöversikt efter att turneringen har skapats.")
-            if st.form_submit_button("Skapa", type="primary", use_container_width=True):
-                if not n.strip():
-                    st.error("Ange ett namn.")
-                elif end_date < start_date:
-                    st.error("Sista cupdagen får inte ligga före första cupdagen.")
-                else:
-                    run(
-                        """INSERT INTO tournaments(name,location,tournament_date,start_date,end_date,expected_team_count,points_win,points_draw,points_loss)
-                        VALUES(?,?,?,?,?,?,?,?,?)""",
-                        (n.strip(), place.strip(), start_date.isoformat(), start_date.isoformat(), end_date.isoformat(), expected_teams, 3, 1, 0),
-                    )
-                    st.rerun()
+with st.sidebar.expander("Skapa ny turnering"):
+    with st.form("new_tournament", clear_on_submit=True):
+        n = st.text_input("Namn")
+        place = st.text_input("Spelort")
+        start_date = st.date_input("Första cupdag")
+        end_date = st.date_input("Sista cupdag", value=start_date)
+        expected_teams = st.number_input("Planerat antal lag", 2, 500, 8)
+        st.caption("Poängregler och övriga cupinställningar görs på Adminöversikt efter att turneringen har skapats.")
+        if st.form_submit_button("Skapa", type="primary", use_container_width=True):
+            if not n.strip():
+                st.error("Ange ett namn.")
+            elif end_date < start_date:
+                st.error("Sista cupdagen får inte ligga före första cupdagen.")
+            else:
+                run(
+                    """INSERT INTO tournaments(name,location,tournament_date,start_date,end_date,expected_team_count,points_win,points_draw,points_loss)
+                    VALUES(?,?,?,?,?,?,?,?,?)""",
+                    (n.strip(), place.strip(), start_date.isoformat(), start_date.isoformat(), end_date.isoformat(), expected_teams, 3, 1, 0),
+                )
+                st.rerun()
 
 tournaments = all_rows("SELECT * FROM tournaments ORDER BY COALESCE(start_date,tournament_date) DESC,name")
 if not tournaments:
     st.title("⚽ Fotbollsturnering")
-    if view_mode == "Admin":
-        st.info("Skapa den första turneringen i vänstermenyn.")
-    else:
-        st.info("Ingen turnering har publicerats ännu.")
+    st.info("Skapa den första turneringen i vänstermenyn.")
     st.stop()
 
 tid = st.sidebar.selectbox("Aktiv turnering", [t["id"] for t in tournaments], format_func=lambda x: next(t["name"] for t in tournaments if t["id"] == x))
@@ -1286,6 +1220,7 @@ sync_placement_playoffs(tid, tournament["bronze_match"])
 st.title(f"⚽ {tournament['name']}")
 st.caption(f"{tournament['location'] or 'Spelort saknas'} · {cup_date_label(tournament)} · Planerat antal lag: {tournament['expected_team_count'] or 'Ej angivet'} · Poäng: {tournament['points_win']}/{tournament['points_draw']}/{tournament['points_loss']}")
 
+view_mode = st.sidebar.radio("Visningsläge", ["Admin", "Turneringsvy"])
 if view_mode == "Turneringsvy":
     if not tournament["is_published"]:
         st.info("Turneringen är ännu inte publicerad av administratören.")
@@ -1334,7 +1269,7 @@ elif sidebar_warnings and not sidebar_warnings_approved:
     st.sidebar.caption("Godkänn varningarna före publicering.")
 
 st.header("Administration")
-st.caption("Här administreras turneringens lag, grupper, regler, schema, domare och slutspel.")
+st.caption("Här ställs turneringens lag, grupper, regler, schema, domare och slutspel in. Lösenordsskydd läggs till senare.")
 
 admin_overview_tab, setup_tab, squad_tab, referee_tab, schedule_tab, playoff_tab, match_tab, stats_tab, table_tab, leaders_tab = st.tabs([
     "Adminöversikt", "Lag och grupper", "Trupper", "Domare", "Skapa och publicera schema",
