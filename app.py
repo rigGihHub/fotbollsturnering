@@ -159,6 +159,48 @@ def inject_custom_css():
           [role="option"]:hover { background:#eef4f8 !important; }
           [aria-selected="true"][role="option"] { background:#e2edf5 !important; }
 
+
+          /* ---------- Kalender / datumväljare ---------- */
+          [data-baseweb="calendar"],
+          [data-baseweb="calendar"] > div,
+          [data-baseweb="calendar"] table,
+          [data-baseweb="calendar"] tbody,
+          [data-baseweb="calendar"] thead {
+            background:#ffffff !important;
+            color:#172033 !important;
+          }
+          [data-baseweb="calendar"] *,
+          [data-baseweb="calendar"] button,
+          [data-baseweb="calendar"] th,
+          [data-baseweb="calendar"] td,
+          [data-baseweb="calendar"] div,
+          [data-baseweb="calendar"] span {
+            color:#172033 !important;
+          }
+          [data-baseweb="calendar"] button {
+            background:#ffffff !important;
+            border-color:transparent !important;
+          }
+          [data-baseweb="calendar"] button:hover {
+            background:#eaf2f7 !important;
+          }
+          [data-baseweb="calendar"] [aria-selected="true"],
+          [data-baseweb="calendar"] [aria-selected="true"] *,
+          [data-baseweb="calendar"] button[aria-selected="true"],
+          [data-baseweb="calendar"] button[aria-selected="true"] * {
+            background:#166534 !important;
+            color:#ffffff !important;
+            border-radius:8px !important;
+          }
+          [data-baseweb="calendar"] [aria-disabled="true"],
+          [data-baseweb="calendar"] [aria-disabled="true"] * {
+            color:#8a98a8 !important;
+          }
+          [data-baseweb="calendar"] [aria-current="date"] {
+            outline:2px solid #2563eb !important;
+            outline-offset:-2px !important;
+          }
+
           /* ---------- Checkbox, radio och toggles ---------- */
           [data-testid="stCheckbox"] label,
           [data-testid="stRadio"] label,
@@ -198,6 +240,33 @@ def inject_custom_css():
           button[data-baseweb="tab"][aria-selected="true"] p,
           button[data-baseweb="tab"][aria-selected="true"] span {
             color:var(--cup-green) !important;
+          }
+
+
+          /* ---------- Adminnavigation / pills ---------- */
+          [data-testid="stPills"] [role="radiogroup"] {
+            display:flex !important;
+            flex-wrap:wrap !important;
+            gap:7px !important;
+          }
+          [data-testid="stPills"] button {
+            background:#ffffff !important;
+            color:#253247 !important;
+            border:1px solid #c5d0da !important;
+            border-radius:10px !important;
+            min-height:38px !important;
+            font-weight:750 !important;
+          }
+          [data-testid="stPills"] button[aria-checked="true"],
+          [data-testid="stPills"] button[aria-selected="true"] {
+            background:#166534 !important;
+            border-color:#166534 !important;
+            color:#ffffff !important;
+            box-shadow:0 2px 7px rgba(22,101,52,.18) !important;
+          }
+          [data-testid="stPills"] button[aria-checked="true"] *,
+          [data-testid="stPills"] button[aria-selected="true"] * {
+            color:#ffffff !important;
           }
 
           /* ---------- Knappar ---------- */
@@ -390,7 +459,7 @@ def inject_custom_css():
 
 
 inject_custom_css()
-APP_VERSION = "2026.08.20-22-WEBTEST"
+APP_VERSION = "2026.08.20-23-WEBTEST"
 DB_FILE = Path(__file__).with_name("turnering.db")
 
 
@@ -467,9 +536,21 @@ class CloudConnection:
         return first not in {"SELECT", "PRAGMA", "EXPLAIN"}
 
     def execute(self, sql, params=()):
-        if self._is_write(sql):
+        is_write = self._is_write(sql)
+        if is_write:
             self._dirty = True
-        return self.raw.execute(sql, params)
+        try:
+            return self.raw.execute(sql, params)
+        except Exception:
+            # En tappad/stängd Turso-anslutning ska inte kräva en separat
+            # SELECT 1 före varje normal fråga. Läsfrågor får i stället
+            # en enda säker återanslutning först när ett verkligt fel uppstår.
+            if is_write:
+                raise
+            fresh = _new_cloud_raw_connection()
+            st.session_state["_cupnavi_turso_connection"] = fresh
+            self.raw = fresh
+            return self.raw.execute(sql, params)
 
     def executemany(self, sql, params):
         if self._is_write(sql):
@@ -504,20 +585,11 @@ def _new_cloud_raw_connection():
 
 
 def _cloud_raw_connection():
-    """En Turso-anslutning per Streamlit-session, med automatisk återanslutning."""
+    """Återanvänd Turso-anslutningen utan ett extra nätverksanrop före varje fråga."""
     raw = st.session_state.get("_cupnavi_turso_connection")
-    if raw is not None:
-        try:
-            raw.execute("SELECT 1")
-            return raw
-        except Exception:
-            try:
-                raw.close()
-            except Exception:
-                pass
-            st.session_state.pop("_cupnavi_turso_connection", None)
-    raw = _new_cloud_raw_connection()
-    st.session_state["_cupnavi_turso_connection"] = raw
+    if raw is None:
+        raw = _new_cloud_raw_connection()
+        st.session_state["_cupnavi_turso_connection"] = raw
     return raw
 
 
@@ -1213,40 +1285,64 @@ def create_round_robin(tournament_id, group_id):
 
 
 def create_all_group_matches(tournament_id):
-    """Skapa alla saknade enkelmöten atomiskt i samtliga grupper utan dubbletter."""
+    """Skapa alla saknade enkelmöten atomiskt med batchade databasfrågor."""
     groups = all_rows("SELECT id,name FROM groups WHERE tournament_id=? ORDER BY name", (tournament_id,))
+    all_team_rows = all_rows(
+        "SELECT id,group_id FROM teams WHERE tournament_id=? ORDER BY group_id,id",
+        (tournament_id,),
+    )
+    all_existing_rows = all_rows(
+        """SELECT group_id,home_source,away_source
+           FROM matches
+           WHERE tournament_id=? AND stage='Gruppspel'""",
+        (tournament_id,),
+    )
+
+    teams_by_group = {}
+    for row in all_team_rows:
+        teams_by_group.setdefault(row["group_id"], []).append(row["id"])
+
+    existing_by_group = {}
+    for match_row in all_existing_rows:
+        try:
+            pair = tuple(sorted((
+                int(match_row["home_source"].split(":")[1]),
+                int(match_row["away_source"].split(":")[1]),
+            )))
+        except (ValueError, IndexError, AttributeError):
+            continue
+        existing_by_group.setdefault(match_row["group_id"], set()).add(pair)
+
     created = 0
     ready_groups = 0
     skipped_groups = []
     pending = []
     for group in groups:
-        team_ids = [r["id"] for r in all_rows("SELECT id FROM teams WHERE group_id=? ORDER BY id", (group["id"],))]
+        team_ids = teams_by_group.get(group["id"], [])
         if len(team_ids) < 2:
             skipped_groups.append(group["name"])
             continue
         ready_groups += 1
-        existing = {
-            tuple(sorted((int(m["home_source"].split(":")[1]), int(m["away_source"].split(":")[1]))))
-            for m in all_rows("SELECT home_source,away_source FROM matches WHERE group_id=? AND stage='Gruppspel'", (group["id"],))
-        }
+        existing = existing_by_group.get(group["id"], set())
         match_no = len(existing) + 1
         for i, home in enumerate(team_ids):
             for away in team_ids[i + 1:]:
-                if tuple(sorted((home, away))) in existing:
+                pair = tuple(sorted((home, away)))
+                if pair in existing:
                     continue
                 pending.append((tournament_id, group["id"], match_no, f"team:{home}", f"team:{away}"))
+                existing.add(pair)
                 created += 1
                 match_no += 1
+
     if pending:
-        try:
-            with db() as con:
-                con.executemany(
-                    "INSERT INTO matches(tournament_id,group_id,stage,match_no,home_source,away_source) VALUES(?,?,'Gruppspel',?,?,?)",
-                    pending,
-                )
-                con.commit()
-        except Exception:
-            raise
+        with db() as con:
+            con.executemany(
+                "INSERT INTO matches(tournament_id,group_id,stage,match_no,home_source,away_source) VALUES(?,?,'Gruppspel',?,?,?)",
+                pending,
+            )
+            con.commit()
+        _clear_render_query_cache()
     return created, ready_groups, skipped_groups
 
 
@@ -1335,6 +1431,16 @@ def sync_placement_playoffs(tournament_id, bronze_match):
 
 
 def generate_schedule(tournament_id, tournament, rules, preserve_existing=False):
+    def schedule_source_id(source):
+        if not source:
+            return None
+        if source.startswith("team:"):
+            try:
+                return int(source.split(":", 1)[1])
+            except (TypeError, ValueError):
+                return None
+        return resolve_source(source)
+
     try:
         cup_start_date = tournament["start_date"] or tournament["tournament_date"]
         cup_end_date = tournament["end_date"] or cup_start_date
@@ -1409,8 +1515,8 @@ def generate_schedule(tournament_id, tournament, rules, preserve_existing=False)
         for existing_match in matches:
             if not existing_match["scheduled_start"] or not existing_match["pitch_number"]:
                 continue
-            home_id = resolve_source(existing_match["home_source"])
-            away_id = resolve_source(existing_match["away_source"])
+            home_id = schedule_source_id(existing_match["home_source"])
+            away_id = schedule_source_id(existing_match["away_source"])
             if not home_id or not away_id:
                 continue
             existing_start = datetime.fromisoformat(existing_match["scheduled_start"])
@@ -1427,8 +1533,8 @@ def generate_schedule(tournament_id, tournament, rules, preserve_existing=False)
         for locked_match in matches:
             if not locked_match["schedule_locked"] or not locked_match["scheduled_start"] or not locked_match["pitch_number"]:
                 continue
-            locked_home = resolve_source(locked_match["home_source"])
-            locked_away = resolve_source(locked_match["away_source"])
+            locked_home = schedule_source_id(locked_match["home_source"])
+            locked_away = schedule_source_id(locked_match["away_source"])
             locked_start = datetime.fromisoformat(locked_match["scheduled_start"])
             locked_events.append({
                 "start": locked_start, "end": locked_start + duration, "pitch": locked_match["pitch_number"],
@@ -1460,8 +1566,8 @@ def generate_schedule(tournament_id, tournament, rules, preserve_existing=False)
     for match_row in matches:
         if match_row["scheduled_start"] and (preserve_existing or match_row["schedule_locked"]):
             continue
-        home_id = resolve_source(match_row["home_source"])
-        away_id = resolve_source(match_row["away_source"])
+        home_id = schedule_source_id(match_row["home_source"])
+        away_id = schedule_source_id(match_row["away_source"])
         if not home_id or not away_id:
             unresolved += 1
             continue
@@ -2121,19 +2227,19 @@ if st.session_state.get(admin_page_key) not in ADMIN_PAGES:
 
 st.markdown("### Administration")
 st.caption("Välj administrationsdel. Endast den valda delen laddas, för snabbare webbdrift.")
-for nav_row in (ADMIN_NAV[:6], ADMIN_NAV[6:]):
-    nav_columns = st.columns(6)
-    for nav_column, (page_name, button_label) in zip(nav_columns, nav_row):
-        selected = st.session_state[admin_page_key] == page_name
-        if nav_column.button(
-            button_label,
-            key=f"admin_nav_{tid}_{page_name}",
-            type="primary" if selected else "secondary",
-            use_container_width=True,
-        ):
-            if not selected:
-                st.session_state[admin_page_key] = page_name
-admin_page = st.session_state[admin_page_key]
+_admin_labels = dict(ADMIN_NAV)
+admin_page = st.pills(
+    "Administrationsdel",
+    ADMIN_PAGES,
+    key=admin_page_key,
+    format_func=lambda page: _admin_labels.get(page, page),
+    selection_mode="single",
+    label_visibility="collapsed",
+    width="stretch",
+)
+if admin_page is None:
+    admin_page = "Adminöversikt"
+    st.session_state[admin_page_key] = admin_page
 st.divider()
 
 # Placeringsslutspel kan kräva flera databasfrågor. Det behöver inte synkas
@@ -2844,25 +2950,39 @@ if admin_page == "Skapa och publicera schema":
             if played_result_total else "Skapa matcher och generera spelschema"
         )
         if st.button(schedule_button_label, type="primary", use_container_width=True, disabled=create_disabled):
-            if played_result_total:
-                created, ready_groups, skipped_groups = 0, len(schedule_groups), []
-                count, unresolved, warning = generate_schedule(tid, tournament, rules, preserve_existing=True)
-                parts = [
-                    f"{played_result_total} färdigspelade matcher skyddades och lämnades oförändrade.",
-                    f"{count} återstående matcher schemalades.",
-                ]
-            else:
-                created, ready_groups, skipped_groups = create_all_group_matches(tid)
-                count, unresolved, warning = generate_schedule(tid, tournament, rules)
-                parts = [
-                    f"Alla {ready_groups} grupper kontrollerades och {created} saknade matcher skapades.",
-                    f"{count} matcher schemalades.",
-                ]
-            if unresolved:
-                parts.append(f"{unresolved} matcher kunde inte schemaläggas.")
-            if warning:
-                parts.append(warning)
-            st.session_state["schedule_message"] = ("warning" if unresolved or warning else "success", " ".join(parts))
+            started_schedule = time.perf_counter()
+            try:
+                with st.spinner("CupNavi bygger schemat och fördelar planer/domare…"):
+                    if played_result_total:
+                        created, ready_groups, skipped_groups = 0, len(schedule_groups), []
+                        count, unresolved, warning = generate_schedule(tid, tournament, rules, preserve_existing=True)
+                        parts = [
+                            f"{played_result_total} färdigspelade matcher skyddades och lämnades oförändrade.",
+                            f"{count} återstående matcher schemalades.",
+                        ]
+                    else:
+                        created, ready_groups, skipped_groups = create_all_group_matches(tid)
+                        count, unresolved, warning = generate_schedule(tid, tournament, rules)
+                        parts = [
+                            f"Alla {ready_groups} grupper kontrollerades och {created} saknade matcher skapades.",
+                            f"{count} matcher schemalades.",
+                        ]
+                elapsed = time.perf_counter() - started_schedule
+                parts.append(f"Genereringen tog {elapsed:.1f} sekunder.")
+                if unresolved:
+                    parts.append(f"{unresolved} matcher kunde inte schemaläggas.")
+                if warning:
+                    parts.append(warning)
+                st.session_state["schedule_message"] = (
+                    "warning" if unresolved or warning else "success",
+                    " ".join(parts),
+                )
+            except Exception as exc:
+                elapsed = time.perf_counter() - started_schedule
+                st.session_state["schedule_message"] = (
+                    "error",
+                    f"Schemagenereringen avbröts efter {elapsed:.1f} sekunder: {exc}",
+                )
             st.rerun()
         if played_result_total:
             st.info(
@@ -2890,16 +3010,38 @@ if admin_page == "Skapa och publicera schema":
             st.success("Det aktuella spelschemat är publicerat i Turneringsvyn.")
 
         st.markdown("**Kontroll per grupp**")
+        team_counts = {
+            row["group_id"]: row["n"]
+            for row in all_rows(
+                "SELECT group_id,COUNT(*) AS n FROM teams WHERE tournament_id=? AND group_id IS NOT NULL GROUP BY group_id",
+                (tid,),
+            )
+        }
+        match_counts = {
+            row["group_id"]: row
+            for row in all_rows(
+                """SELECT group_id,
+                          COUNT(*) AS created_n,
+                          SUM(CASE WHEN scheduled_start IS NOT NULL THEN 1 ELSE 0 END) AS scheduled_n,
+                          SUM(CASE WHEN schedule_published=1 THEN 1 ELSE 0 END) AS published_n
+                   FROM matches
+                   WHERE tournament_id=? AND stage='Gruppspel'
+                   GROUP BY group_id""",
+                (tid,),
+            )
+        }
         group_status_rows = []
         for group in schedule_groups:
-            team_count = one_row("SELECT COUNT(*) AS n FROM teams WHERE group_id=?", (group["id"],))["n"]
+            team_count = int(team_counts.get(group["id"], 0) or 0)
+            counts = match_counts.get(group["id"]) or {}
             expected_matches = team_count * (team_count - 1) // 2
-            created_matches = one_row("SELECT COUNT(*) AS n FROM matches WHERE group_id=? AND stage='Gruppspel'", (group["id"],))["n"]
-            scheduled_matches_count = one_row("SELECT COUNT(*) AS n FROM matches WHERE group_id=? AND stage='Gruppspel' AND scheduled_start IS NOT NULL", (group["id"],))["n"]
-            published_matches = one_row("SELECT COUNT(*) AS n FROM matches WHERE group_id=? AND stage='Gruppspel' AND schedule_published=1", (group["id"],))["n"]
             group_status_rows.append({
-                "Grupp": group["name"], "Lag": team_count, "Förväntade möten": expected_matches,
-                "Skapade": created_matches, "Schemalagda": scheduled_matches_count, "Publicerade": published_matches,
+                "Grupp": group["name"],
+                "Lag": team_count,
+                "Förväntade möten": expected_matches,
+                "Skapade": int(counts.get("created_n", 0) or 0),
+                "Schemalagda": int(counts.get("scheduled_n", 0) or 0),
+                "Publicerade": int(counts.get("published_n", 0) or 0),
             })
         if group_status_rows:
             st.dataframe(pd.DataFrame(group_status_rows), hide_index=True, use_container_width=True)
