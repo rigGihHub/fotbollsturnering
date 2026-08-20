@@ -390,7 +390,7 @@ def inject_custom_css():
 
 
 inject_custom_css()
-APP_VERSION = "2026.08.20-21-WEBTEST"
+APP_VERSION = "2026.08.20-22-WEBTEST"
 DB_FILE = Path(__file__).with_name("turnering.db")
 
 
@@ -433,10 +433,12 @@ def require_admin_access():
         submitted = st.form_submit_button("Logga in", type="primary", use_container_width=True)
     if submitted:
         if hmac.compare_digest(entered_password, admin_password):
+            # Form-submitten har redan startat den aktuella renderingen.
+            # Fortsätt direkt till administrationen i samma körning i stället
+            # för att tvinga fram ännu en full omladdning mot Turso.
             st.session_state["admin_authenticated"] = True
-            st.rerun()
-        else:
-            st.error("Fel lösenord.")
+            return
+        st.error("Fel lösenord.")
     st.stop()
 
 
@@ -2077,7 +2079,6 @@ if not tournaments:
 tid = st.sidebar.selectbox("Aktiv turnering", [t["id"] for t in tournaments], format_func=lambda x: next(t["name"] for t in tournaments if t["id"] == x))
 tournament = next(t for t in tournaments if t["id"] == tid)
 if view_mode == "Admin":
-    sync_placement_playoffs(tid, tournament["bronze_match"])
     st.title(f"⚽ {tournament['name']}")
     st.markdown(
         f"<div class='cup-version-badge'>KÖR VERSION {APP_VERSION}</div>",
@@ -2132,55 +2133,71 @@ for nav_row in (ADMIN_NAV[:6], ADMIN_NAV[6:]):
         ):
             if not selected:
                 st.session_state[admin_page_key] = page_name
-                st.rerun()
 admin_page = st.session_state[admin_page_key]
 st.divider()
 
-sidebar_rules = one_row("SELECT * FROM schedule_rules WHERE tournament_id=?", (tid,))
-if sidebar_rules is None:
-    run("INSERT INTO schedule_rules(tournament_id) VALUES(?)", (tid,))
+# Placeringsslutspel kan kräva flera databasfrågor. Det behöver inte synkas
+# när administratören bara tittar på Lag, Grupper, Tabeller osv.
+if admin_page in {"Adminöversikt", "Slutspel"}:
+    sync_placement_playoffs(tid, tournament["bronze_match"])
+
+publication_pages = {"Adminöversikt", "Kontroller", "Skapa och publicera schema"}
+sidebar_rules = None
+sidebar_scheduled = 0
+sidebar_errors, sidebar_warnings, _sidebar_quality = ([], [], [])
+if admin_page in publication_pages:
     sidebar_rules = one_row("SELECT * FROM schedule_rules WHERE tournament_id=?", (tid,))
-sidebar_scheduled = one_row(
-    "SELECT COUNT(*) AS n FROM matches WHERE tournament_id=? AND scheduled_start IS NOT NULL",
-    (tid,),
-)["n"]
-validation_cache_key = f"_schedule_validation_{tid}"
-if st.session_state.get("_validation_dirty", True) or validation_cache_key not in st.session_state:
-    # Full schemakontroll är relativt dyr mot Turso. Kör den bara på de sidor där den behövs.
-    if admin_page in {"Kontroller", "Skapa och publicera schema"}:
-        st.session_state[validation_cache_key] = validate_schedule(tid, tournament, sidebar_rules)
-        st.session_state["_validation_dirty"] = False
-sidebar_errors, sidebar_warnings, _sidebar_quality = st.session_state.get(validation_cache_key, ([], [], []))
+    if sidebar_rules is None:
+        run("INSERT INTO schedule_rules(tournament_id) VALUES(?)", (tid,))
+        sidebar_rules = one_row("SELECT * FROM schedule_rules WHERE tournament_id=?", (tid,))
+    sidebar_scheduled = one_row(
+        "SELECT COUNT(*) AS n FROM matches WHERE tournament_id=? AND scheduled_start IS NOT NULL",
+        (tid,),
+    )["n"]
+    validation_cache_key = f"_schedule_validation_{tid}"
+    if st.session_state.get("_validation_dirty", True) or validation_cache_key not in st.session_state:
+        if admin_page in {"Kontroller", "Skapa och publicera schema"}:
+            st.session_state[validation_cache_key] = validate_schedule(tid, tournament, sidebar_rules)
+            st.session_state["_validation_dirty"] = False
+    sidebar_errors, sidebar_warnings, _sidebar_quality = st.session_state.get(validation_cache_key, ([], [], []))
+
 st.sidebar.divider()
 st.sidebar.subheader("Publicering")
 if tournament["is_published"]:
     st.sidebar.success("Publicerad")
 else:
     st.sidebar.caption("Turneringsvyn är ett utkast.")
-sidebar_warnings_approved = st.sidebar.checkbox(
-    "Jag har granskat schemavarningarna",
-    disabled=not sidebar_warnings,
-    key=f"sidebar_warning_approval_{tid}",
-)
-sidebar_publish_blocked = (
-    not sidebar_scheduled or bool(sidebar_errors)
-    or (bool(sidebar_warnings) and not sidebar_warnings_approved)
-)
-if st.sidebar.button("Publicera", type="primary", use_container_width=True, disabled=sidebar_publish_blocked):
+if admin_page not in publication_pages:
+    st.sidebar.caption("Publicering hanteras under Översikt, Kontroller eller Schema.")
+    sidebar_warnings_approved = False
+    sidebar_publish_blocked = True
+else:
+    sidebar_warnings_approved = st.sidebar.checkbox(
+        "Jag har granskat schemavarningarna",
+        disabled=not sidebar_warnings,
+        key=f"sidebar_warning_approval_{tid}",
+    )
+    sidebar_publish_blocked = (
+        not sidebar_scheduled or bool(sidebar_errors)
+        or (bool(sidebar_warnings) and not sidebar_warnings_approved)
+    )
+
+if admin_page in publication_pages and st.sidebar.button("Publicera", type="primary", use_container_width=True, disabled=sidebar_publish_blocked):
     with db() as con:
         con.execute("UPDATE matches SET schedule_published=1 WHERE tournament_id=? AND scheduled_start IS NOT NULL", (tid,))
         con.execute("UPDATE tournaments SET is_published=1 WHERE id=?", (tid,))
         con.commit()
     st.rerun()
-if st.sidebar.button("Avpublicera", use_container_width=True, disabled=not tournament["is_published"]):
+if admin_page in publication_pages and st.sidebar.button("Avpublicera", use_container_width=True, disabled=not tournament["is_published"]):
     run("UPDATE tournaments SET is_published=0 WHERE id=?", (tid,))
     st.rerun()
-if not sidebar_scheduled:
-    st.sidebar.caption("Skapa spelschemat innan publicering.")
-elif sidebar_errors:
-    st.sidebar.caption(f"Åtgärda {len(sidebar_errors)} schemafel före publicering.")
-elif sidebar_warnings and not sidebar_warnings_approved:
-    st.sidebar.caption("Godkänn varningarna före publicering.")
+if admin_page in publication_pages:
+    if not sidebar_scheduled:
+        st.sidebar.caption("Skapa spelschemat innan publicering.")
+    elif sidebar_errors:
+        st.sidebar.caption(f"Åtgärda {len(sidebar_errors)} schemafel före publicering.")
+    elif sidebar_warnings and not sidebar_warnings_approved:
+        st.sidebar.caption("Godkänn varningarna före publicering.")
 
 if admin_page == "Adminöversikt":
     st.header("Adminöversikt")
@@ -2372,34 +2389,41 @@ if admin_page == "Adminöversikt":
     st.info("Publicera eller avpublicera turneringen med knapparna i vänsterspalten. Den publika sidan nås via Visningsläge → Turneringsvy.")
 
     st.divider()
-    with st.expander("⚠️ Riskzon – radera hela turneringen"):
-        st.error(
-            "Radering tar permanent bort turneringen inklusive grupper, lag, spelare, domare, matcher, "
-            "resultat, matchhändelser, tabeller och slutspel. Åtgärden kan inte ångras i appen."
-        )
+    st.subheader("⚠️ Riskzon – Radera turnering")
+    st.error(
+        "Radering tar permanent bort turneringen inklusive grupper, lag, spelare, domare, matcher, "
+        "resultat, matchhändelser, tabeller, slutspel och sparad testfeedback. Åtgärden kan inte ångras i appen."
+    )
+    with st.container(border=True):
+        st.markdown(f"**Turnering som raderas:** {tournament['name']}")
         delete_selected = st.checkbox(
-            f"Markera {tournament['name']} för borttagning",
+            "Jag förstår att hela turneringen och all tillhörande data raderas permanent",
             key=f"delete_tournament_selected_{tid}",
         )
 
-        @st.dialog("Är du säker?")
+        @st.dialog("Radera turneringen permanent?")
         def confirm_tournament_deletion():
-            st.warning(
-                f"Turneringen **{tournament['name']}** och all tillhörande information kommer att raderas permanent."
+            st.error(
+                f"Du är på väg att permanent radera **{tournament['name']}** och all tillhörande information."
             )
+            st.caption("Det här går inte att ångra från CupNavi.")
             confirm_delete, cancel_delete = st.columns(2)
-            if confirm_delete.button("Ja, radera permanent", type="primary", use_container_width=True):
+            if confirm_delete.button("Ja, radera turneringen", type="primary", use_container_width=True):
                 with db() as con:
                     con.execute("DELETE FROM tournaments WHERE id=?", (tid,))
                     con.commit()
+                # Rensa relevant sessionsdata så att nästa turnering väljs rent.
+                st.session_state.pop(f"admin_page_{tid}", None)
+                st.session_state.pop(f"_schedule_validation_{tid}", None)
                 st.rerun()
             if cancel_delete.button("Avbryt", use_container_width=True):
                 st.rerun()
 
         if st.button(
-            "Radera markerad turnering",
+            "🗑️ Radera turnering",
             disabled=not delete_selected,
             key=f"open_delete_tournament_dialog_{tid}",
+            use_container_width=True,
         ):
             confirm_tournament_deletion()
 
