@@ -359,7 +359,7 @@ def inject_custom_css():
 
 
 inject_custom_css()
-APP_VERSION = "2026.08.20-17-WEBTEST"
+APP_VERSION = "2026.08.20-18-WEBTEST"
 DB_FILE = Path(__file__).with_name("turnering.db")
 
 
@@ -2006,7 +2006,13 @@ sidebar_scheduled = one_row(
     "SELECT COUNT(*) AS n FROM matches WHERE tournament_id=? AND scheduled_start IS NOT NULL",
     (tid,),
 )["n"]
-sidebar_errors, sidebar_warnings, _ = validate_schedule(tid, tournament, sidebar_rules)
+validation_cache_key = f"_schedule_validation_{tid}"
+if st.session_state.get("_validation_dirty", True) or validation_cache_key not in st.session_state:
+    # Full schemakontroll är relativt dyr mot Turso. Kör den bara på de sidor där den behövs.
+    if st.session_state.get(f"admin_page_{tid}", "Adminöversikt") in {"Kontroller", "Skapa och publicera schema"}:
+        st.session_state[validation_cache_key] = validate_schedule(tid, tournament, sidebar_rules)
+        st.session_state["_validation_dirty"] = False
+sidebar_errors, sidebar_warnings, _sidebar_quality = st.session_state.get(validation_cache_key, ([], [], []))
 st.sidebar.divider()
 st.sidebar.subheader("Publicering")
 if tournament["is_published"]:
@@ -2038,17 +2044,31 @@ elif sidebar_errors:
 elif sidebar_warnings and not sidebar_warnings_approved:
     st.sidebar.caption("Godkänn varningarna före publicering.")
 
-admin_overview_tab, controls_tab, team_tab, group_tab, squad_tab, referee_tab, schedule_tab, playoff_tab, match_tab, stats_tab, table_tab, leaders_tab = st.tabs([
-    "Adminöversikt", "Kontroller", "Lag", "Grupper", "Trupper", "Domare", "Skapa och publicera schema",
-    "Slutspel", "Matcher och resultat", "Matchhändelser", "Tabeller", "Skytteligor"
-])
+ADMIN_PAGES = [
+    "Adminöversikt", "Kontroller", "Lag", "Grupper", "Trupper", "Domare",
+    "Skapa och publicera schema", "Slutspel", "Matcher och resultat",
+    "Matchhändelser", "Tabeller", "Skytteligor",
+]
+admin_page = st.sidebar.radio(
+    "Administrationsdel",
+    ADMIN_PAGES,
+    key=f"admin_page_{tid}",
+)
+st.caption(f"Administrationsdel: **{admin_page}**")
 
-with admin_overview_tab:
+if admin_page == "Adminöversikt":
     st.header("Adminöversikt")
     st.caption("Här ställer du in cupens grunduppgifter, poängregler, slutspelsformat och regler för schemaläggningen.")
-    overview_team_count = one_row("SELECT COUNT(*) AS n FROM teams WHERE tournament_id=?", (tid,))["n"]
-    overview_group_count = one_row("SELECT COUNT(*) AS n FROM groups WHERE tournament_id=?", (tid,))["n"]
-    overview_match_count = one_row("SELECT COUNT(*) AS n FROM matches WHERE tournament_id=?", (tid,))["n"]
+    overview_counts = one_row(
+        """SELECT
+             (SELECT COUNT(*) FROM teams WHERE tournament_id=?) AS teams_n,
+             (SELECT COUNT(*) FROM groups WHERE tournament_id=?) AS groups_n,
+             (SELECT COUNT(*) FROM matches WHERE tournament_id=?) AS matches_n""",
+        (tid, tid, tid),
+    )
+    overview_team_count = overview_counts["teams_n"]
+    overview_group_count = overview_counts["groups_n"]
+    overview_match_count = overview_counts["matches_n"]
     om1, om2, om3, om4 = st.columns(4)
     om1.metric("Registrerade lag", overview_team_count)
     om2.metric("Grupper", overview_group_count)
@@ -2258,7 +2278,7 @@ with admin_overview_tab:
             confirm_tournament_deletion()
 
 
-with controls_tab:
+if admin_page == "Kontroller":
     st.header("Kontroller")
     st.caption("Här granskar du blockerande fel och varningar innan turneringen publiceras.")
     control_rules = one_row("SELECT * FROM schedule_rules WHERE tournament_id=?", (tid,))
@@ -2292,8 +2312,17 @@ with controls_tab:
 
     unassigned_controls = all_rows("SELECT name FROM teams WHERE tournament_id=? AND group_id IS NULL ORDER BY name", (tid,))
     small_group_controls = []
-    for group in all_rows("SELECT id,name FROM groups WHERE tournament_id=? ORDER BY name", (tid,)):
-        count = one_row("SELECT COUNT(*) AS n FROM teams WHERE group_id=?", (group["id"],))["n"]
+    group_size_rows = all_rows(
+        """SELECT g.id, g.name, COUNT(t.id) AS team_count
+           FROM groups g
+           LEFT JOIN teams t ON t.group_id=g.id
+           WHERE g.tournament_id=?
+           GROUP BY g.id, g.name
+           ORDER BY g.name""",
+        (tid,),
+    )
+    for group in group_size_rows:
+        count = int(group["team_count"] or 0)
         if count < 2:
             small_group_controls.append(f"{group['name']} ({count} lag)")
     st.subheader("Grundkontroller")
@@ -2307,7 +2336,7 @@ with controls_tab:
         st.success("Alla skapade grupper har minst två lag.")
 
 
-with team_tab:
+if admin_page == "Lag":
     st.header("Lag")
     st.caption("Registrera lagen först. Här anger du även tröjfärger, resväg och önskemål om en senare första match. Gruppindelningen görs därefter under fliken Grupper.")
     max_teams = int(tournament["expected_team_count"] or 0)
@@ -2408,7 +2437,7 @@ with team_tab:
             st.info("Det finns inga lag att redigera.")
 
 
-with group_tab:
+if admin_page == "Grupper":
     st.header("Grupper")
     st.caption("Skapa gruppindelningen efter att lagen är registrerade och placera sedan varje lag i rätt grupp.")
     st.subheader("Grupper")
@@ -2506,7 +2535,7 @@ with group_tab:
             st.info("Det finns inga grupper att redigera.")
 
 
-with squad_tab:
+if admin_page == "Trupper":
     st.header("Trupper")
     st.caption("Registrera spelare och truppuppgifter för respektive lag.")
     teams = all_rows("SELECT * FROM teams WHERE tournament_id=? ORDER BY name", (tid,))
@@ -2529,7 +2558,7 @@ with squad_tab:
         st.dataframe(pd.DataFrame([{"Nr": p["player_number"], "Spelare": p["name"], "Födelseår": p["birth_year"], "Position": p["position"]} for p in players]), hide_index=True, use_container_width=True)
 
 
-with referee_tab:
+if admin_page == "Domare":
     st.header("Domare")
     st.caption("Registrera domare som kan tilldelas matcher automatiskt eller manuellt.")
     with st.form("new_referee", clear_on_submit=True):
@@ -2546,7 +2575,7 @@ with referee_tab:
     st.dataframe(pd.DataFrame([{"Namn": r["name"], "Telefon": r["phone"], "E-post": r["email"]} for r in refs]), hide_index=True, use_container_width=True)
 
 
-with schedule_tab:
+if admin_page == "Skapa och publicera schema":
     st.header("Skapa och publicera schema")
     st.caption("En knapp skapar alla gruppmöten och schemalägger dem samtidigt för samtliga grupper. Kontrollresultaten finns på fliken Kontroller.")
     if "schedule_message" in st.session_state:
@@ -2805,7 +2834,7 @@ with schedule_tab:
         st.caption("Målskyttar, assist, varningar och utvisningar registreras under fliken Matchhändelser och visas därefter automatiskt här.")
 
 
-with match_tab:
+if admin_page == "Matcher och resultat":
     st.header("Matcher och resultat")
     st.caption("Registrera och uppdatera matchresultat och domartillsättning.")
     refs = all_rows("SELECT * FROM referees WHERE tournament_id=? ORDER BY name", (tid,))
@@ -2893,7 +2922,7 @@ with match_tab:
                     st.rerun()
 
 
-with stats_tab:
+if admin_page == "Matchhändelser":
     st.header("Matchhändelser")
     st.caption("Registrera mål, assist, varningar och utvisningar för spelarna i respektive match.")
     st.subheader("Registrera mål, assist, varningar och utvisningar")
@@ -2973,7 +3002,7 @@ with stats_tab:
                 st.warning(f"Registrerade spelarmål: {registered_goals}. Matchresultatet visar {expected_goals} mål. Skillnaden kan exempelvis vara självmål.")
 
 
-with table_tab:
+if admin_page == "Tabeller":
     st.header("Tabeller")
     st.caption("Här visas grupptabellerna automatiskt utifrån registrerade matchresultat.")
     groups = all_rows("SELECT * FROM groups WHERE tournament_id=? ORDER BY name", (tid,))
@@ -2989,7 +3018,7 @@ with table_tab:
         st.caption("Sortering: poäng, målskillnad, gjorda mål, lagnamn.")
 
 
-with leaders_tab:
+if admin_page == "Skytteligor":
     st.header("Skytteligor")
     st.caption("Här visas skytteliga, assistliga och kortstatistik utifrån registrerade matchhändelser.")
     st.subheader("Skytteliga")
@@ -3030,7 +3059,7 @@ with leaders_tab:
         st.info("Inga varningar eller utvisningar har registrerats.")
 
 
-with playoff_tab:
+if admin_page == "Slutspel":
     st.header("Slutspel")
     st.caption("Granska och skapa det slutspel som valts på Adminöversikten.")
     groups = all_rows("SELECT * FROM groups WHERE tournament_id=? ORDER BY name", (tid,))
