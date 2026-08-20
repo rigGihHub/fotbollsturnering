@@ -4,6 +4,7 @@ import base64
 import hmac
 import json
 import os
+import time
 from datetime import datetime, timedelta
 from pathlib import Path
 from urllib.parse import urlencode
@@ -389,7 +390,7 @@ def inject_custom_css():
 
 
 inject_custom_css()
-APP_VERSION = "2026.08.20-20-WEBTEST"
+APP_VERSION = "2026.08.20-21-WEBTEST"
 DB_FILE = Path(__file__).with_name("turnering.db")
 
 
@@ -603,6 +604,14 @@ def init_db():
                 kiosk_information TEXT,
                 public_information TEXT
             );
+            CREATE TABLE IF NOT EXISTS feedback (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                tournament_id INTEGER REFERENCES tournaments(id) ON DELETE CASCADE,
+                created_at TEXT NOT NULL,
+                area TEXT NOT NULL,
+                message TEXT NOT NULL,
+                contact TEXT
+            );
             CREATE TABLE IF NOT EXISTS groups (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 tournament_id INTEGER NOT NULL REFERENCES tournaments(id) ON DELETE CASCADE,
@@ -781,6 +790,13 @@ def init_db():
 # Cache endast under ett enskilt Streamlit-renderingsvarv. Den återställs vid rerun,
 # så administratören ser alltid nya data efter en skrivning utan långlivad cache.
 _RENDER_QUERY_CACHE = {}
+_PERF = {"db_calls": 0, "db_ms": 0.0, "cache_hits": 0, "writes": 0}
+
+def _record_db_call(started, write=False):
+    _PERF["db_calls"] += 1
+    _PERF["db_ms"] += (time.perf_counter() - started) * 1000
+    if write:
+        _PERF["writes"] += 1
 
 def _cacheable_query(sql):
     return sql.lstrip().upper().startswith(("SELECT", "PRAGMA"))
@@ -799,9 +815,12 @@ def _clear_render_query_cache():
 def all_rows(sql, params=()):
     key = _query_cache_key("all", sql, params) if _cacheable_query(sql) else None
     if key is not None and key in _RENDER_QUERY_CACHE:
+        _PERF["cache_hits"] += 1
         return _RENDER_QUERY_CACHE[key]
+    started = time.perf_counter()
     with db() as con:
         result = _rows_from_cursor(con.execute(sql, params))
+    _record_db_call(started)
     if key is not None:
         _RENDER_QUERY_CACHE[key] = result
     return result
@@ -810,9 +829,12 @@ def all_rows(sql, params=()):
 def one_row(sql, params=()):
     key = _query_cache_key("one", sql, params) if _cacheable_query(sql) else None
     if key is not None and key in _RENDER_QUERY_CACHE:
+        _PERF["cache_hits"] += 1
         return _RENDER_QUERY_CACHE[key]
+    started = time.perf_counter()
     with db() as con:
         result = _one_from_cursor(con.execute(sql, params))
+    _record_db_call(started)
     if key is not None:
         _RENDER_QUERY_CACHE[key] = result
     return result
@@ -820,10 +842,13 @@ def one_row(sql, params=()):
 
 def run(sql, params=()):
     _clear_render_query_cache()
+    started = time.perf_counter()
     with db() as con:
         cur = con.execute(sql, params)
         con.commit()
-        return cur.lastrowid
+        lastrowid = cur.lastrowid
+    _record_db_call(started, write=True)
+    return lastrowid
 
 
 class TeamLimitReachedError(Exception):
@@ -1967,6 +1992,27 @@ def render_public_view(tournament_id, tournament):
         else:
             st.info("Ingen praktisk information har publicerats ännu.")
 
+        st.divider()
+        with st.expander("💬 Rapportera problem eller lämna synpunkt"):
+            st.caption("Feedbacken sparas till den här turneringen och kan läsas av administratören.")
+            with st.form(f"public_feedback_{tournament_id}", clear_on_submit=True):
+                feedback_area = st.selectbox(
+                    "Vad gäller det?",
+                    ["Spelschema", "Tabeller", "Topplistor", "Slutspel", "Information", "Mobil/utseende", "Annat"],
+                )
+                feedback_message = st.text_area("Beskriv problemet eller synpunkten", max_chars=2000)
+                feedback_contact = st.text_input("Kontaktuppgift (frivilligt)", max_chars=200)
+                if st.form_submit_button("Skicka feedback"):
+                    if not feedback_message.strip():
+                        st.error("Skriv en kort beskrivning först.")
+                    else:
+                        run(
+                            "INSERT INTO feedback(tournament_id,created_at,area,message,contact) VALUES(?,?,?,?,?)",
+                            (tournament_id, datetime.now().isoformat(timespec="seconds"), feedback_area,
+                             feedback_message.strip(), feedback_contact.strip() or None),
+                        )
+                        st.success("Tack. Feedbacken är sparad.")
+
 
 init_db()
 
@@ -2358,9 +2404,76 @@ if admin_page == "Adminöversikt":
             confirm_tournament_deletion()
 
 
+    st.divider()
+    st.subheader("Testverktyg")
+    st.caption("Använd detta när en extern testare vill prova arbetsflödet utan att först mata in åtta lag manuellt.")
+    demo_counts = one_row(
+        """SELECT
+             (SELECT COUNT(*) FROM teams WHERE tournament_id=?) AS teams_n,
+             (SELECT COUNT(*) FROM groups WHERE tournament_id=?) AS groups_n,
+             (SELECT COUNT(*) FROM matches WHERE tournament_id=?) AS matches_n""",
+        (tid, tid, tid),
+    )
+    demo_allowed = demo_counts["teams_n"] == 0 and demo_counts["groups_n"] == 0 and demo_counts["matches_n"] == 0
+    if not demo_allowed:
+        st.caption("Demodata kan bara skapas i en tom turnering, så befintlig cupdata kan aldrig skrivas över.")
+    if st.button("Skapa demodata: 8 lag + 2 grupper", disabled=not demo_allowed, key=f"demo_{tid}"):
+        con = db()
+        try:
+            con.execute("UPDATE tournaments SET expected_team_count=8 WHERE id=?", (tid,))
+            g1 = con.execute("INSERT INTO groups(tournament_id,name) VALUES(?,?)", (tid, "Grupp A")).lastrowid
+            g2 = con.execute("INSERT INTO groups(tournament_id,name) VALUES(?,?)", (tid, "Grupp B")).lastrowid
+            colors = ["#1d4ed8", "#dc2626", "#15803d", "#7e22ce", "#ea580c", "#0f766e", "#be123c", "#334155"]
+            for index in range(8):
+                group_id = g1 if index < 4 else g2
+                con.execute(
+                    """INSERT INTO teams(tournament_id,name,primary_color,secondary_color,group_id,distance_km,
+                       late_first_match,earliest_first_time,travel_note) VALUES(?,?,?,?,?,?,?,?,?)""",
+                    (tid, f"Testlag {index + 1}", colors[index], "#FFFFFF", group_id, 0, 0, None, None),
+                )
+            con.commit()
+            _clear_render_query_cache()
+            st.success("Demodata skapad: 8 testlag fördelade på Grupp A och Grupp B.")
+            st.rerun()
+        except Exception as exc:
+            try:
+                con.rollback()
+            except Exception:
+                pass
+            st.error(f"Demodata kunde inte skapas: {exc}")
+
+    feedback_rows = all_rows(
+        "SELECT created_at,area,message,contact FROM feedback WHERE tournament_id=? ORDER BY id DESC LIMIT 50",
+        (tid,),
+    )
+    with st.expander(f"Feedback från testare ({len(feedback_rows)})"):
+        if not feedback_rows:
+            st.caption("Ingen feedback har skickats ännu.")
+        else:
+            for item in feedback_rows:
+                st.markdown(f"**{item['area']}** · {item['created_at']}")
+                st.write(item["message"])
+                if item["contact"]:
+                    st.caption(f"Kontakt: {item['contact']}")
+                st.divider()
+
+
 if admin_page == "Kontroller":
     st.header("Kontroller")
     st.caption("Här granskar du blockerande fel och varningar innan turneringen publiceras.")
+    with st.expander("⚡ Prestandadiagnostik"):
+        st.caption("Mäter databasarbete under den aktuella sidladdningen. Använd siffrorna när en sida känns seg.")
+        pc1, pc2, pc3, pc4 = st.columns(4)
+        pc1.metric("DB-anrop", _PERF["db_calls"])
+        pc2.metric("DB-tid", f"{_PERF['db_ms']:.0f} ms")
+        pc3.metric("Cacheträffar", _PERF["cache_hits"])
+        pc4.metric("Skrivningar", _PERF["writes"])
+        if _PERF["db_calls"] >= 20:
+            st.warning("Många databasfrågor på samma sidladdning. Den här sidan bör optimeras vidare.")
+        elif _PERF["db_ms"] >= 1500:
+            st.warning("Databasen står för en stor del av väntetiden på den här sidladdningen.")
+        else:
+            st.success("Ingen tydlig databasflaskhals syns i den här mätningen.")
     control_rules = one_row("SELECT * FROM schedule_rules WHERE tournament_id=?", (tid,))
     if control_rules is None:
         run("INSERT INTO schedule_rules(tournament_id) VALUES(?)", (tid,))
