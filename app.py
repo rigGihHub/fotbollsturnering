@@ -794,7 +794,7 @@ def inject_custom_css():
 
 
 inject_custom_css()
-APP_VERSION = "2026.08.21-27-WEBTEST"
+APP_VERSION = "2026.08.21-28-WEBTEST"
 DB_FILE = Path(__file__).with_name("turnering.db")
 
 
@@ -2467,14 +2467,22 @@ st.sidebar.caption("Databas: Turso" if CLOUD_DATABASE_ENABLED else "Databas: Lok
 mode_options = ["Turneringsvy", "Admin"] if CLOUD_DATABASE_ENABLED else ["Admin", "Turneringsvy"]
 if st.session_state.get("view_mode") not in mode_options:
     st.session_state["view_mode"] = mode_options[0]
+
+# Ett enda gemensamt lägesval används för både desktop och mobil.
+# Det måste ligga före admininloggningen så första klicket på Admin
+# alltid både markerar Admin och visar lösenordsrutan direkt.
 st.caption("Välj läge")
-view_mode = st.radio(
+view_mode = st.segmented_control(
     "Visningsläge",
     mode_options,
-    horizontal=True,
     key="view_mode",
     label_visibility="collapsed",
+    width="stretch",
 )
+if view_mode is None:
+    view_mode = mode_options[0]
+    st.session_state["view_mode"] = view_mode
+
 st.sidebar.caption(f"Visningsläge: {view_mode}")
 
 if view_mode == "Admin":
@@ -2520,40 +2528,13 @@ if not tournaments:
 tid = st.sidebar.selectbox("Aktiv turnering", [t["id"] for t in tournaments], format_func=lambda x: next(t["name"] for t in tournaments if t["id"] == x))
 tournament = next(t for t in tournaments if t["id"] == tid)
 
-# Snabbnavigation: sidomenyn kan vara dold på telefoner och surfplattor.
-# Visa därför centrala val även på själva sidan på alla plattformar.
-st.markdown(
-    """
-    <style>
-      .cupnavi-mobile-controls { display:none; }
-      @media (max-width: 768px) {
-        .cupnavi-mobile-controls { display:block !important; margin-bottom:10px; }
-      }
-    </style>
-    <div class="cupnavi-mobile-controls"></div>
-    """,
-    unsafe_allow_html=True,
-)
-
-mobile_view_mode = st.segmented_control(
-    "Visningsläge",
-    ["Turneringsvy", "Admin"] if CLOUD_DATABASE_ENABLED else ["Admin", "Turneringsvy"],
-    default=view_mode,
-    key="mobile_view_mode_selector",
-    label_visibility="collapsed",
-    width="stretch",
-)
-if mobile_view_mode and mobile_view_mode != view_mode:
-    st.session_state["mobile_requested_view_mode"] = mobile_view_mode
-    view_mode = mobile_view_mode
-
 if len(tournaments) > 1:
     mobile_tid = st.selectbox(
         "Turnering",
         [t["id"] for t in tournaments],
         index=[t["id"] for t in tournaments].index(tid),
         format_func=lambda x: next(t["name"] for t in tournaments if t["id"] == x),
-        key="mobile_tournament_selector",
+        key="page_tournament_selector",
     )
     if mobile_tid != tid:
         tid = mobile_tid
