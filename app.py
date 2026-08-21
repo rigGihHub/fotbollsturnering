@@ -3292,7 +3292,7 @@ def render_bracket_tree(bracket_id, public=False):
 
 def public_match_events_html(match_id):
     """Publika mål/röda kort: hemmalag vänster, bortalag höger."""
-    match_row = one("SELECT home_source, away_source FROM matches WHERE id=?", (match_id,))
+    match_row = one_row("SELECT home_source, away_source FROM matches WHERE id=?", (match_id,))
     if not match_row:
         return ""
 
@@ -3340,7 +3340,7 @@ def public_match_events_html(match_id):
             name = data["name"]
             events = "".join(data["events"])
         else:
-            team = one("SELECT name FROM teams WHERE id=?", (team_id,)) if team_id else None
+            team = one_row("SELECT name FROM teams WHERE id=?", (team_id,)) if team_id else None
             name = team["name"] if team else ""
             events = "<span class='cn-no-events'>–</span>"
         team_blocks.append(
@@ -4492,14 +4492,14 @@ if admin_page == "Instruktioner":
         st.success("Grundflödet är genomfört. Fortsätt administrera resultat, händelser och slutspel under cupen.")
 
     st.markdown("### Så arbetar du i CupNavi")
-    for step in guide_steps:
+    for step_index, step in enumerate(guide_steps, start=1):
         icon = "✓" if step["done"] else "○"
         status = "Klart/aktivt" if step["done"] else "Återstår"
         with st.expander(f"{icon} {step['title']} · {status}", expanded=bool(next_step and step["title"] == next_step["title"])):
             st.write(step["text"])
             if st.button(
                 f"Öppna {step['page'].replace('Skapa och publicera schema', 'Schema').replace('Matcher och resultat', 'Matcher').replace('Matchhändelser', 'Händelser')}",
-                key=f"guide_open_{tid}_{step['page']}",
+                key=f"guide_open_{tid}_{step_index}_{step['page']}",
             ):
                 st.session_state[admin_page_key] = step["page"]
                 st.rerun()
