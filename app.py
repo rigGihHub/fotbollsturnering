@@ -15,6 +15,9 @@ from urllib.request import Request, urlopen
 import pandas as pd
 import streamlit as st
 
+from cupnavi_core.version import APP_VERSION
+from cupnavi_core.rules import validate_match_event_totals
+
 try:
     from streamlit_sortables import sort_items
 except ImportError:
@@ -711,7 +714,7 @@ def inject_custom_css():
 
 
 inject_custom_css()
-APP_VERSION = "2026.08.21-44-WEBTEST"
+# APP_VERSION centraliseras i cupnavi_core/version.py
 DB_FILE = Path(__file__).with_name("turnering.db")
 
 
@@ -4778,30 +4781,21 @@ if admin_page == "Matchhändelser":
                 f"{selected_team['name']} gjorde {team_goals_in_match} mål i matchen. "
                 f"Registrerat just nu: {entered_goals} mål och {entered_assists} assist."
             )
-            if entered_goals > team_goals_in_match:
-                st.error(
-                    f"För många målskyttar/mål är registrerade. {selected_team['name']} gjorde "
-                    f"{team_goals_in_match} mål, men spelarna har tillsammans {entered_goals} mål."
-                )
-            if entered_assists > team_goals_in_match:
-                st.error(
-                    f"För många assist är registrerade. {selected_team['name']} gjorde "
-                    f"{team_goals_in_match} mål, så högst {team_goals_in_match} assist kan registreras."
-                )
+            event_validation = validate_match_event_totals(
+                team_goals_in_match, entered_goals, entered_assists
+            )
+            for message in event_validation["errors"]:
+                st.error(f"{selected_team['name']}: {message}")
 
             if st.button(f"Spara mål och assist för {selected_team['name']}", type="primary", key=f"save_stats_{stat_match_id}_{selected_team_id}"):
                 total_goals = int(edited["Mål"].fillna(0).sum())
                 total_assists = int(edited["Assist"].fillna(0).sum())
-                if total_goals > team_goals_in_match:
-                    st.error(
-                        f"Kan inte spara: laget gjorde {team_goals_in_match} mål men "
-                        f"{total_goals} spelarmål har registrerats."
-                    )
-                elif total_assists > team_goals_in_match:
-                    st.error(
-                        f"Kan inte spara: laget gjorde {team_goals_in_match} mål men "
-                        f"{total_assists} assist har registrerats."
-                    )
+                save_validation = validate_match_event_totals(
+                    team_goals_in_match, total_goals, total_assists
+                )
+                if not save_validation["ok"]:
+                    for message in save_validation["errors"]:
+                        st.error(f"Kan inte spara – {selected_team['name']}: {message}")
                 else:
                     with db() as con:
                         for _, row in edited.iterrows():
