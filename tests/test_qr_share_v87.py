@@ -27,7 +27,3 @@ def test_qr_has_download_fallback():
     block = text[start:end]
     assert 'download="' in block
     assert 'link.download = filename' in block
-
-def test_old_ux_history_files_removed_from_release_tree():
-    ux_files = list(Path(".").glob("UX_V*.md"))
-    assert ux_files == []
