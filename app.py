@@ -19,6 +19,10 @@ from cupnavi_core.version import APP_VERSION
 from cupnavi_core.rules import validate_match_event_totals
 from cupnavi_core.home_away import orientation_balance_score
 from cupnavi_core.pdf_export import build_schedule_pdf
+from cupnavi_core.migrations import apply_migrations, LATEST_SCHEMA_VERSION
+from cupnavi_core.health import collect_database_health
+from cupnavi_core.backup import build_backup_bytes
+from cupnavi_core.config import BACKUP_FILE_SUFFIX
 
 try:
     from streamlit_sortables import sort_items
@@ -1622,6 +1626,11 @@ def init_db():
               OR OLD.extra_time_minutes IS NOT NEW.extra_time_minutes
             BEGIN UPDATE tournaments SET schedule_dirty=1 WHERE id=NEW.id; END;
         """)
+        # Från och med Stabilisering 1.0 registreras schemaändringar versionsstyrt.
+        # Den äldre bootstrap-koden ovan behålls tills alla tidigare installationer
+        # har migrerats säkert till den nya modellen.
+        apply_migrations(con)
+        con.commit()
     st.session_state["_cupnavi_schema_ready"] = schema_key
 
 
@@ -5244,6 +5253,145 @@ elif admin_page == "Adminöversikt":
 if admin_page == "Kontroller":
     st.header("Kontroller")
     st.caption("Här granskar du blockerande fel och varningar innan turneringen publiceras.")
+
+    with st.expander("Teknisk hälsa och backup", expanded=False):
+        st.caption(
+            "Det här området är till för drift och felsökning. Det påverkar inte själva turneringsreglerna."
+        )
+        try:
+            with db() as con:
+                technical_health = collect_database_health(con)
+            hc1, hc2 = st.columns(2)
+            hc1.metric(
+                "Databasschema",
+                f"v{technical_health['schema_version']}",
+                help=f"Senaste stödda schema är v{technical_health['latest_schema_version']}.",
+            )
+            hc2.metric(
+                "Teknisk status",
+                "OK" if technical_health["ok"] else "Kontroll krävs",
+            )
+            if technical_health["ok"]:
+                st.success("✓ Databasen har rätt schema och alla kritiska tabeller finns.")
+            else:
+                if technical_health["schema_version"] != LATEST_SCHEMA_VERSION:
+                    st.error(
+                        f"Databasschema v{technical_health['schema_version']} används, "
+                        f"men appen förväntar v{LATEST_SCHEMA_VERSION}."
+                    )
+                if technical_health["missing_tables"]:
+                    st.error(
+                        "Kritiska tabeller saknas: "
+                        + ", ".join(technical_health["missing_tables"])
+                    )
+        except Exception as exc:
+            st.error(f"Teknisk hälsokontroll kunde inte köras: {exc}")
+
+        st.divider()
+        st.markdown("#### Säkerhetskopia av vald turnering")
+        st.caption(
+            "Backupen är en portabel JSON-fil med turneringens grunddata, lag, grupper, "
+            "spelare, domare, matcher, händelser, erbjudanden och feedback. "
+            "Återställning byggs som separat, kontrollerad funktion i nästa stabiliseringsetapp."
+        )
+
+        if st.button(
+            "Förbered backup",
+            key=f"prepare_backup_{tid}",
+            use_container_width=True,
+        ):
+            with st.spinner("CupNavi samlar turneringsdata…"):
+                backup_datasets = {
+                    "tournaments": [
+                        dict(row) for row in all_rows(
+                            "SELECT * FROM tournaments WHERE id=?", (tid,)
+                        )
+                    ],
+                    "schedule_rules": [
+                        dict(row) for row in all_rows(
+                            "SELECT * FROM schedule_rules WHERE tournament_id=?", (tid,)
+                        )
+                    ],
+                    "groups": [
+                        dict(row) for row in all_rows(
+                            "SELECT * FROM groups WHERE tournament_id=? ORDER BY id", (tid,)
+                        )
+                    ],
+                    "teams": [
+                        dict(row) for row in all_rows(
+                            "SELECT * FROM teams WHERE tournament_id=? ORDER BY id", (tid,)
+                        )
+                    ],
+                    "players": [
+                        dict(row) for row in all_rows(
+                            """SELECT p.* FROM players p
+                               JOIN teams t ON t.id=p.team_id
+                               WHERE t.tournament_id=? ORDER BY p.id""",
+                            (tid,),
+                        )
+                    ],
+                    "referees": [
+                        dict(row) for row in all_rows(
+                            "SELECT * FROM referees WHERE tournament_id=? ORDER BY id", (tid,)
+                        )
+                    ],
+                    "brackets": [
+                        dict(row) for row in all_rows(
+                            "SELECT * FROM brackets WHERE tournament_id=? ORDER BY id", (tid,)
+                        )
+                    ],
+                    "matches": [
+                        dict(row) for row in all_rows(
+                            "SELECT * FROM matches WHERE tournament_id=? ORDER BY id", (tid,)
+                        )
+                    ],
+                    "player_match_stats": [
+                        dict(row) for row in all_rows(
+                            """SELECT s.* FROM player_match_stats s
+                               JOIN matches m ON m.id=s.match_id
+                               WHERE m.tournament_id=? ORDER BY s.id""",
+                            (tid,),
+                        )
+                    ],
+                    "offers": [
+                        dict(row) for row in all_rows(
+                            "SELECT * FROM offers WHERE tournament_id=? ORDER BY id", (tid,)
+                        )
+                    ],
+                    "feedback": [
+                        dict(row) for row in all_rows(
+                            "SELECT * FROM feedback WHERE tournament_id=? ORDER BY id", (tid,)
+                        )
+                    ],
+                }
+                backup_bytes, backup_sha = build_backup_bytes(
+                    APP_VERSION,
+                    tid,
+                    backup_datasets,
+                )
+                st.session_state[f"backup_bytes_{tid}"] = backup_bytes
+                st.session_state[f"backup_sha_{tid}"] = backup_sha
+
+        if f"backup_bytes_{tid}" in st.session_state:
+            safe_backup_name = re.sub(
+                r"[^A-Za-z0-9_-]+",
+                "_",
+                tournament["name"] or "CupNavi",
+            ).strip("_")
+            st.success(
+                "✓ Backup klar. SHA-256: "
+                + st.session_state[f"backup_sha_{tid}"][:16]
+                + "…"
+            )
+            st.download_button(
+                "Ladda ner backup",
+                data=st.session_state[f"backup_bytes_{tid}"],
+                file_name=f"{safe_backup_name}{BACKUP_FILE_SUFFIX}",
+                mime="application/json",
+                key=f"download_backup_{tid}",
+                use_container_width=True,
+            )
+
     with st.expander("📱 Mobilkontroll – Android och iPhone"):
         st.caption("Snabb kontroll före publicering. Testa helst minst en Android/Chrome och en iPhone/Safari.")
         st.markdown(
