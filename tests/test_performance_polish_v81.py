@@ -31,7 +31,9 @@ def test_analytics_skips_database_between_samples():
 def test_public_view_batches_team_and_event_data():
     text = app_text()
     start = text.index("def render_public_view(")
-    block = text[start:start+4000]
+    end = text.index("def render_match_reporter_view(", start)
+    block = text[start:end]
     assert "public_team_by_id" in block
     assert "public_events_by_match" in block
     assert "JOIN matches m ON m.id=s.match_id" in block
+    assert 'if public_section == tr("Resultat"):' in block

@@ -20,7 +20,7 @@ def test_sponsor_management_and_public_partners_exist():
     assert "INSERT INTO sponsors(" in text
     assert "UPDATE sponsors SET" in text
     assert "DELETE FROM sponsors" in text
-    assert "with partners_tab:" in text
+    assert 'if public_section == tr("Partners"):' in text
     assert "Cupens partners" in text
 
 

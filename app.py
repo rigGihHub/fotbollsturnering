@@ -412,7 +412,9 @@ def track_public_visit(tournament_id):
         st.session_state[throttle_key] = now_dt
 
 
+@st.cache_data(show_spinner=False)
 def qr_png_bytes(value):
+    """QR-bilden är deterministisk och behöver inte byggas om vid varje rerun."""
     if qrcode is None:
         return None
     image = qrcode.make(value)
@@ -2098,12 +2100,10 @@ def columns(table):
         return {row["name"] for row in _rows_from_cursor(cursor)}
 
 
+@st.cache_resource(show_spinner=False)
 def init_db():
-    # Schema/migreringar behöver inte köras om vid varje klick/rerun. Mot en
-    # fjärrdatabas sparar detta många nätverksanrop, särskilt efter adminlogin.
+    """Initiera schema/migreringar en gång per app-process, inte en gång per besökare."""
     schema_key = f"{APP_VERSION}:{'cloud' if CLOUD_DATABASE_ENABLED else 'local'}"
-    if st.session_state.get("_cupnavi_schema_ready") == schema_key:
-        return
     with db() as con:
         execute_script(
             con,
@@ -2459,7 +2459,7 @@ def init_db():
         # har migrerats säkert till den nya modellen.
         apply_migrations(con)
         con.commit()
-    st.session_state["_cupnavi_schema_ready"] = schema_key
+    return schema_key
 
 
 # Cache endast under ett enskilt Streamlit-renderingsvarv. Den återställs vid rerun,
@@ -4198,28 +4198,29 @@ def render_public_view(tournament_id, tournament):
     team_count = len(public_teams)
     public_team_by_id = {row["id"]: row for row in public_teams}
     public_team_names = {row["id"]: row["name"] for row in public_teams}
-    public_event_rows = all_rows(
-        """
-        SELECT s.match_id, p.name AS player_name, t.id AS team_id, t.name AS team_name,
-               s.goals, s.red_cards
-        FROM player_match_stats s
-        JOIN players p ON p.id=s.player_id
-        JOIN teams t ON t.id=p.team_id
-        JOIN matches m ON m.id=s.match_id
-        WHERE m.tournament_id=? AND (s.goals > 0 OR s.red_cards > 0)
-        ORDER BY s.match_id,p.name
-        """,
-        (tournament_id,),
-    )
     public_events_by_match = {}
-    for event_row in public_event_rows:
-        public_events_by_match.setdefault(event_row["match_id"], []).append(event_row)
     now = datetime.now()
 
     public_groups = all_rows(
         "SELECT id,name FROM groups WHERE tournament_id=? ORDER BY name",
         (tournament_id,),
     )
+
+    def _public_source_team_id(source):
+        """Lös vanliga team:<id>-källor lokalt; bara komplexa slutspelskällor behöver DB-resolver."""
+        parts = source.split(":") if source else []
+        if len(parts) >= 2 and parts[0] == "team":
+            try:
+                return int(parts[1])
+            except (TypeError, ValueError):
+                return None
+        return resolve_source(source)
+
+    def _public_source_label(source):
+        team_id = _public_source_team_id(source)
+        if team_id in public_team_names:
+            return public_team_names[team_id]
+        return source_label(source)
     filtered_public_matches = published_matches
     next_match = next(
         (
@@ -4283,15 +4284,32 @@ def render_public_view(tournament_id, tournament):
             "</div>"
         )
 
-    with st.expander("📤 " + tr("Dela cupen"), expanded=False):
-        st.caption(tr("Dela länken eller QR-koden till den här cupen."))
-        render_share_panel(tournament_id, tournament["name"])
-        render_qr_share_panel(tournament_id, tournament["name"])
+    share_state_key = f"public_share_open_{tournament_id}"
+    share_is_open = bool(st.session_state.get(share_state_key, False))
+    if st.button(
+        ("✕ " + tr("Dölj delning")) if share_is_open else ("📤 " + tr("Dela cupen")),
+        key=f"public_share_toggle_{tournament_id}",
+    ):
+        share_is_open = not share_is_open
+        st.session_state[share_state_key] = share_is_open
 
-    schedule, results_tab, tables, statistics, playoffs, offers_tab, partners_tab, information = st.tabs(
-        [tr("Spelschema"), tr("Resultat"), tr("Tabeller"), tr("Topplistor"),
-         tr("Slutspel"), tr("Erbjudanden"), tr("Partners"), tr("Information")]
-    )
+    if share_is_open:
+        with st.container(border=True):
+            st.caption(tr("Dela länken eller QR-koden till den här cupen."))
+            render_share_panel(tournament_id, tournament["name"])
+            render_qr_share_panel(tournament_id, tournament["name"])
+
+    public_sections = [
+        tr("Spelschema"), tr("Resultat"), tr("Tabeller"), tr("Topplistor"),
+        tr("Slutspel"), tr("Erbjudanden"), tr("Partners"), tr("Information")
+    ]
+    public_section = st.segmented_control(
+        tr("Innehåll"),
+        public_sections,
+        default=public_sections[0],
+        key=f"public_section_{tournament_id}",
+        label_visibility="collapsed",
+    ) or public_sections[0]
 
     def _filter_public_matches(base_matches, key_prefix, heading):
         """Gemensamt filter för Spelschema och Resultat."""
@@ -4343,8 +4361,8 @@ def render_public_view(tournament_id, tournament):
                 filtered = [
                     match_row for match_row in base_matches
                     if (
-                        resolve_source(match_row["home_source"]) == selected_team
-                        or resolve_source(match_row["away_source"]) == selected_team
+                        _public_source_team_id(match_row["home_source"]) == selected_team
+                        or _public_source_team_id(match_row["away_source"]) == selected_team
                     )
                 ]
             else:
@@ -4386,7 +4404,7 @@ def render_public_view(tournament_id, tournament):
             filter_label,
         )
 
-    def _render_public_match_cards(matches, show_results):
+    def _render_public_match_cards(matches, show_results, show_weather=False):
         """Samma matchkort i båda flikarna. Bara Resultat visar score och händelser."""
         referees = {
             row["id"]: row["name"]
@@ -4395,7 +4413,9 @@ def render_public_view(tournament_id, tournament):
                 (tournament_id,),
             )
         }
-        weather_forecast, weather_status = fetch_weather_forecast(tournament["location"] or "")
+        weather_forecast, weather_status = ({}, "")
+        if show_weather:
+            weather_forecast, weather_status = fetch_weather_forecast(tournament["location"] or "")
 
         st.markdown(
             """
@@ -4421,13 +4441,15 @@ def render_public_view(tournament_id, tournament):
             return
 
         for number, match_row in enumerate(matches, 1):
-            home = public_team_by_id.get(resolve_source(match_row["home_source"]))
-            away = public_team_by_id.get(resolve_source(match_row["away_source"]))
-            home_name = home["name"] if home else source_label(match_row["home_source"])
-            away_name = away["name"] if away else source_label(match_row["away_source"])
+            home = public_team_by_id.get(_public_source_team_id(match_row["home_source"]))
+            away = public_team_by_id.get(_public_source_team_id(match_row["away_source"]))
+            home_name = home["name"] if home else _public_source_label(match_row["home_source"])
+            away_name = away["name"] if away else _public_source_label(match_row["away_source"])
             start = swedish_datetime(match_row["scheduled_start"])
-            match_weather = weather_for_match(weather_forecast, match_row["scheduled_start"])
-            weather_text = weather_label(match_weather) if weather_forecast else weather_status
+            weather_text = ""
+            if show_weather:
+                match_weather = weather_for_match(weather_forecast, match_row["scheduled_start"])
+                weather_text = weather_label(match_weather) if weather_forecast else weather_status
 
             _, _, away_kit_used = match_kit_colors(home, away)
             home_kit_bg = kit_background_for_team(home, "home") if home else "#94a3b8"
@@ -4471,16 +4493,17 @@ def render_public_view(tournament_id, tournament):
                     <br><small class="kit-label">{'Bortalagets bortaställ' if away_kit_used else 'Bortalagets hemmaställ'}</small></div>
                   </div>
                   {match_events_html}
-                  <div class="match-weather" style="font-size:12px;text-align:center;margin-top:10px">{html.escape(weather_text)}</div>
+                  {f'<div class="match-weather" style="font-size:12px;text-align:center;margin-top:10px">{html.escape(weather_text)}</div>' if show_weather else ''}
                   <div class="match-referee" style="font-size:12px;text-align:center;margin-top:10px">Domare: {html.escape(referees.get(match_row['referee_id'], 'Ej tillsatt'))}</div>
                 </div>
                 """,
                 unsafe_allow_html=True,
             )
 
-        st.caption("Väderprognos från Open-Meteo. Prognosen uppdateras automatiskt och kan förändras.")
+        if show_weather:
+            st.caption("Väderprognos från Open-Meteo. Prognosen uppdateras automatiskt och kan förändras.")
 
-    with schedule:
+    if public_section == tr("Spelschema"):
         st.markdown(
             f"""<div class='cup-hero'><div class='eyebrow'>CupNavi · Turneringsöversikt</div>
             <div class='title'>{html.escape(tournament['name'])}</div><div class='meta'>{hero_meta}</div></div>""",
@@ -4514,8 +4537,8 @@ def render_public_view(tournament_id, tournament):
             None,
         )
         if next_match:
-            next_home = source_label(next_match["home_source"])
-            next_away = source_label(next_match["away_source"])
+            next_home = _public_source_label(next_match["home_source"])
+            next_away = _public_source_label(next_match["away_source"])
             next_label = (
                 "Nästa match för valt lag"
                 if schedule_filter_mode == "Ett lag"
@@ -4540,9 +4563,35 @@ def render_public_view(tournament_id, tournament):
                 unsafe_allow_html=True,
             )
 
-        _render_public_match_cards(schedule_matches, show_results=False)
+        show_schedule_weather = st.toggle(
+            "🌦️ " + tr("Visa väderprognos"),
+            value=False,
+            key=f"public_schedule_weather_{tournament_id}",
+        )
+        _render_public_match_cards(
+            schedule_matches,
+            show_results=False,
+            show_weather=show_schedule_weather,
+        )
 
-    with results_tab:
+    if public_section == tr("Resultat"):
+        public_event_rows = all_rows(
+            """
+            SELECT s.match_id, p.name AS player_name, t.id AS team_id, t.name AS team_name,
+                   s.goals, s.red_cards
+            FROM player_match_stats s
+            JOIN players p ON p.id=s.player_id
+            JOIN teams t ON t.id=p.team_id
+            JOIN matches m ON m.id=s.match_id
+            WHERE m.tournament_id=? AND (s.goals > 0 OR s.red_cards > 0)
+            ORDER BY s.match_id,p.name
+            """,
+            (tournament_id,),
+        )
+        public_events_by_match = {}
+        for event_row in public_event_rows:
+            public_events_by_match.setdefault(event_row["match_id"], []).append(event_row)
+
         st.subheader(tr("Resultat"))
         st.caption(
             "Här visas endast färdigspelade matcher. Resultat och registrerade matchhändelser visas i matchkortet."
@@ -4555,15 +4604,24 @@ def render_public_view(tournament_id, tournament):
         st.caption(
             f"Visar {len(result_matches)} spelade matcher · {result_filter_label} · sorterat efter datum och tid."
         )
-        _render_public_match_cards(result_matches, show_results=True)
+        show_results_weather = st.toggle(
+            "🌦️ " + tr("Visa väderprognos"),
+            value=False,
+            key=f"public_results_weather_{tournament_id}",
+        )
+        _render_public_match_cards(
+            result_matches,
+            show_results=True,
+            show_weather=show_results_weather,
+        )
 
-    with tables:
+    if public_section == tr("Tabeller"):
         groups = all_rows("SELECT * FROM groups WHERE tournament_id=? ORDER BY name", (tournament_id,))
         for group in groups:
             st.subheader(group["name"])
             group_table = calculate_table(group["id"], tournament)
             render_group_table(group_table, tournament)
-    with statistics:
+    if public_section == tr("Topplistor"):
         rows = all_rows(
             """
             SELECT players.name AS player_name,teams.name AS team_name,
@@ -4587,14 +4645,14 @@ def render_public_view(tournament_id, tournament):
             render_centered_table(pd.DataFrame([{"Pl": i, "Spelare": r["player_name"], "Lag": r["team_name"], "Assist": r["assists"]} for i, r in enumerate(assist_rows, 1)]))
         else:
             st.info("Inga assist har registrerats.")
-    with playoffs:
+    if public_section == tr("Slutspel"):
         brackets = [] if tournament["playoff_format"] == "Inget slutspel" else brackets_for_display(tournament_id)[0]
         if not brackets:
             st.info("Turneringen har inget publicerat slutspel.")
         for bracket in brackets:
             st.subheader(bracket["name"])
             render_bracket_tree(bracket["id"], public=True)
-    with offers_tab:
+    if public_section == tr("Erbjudanden"):
         st.subheader(tr("Erbjudanden för cupdeltagare"))
         st.caption("Lokala erbjudanden och rabattkoder som arrangören har lagt upp för deltagare och besökare.")
 
@@ -4648,7 +4706,7 @@ def render_public_view(tournament_id, tournament):
                 )
         st.caption("Erbjudandena publiceras av cuparrangören. Villkor och tillgänglighet kan ändras hos respektive företag.")
 
-    with partners_tab:
+    if public_section == tr("Partners"):
         st.subheader(tr("Cupens partners"))
         st.caption("Företag och organisationer som stödjer cupen.")
         public_sponsors = all_rows(
@@ -4691,7 +4749,7 @@ def render_public_view(tournament_id, tournament):
                     unsafe_allow_html=True,
                 )
 
-    with information:
+    if public_section == tr("Information"):
         st.subheader(tr("Praktisk information"))
         if visitor_rows:
             st.markdown(
