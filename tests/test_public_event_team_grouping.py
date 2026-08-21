@@ -8,4 +8,4 @@ def test_public_events_are_grouped_by_team():
 
 def test_event_query_fetches_team_identity():
     text=Path("app.py").read_text(encoding="utf-8")
-    assert "t.id AS team_id, t.name AS team_name" in text
+    assert "t.id AS team_id" in text and "t.name AS team_name" in text

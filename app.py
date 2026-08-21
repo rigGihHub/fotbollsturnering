@@ -15,6 +15,7 @@ from urllib.request import Request, urlopen
 
 import pandas as pd
 import streamlit as st
+import streamlit.components.v1 as components
 
 from cupnavi_core.version import APP_VERSION
 from cupnavi_core.rules import validate_match_event_totals
@@ -46,33 +47,107 @@ def public_cup_url(tournament_id):
     return f"{PUBLIC_APP_URL}?cup={int(tournament_id)}"
 
 
-def cup_share_links_html(tournament_id, tournament_name):
-    """Dela aktuell cup via vanliga mobilkanaler utan externa API-nycklar."""
+def share_panel_html(tournament_id, tournament_name):
+    """Delningspanel. Messenger går via telefonens inbyggda Web Share-meny."""
     share_url = public_cup_url(tournament_id)
-    message = f"Följ {tournament_name} i CupNavi: {share_url}"
-    encoded_message = quote(message, safe="")
-    encoded_url = quote(share_url, safe="")
-    encoded_subject = quote(f"CupNavi – {tournament_name}", safe="")
+    english = current_language() == "en"
+    message = (
+        f"Follow {tournament_name} in CupNavi: {share_url}"
+        if english else f"Följ {tournament_name} i CupNavi: {share_url}"
+    )
+    title = "Share tournament" if english else "Dela cupen"
+    subtitle = (
+        "Send the current tournament page to others."
+        if english else "Skicka aktuell cupsida till andra."
+    )
+    messenger_label = "Messenger / More" if english else "Messenger / Fler"
+    help_text = (
+        "Opens your phone's share menu. Choose Messenger there."
+        if english else "Öppnar mobilens delningsmeny. Välj Messenger där."
+    )
+    email_label = "Email" if english else "E-post"
 
+    encoded_message = quote(message, safe="")
+    encoded_subject = quote(f"CupNavi – {tournament_name}", safe="")
     whatsapp_url = f"https://wa.me/?text={encoded_message}"
-    messenger_url = f"fb-messenger://share/?link={encoded_url}"
     email_url = f"mailto:?subject={encoded_subject}&body={encoded_message}"
     sms_url = f"sms:?body={encoded_message}"
 
+    copied = (
+        "Link copied. Paste it into Messenger."
+        if english else "Länken kopierades. Klistra in den i Messenger."
+    )
+    manual = (
+        "Copy the link below and paste it into Messenger."
+        if english else "Kopiera länken nedan och klistra in den i Messenger."
+    )
+
     return f"""
-    <div class="cn-share-card">
-      <div class="cn-share-title">📤 Dela cupen</div>
-      <div class="cn-share-subtitle">Skicka aktuell cupsida till andra.</div>
-      <div class="cn-share-buttons">
-        <a class="cn-share-button cn-share-messenger" href="{html.escape(messenger_url, quote=True)}">Messenger</a>
-        <a class="cn-share-button cn-share-whatsapp" href="{html.escape(whatsapp_url, quote=True)}"
+    <style>
+      body {{ margin:0; font-family:Arial,sans-serif; color:#172033; }}
+      .share-card {{border:1px solid #d7dee5;border-radius:14px;background:#fff;padding:14px 16px}}
+      .share-title {{font-size:16px;font-weight:800}}
+      .share-sub {{font-size:13px;color:#64748b;margin-top:2px}}
+      .share-buttons {{display:flex;flex-wrap:wrap;gap:8px;margin-top:11px}}
+      .share-button {{
+          text-decoration:none;border:1px solid #cbd5e1;border-radius:10px;
+          padding:9px 13px;font-weight:800;font-size:14px;cursor:pointer
+      }}
+      button.share-button {{font-family:inherit}}
+      .native {{background:#eef4ff;color:#1d4ed8;border-color:#bfdbfe}}
+      .whatsapp {{background:#f0fdf4;color:#166534;border-color:#bbf7d0}}
+      .email {{background:#eff6ff;color:#1e3a8a;border-color:#bfdbfe}}
+      .sms {{background:#f8fafc;color:#334155}}
+      .share-help,.share-url {{font-size:11px;color:#64748b;margin-top:8px;overflow-wrap:anywhere}}
+      @media(max-width:480px) {{
+          .share-buttons {{display:grid;grid-template-columns:1fr 1fr}}
+          .share-button {{text-align:center;box-sizing:border-box}}
+      }}
+    </style>
+    <div class="share-card">
+      <div class="share-title">📤 {html.escape(title)}</div>
+      <div class="share-sub">{html.escape(subtitle)}</div>
+      <div class="share-buttons">
+        <button id="nativeShare" class="share-button native">{html.escape(messenger_label)}</button>
+        <a class="share-button whatsapp" href="{html.escape(whatsapp_url, quote=True)}"
            target="_blank" rel="noopener noreferrer">WhatsApp</a>
-        <a class="cn-share-button cn-share-email" href="{html.escape(email_url, quote=True)}">E-post</a>
-        <a class="cn-share-button cn-share-sms" href="{html.escape(sms_url, quote=True)}">SMS</a>
+        <a class="share-button email" href="{html.escape(email_url, quote=True)}">{html.escape(email_label)}</a>
+        <a class="share-button sms" href="{html.escape(sms_url, quote=True)}">SMS</a>
       </div>
-      <div class="cn-share-url">{html.escape(share_url)}</div>
+      <div id="shareHelp" class="share-help">{html.escape(help_text)}</div>
+      <div class="share-url">{html.escape(share_url)}</div>
     </div>
+    <script>
+      const btn = document.getElementById("nativeShare");
+      const help = document.getElementById("shareHelp");
+      const data = {{
+          title: {json.dumps("CupNavi – " + tournament_name)},
+          text: {json.dumps(message)},
+          url: {json.dumps(share_url)}
+      }};
+      btn.addEventListener("click", async () => {{
+        if (navigator.share) {{
+          try {{
+            await navigator.share(data);
+          }} catch (err) {{
+            if (err && err.name !== "AbortError") help.textContent = {json.dumps(manual)};
+          }}
+        }} else {{
+          try {{
+            await navigator.clipboard.writeText(data.url);
+            help.textContent = {json.dumps(copied)};
+          }} catch (err) {{
+            help.textContent = {json.dumps(manual)};
+          }}
+        }}
+      }});
+    </script>
     """
+
+
+def render_share_panel(tournament_id, tournament_name):
+    components.html(share_panel_html(tournament_id, tournament_name), height=180, scrolling=False)
+
 
 
 def _visitor_header(name):
@@ -139,6 +214,8 @@ def track_public_visit(tournament_id):
         previous_count_at is None
         or (now_dt - previous_count_at).total_seconds() >= 60
     )
+    if not count_view:
+        return
 
     user_agent = _visitor_header("User-Agent")
     referrer = _visitor_header("Referer")
@@ -152,19 +229,13 @@ def track_public_visit(tournament_id):
         (tournament_id, token),
     )
     if existing:
-        if count_view:
-            run(
-                """UPDATE visitor_sessions
-                   SET last_seen=?,view_count=view_count+1,device_type=?,browser=?,source=?
-                   WHERE id=?""",
-                (now_iso, device_type, browser, source, existing["id"]),
-            )
-            st.session_state[throttle_key] = now_dt
-        else:
-            run(
-                "UPDATE visitor_sessions SET last_seen=? WHERE id=?",
-                (now_iso, existing["id"]),
-            )
+        run(
+            """UPDATE visitor_sessions
+               SET last_seen=?,view_count=view_count+1,device_type=?,browser=?,source=?
+               WHERE id=?""",
+            (now_iso, device_type, browser, source, existing["id"]),
+        )
+        st.session_state[throttle_key] = now_dt
     else:
         run(
             """INSERT INTO visitor_sessions(
@@ -202,73 +273,208 @@ def image_data_uri(uploaded_file):
 TRANSLATIONS = {
     "sv": {},
     "en": {
-        "Välj språk": "Choose language",
-        "Turneringar": "Tournaments",
-        "Välj läge": "Choose mode",
-        "Turneringsvy": "Tournament",
-        "Matchrapportör": "Match reporter",
-        "Admin": "Admin",
-        "Visningsläge": "Mode",
-        "Aktiv turnering": "Active tournament",
-        "Spelschema": "Schedule",
-        "Resultat": "Results",
-        "Tabeller": "Standings",
-        "Topplistor": "Statistics",
-        "Slutspel": "Playoffs",
-        "Erbjudanden": "Offers",
-        "Partners": "Partners",
-        "Information": "Information",
-        "Alla matcher": "All matches",
-        "En grupp": "A group",
-        "Ett lag": "A team",
-        "En plan": "A pitch",
-        "Vad vill du visa?": "What do you want to show?",
-        "Välj grupp": "Choose group",
-        "Välj lag": "Choose team",
-        "Välj plan": "Choose pitch",
-        "Plan": "Pitch",
-        "Skytteliga": "Top scorers",
-        "Assistliga": "Assists",
-        "Praktisk information": "Practical information",
+        "Välj språk": "Choose language", "Turneringar": "Tournaments",
+        "Välj läge": "Choose mode", "Turneringsvy": "Tournament view",
+        "Matchrapportör": "Match reporter", "Visningsläge": "Mode",
+        "Aktiv turnering": "Active tournament", "Instruktioner": "Instructions",
+        "Översikt": "Overview", "Kontroller": "Checks", "Lag": "Teams",
+        "Grupper": "Groups", "Trupper": "Squads", "Domare": "Referees",
+        "Schema": "Schedule", "Tabeller": "Standings", "Matcher": "Matches",
+        "Händelser": "Events", "Slutspel": "Playoffs", "Skytteligor": "Leaderboards",
+        "Erbjudanden": "Offers", "Sponsorer": "Sponsors", "Funktionärer": "Staff",
+        "Import": "Import", "Besök": "Visitors", "Besöksstatistik": "Visitor analytics",
+        "Spelschema": "Schedule", "Resultat": "Results", "Topplistor": "Statistics",
+        "Partners": "Partners", "Information": "Information", "Alla matcher": "All matches",
+        "En grupp": "A group", "Ett lag": "A team", "En plan": "A pitch",
+        "Vad vill du visa?": "What do you want to show?", "Välj grupp": "Choose group",
+        "Välj lag": "Choose team", "Välj plan": "Choose pitch", "Plan": "Pitch",
+        "Skytteliga": "Top scorers", "Assistliga": "Assists",
+        "Varningar och utvisningar": "Cards", "Praktisk information": "Practical information",
         "Cupens partners": "Tournament partners",
         "Erbjudanden för cupdeltagare": "Offers for tournament participants",
-        "Instruktioner": "Instructions",
-        "Översikt": "Overview",
-        "Kontroller": "Checks",
-        "Lag": "Teams",
-        "Grupper": "Groups",
-        "Trupper": "Squads",
-        "Domare": "Referees",
-        "Schema": "Schedule",
-        "Matcher": "Matches",
-        "Händelser": "Events",
-        "Skytteligor": "Leaderboards",
-        "Sponsorer": "Sponsors",
-        "Funktionärer": "Staff",
-        "Import": "Import",
-        "Besök": "Visitors",
-        "Administration": "Administration",
-        "Besöksstatistik": "Visitor analytics",
-        "Period": "Period",
-        "Senaste 7 dagarna": "Last 7 days",
-        "Senaste 30 dagarna": "Last 30 days",
-        "Senaste 90 dagarna": "Last 90 days",
-        "All tid": "All time",
-        "Lösenord": "Password",
-        "Logga in": "Sign in",
-        "Logga ut": "Sign out",
-        "Fel lösenord.": "Incorrect password.",
-        "Matchhändelser": "Match events"
+        "Matchhändelser": "Match events", "Arena": "Venue", "Kiosk": "Refreshments",
+        "Kontakta arrangören": "Contact the organizer",
+        "Frågor eller feedback": "Questions or feedback", "Följ cupen": "Follow the tournament",
+        "Lösenord": "Password", "Adminlösenord": "Admin password",
+        "Logga in": "Sign in", "Logga ut": "Sign out", "Fel lösenord.": "Incorrect password.",
+        "Inloggad som administratör": "Signed in as administrator",
+        "Inloggad som matchrapportör": "Signed in as match reporter",
+        "Administratörsinloggning": "Administrator sign-in",
+        "Administration": "Administration", "Period": "Period",
+        "Senaste 7 dagarna": "Last 7 days", "Senaste 30 dagarna": "Last 30 days",
+        "Senaste 90 dagarna": "Last 90 days", "All tid": "All time",
+        "Unika sessioner": "Unique sessions", "Sidvisningar": "Page views",
+        "Besök idag": "Visits today", "Sidvisningar idag": "Page views today",
+        "Aktiva senaste 30 min": "Active in last 30 min", "Utveckling över tid": "Trend over time",
+        "Enheter": "Devices", "Webbläsare": "Browsers", "Trafikkälla": "Traffic source",
+        "Senaste besöken": "Recent visits", "Mobil": "Mobile", "Dator": "Desktop",
+        "Surfplatta": "Tablet", "Direkt / okänd": "Direct / unknown",
+        "Skapa": "Create", "Spara": "Save", "Avbryt": "Cancel", "Publicera": "Publish",
+        "Avpublicera": "Unpublish", "Namn": "Name", "Namn *": "Name *", "Telefon": "Phone",
+        "E-post": "Email", "Webbplats": "Website", "Rubrik": "Title", "Rubrik *": "Title *",
+        "Beskrivning / villkor": "Description / terms", "Kort beskrivning": "Short description",
+        "Visningsordning": "Display order", "Grupp": "Group", "Gruppnamn": "Group name",
+        "Lagnamn": "Team name", "Spelare": "Player", "Tröjnummer": "Shirt number",
+        "Födelseår": "Birth year", "Position": "Position", "Roll": "Role", "Roll *": "Role *",
+        "Datum": "Date", "Avspark": "Kick-off", "Antal planer": "Number of pitches",
+        "Första avspark": "First kick-off", "Spelort": "Location",
+        "Turneringens namn": "Tournament name", "Planerat antal lag": "Planned number of teams",
+        "Första cupdag": "First tournament day", "Sista cupdag": "Last tournament day",
+        "Arenaadress": "Venue address", "Arrangörens telefonnummer": "Organizer phone number",
+        "E-post för feedback": "Feedback email", "Övrig information": "Other information",
+        "Mål": "Goals", "Assist": "Assists", "Varningar": "Yellow cards",
+        "Utvisningar": "Red cards", "Match": "Match", "Fas": "Stage",
+        "Hemmalag": "Home team", "Bortalag": "Away team", "Hemmamål": "Home goals",
+        "Bortamål": "Away goals", "Publicerad": "Published", "Publicerade": "Published",
+        "Ej publicerade": "Unpublished", "Schemalagda": "Scheduled",
+        "Schemalagda matcher": "Scheduled matches", "Gruppspelsmatcher": "Group-stage matches",
     }
+}
+
+EN_PHRASES = {
+    "Skapa och publicera schema": "Create and publish schedule",
+    "Matcher och resultat": "Matches and results",
+    "Registrera resultat och domare": "Enter results and referees",
+    "Registrera mål, assist, varningar och utvisningar": "Enter goals, assists, yellow cards and red cards",
+    "Dela cupen med QR-kod": "Share tournament with QR code",
+    "Lägg till": "Add", "Ta bort": "Delete", "Redigera": "Edit",
+    "Spara ändringar": "Save changes", "Spara alla": "Save all", "Ladda ner": "Download",
+    "Välj turnering": "Choose tournament", "Välj match": "Choose match",
+    "Välj och spara": "Choose and save", "Ange ett": "Enter a", "Ange en": "Enter a",
+    "Ange": "Enter", "Det finns ännu inga": "There are no", "Det finns ännu ingen": "There is no",
+    "Det finns inga": "There are no", "Det finns ingen": "There is no",
+    "Här visas": "This page shows", "Här kan du": "Here you can",
+    "Här ställer du in": "Here you configure", "Här granskar du": "Here you review",
+    "Klicka på": "Click", "Gå till": "Go to", "under fliken": "under the tab",
+    "i den publika turneringsvyn": "in the public tournament view",
+    "i turneringsvyn": "in the tournament view", "den publika turneringsvyn": "the public tournament view",
+    "spelschemat": "the schedule", "schemat": "the schedule", "turneringen": "the tournament",
+    "gruppen": "the group", "laget": "the team", "matchen": "the match", "spelaren": "the player",
+    "domaren": "the referee", "publikt": "publicly", "automatiskt": "automatically",
+    "manuellt": "manually", "före publicering": "before publishing", "efter publicering": "after publishing",
+    "kan inte": "cannot", "måste": "must", "behöver": "needs to", "sparas": "is saved",
+    "skapade": "created", "skapats": "been created", "publiceras": "is published",
+    "registrerade": "registered", "registreras": "are registered", "uppdateras": "is updated",
+    "ändras": "changes", "kontrolleras": "is checked", "visas": "is shown", "saknas": "is missing",
+    "resultat": "results", "matchhändelser": "match events", "slutspel": "playoffs",
+    "gruppspel": "group stage", "grupper": "groups", "spelare": "players",
+    "domare": "referees", "matcher": "matches", "schema": "schedule",
+    "turnering": "tournament", "varningar": "warnings", "utvisningar": "red cards",
+    "mål": "goals", "assist": "assists", "poäng": "points", "planer": "pitches",
+}
+
+EN_WORDS = {
+    "och": "and", "eller": "or", "för": "for", "från": "from", "till": "to",
+    "med": "with", "utan": "without", "är": "is", "har": "has", "ska": "should",
+    "kan": "can", "inte": "not", "alla": "all", "hela": "entire", "vald": "selected",
+    "valda": "selected", "aktuell": "current", "aktuella": "current", "ny": "new",
+    "nya": "new", "första": "first", "sista": "last", "innan": "before", "efter": "after",
+    "ovan": "above", "nedan": "below", "direkt": "directly", "endast": "only",
+    "även": "also", "inga": "no", "ingen": "no", "ett": "a", "en": "a",
+    "den": "the", "det": "it", "de": "the", "du": "you", "din": "your", "ditt": "your",
 }
 
 def current_language():
     return st.session_state.get("language", "sv")
 
+def _translate_english_fallback(value):
+    result = str(value)
+    for source, target in sorted(EN_PHRASES.items(), key=lambda item: len(item[0]), reverse=True):
+        result = re.sub(re.escape(source), target, result, flags=re.IGNORECASE)
+    for source, target in EN_WORDS.items():
+        result = re.sub(rf"(?<!\w){re.escape(source)}(?!\w)", target, result, flags=re.IGNORECASE)
+    return result
+
 def tr(value):
-    if value is None:
+    if value is None or current_language() != "en" or not isinstance(value, str):
         return value
-    return TRANSLATIONS.get(current_language(), {}).get(str(value), value)
+    exact = TRANSLATIONS["en"].get(value)
+    if exact is not None:
+        return exact
+    if value.lstrip().startswith(("http://", "https://", "<style", "<div", "<script")):
+        return value
+    return _translate_english_fallback(value)
+
+def _translate_dataframe_for_display(dataframe):
+    if current_language() != "en" or dataframe is None or not hasattr(dataframe, "rename"):
+        return dataframe
+    return dataframe.rename(columns={column: tr(column) for column in dataframe.columns})
+
+def _install_streamlit_translation_hooks():
+    if getattr(st, "_cupnavi_translation_hooks", False):
+        return
+    from streamlit.delta_generator import DeltaGenerator
+
+    simple_methods = (
+        "title", "header", "subheader", "caption", "info", "warning", "error", "success",
+        "button", "download_button", "text_input", "text_area", "checkbox", "number_input",
+        "date_input", "time_input", "file_uploader", "form_submit_button", "metric", "expander",
+    )
+    for method_name in simple_methods:
+        original = getattr(DeltaGenerator, method_name, None)
+        if original is None:
+            continue
+        def make_wrapper(original_method):
+            def wrapper(self, *args, **kwargs):
+                args = list(args)
+                if args and isinstance(args[0], str):
+                    args[0] = tr(args[0])
+                if isinstance(kwargs.get("placeholder"), str):
+                    kwargs["placeholder"] = tr(kwargs["placeholder"])
+                if isinstance(kwargs.get("help"), str):
+                    kwargs["help"] = tr(kwargs["help"])
+                return original_method(self, *args, **kwargs)
+            return wrapper
+        setattr(DeltaGenerator, method_name, make_wrapper(original))
+
+    original_markdown = DeltaGenerator.markdown
+    def markdown_wrapper(self, body, *args, **kwargs):
+        if isinstance(body, str) and not kwargs.get("unsafe_allow_html"):
+            body = tr(body)
+        return original_markdown(self, body, *args, **kwargs)
+    DeltaGenerator.markdown = markdown_wrapper
+
+    original_tabs = DeltaGenerator.tabs
+    def tabs_wrapper(self, tabs, *args, **kwargs):
+        if current_language() == "en":
+            tabs = [tr(item) if isinstance(item, str) else item for item in tabs]
+        return original_tabs(self, tabs, *args, **kwargs)
+    DeltaGenerator.tabs = tabs_wrapper
+
+    for method_name in ("selectbox", "radio"):
+        original = getattr(DeltaGenerator, method_name)
+        def make_option_wrapper(original_method):
+            def wrapper(self, label, options, *args, **kwargs):
+                label = tr(label) if isinstance(label, str) else label
+                existing = kwargs.get("format_func")
+                if current_language() == "en":
+                    if existing:
+                        kwargs["format_func"] = lambda value, f=existing: tr(f(value))
+                    else:
+                        kwargs["format_func"] = lambda value: tr(value) if isinstance(value, str) else value
+                return original_method(self, label, options, *args, **kwargs)
+            return wrapper
+        setattr(DeltaGenerator, method_name, make_option_wrapper(original))
+
+    original_data_editor = DeltaGenerator.data_editor
+    def data_editor_wrapper(self, data, *args, **kwargs):
+        if current_language() != "en" or not hasattr(data, "columns"):
+            return original_data_editor(self, data, *args, **kwargs)
+        rename_map = {column: tr(column) for column in data.columns}
+        reverse_map = {value: key for key, value in rename_map.items()}
+        display_data = data.rename(columns=rename_map)
+        if isinstance(kwargs.get("disabled"), list):
+            kwargs["disabled"] = [rename_map.get(x, x) for x in kwargs["disabled"]]
+        if isinstance(kwargs.get("column_order"), list):
+            kwargs["column_order"] = [rename_map.get(x, x) for x in kwargs["column_order"]]
+        if isinstance(kwargs.get("column_config"), dict):
+            kwargs["column_config"] = {rename_map.get(k, k): v for k, v in kwargs["column_config"].items()}
+        result = original_data_editor(self, display_data, *args, **kwargs)
+        return result.rename(columns=reverse_map) if hasattr(result, "rename") else result
+    DeltaGenerator.data_editor = data_editor_wrapper
+
+    st._cupnavi_translation_hooks = True
+
 
 st.set_page_config(page_title="Fotbollsturnering", page_icon="⚽", layout="wide")
 
@@ -2700,7 +2906,8 @@ def render_centered_table(dataframe, empty_text="Ingen data att visa."):
         st.info(empty_text)
         return
 
-    table_html = dataframe.to_html(
+    display_dataframe = _translate_dataframe_for_display(dataframe)
+    table_html = display_dataframe.to_html(
         index=False,
         escape=True,
         classes="cup-centered-table",
@@ -3637,27 +3844,29 @@ def render_bracket_tree(bracket_id, public=False):
 
 
 
-def public_match_events_html(match_id):
-    """Publika mål/röda kort: hemmalag vänster, bortalag höger."""
-    match_row = one_row("SELECT home_source, away_source FROM matches WHERE id=?", (match_id,))
+def public_match_events_html(match_id, match_row=None, rows=None, team_names=None):
+    """Publika mål/röda kort. Förhämtad data undviker N+1-frågor."""
+    if match_row is None:
+        match_row = one_row("SELECT home_source, away_source FROM matches WHERE id=?", (match_id,))
     if not match_row:
         return ""
 
     home_team_id = resolve_source(match_row["home_source"])
     away_team_id = resolve_source(match_row["away_source"])
 
-    rows = all_rows(
-        """
-        SELECT p.name AS player_name, t.id AS team_id, t.name AS team_name,
-               s.goals, s.red_cards
-        FROM player_match_stats s
-        JOIN players p ON p.id=s.player_id
-        JOIN teams t ON t.id=p.team_id
-        WHERE s.match_id=? AND (s.goals > 0 OR s.red_cards > 0)
-        ORDER BY p.name
-        """,
-        (match_id,),
-    )
+    if rows is None:
+        rows = all_rows(
+            """
+            SELECT p.name AS player_name, t.id AS team_id, t.name AS team_name,
+                   s.goals, s.red_cards
+            FROM player_match_stats s
+            JOIN players p ON p.id=s.player_id
+            JOIN teams t ON t.id=p.team_id
+            WHERE s.match_id=? AND (s.goals > 0 OR s.red_cards > 0)
+            ORDER BY p.name
+            """,
+            (match_id,),
+        )
     if not rows:
         return ""
 
@@ -3678,7 +3887,6 @@ def public_match_events_html(match_id):
                 f"<span class='cn-event cn-red'>🟥 {html.escape(row['player_name'])}{suffix}</span>"
             )
 
-    # Samma ordning som resultatraden: hemmalag vänster, bortalag höger.
     ordered_team_ids = [home_team_id, away_team_id]
     team_blocks = []
     for team_id in ordered_team_ids:
@@ -3687,8 +3895,7 @@ def public_match_events_html(match_id):
             name = data["name"]
             events = "".join(data["events"])
         else:
-            team = one_row("SELECT name FROM teams WHERE id=?", (team_id,)) if team_id else None
-            name = team["name"] if team else ""
+            name = (team_names or {}).get(team_id, "")
             events = "<span class='cn-no-events'>–</span>"
         team_blocks.append(
             "<div class='cn-event-team'>"
@@ -3699,10 +3906,11 @@ def public_match_events_html(match_id):
 
     return (
         "<div class='cn-match-events'>"
-        "<div class='cn-events-title'>Matchhändelser</div>"
+        f"<div class='cn-events-title'>{html.escape(tr('Matchhändelser'))}</div>"
         "<div class='cn-event-teams'>" + "".join(team_blocks) + "</div>"
         "</div>"
     )
+
 
 
 def render_public_view(tournament_id, tournament):
@@ -3713,8 +3921,26 @@ def render_public_view(tournament_id, tournament):
     )
     played_matches = [m for m in published_matches if m["home_score"] is not None and m["away_score"] is not None]
     total_goals = sum(int(m["home_score"] or 0) + int(m["away_score"] or 0) for m in played_matches)
-    public_teams = all_rows("SELECT id,name FROM teams WHERE tournament_id=? ORDER BY name", (tournament_id,))
+    public_teams = all_rows("SELECT * FROM teams WHERE tournament_id=? ORDER BY name", (tournament_id,))
     team_count = len(public_teams)
+    public_team_by_id = {row["id"]: row for row in public_teams}
+    public_team_names = {row["id"]: row["name"] for row in public_teams}
+    public_event_rows = all_rows(
+        """
+        SELECT s.match_id, p.name AS player_name, t.id AS team_id, t.name AS team_name,
+               s.goals, s.red_cards
+        FROM player_match_stats s
+        JOIN players p ON p.id=s.player_id
+        JOIN teams t ON t.id=p.team_id
+        JOIN matches m ON m.id=s.match_id
+        WHERE m.tournament_id=? AND (s.goals > 0 OR s.red_cards > 0)
+        ORDER BY s.match_id,p.name
+        """,
+        (tournament_id,),
+    )
+    public_events_by_match = {}
+    for event_row in public_event_rows:
+        public_events_by_match.setdefault(event_row["match_id"], []).append(event_row)
     now = datetime.now()
 
     public_groups = all_rows(
@@ -3746,7 +3972,7 @@ def render_public_view(tournament_id, tournament):
         phone_href = re.sub(r"[^0-9+]", "", tournament["organizer_phone"])
         visitor_rows.append(
             "<div class='cn-organizer-contact'>"
-            "<div><b>📞 Kontakta arrangören</b></div>"
+            f"<div><b>📞 {html.escape(tr('Kontakta arrangören'))}</b></div>"
             f"<a class='cn-call-button' href='tel:{html.escape(phone_href)}'>☎ Ring {phone_display}</a>"
             "</div>"
         )
@@ -3755,7 +3981,7 @@ def render_public_view(tournament_id, tournament):
         email_href = html.escape(tournament["feedback_email"], quote=True)
         visitor_rows.append(
             "<div class='cn-organizer-contact'>"
-            "<div><b>✉️ Frågor eller feedback</b></div>"
+            f"<div><b>✉️ {html.escape(tr('Frågor eller feedback'))}</b></div>"
             f"<a class='cn-email-button' href='mailto:{email_href}?subject=CupNavi%20-%20{html.escape(tournament['name'], quote=True)}'>"
             f"✉ Skicka e-post till {email_display}</a>"
             "</div>"
@@ -3777,17 +4003,14 @@ def render_public_view(tournament_id, tournament):
 
         visitor_rows.append(
             "<div class='cn-organizer-contact'>"
-            "<div><b>📷 Följ cupen</b></div>"
+            f"<div><b>📷 {html.escape(tr('Följ cupen'))}</b></div>"
             f"<a class='cn-instagram-button' href='{html.escape(instagram_href, quote=True)}' "
             "target='_blank' rel='noopener noreferrer'>"
             f"Instagram {html.escape(instagram_label)}</a>"
             "</div>"
         )
 
-    st.markdown(
-        cup_share_links_html(tournament_id, tournament["name"]),
-        unsafe_allow_html=True,
-    )
+    render_share_panel(tournament_id, tournament["name"])
 
     schedule, results_tab, tables, statistics, playoffs, offers_tab, partners_tab, information = st.tabs(
         [tr("Spelschema"), tr("Resultat"), tr("Tabeller"), tr("Topplistor"),
@@ -3922,8 +4145,8 @@ def render_public_view(tournament_id, tournament):
             return
 
         for number, match_row in enumerate(matches, 1):
-            home = team(resolve_source(match_row["home_source"]))
-            away = team(resolve_source(match_row["away_source"]))
+            home = public_team_by_id.get(resolve_source(match_row["home_source"]))
+            away = public_team_by_id.get(resolve_source(match_row["away_source"]))
             home_name = home["name"] if home else source_label(match_row["home_source"])
             away_name = away["name"] if away else source_label(match_row["away_source"])
             start = swedish_datetime(match_row["scheduled_start"])
@@ -3940,7 +4163,12 @@ def render_public_view(tournament_id, tournament):
                 if match_row["home_penalties"] is not None:
                     center_text += f" ({match_row['home_penalties']}–{match_row['away_penalties']} str.)"
                 status_text, status_class = "SLUT", "status-finished"
-                match_events_html = public_match_events_html(match_row["id"])
+                match_events_html = public_match_events_html(
+                    match_row["id"],
+                    match_row=match_row,
+                    rows=public_events_by_match.get(match_row["id"], []),
+                    team_names=public_team_names,
+                )
             else:
                 center_text = "VS"
                 match_events_html = ""
@@ -4575,6 +4803,8 @@ selected_language = st.sidebar.selectbox(
 if st.session_state.get("language") != selected_language:
     st.session_state["language"] = selected_language
     st.rerun()
+
+_install_streamlit_translation_hooks()
 st.sidebar.caption("Databas: Turso" if CLOUD_DATABASE_ENABLED else "Databas: Lokal SQLite")
 mode_options = (
     ["Turneringsvy", "Matchrapportör", "Admin"]
@@ -5336,10 +5566,7 @@ elif admin_page == "Adminöversikt":
     st.header("Adminöversikt")
     with st.expander("Dela cupen med QR-kod", expanded=False):
         cup_share_url = public_cup_url(tid)
-        st.markdown(
-            cup_share_links_html(tid, tournament["name"]),
-            unsafe_allow_html=True,
-        )
+        render_share_panel(tid, tournament["name"])
         st.code(cup_share_url, language=None)
         qr_bytes = qr_png_bytes(cup_share_url)
         if qr_bytes:

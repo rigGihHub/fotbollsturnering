@@ -13,6 +13,6 @@ def test_admin_accepts_instagram():
 
 def test_public_instagram_follow_button():
     text=Path("app.py").read_text(encoding="utf-8")
-    assert "📷 Följ cupen" in text
+    assert "Följ cupen" in text
     assert "https://www.instagram.com/" in text
     assert "cn-instagram-button" in text

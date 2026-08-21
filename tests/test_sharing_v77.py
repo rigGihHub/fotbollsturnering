@@ -5,8 +5,8 @@ def app_text():
 
 def test_share_helper_supports_requested_channels():
     text = app_text()
-    assert "def cup_share_links_html(" in text
-    assert "fb-messenger://share/" in text
+    assert "def share_panel_html(" in text
+    assert "navigator.share" in text
     assert "https://wa.me/?text=" in text
     assert "mailto:?subject=" in text
     assert "sms:?body=" in text
@@ -20,7 +20,7 @@ def test_public_view_renders_share_controls():
     text = app_text()
     start = text.index("def render_public_view(")
     public_block = text[start:text.index("init_db()", start)]
-    assert 'cup_share_links_html(tournament_id, tournament["name"])' in public_block
+    assert 'render_share_panel(tournament_id, tournament["name"])' in public_block
     assert "Messenger" in text
     assert "WhatsApp" in text
     assert "E-post" in text
@@ -30,4 +30,4 @@ def test_admin_qr_panel_also_has_share_controls():
     text = app_text()
     start = text.index('with st.expander("Dela cupen med QR-kod"')
     block = text[start:start+1200]
-    assert 'cup_share_links_html(tid, tournament["name"])' in block
+    assert 'render_share_panel(tid, tournament["name"])' in block

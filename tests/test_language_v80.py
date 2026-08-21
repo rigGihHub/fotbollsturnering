@@ -11,7 +11,7 @@ def test_language_selector_exists():
 def test_translation_layer_has_fallback():
     text = app_text()
     assert "def tr(value):" in text
-    assert 'get(str(value), value)' in text
+    assert 'TRANSLATIONS["en"].get(value)' in text
 
 def test_public_tabs_are_translated():
     text = app_text()
