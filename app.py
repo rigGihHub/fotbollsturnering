@@ -172,6 +172,148 @@ def render_share_panel(tournament_id, tournament_name):
     components.html(share_panel_html(tournament_id, tournament_name), height=180, scrolling=False)
 
 
+def qr_share_panel_html(tournament_id, tournament_name):
+    """Visa QR-kod och dela själva PNG-filen via Web Share där det stöds."""
+    qr_bytes = qr_png_bytes(public_cup_url(tournament_id))
+    if not qr_bytes:
+        return None
+
+    english = current_language() == "en"
+    encoded_png = base64.b64encode(qr_bytes).decode("ascii")
+    title = "QR code" if english else "QR-kod"
+    share_label = "Share QR code" if english else "Dela QR-kod"
+    download_label = "Download QR code" if english else "Ladda ner QR-kod"
+    help_text = (
+        "Share the QR image itself, or download it for printing."
+        if english else
+        "Dela själva QR-bilden eller ladda ner den för utskrift."
+    )
+    fallback_text = (
+        "Your browser cannot share image files directly. The QR code has been downloaded instead."
+        if english else
+        "Din webbläsare kan inte dela bildfiler direkt. QR-koden laddas ner i stället."
+    )
+    filename = f"cupnavi_qr_{int(tournament_id)}.png"
+
+    return f"""
+    <style>
+      body {{ margin:0; font-family:Arial,sans-serif; color:#172033; }}
+      .qr-card {{
+        display:grid;
+        grid-template-columns:180px 1fr;
+        gap:18px;
+        align-items:center;
+        border:1px solid #d7dee5;
+        border-radius:14px;
+        background:#fff;
+        padding:14px 16px;
+      }}
+      .qr-image {{
+        width:170px;
+        height:170px;
+        object-fit:contain;
+        border:1px solid #e2e8f0;
+        border-radius:10px;
+        background:#fff;
+      }}
+      .qr-title {{font-size:16px;font-weight:800}}
+      .qr-help {{font-size:13px;color:#64748b;margin-top:4px}}
+      .qr-actions {{
+        display:flex;
+        gap:8px;
+        flex-wrap:wrap;
+        margin-top:12px;
+      }}
+      .qr-button {{
+        flex:1 1 180px;
+        min-height:44px;
+        border-radius:10px;
+        border:1px solid #cbd5e1;
+        font-size:14px;
+        font-weight:800;
+        cursor:pointer;
+        text-decoration:none;
+        display:flex;
+        align-items:center;
+        justify-content:center;
+        box-sizing:border-box;
+      }}
+      .share {{background:#eef4ff;color:#1d4ed8;border-color:#bfdbfe}}
+      .download {{background:#f8fafc;color:#334155}}
+      .qr-status {{font-size:12px;color:#64748b;margin-top:9px}}
+      @media(max-width:520px) {{
+        .qr-card {{grid-template-columns:1fr;text-align:center}}
+        .qr-image {{margin:0 auto}}
+      }}
+    </style>
+
+    <div class="qr-card">
+      <img class="qr-image" src="data:image/png;base64,{encoded_png}" alt="{html.escape(title)}">
+      <div>
+        <div class="qr-title">▣ {html.escape(title)}</div>
+        <div class="qr-help">{html.escape(help_text)}</div>
+        <div class="qr-actions">
+          <button id="shareQr" class="qr-button share">📤 {html.escape(share_label)}</button>
+          <a class="qr-button download"
+             href="data:image/png;base64,{encoded_png}"
+             download="{html.escape(filename, quote=True)}">⬇️ {html.escape(download_label)}</a>
+        </div>
+        <div id="qrStatus" class="qr-status"></div>
+      </div>
+    </div>
+
+    <script>
+      const shareButton = document.getElementById("shareQr");
+      const status = document.getElementById("qrStatus");
+      const base64Data = {json.dumps(encoded_png)};
+      const filename = {json.dumps(filename)};
+      const mimeType = "image/png";
+
+      function base64ToBlob(base64, type) {{
+        const binary = atob(base64);
+        const bytes = new Uint8Array(binary.length);
+        for (let i = 0; i < binary.length; i++) {{
+          bytes[i] = binary.charCodeAt(i);
+        }}
+        return new Blob([bytes], {{type}});
+      }}
+
+      shareButton.addEventListener("click", async () => {{
+        const blob = base64ToBlob(base64Data, mimeType);
+        const file = new File([blob], filename, {{type: mimeType}});
+
+        if (navigator.share && navigator.canShare && navigator.canShare({{files:[file]}})) {{
+          try {{
+            await navigator.share({{
+              title: {json.dumps("CupNavi – " + tournament_name)},
+              text: {json.dumps("QR code for " + tournament_name)},
+              files: [file]
+            }});
+            return;
+          }} catch (err) {{
+            if (err && err.name === "AbortError") return;
+          }}
+        }}
+
+        const link = document.createElement("a");
+        link.href = URL.createObjectURL(blob);
+        link.download = filename;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        setTimeout(() => URL.revokeObjectURL(link.href), 1000);
+        status.textContent = {json.dumps(fallback_text)};
+      }});
+    </script>
+    """
+
+
+def render_qr_share_panel(tournament_id, tournament_name):
+    qr_html = qr_share_panel_html(tournament_id, tournament_name)
+    if qr_html:
+        components.html(qr_html, height=240, scrolling=False)
+
+
 
 def _visitor_header(name):
     """Läs en HTTP-header om Streamlit exponerar den, annars tom sträng."""
@@ -4142,7 +4284,9 @@ def render_public_view(tournament_id, tournament):
         )
 
     with st.expander("📤 " + tr("Dela cupen"), expanded=False):
+        st.caption(tr("Dela länken eller QR-koden till den här cupen."))
         render_share_panel(tournament_id, tournament["name"])
+        render_qr_share_panel(tournament_id, tournament["name"])
 
     schedule, results_tab, tables, statistics, playoffs, offers_tab, partners_tab, information = st.tabs(
         [tr("Spelschema"), tr("Resultat"), tr("Tabeller"), tr("Topplistor"),
@@ -5728,6 +5872,7 @@ elif admin_page == "Adminöversikt":
     with st.expander("Dela cupen med QR-kod", expanded=False):
         cup_share_url = public_cup_url(tid)
         render_share_panel(tid, tournament["name"])
+        render_qr_share_panel(tid, tournament["name"])
         st.code(cup_share_url, language=None)
         qr_bytes = qr_png_bytes(cup_share_url)
         if qr_bytes:
