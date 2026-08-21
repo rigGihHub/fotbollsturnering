@@ -631,7 +631,7 @@ def inject_custom_css():
 
 
 inject_custom_css()
-APP_VERSION = "2026.08.21-34-WEBTEST"
+APP_VERSION = "2026.08.21-35-WEBTEST"
 DB_FILE = Path(__file__).with_name("turnering.db")
 
 
@@ -1523,11 +1523,58 @@ def kit_color_conflict(home_team, away_team):
 
 
 def centered_table(dataframe):
-    """Centrera både rubriker och innehåll i färdiga resultat-/serietabeller."""
-    return dataframe.style.set_properties(**{"text-align": "center"}).set_table_styles([
-        {"selector": "th", "props": [("text-align", "center")]},
-        {"selector": "td", "props": [("text-align", "center")]},
-    ])
+    """Bakåtkompatibel hjälpare. Själva visningen görs av render_centered_table."""
+    return dataframe
+
+
+def render_centered_table(dataframe, empty_text="Ingen data att visa."):
+    """Rendera en responsiv HTML-tabell där både rubriker och innehåll är centrerade.
+
+    Streamlits st.dataframe renderas i en canvas där vanlig CSS/text-align inte är
+    tillförlitlig. Därför används HTML för rena visningstabeller.
+    """
+    if dataframe is None or dataframe.empty:
+        st.info(empty_text)
+        return
+    table_html = dataframe.to_html(index=False, escape=True, classes="cup-centered-table")
+    st.markdown(
+        """
+        <style>
+          .cup-table-scroll {
+            width:100%;
+            overflow-x:auto;
+            -webkit-overflow-scrolling:touch;
+            border:1px solid #cbd5e1;
+            border-radius:10px;
+            background:#ffffff;
+          }
+          table.cup-centered-table {
+            width:100%;
+            border-collapse:collapse;
+            color:#0f172a;
+            background:#ffffff;
+          }
+          table.cup-centered-table th,
+          table.cup-centered-table td {
+            text-align:center !important;
+            vertical-align:middle !important;
+            padding:9px 10px;
+            border-bottom:1px solid #e2e8f0;
+            border-right:1px solid #e2e8f0;
+            white-space:nowrap;
+          }
+          table.cup-centered-table th {
+            background:#f1f5f9;
+            color:#0f172a;
+            font-weight:800;
+          }
+          table.cup-centered-table tr:last-child td { border-bottom:none; }
+          table.cup-centered-table th:last-child,
+          table.cup-centered-table td:last-child { border-right:none; }
+        </style>
+        <div class="cup-table-scroll">""" + table_html + "</div>",
+        unsafe_allow_html=True,
+    )
 
 
 def brackets_for_display(tournament_id):
@@ -2359,7 +2406,7 @@ def render_public_view(tournament_id, tournament):
         for group in groups:
             st.subheader(group["name"])
             rows = [{"Pl": position, **data} for position, (_, data) in enumerate(calculate_table(group["id"], tournament), 1)]
-            st.dataframe(centered_table(pd.DataFrame(rows)), hide_index=True, use_container_width=True)
+            render_centered_table(pd.DataFrame(rows))
     with statistics:
         rows = all_rows(
             """
@@ -2374,10 +2421,10 @@ def render_public_view(tournament_id, tournament):
         )
         st.subheader("Skytteliga")
         goal_rows = sorted(rows, key=lambda r: (-r["goals"], -r["assists"], r["player_name"].lower()))
-        st.dataframe(pd.DataFrame([{"Pl": i, "Spelare": r["player_name"], "Lag": r["team_name"], "Mål": r["goals"]} for i, r in enumerate(goal_rows, 1) if r["goals"]]), hide_index=True, use_container_width=True)
+        render_centered_table(pd.DataFrame([{"Pl": i, "Spelare": r["player_name"], "Lag": r["team_name"], "Mål": r["goals"]} for i, r in enumerate(goal_rows, 1) if r["goals"]]))
         st.subheader("Assistliga")
         assist_rows = sorted(rows, key=lambda r: (-r["assists"], -r["goals"], r["player_name"].lower()))
-        st.dataframe(pd.DataFrame([{"Pl": i, "Spelare": r["player_name"], "Lag": r["team_name"], "Assist": r["assists"]} for i, r in enumerate(assist_rows, 1) if r["assists"]]), hide_index=True, use_container_width=True)
+        render_centered_table(pd.DataFrame([{"Pl": i, "Spelare": r["player_name"], "Lag": r["team_name"], "Assist": r["assists"]} for i, r in enumerate(assist_rows, 1) if r["assists"]]))
     with playoffs:
         brackets = [] if tournament["playoff_format"] == "Inget slutspel" else brackets_for_display(tournament_id)[0]
         if not brackets:
@@ -2828,38 +2875,52 @@ if admin_page == "Adminöversikt":
     st.divider()
     st.subheader("⚠️ Riskzon – Radera turnering")
     st.error(
-        "Radering tar permanent bort turneringen inklusive grupper, lag, spelare, domare, matcher, "
+        "Radering tar permanent bort den valda turneringen inklusive grupper, lag, spelare, domare, matcher, "
         "resultat, matchhändelser, tabeller, slutspel och sparad testfeedback. Åtgärden kan inte ångras i appen."
     )
+    delete_tournaments = all_rows("SELECT id,name FROM tournaments ORDER BY name")
+    delete_ids = [row["id"] for row in delete_tournaments]
+    delete_name_by_id = {row["id"]: row["name"] for row in delete_tournaments}
+    default_delete_index = delete_ids.index(tid) if tid in delete_ids else 0
+
     with st.container(border=True):
-        st.markdown(f"**Turnering som raderas:** {tournament['name']}")
+        delete_target_id = st.selectbox(
+            "Välj turnering som ska raderas",
+            delete_ids,
+            index=default_delete_index,
+            format_func=lambda tournament_id: delete_name_by_id[tournament_id],
+            key="delete_tournament_target",
+        )
+        delete_target_name = delete_name_by_id[delete_target_id]
+        st.markdown(f"**Vald turnering:** {delete_target_name}")
         delete_selected = st.checkbox(
-            "Jag förstår att hela turneringen och all tillhörande data raderas permanent",
-            key=f"delete_tournament_selected_{tid}",
+            "Jag förstår att hela den valda turneringen och all tillhörande data raderas permanent",
+            key=f"delete_tournament_selected_{delete_target_id}",
         )
 
         @st.dialog("Radera turneringen permanent?")
         def confirm_tournament_deletion():
             st.error(
-                f"Du är på väg att permanent radera **{tournament['name']}** och all tillhörande information."
+                f"Du är på väg att permanent radera **{delete_target_name}** och all tillhörande information."
             )
             st.caption("Det här går inte att ångra från CupNavi.")
             confirm_delete, cancel_delete = st.columns(2)
             if confirm_delete.button("Ja, radera turneringen", type="primary", use_container_width=True):
                 with db() as con:
-                    con.execute("DELETE FROM tournaments WHERE id=?", (tid,))
+                    con.execute("DELETE FROM tournaments WHERE id=?", (delete_target_id,))
                     con.commit()
-                # Rensa relevant sessionsdata så att nästa turnering väljs rent.
-                st.session_state.pop(f"admin_page_{tid}", None)
-                st.session_state.pop(f"_schedule_validation_{tid}", None)
+                st.session_state.pop(f"admin_page_{delete_target_id}", None)
+                st.session_state.pop(f"_schedule_validation_{delete_target_id}", None)
+                st.session_state.pop("delete_tournament_target", None)
+                _clear_render_query_cache()
                 st.rerun()
             if cancel_delete.button("Avbryt", use_container_width=True):
                 st.rerun()
 
         if st.button(
-            "🗑️ Radera turnering",
+            "🗑️ Radera vald turnering",
             disabled=not delete_selected,
-            key=f"open_delete_tournament_dialog_{tid}",
+            key=f"open_delete_tournament_dialog_{delete_target_id}",
             use_container_width=True,
         ):
             confirm_tournament_deletion()
@@ -2881,50 +2942,49 @@ if admin_page == "Adminöversikt":
     if st.button("Skapa demodata: 8 lag + trupper + 2 grupper", disabled=not demo_allowed, key=f"demo_{tid}"):
         con = db()
         try:
-            # Slumpas vid varje körning. Namnen är riktiga klubbnamn, men all spelar-/truppdata
-            # är uttryckligen påhittad testdata och ska inte tolkas som klubbarnas riktiga trupper.
+            # Riktiga klubbnamn används som testlag. Alla spelare nedan är påhittad demo-data.
+            # Varje körning väljer 3 Allsvenskan + 2 Superettan + 3 Premier League.
             demo_clubs = {
                 "Allsvenskan": [
                     ("AIK", "#111111", "#FDE047"), ("BK Häcken", "#FACC15", "#111111"),
-                    ("Djurgårdens IF", "#60A5FA", "#1E3A8A"), ("Halmstads BK", "#2563EB", "#FFFFFF"),
-                    ("Hammarby IF", "#16A34A", "#FFFFFF"), ("IF Elfsborg", "#FACC15", "#111111"),
-                    ("IFK Göteborg", "#2563EB", "#FFFFFF"), ("IFK Norrköping", "#2563EB", "#FFFFFF"),
-                    ("IK Sirius", "#2563EB", "#111111"), ("Malmö FF", "#7DD3FC", "#FFFFFF"),
-                    ("Mjällby AIF", "#FACC15", "#111111"), ("Östers IF", "#DC2626", "#1D4ED8"),
+                    ("Djurgårdens IF", "#60A5FA", "#1E3A8A"), ("Hammarby IF", "#16A34A", "#FFFFFF"),
+                    ("IF Elfsborg", "#FACC15", "#111111"), ("IFK Göteborg", "#2563EB", "#FFFFFF"),
+                    ("IFK Norrköping", "#2563EB", "#FFFFFF"), ("Malmö FF", "#7DD3FC", "#FFFFFF"),
+                    ("Mjällby AIF", "#FACC15", "#111111"), ("IK Sirius", "#2563EB", "#111111"),
                 ],
                 "Superettan": [
                     ("Örebro SK", "#111111", "#FFFFFF"), ("Helsingborgs IF", "#DC2626", "#2563EB"),
                     ("Kalmar FF", "#DC2626", "#FFFFFF"), ("Landskrona BoIS", "#111111", "#FFFFFF"),
                     ("GIF Sundsvall", "#2563EB", "#FFFFFF"), ("Örgryte IS", "#DC2626", "#2563EB"),
                     ("IK Brage", "#16A34A", "#FFFFFF"), ("Trelleborgs FF", "#2563EB", "#FFFFFF"),
-                    ("Varbergs BoIS", "#16A34A", "#111111"), ("Utsiktens BK", "#1D4ED8", "#FACC15"),
                 ],
                 "Premier League": [
                     ("Arsenal", "#DC2626", "#FFFFFF"), ("Aston Villa", "#7F1D1D", "#93C5FD"),
-                    ("Chelsea", "#1D4ED8", "#FFFFFF"), ("Everton", "#2563EB", "#FFFFFF"),
-                    ("Liverpool", "#DC2626", "#FFFFFF"), ("Manchester City", "#7DD3FC", "#FFFFFF"),
-                    ("Manchester United", "#DC2626", "#111111"), ("Newcastle United", "#111111", "#FFFFFF"),
-                    ("Tottenham Hotspur", "#FFFFFF", "#172554"), ("West Ham United", "#7F1D1D", "#93C5FD"),
-                    ("Wolverhampton Wanderers", "#F59E0B", "#111111"),
+                    ("Chelsea", "#1D4ED8", "#FFFFFF"), ("Liverpool", "#DC2626", "#FFFFFF"),
+                    ("Manchester City", "#7DD3FC", "#FFFFFF"), ("Manchester United", "#DC2626", "#111111"),
+                    ("Newcastle United", "#111111", "#FFFFFF"), ("Tottenham Hotspur", "#FFFFFF", "#172554"),
+                    ("West Ham United", "#7F1D1D", "#93C5FD"),
                 ],
             }
-            # Minst två ligor representeras, oftast alla tre.
-            chosen = []
-            for league, clubs in demo_clubs.items():
-                club = random.choice(clubs)
-                chosen.append((league, *club))
-            remaining = [ (league, *club) for league, clubs in demo_clubs.items() for club in clubs
-                         if (league, *club) not in chosen ]
-            chosen.extend(random.sample(remaining, 5))
+            chosen = (
+                [("Allsvenskan", *club) for club in random.sample(demo_clubs["Allsvenskan"], 3)]
+                + [("Superettan", *club) for club in random.sample(demo_clubs["Superettan"], 2)]
+                + [("Premier League", *club) for club in random.sample(demo_clubs["Premier League"], 3)]
+            )
             random.shuffle(chosen)
 
-            first_names = ["Alex", "Elias", "Noel", "Hugo", "Liam", "William", "Oliver", "Theo",
-                           "Lucas", "Viktor", "Sam", "Leo", "Adam", "Isak", "Milo", "Felix",
-                           "Oscar", "Emil", "Nils", "Anton", "Max", "Albin", "Edvin", "Vincent"]
-            last_names = ["Andersson", "Berg", "Lind", "Svensson", "Karlsson", "Nilsson", "Ek",
-                          "Holm", "Lund", "Dahl", "Fors", "Nyström", "Björk", "Hedlund", "Strand",
-                          "Westin", "Norén", "Sandberg", "Lindgren", "Rosén", "Engström", "Vik"]
-            positions = ["Målvakt", "Försvarare", "Mittfältare", "Anfallare"]
+            # Fiktiva namn inspirerade av kända fotbollsstjärnors förnamn/klang,
+            # men kombinerade med andra efternamn så de inte påstår sig vara riktiga spelare.
+            star_first_names = [
+                "Lionel", "Cristiano", "Kylian", "Erling", "Jude", "Mohamed", "Kevin", "Harry",
+                "Virgil", "Bukayo", "Cole", "Bruno", "Luka", "Pedri", "Vinícius", "Rodri",
+                "Sonny", "Declan", "Phil", "Antoine", "Zlatan", "Alexander", "Martin", "Victor",
+            ]
+            fun_surnames = [
+                "Svensson", "Bergström", "Karlsson", "Lind", "Holm", "Andersson", "Ekström",
+                "Nyström", "Dahl", "Sandberg", "Rosén", "Strand", "Björk", "Lund", "Forsberg",
+                "Westin", "Hedlund", "Norén", "Engström", "Vik", "Stjärna", "Bollström",
+            ]
             patterns = ["Helfärgad", "Vertikala ränder", "Horisontella ränder", "Rutigt", "Delad"]
             away_palette = ["#FFFFFF", "#111827", "#FACC15", "#22C55E", "#F97316", "#E5E7EB", "#7DD3FC"]
 
@@ -2932,17 +2992,19 @@ if admin_page == "Adminöversikt":
             g1 = con.execute("INSERT INTO groups(tournament_id,name) VALUES(?,?)", (tid, "Grupp A")).lastrowid
             g2 = con.execute("INSERT INTO groups(tournament_id,name) VALUES(?,?)", (tid, "Grupp B")).lastrowid
 
+            # Första passet: skapa alla lag.
+            team_specs = []
             for index, (league, club_name, home1, home2) in enumerate(chosen):
                 group_id = g1 if index < 4 else g2
                 home_pattern = random.choice(patterns)
                 away_pattern = random.choice(patterns)
                 away1 = random.choice(away_palette)
-                away2 = random.choice([c for c in away_palette if c != away1])
+                away2 = random.choice([color for color in away_palette if color != away1])
                 distance = random.choice([0, 12, 25, 48, 75, 110, 165, 220])
                 late = 1 if distance >= 110 and random.random() < 0.7 else 0
                 earliest = random.choice(["10:00", "10:30", "11:00"]) if late else None
                 note = f"Demodata · {league}" + (" · lång resväg" if late else "")
-                cur = con.execute(
+                con.execute(
                     """INSERT INTO teams(
                         tournament_id,name,primary_color,secondary_color,home_pattern,home_color_2,
                         away_pattern,away_color_2,group_id,distance_km,late_first_match,
@@ -2951,19 +3013,29 @@ if admin_page == "Adminöversikt":
                     (tid, club_name, home1, away1, home_pattern, home2, away_pattern, away2,
                      group_id, distance, late, earliest, note),
                 )
-                team_id = cur.lastrowid
+                team_specs.append((club_name, league))
 
-                # 12–16 fiktiva spelare per lag, ny slump varje gång.
-                squad_size = random.randint(12, 16)
+            # Hämta faktiska Turso-ID:n efter INSERT i stället för att lita på lastrowid.
+            created_teams = _rows_from_cursor(
+                con.execute("SELECT id,name FROM teams WHERE tournament_id=? ORDER BY id", (tid,))
+            )
+            team_id_by_name = {row["name"]: row["id"] for row in created_teams}
+            if len(team_id_by_name) != 8:
+                raise RuntimeError(f"Förväntade 8 demolag men hittade {len(team_id_by_name)}.")
+
+            # Andra passet: skapa 14 fiktiva spelare per lag.
+            inserted_players = 0
+            for club_name, league in team_specs:
+                team_id = team_id_by_name[club_name]
                 used_names = set()
-                numbers = random.sample(range(1, 100), squad_size)
-                for p_index in range(squad_size):
+                numbers = random.sample(range(1, 100), 14)
+                for player_index in range(14):
                     while True:
-                        player_name = f"{random.choice(first_names)} {random.choice(last_names)}"
+                        player_name = f"{random.choice(star_first_names)} {random.choice(fun_surnames)}"
                         if player_name not in used_names:
                             used_names.add(player_name)
                             break
-                    if p_index == 0:
+                    if player_index == 0:
                         position = "Målvakt"
                     else:
                         position = random.choices(
@@ -2974,14 +3046,29 @@ if admin_page == "Adminöversikt":
                     birth_year = random.randint(2007, 2014)
                     con.execute(
                         "INSERT INTO players(team_id,player_number,name,birth_year,position) VALUES(?,?,?,?,?)",
-                        (team_id, numbers[p_index], player_name, birth_year, position),
+                        (team_id, numbers[player_index], player_name, birth_year, position),
                     )
+                    inserted_players += 1
+
+            # Kontrollera trupperna innan vi godkänner transaktionen.
+            player_check = _one_from_cursor(
+                con.execute(
+                    """SELECT COUNT(*) AS n
+                       FROM players p JOIN teams t ON t.id=p.team_id
+                       WHERE t.tournament_id=?""",
+                    (tid,),
+                )
+            )
+            if int(player_check["n"] or 0) != inserted_players:
+                raise RuntimeError(
+                    f"Truppkontrollen misslyckades: skapade {inserted_players}, hittade {player_check['n']}."
+                )
 
             con.commit()
             _clear_render_query_cache()
             st.success(
-                "Demodata skapad: 8 slumpade klubbar från Allsvenskan, Superettan och Premier League, "
-                "2 grupper samt fiktiva trupper med 12–16 spelare per lag."
+                f"Demodata skapad: 8 riktiga klubbnamn (3 Allsvenskan, 2 Superettan, 3 Premier League), "
+                f"2 grupper och {inserted_players} fiktiva stjärninspirerade spelare."
             )
             st.rerun()
         except Exception as exc:
@@ -2990,6 +3077,7 @@ if admin_page == "Adminöversikt":
             except Exception:
                 pass
             st.error(f"Demodata kunde inte skapas: {exc}")
+
 
     feedback_rows = all_rows(
         "SELECT created_at,area,message,contact FROM feedback WHERE tournament_id=? ORDER BY id DESC LIMIT 50",
@@ -3063,7 +3151,7 @@ if admin_page == "Kontroller":
             st.warning(message)
     if control_quality:
         st.subheader("Belastning och vila per lag")
-        st.dataframe(centered_table(pd.DataFrame(control_quality)), hide_index=True, use_container_width=True)
+        render_centered_table(pd.DataFrame(control_quality))
 
     unassigned_controls = all_rows("SELECT name FROM teams WHERE tournament_id=? AND group_id IS NULL ORDER BY name", (tid,))
     small_group_controls = []
@@ -3356,7 +3444,7 @@ if admin_page == "Trupper":
                     st.rerun()
                 st.error("Ange spelarens namn.")
         players = all_rows("SELECT * FROM players WHERE team_id=? ORDER BY player_number,name", (team_id,))
-        st.dataframe(pd.DataFrame([{"Nr": p["player_number"], "Spelare": p["name"], "Födelseår": p["birth_year"], "Position": p["position"]} for p in players]), hide_index=True, use_container_width=True)
+        render_centered_table(pd.DataFrame([{"Nr": p["player_number"], "Spelare": p["name"], "Födelseår": p["birth_year"], "Position": p["position"]} for p in players]))
 
 
 if admin_page == "Domare":
@@ -3373,7 +3461,7 @@ if admin_page == "Domare":
                 st.rerun()
             st.error("Ange domarens namn.")
     refs = all_rows("SELECT * FROM referees WHERE tournament_id=? ORDER BY name", (tid,))
-    st.dataframe(pd.DataFrame([{"Namn": r["name"], "Telefon": r["phone"], "E-post": r["email"]} for r in refs]), hide_index=True, use_container_width=True)
+    render_centered_table(pd.DataFrame([{"Namn": r["name"], "Telefon": r["phone"], "E-post": r["email"]} for r in refs]))
 
 
 if admin_page == "Skapa och publicera schema":
@@ -3522,13 +3610,13 @@ if admin_page == "Skapa och publicera schema":
                 "Publicerade": int(counts.get("published_n", 0) or 0),
             })
         if group_status_rows:
-            st.dataframe(pd.DataFrame(group_status_rows), hide_index=True, use_container_width=True)
+            render_centered_table(pd.DataFrame(group_status_rows))
 
     st.info("Blockerande fel, varningar och lagens vilotider granskas på fliken Kontroller.")
 
     travel_teams = all_rows("SELECT * FROM teams WHERE tournament_id=? ORDER BY name", (tid,))
     st.subheader("Reseinformation för lagen")
-    st.dataframe(
+    render_centered_table(
         pd.DataFrame([
             {
                 "Lag": t["name"],
@@ -3538,9 +3626,7 @@ if admin_page == "Skapa och publicera schema":
                 "Kommentar": t["travel_note"] or "",
             }
             for t in travel_teams
-        ]),
-        hide_index=True,
-        use_container_width=True,
+        ])
     )
     adjustable_matches = all_rows(
         "SELECT * FROM matches WHERE tournament_id=? AND scheduled_start IS NOT NULL ORDER BY scheduled_start,pitch_number,id",
@@ -3851,7 +3937,7 @@ if admin_page == "Tabeller":
         rows = []
         for pos, (_, data) in enumerate(table, 1):
             rows.append({"Pl": pos, **data})
-        st.dataframe(centered_table(pd.DataFrame(rows)), hide_index=True, use_container_width=True)
+        render_centered_table(pd.DataFrame(rows))
         st.caption("Sortering: poäng, målskillnad, gjorda mål, lagnamn.")
 
 
@@ -3878,20 +3964,20 @@ if admin_page == "Skytteligor":
     )
     goal_rows = sorted(leaders, key=lambda r: (-r["goals"], -r["assists"], r["player_name"].lower()))
     if goal_rows:
-        st.dataframe(pd.DataFrame([{"Pl": i, "Spelare": r["player_name"], "Lag": r["team_name"], "Mål": r["goals"]} for i, r in enumerate(goal_rows, 1)]), hide_index=True, use_container_width=True)
+        render_centered_table(pd.DataFrame([{"Pl": i, "Spelare": r["player_name"], "Lag": r["team_name"], "Mål": r["goals"]} for i, r in enumerate(goal_rows, 1)]))
     else:
         st.info("Inga målskyttar har registrerats.")
     st.subheader("Assistliga")
     assist_rows = sorted(leaders, key=lambda r: (-r["assists"], -r["goals"], r["player_name"].lower()))
     if assist_rows:
-        st.dataframe(pd.DataFrame([{"Pl": i, "Spelare": r["player_name"], "Lag": r["team_name"], "Assist": r["assists"]} for i, r in enumerate(assist_rows, 1)]), hide_index=True, use_container_width=True)
+        render_centered_table(pd.DataFrame([{"Pl": i, "Spelare": r["player_name"], "Lag": r["team_name"], "Assist": r["assists"]} for i, r in enumerate(assist_rows, 1)]))
     else:
         st.info("Inga assist har registrerats.")
     st.subheader("Varningar och utvisningar")
     card_rows = sorted(leaders, key=lambda r: (-r["red_cards"], -r["yellow_cards"], r["player_name"].lower()))
     card_rows = [r for r in card_rows if r["yellow_cards"] or r["red_cards"]]
     if card_rows:
-        st.dataframe(pd.DataFrame([{"Spelare": r["player_name"], "Lag": r["team_name"], "Varningar": r["yellow_cards"], "Utvisningar": r["red_cards"]} for r in card_rows]), hide_index=True, use_container_width=True)
+        render_centered_table(pd.DataFrame([{"Spelare": r["player_name"], "Lag": r["team_name"], "Varningar": r["yellow_cards"], "Utvisningar": r["red_cards"]} for r in card_rows]))
     else:
         st.info("Inga varningar eller utvisningar har registrerats.")
 
