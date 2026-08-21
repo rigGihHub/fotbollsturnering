@@ -3346,9 +3346,24 @@ else:
 
 sidebar_warnings_approved = st.sidebar.checkbox(
     "Jag har granskat schemavarningarna",
-    disabled=not bool(sidebar_warnings),
+    disabled=not bool(blocking_sidebar_warnings),
     key=f"sidebar_warning_approval_{tid}",
 )
+
+def _is_advisory_schedule_warning(message):
+    """Varningar som ska synas men aldrig blockera publicering."""
+    lowered = (message or "").lower()
+    return "färgkrock" in lowered or "tröjfärg" in lowered
+
+
+blocking_sidebar_warnings = [
+    warning for warning in sidebar_warnings
+    if not _is_advisory_schedule_warning(warning)
+]
+advisory_sidebar_warnings = [
+    warning for warning in sidebar_warnings
+    if _is_advisory_schedule_warning(warning)
+]
 
 publish_blockers = []
 if not tournament["playoff_model_confirmed"]:
@@ -3363,9 +3378,9 @@ if sidebar_errors:
     publish_blockers.append(
         f"{len(sidebar_errors)} blockerande schemafel måste åtgärdas."
     )
-if sidebar_warnings and not sidebar_warnings_approved:
+if blocking_sidebar_warnings and not sidebar_warnings_approved:
     publish_blockers.append(
-        f"{len(sidebar_warnings)} schemavarningar måste granskas och godkännas."
+        f"{len(blocking_sidebar_warnings)} schemavarningar måste granskas och godkännas."
     )
 
 sidebar_publish_blocked = bool(publish_blockers)
@@ -3382,14 +3397,20 @@ if sidebar_publish_blocked:
             if len(sidebar_errors) > 10:
                 st.caption(f"Ytterligare {len(sidebar_errors) - 10} fel visas under Kontroller/Schema.")
 
-    if sidebar_warnings:
-        with st.sidebar.expander(f"Visa schemavarningar ({len(sidebar_warnings)})"):
-            for index, warning in enumerate(sidebar_warnings[:10], 1):
+    if blocking_sidebar_warnings:
+        with st.sidebar.expander(f"Visa schemavarningar ({len(blocking_sidebar_warnings)})"):
+            for index, warning in enumerate(blocking_sidebar_warnings[:10], 1):
                 st.markdown(f"**{index}.** {warning}")
-            if len(sidebar_warnings) > 10:
+            if len(blocking_sidebar_warnings) > 10:
                 st.caption(
-                    f"Ytterligare {len(sidebar_warnings) - 10} varningar visas under Kontroller/Schema."
+                    f"Ytterligare {len(blocking_sidebar_warnings) - 10} varningar visas under Kontroller/Schema."
                 )
+
+    if advisory_sidebar_warnings:
+        with st.sidebar.expander(f"Notiser – blockerar inte ({len(advisory_sidebar_warnings)})"):
+            for index, warning in enumerate(advisory_sidebar_warnings[:10], 1):
+                st.markdown(f"**{index}.** {warning}")
+            st.caption("Dessa notiser stoppar inte publicering.")
 else:
     st.sidebar.success("✓ Alla publiceringskrav är uppfyllda.")
 
@@ -3720,6 +3741,49 @@ if admin_page == "Adminöversikt":
         ),
     ])
     st.markdown(f"<div class='cn-workflow'>{workflow_html}</div>", unsafe_allow_html=True)
+
+    # Tydlig rekommendation om nästa arbetssteg.
+    if not teams_ready:
+        next_step_title = "Nästa steg: registrera lag"
+        next_step_target = "Lag"
+        next_step_text = "Lägg in samtliga deltagande lag innan gruppindelning."
+    elif not groups_ready:
+        next_step_title = "Nästa steg: skapa grupper"
+        next_step_target = "Grupper"
+        next_step_text = "Skapa grupper och placera lagen innan schemat genereras."
+    elif not players_ready:
+        next_step_title = "Nästa steg: lägg till trupper"
+        next_step_target = "Trupper"
+        next_step_text = "Trupper behövs för mål, assist och kortstatistik."
+    elif not refs_ready:
+        next_step_title = "Nästa steg: lägg till domare"
+        next_step_target = "Domare"
+        next_step_text = "Lägg till domare innan automatisk domartillsättning används."
+    elif not workflow_counts["matches_n"]:
+        next_step_title = "Nästa steg: generera schema"
+        next_step_target = "Skapa och publicera schema"
+        next_step_text = "Grunddata är på plats. Generera gruppspel och slutspel."
+    elif bool(tournament["schedule_dirty"]):
+        next_step_title = "Nästa steg: regenerera schema"
+        next_step_target = "Skapa och publicera schema"
+        next_step_text = "Förutsättningarna har ändrats sedan schemat skapades."
+    elif not results_ready:
+        next_step_title = "Nästa steg: registrera resultat"
+        next_step_target = "Matcher och resultat"
+        next_step_text = "Schemat är klart. Registrera matchresultaten när turneringen spelas."
+    else:
+        next_step_title = "Nästa steg: granska och publicera"
+        next_step_target = "Kontroller"
+        next_step_text = "Grundflödet är klart. Kontrollera varningar och publiceringsstatus."
+
+    st.info(f"**{next_step_title}**\\n\\n{next_step_text}")
+    if st.button(
+        next_step_title,
+        key=f"dashboard_next_step_{tid}",
+        use_container_width=True,
+    ):
+        st.session_state[admin_page_key] = next_step_target
+        st.rerun()
 
     if bool(tournament["schedule_dirty"]) and workflow_counts["matches_n"] > 0:
         st.markdown(
