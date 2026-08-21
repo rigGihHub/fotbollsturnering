@@ -4,6 +4,7 @@ import base64
 import hmac
 import json
 import os
+import random
 import time
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -595,6 +596,34 @@ def inject_custom_css():
             }
           }
 
+
+          /* ===== TABELLER v31: centrera rubriker och innehåll ===== */
+          table th,
+          table td {
+            text-align:center !important;
+            vertical-align:middle !important;
+          }
+
+          /* Streamlit dataframe/data_editor (Glide Data Grid) */
+          [data-testid="stDataFrame"] [role="columnheader"],
+          [data-testid="stDataFrame"] [role="gridcell"],
+          [data-testid="stDataEditor"] [role="columnheader"],
+          [data-testid="stDataEditor"] [role="gridcell"] {
+            text-align:center !important;
+            justify-content:center !important;
+            align-items:center !important;
+          }
+
+          [data-testid="stDataFrame"] [role="columnheader"] *,
+          [data-testid="stDataFrame"] [role="gridcell"] *,
+          [data-testid="stDataEditor"] [role="columnheader"] *,
+          [data-testid="stDataEditor"] [role="gridcell"] * {
+            text-align:center !important;
+            justify-content:center !important;
+            margin-left:auto !important;
+            margin-right:auto !important;
+          }
+
 </style>
         """,
         unsafe_allow_html=True,
@@ -602,7 +631,7 @@ def inject_custom_css():
 
 
 inject_custom_css()
-APP_VERSION = "2026.08.21-29-WEBTEST"
+APP_VERSION = "2026.08.21-34-WEBTEST"
 DB_FILE = Path(__file__).with_name("turnering.db")
 
 
@@ -840,6 +869,10 @@ def init_db():
                 name TEXT NOT NULL,
                 primary_color TEXT NOT NULL DEFAULT '#111827',
                 secondary_color TEXT NOT NULL DEFAULT '#FFFFFF',
+                home_pattern TEXT NOT NULL DEFAULT 'Helfärgad',
+                home_color_2 TEXT NOT NULL DEFAULT '#FFFFFF',
+                away_pattern TEXT NOT NULL DEFAULT 'Helfärgad',
+                away_color_2 TEXT NOT NULL DEFAULT '#111827',
                 group_id INTEGER REFERENCES groups(id) ON DELETE SET NULL,
                 distance_km INTEGER NOT NULL DEFAULT 0,
                 late_first_match INTEGER NOT NULL DEFAULT 0,
@@ -973,6 +1006,14 @@ def init_db():
             con.execute("ALTER TABLE teams ADD COLUMN primary_color TEXT NOT NULL DEFAULT '#111827'")
         if "secondary_color" not in team_cols:
             con.execute("ALTER TABLE teams ADD COLUMN secondary_color TEXT NOT NULL DEFAULT '#FFFFFF'")
+        if "home_pattern" not in team_cols:
+            con.execute("ALTER TABLE teams ADD COLUMN home_pattern TEXT NOT NULL DEFAULT 'Helfärgad'")
+        if "home_color_2" not in team_cols:
+            con.execute("ALTER TABLE teams ADD COLUMN home_color_2 TEXT NOT NULL DEFAULT '#FFFFFF'")
+        if "away_pattern" not in team_cols:
+            con.execute("ALTER TABLE teams ADD COLUMN away_pattern TEXT NOT NULL DEFAULT 'Helfärgad'")
+        if "away_color_2" not in team_cols:
+            con.execute("ALTER TABLE teams ADD COLUMN away_color_2 TEXT NOT NULL DEFAULT '#111827'")
         if "distance_km" not in team_cols:
             con.execute("ALTER TABLE teams ADD COLUMN distance_km INTEGER NOT NULL DEFAULT 0")
         if "late_first_match" not in team_cols:
@@ -1072,8 +1113,9 @@ class TeamLimitReachedError(Exception):
     pass
 
 
-def insert_team_with_limit(tournament_id, name, primary_color, secondary_color, distance_km,
-                           late_first_match, earliest_first_time, travel_note):
+def insert_team_with_limit(tournament_id, name, primary_color, secondary_color,
+                           home_pattern, home_color_2, away_pattern, away_color_2,
+                           distance_km, late_first_match, earliest_first_time, travel_note):
     """Lägg till ett lag atomiskt och respektera alltid turneringens sparade maxantal."""
     con = db()
     try:
@@ -1095,10 +1137,14 @@ def insert_team_with_limit(tournament_id, name, primary_color, secondary_color, 
         if max_teams > 0 and current_count >= max_teams:
             raise TeamLimitReachedError(max_teams)
         cur = con.execute(
-            """INSERT INTO teams(tournament_id,name,group_id,primary_color,secondary_color,distance_km,late_first_match,earliest_first_time,travel_note)
-            VALUES(?,?,?,?,?,?,?,?,?)""",
-            (tournament_id, name, None, primary_color, secondary_color, distance_km,
-             int(late_first_match), earliest_first_time, travel_note),
+            """INSERT INTO teams(
+                tournament_id,name,group_id,primary_color,secondary_color,
+                home_pattern,home_color_2,away_pattern,away_color_2,
+                distance_km,late_first_match,earliest_first_time,travel_note
+            ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+            (tournament_id, name, None, primary_color, secondary_color,
+             home_pattern, home_color_2, away_pattern, away_color_2,
+             distance_km, int(late_first_match), earliest_first_time, travel_note),
         )
         con.commit()
         return cur.lastrowid
@@ -1344,30 +1390,136 @@ def weather_label(weather):
     return f"{icon} {description} · {temperature} · {rain} · {wind}"
 
 
-def color_swatch(color):
-    """Skapa en liten enfärgad tröjfärgsruta för schematabellen."""
-    svg = f"""<svg xmlns='http://www.w3.org/2000/svg' width='58' height='24' viewBox='0 0 58 24'>
-    <rect x='1' y='1' width='56' height='22' rx='4' fill='{color}' stroke='#475569'/></svg>"""
+def _team_value(team_row, key, default=None):
+    """Läs ett teamfält säkert från sqlite/libsql-rader och äldre data."""
+    if not team_row:
+        return default
+    try:
+        value = team_row[key]
+    except Exception:
+        value = default
+    return default if value is None else value
+
+
+KIT_PATTERNS = ["Helfärgad", "Vertikala ränder", "Horisontella ränder", "Rutigt", "Delad"]
+
+
+def kit_colors(team_row, kit="home"):
+    """Returnera de färger som faktiskt syns i ett hemma- eller bortaställ."""
+    if not team_row:
+        return ["#9CA3AF"]
+    if kit == "away":
+        pattern = _team_value(team_row, "away_pattern", "Helfärgad")
+        color_1 = _team_value(team_row, "secondary_color", "#FFFFFF")
+        color_2 = _team_value(team_row, "away_color_2", "#111827")
+    else:
+        pattern = _team_value(team_row, "home_pattern", "Helfärgad")
+        color_1 = _team_value(team_row, "primary_color", "#111827")
+        color_2 = _team_value(team_row, "home_color_2", "#FFFFFF")
+    return [color_1] if pattern == "Helfärgad" else [color_1, color_2]
+
+
+def kit_pattern(team_row, kit="home"):
+    if kit == "away":
+        return _team_value(team_row, "away_pattern", "Helfärgad")
+    return _team_value(team_row, "home_pattern", "Helfärgad")
+
+
+def kit_background(pattern, color_1, color_2):
+    """CSS-bakgrund som visuellt återger valt tröjmönster."""
+    if pattern == "Vertikala ränder":
+        return f"repeating-linear-gradient(90deg,{color_1} 0 8px,{color_2} 8px 16px)"
+    if pattern == "Horisontella ränder":
+        return f"repeating-linear-gradient(0deg,{color_1} 0 7px,{color_2} 7px 14px)"
+    if pattern == "Rutigt":
+        return f"conic-gradient({color_1} 25%,{color_2} 0 50%,{color_1} 0 75%,{color_2} 0) 0 0/16px 16px"
+    if pattern == "Delad":
+        return f"linear-gradient(90deg,{color_1} 0 50%,{color_2} 50% 100%)"
+    return color_1
+
+
+def kit_background_for_team(team_row, kit="home"):
+    colors = kit_colors(team_row, kit)
+    color_1 = colors[0]
+    color_2 = colors[1] if len(colors) > 1 else color_1
+    return kit_background(kit_pattern(team_row, kit), color_1, color_2)
+
+
+def kit_preview_html(pattern, color_1, color_2, title):
+    bg = kit_background(pattern, color_1, color_2)
+    return (
+        f"<div style='display:flex;align-items:center;gap:10px;margin:4px 0 10px'>"
+        f"<span style='width:58px;height:32px;border:1px solid #64748b;border-radius:7px;background:{bg};display:inline-block'></span>"
+        f"<span style='color:#334155;font-size:13px'><b>{html.escape(title)}</b><br>{html.escape(pattern)}</span></div>"
+    )
+
+
+def kit_swatch(team_row, kit="home"):
+    """SVG-ruta för Streamlit-tabeller som kan visa två färger och mönster."""
+    colors = kit_colors(team_row, kit)
+    c1 = colors[0]
+    c2 = colors[1] if len(colors) > 1 else c1
+    pattern = kit_pattern(team_row, kit)
+    defs = ""
+    fill = c1
+    if pattern == "Vertikala ränder":
+        defs = f"<pattern id='p' width='12' height='24' patternUnits='userSpaceOnUse'><rect width='6' height='24' fill='{c1}'/><rect x='6' width='6' height='24' fill='{c2}'/></pattern>"
+        fill = "url(#p)"
+    elif pattern == "Horisontella ränder":
+        defs = f"<pattern id='p' width='58' height='12' patternUnits='userSpaceOnUse'><rect width='58' height='6' fill='{c1}'/><rect y='6' width='58' height='6' fill='{c2}'/></pattern>"
+        fill = "url(#p)"
+    elif pattern == "Rutigt":
+        defs = f"<pattern id='p' width='12' height='12' patternUnits='userSpaceOnUse'><rect width='12' height='12' fill='{c1}'/><rect width='6' height='6' fill='{c2}'/><rect x='6' y='6' width='6' height='6' fill='{c2}'/></pattern>"
+        fill = "url(#p)"
+    elif pattern == "Delad":
+        defs = f"<linearGradient id='p' x1='0' x2='1'><stop offset='50%' stop-color='{c1}'/><stop offset='50%' stop-color='{c2}'/></linearGradient>"
+        fill = "url(#p)"
+    svg = f"<svg xmlns='http://www.w3.org/2000/svg' width='58' height='24' viewBox='0 0 58 24'><defs>{defs}</defs><rect x='1' y='1' width='56' height='22' rx='4' fill='{fill}' stroke='#475569'/></svg>"
     return "data:image/svg+xml;base64," + base64.b64encode(svg.encode("utf-8")).decode("ascii")
 
 
+def _hex_rgb(value):
+    value = (value or "").strip().lstrip("#")
+    if len(value) == 3:
+        value = "".join(ch * 2 for ch in value)
+    if len(value) != 6:
+        return None
+    try:
+        return tuple(int(value[i:i + 2], 16) for i in (0, 2, 4))
+    except ValueError:
+        return None
+
+
+def colors_similar(color_a, color_b, threshold=72):
+    """Praktisk färgkrock: fånga även tydligt närliggande nyanser, inte bara identiska hexvärden."""
+    a, b = _hex_rgb(color_a), _hex_rgb(color_b)
+    if not a or not b:
+        return str(color_a).casefold() == str(color_b).casefold()
+    distance = sum((x - y) ** 2 for x, y in zip(a, b)) ** 0.5
+    return distance <= threshold
+
+
+def kits_conflict(team_a, kit_a, team_b, kit_b):
+    return any(colors_similar(a, b) for a in kit_colors(team_a, kit_a) for b in kit_colors(team_b, kit_b))
+
+
 def match_kit_colors(home_team, away_team):
-    """Välj hemmafärg och byt automatiskt bortalaget till bortafärg vid färgkrock."""
+    """Behåll kompatibel returtyp men välj bortaställ utifrån alla synliga färger."""
     if not home_team or not away_team:
         return "#9CA3AF", "#FFFFFF", False
-    home_color = home_team["primary_color"]
-    away_primary = away_team["primary_color"]
-    use_away_kit = home_color.strip().casefold() == away_primary.strip().casefold()
-    away_color = away_team["secondary_color"] if use_away_kit else away_primary
+    use_away_kit = kits_conflict(home_team, "home", away_team, "home")
+    home_color = kit_colors(home_team, "home")[0]
+    away_color = kit_colors(away_team, "away" if use_away_kit else "home")[0]
     return home_color, away_color, use_away_kit
 
 
 def kit_color_conflict(home_team, away_team):
-    """Kontrollera om färgerna fortfarande krockar efter ett automatiskt byte av bortalaget."""
+    """Kontrollera om bortalagets valda ställ fortfarande krockar med hemmastället."""
     if not home_team or not away_team:
         return False
-    home_color, away_color, _ = match_kit_colors(home_team, away_team)
-    return home_color.strip().casefold() == away_color.strip().casefold()
+    use_away_kit = kits_conflict(home_team, "home", away_team, "home")
+    selected_away_kit = "away" if use_away_kit else "home"
+    return kits_conflict(home_team, "home", away_team, selected_away_kit)
 
 
 def centered_table(dataframe):
@@ -1860,8 +2012,8 @@ def validate_schedule(tournament_id, tournament, rules):
             warnings.append(f"Match {number} saknar domare.")
         if kit_color_conflict(home_team, away_team):
             warnings.append(
-                f"Färgkrock i match {number}: {away_team['name']} har samma färg som hemmalaget även på sin andra tröja. "
-                f"En ytterligare avvikande tröjfärg behöver användas."
+                f"Färgkrock i match {number}: {away_team['name']} har fortfarande en färgkrock med hemmalaget även i sitt bortaställ. "
+                f"Ett ytterligare avvikande ställ behöver användas."
             )
     for index, first in enumerate(events):
         for second in events[index + 1:]:
@@ -2158,6 +2310,9 @@ def render_public_view(tournament_id, tournament):
             if match_row["home_penalties"] is not None:
                 score += f" ({match_row['home_penalties']}–{match_row['away_penalties']} str.)"
             home_primary, away_match_color, away_kit_used = match_kit_colors(home, away)
+            home_kit_bg = kit_background_for_team(home, "home") if home else "#94a3b8"
+            away_selected_kit = "away" if away_kit_used else "home"
+            away_kit_bg = kit_background_for_team(away, away_selected_kit) if away else "#94a3b8"
             match_start_dt = datetime.fromisoformat(match_row["scheduled_start"])
             if match_row["home_score"] is not None and match_row["away_score"] is not None:
                 status_text, status_class = "SLUT", "status-finished"
@@ -2174,7 +2329,7 @@ def render_public_view(tournament_id, tournament):
             elif away_kit_used:
                 color_conflict_html = (
                     f"<div style='margin-top:10px;padding:7px 10px;border-radius:7px;background:#eff6ff;border:1px solid #93c5fd;"
-                    f"color:#1e3a8a;font-size:12px;font-weight:700'>{html.escape(away_name)} använder sin andra tröjfärg på grund av färgkrock.</div>"
+                    f"color:#1e3a8a;font-size:12px;font-weight:700'>{html.escape(away_name)} använder sitt bortaställ på grund av färgkrock.</div>"
                 )
             st.markdown(
                 f"""
@@ -2184,11 +2339,11 @@ def render_public_view(tournament_id, tournament):
                     <span class="match-meta" style="font-size:13px;color:#334155">Match {number} · <b>{start}</b> · Plan {match_row['pitch_number']}</span>
                   </div>
                   <div style="display:grid;grid-template-columns:1fr auto 1fr;gap:15px;align-items:center;margin-top:8px;color:#0f172a">
-                    <div style="color:#0f172a"><span style="display:inline-block;width:22px;height:15px;background:{home_primary};border:1px solid #444;border-radius:3px"></span>
-                    <b class="public-team-name" style="color:#0f172a">{home_name}</b><br><small class="kit-label" style="color:#475569">Hemmalagets tröjfärg</small></div>
+                    <div style="color:#0f172a"><span style="display:inline-block;width:22px;height:15px;background:{home_kit_bg};border:1px solid #444;border-radius:3px"></span>
+                    <b class="public-team-name" style="color:#0f172a">{home_name}</b><br><small class="kit-label" style="color:#475569">Hemmalagets hemmaställ</small></div>
                     <div class="match-score" style="font-size:20px;font-weight:700;color:#0f172a">{score}</div>
-                    <div style="text-align:right;color:#0f172a"><b class="public-team-name" style="color:#0f172a">{away_name}</b> <span style="display:inline-block;width:22px;height:15px;background:{away_match_color};border:1px solid #444;border-radius:3px"></span>
-                    <br><small class="kit-label" style="color:#475569">{'Bortalagets andra tröjfärg' if away_kit_used else 'Bortalagets tröjfärg'}</small></div>
+                    <div style="text-align:right;color:#0f172a"><b class="public-team-name" style="color:#0f172a">{away_name}</b> <span style="display:inline-block;width:22px;height:15px;background:{away_kit_bg};border:1px solid #444;border-radius:3px"></span>
+                    <br><small class="kit-label" style="color:#475569">{'Bortalagets bortaställ' if away_kit_used else 'Bortalagets hemmaställ'}</small></div>
                   </div>
                   {color_conflict_html}
                   <div class="match-weather" style="font-size:12px;color:#475569;text-align:center;margin-top:10px">{html.escape(weather_text)}</div>
@@ -2640,11 +2795,6 @@ if admin_page == "Adminöversikt":
     scheduled_admin_matches = [m for m in admin_matches if m["scheduled_start"] is not None]
     published_admin_matches = [m for m in scheduled_admin_matches if m["schedule_published"]]
     overview_schedule_errors, overview_schedule_warnings, _ = validate_schedule(tid, tournament, overview_rules)
-    c1, c2, c3, c4 = st.columns(4)
-    c1.metric("Grupper", len(admin_groups))
-    c2.metric("Lag", len(admin_teams))
-    c3.metric("Matcher", len(admin_matches))
-    c4.metric("Tävlingsformat", tournament["playoff_format"])
     st.subheader("Kontroll före turneringsstart")
     checks = [
         (bool(admin_groups), "Minst en grupp är skapad"),
@@ -2728,23 +2878,111 @@ if admin_page == "Adminöversikt":
     demo_allowed = demo_counts["teams_n"] == 0 and demo_counts["groups_n"] == 0 and demo_counts["matches_n"] == 0
     if not demo_allowed:
         st.caption("Demodata kan bara skapas i en tom turnering, så befintlig cupdata kan aldrig skrivas över.")
-    if st.button("Skapa demodata: 8 lag + 2 grupper", disabled=not demo_allowed, key=f"demo_{tid}"):
+    if st.button("Skapa demodata: 8 lag + trupper + 2 grupper", disabled=not demo_allowed, key=f"demo_{tid}"):
         con = db()
         try:
+            # Slumpas vid varje körning. Namnen är riktiga klubbnamn, men all spelar-/truppdata
+            # är uttryckligen påhittad testdata och ska inte tolkas som klubbarnas riktiga trupper.
+            demo_clubs = {
+                "Allsvenskan": [
+                    ("AIK", "#111111", "#FDE047"), ("BK Häcken", "#FACC15", "#111111"),
+                    ("Djurgårdens IF", "#60A5FA", "#1E3A8A"), ("Halmstads BK", "#2563EB", "#FFFFFF"),
+                    ("Hammarby IF", "#16A34A", "#FFFFFF"), ("IF Elfsborg", "#FACC15", "#111111"),
+                    ("IFK Göteborg", "#2563EB", "#FFFFFF"), ("IFK Norrköping", "#2563EB", "#FFFFFF"),
+                    ("IK Sirius", "#2563EB", "#111111"), ("Malmö FF", "#7DD3FC", "#FFFFFF"),
+                    ("Mjällby AIF", "#FACC15", "#111111"), ("Östers IF", "#DC2626", "#1D4ED8"),
+                ],
+                "Superettan": [
+                    ("Örebro SK", "#111111", "#FFFFFF"), ("Helsingborgs IF", "#DC2626", "#2563EB"),
+                    ("Kalmar FF", "#DC2626", "#FFFFFF"), ("Landskrona BoIS", "#111111", "#FFFFFF"),
+                    ("GIF Sundsvall", "#2563EB", "#FFFFFF"), ("Örgryte IS", "#DC2626", "#2563EB"),
+                    ("IK Brage", "#16A34A", "#FFFFFF"), ("Trelleborgs FF", "#2563EB", "#FFFFFF"),
+                    ("Varbergs BoIS", "#16A34A", "#111111"), ("Utsiktens BK", "#1D4ED8", "#FACC15"),
+                ],
+                "Premier League": [
+                    ("Arsenal", "#DC2626", "#FFFFFF"), ("Aston Villa", "#7F1D1D", "#93C5FD"),
+                    ("Chelsea", "#1D4ED8", "#FFFFFF"), ("Everton", "#2563EB", "#FFFFFF"),
+                    ("Liverpool", "#DC2626", "#FFFFFF"), ("Manchester City", "#7DD3FC", "#FFFFFF"),
+                    ("Manchester United", "#DC2626", "#111111"), ("Newcastle United", "#111111", "#FFFFFF"),
+                    ("Tottenham Hotspur", "#FFFFFF", "#172554"), ("West Ham United", "#7F1D1D", "#93C5FD"),
+                    ("Wolverhampton Wanderers", "#F59E0B", "#111111"),
+                ],
+            }
+            # Minst två ligor representeras, oftast alla tre.
+            chosen = []
+            for league, clubs in demo_clubs.items():
+                club = random.choice(clubs)
+                chosen.append((league, *club))
+            remaining = [ (league, *club) for league, clubs in demo_clubs.items() for club in clubs
+                         if (league, *club) not in chosen ]
+            chosen.extend(random.sample(remaining, 5))
+            random.shuffle(chosen)
+
+            first_names = ["Alex", "Elias", "Noel", "Hugo", "Liam", "William", "Oliver", "Theo",
+                           "Lucas", "Viktor", "Sam", "Leo", "Adam", "Isak", "Milo", "Felix",
+                           "Oscar", "Emil", "Nils", "Anton", "Max", "Albin", "Edvin", "Vincent"]
+            last_names = ["Andersson", "Berg", "Lind", "Svensson", "Karlsson", "Nilsson", "Ek",
+                          "Holm", "Lund", "Dahl", "Fors", "Nyström", "Björk", "Hedlund", "Strand",
+                          "Westin", "Norén", "Sandberg", "Lindgren", "Rosén", "Engström", "Vik"]
+            positions = ["Målvakt", "Försvarare", "Mittfältare", "Anfallare"]
+            patterns = ["Helfärgad", "Vertikala ränder", "Horisontella ränder", "Rutigt", "Delad"]
+            away_palette = ["#FFFFFF", "#111827", "#FACC15", "#22C55E", "#F97316", "#E5E7EB", "#7DD3FC"]
+
             con.execute("UPDATE tournaments SET expected_team_count=8 WHERE id=?", (tid,))
             g1 = con.execute("INSERT INTO groups(tournament_id,name) VALUES(?,?)", (tid, "Grupp A")).lastrowid
             g2 = con.execute("INSERT INTO groups(tournament_id,name) VALUES(?,?)", (tid, "Grupp B")).lastrowid
-            colors = ["#1d4ed8", "#dc2626", "#15803d", "#7e22ce", "#ea580c", "#0f766e", "#be123c", "#334155"]
-            for index in range(8):
+
+            for index, (league, club_name, home1, home2) in enumerate(chosen):
                 group_id = g1 if index < 4 else g2
-                con.execute(
-                    """INSERT INTO teams(tournament_id,name,primary_color,secondary_color,group_id,distance_km,
-                       late_first_match,earliest_first_time,travel_note) VALUES(?,?,?,?,?,?,?,?,?)""",
-                    (tid, f"Testlag {index + 1}", colors[index], "#FFFFFF", group_id, 0, 0, None, None),
+                home_pattern = random.choice(patterns)
+                away_pattern = random.choice(patterns)
+                away1 = random.choice(away_palette)
+                away2 = random.choice([c for c in away_palette if c != away1])
+                distance = random.choice([0, 12, 25, 48, 75, 110, 165, 220])
+                late = 1 if distance >= 110 and random.random() < 0.7 else 0
+                earliest = random.choice(["10:00", "10:30", "11:00"]) if late else None
+                note = f"Demodata · {league}" + (" · lång resväg" if late else "")
+                cur = con.execute(
+                    """INSERT INTO teams(
+                        tournament_id,name,primary_color,secondary_color,home_pattern,home_color_2,
+                        away_pattern,away_color_2,group_id,distance_km,late_first_match,
+                        earliest_first_time,travel_note
+                    ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                    (tid, club_name, home1, away1, home_pattern, home2, away_pattern, away2,
+                     group_id, distance, late, earliest, note),
                 )
+                team_id = cur.lastrowid
+
+                # 12–16 fiktiva spelare per lag, ny slump varje gång.
+                squad_size = random.randint(12, 16)
+                used_names = set()
+                numbers = random.sample(range(1, 100), squad_size)
+                for p_index in range(squad_size):
+                    while True:
+                        player_name = f"{random.choice(first_names)} {random.choice(last_names)}"
+                        if player_name not in used_names:
+                            used_names.add(player_name)
+                            break
+                    if p_index == 0:
+                        position = "Målvakt"
+                    else:
+                        position = random.choices(
+                            ["Försvarare", "Mittfältare", "Anfallare"],
+                            weights=[4, 4, 3],
+                            k=1,
+                        )[0]
+                    birth_year = random.randint(2007, 2014)
+                    con.execute(
+                        "INSERT INTO players(team_id,player_number,name,birth_year,position) VALUES(?,?,?,?,?)",
+                        (team_id, numbers[p_index], player_name, birth_year, position),
+                    )
+
             con.commit()
             _clear_render_query_cache()
-            st.success("Demodata skapad: 8 testlag fördelade på Grupp A och Grupp B.")
+            st.success(
+                "Demodata skapad: 8 slumpade klubbar från Allsvenskan, Superettan och Premier League, "
+                "2 grupper samt fiktiva trupper med 12–16 spelare per lag."
+            )
             st.rerun()
         except Exception as exc:
             try:
@@ -2855,19 +3093,35 @@ if admin_page == "Kontroller":
 
 if admin_page == "Lag":
     st.header("Lag")
-    st.caption("Registrera lagen först. Här anger du även tröjfärger, resväg och önskemål om en senare första match. Gruppindelningen görs därefter under fliken Grupper.")
+    st.caption("Registrera lagen först. Varje hemma- och bortaställ kan vara helfärgat, randigt, rutigt eller delat och ha upp till två färger. Här anger du även resväg och önskemål om en senare första match. Gruppindelningen görs därefter under fliken Grupper.")
     max_teams = int(tournament["expected_team_count"] or 0)
     registered_team_count = one_row("SELECT COUNT(*) AS n FROM teams WHERE tournament_id=?", (tid,))["n"]
     if max_teams:
         st.info(f"Registrerade lag: {registered_team_count} av maximalt {max_teams}.")
     team_limit_reached = bool(max_teams and registered_team_count >= max_teams)
     if team_limit_reached:
-        st.warning(f"Maxantalet {max_teams} lag är uppnått. Ändra maxantalet på Adminöversikten om fler lag ska kunna registreras.")
+        st.info(
+            f"Maximalt antal lag ({max_teams}) är registrerade. "
+            "Om du vill lägga till fler lag måste du först ändra planerat antal lag under Admin → Översikt."
+        )
+    if team_limit_reached:
+        st.warning(f"Maximalt antal lag ({max_teams}) är registrerade. Ändra planerat antal lag under Admin → Översikt om fler lag ska kunna läggas till.")
     with st.form("new_team", clear_on_submit=True):
         team_name = st.text_input("Lagnamn")
-        col1, col2 = st.columns(2)
-        primary = col1.color_picker("Dominerande färg hemmatröja", "#111827")
-        secondary = col2.color_picker("Dominerande färg bortatröja", "#FFFFFF")
+        st.markdown("#### Hemmaställ")
+        hc1, hc2, hc3 = st.columns([1.2, 1, 1])
+        home_pattern = hc1.selectbox("Mönster hemma", KIT_PATTERNS, key="new_home_pattern")
+        primary = hc2.color_picker("Hemma – färg 1", "#111827")
+        home_color_2 = hc3.color_picker("Hemma – färg 2", "#FFFFFF", help="Används när stället inte är helfärgat.")
+        st.markdown(kit_preview_html(home_pattern, primary, home_color_2, "Förhandsvisning hemmaställ"), unsafe_allow_html=True)
+
+        st.markdown("#### Bortaställ")
+        ac1, ac2, ac3 = st.columns([1.2, 1, 1])
+        away_pattern = ac1.selectbox("Mönster borta", KIT_PATTERNS, key="new_away_pattern")
+        secondary = ac2.color_picker("Borta – färg 1", "#FFFFFF")
+        away_color_2 = ac3.color_picker("Borta – färg 2", "#111827", help="Används när stället inte är helfärgat.")
+        st.markdown(kit_preview_html(away_pattern, secondary, away_color_2, "Förhandsvisning bortaställ"), unsafe_allow_html=True)
+
         distance = st.number_input("Resväg i kilometer", 0, 5000, 0)
         travel_note = st.text_input("Resekommentar", placeholder="Exempel: Reser samma morgon")
         late_first_match = st.checkbox("Önskar senare första match", help="Använd detta exempelvis för lag med lång resväg.")
@@ -2883,6 +3137,10 @@ if admin_page == "Lag":
                         team_name.strip(),
                         primary,
                         secondary,
+                        home_pattern,
+                        home_color_2,
+                        away_pattern,
+                        away_color_2,
                         distance,
                         late_first_match,
                         earliest_first_time.strftime("%H:%M") if late_first_match else None,
@@ -2910,9 +3168,30 @@ if admin_page == "Lag":
             edit_team = next(t for t in teams if t["id"] == edit_team_id)
             with st.form("edit_team_form"):
                 edited_name = st.text_input("Lagnamn", value=edit_team["name"])
-                ec1, ec2 = st.columns(2)
-                edited_primary = ec1.color_picker("Dominerande färg hemmatröja", edit_team["primary_color"])
-                edited_secondary = ec2.color_picker("Dominerande färg bortatröja", edit_team["secondary_color"])
+                st.markdown("#### Hemmaställ")
+                eh1, eh2, eh3 = st.columns([1.2, 1, 1])
+                saved_home_pattern = _team_value(edit_team, "home_pattern", "Helfärgad")
+                edited_home_pattern = eh1.selectbox(
+                    "Mönster hemma", KIT_PATTERNS,
+                    index=KIT_PATTERNS.index(saved_home_pattern) if saved_home_pattern in KIT_PATTERNS else 0,
+                    key=f"edit_home_pattern_{edit_team_id}",
+                )
+                edited_primary = eh2.color_picker("Hemma – färg 1", edit_team["primary_color"])
+                edited_home_color_2 = eh3.color_picker("Hemma – färg 2", _team_value(edit_team, "home_color_2", "#FFFFFF"))
+                st.markdown(kit_preview_html(edited_home_pattern, edited_primary, edited_home_color_2, "Hemmaställ"), unsafe_allow_html=True)
+
+                st.markdown("#### Bortaställ")
+                ea1, ea2, ea3 = st.columns([1.2, 1, 1])
+                saved_away_pattern = _team_value(edit_team, "away_pattern", "Helfärgad")
+                edited_away_pattern = ea1.selectbox(
+                    "Mönster borta", KIT_PATTERNS,
+                    index=KIT_PATTERNS.index(saved_away_pattern) if saved_away_pattern in KIT_PATTERNS else 0,
+                    key=f"edit_away_pattern_{edit_team_id}",
+                )
+                edited_secondary = ea2.color_picker("Borta – färg 1", edit_team["secondary_color"])
+                edited_away_color_2 = ea3.color_picker("Borta – färg 2", _team_value(edit_team, "away_color_2", "#111827"))
+                st.markdown(kit_preview_html(edited_away_pattern, edited_secondary, edited_away_color_2, "Bortaställ"), unsafe_allow_html=True)
+
                 edited_distance = st.number_input("Resväg i kilometer", 0, 5000, int(edit_team["distance_km"] or 0))
                 edited_travel_note = st.text_input("Resekommentar", value=edit_team["travel_note"] or "")
                 edited_late_first = st.checkbox("Önskar senare första match", value=bool(edit_team["late_first_match"]))
@@ -2925,8 +3204,13 @@ if admin_page == "Lag":
                 if st.form_submit_button("Spara ändringar", type="primary"):
                     if edited_name.strip():
                         run(
-                            """UPDATE teams SET name=?,primary_color=?,secondary_color=?,distance_km=?,late_first_match=?,earliest_first_time=?,travel_note=? WHERE id=?""",
-                            (edited_name.strip(), edited_primary, edited_secondary, edited_distance, int(edited_late_first), edited_earliest.strftime("%H:%M") if edited_late_first else None, edited_travel_note.strip(), edit_team_id),
+                            """UPDATE teams SET
+                                name=?,primary_color=?,secondary_color=?,home_pattern=?,home_color_2=?,away_pattern=?,away_color_2=?,
+                                distance_km=?,late_first_match=?,earliest_first_time=?,travel_note=? WHERE id=?""",
+                            (edited_name.strip(), edited_primary, edited_secondary,
+                             edited_home_pattern, edited_home_color_2, edited_away_pattern, edited_away_color_2,
+                             edited_distance, int(edited_late_first), edited_earliest.strftime("%H:%M") if edited_late_first else None,
+                             edited_travel_note.strip(), edit_team_id),
                         )
                         st.rerun()
                     st.error("Lagnamnet får inte vara tomt.")
@@ -3347,9 +3631,9 @@ if admin_page == "Skapa och publicera schema":
                 "Datum": f"{SWEDISH_WEEKDAYS[start_dt.weekday()]} {start_dt.strftime('%Y-%m-%d')}",
                 "Tid": start_dt.strftime("%H:%M"),
                 "Hemmalag": home["name"] if home else source_label(m["home_source"]),
-                "Hemmafärg": color_swatch(home_kit_color) if home else None,
+                "Hemmafärg": kit_swatch(home, "home") if home else None,
                 "Bortalag": away["name"] if away else source_label(m["away_source"]),
-                "Bortafärg": color_swatch(away_kit_color) if away else None,
+                "Bortafärg": kit_swatch(away, "away" if away_kit_used else "home") if away else None,
                 "Tröjval": kit_note,
                 "Domare": referee_names.get(m["referee_id"], "Ej tillsatt"),
                 "Låst": "Ja" if m["schedule_locked"] else "Nej",
