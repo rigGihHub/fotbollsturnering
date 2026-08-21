@@ -244,13 +244,6 @@ def inject_custom_css():
 
 
 
-          @media (min-width: 769px) {
-            div[data-testid="stSegmentedControl"]:has(label[for*="mobile_view_mode_selector"]),
-            div[data-testid="stSelectbox"]:has(input[id*="mobile_tournament_selector"]) {
-              display:none !important;
-            }
-          }
-
           /* ---------- Adminnavigation / pills ---------- */
           [data-testid="stPills"] [role="radiogroup"] {
             display:flex !important;
@@ -448,6 +441,161 @@ def inject_custom_css():
           .public-metric .label { color:var(--cup-muted) !important; font-size:13px; margin-bottom:6px; }
           .public-metric .value { color:var(--cup-ink) !important; font-size:30px; line-height:1; font-weight:850; }
 
+
+          /* ---------- Mobilkompatibilitet: iOS + Android ---------- */
+          html, body {
+            -webkit-text-size-adjust:100% !important;
+            text-size-adjust:100% !important;
+          }
+
+          /* Undvik iOS auto-zoom när användaren trycker i formulärfält. */
+          input, textarea, select,
+          [data-baseweb="input"] input,
+          [data-baseweb="textarea"] textarea,
+          [data-baseweb="select"] input {
+            font-size:16px !important;
+          }
+
+          /* Touchytor enligt vanlig mobil praxis. */
+          .stButton > button,
+          .stFormSubmitButton > button,
+          .stDownloadButton > button,
+          button[data-baseweb="tab"],
+          [data-testid="stPills"] button,
+          [data-testid="stSegmentedControl"] button {
+            min-height:44px !important;
+            touch-action:manipulation;
+            -webkit-tap-highlight-color:rgba(0,0,0,0);
+          }
+
+          /* Datumfält: tydlig kontrast även när Safari använder native-kontroll. */
+          input[type="date"],
+          input[type="time"] {
+            background:#ffffff !important;
+            color:#172033 !important;
+            color-scheme:light !important;
+            min-height:44px !important;
+          }
+          input[type="date"]::-webkit-date-and-time-value,
+          input[type="time"]::-webkit-date-and-time-value {
+            color:#172033 !important;
+            text-align:left;
+          }
+          input[type="date"]::-webkit-calendar-picker-indicator,
+          input[type="time"]::-webkit-calendar-picker-indicator {
+            opacity:.85;
+          }
+
+          /* Horisontellt innehåll ska scrolla mjukt i Safari och Android. */
+          div[data-baseweb="tab-list"],
+          [data-testid="stPills"] [role="radiogroup"],
+          .bracket-scroll,
+          .bracket-wrapper,
+          .playoff-bracket,
+          .public-bracket {
+            -webkit-overflow-scrolling:touch !important;
+            overscroll-behavior-x:contain;
+          }
+
+          /* Dataframes får inte pressa hela sidan bredare än mobilen. */
+          [data-testid="stDataFrame"],
+          [data-testid="stDataEditor"] {
+            max-width:100% !important;
+            overflow-x:auto !important;
+            -webkit-overflow-scrolling:touch !important;
+          }
+
+          @supports (padding: max(0px)) {
+            .stApp .block-container {
+              padding-left:max(.65rem, env(safe-area-inset-left)) !important;
+              padding-right:max(.65rem, env(safe-area-inset-right)) !important;
+              padding-bottom:max(1rem, env(safe-area-inset-bottom)) !important;
+            }
+          }
+
+          @media (max-width:760px) {
+            /* Rubriker får brytas utan att skapa horisontell scroll. */
+            h1, h2, h3, h4, .cup-hero .title {
+              overflow-wrap:anywhere;
+              word-break:normal;
+            }
+
+            /* Mobilnavigationen ska vara enkel att träffa med tumme. */
+            [data-testid="stSegmentedControl"] button {
+              min-width:0 !important;
+              padding-left:12px !important;
+              padding-right:12px !important;
+            }
+
+            /* Adminnavigation: två-raders/scrollbar flexibel beroende på skärmbredd. */
+            [data-testid="stPills"] [role="radiogroup"] {
+              flex-wrap:nowrap !important;
+              overflow-x:auto !important;
+              padding-bottom:4px !important;
+              scrollbar-width:none;
+            }
+            [data-testid="stPills"] [role="radiogroup"]::-webkit-scrollbar {
+              display:none;
+            }
+            [data-testid="stPills"] button {
+              flex:0 0 auto !important;
+              white-space:nowrap !important;
+            }
+
+            /* Publikflikar: horisontell swipe hellre än hoptryckta texter. */
+            div[data-baseweb="tab-list"] {
+              width:100% !important;
+              overflow-x:auto !important;
+              scroll-snap-type:x proximity;
+            }
+            button[data-baseweb="tab"] {
+              flex:0 0 auto !important;
+              scroll-snap-align:start;
+              min-width:max-content !important;
+            }
+
+            /* Matchkort ska hålla sig inom viewport. */
+            .public-match-card {
+              max-width:100% !important;
+              overflow:hidden !important;
+            }
+
+            /* Formulär i flera kolumner får bli en kolumn på mycket smala telefoner. */
+            div[data-testid="stHorizontalBlock"] {
+              gap:.55rem !important;
+            }
+          }
+
+          @media (max-width:430px) {
+            .block-container {
+              padding-top:.35rem !important;
+            }
+            .cup-version-badge {
+              font-size:11px !important;
+              padding:5px 8px !important;
+            }
+            .cup-hero .title {
+              font-size:24px !important;
+            }
+            .public-metric .value {
+              font-size:23px !important;
+            }
+          }
+
+          /* iOS/Safari-specifikt – påverkar inte Android. */
+          @supports (-webkit-touch-callout:none) {
+            body {
+              -webkit-font-smoothing:antialiased;
+            }
+            input, textarea, select, button {
+              -webkit-appearance:none;
+            }
+            input[type="checkbox"],
+            input[type="radio"] {
+              -webkit-appearance:auto;
+            }
+          }
+
           /* ---------- Mobil ---------- */
           @media (max-width:760px) {
             .block-container { padding-left:.65rem; padding-right:.65rem; padding-top:.55rem; }
@@ -470,14 +618,94 @@ def inject_custom_css():
             button[data-baseweb="tab"] { min-height:40px; white-space:nowrap !important; padding-left:10px !important; padding-right:10px !important; }
             div[role="radiogroup"] { gap:.25rem !important; }
           }
-        </style>
+        
+          /* ===== MENYKONTRAST v26 – SKA LIGGA SIST ===== */
+
+          /* Adminflikar/pills: inaktiv = mycket ljus + mörk text */
+          [data-testid="stPills"] button,
+          [data-testid="stPills"] button[aria-checked="false"],
+          [data-testid="stPills"] button[aria-selected="false"] {
+            background:#F8FAFC !important;
+            border:1px solid #CBD5E1 !important;
+            color:#0F172A !important;
+            opacity:1 !important;
+          }
+          [data-testid="stPills"] button *,
+          [data-testid="stPills"] button[aria-checked="false"] *,
+          [data-testid="stPills"] button[aria-selected="false"] * {
+            color:#0F172A !important;
+            opacity:1 !important;
+          }
+
+          /* Aktiv adminflik */
+          [data-testid="stPills"] button[aria-checked="true"],
+          [data-testid="stPills"] button[aria-selected="true"] {
+            background:#DCFCE7 !important;
+            border:2px solid #16A34A !important;
+            color:#14532D !important;
+          }
+          [data-testid="stPills"] button[aria-checked="true"] *,
+          [data-testid="stPills"] button[aria-selected="true"] * {
+            color:#14532D !important;
+          }
+
+          /* Turneringsvy/Admin-väljaren */
+          [data-testid="stSegmentedControl"] button,
+          [data-testid="stSegmentedControl"] button[aria-checked="false"],
+          [data-testid="stSegmentedControl"] button[aria-selected="false"] {
+            background:#F8FAFC !important;
+            border-color:#CBD5E1 !important;
+            color:#0F172A !important;
+            opacity:1 !important;
+          }
+          [data-testid="stSegmentedControl"] button *,
+          [data-testid="stSegmentedControl"] button[aria-checked="false"] *,
+          [data-testid="stSegmentedControl"] button[aria-selected="false"] * {
+            color:#0F172A !important;
+            opacity:1 !important;
+          }
+          [data-testid="stSegmentedControl"] button[aria-checked="true"],
+          [data-testid="stSegmentedControl"] button[aria-selected="true"] {
+            background:#DCFCE7 !important;
+            border-color:#16A34A !important;
+            color:#14532D !important;
+          }
+          [data-testid="stSegmentedControl"] button[aria-checked="true"] *,
+          [data-testid="stSegmentedControl"] button[aria-selected="true"] * {
+            color:#14532D !important;
+          }
+
+          /* Publika st.tabs: inaktiv text måste alltid vara mörk */
+          button[data-baseweb="tab"] {
+            background:#F8FAFC !important;
+            color:#0F172A !important;
+            opacity:1 !important;
+          }
+          button[data-baseweb="tab"] *,
+          button[data-baseweb="tab"] p,
+          button[data-baseweb="tab"] span {
+            color:#0F172A !important;
+            opacity:1 !important;
+          }
+          button[data-baseweb="tab"][aria-selected="true"] {
+            background:#ECFDF5 !important;
+            color:#14532D !important;
+            font-weight:800 !important;
+          }
+          button[data-baseweb="tab"][aria-selected="true"] *,
+          button[data-baseweb="tab"][aria-selected="true"] p,
+          button[data-baseweb="tab"][aria-selected="true"] span {
+            color:#14532D !important;
+          }
+
+</style>
         """,
         unsafe_allow_html=True,
     )
 
 
 inject_custom_css()
-APP_VERSION = "2026.08.20-24-WEBTEST"
+APP_VERSION = "2026.08.21-26-WEBTEST"
 DB_FILE = Path(__file__).with_name("turnering.db")
 
 
@@ -2203,14 +2431,13 @@ if not tournaments:
 tid = st.sidebar.selectbox("Aktiv turnering", [t["id"] for t in tournaments], format_func=lambda x: next(t["name"] for t in tournaments if t["id"] == x))
 tournament = next(t for t in tournaments if t["id"] == tid)
 
-# Mobilnavigation: Streamlits sidomeny är ofta dold på telefon.
-# Visa därför centrala val även högst upp på sidan i smal layout.
+# Snabbnavigation: sidomenyn kan vara dold på telefoner och surfplattor.
+# Visa därför centrala val även på själva sidan på alla plattformar.
 st.markdown(
     """
     <style>
       .cupnavi-mobile-controls { display:none; }
       @media (max-width: 768px) {
-        section[data-testid="stSidebar"] { display:none !important; }
         .cupnavi-mobile-controls { display:block !important; margin-bottom:10px; }
       }
     </style>
@@ -2220,7 +2447,7 @@ st.markdown(
 )
 
 mobile_view_mode = st.segmented_control(
-    "Visningsläge på mobil",
+    "Visningsläge",
     ["Turneringsvy", "Admin"] if CLOUD_DATABASE_ENABLED else ["Admin", "Turneringsvy"],
     default=view_mode,
     key="mobile_view_mode_selector",
@@ -2649,6 +2876,19 @@ if admin_page == "Adminöversikt":
 if admin_page == "Kontroller":
     st.header("Kontroller")
     st.caption("Här granskar du blockerande fel och varningar innan turneringen publiceras.")
+    with st.expander("📱 Mobilkontroll – Android och iPhone"):
+        st.caption("Snabb kontroll före publicering. Testa helst minst en Android/Chrome och en iPhone/Safari.")
+        st.markdown(
+            """
+            - Visningsläge och Admin går att nå utan sidomenyn.
+            - Publikflikarna går att svepa horisontellt.
+            - Datum- och tidsfält är läsbara och öppnar rätt mobilkontroll.
+            - Ingen sida zoomar in automatiskt när ett textfält aktiveras.
+            - Tabeller och slutspel går att scrolla utan att hela sidan blir bredare än skärmen.
+            - Knappar går att trycka på utan att ligga för tätt.
+            """
+        )
+
     with st.expander("⚡ Prestandadiagnostik"):
         st.caption("Mäter databasarbete under den aktuella sidladdningen. Använd siffrorna när en sida känns seg.")
         pc1, pc2, pc3, pc4 = st.columns(4)
