@@ -711,7 +711,7 @@ def inject_custom_css():
 
 
 inject_custom_css()
-APP_VERSION = "2026.08.21-41-WEBTEST"
+APP_VERSION = "2026.08.21-44-WEBTEST"
 DB_FILE = Path(__file__).with_name("turnering.db")
 
 
@@ -3142,6 +3142,190 @@ if admin_page in publication_pages:
     elif sidebar_warnings and not sidebar_warnings_approved:
         st.sidebar.caption("Godkänn varningarna före publicering.")
 
+def _demo_distribute_count(total, players):
+    """Fördela ett heltalsantal slumpmässigt över spelare."""
+    if total <= 0 or not players:
+        return {}
+    counts = {player["id"]: 0 for player in players}
+    for _ in range(total):
+        chosen = random.choice(players)
+        counts[chosen["id"]] += 1
+    return {player_id: count for player_id, count in counts.items() if count}
+
+
+def _demo_write_match_stats(match_id, team_id, goals, con):
+    """Skapa fiktiva mål/assist/kort för ett lag i en redan resultatsatt match."""
+    players = _rows_from_cursor(
+        con.execute(
+            "SELECT id,name FROM players WHERE team_id=? ORDER BY player_number,name",
+            (team_id,),
+        )
+    )
+    if not players:
+        return 0
+
+    goal_map = _demo_distribute_count(goals, players)
+
+    # Alla mål behöver inte ha assist. Antalet assist kan aldrig överstiga antalet mål.
+    assist_total = random.randint(0, goals) if goals > 0 else 0
+    assist_map = _demo_distribute_count(assist_total, players)
+
+    # Kortdata är separat från mål/assist.
+    yellow_total = random.choices([0, 1, 2, 3], weights=[45, 35, 15, 5], k=1)[0]
+    red_total = random.choices([0, 1], weights=[92, 8], k=1)[0]
+    yellow_map = _demo_distribute_count(yellow_total, players)
+    red_map = _demo_distribute_count(red_total, players)
+
+    all_player_ids = set(goal_map) | set(assist_map) | set(yellow_map) | set(red_map)
+    for player_id in all_player_ids:
+        con.execute(
+            """
+            INSERT INTO player_match_stats(match_id,player_id,goals,assists,yellow_cards,red_cards)
+            VALUES(?,?,?,?,?,?)
+            ON CONFLICT(match_id,player_id)
+            DO UPDATE SET goals=excluded.goals,
+                          assists=excluded.assists,
+                          yellow_cards=excluded.yellow_cards,
+                          red_cards=excluded.red_cards
+            """,
+            (
+                match_id,
+                player_id,
+                goal_map.get(player_id, 0),
+                assist_map.get(player_id, 0),
+                yellow_map.get(player_id, 0),
+                red_map.get(player_id, 0),
+            ),
+        )
+    return len(all_player_ids)
+
+
+def _demo_generate_group_results(tournament_id):
+    """Slumpa resultat och matchhändelser för alla gruppspelsmatcher."""
+    group_matches = all_rows(
+        """SELECT * FROM matches
+           WHERE tournament_id=? AND stage='Gruppspel'
+           ORDER BY COALESCE(scheduled_start,''),group_id,match_no,id""",
+        (tournament_id,),
+    )
+    if not group_matches:
+        return 0, 0, "Inga gruppspelsmatcher finns ännu. Generera spelschemat först."
+
+    generated = 0
+    stat_rows = 0
+    with db() as con:
+        for match_row in group_matches:
+            home_id = resolve_source(match_row["home_source"])
+            away_id = resolve_source(match_row["away_source"])
+            if not home_id or not away_id:
+                continue
+
+            # Rimliga testresultat med både målsnåla och målglada matcher.
+            home_score = random.choices([0,1,2,3,4,5], weights=[14,25,25,19,11,6], k=1)[0]
+            away_score = random.choices([0,1,2,3,4,5], weights=[16,27,24,18,10,5], k=1)[0]
+
+            con.execute(
+                """UPDATE matches
+                   SET home_score=?,away_score=?,home_penalties=NULL,away_penalties=NULL,decided_winner_id=NULL
+                   WHERE id=?""",
+                (home_score, away_score, match_row["id"]),
+            )
+            con.execute("DELETE FROM player_match_stats WHERE match_id=?", (match_row["id"],))
+            stat_rows += _demo_write_match_stats(match_row["id"], home_id, home_score, con)
+            stat_rows += _demo_write_match_stats(match_row["id"], away_id, away_score, con)
+            generated += 1
+        con.commit()
+
+    _clear_render_query_cache()
+    return generated, stat_rows, None
+
+
+def _demo_generate_playoff_results(tournament_id):
+    """Slumpa slutspelsresultat i spelordning så vinnare går vidare till nästa match."""
+    playoff_matches = all_rows(
+        """SELECT * FROM matches
+           WHERE tournament_id=? AND stage<>'Gruppspel'
+           ORDER BY round_no,match_no,id""",
+        (tournament_id,),
+    )
+    if not playoff_matches:
+        return 0, 0, "Inga slutspelsmatcher finns ännu. Generera spelschemat först."
+
+    tournament_row = one_row("SELECT * FROM tournaments WHERE id=?", (tournament_id,))
+    tie_rule = tournament_row["playoff_tie_rule"] or "Straffar direkt"
+    generated = 0
+    stat_rows = 0
+    skipped = 0
+
+    # Kör match för match och commit:a varje resultat så winner:<match-id>
+    # kan lösas direkt i efterföljande semifinal/final.
+    for match_stub in playoff_matches:
+        _clear_render_query_cache()
+        match_row = one_row("SELECT * FROM matches WHERE id=?", (match_stub["id"],))
+        home_id = resolve_source(match_row["home_source"])
+        away_id = resolve_source(match_row["away_source"])
+        if not home_id or not away_id:
+            skipped += 1
+            continue
+
+        # Cirka 25 % av matcherna går till oavgjort i ordinarie tid så
+        # straff/lottning också får testdata.
+        if random.random() < 0.25:
+            score = random.choice([0, 1, 2, 3])
+            home_score = away_score = score
+        else:
+            home_score = random.choices([0,1,2,3,4], weights=[15,28,27,20,10], k=1)[0]
+            away_score = random.choices([0,1,2,3,4], weights=[15,28,27,20,10], k=1)[0]
+            if home_score == away_score:
+                if random.random() < 0.5:
+                    home_score += 1
+                else:
+                    away_score += 1
+
+        home_penalties = away_penalties = decided_winner_id = None
+        if home_score == away_score:
+            if tie_rule == "Lottning":
+                decided_winner_id = random.choice([home_id, away_id])
+            else:
+                winner_home = random.random() < 0.5
+                base = random.randint(3, 5)
+                if winner_home:
+                    home_penalties, away_penalties = base, base - 1
+                else:
+                    home_penalties, away_penalties = base - 1, base
+
+        with db() as con:
+            con.execute(
+                """UPDATE matches
+                   SET home_score=?,away_score=?,home_penalties=?,away_penalties=?,decided_winner_id=?
+                   WHERE id=?""",
+                (
+                    home_score,
+                    away_score,
+                    home_penalties,
+                    away_penalties,
+                    decided_winner_id,
+                    match_row["id"],
+                ),
+            )
+            con.execute("DELETE FROM player_match_stats WHERE match_id=?", (match_row["id"],))
+            stat_rows += _demo_write_match_stats(match_row["id"], home_id, home_score, con)
+            stat_rows += _demo_write_match_stats(match_row["id"], away_id, away_score, con)
+            con.commit()
+
+        _clear_render_query_cache()
+        generated += 1
+
+    warning = None
+    if skipped:
+        warning = (
+            f"{skipped} slutspelsmatcher kunde inte fyllas eftersom deltagande lag ännu inte kunde avgöras. "
+            "Kontrollera att gruppspelet är färdigspelat och kör sedan knappen igen."
+        )
+    return generated, stat_rows, warning
+
+
+
 if admin_page == "Adminöversikt":
     st.header("Adminöversikt")
     st.caption("Här ställer du in cupens grunduppgifter, poängregler, slutspelsformat och regler för schemaläggningen.")
@@ -3174,6 +3358,52 @@ if admin_page == "Adminöversikt":
     if not tournament["playoff_model_confirmed"]:
         st.warning("Välj och spara slutspelsmodell innan spelschemat kan genereras.")
     current_team_count_for_limit = one_row("SELECT COUNT(*) AS n FROM teams WHERE tournament_id=?", (tid,))["n"]
+
+    # Slutspelsvalen ligger utanför formuläret så de reagerar direkt på användarens val.
+    # Streamlit-formulär skickar annars inte widgetändringar förrän "Spara" trycks.
+    st.markdown("#### Slutspelsmodell och avgörande")
+    playoff_col1, playoff_col2 = st.columns(2)
+    edited_format = playoff_col1.selectbox(
+        "Typ av slutspel",
+        format_options,
+        index=format_options.index(saved_format),
+        key=f"overview_playoff_format_{tid}",
+    )
+    edited_bronze = playoff_col2.checkbox(
+        "Skapa bronsmatch automatiskt när slutspelsträdet har minst fyra lag",
+        value=bool(tournament["bronze_match"]),
+        disabled=edited_format == "Inget slutspel",
+        key=f"overview_bronze_{tid}",
+    )
+
+    st.markdown("##### Oavgjort i slutspelsmatch")
+    tie1, tie2 = st.columns(2)
+    tie_options = ["Förlängning + straffar", "Straffar direkt", "Lottning"]
+    saved_tie_rule = tournament["playoff_tie_rule"] or "Straffar direkt"
+    edited_tie_rule = tie1.selectbox(
+        "Så avgörs slutspelsmatchen",
+        tie_options,
+        index=tie_options.index(saved_tie_rule) if saved_tie_rule in tie_options else 1,
+        disabled=edited_format == "Inget slutspel",
+        key=f"overview_tie_rule_{tid}",
+    )
+    edited_extra_time = tie2.number_input(
+        "Förlängning (minuter)",
+        min_value=1,
+        max_value=60,
+        value=max(1, int(tournament["extra_time_minutes"] or 10)),
+        disabled=edited_format == "Inget slutspel" or edited_tie_rule != "Förlängning + straffar",
+        help=(
+            "Aktiveras när 'Förlängning + straffar' väljs. "
+            "Tiden reserveras även i schemaläggningen för slutspelsmatcher."
+        ),
+        key=f"overview_extra_time_{tid}",
+    )
+    if edited_format != "Inget slutspel":
+        st.success("Slutspelsreglerna är aktiva. Du kan justera dem direkt innan du sparar.")
+    else:
+        st.caption("Välj en slutspelsmodell för att aktivera reglerna för oavgjorda slutspelsmatcher.")
+
     with st.form("edit_tournament_basics"):
         st.markdown("#### Cup och deltagande")
         bn1, bn2 = st.columns(2)
@@ -3198,44 +3428,18 @@ if admin_page == "Adminöversikt":
             placeholder="Exempel: Parkering finns vid skolan. Omklädningsrum öppnar 07.30. Hundar ska hållas kopplade.",
         )
 
-        st.markdown("#### Poängregler, tabell och slutspel")
+        st.markdown("#### Poängregler och tabell")
         bp1, bp2, bp3 = st.columns(3)
         edited_win = bp1.number_input("Poäng för vinst", 0, 10, int(tournament["points_win"]))
         edited_draw = bp2.number_input("Poäng för oavgjort", 0, 10, int(tournament["points_draw"]))
         edited_loss = bp3.number_input("Poäng för förlust", 0, 10, int(tournament["points_loss"]))
 
-        tb1, tb2 = st.columns(2)
         table_tiebreak_options = ["Målskillnad först", "Inbördes möten först"]
         saved_tiebreak = tournament["table_tiebreak"] or "Målskillnad först"
-        edited_tiebreak = tb1.selectbox(
+        edited_tiebreak = st.selectbox(
             "Vid lika poäng avgör i första hand",
             table_tiebreak_options,
             index=table_tiebreak_options.index(saved_tiebreak) if saved_tiebreak in table_tiebreak_options else 0,
-        )
-        edited_format = tb2.selectbox("Typ av slutspel", format_options, index=format_options.index(saved_format))
-        edited_bronze = st.checkbox(
-            "Skapa bronsmatch automatiskt när slutspelsträdet har minst fyra lag",
-            value=bool(tournament["bronze_match"]),
-            disabled=edited_format == "Inget slutspel",
-        )
-
-        st.markdown("##### Oavgjort i slutspelsmatch")
-        tie1, tie2 = st.columns(2)
-        tie_options = ["Förlängning + straffar", "Straffar direkt", "Lottning"]
-        saved_tie_rule = tournament["playoff_tie_rule"] or "Straffar direkt"
-        edited_tie_rule = tie1.selectbox(
-            "Så avgörs slutspelsmatchen",
-            tie_options,
-            index=tie_options.index(saved_tie_rule) if saved_tie_rule in tie_options else 1,
-            disabled=edited_format == "Inget slutspel",
-        )
-        edited_extra_time = tie2.number_input(
-            "Förlängning (minuter)",
-            min_value=1,
-            max_value=60,
-            value=max(1, int(tournament["extra_time_minutes"] or 10)),
-            disabled=edited_format == "Inget slutspel" or edited_tie_rule != "Förlängning + straffar",
-            help="Tiden reserveras även i schemaläggningen för slutspelsmatcher.",
         )
 
         st.markdown("#### Match- och schemaregler")
@@ -3599,6 +3803,47 @@ if admin_page == "Adminöversikt":
             except Exception:
                 pass
             st.error(f"Demodata kunde inte skapas: {exc}")
+
+
+    st.markdown("##### Testresultat och matchhändelser")
+    st.caption(
+        "Knapparna nedan fyller redan skapade matcher med slumpade testresultat, mål, assist, "
+        "gula kort och röda kort. De är endast avsedda för testning."
+    )
+    test_col1, test_col2 = st.columns(2)
+
+    if test_col1.button(
+        "🎲 Generera resultat – gruppspel",
+        use_container_width=True,
+        key=f"demo_group_results_{tid}",
+    ):
+        with st.spinner("Skapar gruppspelsresultat och matchhändelser…", show_time=True):
+            generated, stat_rows, warning = _demo_generate_group_results(tid)
+        if warning:
+            st.warning(warning)
+        elif generated:
+            st.success(
+                f"Testdata skapad för {generated} gruppspelsmatcher. "
+                "Mål, assist, gula kort och röda kort har fördelats på testspelarna."
+            )
+            st.rerun()
+
+    if test_col2.button(
+        "🏆 Generera resultat – slutspel",
+        use_container_width=True,
+        key=f"demo_playoff_results_{tid}",
+    ):
+        with st.spinner("Spelar igenom slutspel och skapar matchhändelser…", show_time=True):
+            generated, stat_rows, warning = _demo_generate_playoff_results(tid)
+        if generated:
+            st.success(
+                f"Testdata skapad för {generated} slutspelsmatcher. "
+                "Vinnare har förts vidare och matchhändelser har skapats."
+            )
+        if warning:
+            st.warning(warning)
+        if generated:
+            st.rerun()
 
 
     feedback_rows = all_rows(
@@ -4524,25 +4769,58 @@ if admin_page == "Matchhändelser":
                 },
                 key=f"stats_editor_{stat_match_id}_{selected_team_id}",
             )
+            team_goals_in_match = int(
+                stat_match["home_score"] if selected_team_id == home_team_id else stat_match["away_score"]
+            )
+            entered_goals = int(edited["Mål"].fillna(0).sum())
+            entered_assists = int(edited["Assist"].fillna(0).sum())
+            st.caption(
+                f"{selected_team['name']} gjorde {team_goals_in_match} mål i matchen. "
+                f"Registrerat just nu: {entered_goals} mål och {entered_assists} assist."
+            )
+            if entered_goals > team_goals_in_match:
+                st.error(
+                    f"För många målskyttar/mål är registrerade. {selected_team['name']} gjorde "
+                    f"{team_goals_in_match} mål, men spelarna har tillsammans {entered_goals} mål."
+                )
+            if entered_assists > team_goals_in_match:
+                st.error(
+                    f"För många assist är registrerade. {selected_team['name']} gjorde "
+                    f"{team_goals_in_match} mål, så högst {team_goals_in_match} assist kan registreras."
+                )
+
             if st.button(f"Spara mål och assist för {selected_team['name']}", type="primary", key=f"save_stats_{stat_match_id}_{selected_team_id}"):
-                with db() as con:
-                    for _, row in edited.iterrows():
-                        goals = int(row["Mål"] or 0)
-                        assists = int(row["Assist"] or 0)
-                        yellow_cards = int(row["Varningar"] or 0)
-                        red_cards = int(row["Utvisningar"] or 0)
-                        con.execute(
-                            """
-                            INSERT INTO player_match_stats(match_id,player_id,goals,assists,yellow_cards,red_cards)
-                            VALUES(?,?,?,?,?,?)
-                            ON CONFLICT(match_id,player_id)
-                            DO UPDATE SET goals=excluded.goals, assists=excluded.assists,
-                                yellow_cards=excluded.yellow_cards, red_cards=excluded.red_cards
-                            """,
-                            (stat_match_id, int(row["player_id"]), goals, assists, yellow_cards, red_cards),
-                        )
-                    con.commit()
-                st.success("Statistiken sparades.")
+                total_goals = int(edited["Mål"].fillna(0).sum())
+                total_assists = int(edited["Assist"].fillna(0).sum())
+                if total_goals > team_goals_in_match:
+                    st.error(
+                        f"Kan inte spara: laget gjorde {team_goals_in_match} mål men "
+                        f"{total_goals} spelarmål har registrerats."
+                    )
+                elif total_assists > team_goals_in_match:
+                    st.error(
+                        f"Kan inte spara: laget gjorde {team_goals_in_match} mål men "
+                        f"{total_assists} assist har registrerats."
+                    )
+                else:
+                    with db() as con:
+                        for _, row in edited.iterrows():
+                            goals = int(row["Mål"] or 0)
+                            assists = int(row["Assist"] or 0)
+                            yellow_cards = int(row["Varningar"] or 0)
+                            red_cards = int(row["Utvisningar"] or 0)
+                            con.execute(
+                                """
+                                INSERT INTO player_match_stats(match_id,player_id,goals,assists,yellow_cards,red_cards)
+                                VALUES(?,?,?,?,?,?)
+                                ON CONFLICT(match_id,player_id)
+                                DO UPDATE SET goals=excluded.goals, assists=excluded.assists,
+                                    yellow_cards=excluded.yellow_cards, red_cards=excluded.red_cards
+                                """,
+                                (stat_match_id, int(row["player_id"]), goals, assists, yellow_cards, red_cards),
+                            )
+                        con.commit()
+                    st.success("Statistiken sparades.")
             registered_goals = int(edited["Mål"].sum())
             expected_goals = stat_match["home_score"] if selected_team_id == home_team_id else stat_match["away_score"]
             if registered_goals != expected_goals:
