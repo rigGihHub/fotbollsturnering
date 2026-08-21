@@ -17,6 +17,8 @@ import streamlit as st
 
 from cupnavi_core.version import APP_VERSION
 from cupnavi_core.rules import validate_match_event_totals
+from cupnavi_core.home_away import orientation_balance_score
+from cupnavi_core.pdf_export import build_schedule_pdf
 
 try:
     from streamlit_sortables import sort_items
@@ -480,6 +482,73 @@ def inject_custom_css():
           }
           .stApp a { color:#1d4ed8 !important; text-decoration-color:#93c5fd; }
           .stApp hr { border-color:var(--cup-border) !important; }
+
+          /* ---------- ÅTERÖPPNA DOLD SIDOMENY v70 ---------- */
+          [data-testid="collapsedControl"],
+          [data-testid="stSidebarCollapsedControl"] {
+            display:flex !important;
+            visibility:visible !important;
+            opacity:1 !important;
+            position:fixed !important;
+            top:10px !important;
+            left:10px !important;
+            z-index:1000000 !important;
+            width:auto !important;
+            height:auto !important;
+            pointer-events:auto !important;
+          }
+
+          [data-testid="collapsedControl"] button,
+          [data-testid="stSidebarCollapsedControl"] button {
+            display:flex !important;
+            visibility:visible !important;
+            opacity:1 !important;
+            align-items:center !important;
+            justify-content:center !important;
+            width:42px !important;
+            min-width:42px !important;
+            height:42px !important;
+            min-height:42px !important;
+            padding:0 !important;
+            border:1px solid #94a3b8 !important;
+            border-radius:11px !important;
+            background:#ffffff !important;
+            color:#172033 !important;
+            box-shadow:0 4px 14px rgba(15,23,42,.18) !important;
+            cursor:pointer !important;
+            pointer-events:auto !important;
+          }
+
+          [data-testid="collapsedControl"] button svg,
+          [data-testid="stSidebarCollapsedControl"] button svg {
+            color:#172033 !important;
+            fill:#172033 !important;
+            stroke:#172033 !important;
+            width:22px !important;
+            height:22px !important;
+          }
+
+          [data-testid="collapsedControl"] button:hover,
+          [data-testid="stSidebarCollapsedControl"] button:hover {
+            background:#f1f5f9 !important;
+            border-color:#64748b !important;
+          }
+
+          @media (max-width:768px) {
+            [data-testid="collapsedControl"],
+            [data-testid="stSidebarCollapsedControl"] {
+              top:8px !important;
+              left:8px !important;
+            }
+
+            [data-testid="collapsedControl"] button,
+            [data-testid="stSidebarCollapsedControl"] button {
+              width:46px !important;
+              min-width:46px !important;
+              height:46px !important;
+              min-height:46px !important;
+            }
+          }
 
           /* ---------- Sidomeny: alltid ljus ---------- */
           [data-testid="stSidebar"] {
@@ -1277,6 +1346,18 @@ def init_db():
                 message TEXT NOT NULL,
                 contact TEXT
             );
+            CREATE TABLE IF NOT EXISTS offers (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                tournament_id INTEGER NOT NULL REFERENCES tournaments(id) ON DELETE CASCADE,
+                title TEXT NOT NULL,
+                business_name TEXT,
+                description TEXT,
+                discount_code TEXT,
+                valid_until TEXT,
+                url TEXT,
+                active INTEGER NOT NULL DEFAULT 1,
+                sort_order INTEGER NOT NULL DEFAULT 0
+            );
             CREATE TABLE IF NOT EXISTS groups (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 tournament_id INTEGER NOT NULL REFERENCES tournaments(id) ON DELETE CASCADE,
@@ -2073,6 +2154,174 @@ def kit_color_conflict(home_team, away_team):
     return kits_conflict(home_team, "home", away_team, selected_away_kit)
 
 
+def optimize_group_home_away(tournament_id):
+    """
+    Optimera hemma/borta i gruppspelet.
+
+    Prioritet 1: välj den riktning som undviker färgkrock när endast en riktning gör det.
+    Prioritet 2: bland färgmässigt likvärdiga riktningar, jämna ut hemma/borta per lag.
+    Matcher med registrerat resultat lämnas helt orörda men räknas in i balansen.
+    """
+    teams = {
+        row["id"]: row
+        for row in all_rows(
+            "SELECT * FROM teams WHERE tournament_id=?",
+            (tournament_id,),
+        )
+    }
+    groups = all_rows(
+        "SELECT id FROM groups WHERE tournament_id=? ORDER BY name,id",
+        (tournament_id,),
+    )
+    changed = 0
+
+    for group in groups:
+        matches = all_rows(
+            """SELECT * FROM matches
+               WHERE group_id=? AND stage='Gruppspel'
+               ORDER BY match_no,id""",
+            (group["id"],),
+        )
+        if not matches:
+            continue
+
+        home_counts = {}
+        away_counts = {}
+        editable = []
+
+        # Spelade matcher är låsta, men deras hemma/borta-fördelning påverkar fortsatt balans.
+        for match_row in matches:
+            try:
+                home_id = int(match_row["home_source"].split(":")[1])
+                away_id = int(match_row["away_source"].split(":")[1])
+            except (AttributeError, IndexError, ValueError):
+                continue
+
+            if match_row["home_score"] is not None or match_row["away_score"] is not None:
+                home_counts[home_id] = home_counts.get(home_id, 0) + 1
+                away_counts[away_id] = away_counts.get(away_id, 0) + 1
+            else:
+                editable.append((match_row, home_id, away_id))
+
+        forced = []
+        flexible = []
+
+        # Färg bedöms i båda riktningarna. Om bara en riktning krockar är valet tvingande.
+        for match_row, team_a_id, team_b_id in editable:
+            team_a = teams.get(team_a_id)
+            team_b = teams.get(team_b_id)
+            if not team_a or not team_b:
+                flexible.append((match_row, team_a_id, team_b_id))
+                continue
+
+            conflict_a_home = kit_color_conflict(team_a, team_b)
+            conflict_b_home = kit_color_conflict(team_b, team_a)
+
+            if conflict_a_home != conflict_b_home:
+                if not conflict_a_home:
+                    forced.append((match_row, team_a_id, team_b_id))
+                else:
+                    forced.append((match_row, team_b_id, team_a_id))
+            else:
+                # Båda riktningar är lika bra färgmässigt: använd dem för balans.
+                flexible.append((match_row, team_a_id, team_b_id))
+
+        orientations = {}
+
+        # Tvingade färgval går först eftersom färgkrockar har högre prioritet.
+        for match_row, home_id, away_id in forced:
+            orientations[match_row["id"]] = [home_id, away_id, False]
+            home_counts[home_id] = home_counts.get(home_id, 0) + 1
+            away_counts[away_id] = away_counts.get(away_id, 0) + 1
+
+        # Därefter balanseras matcher där båda riktningarna är färgmässigt likvärdiga.
+        for match_row, team_a_id, team_b_id in flexible:
+            score_ab = orientation_balance_score(
+                team_a_id, team_b_id, home_counts, away_counts
+            )
+            score_ba = orientation_balance_score(
+                team_b_id, team_a_id, home_counts, away_counts
+            )
+
+            if score_ab < score_ba:
+                home_id, away_id = team_a_id, team_b_id
+            elif score_ba < score_ab:
+                home_id, away_id = team_b_id, team_a_id
+            else:
+                # Stabil tie-break: laget med färre hemmamatcher får hemma.
+                a_home = home_counts.get(team_a_id, 0)
+                b_home = home_counts.get(team_b_id, 0)
+                if a_home < b_home:
+                    home_id, away_id = team_a_id, team_b_id
+                elif b_home < a_home:
+                    home_id, away_id = team_b_id, team_a_id
+                else:
+                    # Alternera deterministiskt för att undvika ID-bias.
+                    if int(match_row["match_no"] or match_row["id"]) % 2:
+                        home_id, away_id = team_a_id, team_b_id
+                    else:
+                        home_id, away_id = team_b_id, team_a_id
+
+            orientations[match_row["id"]] = [home_id, away_id, True]
+            home_counts[home_id] = home_counts.get(home_id, 0) + 1
+            away_counts[away_id] = away_counts.get(away_id, 0) + 1
+
+        # Lokal förbättring: vänd endast flexibla matcher om den totala obalansen minskar.
+        # Färgresultatet kan då inte försämras eftersom dessa matcher var färgmässigt likvärdiga.
+        for _ in range(6):
+            improved = False
+            for match_id, orientation in orientations.items():
+                home_id, away_id, is_flexible = orientation
+                if not is_flexible:
+                    continue
+
+                before = (
+                    abs(home_counts.get(home_id, 0) - away_counts.get(home_id, 0))
+                    + abs(home_counts.get(away_id, 0) - away_counts.get(away_id, 0))
+                )
+
+                after_home_home = home_counts.get(home_id, 0) - 1
+                after_home_away = away_counts.get(home_id, 0) + 1
+                after_away_home = home_counts.get(away_id, 0) + 1
+                after_away_away = away_counts.get(away_id, 0) - 1
+                after = (
+                    abs(after_home_home - after_home_away)
+                    + abs(after_away_home - after_away_away)
+                )
+
+                if after < before:
+                    home_counts[home_id] -= 1
+                    away_counts[home_id] = away_counts.get(home_id, 0) + 1
+                    home_counts[away_id] = home_counts.get(away_id, 0) + 1
+                    away_counts[away_id] -= 1
+                    orientation[0], orientation[1] = away_id, home_id
+                    improved = True
+            if not improved:
+                break
+
+        updates = []
+        match_by_id = {m["id"]: m for m in matches}
+        for match_id, (home_id, away_id, _is_flexible) in orientations.items():
+            original = match_by_id[match_id]
+            new_home = f"team:{home_id}"
+            new_away = f"team:{away_id}"
+            if original["home_source"] != new_home or original["away_source"] != new_away:
+                updates.append((new_home, new_away, match_id))
+
+        if updates:
+            with db() as con:
+                con.executemany(
+                    "UPDATE matches SET home_source=?,away_source=? WHERE id=?",
+                    updates,
+                )
+                con.commit()
+            changed += len(updates)
+
+    if changed:
+        _clear_render_query_cache()
+    return changed
+
+
 def centered_table(dataframe):
     """Bakåtkompatibel hjälpare. Själva visningen görs av render_centered_table."""
     return dataframe
@@ -2180,6 +2429,7 @@ def create_round_robin(tournament_id, group_id):
                 (tournament_id, group_id, match_no, f"team:{home}", f"team:{away}"),
             )
             created += 1; match_no += 1
+    optimize_group_home_away(tournament_id)
     return created
 
 
@@ -2242,6 +2492,10 @@ def create_all_group_matches(tournament_id):
             )
             con.commit()
         _clear_render_query_cache()
+
+    # Optimera även befintliga ospelade gruppmatcher så att regenerering förbättrar
+    # färgval och hemma/borta-fördelning, utan att röra spelade matcher.
+    optimize_group_home_away(tournament_id)
     return created, ready_groups, skipped_groups
 
 
@@ -3069,7 +3323,14 @@ def render_bracket_tree(bracket_id, public=False):
 
 
 def public_match_events_html(match_id):
-    """Publika mål/röda kort grupperade tydligt under respektive lag."""
+    """Publika mål/röda kort: hemmalag vänster, bortalag höger."""
+    match_row = one("SELECT home_source, away_source FROM matches WHERE id=?", (match_id,))
+    if not match_row:
+        return ""
+
+    home_team_id = resolve_source(match_row["home_source"])
+    away_team_id = resolve_source(match_row["away_source"])
+
     rows = all_rows(
         """
         SELECT p.name AS player_name, t.id AS team_id, t.name AS team_name,
@@ -3078,37 +3339,46 @@ def public_match_events_html(match_id):
         JOIN players p ON p.id=s.player_id
         JOIN teams t ON t.id=p.team_id
         WHERE s.match_id=? AND (s.goals > 0 OR s.red_cards > 0)
-        ORDER BY t.name,p.name
+        ORDER BY p.name
         """,
         (match_id,),
     )
     if not rows:
         return ""
 
-    grouped = {}
+    team_data = {}
     for row in rows:
-        grouped.setdefault(row["team_name"], [])
+        team_id = row["team_id"]
+        team_data.setdefault(team_id, {"name": row["team_name"], "events": []})
         goals = int(row["goals"] or 0)
         reds = int(row["red_cards"] or 0)
-        if goals > 0:
+        if goals:
             suffix = f" ×{goals}" if goals > 1 else ""
-            grouped[row["team_name"]].append(
+            team_data[team_id]["events"].append(
                 f"<span class='cn-event cn-goal'>⚽ {html.escape(row['player_name'])}{suffix}</span>"
             )
-        if reds > 0:
+        if reds:
             suffix = f" ×{reds}" if reds > 1 else ""
-            grouped[row["team_name"]].append(
+            team_data[team_id]["events"].append(
                 f"<span class='cn-event cn-red'>🟥 {html.escape(row['player_name'])}{suffix}</span>"
             )
 
+    # Samma ordning som resultatraden: hemmalag vänster, bortalag höger.
+    ordered_team_ids = [home_team_id, away_team_id]
     team_blocks = []
-    for team_name, events in grouped.items():
-        if not events:
-            continue
+    for team_id in ordered_team_ids:
+        data = team_data.get(team_id)
+        if data:
+            name = data["name"]
+            events = "".join(data["events"])
+        else:
+            team = one("SELECT name FROM teams WHERE id=?", (team_id,)) if team_id else None
+            name = team["name"] if team else ""
+            events = "<span class='cn-no-events'>–</span>"
         team_blocks.append(
             "<div class='cn-event-team'>"
-            f"<div class='cn-event-team-name'>{html.escape(team_name)}</div>"
-            "<div class='cn-events-list'>" + "".join(events) + "</div>"
+            f"<div class='cn-event-team-name'>{html.escape(name)}</div>"
+            f"<div class='cn-events-list'>{events}</div>"
             "</div>"
         )
 
@@ -3198,9 +3468,192 @@ def render_public_view(tournament_id, tournament):
             "</div>"
         )
 
-    schedule, tables, statistics, playoffs, information = st.tabs(
-        ["Spelschema", "Tabeller", "Topplistor", "Slutspel", "Information"]
+    schedule, results_tab, tables, statistics, playoffs, offers_tab, information = st.tabs(
+        ["Spelschema", "Resultat", "Tabeller", "Topplistor", "Slutspel", "Erbjudanden", "Information"]
     )
+
+    def _filter_public_matches(base_matches, key_prefix, heading):
+        """Gemensamt filter för Spelschema och Resultat."""
+        st.markdown(f"#### {heading}")
+        filter_mode = st.radio(
+            "Vad vill du visa?",
+            ["Alla matcher", "En grupp", "Ett lag", "En plan"],
+            horizontal=True,
+            key=f"{key_prefix}_mode_{tournament_id}",
+            label_visibility="collapsed",
+        )
+        filtered = list(base_matches)
+        filter_label = "Alla matcher"
+
+        if filter_mode == "En grupp":
+            if public_groups:
+                selected_group = st.selectbox(
+                    "Välj grupp",
+                    [row["id"] for row in public_groups],
+                    format_func=lambda group_id: next(
+                        row["name"] for row in public_groups if row["id"] == group_id
+                    ),
+                    key=f"{key_prefix}_group_{tournament_id}",
+                )
+                filter_label = next(
+                    row["name"] for row in public_groups if row["id"] == selected_group
+                )
+                filtered = [
+                    match_row for match_row in base_matches
+                    if match_row["group_id"] == selected_group
+                ]
+            else:
+                filtered = []
+                st.info("Det finns inga grupper att filtrera på.")
+
+        elif filter_mode == "Ett lag":
+            if public_teams:
+                selected_team = st.selectbox(
+                    "Välj lag",
+                    [row["id"] for row in public_teams],
+                    format_func=lambda team_id: next(
+                        row["name"] for row in public_teams if row["id"] == team_id
+                    ),
+                    key=f"{key_prefix}_team_{tournament_id}",
+                )
+                filter_label = next(
+                    row["name"] for row in public_teams if row["id"] == selected_team
+                )
+                filtered = [
+                    match_row for match_row in base_matches
+                    if (
+                        resolve_source(match_row["home_source"]) == selected_team
+                        or resolve_source(match_row["away_source"]) == selected_team
+                    )
+                ]
+            else:
+                filtered = []
+                st.info("Det finns inga lag att filtrera på.")
+
+        elif filter_mode == "En plan":
+            pitch_options = sorted({
+                int(match_row["pitch_number"])
+                for match_row in base_matches
+                if match_row["pitch_number"] is not None
+            })
+            if pitch_options:
+                selected_pitch = st.selectbox(
+                    "Välj plan",
+                    pitch_options,
+                    format_func=lambda pitch_no: f"Plan {pitch_no}",
+                    key=f"{key_prefix}_pitch_{tournament_id}",
+                )
+                filter_label = f"Plan {selected_pitch}"
+                filtered = [
+                    match_row for match_row in base_matches
+                    if int(match_row["pitch_number"] or 0) == selected_pitch
+                ]
+            else:
+                filtered = []
+                st.info("Det finns inga planer att filtrera på.")
+
+        return (
+            sorted(
+                filtered,
+                key=lambda match_row: (
+                    match_row["scheduled_start"] or "",
+                    match_row["pitch_number"] or 0,
+                    match_row["id"],
+                ),
+            ),
+            filter_mode,
+            filter_label,
+        )
+
+    def _render_public_match_cards(matches, show_results):
+        """Samma matchkort i båda flikarna. Bara Resultat visar score och händelser."""
+        referees = {
+            row["id"]: row["name"]
+            for row in all_rows(
+                "SELECT * FROM referees WHERE tournament_id=?",
+                (tournament_id,),
+            )
+        }
+        weather_forecast, weather_status = fetch_weather_forecast(tournament["location"] or "")
+
+        st.markdown(
+            """
+            <style>
+              .public-match-card,
+              .public-match-card div,
+              .public-match-card span,
+              .public-match-card b { color:#172033 !important; }
+              .public-match-card .match-stage { color:#ffffff !important; }
+              .public-match-card .match-meta { color:#334155 !important; }
+              .public-match-card .kit-label,
+              .public-match-card .match-referee,
+              .public-match-card .match-weather { color:#475569 !important; }
+              .public-match-card .match-score { color:#0f172a !important; }
+              .public-match-card .public-team-name { font-size:18px !important;line-height:1.25;font-weight:800; }
+            </style>
+            """,
+            unsafe_allow_html=True,
+        )
+
+        if not matches:
+            st.info("Inga matcher finns för det valda filtret.")
+            return
+
+        for number, match_row in enumerate(matches, 1):
+            home = team(resolve_source(match_row["home_source"]))
+            away = team(resolve_source(match_row["away_source"]))
+            home_name = home["name"] if home else source_label(match_row["home_source"])
+            away_name = away["name"] if away else source_label(match_row["away_source"])
+            start = swedish_datetime(match_row["scheduled_start"])
+            match_weather = weather_for_match(weather_forecast, match_row["scheduled_start"])
+            weather_text = weather_label(match_weather) if weather_forecast else weather_status
+
+            _, _, away_kit_used = match_kit_colors(home, away)
+            home_kit_bg = kit_background_for_team(home, "home") if home else "#94a3b8"
+            away_selected_kit = "away" if away_kit_used else "home"
+            away_kit_bg = kit_background_for_team(away, away_selected_kit) if away else "#94a3b8"
+
+            if show_results:
+                center_text = f"{match_row['home_score']}–{match_row['away_score']}"
+                if match_row["home_penalties"] is not None:
+                    center_text += f" ({match_row['home_penalties']}–{match_row['away_penalties']} str.)"
+                status_text, status_class = "SLUT", "status-finished"
+                match_events_html = public_match_events_html(match_row["id"])
+            else:
+                center_text = "VS"
+                match_events_html = ""
+                match_start_dt = datetime.fromisoformat(match_row["scheduled_start"])
+                if match_row["home_score"] is not None and match_row["away_score"] is not None:
+                    status_text, status_class = "SPELAD", "status-finished"
+                elif match_start_dt <= now <= match_start_dt + timedelta(hours=2):
+                    status_text, status_class = "PÅGÅR", "status-live"
+                else:
+                    status_text, status_class = "KOMMANDE", "status-upcoming"
+
+            st.markdown(
+                f"""
+                <div class="public-match-card" style="border:1px solid #d1d5db;border-radius:14px;padding:16px;margin:12px 0;background:linear-gradient(135deg,#ffffff,#f3f6fb);color:#172033;box-shadow:0 4px 12px rgba(15,23,42,.08)">
+                  <div style="display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #e5e7eb;padding-bottom:9px">
+                    <div style="display:flex;gap:7px;align-items:center"><span class="match-stage" style="font-size:12px;font-weight:700;color:#fff;background:#166534;padding:4px 9px;border-radius:999px">{match_row['stage']}</span><span class="status-pill {status_class}">{status_text}</span></div>
+                    <span class="match-meta" style="font-size:13px;color:#334155">Match {number} · <b>{start}</b> · Plan {match_row['pitch_number']}</span>
+                  </div>
+                  <div style="display:grid;grid-template-columns:1fr auto 1fr;gap:15px;align-items:center;margin-top:8px;color:#0f172a">
+                    <div><span style="display:inline-block;width:22px;height:15px;background:{home_kit_bg};border:1px solid #444;border-radius:3px"></span>
+                    <b class="public-team-name">{html.escape(home_name)}</b><br><small class="kit-label">Hemmalagets hemmaställ</small></div>
+                    <div class="match-score" style="font-size:20px;font-weight:700">{center_text}</div>
+                    <div style="text-align:right"><b class="public-team-name">{html.escape(away_name)}</b> <span style="display:inline-block;width:22px;height:15px;background:{away_kit_bg};border:1px solid #444;border-radius:3px"></span>
+                    <br><small class="kit-label">{'Bortalagets bortaställ' if away_kit_used else 'Bortalagets hemmaställ'}</small></div>
+                  </div>
+                  {match_events_html}
+                  <div class="match-weather" style="font-size:12px;text-align:center;margin-top:10px">{html.escape(weather_text)}</div>
+                  <div class="match-referee" style="font-size:12px;text-align:center;margin-top:10px">Domare: {html.escape(referees.get(match_row['referee_id'], 'Ej tillsatt'))}</div>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+
+        st.caption("Väderprognos från Open-Meteo. Prognosen uppdateras automatiskt och kan förändras.")
+
     with schedule:
         st.markdown(
             f"""<div class='cup-hero'><div class='eyebrow'>CupNavi · Turneringsöversikt</div>
@@ -3216,91 +3669,19 @@ def render_public_view(tournament_id, tournament):
             </div>""",
             unsafe_allow_html=True,
         )
-        st.markdown("#### Filtrera spelschemat")
-        filter_mode = st.radio(
-            "Vad vill du visa?",
-            ["Alla matcher", "En grupp", "Ett lag"],
-            horizontal=True,
-            key=f"public_schedule_mode_{tournament_id}",
-            label_visibility="collapsed",
-        )
 
-        selected_public_group = None
-        selected_public_team = None
-        filter_label = "Alla matcher"
-
-        if filter_mode == "En grupp":
-            if public_groups:
-                selected_public_group = st.selectbox(
-                    "Välj grupp",
-                    [row["id"] for row in public_groups],
-                    format_func=lambda group_id: next(
-                        row["name"] for row in public_groups if row["id"] == group_id
-                    ),
-                    key=f"public_group_filter_{tournament_id}",
-                )
-                filter_label = next(
-                    row["name"] for row in public_groups if row["id"] == selected_public_group
-                )
-                filtered_public_matches = [
-                    match_row for match_row in published_matches
-                    if match_row["group_id"] == selected_public_group
-                ]
-            else:
-                filtered_public_matches = []
-                st.info("Det finns inga grupper att filtrera på.")
-
-        elif filter_mode == "Ett lag":
-            if public_teams:
-                selected_public_team = st.selectbox(
-                    "Välj lag",
-                    [row["id"] for row in public_teams],
-                    format_func=lambda team_id: next(
-                        row["name"] for row in public_teams if row["id"] == team_id
-                    ),
-                    key=f"public_team_filter_{tournament_id}",
-                )
-                filter_label = next(
-                    row["name"] for row in public_teams if row["id"] == selected_public_team
-                )
-
-                def _match_has_selected_team(match_row):
-                    return (
-                        resolve_source(match_row["home_source"]) == selected_public_team
-                        or resolve_source(match_row["away_source"]) == selected_public_team
-                    )
-
-                filtered_public_matches = [
-                    match_row for match_row in published_matches
-                    if _match_has_selected_team(match_row)
-                ]
-            else:
-                filtered_public_matches = []
-                st.info("Det finns inga lag att filtrera på.")
-        else:
-            filtered_public_matches = published_matches
-
-        # Säkerställ alltid datum-/tidsordning även efter filtrering.
-        filtered_public_matches = sorted(
-            filtered_public_matches,
-            key=lambda match_row: (
-                match_row["scheduled_start"] or "",
-                match_row["pitch_number"] or 0,
-                match_row["id"],
-            ),
-        )
-        played_in_filter = sum(
-            1 for match_row in filtered_public_matches
-            if match_row["home_score"] is not None and match_row["away_score"] is not None
+        schedule_matches, schedule_filter_mode, schedule_filter_label = _filter_public_matches(
+            published_matches,
+            "public_schedule",
+            "Filtrera spelschemat",
         )
         st.caption(
-            f"Visar {len(filtered_public_matches)} matcher · {filter_label} · "
-            f"{played_in_filter} spelade · alltid sorterat efter datum och tid."
+            f"Visar {len(schedule_matches)} matcher · {schedule_filter_label} · sorterat efter datum och tid."
         )
 
         next_match = next(
             (
-                match_row for match_row in filtered_public_matches
+                match_row for match_row in schedule_matches
                 if datetime.fromisoformat(match_row["scheduled_start"]) >= now
                 and match_row["home_score"] is None
             ),
@@ -3311,8 +3692,16 @@ def render_public_view(tournament_id, tournament):
             next_away = source_label(next_match["away_source"])
             next_label = (
                 "Nästa match för valt lag"
-                if filter_mode == "Ett lag"
-                else ("Nästa match i vald grupp" if filter_mode == "En grupp" else "Nästa match i turneringen")
+                if schedule_filter_mode == "Ett lag"
+                else (
+                    "Nästa match i vald grupp"
+                    if schedule_filter_mode == "En grupp"
+                    else (
+                        "Nästa match på vald plan"
+                        if schedule_filter_mode == "En plan"
+                        else "Nästa match i turneringen"
+                    )
+                )
             )
             st.markdown(
                 f"""
@@ -3324,88 +3713,24 @@ def render_public_view(tournament_id, tournament):
                 """,
                 unsafe_allow_html=True,
             )
-        elif filter_mode != "Alla matcher":
-            st.info("Det finns ingen kommande publicerad match för det valda filtret.")
-        st.markdown(
-            """
-            <style>
-              .public-match-card,
-              .public-match-card div,
-              .public-match-card span,
-              .public-match-card b { color:#172033 !important; }
-              .public-match-card .match-stage { color:#ffffff !important; }
-              .public-match-card .match-meta { color:#334155 !important; }
-              .public-match-card .kit-label,
-              .public-match-card .match-referee,
-              .public-match-card .match-weather { color:#475569 !important; }
-              .public-match-card .match-score { color:#0f172a !important; }
-              .public-match-card .public-team-name { font-size:18px !important;line-height:1.25;font-weight:800; }
-              .public-match-card .color-conflict { color:#9a3412 !important; }
-            </style>
-            """,
-            unsafe_allow_html=True,
+
+        _render_public_match_cards(schedule_matches, show_results=False)
+
+    with results_tab:
+        st.subheader("Resultat")
+        st.caption(
+            "Här visas endast färdigspelade matcher. Resultat och registrerade matchhändelser visas i matchkortet."
         )
-        matches = filtered_public_matches
-        referees = {r["id"]: r["name"] for r in all_rows("SELECT * FROM referees WHERE tournament_id=?", (tournament_id,))}
-        weather_forecast, weather_status = fetch_weather_forecast(tournament["location"] or "")
-        if not matches:
-            draft_count = one_row(
-                "SELECT COUNT(*) AS n FROM matches WHERE tournament_id=? AND scheduled_start IS NOT NULL AND schedule_published=0",
-                (tournament_id,),
-            )["n"]
-            if draft_count:
-                st.info(f"Spelschemat är framtaget men väntar på administratörens godkännande ({draft_count} matcher i utkast).")
-            else:
-                st.info("Inga matcher har schemalagts och publicerats ännu.")
-        for number, match_row in enumerate(matches, 1):
-            home = team(resolve_source(match_row["home_source"]))
-            away = team(resolve_source(match_row["away_source"]))
-            home_name = home["name"] if home else source_label(match_row["home_source"])
-            away_name = away["name"] if away else source_label(match_row["away_source"])
-            start = swedish_datetime(match_row["scheduled_start"])
-            match_weather = weather_for_match(weather_forecast, match_row["scheduled_start"])
-            weather_text = weather_label(match_weather) if weather_forecast else weather_status
-            score = "Ej spelad" if match_row["home_score"] is None else f"{match_row['home_score']}–{match_row['away_score']}"
-            if match_row["home_penalties"] is not None:
-                score += f" ({match_row['home_penalties']}–{match_row['away_penalties']} str.)"
-            home_primary, away_match_color, away_kit_used = match_kit_colors(home, away)
-            home_kit_bg = kit_background_for_team(home, "home") if home else "#94a3b8"
-            away_selected_kit = "away" if away_kit_used else "home"
-            away_kit_bg = kit_background_for_team(away, away_selected_kit) if away else "#94a3b8"
-            match_start_dt = datetime.fromisoformat(match_row["scheduled_start"])
-            if match_row["home_score"] is not None and match_row["away_score"] is not None:
-                status_text, status_class = "SLUT", "status-finished"
-            elif match_start_dt <= now <= match_start_dt + timedelta(hours=2):
-                status_text, status_class = "PÅGÅR", "status-live"
-            else:
-                status_text, status_class = "KOMMANDE", "status-upcoming"
-            match_events_html = public_match_events_html(match_row["id"])
-            # Färgnotiser visas inte i den publika turneringsvyn.
-            color_conflict_html = ""
-            st.markdown(
-                f"""
-                <div class="public-match-card" style="border:1px solid #d1d5db;border-radius:14px;padding:16px;margin:12px 0;background:linear-gradient(135deg,#ffffff,#f3f6fb);color:#172033;box-shadow:0 4px 12px rgba(15,23,42,.08)">
-                  <div style="display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #e5e7eb;padding-bottom:9px">
-                    <div style="display:flex;gap:7px;align-items:center"><span class="match-stage" style="font-size:12px;font-weight:700;color:#fff;background:#166534;padding:4px 9px;border-radius:999px">{match_row['stage']}</span><span class="status-pill {status_class}">{status_text}</span></div>
-                    <span class="match-meta" style="font-size:13px;color:#334155">Match {number} · <b>{start}</b> · Plan {match_row['pitch_number']}</span>
-                  </div>
-                  <div style="display:grid;grid-template-columns:1fr auto 1fr;gap:15px;align-items:center;margin-top:8px;color:#0f172a">
-                    <div style="color:#0f172a"><span style="display:inline-block;width:22px;height:15px;background:{home_kit_bg};border:1px solid #444;border-radius:3px"></span>
-                    <b class="public-team-name" style="color:#0f172a">{home_name}</b><br><small class="kit-label" style="color:#475569">Hemmalagets hemmaställ</small></div>
-                    <div class="match-score" style="font-size:20px;font-weight:700;color:#0f172a">{score}</div>
-                    <div style="text-align:right;color:#0f172a"><b class="public-team-name" style="color:#0f172a">{away_name}</b> <span style="display:inline-block;width:22px;height:15px;background:{away_kit_bg};border:1px solid #444;border-radius:3px"></span>
-                    <br><small class="kit-label" style="color:#475569">{'Bortalagets bortaställ' if away_kit_used else 'Bortalagets hemmaställ'}</small></div>
-                  </div>
-                  {color_conflict_html}
-                  {match_events_html}
-                  <div class="match-weather" style="font-size:12px;color:#475569;text-align:center;margin-top:10px">{html.escape(weather_text)}</div>
-                  <div class="match-referee" style="font-size:12px;color:#475569;text-align:center;margin-top:10px">Domare: {referees.get(match_row['referee_id'], 'Ej tillsatt')}</div>
-                </div>
-                """,
-                unsafe_allow_html=True,
-            )
-        if matches:
-            st.caption("Väderprognos från Open-Meteo. Prognosen uppdateras automatiskt och kan förändras.")
+        result_matches, result_filter_mode, result_filter_label = _filter_public_matches(
+            played_matches,
+            "public_results",
+            "Filtrera resultaten",
+        )
+        st.caption(
+            f"Visar {len(result_matches)} spelade matcher · {result_filter_label} · sorterat efter datum och tid."
+        )
+        _render_public_match_cards(result_matches, show_results=True)
+
     with tables:
         groups = all_rows("SELECT * FROM groups WHERE tournament_id=? ORDER BY name", (tournament_id,))
         for group in groups:
@@ -3443,6 +3768,60 @@ def render_public_view(tournament_id, tournament):
         for bracket in brackets:
             st.subheader(bracket["name"])
             render_bracket_tree(bracket["id"], public=True)
+    with offers_tab:
+        st.subheader("Erbjudanden för cupdeltagare")
+        st.caption("Lokala erbjudanden och rabattkoder som arrangören har lagt upp för deltagare och besökare.")
+
+        public_offers = all_rows(
+            """SELECT * FROM offers
+               WHERE tournament_id=? AND active=1
+               ORDER BY sort_order,id""",
+            (tournament_id,),
+        )
+        if not public_offers:
+            st.info("Det finns inga aktuella erbjudanden publicerade just nu.")
+        else:
+            for offer in public_offers:
+                valid_text = f"Gäller t.o.m. {offer['valid_until']}" if offer["valid_until"] else "Giltighetstid ej angiven"
+                code_html = (
+                    f"<div style='margin-top:10px'><span style='font-size:12px;color:#475569'>Rabattkod</span><br>"
+                    f"<span style='display:inline-block;margin-top:3px;padding:7px 12px;border:1px dashed #166534;"
+                    f"border-radius:8px;background:#f0fdf4;color:#166534;font-weight:800;letter-spacing:.5px'>"
+                    f"{html.escape(offer['discount_code'])}</span></div>"
+                    if offer["discount_code"] else ""
+                )
+                business_html = (
+                    f"<div style='font-size:14px;font-weight:700;color:#475569;margin-top:3px'>"
+                    f"{html.escape(offer['business_name'])}</div>"
+                    if offer["business_name"] else ""
+                )
+                description_html = (
+                    f"<div style='margin-top:10px;line-height:1.5;color:#334155'>"
+                    f"{html.escape(offer['description'])}</div>"
+                    if offer["description"] else ""
+                )
+                link_html = (
+                    f"<div style='margin-top:12px'><a href='{html.escape(offer['url'], quote=True)}' "
+                    f"target='_blank' rel='noopener noreferrer' style='font-weight:700;color:#166534'>"
+                    f"Öppna erbjudandet ↗</a></div>"
+                    if offer["url"] else ""
+                )
+                st.markdown(
+                    f"""
+                    <div style="border:1px solid #cbd5e1;border-radius:14px;padding:16px 18px;margin:12px 0;
+                                background:linear-gradient(135deg,#ffffff,#f0fdf4);box-shadow:0 3px 10px rgba(15,23,42,.06)">
+                      <div style="font-size:19px;font-weight:800;color:#172033">{html.escape(offer['title'])}</div>
+                      {business_html}
+                      {description_html}
+                      {code_html}
+                      <div style="font-size:12px;color:#64748b;margin-top:11px">{html.escape(valid_text)}</div>
+                      {link_html}
+                    </div>
+                    """,
+                    unsafe_allow_html=True,
+                )
+        st.caption("Erbjudandena publiceras av cuparrangören. Villkor och tillgänglighet kan ändras hos respektive företag.")
+
     with information:
         st.subheader("Praktisk information")
         if visitor_rows:
@@ -3580,11 +3959,12 @@ if view_mode == "Turneringsvy":
 
 # SNABB ADMINNAVIGERING: visuellt som flikar, men bara vald sida körs.
 ADMIN_PAGES = [
-    "Adminöversikt", "Kontroller", "Lag", "Grupper", "Trupper", "Domare",
+    "Instruktioner", "Adminöversikt", "Kontroller", "Lag", "Grupper", "Trupper", "Domare",
     "Skapa och publicera schema", "Tabeller", "Matcher och resultat",
-    "Matchhändelser", "Slutspel", "Skytteligor",
+    "Matchhändelser", "Slutspel", "Skytteligor", "Erbjudanden",
 ]
 ADMIN_NAV = [
+    ("Instruktioner", "Instruktioner"),
     ("Adminöversikt", "Översikt"),
     ("Kontroller", "Kontroller"),
     ("Lag", "Lag"),
@@ -3597,6 +3977,7 @@ ADMIN_NAV = [
     ("Matchhändelser", "Händelser"),
     ("Slutspel", "Slutspel"),
     ("Skytteligor", "Skytteligor"),
+    ("Erbjudanden", "Erbjudanden"),
 ]
 admin_page_key = f"admin_page_{tid}"
 if st.session_state.get(admin_page_key) not in ADMIN_PAGES:
@@ -3610,7 +3991,7 @@ def _set_admin_page(page):
 
 # Vanliga Streamlit-knappar används med aktiv/inaktiv typ.
 # Två rader à sex val ger tydlig kontrast och fungerar på både desktop och mobil.
-for nav_row in (ADMIN_NAV[:6], ADMIN_NAV[6:]):
+for nav_row in (ADMIN_NAV[:7], ADMIN_NAV[7:]):
     nav_cols = st.columns(len(nav_row))
     for nav_col, (page_name, button_label) in zip(nav_cols, nav_row):
         nav_col.button(
@@ -3973,7 +4354,205 @@ def _admin_workflow_step(title, state, meta):
 
 
 
-if admin_page == "Adminöversikt":
+if admin_page == "Instruktioner":
+    st.header("Instruktioner")
+    st.caption(
+        "En steg-för-steg-guide för dig som administrerar en cup för första gången. "
+        "Guiden läser av den valda turneringen och ändrar status och nästa rekommenderade steg automatiskt."
+    )
+
+    guide_counts = _admin_workflow_counts(tid)
+    guide_expected = int(tournament["expected_team_count"] or 0)
+    guide_scheduled = one_row(
+        "SELECT COUNT(*) AS n FROM matches WHERE tournament_id=? AND scheduled_start IS NOT NULL",
+        (tid,),
+    )["n"]
+    guide_published = one_row(
+        "SELECT COUNT(*) AS n FROM matches WHERE tournament_id=? AND schedule_published=1",
+        (tid,),
+    )["n"]
+    guide_events = one_row(
+        """SELECT COUNT(*) AS n
+           FROM player_match_stats s
+           JOIN matches m ON m.id=s.match_id
+           WHERE m.tournament_id=?
+             AND (s.goals>0 OR s.assists>0 OR s.yellow_cards>0 OR s.red_cards>0)""",
+        (tid,),
+    )["n"]
+
+    guide_steps = [
+        {
+            "title": "1. Grundinställningar",
+            "page": "Adminöversikt",
+            "done": bool(tournament["name"]) and guide_expected > 0,
+            "text": (
+                "Börja på Översikt. Ange cupens grunduppgifter, maximalt/planerat antal lag, "
+                "datum och plantider. Här bestämmer du också tabellregler, slutspelsmodell och "
+                "hur oavgjorda slutspelsmatcher ska avgöras."
+            ),
+        },
+        {
+            "title": "2. Registrera lag",
+            "page": "Lag",
+            "done": guide_counts["teams_n"] > 0 and (guide_expected == 0 or guide_counts["teams_n"] >= guide_expected),
+            "text": (
+                f"Registrera deltagande lag och deras hemma- och bortaställ. "
+                f"Just nu finns {guide_counts['teams_n']} lag registrerade"
+                + (f" av {guide_expected} planerade." if guide_expected else ".")
+            ),
+        },
+        {
+            "title": "3. Skapa grupper",
+            "page": "Grupper",
+            "done": guide_counts["groups_n"] > 0,
+            "text": (
+                f"Skapa grupper och placera lagen i rätt grupp. "
+                f"Just nu finns {guide_counts['groups_n']} grupper."
+            ),
+        },
+        {
+            "title": "4. Lägg in trupper",
+            "page": "Trupper",
+            "done": guide_counts["players_n"] > 0,
+            "text": (
+                f"Lägg in spelarna under respektive lag. Trupper behövs för att kunna registrera "
+                f"mål, assist och kort på rätt spelare. {guide_counts['players_n']} spelare är registrerade."
+            ),
+        },
+        {
+            "title": "5. Registrera domare",
+            "page": "Domare",
+            "done": guide_counts["refs_n"] > 0,
+            "text": (
+                f"Lägg in de domare som ska användas. CupNavi kan sedan tilldela dem i schemat. "
+                f"{guide_counts['refs_n']} domare är registrerade."
+            ),
+        },
+        {
+            "title": "6. Skapa och kontrollera schemat",
+            "page": "Skapa och publicera schema",
+            "done": guide_scheduled > 0 and not bool(tournament["schedule_dirty"]),
+            "text": (
+                f"När lag, grupper och regler är klara skapar du schemat. Slutspelsmatcherna skapas "
+                f"samtidigt. Kontrollera därefter tider, planer, vila och domare. "
+                f"{guide_scheduled} matcher är schemalagda."
+                + (" Schemat behöver regenereras efter en ändring." if tournament["schedule_dirty"] and guide_scheduled else "")
+            ),
+        },
+        {
+            "title": "7. Kontrollera innan publicering",
+            "page": "Kontroller",
+            "done": guide_scheduled > 0 and not bool(tournament["schedule_dirty"]),
+            "text": (
+                "Öppna Kontroller och gå igenom blockerande fel och varningar. Varningar är sådant "
+                "du bör granska; blockerande fel måste rättas innan publicering."
+            ),
+        },
+        {
+            "title": "8. Publicera cupen",
+            "page": "Skapa och publicera schema",
+            "done": bool(tournament["is_published"]) and guide_published > 0,
+            "text": (
+                "När schemat är godkänt publicerar du cupen. Publiceringsfunktionen finns tillgänglig "
+                "i adminläget även när du arbetar på andra flikar. Den publika turneringsvyn visar sedan "
+                "spelschema, tabeller, resultat, slutspel och övrig information."
+            ),
+        },
+        {
+            "title": "9. Under turneringen – registrera resultat",
+            "page": "Matcher och resultat",
+            "done": guide_counts["played_n"] > 0,
+            "text": (
+                f"På Matcher registrerar du slutresultaten. De sparas automatiskt när de matas in. "
+                f"{guide_counts['played_n']} av {guide_counts['matches_n']} matcher har resultat."
+            ),
+        },
+        {
+            "title": "10. Registrera matchhändelser",
+            "page": "Matchhändelser",
+            "done": guide_events > 0,
+            "text": (
+                f"På Händelser registrerar du mål, assist, gula kort och röda kort. Händelserna sparas "
+                f"automatiskt och används i den publika resultatvyn och topplistorna. "
+                f"{guide_events} spelarhändelser finns registrerade."
+            ),
+        },
+        {
+            "title": "11. Följ tabeller, slutspel och topplistor",
+            "page": "Tabeller",
+            "done": guide_counts["played_n"] > 0,
+            "text": (
+                "Tabeller räknas från registrerade resultat. Slutspelsplatser och kommande motstånd "
+                "uppdateras utifrån cupens regler. Kontrollera även Slutspel och Skytteligor under cupens gång."
+            ),
+        },
+        {
+            "title": "12. Lägg in erbjudanden för deltagarna",
+            "page": "Erbjudanden",
+            "done": one_row("SELECT COUNT(*) AS n FROM offers WHERE tournament_id=? AND active=1", (tid,))["n"] > 0,
+            "text": (
+                "På Erbjudanden kan du lägga upp lokala förmåner för cupdeltagare, till exempel "
+                "restaurangrabatter eller rabattkoder. Aktiva erbjudanden visas i en egen flik i turneringsvyn."
+            ),
+        },
+        {
+            "title": "13. Exportera scheman",
+            "page": "Skapa och publicera schema",
+            "done": guide_scheduled > 0,
+            "text": (
+                "På Schema kan du skapa ett komplett PDF-paket för utskrift. Det innehåller hela schemat "
+                "samt separata grupp-, lag-, plan-, slutspels- och domarscheman."
+            ),
+        },
+    ]
+
+    completed_steps = sum(1 for step in guide_steps if step["done"])
+    guide_progress = completed_steps / len(guide_steps)
+    st.progress(guide_progress, text=f"{completed_steps} av {len(guide_steps)} steg har påbörjats eller slutförts")
+
+    next_step = next((step for step in guide_steps if not step["done"]), None)
+    if next_step:
+        st.info(f"**Rekommenderat nästa steg:** {next_step['title']} – {next_step['text']}")
+        if st.button(
+            f"Gå till {next_step['page'].replace('Skapa och publicera schema', 'Schema').replace('Matcher och resultat', 'Matcher').replace('Matchhändelser', 'Händelser')}",
+            type="primary",
+            key=f"guide_next_{tid}",
+        ):
+            st.session_state[admin_page_key] = next_step["page"]
+            st.rerun()
+    else:
+        st.success("Grundflödet är genomfört. Fortsätt administrera resultat, händelser och slutspel under cupen.")
+
+    st.markdown("### Så arbetar du i CupNavi")
+    for step in guide_steps:
+        icon = "✓" if step["done"] else "○"
+        status = "Klart/aktivt" if step["done"] else "Återstår"
+        with st.expander(f"{icon} {step['title']} · {status}", expanded=bool(next_step and step["title"] == next_step["title"])):
+            st.write(step["text"])
+            if st.button(
+                f"Öppna {step['page'].replace('Skapa och publicera schema', 'Schema').replace('Matcher och resultat', 'Matcher').replace('Matchhändelser', 'Händelser')}",
+                key=f"guide_open_{tid}_{step['page']}",
+            ):
+                st.session_state[admin_page_key] = step["page"]
+                st.rerun()
+
+    st.markdown("### Viktigt att känna till")
+    st.markdown(
+        """
+        - **Ändrar du lag, grupper, regler eller andra schemaförutsättningar efter att schemat skapats** kan schemat markeras som inaktuellt. Regenerera det då på **Schema**.
+        - **Färgkrockar är en varning, inte ett stopp.** CupNavi försöker välja hemma/borta och matchställ så att krockarna blir så få som möjligt.
+        - **Resultat och matchhändelser sparas automatiskt.** Den gröna bekräftelsen visar att ändringen är sparad.
+        - **Publicering valideras innan den genomförs.** Om något blockerar publiceringen ska CupNavi tala om exakt vad som behöver rättas.
+        - **Spelschema och Resultat är separata i den publika vyn.** Spelschema visar inga resultat; Resultat visar färdigspelade matcher och registrerade händelser.
+        """
+    )
+    st.caption(
+        "Den här sidan bygger sin status från turneringens aktuella data. "
+        "När CupNavi får nya arbetssteg eller funktioner ska motsvarande instruktion uppdateras tillsammans med funktionen."
+    )
+
+
+elif admin_page == "Adminöversikt":
     st.header("Adminöversikt")
     st.caption("Här ställer du in cupens grunduppgifter, poängregler, slutspelsformat och regler för schemaläggningen.")
     overview_counts = one_row(
@@ -5131,6 +5710,7 @@ if admin_page == "Skapa och publicera schema":
                 with st.spinner("CupNavi bygger schemat och fördelar planer/domare…"):
                     if played_result_total:
                         created, ready_groups, skipped_groups = 0, len(schedule_groups), []
+                        optimize_group_home_away(tid)
                         playoff_ok, playoff_error = ensure_playoffs_for_schedule(tid, tournament)
                         if not playoff_ok:
                             raise RuntimeError(playoff_error)
@@ -5233,6 +5813,98 @@ if admin_page == "Skapa och publicera schema":
             })
         if group_status_rows:
             render_centered_table(pd.DataFrame(group_status_rows))
+
+    st.subheader("PDF-export")
+    st.caption(
+        "Skapa ett komplett, utskriftsvänligt PDF-paket med hela schemat samt separata "
+        "scheman per grupp, lag, plan, slutspel och domare."
+    )
+    pdf_matches = all_rows(
+        "SELECT * FROM matches WHERE tournament_id=? AND scheduled_start IS NOT NULL "
+        "ORDER BY scheduled_start,pitch_number,id",
+        (tid,),
+    )
+    if not pdf_matches:
+        st.info("PDF-export blir tillgänglig när det finns ett genererat spelschema.")
+    else:
+        pdf_key = f"schedule_pdf_bytes_{tid}"
+        pdf_fingerprint_key = f"schedule_pdf_fingerprint_{tid}"
+        pdf_fingerprint = "|".join(
+            f"{m['id']}:{m['scheduled_start']}:{m['pitch_number']}:{m['home_source']}:{m['away_source']}:"
+            f"{m['home_score']}:{m['away_score']}:{m['referee_id']}"
+            for m in pdf_matches
+        )
+
+        if st.button("Skapa komplett schemapaket som PDF", use_container_width=True, key=f"prepare_pdf_{tid}"):
+            with st.spinner("CupNavi skapar PDF-paketet…"):
+                pdf_teams = all_rows("SELECT * FROM teams WHERE tournament_id=? ORDER BY name", (tid,))
+                pdf_groups = all_rows("SELECT * FROM groups WHERE tournament_id=? ORDER BY name", (tid,))
+                pdf_refs = all_rows("SELECT * FROM referees WHERE tournament_id=? ORDER BY name", (tid,))
+
+                unique_sources = {
+                    source
+                    for match_row in pdf_matches
+                    for source in (match_row["home_source"], match_row["away_source"])
+                    if source
+                }
+                source_labels_for_pdf = {source: source_label(source) for source in unique_sources}
+                source_team_ids_for_pdf = {source: resolve_source(source) for source in unique_sources}
+
+                tournament_for_pdf = {
+                    key: tournament[key]
+                    for key in ("name", "location", "tournament_date", "start_date", "end_date")
+                }
+                matches_for_pdf = [
+                    {
+                        key: match_row[key]
+                        for key in (
+                            "id", "group_id", "stage", "scheduled_start", "pitch_number",
+                            "home_source", "away_source", "home_score", "away_score",
+                            "home_penalties", "away_penalties", "referee_id",
+                        )
+                    }
+                    for match_row in pdf_matches
+                ]
+                teams_for_pdf = [
+                    {key: team_row[key] for key in ("id", "name", "group_id")}
+                    for team_row in pdf_teams
+                ]
+                groups_for_pdf = [
+                    {key: group_row[key] for key in ("id", "name")}
+                    for group_row in pdf_groups
+                ]
+                refs_for_pdf = [
+                    {key: ref_row[key] for key in ("id", "name")}
+                    for ref_row in pdf_refs
+                ]
+
+                st.session_state[pdf_key] = build_schedule_pdf(
+                    tournament_for_pdf,
+                    matches_for_pdf,
+                    teams_for_pdf,
+                    groups_for_pdf,
+                    refs_for_pdf,
+                    source_labels_for_pdf,
+                    source_team_ids_for_pdf,
+                )
+                st.session_state[pdf_fingerprint_key] = pdf_fingerprint
+
+        if (
+            pdf_key in st.session_state
+            and st.session_state.get(pdf_fingerprint_key) == pdf_fingerprint
+        ):
+            safe_pdf_name = re.sub(r"[^A-Za-z0-9_-]+", "_", tournament["name"] or "CupNavi").strip("_")
+            st.success("✓ PDF-paketet är klart.")
+            st.download_button(
+                "Ladda ner alla scheman som PDF",
+                data=st.session_state[pdf_key],
+                file_name=f"{safe_pdf_name}_alla_scheman.pdf",
+                mime="application/pdf",
+                use_container_width=True,
+                key=f"download_schedule_pdf_{tid}",
+            )
+        elif pdf_key in st.session_state:
+            st.warning("Schemat har ändrats sedan PDF:en skapades. Skapa PDF-paketet på nytt.")
 
     st.info(
         "Blockerande fel, varningar och lagens vilotider granskas på fliken Kontroller. "
@@ -5746,6 +6418,113 @@ if admin_page == "Matchhändelser":
             expected_goals = stat_match["home_score"] if selected_team_id == home_team_id else stat_match["away_score"]
             if registered_goals != expected_goals:
                 st.warning(f"Registrerade spelarmål: {registered_goals}. Matchresultatet visar {expected_goals} mål. Skillnaden kan exempelvis vara självmål.")
+
+
+if admin_page == "Erbjudanden":
+    st.header("Erbjudanden")
+    st.caption(
+        "Administrera erbjudanden som cupdeltagare och besökare kan använda. "
+        "Aktiva erbjudanden visas direkt under fliken Erbjudanden i den publika turneringsvyn."
+    )
+
+    with st.form(f"new_offer_{tid}", clear_on_submit=True):
+        st.markdown("#### Lägg till erbjudande")
+        oc1, oc2 = st.columns(2)
+        with oc1:
+            offer_title = st.text_input("Rubrik *", placeholder="Exempel: 15 % på hela menyn")
+            offer_business = st.text_input("Företag / restaurang", placeholder="Exempel: Restaurang Hörnet")
+            offer_code = st.text_input("Rabattkod", placeholder="Exempel: CUPNAVI15")
+        with oc2:
+            offer_valid = st.text_input("Gäller t.o.m.", placeholder="Exempel: 2026-08-23")
+            offer_url = st.text_input("Länk till erbjudandet", placeholder="https://...")
+            offer_order = st.number_input("Visningsordning", min_value=0, max_value=999, value=0, step=1)
+        offer_description = st.text_area(
+            "Beskrivning / villkor",
+            placeholder="Exempel: Gäller för cupdeltagare vid uppvisande av deltagarband. Kan ej kombineras med andra erbjudanden.",
+            max_chars=1500,
+        )
+        offer_active = st.checkbox("Visa erbjudandet i turneringsvyn direkt", value=True)
+        if st.form_submit_button("Lägg till erbjudande", type="primary", use_container_width=True):
+            if not offer_title.strip():
+                st.error("Ange en rubrik för erbjudandet.")
+            elif offer_url.strip() and not re.match(r"^https?://", offer_url.strip(), re.I):
+                st.error("Länken måste börja med http:// eller https://.")
+            else:
+                run(
+                    """INSERT INTO offers(
+                           tournament_id,title,business_name,description,discount_code,
+                           valid_until,url,active,sort_order
+                       ) VALUES(?,?,?,?,?,?,?,?,?)""",
+                    (
+                        tid,
+                        offer_title.strip(),
+                        offer_business.strip() or None,
+                        offer_description.strip() or None,
+                        offer_code.strip() or None,
+                        offer_valid.strip() or None,
+                        offer_url.strip() or None,
+                        1 if offer_active else 0,
+                        int(offer_order),
+                    ),
+                )
+                st.success("✓ Erbjudandet är sparat.")
+                st.rerun()
+
+    st.markdown("#### Befintliga erbjudanden")
+    admin_offers = all_rows(
+        "SELECT * FROM offers WHERE tournament_id=? ORDER BY sort_order,id",
+        (tid,),
+    )
+    if not admin_offers:
+        st.info("Inga erbjudanden har lagts till ännu.")
+    else:
+        for offer in admin_offers:
+            status = "Publicerat" if offer["active"] else "Dolt"
+            with st.expander(f"{'✓' if offer['active'] else '○'} {offer['title']} · {status}"):
+                with st.form(f"edit_offer_{offer['id']}"):
+                    ec1, ec2 = st.columns(2)
+                    with ec1:
+                        edit_title = st.text_input("Rubrik", value=offer["title"], key=f"offer_title_{offer['id']}")
+                        edit_business = st.text_input("Företag / restaurang", value=offer["business_name"] or "", key=f"offer_business_{offer['id']}")
+                        edit_code = st.text_input("Rabattkod", value=offer["discount_code"] or "", key=f"offer_code_{offer['id']}")
+                    with ec2:
+                        edit_valid = st.text_input("Gäller t.o.m.", value=offer["valid_until"] or "", key=f"offer_valid_{offer['id']}")
+                        edit_url = st.text_input("Länk", value=offer["url"] or "", key=f"offer_url_{offer['id']}")
+                        edit_order = st.number_input("Visningsordning", 0, 999, int(offer["sort_order"] or 0), key=f"offer_order_{offer['id']}")
+                    edit_description = st.text_area("Beskrivning / villkor", value=offer["description"] or "", max_chars=1500, key=f"offer_desc_{offer['id']}")
+                    edit_active = st.checkbox("Visa i turneringsvyn", value=bool(offer["active"]), key=f"offer_active_{offer['id']}")
+                    if st.form_submit_button("Spara ändringar", use_container_width=True):
+                        if not edit_title.strip():
+                            st.error("Rubriken får inte vara tom.")
+                        elif edit_url.strip() and not re.match(r"^https?://", edit_url.strip(), re.I):
+                            st.error("Länken måste börja med http:// eller https://.")
+                        else:
+                            run(
+                                """UPDATE offers SET title=?,business_name=?,description=?,discount_code=?,
+                                   valid_until=?,url=?,active=?,sort_order=? WHERE id=? AND tournament_id=?""",
+                                (
+                                    edit_title.strip(), edit_business.strip() or None,
+                                    edit_description.strip() or None, edit_code.strip() or None,
+                                    edit_valid.strip() or None, edit_url.strip() or None,
+                                    1 if edit_active else 0, int(edit_order), offer["id"], tid,
+                                ),
+                            )
+                            st.success("✓ Ändringarna är sparade.")
+                            st.rerun()
+
+                if st.button("Ta bort erbjudande", key=f"delete_offer_{offer['id']}", type="secondary"):
+                    st.session_state[f"confirm_delete_offer_{offer['id']}"] = True
+                    st.rerun()
+                if st.session_state.get(f"confirm_delete_offer_{offer['id']}"):
+                    st.warning(f"Ta bort erbjudandet “{offer['title']}”?")
+                    dc1, dc2 = st.columns(2)
+                    if dc1.button("Ja, ta bort", key=f"confirm_offer_delete_{offer['id']}", type="primary"):
+                        run("DELETE FROM offers WHERE id=? AND tournament_id=?", (offer["id"], tid))
+                        st.session_state.pop(f"confirm_delete_offer_{offer['id']}", None)
+                        st.rerun()
+                    if dc2.button("Avbryt", key=f"cancel_offer_delete_{offer['id']}"):
+                        st.session_state.pop(f"confirm_delete_offer_{offer['id']}", None)
+                        st.rerun()
 
 
 if admin_page == "Tabeller":

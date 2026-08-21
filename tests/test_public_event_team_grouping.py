@@ -2,7 +2,7 @@ from pathlib import Path
 
 def test_public_events_are_grouped_by_team():
     text=Path("app.py").read_text(encoding="utf-8")
-    assert 'grouped.setdefault(row["team_name"], [])' in text
+    assert 'team_data.setdefault(team_id, {"name": row["team_name"], "events": []})' in text
     assert "cn-event-team-name" in text
     assert "cn-event-teams" in text
 
