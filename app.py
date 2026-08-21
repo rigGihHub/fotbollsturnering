@@ -3344,11 +3344,6 @@ if tournament["is_published"]:
 else:
     st.sidebar.caption("Turneringsvyn är ett utkast.")
 
-sidebar_warnings_approved = st.sidebar.checkbox(
-    "Jag har granskat schemavarningarna",
-    disabled=not bool(blocking_sidebar_warnings),
-    key=f"sidebar_warning_approval_{tid}",
-)
 
 def _is_advisory_schedule_warning(message):
     """Varningar som ska synas men aldrig blockera publicering."""
@@ -3364,6 +3359,12 @@ advisory_sidebar_warnings = [
     warning for warning in sidebar_warnings
     if _is_advisory_schedule_warning(warning)
 ]
+
+sidebar_warnings_approved = st.sidebar.checkbox(
+    "Jag har granskat schemavarningarna",
+    disabled=not bool(blocking_sidebar_warnings),
+    key=f"sidebar_warning_approval_{tid}",
+)
 
 publish_blockers = []
 if not tournament["playoff_model_confirmed"]:
@@ -3405,14 +3406,14 @@ if sidebar_publish_blocked:
                 st.caption(
                     f"Ytterligare {len(blocking_sidebar_warnings) - 10} varningar visas under Kontroller/Schema."
                 )
-
-    if advisory_sidebar_warnings:
-        with st.sidebar.expander(f"Notiser – blockerar inte ({len(advisory_sidebar_warnings)})"):
-            for index, warning in enumerate(advisory_sidebar_warnings[:10], 1):
-                st.markdown(f"**{index}.** {warning}")
-            st.caption("Dessa notiser stoppar inte publicering.")
 else:
     st.sidebar.success("✓ Alla publiceringskrav är uppfyllda.")
+
+if advisory_sidebar_warnings:
+    with st.sidebar.expander(f"Notiser – blockerar inte ({len(advisory_sidebar_warnings)})"):
+        for index, warning in enumerate(advisory_sidebar_warnings[:10], 1):
+            st.markdown(f"**{index}.** {warning}")
+        st.caption("Dessa notiser stoppar inte publicering.")
 
 if st.sidebar.button(
     "Publicera",
