@@ -171,6 +171,86 @@ div[role="dialog"] .stButton > button:not([kind="primary"]) * {
             .cn-workflow { grid-template-columns:1fr; }
           }
 
+
+          /* ===== UI/UX FAS 2 v47 ===== */
+          .cn-next-match {
+            background:linear-gradient(135deg,#0f172a,#1e3a5f);
+            border:1px solid #334155;
+            border-radius:14px;
+            padding:16px;
+            margin:12px 0 16px;
+            color:#ffffff;
+          }
+          .cn-next-match * { color:#ffffff !important; }
+          .cn-next-match .eyebrow {
+            font-size:11px;
+            font-weight:850;
+            letter-spacing:.08em;
+            text-transform:uppercase;
+            opacity:.78;
+          }
+          .cn-next-match .teams {
+            margin-top:7px;
+            font-size:23px;
+            font-weight:900;
+            line-height:1.2;
+          }
+          .cn-next-match .meta {
+            margin-top:8px;
+            font-size:13px;
+            opacity:.88;
+          }
+
+          .cn-admin-match {
+            display:grid;
+            grid-template-columns:74px minmax(0,1fr) minmax(0,1fr) 150px;
+            gap:10px;
+            align-items:center;
+            background:#ffffff;
+            border:1px solid #d7dee5;
+            border-radius:11px;
+            padding:10px 12px;
+            margin:7px 0;
+          }
+          .cn-admin-match.issue {
+            border-left:5px solid #b45309;
+            background:#fffbeb;
+          }
+          .cn-admin-match .number {
+            font-weight:900;
+            color:#166534 !important;
+          }
+          .cn-admin-match .team {
+            font-weight:800;
+            color:#172033 !important;
+            overflow-wrap:anywhere;
+          }
+          .cn-admin-match .meta {
+            color:#64748b !important;
+            font-size:12px;
+          }
+          .cn-issue-pill {
+            display:inline-block;
+            margin:3px 4px 0 0;
+            padding:3px 7px;
+            border-radius:999px;
+            background:#fef3c7;
+            border:1px solid #fcd34d;
+            color:#92400e !important;
+            font-size:11px;
+            font-weight:800;
+          }
+
+          @media (max-width:700px) {
+            .cn-admin-match {
+              grid-template-columns:62px 1fr;
+            }
+            .cn-admin-match .ref-col {
+              grid-column:1 / -1;
+            }
+            .cn-next-match .teams { font-size:20px; }
+          }
+
 </style>
 """)
 
@@ -2838,9 +2918,36 @@ def render_public_view(tournament_id, tournament):
     )
     played_matches = [m for m in published_matches if m["home_score"] is not None and m["away_score"] is not None]
     total_goals = sum(int(m["home_score"] or 0) + int(m["away_score"] or 0) for m in played_matches)
-    team_count = one_row("SELECT COUNT(*) AS n FROM teams WHERE tournament_id=?", (tournament_id,))["n"]
+    public_teams = all_rows("SELECT id,name FROM teams WHERE tournament_id=? ORDER BY name", (tournament_id,))
+    team_count = len(public_teams)
     now = datetime.now()
-    next_match = next((m for m in published_matches if datetime.fromisoformat(m["scheduled_start"]) >= now and m["home_score"] is None), None)
+
+    team_filter_options = [None] + [row["id"] for row in public_teams]
+    selected_public_team = st.selectbox(
+        "🔎 Visa matcher för lag",
+        team_filter_options,
+        format_func=lambda team_id: "Alla lag" if team_id is None else next(
+            row["name"] for row in public_teams if row["id"] == team_id
+        ),
+        key=f"public_team_filter_{tournament_id}",
+    )
+
+    def _match_has_selected_team(match_row):
+        if selected_public_team is None:
+            return True
+        return (
+            resolve_source(match_row["home_source"]) == selected_public_team
+            or resolve_source(match_row["away_source"]) == selected_public_team
+        )
+
+    filtered_public_matches = [m for m in published_matches if _match_has_selected_team(m)]
+    next_match = next(
+        (
+            m for m in filtered_public_matches
+            if datetime.fromisoformat(m["scheduled_start"]) >= now and m["home_score"] is None
+        ),
+        None,
+    )
     hero_meta = f"{cup_date_label(tournament)} · {html.escape(tournament['location'] or 'Spelort ej angiven')}"
     visitor_rows = []
     if tournament["arena_address"]:
@@ -2871,8 +2978,31 @@ def render_public_view(tournament_id, tournament):
             </div>""",
             unsafe_allow_html=True,
         )
+        if selected_public_team is not None:
+            selected_team_name = next(row["name"] for row in public_teams if row["id"] == selected_public_team)
+            played_for_team = sum(
+                1 for m in filtered_public_matches
+                if m["home_score"] is not None and m["away_score"] is not None
+            )
+            st.caption(
+                f"Visar {len(filtered_public_matches)} publicerade matcher för {selected_team_name} · "
+                f"{played_for_team} spelade."
+            )
         if next_match:
-            st.caption(f"Nästa match: {swedish_datetime(next_match['scheduled_start'])} · Plan {next_match['pitch_number']}")
+            next_home = source_label(next_match["home_source"])
+            next_away = source_label(next_match["away_source"])
+            st.markdown(
+                f"""
+                <div class="cn-next-match">
+                  <div class="eyebrow">{'Nästa match för valt lag' if selected_public_team else 'Nästa match i turneringen'}</div>
+                  <div class="teams">{html.escape(next_home)} – {html.escape(next_away)}</div>
+                  <div class="meta">{swedish_datetime(next_match['scheduled_start'])} · Plan {next_match['pitch_number']}</div>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+        elif selected_public_team is not None:
+            st.info("Det finns ingen kommande publicerad match för det valda laget.")
         st.markdown(
             """
             <style>
@@ -2892,7 +3022,7 @@ def render_public_view(tournament_id, tournament):
             """,
             unsafe_allow_html=True,
         )
-        matches = published_matches
+        matches = filtered_public_matches
         referees = {r["id"]: r["name"] for r in all_rows("SELECT * FROM referees WHERE tournament_id=?", (tournament_id,))}
         weather_forecast, weather_status = fetch_weather_forecast(tournament["location"] or "")
         if not matches:
@@ -3184,25 +3314,28 @@ if current_schedule_state and current_schedule_state["schedule_dirty"] and curre
         "Schemat är markerat som inaktuellt och bör regenereras under Schema innan det publiceras på nytt."
     )
 
-publication_pages = {"Adminöversikt", "Kontroller", "Skapa och publicera schema"}
-sidebar_rules = None
-sidebar_scheduled = 0
-sidebar_errors, sidebar_warnings, _sidebar_quality = ([], [], [])
-if admin_page in publication_pages:
+# Publicering ska kunna hanteras från samtliga adminflikar.
+# Valideringen cachas i sessionen och räknas bara om när något schema-/regelrelaterat ändrats.
+sidebar_rules = one_row("SELECT * FROM schedule_rules WHERE tournament_id=?", (tid,))
+if sidebar_rules is None:
+    run("INSERT INTO schedule_rules(tournament_id) VALUES(?)", (tid,))
     sidebar_rules = one_row("SELECT * FROM schedule_rules WHERE tournament_id=?", (tid,))
-    if sidebar_rules is None:
-        run("INSERT INTO schedule_rules(tournament_id) VALUES(?)", (tid,))
-        sidebar_rules = one_row("SELECT * FROM schedule_rules WHERE tournament_id=?", (tid,))
-    sidebar_scheduled = one_row(
-        "SELECT COUNT(*) AS n FROM matches WHERE tournament_id=? AND scheduled_start IS NOT NULL",
-        (tid,),
-    )["n"]
-    validation_cache_key = f"_schedule_validation_{tid}"
+
+sidebar_scheduled = one_row(
+    "SELECT COUNT(*) AS n FROM matches WHERE tournament_id=? AND scheduled_start IS NOT NULL",
+    (tid,),
+)["n"]
+
+validation_cache_key = f"_schedule_validation_{tid}"
+if sidebar_scheduled:
     if st.session_state.get("_validation_dirty", True) or validation_cache_key not in st.session_state:
-        if admin_page in {"Kontroller", "Skapa och publicera schema"}:
-            st.session_state[validation_cache_key] = validate_schedule(tid, tournament, sidebar_rules)
-            st.session_state["_validation_dirty"] = False
-    sidebar_errors, sidebar_warnings, _sidebar_quality = st.session_state.get(validation_cache_key, ([], [], []))
+        st.session_state[validation_cache_key] = validate_schedule(tid, tournament, sidebar_rules)
+        st.session_state["_validation_dirty"] = False
+    sidebar_errors, sidebar_warnings, _sidebar_quality = st.session_state.get(
+        validation_cache_key, ([], [], [])
+    )
+else:
+    sidebar_errors, sidebar_warnings, _sidebar_quality = ([], [], [])
 
 st.sidebar.divider()
 st.sidebar.subheader("Publicering")
@@ -3210,41 +3343,81 @@ if tournament["is_published"]:
     st.sidebar.success("Publicerad")
 else:
     st.sidebar.caption("Turneringsvyn är ett utkast.")
-if admin_page not in publication_pages:
-    st.sidebar.caption("Publicering hanteras under Översikt, Kontroller eller Schema.")
-    sidebar_warnings_approved = False
-    sidebar_publish_blocked = True
-else:
-    sidebar_warnings_approved = st.sidebar.checkbox(
-        "Jag har granskat schemavarningarna",
-        disabled=not sidebar_warnings,
-        key=f"sidebar_warning_approval_{tid}",
+
+sidebar_warnings_approved = st.sidebar.checkbox(
+    "Jag har granskat schemavarningarna",
+    disabled=not bool(sidebar_warnings),
+    key=f"sidebar_warning_approval_{tid}",
+)
+
+publish_blockers = []
+if not tournament["playoff_model_confirmed"]:
+    publish_blockers.append("Slutspelsmodell och cupregler måste sparas på Översikt.")
+if not sidebar_scheduled:
+    publish_blockers.append("Spelschema saknas. Generera schemat under Schema.")
+if bool(tournament["schedule_dirty"]) and sidebar_scheduled:
+    publish_blockers.append(
+        "Schemat är inaktuellt eftersom förutsättningarna har ändrats. Regenerera schemat."
     )
-    sidebar_publish_blocked = (
-        not sidebar_scheduled
-        or bool(sidebar_errors)
-        or bool(tournament["schedule_dirty"])
-        or (bool(sidebar_warnings) and not sidebar_warnings_approved)
+if sidebar_errors:
+    publish_blockers.append(
+        f"{len(sidebar_errors)} blockerande schemafel måste åtgärdas."
+    )
+if sidebar_warnings and not sidebar_warnings_approved:
+    publish_blockers.append(
+        f"{len(sidebar_warnings)} schemavarningar måste granskas och godkännas."
     )
 
-if admin_page in publication_pages and st.sidebar.button("Publicera", type="primary", use_container_width=True, disabled=sidebar_publish_blocked):
+sidebar_publish_blocked = bool(publish_blockers)
+
+if sidebar_publish_blocked:
+    st.sidebar.error("Kan inte publicera ännu")
+    for reason in publish_blockers:
+        st.sidebar.markdown(f"• {reason}")
+
+    if sidebar_errors:
+        with st.sidebar.expander(f"Visa schemafel ({len(sidebar_errors)})"):
+            for index, error in enumerate(sidebar_errors[:10], 1):
+                st.markdown(f"**{index}.** {error}")
+            if len(sidebar_errors) > 10:
+                st.caption(f"Ytterligare {len(sidebar_errors) - 10} fel visas under Kontroller/Schema.")
+
+    if sidebar_warnings:
+        with st.sidebar.expander(f"Visa schemavarningar ({len(sidebar_warnings)})"):
+            for index, warning in enumerate(sidebar_warnings[:10], 1):
+                st.markdown(f"**{index}.** {warning}")
+            if len(sidebar_warnings) > 10:
+                st.caption(
+                    f"Ytterligare {len(sidebar_warnings) - 10} varningar visas under Kontroller/Schema."
+                )
+else:
+    st.sidebar.success("✓ Alla publiceringskrav är uppfyllda.")
+
+if st.sidebar.button(
+    "Publicera",
+    type="primary",
+    use_container_width=True,
+    disabled=sidebar_publish_blocked,
+    key=f"publish_from_any_admin_page_{tid}",
+):
     with db() as con:
-        con.execute("UPDATE matches SET schedule_published=1 WHERE tournament_id=? AND scheduled_start IS NOT NULL", (tid,))
+        con.execute(
+            "UPDATE matches SET schedule_published=1 WHERE tournament_id=? AND scheduled_start IS NOT NULL",
+            (tid,),
+        )
         con.execute("UPDATE tournaments SET is_published=1 WHERE id=?", (tid,))
         con.commit()
     st.rerun()
-if admin_page in publication_pages and st.sidebar.button("Avpublicera", use_container_width=True, disabled=not tournament["is_published"]):
+
+if st.sidebar.button(
+    "Avpublicera",
+    use_container_width=True,
+    disabled=not tournament["is_published"],
+    key=f"unpublish_from_any_admin_page_{tid}",
+):
     run("UPDATE tournaments SET is_published=0 WHERE id=?", (tid,))
     st.rerun()
-if admin_page in publication_pages:
-    if not sidebar_scheduled:
-        st.sidebar.caption("Skapa spelschemat innan publicering.")
-    elif tournament["schedule_dirty"]:
-        st.sidebar.caption("Schemat är inaktuellt efter ändrade förutsättningar. Regenerera det före publicering.")
-    elif sidebar_errors:
-        st.sidebar.caption(f"Åtgärda {len(sidebar_errors)} schemafel före publicering.")
-    elif sidebar_warnings and not sidebar_warnings_approved:
-        st.sidebar.caption("Godkänn varningarna före publicering.")
+
 
 def _demo_distribute_count(total, players):
     """Fördela ett heltalsantal slumpmässigt över spelare."""
@@ -4777,20 +4950,50 @@ if admin_page == "Skapa och publicera schema":
                 "Utvisningar": red_text,
             })
         schedule_df = pd.DataFrame(schedule_rows)
-        edited_schedule = st.data_editor(
-            schedule_df,
-            hide_index=True,
-            use_container_width=True,
-            disabled=["match_id", "Match", "Fas", "Plan", "Datum", "Tid", "Hemmalag", "Hemmafärg", "Bortalag", "Bortafärg", "Tröjval", "Domare", "Låst", "Målskyttar", "Assister", "Varningar", "Utvisningar"],
-            column_order=["Match", "Fas", "Plan", "Datum", "Tid", "Hemmalag", "Hemmafärg", "Hemmamål", "Bortamål", "Bortafärg", "Bortalag", "Tröjval", "Domare", "Låst", "Målskyttar", "Assister", "Varningar", "Utvisningar"],
-            column_config={
-                "Hemmamål": st.column_config.NumberColumn(min_value=0, step=1),
-                "Bortamål": st.column_config.NumberColumn(min_value=0, step=1),
-                "Hemmafärg": st.column_config.ImageColumn("Hemmafärg", width="small"),
-                "Bortafärg": st.column_config.ImageColumn("Bortafärg", width="small"),
-            },
-            key=f"schedule_editor_{tid}",
-        )
+
+        st.markdown("#### Visuell schemaöversikt")
+        st.caption("Problem visas direkt på den match där de behöver åtgärdas.")
+        for row in schedule_rows:
+            issues = []
+            if row["Domare"] == "Ej tillsatt":
+                issues.append("Domare saknas")
+            if row["Tröjval"].startswith("⚠"):
+                issues.append("Färgkrock")
+            if row["Hemmalag"].startswith(("Vinnaren i ", "Vinnare match ", "Förlorare match ")):
+                issues.append("Hemmalag ej avgjort")
+            if row["Bortalag"].startswith(("Vinnaren i ", "Vinnare match ", "Förlorare match ")):
+                issues.append("Bortalag ej avgjort")
+            issue_html = "".join(
+                f"<span class='cn-issue-pill'>{html.escape(issue)}</span>" for issue in issues
+            )
+            card_class = "cn-admin-match issue" if issues else "cn-admin-match"
+            st.markdown(
+                f"""
+                <div class="{card_class}">
+                  <div><div class="number">#{row['Match']}</div><div class="meta">{html.escape(str(row['Fas']))}</div></div>
+                  <div><div class="team">{html.escape(str(row['Hemmalag']))}</div><div class="meta">{html.escape(str(row['Datum']))} · {html.escape(str(row['Tid']))}</div></div>
+                  <div><div class="team">{html.escape(str(row['Bortalag']))}</div><div class="meta">Plan {html.escape(str(row['Plan']))}</div></div>
+                  <div class="ref-col"><div class="meta">Domare</div><div class="team">{html.escape(str(row['Domare']))}</div>{issue_html}</div>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+
+        with st.expander("Redigera resultat i tabell"):
+            edited_schedule = st.data_editor(
+                schedule_df,
+                hide_index=True,
+                use_container_width=True,
+                disabled=["match_id", "Match", "Fas", "Plan", "Datum", "Tid", "Hemmalag", "Hemmafärg", "Bortalag", "Bortafärg", "Tröjval", "Domare", "Låst", "Målskyttar", "Assister", "Varningar", "Utvisningar"],
+                column_order=["Match", "Fas", "Plan", "Datum", "Tid", "Hemmalag", "Hemmafärg", "Hemmamål", "Bortamål", "Bortafärg", "Bortalag", "Tröjval", "Domare", "Låst", "Målskyttar", "Assister", "Varningar", "Utvisningar"],
+                column_config={
+                    "Hemmamål": st.column_config.NumberColumn(min_value=0, step=1),
+                    "Bortamål": st.column_config.NumberColumn(min_value=0, step=1),
+                    "Hemmafärg": st.column_config.ImageColumn("Hemmafärg", width="small"),
+                    "Bortafärg": st.column_config.ImageColumn("Bortafärg", width="small"),
+                },
+                key=f"schedule_editor_{tid}",
+            )
         if st.button("Spara alla resultat i schemat"):
             with db() as con:
                 for _, row in edited_schedule.iterrows():
