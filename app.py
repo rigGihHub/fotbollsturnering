@@ -243,6 +243,14 @@ def inject_custom_css():
           }
 
 
+
+          @media (min-width: 769px) {
+            div[data-testid="stSegmentedControl"]:has(label[for*="mobile_view_mode_selector"]),
+            div[data-testid="stSelectbox"]:has(input[id*="mobile_tournament_selector"]) {
+              display:none !important;
+            }
+          }
+
           /* ---------- Adminnavigation / pills ---------- */
           [data-testid="stPills"] [role="radiogroup"] {
             display:flex !important;
@@ -250,12 +258,22 @@ def inject_custom_css():
             gap:7px !important;
           }
           [data-testid="stPills"] button {
-            background:#ffffff !important;
-            color:#253247 !important;
-            border:1px solid #c5d0da !important;
+            background:#f8fafc !important;
+            color:#111827 !important;
+            border:1px solid #b8c3cf !important;
             border-radius:10px !important;
             min-height:38px !important;
             font-weight:750 !important;
+            box-shadow:none !important;
+          }
+          [data-testid="stPills"] button *,
+          [data-testid="stPills"] button span,
+          [data-testid="stPills"] button p {
+            color:#111827 !important;
+          }
+          [data-testid="stPills"] button:hover {
+            background:#e8eef4 !important;
+            border-color:#94a3b8 !important;
           }
           [data-testid="stPills"] button[aria-checked="true"],
           [data-testid="stPills"] button[aria-selected="true"] {
@@ -459,7 +477,7 @@ def inject_custom_css():
 
 
 inject_custom_css()
-APP_VERSION = "2026.08.20-23-WEBTEST"
+APP_VERSION = "2026.08.20-24-WEBTEST"
 DB_FILE = Path(__file__).with_name("turnering.db")
 
 
@@ -2184,6 +2202,46 @@ if not tournaments:
 
 tid = st.sidebar.selectbox("Aktiv turnering", [t["id"] for t in tournaments], format_func=lambda x: next(t["name"] for t in tournaments if t["id"] == x))
 tournament = next(t for t in tournaments if t["id"] == tid)
+
+# Mobilnavigation: Streamlits sidomeny är ofta dold på telefon.
+# Visa därför centrala val även högst upp på sidan i smal layout.
+st.markdown(
+    """
+    <style>
+      .cupnavi-mobile-controls { display:none; }
+      @media (max-width: 768px) {
+        section[data-testid="stSidebar"] { display:none !important; }
+        .cupnavi-mobile-controls { display:block !important; margin-bottom:10px; }
+      }
+    </style>
+    <div class="cupnavi-mobile-controls"></div>
+    """,
+    unsafe_allow_html=True,
+)
+
+mobile_view_mode = st.segmented_control(
+    "Visningsläge på mobil",
+    ["Turneringsvy", "Admin"] if CLOUD_DATABASE_ENABLED else ["Admin", "Turneringsvy"],
+    default=view_mode,
+    key="mobile_view_mode_selector",
+    label_visibility="collapsed",
+    width="stretch",
+)
+if mobile_view_mode and mobile_view_mode != view_mode:
+    st.session_state["mobile_requested_view_mode"] = mobile_view_mode
+    view_mode = mobile_view_mode
+
+if len(tournaments) > 1:
+    mobile_tid = st.selectbox(
+        "Turnering",
+        [t["id"] for t in tournaments],
+        index=[t["id"] for t in tournaments].index(tid),
+        format_func=lambda x: next(t["name"] for t in tournaments if t["id"] == x),
+        key="mobile_tournament_selector",
+    )
+    if mobile_tid != tid:
+        tid = mobile_tid
+        tournament = next(t for t in tournaments if t["id"] == tid)
 if view_mode == "Admin":
     st.title(f"⚽ {tournament['name']}")
     st.markdown(
