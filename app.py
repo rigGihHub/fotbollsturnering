@@ -70,6 +70,107 @@ div[role="dialog"] .stButton > button:not([kind="primary"]) {
 div[role="dialog"] .stButton > button:not([kind="primary"]) * {
     color:#0f172a !important;
 }
+
+          /* ===== CUPNAVI DESIGN SYSTEM v46 ===== */
+          :root {
+            --cn-bg:#F6F8FA;
+            --cn-surface:#FFFFFF;
+            --cn-ink:#172033;
+            --cn-muted:#64748B;
+            --cn-border:#D7DEE5;
+            --cn-green:#166534;
+            --cn-green-soft:#DCFCE7;
+            --cn-amber:#B45309;
+            --cn-amber-soft:#FEF3C7;
+            --cn-red:#B91C1C;
+            --cn-blue:#1D4ED8;
+            --cn-radius:12px;
+          }
+
+          .cn-dashboard-grid {
+            display:grid;
+            grid-template-columns:repeat(4,minmax(0,1fr));
+            gap:12px;
+            margin:10px 0 18px;
+          }
+          .cn-status-card {
+            background:var(--cn-surface);
+            border:1px solid var(--cn-border);
+            border-radius:var(--cn-radius);
+            padding:14px 15px;
+            min-height:92px;
+          }
+          .cn-status-card .cn-label {
+            color:var(--cn-muted) !important;
+            font-size:12px;
+            font-weight:750;
+            text-transform:uppercase;
+            letter-spacing:.03em;
+          }
+          .cn-status-card .cn-value {
+            color:var(--cn-ink) !important;
+            font-size:27px;
+            line-height:1.1;
+            font-weight:850;
+            margin-top:6px;
+          }
+          .cn-status-card .cn-sub {
+            color:var(--cn-muted) !important;
+            font-size:12px;
+            margin-top:7px;
+          }
+
+          .cn-workflow {
+            display:grid;
+            grid-template-columns:repeat(3,minmax(0,1fr));
+            gap:10px;
+            margin:12px 0 16px;
+          }
+          .cn-step {
+            background:#fff;
+            border:1px solid var(--cn-border);
+            border-radius:10px;
+            padding:11px 13px;
+          }
+          .cn-step.done {
+            background:var(--cn-green-soft);
+            border-color:#86EFAC;
+          }
+          .cn-step.warn {
+            background:var(--cn-amber-soft);
+            border-color:#FCD34D;
+          }
+          .cn-step.todo {
+            background:#F8FAFC;
+          }
+          .cn-step .title {
+            color:var(--cn-ink) !important;
+            font-weight:800;
+          }
+          .cn-step .meta {
+            color:var(--cn-muted) !important;
+            margin-top:4px;
+            font-size:12px;
+          }
+          .cn-action-banner {
+            background:var(--cn-amber-soft);
+            border:1px solid #FCD34D;
+            border-radius:12px;
+            padding:14px 16px;
+            margin:10px 0 14px;
+          }
+          .cn-action-banner strong { color:#78350F !important; }
+          .cn-action-banner span { color:#92400E !important; }
+
+          @media (max-width:900px) {
+            .cn-dashboard-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
+            .cn-workflow { grid-template-columns:repeat(2,minmax(0,1fr)); }
+          }
+          @media (max-width:520px) {
+            .cn-dashboard-grid,
+            .cn-workflow { grid-template-columns:1fr; }
+          }
+
 </style>
 """)
 
@@ -3329,6 +3430,32 @@ def _demo_generate_playoff_results(tournament_id):
 
 
 
+def _admin_workflow_counts(tournament_id):
+    return one_row(
+        """SELECT
+          (SELECT COUNT(*) FROM teams WHERE tournament_id=?) AS teams_n,
+          (SELECT COUNT(*) FROM groups WHERE tournament_id=?) AS groups_n,
+          (SELECT COUNT(*) FROM players p JOIN teams t ON t.id=p.team_id WHERE t.tournament_id=?) AS players_n,
+          (SELECT COUNT(*) FROM referees WHERE tournament_id=?) AS refs_n,
+          (SELECT COUNT(*) FROM matches WHERE tournament_id=?) AS matches_n,
+          (SELECT COUNT(*) FROM matches WHERE tournament_id=? AND home_score IS NOT NULL AND away_score IS NOT NULL) AS played_n
+        """,
+        (tournament_id, tournament_id, tournament_id, tournament_id, tournament_id, tournament_id),
+    )
+
+
+def _admin_workflow_step(title, state, meta):
+    css_class = "done" if state == "done" else ("warn" if state == "warn" else "todo")
+    icon = "✓" if state == "done" else ("⚠" if state == "warn" else "○")
+    return (
+        f"<div class='cn-step {css_class}'>"
+        f"<div class='title'>{icon} {html.escape(title)}</div>"
+        f"<div class='meta'>{html.escape(meta)}</div>"
+        "</div>"
+    )
+
+
+
 if admin_page == "Adminöversikt":
     st.header("Adminöversikt")
     st.caption("Här ställer du in cupens grunduppgifter, poängregler, slutspelsformat och regler för schemaläggningen.")
@@ -3342,11 +3469,101 @@ if admin_page == "Adminöversikt":
     overview_team_count = overview_counts["teams_n"]
     overview_group_count = overview_counts["groups_n"]
     overview_match_count = overview_counts["matches_n"]
-    om1, om2, om3, om4 = st.columns(4)
-    om1.metric("Registrerade lag", overview_team_count)
-    om2.metric("Grupper", overview_group_count)
-    om3.metric("Matcher", overview_match_count)
-    om4.metric("Status", "Publicerad" if tournament["is_published"] else "Utkast")
+
+    workflow_counts = _admin_workflow_counts(tid)
+    expected_teams = int(tournament["expected_team_count"] or 0)
+    teams_ready = workflow_counts["teams_n"] > 0 and (
+        expected_teams == 0 or workflow_counts["teams_n"] == expected_teams
+    )
+    groups_ready = workflow_counts["groups_n"] > 0
+    players_ready = workflow_counts["players_n"] > 0
+    refs_ready = workflow_counts["refs_n"] > 0
+    schedule_ready = workflow_counts["matches_n"] > 0 and not bool(tournament["schedule_dirty"])
+    results_ready = (
+        workflow_counts["matches_n"] > 0
+        and workflow_counts["played_n"] == workflow_counts["matches_n"]
+    )
+
+    st.markdown(
+        f"""
+        <div class="cn-dashboard-grid">
+          <div class="cn-status-card">
+            <div class="cn-label">Lag</div>
+            <div class="cn-value">{workflow_counts['teams_n']}</div>
+            <div class="cn-sub">Planerat: {expected_teams or 'ej satt'}</div>
+          </div>
+          <div class="cn-status-card">
+            <div class="cn-label">Grupper</div>
+            <div class="cn-value">{workflow_counts['groups_n']}</div>
+            <div class="cn-sub">Gruppindelning</div>
+          </div>
+          <div class="cn-status-card">
+            <div class="cn-label">Matcher</div>
+            <div class="cn-value">{workflow_counts['matches_n']}</div>
+            <div class="cn-sub">Spelade: {workflow_counts['played_n']}</div>
+          </div>
+          <div class="cn-status-card">
+            <div class="cn-label">Status</div>
+            <div class="cn-value">{'Publicerad' if tournament['is_published'] else 'Utkast'}</div>
+            <div class="cn-sub">{'Schema aktuellt' if not tournament['schedule_dirty'] else 'Schema behöver uppdateras'}</div>
+          </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    workflow_html = "".join([
+        _admin_workflow_step(
+            "Lag",
+            "done" if teams_ready else "todo",
+            f"{workflow_counts['teams_n']} registrerade",
+        ),
+        _admin_workflow_step(
+            "Grupper",
+            "done" if groups_ready else "todo",
+            f"{workflow_counts['groups_n']} skapade",
+        ),
+        _admin_workflow_step(
+            "Trupper",
+            "done" if players_ready else "todo",
+            f"{workflow_counts['players_n']} spelare",
+        ),
+        _admin_workflow_step(
+            "Domare",
+            "done" if refs_ready else "todo",
+            f"{workflow_counts['refs_n']} registrerade",
+        ),
+        _admin_workflow_step(
+            "Schema",
+            "done" if schedule_ready else ("warn" if workflow_counts["matches_n"] > 0 else "todo"),
+            "Aktuellt" if schedule_ready else (
+                "Behöver regenereras" if workflow_counts["matches_n"] > 0 else "Ej genererat"
+            ),
+        ),
+        _admin_workflow_step(
+            "Resultat",
+            "done" if results_ready else "todo",
+            f"{workflow_counts['played_n']} av {workflow_counts['matches_n']} matcher",
+        ),
+    ])
+    st.markdown(f"<div class='cn-workflow'>{workflow_html}</div>", unsafe_allow_html=True)
+
+    if bool(tournament["schedule_dirty"]) and workflow_counts["matches_n"] > 0:
+        st.markdown(
+            """<div class="cn-action-banner">
+            <strong>⚠ Schemat behöver regenereras.</strong><br>
+            <span>Något som påverkar schemat har ändrats sedan senaste genereringen.</span>
+            </div>""",
+            unsafe_allow_html=True,
+        )
+        if st.button(
+            "Gå till Schema",
+            type="primary",
+            use_container_width=True,
+            key=f"dashboard_go_schedule_{tid}",
+        ):
+            st.session_state[admin_page_key] = "Skapa och publicera schema"
+            st.rerun()
     st.subheader("Cupens grunduppgifter")
     saved_start = datetime.fromisoformat(tournament["start_date"] or tournament["tournament_date"]).date()
     saved_end = datetime.fromisoformat(tournament["end_date"] or tournament["start_date"] or tournament["tournament_date"]).date()
