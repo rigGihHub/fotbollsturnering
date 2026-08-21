@@ -5,12 +5,13 @@ import hmac
 import json
 import os
 import random
+import re
 import io
 import time
 import hashlib
 from datetime import datetime, timedelta
 from pathlib import Path
-from urllib.parse import urlencode, quote
+from urllib.parse import urlencode, quote, urlparse
 from urllib.request import Request, urlopen
 
 import pandas as pd
@@ -27,6 +28,10 @@ from cupnavi_core.backup import build_backup_bytes
 from cupnavi_core.config import BACKUP_FILE_SUFFIX
 from cupnavi_core.schedule_repository import ScheduleRepository
 from cupnavi_core.schedule_domain import build_schedule_window, schedule_source_team_id
+from cupnavi_core.import_service import (
+    TEAM_FIELDS, PLAYER_FIELDS, auto_map_columns,
+    build_team_import_plan, build_player_import_plan,
+)
 
 try:
     from streamlit_sortables import sort_items
@@ -48,101 +53,119 @@ def public_cup_url(tournament_id):
 
 
 def share_panel_html(tournament_id, tournament_name):
-    """Delningspanel. Messenger går via telefonens inbyggda Web Share-meny."""
+    """Enkel delning via operativsystemets delningsmeny."""
     share_url = public_cup_url(tournament_id)
     english = current_language() == "en"
+
     message = (
         f"Follow {tournament_name} in CupNavi: {share_url}"
-        if english else f"Följ {tournament_name} i CupNavi: {share_url}"
+        if english
+        else f"Följ {tournament_name} i CupNavi: {share_url}"
     )
     title = "Share tournament" if english else "Dela cupen"
-    subtitle = (
-        "Send the current tournament page to others."
-        if english else "Skicka aktuell cupsida till andra."
-    )
-    messenger_label = "Messenger / More" if english else "Messenger / Fler"
+    button_label = "Share tournament" if english else "Dela cupen"
     help_text = (
-        "Opens your phone's share menu. Choose Messenger there."
-        if english else "Öppnar mobilens delningsmeny. Välj Messenger där."
+        "Choose Messenger, WhatsApp, SMS, email or another app in your device's share menu."
+        if english else
+        "Välj Messenger, WhatsApp, SMS, e-post eller en annan app i enhetens delningsmeny."
     )
-    email_label = "Email" if english else "E-post"
-
-    encoded_message = quote(message, safe="")
-    encoded_subject = quote(f"CupNavi – {tournament_name}", safe="")
-    whatsapp_url = f"https://wa.me/?text={encoded_message}"
-    email_url = f"mailto:?subject={encoded_subject}&body={encoded_message}"
-    sms_url = f"sms:?body={encoded_message}"
-
-    copied = (
-        "Link copied. Paste it into Messenger."
-        if english else "Länken kopierades. Klistra in den i Messenger."
+    copied_text = (
+        "The link was copied because your browser does not support the share menu."
+        if english else
+        "Länken kopierades eftersom webbläsaren inte stöder delningsmenyn."
     )
-    manual = (
-        "Copy the link below and paste it into Messenger."
-        if english else "Kopiera länken nedan och klistra in den i Messenger."
+    manual_text = (
+        "Copy the link below and share it in the app you want."
+        if english else
+        "Kopiera länken nedan och dela den i den app du vill använda."
     )
 
     return f"""
     <style>
       body {{ margin:0; font-family:Arial,sans-serif; color:#172033; }}
-      .share-card {{border:1px solid #d7dee5;border-radius:14px;background:#fff;padding:14px 16px}}
-      .share-title {{font-size:16px;font-weight:800}}
-      .share-sub {{font-size:13px;color:#64748b;margin-top:2px}}
-      .share-buttons {{display:flex;flex-wrap:wrap;gap:8px;margin-top:11px}}
-      .share-button {{
-          text-decoration:none;border:1px solid #cbd5e1;border-radius:10px;
-          padding:9px 13px;font-weight:800;font-size:14px;cursor:pointer
+      .share-card {{
+        border:1px solid #d7dee5;
+        border-radius:14px;
+        background:#fff;
+        padding:14px 16px;
       }}
-      button.share-button {{font-family:inherit}}
-      .native {{background:#eef4ff;color:#1d4ed8;border-color:#bfdbfe}}
-      .whatsapp {{background:#f0fdf4;color:#166534;border-color:#bbf7d0}}
-      .email {{background:#eff6ff;color:#1e3a8a;border-color:#bfdbfe}}
-      .sms {{background:#f8fafc;color:#334155}}
-      .share-help,.share-url {{font-size:11px;color:#64748b;margin-top:8px;overflow-wrap:anywhere}}
-      @media(max-width:480px) {{
-          .share-buttons {{display:grid;grid-template-columns:1fr 1fr}}
-          .share-button {{text-align:center;box-sizing:border-box}}
+      .share-title {{
+        font-size:16px;
+        font-weight:800;
+      }}
+      .share-help {{
+        font-size:13px;
+        color:#64748b;
+        margin-top:4px;
+      }}
+      .share-button {{
+        width:100%;
+        min-height:46px;
+        margin-top:12px;
+        border:1px solid #bfdbfe;
+        border-radius:10px;
+        background:#eef4ff;
+        color:#1d4ed8;
+        font-size:15px;
+        font-weight:800;
+        cursor:pointer;
+      }}
+      .share-button:focus-visible {{
+        outline:3px solid rgba(37,99,235,.35);
+        outline-offset:2px;
+      }}
+      .share-status {{
+        font-size:12px;
+        color:#64748b;
+        margin-top:9px;
+      }}
+      .share-url {{
+        font-size:11px;
+        color:#94a3b8;
+        margin-top:7px;
+        overflow-wrap:anywhere;
       }}
     </style>
+
     <div class="share-card">
       <div class="share-title">📤 {html.escape(title)}</div>
-      <div class="share-sub">{html.escape(subtitle)}</div>
-      <div class="share-buttons">
-        <button id="nativeShare" class="share-button native">{html.escape(messenger_label)}</button>
-        <a class="share-button whatsapp" href="{html.escape(whatsapp_url, quote=True)}"
-           target="_blank" rel="noopener noreferrer">WhatsApp</a>
-        <a class="share-button email" href="{html.escape(email_url, quote=True)}">{html.escape(email_label)}</a>
-        <a class="share-button sms" href="{html.escape(sms_url, quote=True)}">SMS</a>
-      </div>
-      <div id="shareHelp" class="share-help">{html.escape(help_text)}</div>
+      <div class="share-help">{html.escape(help_text)}</div>
+      <button id="nativeShare" class="share-button">📤 {html.escape(button_label)}</button>
+      <div id="shareStatus" class="share-status"></div>
       <div class="share-url">{html.escape(share_url)}</div>
     </div>
+
     <script>
-      const btn = document.getElementById("nativeShare");
-      const help = document.getElementById("shareHelp");
-      const data = {{
-          title: {json.dumps("CupNavi – " + tournament_name)},
-          text: {json.dumps(message)},
-          url: {json.dumps(share_url)}
+      const button = document.getElementById("nativeShare");
+      const status = document.getElementById("shareStatus");
+
+      const shareData = {{
+        title: {json.dumps("CupNavi – " + tournament_name)},
+        text: {json.dumps(message)},
+        url: {json.dumps(share_url)}
       }};
-      btn.addEventListener("click", async () => {{
+
+      button.addEventListener("click", async () => {{
         if (navigator.share) {{
           try {{
-            await navigator.share(data);
+            await navigator.share(shareData);
           }} catch (err) {{
-            if (err && err.name !== "AbortError") help.textContent = {json.dumps(manual)};
+            if (err && err.name !== "AbortError") {{
+              status.textContent = {json.dumps(manual_text)};
+            }}
           }}
         }} else {{
           try {{
-            await navigator.clipboard.writeText(data.url);
-            help.textContent = {json.dumps(copied)};
+            await navigator.clipboard.writeText(shareData.url);
+            status.textContent = {json.dumps(copied_text)};
           }} catch (err) {{
-            help.textContent = {json.dumps(manual)};
+            status.textContent = {json.dumps(manual_text)};
           }}
         }}
       }});
     </script>
     """
+
 
 
 def render_share_panel(tournament_id, tournament_name):
@@ -254,6 +277,29 @@ def qr_png_bytes(value):
     buffer = io.BytesIO()
     image.save(buffer, format="PNG")
     return buffer.getvalue()
+
+
+def normalize_website_url(value):
+    """Normalisera en frivillig webbplatsadress och validera utan regex."""
+    value = str(value or "").strip()
+    if not value:
+        return None
+
+    # Gör det enklare för arrangören: example.se blir https://example.se
+    candidate = value if "://" in value else f"https://{value}"
+    parsed = urlparse(candidate)
+
+    if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+        raise ValueError(
+            "Webbplatsen verkar inte vara giltig. Ange till exempel https://example.se."
+        )
+
+    # Undvik blanksteg/control chars i hostnamn.
+    if any(ch.isspace() for ch in parsed.netloc):
+        raise ValueError(
+            "Webbplatsen verkar inte vara giltig. Ange till exempel https://example.se."
+        )
+    return candidate
 
 
 def image_data_uri(uploaded_file):
@@ -825,6 +871,91 @@ div[role="dialog"] .stButton > button:not([kind="primary"]) * {
             .cn-email-button { width:100%; text-align:center; box-sizing:border-box; }
           }
 
+
+          /* v85 import wizard */
+          .cn-import-steps {
+            display:grid;
+            grid-template-columns:repeat(5, minmax(0,1fr));
+            gap:8px;
+            margin:10px 0 20px 0;
+          }
+          .cn-import-steps div {
+            display:flex;
+            align-items:center;
+            gap:7px;
+            padding:8px 9px;
+            border:1px solid #e2e8f0;
+            border-radius:10px;
+            background:#f8fafc;
+            color:#475569;
+            font-size:12px;
+            min-width:0;
+          }
+          .cn-import-steps strong {
+            display:inline-flex;
+            align-items:center;
+            justify-content:center;
+            min-width:24px;
+            height:24px;
+            border-radius:999px;
+            background:#e0e7ff;
+            color:#3730a3;
+          }
+          @media (max-width:760px) {
+            .cn-import-steps { grid-template-columns:1fr; gap:5px; }
+            .cn-import-steps div { padding:7px 9px; }
+          }
+
+          /* v83 UX polish */
+          .cn-admin-nav-group-title {
+            margin:14px 0 6px 0;
+            font-size:12px;
+            font-weight:850;
+            letter-spacing:.04em;
+            text-transform:uppercase;
+            color:#64748b;
+          }
+          .cn-current-admin-page {
+            display:flex;
+            align-items:center;
+            gap:8px;
+            margin:12px 0 2px 0;
+            padding:8px 11px;
+            border-radius:10px;
+            background:#f8fafc;
+            border:1px solid #e2e8f0;
+            font-size:13px;
+            color:#64748b;
+          }
+          .cn-current-admin-page strong { color:#172033; }
+          .cn-admin-status-strip {
+            display:flex;
+            align-items:center;
+            flex-wrap:wrap;
+            gap:9px;
+            margin:-4px 0 12px 0;
+            font-size:13px;
+            color:#475569;
+          }
+          .cn-admin-status-pill {
+            display:inline-block;
+            padding:4px 9px;
+            border-radius:999px;
+            background:#ecfdf5;
+            border:1px solid #bbf7d0;
+            color:#166534;
+            font-weight:800;
+          }
+          div[data-testid="stButton"] > button,
+          div[data-testid="stDownloadButton"] > button { min-height:44px; }
+          button:focus-visible, a:focus-visible, input:focus-visible,
+          textarea:focus-visible, select:focus-visible {
+            outline:3px solid rgba(37,99,235,.35) !important;
+            outline-offset:2px !important;
+          }
+          @media (max-width:640px) {
+            .cn-current-admin-page { align-items:flex-start; flex-direction:column; gap:2px; }
+          }
 
           .cn-share-card {
             border:1px solid #d7dee5;
@@ -4010,7 +4141,8 @@ def render_public_view(tournament_id, tournament):
             "</div>"
         )
 
-    render_share_panel(tournament_id, tournament["name"])
+    with st.expander("📤 " + tr("Dela cupen"), expanded=False):
+        render_share_panel(tournament_id, tournament["name"])
 
     schedule, results_tab, tables, statistics, playoffs, offers_tab, partners_tab, information = st.tabs(
         [tr("Spelschema"), tr("Resultat"), tr("Tabeller"), tr("Topplistor"),
@@ -4918,6 +5050,15 @@ if view_mode == "Matchrapportör":
 
 if view_mode == "Admin":
     st.title(f"⚽ {tournament['name']}")
+    admin_status_label = tr("Publicerad") if tournament["is_published"] else tr("Utkast")
+    schedule_status_label = tr("Schema aktuellt") if not tournament["schedule_dirty"] else tr("Schema behöver uppdateras")
+    st.markdown(
+        f"<div class='cn-admin-status-strip'>"
+        f"<span class='cn-admin-status-pill'>{html.escape(admin_status_label)}</span>"
+        f"<span>{html.escape(schedule_status_label)}</span>"
+        f"</div>",
+        unsafe_allow_html=True,
+    )
     st.markdown(
         f"<div class='cup-version-badge'>KÖR VERSION {APP_VERSION}</div>",
         unsafe_allow_html=True,
@@ -4940,26 +5081,35 @@ ADMIN_PAGES = [
     "Matchhändelser", "Slutspel", "Skytteligor", "Erbjudanden",
     "Sponsorer", "Funktionärer", "Import", "Besöksstatistik",
 ]
-ADMIN_NAV = [
-    ("Instruktioner", tr("Instruktioner")),
-    ("Adminöversikt", tr("Översikt")),
-    ("Kontroller", tr("Kontroller")),
-    ("Lag", tr("Lag")),
-    ("Grupper", tr("Grupper")),
-    ("Trupper", tr("Trupper")),
-    ("Domare", tr("Domare")),
-    ("Skapa och publicera schema", tr("Schema")),
-    ("Tabeller", tr("Tabeller")),
-    ("Matcher och resultat", tr("Matcher")),
-    ("Matchhändelser", tr("Händelser")),
-    ("Slutspel", tr("Slutspel")),
-    ("Skytteligor", tr("Skytteligor")),
-    ("Erbjudanden", tr("Erbjudanden")),
-    ("Sponsorer", tr("Sponsorer")),
-    ("Funktionärer", tr("Funktionärer")),
-    ("Import", tr("Import")),
-    ("Besöksstatistik", tr("Besök")),
+ADMIN_NAV_GROUPS = [
+    ("Kom igång", [
+        ("Instruktioner", tr("Instruktioner")),
+        ("Adminöversikt", tr("Översikt")),
+        ("Lag", tr("Lag")),
+        ("Grupper", tr("Grupper")),
+        ("Trupper", tr("Trupper")),
+        ("Import", tr("Import")),
+    ]),
+    ("Planering", [
+        ("Domare", tr("Domare")),
+        ("Skapa och publicera schema", tr("Schema")),
+        ("Kontroller", tr("Kontroller")),
+        ("Slutspel", tr("Slutspel")),
+    ]),
+    ("Under cupen", [
+        ("Matcher och resultat", tr("Matcher")),
+        ("Matchhändelser", tr("Händelser")),
+        ("Tabeller", tr("Tabeller")),
+        ("Skytteligor", tr("Skytteligor")),
+    ]),
+    ("Besökare och övrigt", [
+        ("Erbjudanden", tr("Erbjudanden")),
+        ("Sponsorer", tr("Sponsorer")),
+        ("Funktionärer", tr("Funktionärer")),
+        ("Besöksstatistik", tr("Besök")),
+    ]),
 ]
+ADMIN_NAV = [item for _, items in ADMIN_NAV_GROUPS for item in items]
 admin_page_key = f"admin_page_{tid}"
 if st.session_state.get(admin_page_key) not in ADMIN_PAGES:
     st.session_state[admin_page_key] = "Adminöversikt"
@@ -4970,15 +5120,18 @@ st.caption("Välj administrationsdel. Endast den valda delen laddas, för snabba
 def _set_admin_page(page):
     st.session_state[admin_page_key] = page
 
-# Vanliga Streamlit-knappar används med aktiv/inaktiv typ.
-# Två rader à sex val ger tydlig kontrast och fungerar på både desktop och mobil.
-for nav_start in range(0, len(ADMIN_NAV), 6):
-    nav_row = ADMIN_NAV[nav_start:nav_start + 6]
-    nav_cols = st.columns(len(nav_row))
-    for nav_col, (page_name, button_label) in zip(nav_cols, nav_row):
+# Grupperad navigation minskar mängden likvärdiga val på samma nivå.
+for group_title, nav_items in ADMIN_NAV_GROUPS:
+    st.markdown(
+        f"<div class='cn-admin-nav-group-title'>{html.escape(tr(group_title))}</div>",
+        unsafe_allow_html=True,
+    )
+    nav_cols = st.columns(min(3, len(nav_items)))
+    for nav_index, (page_name, button_label) in enumerate(nav_items):
+        nav_col = nav_cols[nav_index % len(nav_cols)]
         nav_col.button(
             button_label,
-            key=f"admin_nav_v29_{tid}_{page_name}",
+            key=f"admin_nav_v83_{tid}_{page_name}",
             type="primary" if st.session_state[admin_page_key] == page_name else "secondary",
             use_container_width=True,
             on_click=_set_admin_page,
@@ -4986,6 +5139,14 @@ for nav_start in range(0, len(ADMIN_NAV), 6):
         )
 
 admin_page = st.session_state[admin_page_key]
+current_page_label = dict(ADMIN_NAV).get(admin_page, admin_page)
+st.markdown(
+    f"<div class='cn-current-admin-page'>"
+    f"<span>{html.escape(tr('Aktuell sida'))}</span>"
+    f"<strong>{html.escape(current_page_label)}</strong>"
+    f"</div>",
+    unsafe_allow_html=True,
+)
 st.divider()
 
 current_schedule_state = one_row(
@@ -7867,7 +8028,7 @@ if admin_page == "Sponsorer":
         with sc1:
             sponsor_name = st.text_input("Namn *", placeholder="Exempel: Lokala Banken")
             sponsor_level = st.selectbox("Nivå", ["", "Huvudsponsor", "Guldsponsor", "Silversponsor", "Partner"])
-            sponsor_website = st.text_input("Webbplats", placeholder="https://...")
+            sponsor_website = st.text_input("Webbplats", placeholder="example.se", help="Du kan skriva example.se eller en fullständig https://-adress.")
         with sc2:
             sponsor_order = st.number_input("Visningsordning", min_value=0, max_value=999, value=0, step=1)
             sponsor_active = st.checkbox("Visa sponsorn publikt direkt", value=True)
@@ -7880,10 +8041,9 @@ if admin_page == "Sponsorer":
         if st.form_submit_button("Lägg till sponsor", type="primary", use_container_width=True):
             if not sponsor_name.strip():
                 st.error("Ange sponsorns namn.")
-            elif sponsor_website.strip() and not re.match(r"^https?://", sponsor_website.strip(), re.I):
-                st.error("Webbplatsen måste börja med http:// eller https://.")
             else:
                 try:
+                    normalized_website = normalize_website_url(sponsor_website)
                     logo_uri = image_data_uri(sponsor_logo)
                     run(
                         """INSERT INTO sponsors(
@@ -7893,7 +8053,7 @@ if admin_page == "Sponsorer":
                         (
                             tid, sponsor_name.strip(), sponsor_level or None,
                             sponsor_description.strip() or None,
-                            sponsor_website.strip() or None, logo_uri,
+                            normalized_website, logo_uri,
                             1 if sponsor_active else 0, int(sponsor_order),
                         ),
                     )
@@ -7948,10 +8108,9 @@ if admin_page == "Sponsorer":
                     if st.form_submit_button("Spara sponsor", use_container_width=True):
                         if not edit_name.strip():
                             st.error("Namnet får inte vara tomt.")
-                        elif edit_website.strip() and not re.match(r"^https?://", edit_website.strip(), re.I):
-                            st.error("Webbplatsen måste börja med http:// eller https://.")
                         else:
                             try:
+                                normalized_website = normalize_website_url(edit_website)
                                 edit_logo_uri = sponsor["logo_data_uri"]
                                 if replacement_logo is not None:
                                     edit_logo_uri = image_data_uri(replacement_logo)
@@ -7963,7 +8122,7 @@ if admin_page == "Sponsorer":
                                     (
                                         edit_name.strip(), edit_level or None,
                                         edit_description.strip() or None,
-                                        edit_website.strip() or None,
+                                        normalized_website,
                                         edit_logo_uri, 1 if edit_active else 0,
                                         int(edit_order), sponsor["id"], tid,
                                     ),
@@ -8184,162 +8343,408 @@ if admin_page == "Erbjudanden":
 if admin_page == "Import":
     st.header("Importera lag och trupper")
     st.caption(
-        "Importera CSV eller Excel. CupNavi visar en förhandsgranskning innan något skrivs till databasen."
+        "Ett guidat importflöde: välj typ, ladda upp fil, kontrollera kolumner och fel, "
+        "granska resultatet och bekräfta först därefter importen."
     )
 
-    import_kind = st.radio("Vad vill du importera?", ["Lag", "Trupper"], horizontal=True, key=f"import_kind_{tid}")
-
-    template_col1, template_col2 = st.columns(2)
-    team_template = (
-        "Lag,Grupp,Hemmafärg,Bortafärg,Resväg km,Senare första match,Första match tidigast,Kommentar\n"
-        "Exempellaget,Grupp A,#111827,#FFFFFF,25,Ja,10:00,Reser samma morgon\n"
-    ).encode("utf-8-sig")
-    squad_template = (
-        "Lag,Spelare,Tröjnummer,Födelseår,Position\n"
-        "Exempellaget,Anna Andersson,10,2013,Mittfältare\n"
-    ).encode("utf-8-sig")
-    template_col1.download_button(
-        "Ladda ner mall för lag",
-        data=team_template,
-        file_name="cupnavi_lag_importmall.csv",
-        mime="text/csv",
-        use_container_width=True,
-    )
-    template_col2.download_button(
-        "Ladda ner mall för trupper",
-        data=squad_template,
-        file_name="cupnavi_trupp_importmall.csv",
-        mime="text/csv",
-        use_container_width=True,
+    # Stegindikator
+    st.markdown(
+        """
+        <div class="cn-import-steps">
+          <div><strong>1</strong><span>Välj typ</span></div>
+          <div><strong>2</strong><span>Ladda upp</span></div>
+          <div><strong>3</strong><span>Matcha kolumner</span></div>
+          <div><strong>4</strong><span>Granska</span></div>
+          <div><strong>5</strong><span>Importera</span></div>
+        </div>
+        """,
+        unsafe_allow_html=True,
     )
 
+    import_kind = st.segmented_control(
+        "1. Vad vill du importera?",
+        ["Lag", "Trupper"],
+        default="Lag",
+        key=f"import_kind_{tid}",
+    )
+    if not import_kind:
+        import_kind = "Lag"
+
+    with st.expander("📄 Importmallar och format", expanded=False):
+        st.write(
+            "Du kan använda **CSV eller Excel (.xlsx)**. Kolumnnamnen behöver inte vara exakt som i mallen – "
+            "CupNavi försöker känna igen både svenska och engelska rubriker."
+        )
+        template_col1, template_col2 = st.columns(2)
+        team_template = (
+            "Lag,Grupp,Hemmafärg,Bortafärg,Resväg km,Senare första match,Första match tidigast,Kommentar\n"
+            "Exempellaget,Grupp A,#111827,#FFFFFF,25,Ja,10:00,Reser samma morgon\n"
+        ).encode("utf-8-sig")
+        squad_template = (
+            "Lag,Spelare,Tröjnummer,Födelseår,Position\n"
+            "Exempellaget,Anna Andersson,10,2013,Mittfältare\n"
+        ).encode("utf-8-sig")
+        template_col1.download_button(
+            "Ladda ner mall för lag",
+            data=team_template,
+            file_name="cupnavi_lag_importmall.csv",
+            mime="text/csv",
+            use_container_width=True,
+        )
+        template_col2.download_button(
+            "Ladda ner mall för trupper",
+            data=squad_template,
+            file_name="cupnavi_trupp_importmall.csv",
+            mime="text/csv",
+            use_container_width=True,
+        )
+
+    st.markdown("### 2. Ladda upp fil")
     import_file = st.file_uploader(
         "Välj CSV eller XLSX",
         type=["csv", "xlsx"],
         key=f"import_file_{tid}_{import_kind}",
+        help="CSV-filer kan använda komma, semikolon eller tab som avgränsare.",
     )
 
-    if import_kind == "Lag":
-        st.markdown(
-            "**Kolumner:** `Lag` krävs. Valfria: `Grupp`, `Hemmafärg`, `Bortafärg`, "
-            "`Resväg km`, `Senare första match`, `Första match tidigast`, `Kommentar`."
-        )
-    else:
-        st.markdown(
-            "**Kolumner:** `Lag` och `Spelare` krävs. Valfria: `Tröjnummer`, `Födelseår`, `Position`."
-        )
-
     import_df = None
+    import_source_name = None
+
     if import_file is not None:
         try:
+            raw_bytes = import_file.getvalue()
             if import_file.name.lower().endswith(".csv"):
-                import_df = pd.read_csv(import_file)
+                last_error = None
+                for encoding in ("utf-8-sig", "utf-8", "cp1252", "latin-1"):
+                    try:
+                        import_df = pd.read_csv(
+                            io.BytesIO(raw_bytes),
+                            sep=None,
+                            engine="python",
+                            encoding=encoding,
+                        )
+                        break
+                    except Exception as exc:
+                        last_error = exc
+                if import_df is None:
+                    raise last_error or ValueError("CSV-filen kunde inte läsas.")
+                import_source_name = import_file.name
             else:
-                import_df = pd.read_excel(import_file)
+                excel_file = pd.ExcelFile(io.BytesIO(raw_bytes))
+                sheet_name = st.selectbox(
+                    "Välj blad i Excel-filen",
+                    excel_file.sheet_names,
+                    key=f"import_sheet_{tid}_{import_file.name}",
+                )
+                import_df = pd.read_excel(io.BytesIO(raw_bytes), sheet_name=sheet_name)
+                import_source_name = f"{import_file.name} · {sheet_name}"
+
+            import_df = import_df.dropna(how="all").copy()
             import_df.columns = [str(col).strip() for col in import_df.columns]
-            st.markdown("#### Förhandsgranskning")
-            st.dataframe(import_df.head(100), use_container_width=True, hide_index=True)
-            st.caption(f"{len(import_df)} rader hittades.")
+            import_df = import_df.loc[:, ~import_df.columns.duplicated()].copy()
+
+            if import_df.empty:
+                st.error("Filen innehåller inga datarader.")
+                import_df = None
+            elif len(import_df) > 5000:
+                st.error("Filen innehåller fler än 5 000 rader. Dela upp den i mindre filer.")
+                import_df = None
+            else:
+                c1, c2, c3 = st.columns(3)
+                c1.metric("Fil", import_file.name)
+                c2.metric("Rader", len(import_df))
+                c3.metric("Kolumner", len(import_df.columns))
+                st.caption(f"Läser: {import_source_name}")
         except Exception as exc:
             st.error(f"Filen kunde inte läsas: {exc}")
 
-    if import_df is not None and not import_df.empty:
-        if import_kind == "Lag":
-            required_cols = {"Lag"}
-            missing_cols = required_cols - set(import_df.columns)
-            if missing_cols:
-                st.error("Saknade obligatoriska kolumner: " + ", ".join(sorted(missing_cols)))
-            elif st.button("Importera lagen", type="primary", use_container_width=True, key=f"import_teams_{tid}"):
-                existing_names = {
-                    row["name"].strip().casefold()
-                    for row in all_rows("SELECT name FROM teams WHERE tournament_id=?", (tid,))
-                }
-                group_map = {
-                    row["name"].strip().casefold(): row["id"]
-                    for row in all_rows("SELECT id,name FROM groups WHERE tournament_id=?", (tid,))
-                }
-                imported = 0
-                skipped = []
-                try:
-                    for _, row in import_df.iterrows():
-                        name = str(row.get("Lag", "")).strip()
-                        if not name or name.casefold() in existing_names:
-                            if name:
-                                skipped.append(name)
-                            continue
-                        group_name = str(row.get("Grupp", "")).strip() if pd.notna(row.get("Grupp")) else ""
-                        group_id = None
-                        if group_name:
-                            group_id = group_map.get(group_name.casefold())
-                            if group_id is None:
-                                group_id = run("INSERT INTO groups(tournament_id,name) VALUES(?,?)", (tid, group_name))
-                                group_map[group_name.casefold()] = group_id
+    if import_df is not None:
+        fields = TEAM_FIELDS if import_kind == "Lag" else PLAYER_FIELDS
+        auto_mapping = auto_map_columns(import_df.columns, fields)
 
-                        home_color = str(row.get("Hemmafärg", "#111827")).strip() if pd.notna(row.get("Hemmafärg")) else "#111827"
-                        away_color = str(row.get("Bortafärg", "#FFFFFF")).strip() if pd.notna(row.get("Bortafärg")) else "#FFFFFF"
-                        distance = int(float(row.get("Resväg km", 0) or 0)) if pd.notna(row.get("Resväg km")) else 0
-                        late_raw = str(row.get("Senare första match", "")).strip().casefold() if pd.notna(row.get("Senare första match")) else ""
-                        late_first = late_raw in {"ja", "yes", "1", "true", "x"}
-                        earliest = str(row.get("Första match tidigast", "")).strip() if pd.notna(row.get("Första match tidigast")) else None
-                        comment = str(row.get("Kommentar", "")).strip() if pd.notna(row.get("Kommentar")) else None
+        st.markdown("### 3. Matcha kolumner")
+        st.caption(
+            "CupNavi har försökt matcha kolumnerna automatiskt. Kontrollera särskilt de obligatoriska fälten."
+        )
 
-                        new_id = insert_team_with_limit(
-                            tid, name, home_color, away_color,
-                            "Helfärgad", "#FFFFFF", "Helfärgad", "#111827",
-                            distance, late_first, earliest or None, comment or None,
-                        )
-                        if group_id:
-                            run("UPDATE teams SET group_id=? WHERE id=?", (group_id, new_id))
-                        existing_names.add(name.casefold())
-                        imported += 1
-                    st.success(f"✓ {imported} lag importerades." + (f" {len(skipped)} dubbletter hoppades över." if skipped else ""))
-                    st.rerun()
-                except TeamLimitReachedError as exc:
-                    st.error(
-                        f"Importen stoppades eftersom maximalt antal lag ({exc.args[0]}) är uppnått. "
-                        "Ändra planerat antal lag på Adminöversikten om fler ska läggas till."
-                    )
-                except Exception as exc:
-                    st.error(f"Importen avbröts: {exc}")
+        mapping = {}
+        available_options = ["— Använd inte —"] + list(import_df.columns)
+        map_cols = st.columns(2)
+        for field_index, (field_name, field_spec) in enumerate(fields.items()):
+            default_column = auto_mapping.get(field_name)
+            default_index = (
+                available_options.index(default_column)
+                if default_column in available_options
+                else 0
+            )
+            label = f"{field_name}{' *' if field_spec['required'] else ''}"
+            selected = map_cols[field_index % 2].selectbox(
+                label,
+                available_options,
+                index=default_index,
+                key=f"import_map_{tid}_{import_kind}_{field_name}",
+            )
+            mapping[field_name] = None if selected == "— Använd inte —" else selected
+
+        missing_required = [
+            field for field, spec in fields.items()
+            if spec["required"] and not mapping.get(field)
+        ]
+
+        if missing_required:
+            st.error(
+                "Matcha först de obligatoriska fälten: "
+                + ", ".join(missing_required)
+                + "."
+            )
         else:
-            required_cols = {"Lag", "Spelare"}
-            missing_cols = required_cols - set(import_df.columns)
-            if missing_cols:
-                st.error("Saknade obligatoriska kolumner: " + ", ".join(sorted(missing_cols)))
-            elif st.button("Importera trupperna", type="primary", use_container_width=True, key=f"import_players_{tid}"):
+            existing_team_rows = all_rows(
+                "SELECT id,name FROM teams WHERE tournament_id=? ORDER BY name",
+                (tid,),
+            )
+            existing_names = [row["name"] for row in existing_team_rows]
+
+            if import_kind == "Lag":
+                max_teams = int(tournament["expected_team_count"] or 0)
+                remaining_slots = (
+                    max(0, max_teams - len(existing_team_rows))
+                    if max_teams > 0 else None
+                )
+                records, issues = build_team_import_plan(
+                    import_df,
+                    mapping,
+                    existing_names,
+                    max_new_teams=remaining_slots,
+                )
+            else:
                 team_lookup = {
                     row["name"].strip().casefold(): row["id"]
-                    for row in all_rows("SELECT id,name FROM teams WHERE tournament_id=?", (tid,))
+                    for row in existing_team_rows
                 }
-                imported = 0
-                unknown_teams = set()
-                for _, row in import_df.iterrows():
-                    team_name = str(row.get("Lag", "")).strip()
-                    player_name = str(row.get("Spelare", "")).strip()
-                    if not team_name or not player_name:
-                        continue
-                    team_id = team_lookup.get(team_name.casefold())
-                    if team_id is None:
-                        unknown_teams.add(team_name)
-                        continue
-                    number = int(float(row.get("Tröjnummer"))) if pd.notna(row.get("Tröjnummer")) else None
-                    birth_year = int(float(row.get("Födelseår"))) if pd.notna(row.get("Födelseår")) else None
-                    position = str(row.get("Position", "")).strip() if pd.notna(row.get("Position")) else None
-                    existing = one_row(
-                        "SELECT id FROM players WHERE team_id=? AND name=?",
-                        (team_id, player_name),
+                existing_player_rows = all_rows(
+                    """SELECT p.team_id,p.name
+                       FROM players p
+                       JOIN teams t ON t.id=p.team_id
+                       WHERE t.tournament_id=?""",
+                    (tid,),
+                )
+                existing_players = [
+                    (row["team_id"], row["name"])
+                    for row in existing_player_rows
+                ]
+                records, issues = build_player_import_plan(
+                    import_df,
+                    mapping,
+                    team_lookup,
+                    existing_players,
+                )
+
+            error_count = sum(1 for issue in issues if issue["Nivå"] == "Fel")
+            skipped_count = sum(1 for issue in issues if issue["Nivå"] == "Hoppa över")
+
+            st.markdown("### 4. Granska")
+            s1, s2, s3 = st.columns(3)
+            s1.metric("Redo att importera", len(records))
+            s2.metric("Hoppar över", skipped_count)
+            s3.metric("Fel att rätta", error_count)
+
+            if import_kind == "Lag" and int(tournament["expected_team_count"] or 0) > 0:
+                st.caption(
+                    f"Turneringen är planerad för maximalt {int(tournament['expected_team_count'])} lag. "
+                    f"Nu finns {len(existing_team_rows)} lag."
+                )
+
+            if issues:
+                issue_df = pd.DataFrame(issues)
+                if error_count:
+                    st.error(
+                        f"{error_count} fel blockerar importen. Rätta filen eller kolumnmappningen och ladda upp igen."
                     )
-                    if existing:
-                        continue
-                    run(
-                        "INSERT INTO players(team_id,player_number,name,birth_year,position) VALUES(?,?,?,?,?)",
-                        (team_id, number, player_name, birth_year, position or None),
+                elif skipped_count:
+                    st.info(
+                        f"{skipped_count} rader kommer att hoppas över eftersom de redan finns."
                     )
-                    imported += 1
-                if unknown_teams:
-                    st.warning("Följande lag hittades inte och hoppades över: " + ", ".join(sorted(unknown_teams)))
-                st.success(f"✓ {imported} spelare importerades.")
-                st.rerun()
+                st.dataframe(
+                    issue_df,
+                    use_container_width=True,
+                    hide_index=True,
+                    height=min(360, 42 + 35 * min(len(issue_df), 9)),
+                )
+                issue_csv = issue_df.to_csv(index=False).encode("utf-8-sig")
+                st.download_button(
+                    "Ladda ner felrapport",
+                    data=issue_csv,
+                    file_name=f"cupnavi_importkontroll_{import_kind.lower()}.csv",
+                    mime="text/csv",
+                    use_container_width=True,
+                )
+
+            if records:
+                if import_kind == "Lag":
+                    preview_df = pd.DataFrame([
+                        {
+                            "Lag": row["name"],
+                            "Grupp": row["group"] or "–",
+                            "Hemmafärg": row["home_color"],
+                            "Bortafärg": row["away_color"],
+                            "Resväg km": row["distance_km"],
+                            "Senare första match": "Ja" if row["late_first_match"] else "Nej",
+                            "Första match tidigast": row["earliest_first_time"] or "–",
+                        }
+                        for row in records[:100]
+                    ])
+                else:
+                    preview_df = pd.DataFrame([
+                        {
+                            "Lag": row["team_name"],
+                            "Spelare": row["player_name"],
+                            "Tröjnummer": row["player_number"] if row["player_number"] is not None else "–",
+                            "Födelseår": row["birth_year"] if row["birth_year"] is not None else "–",
+                            "Position": row["position"] or "–",
+                        }
+                        for row in records[:100]
+                    ])
+                with st.expander(
+                    f"Förhandsgranska {min(len(records), 100)} av {len(records)} rader",
+                    expanded=error_count == 0,
+                ):
+                    st.dataframe(preview_df, use_container_width=True, hide_index=True)
+
+            st.markdown("### 5. Bekräfta import")
+            if error_count:
+                st.warning("Importknappen låses tills alla blockerande fel är lösta.")
+            elif not records:
+                st.info("Det finns inga nya rader att importera.")
+            else:
+                create_groups = True
+                if import_kind == "Lag":
+                    create_groups = st.checkbox(
+                        "Skapa grupper som finns i filen men inte redan i CupNavi",
+                        value=True,
+                        key=f"import_create_groups_{tid}",
+                    )
+
+                confirmed = st.checkbox(
+                    f"Jag har granskat importen och vill lägga till {len(records)} "
+                    + ("lag." if import_kind == "Lag" else "spelare."),
+                    value=False,
+                    key=f"import_confirm_{tid}_{import_kind}_{import_file.name}",
+                )
+
+                button_label = "Importera lagen" if import_kind == "Lag" else "Importera trupperna"
+                if st.button(
+                    button_label,
+                    type="primary",
+                    use_container_width=True,
+                    disabled=not confirmed,
+                    key=f"import_execute_{tid}_{import_kind}",
+                ):
+                    try:
+                        con = db()
+                        try:
+                            if not CLOUD_DATABASE_ENABLED:
+                                con.execute("BEGIN IMMEDIATE")
+
+                            if import_kind == "Lag":
+                                group_rows = _rows_from_cursor(
+                                    con.execute(
+                                        "SELECT id,name FROM groups WHERE tournament_id=?",
+                                        (tid,),
+                                    )
+                                )
+                                group_map = {
+                                    row["name"].strip().casefold(): row["id"]
+                                    for row in group_rows
+                                }
+
+                                # Re-check max within the write transaction.
+                                max_row = _one_from_cursor(
+                                    con.execute(
+                                        "SELECT COALESCE(expected_team_count,0) AS max_teams FROM tournaments WHERE id=?",
+                                        (tid,),
+                                    )
+                                )
+                                count_row = _one_from_cursor(
+                                    con.execute(
+                                        "SELECT COUNT(*) AS n FROM teams WHERE tournament_id=?",
+                                        (tid,),
+                                    )
+                                )
+                                max_teams = int(max_row["max_teams"] or 0)
+                                current_count = int(count_row["n"] or 0)
+                                if max_teams > 0 and current_count + len(records) > max_teams:
+                                    raise TeamLimitReachedError(max_teams)
+
+                                for record in records:
+                                    group_id = None
+                                    group_name = record["group"]
+                                    if group_name:
+                                        group_id = group_map.get(group_name.casefold())
+                                        if group_id is None and create_groups:
+                                            cur = con.execute(
+                                                "INSERT INTO groups(tournament_id,name) VALUES(?,?)",
+                                                (tid, group_name),
+                                            )
+                                            group_id = cur.lastrowid
+                                            group_map[group_name.casefold()] = group_id
+
+                                    con.execute(
+                                        """INSERT INTO teams(
+                                               tournament_id,name,group_id,primary_color,secondary_color,
+                                               home_pattern,home_color_2,away_pattern,away_color_2,
+                                               distance_km,late_first_match,earliest_first_time,travel_note
+                                           ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                                        (
+                                            tid, record["name"], group_id,
+                                            record["home_color"], record["away_color"],
+                                            "Helfärgad", "#FFFFFF", "Helfärgad", "#111827",
+                                            record["distance_km"], int(record["late_first_match"]),
+                                            record["earliest_first_time"], record["comment"] or None,
+                                        ),
+                                    )
+                                con.execute(
+                                    "UPDATE tournaments SET schedule_dirty=1,is_published=0 WHERE id=?",
+                                    (tid,),
+                                )
+                            else:
+                                for record in records:
+                                    con.execute(
+                                        """INSERT INTO players(
+                                               team_id,player_number,name,birth_year,position
+                                           ) VALUES(?,?,?,?,?)""",
+                                        (
+                                            record["team_id"], record["player_number"],
+                                            record["player_name"], record["birth_year"],
+                                            record["position"] or None,
+                                        ),
+                                    )
+
+                            con.commit()
+                        except Exception:
+                            con.rollback()
+                            raise
+                        finally:
+                            con.close()
+
+                        _clear_render_query_cache()
+                        st.session_state["import_success_message"] = (
+                            f"✓ Import klar: {len(records)} "
+                            + ("lag lades till." if import_kind == "Lag" else "spelare lades till.")
+                        )
+                        st.rerun()
+                    except TeamLimitReachedError as exc:
+                        st.error(
+                            f"Importen avbröts utan att något lades till eftersom maxantalet "
+                            f"{exc.args[0]} lag skulle överskridas."
+                        )
+                    except Exception as exc:
+                        st.error(
+                            "Importen kunde inte genomföras. Inga rader ska ha sparats. "
+                            f"Teknisk information: {exc}"
+                        )
+
+    if "import_success_message" in st.session_state:
+        st.success(st.session_state.pop("import_success_message"))
 
 
 if admin_page == "Tabeller":

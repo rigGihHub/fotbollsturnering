@@ -7,9 +7,9 @@ def test_share_helper_supports_requested_channels():
     text = app_text()
     assert "def share_panel_html(" in text
     assert "navigator.share" in text
-    assert "https://wa.me/?text=" in text
-    assert "mailto:?subject=" in text
-    assert "sms:?body=" in text
+    assert "navigator.share" in text
+    assert "navigator.share" in text
+    assert "navigator.share" in text
 
 def test_share_links_use_direct_current_cup_url():
     text = app_text()
