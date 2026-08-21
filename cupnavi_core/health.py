@@ -12,6 +12,8 @@ CRITICAL_TABLES = (
     "player_match_stats",
     "schedule_rules",
     "offers",
+    "sponsors",
+    "functionaries",
 )
 
 

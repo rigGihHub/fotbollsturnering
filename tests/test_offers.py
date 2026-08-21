@@ -12,7 +12,7 @@ def test_offers_have_database_table():
 def test_offers_exist_in_admin_and_public_navigation():
     text=app_text()
     assert '("Erbjudanden", "Erbjudanden")' in text
-    assert '"Slutspel", "Erbjudanden", "Information"' in text
+    assert '"Slutspel", "Erbjudanden", "Partners", "Information"' in text
     assert 'if admin_page == "Erbjudanden":' in text
     assert "with offers_tab:" in text
 

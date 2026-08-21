@@ -2,7 +2,7 @@ from pathlib import Path
 
 def test_public_view_has_separate_schedule_and_results_tabs():
     text = Path("app.py").read_text(encoding="utf-8")
-    assert '["Spelschema", "Resultat", "Tabeller", "Topplistor", "Slutspel", "Erbjudanden", "Information"]' in text
+    assert '["Spelschema", "Resultat", "Matchcenter", "Tabeller", "Topplistor", "Slutspel", "Erbjudanden", "Partners", "Information"]' in text
 
 def test_schedule_hides_results_and_events():
     text = Path("app.py").read_text(encoding="utf-8")

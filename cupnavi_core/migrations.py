@@ -9,7 +9,7 @@ Regel:
 from dataclasses import dataclass
 from datetime import datetime, timezone
 
-LATEST_SCHEMA_VERSION = 2
+LATEST_SCHEMA_VERSION = 3
 
 
 @dataclass(frozen=True)
@@ -40,6 +40,37 @@ MIGRATIONS = (
             "CREATE INDEX IF NOT EXISTS idx_match_stats_match ON player_match_stats(match_id)",
             "CREATE INDEX IF NOT EXISTS idx_feedback_tournament ON feedback(tournament_id)",
             "CREATE INDEX IF NOT EXISTS idx_offers_tournament_active_order ON offers(tournament_id, active, sort_order)",
+        ),
+    ),
+    Migration(
+        3,
+        "sponsors_and_functionaries",
+        (
+            """CREATE TABLE IF NOT EXISTS sponsors (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                tournament_id INTEGER NOT NULL REFERENCES tournaments(id) ON DELETE CASCADE,
+                name TEXT NOT NULL,
+                level TEXT,
+                description TEXT,
+                website_url TEXT,
+                logo_data_uri TEXT,
+                active INTEGER NOT NULL DEFAULT 1,
+                sort_order INTEGER NOT NULL DEFAULT 0
+            )""",
+            """CREATE TABLE IF NOT EXISTS functionaries (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                tournament_id INTEGER NOT NULL REFERENCES tournaments(id) ON DELETE CASCADE,
+                name TEXT NOT NULL,
+                role TEXT NOT NULL,
+                phone TEXT,
+                email TEXT,
+                pitch_number INTEGER,
+                notes TEXT,
+                public_contact INTEGER NOT NULL DEFAULT 0,
+                active INTEGER NOT NULL DEFAULT 1
+            )""",
+            "CREATE INDEX IF NOT EXISTS idx_sponsors_tournament_active_order ON sponsors(tournament_id, active, sort_order)",
+            "CREATE INDEX IF NOT EXISTS idx_functionaries_tournament_role ON functionaries(tournament_id, role, active)",
         ),
     ),
 )
