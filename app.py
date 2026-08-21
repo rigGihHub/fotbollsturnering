@@ -304,6 +304,91 @@ div[role="dialog"] .stButton > button:not([kind="primary"]) * {
             color:#991b1b !important;
           }
 
+
+          .cn-event-teams {
+            display:grid;
+            grid-template-columns:repeat(2,minmax(0,1fr));
+            gap:8px;
+          }
+          .cn-event-team {
+            background:#f8fafc;
+            border:1px solid #e2e8f0;
+            border-radius:9px;
+            padding:7px;
+            min-width:0;
+          }
+          .cn-event-team-name {
+            text-align:center;
+            color:#334155 !important;
+            font-size:12px;
+            font-weight:900;
+            margin-bottom:6px;
+            overflow-wrap:anywhere;
+          }
+          .cn-event-team .cn-events-list {
+            justify-content:center;
+          }
+          @media (max-width:480px) {
+            .cn-event-teams { grid-template-columns:1fr 1fr; gap:6px; }
+            .cn-event { font-size:11px; padding:4px 6px; }
+          }
+
+
+          .cn-organizer-contact {
+            display:flex;
+            align-items:center;
+            justify-content:space-between;
+            gap:12px;
+            flex-wrap:wrap;
+          }
+          .cn-call-button {
+            display:inline-block;
+            background:#166534;
+            color:#ffffff !important;
+            text-decoration:none !important;
+            font-weight:850;
+            border-radius:10px;
+            padding:10px 14px;
+            white-space:nowrap;
+          }
+          .cn-call-button:hover { background:#14532d; color:#ffffff !important; }
+          @media (max-width:480px) {
+            .cn-organizer-contact { align-items:stretch; }
+            .cn-call-button { width:100%; text-align:center; box-sizing:border-box; }
+          }
+
+
+          .cn-email-button {
+            display:inline-block;
+            background:#1e3a8a;
+            color:#ffffff !important;
+            text-decoration:none !important;
+            font-weight:850;
+            border-radius:10px;
+            padding:10px 14px;
+            white-space:nowrap;
+          }
+          .cn-email-button:hover { background:#172554; color:#ffffff !important; }
+          @media (max-width:480px) {
+            .cn-email-button { width:100%; text-align:center; box-sizing:border-box; }
+          }
+
+
+          .cn-instagram-button {
+            display:inline-block;
+            background:#7c3aed;
+            color:#ffffff !important;
+            text-decoration:none !important;
+            font-weight:850;
+            border-radius:10px;
+            padding:10px 14px;
+            white-space:nowrap;
+          }
+          .cn-instagram-button:hover { background:#6d28d9; color:#ffffff !important; }
+          @media (max-width:480px) {
+            .cn-instagram-button { width:100%; text-align:center; box-sizing:border-box; }
+          }
+
 </style>
 """)
 
@@ -861,10 +946,19 @@ def inject_custom_css():
             border-color:#14532D !important;
           }
 
+          /* Publika flikar ligger kvar överst när användaren scrollar. */
+          div[data-baseweb="tab-list"] {
+            position:sticky !important;
+            top:0 !important;
+            z-index:999 !important;
+            box-shadow:0 4px 10px rgba(15,23,42,.10) !important;
+          }
+
           /* Publika st.tabs finns kvar men får ett enda tydligt färgsystem. */
           div[data-baseweb="tab-list"] {
             background:#F1F5F9 !important;
             border:1px solid #CBD5E1 !important;
+            isolation:isolate !important;
             border-radius:10px !important;
             padding:4px !important;
             gap:3px !important;
@@ -1166,6 +1260,9 @@ def init_db():
                 kiosk_available INTEGER NOT NULL DEFAULT 0,
                 kiosk_information TEXT,
                 public_information TEXT,
+                organizer_phone TEXT,
+                feedback_email TEXT,
+                instagram_url TEXT,
                 table_tiebreak TEXT NOT NULL DEFAULT 'Målskillnad först',
                 playoff_tie_rule TEXT NOT NULL DEFAULT 'Straffar direkt',
                 extra_time_minutes INTEGER NOT NULL DEFAULT 0,
@@ -1316,6 +1413,12 @@ def init_db():
             con.execute("ALTER TABLE tournaments ADD COLUMN kiosk_information TEXT")
         if "public_information" not in tournament_cols:
             con.execute("ALTER TABLE tournaments ADD COLUMN public_information TEXT")
+        if "organizer_phone" not in tournament_cols:
+            con.execute("ALTER TABLE tournaments ADD COLUMN organizer_phone TEXT")
+        if "feedback_email" not in tournament_cols:
+            con.execute("ALTER TABLE tournaments ADD COLUMN feedback_email TEXT")
+        if "instagram_url" not in tournament_cols:
+            con.execute("ALTER TABLE tournaments ADD COLUMN instagram_url TEXT")
         if "table_tiebreak" not in tournament_cols:
             con.execute("ALTER TABLE tournaments ADD COLUMN table_tiebreak TEXT NOT NULL DEFAULT 'Målskillnad först'")
         if "playoff_tie_rule" not in tournament_cols:
@@ -2966,10 +3069,10 @@ def render_bracket_tree(bracket_id, public=False):
 
 
 def public_match_events_html(match_id):
-    """Kompakt publik visning av mål och röda kort i en match."""
+    """Publika mål/röda kort grupperade tydligt under respektive lag."""
     rows = all_rows(
         """
-        SELECT p.name AS player_name, t.name AS team_name,
+        SELECT p.name AS player_name, t.id AS team_id, t.name AS team_name,
                s.goals, s.red_cards
         FROM player_match_stats s
         JOIN players p ON p.id=s.player_id
@@ -2982,29 +3085,37 @@ def public_match_events_html(match_id):
     if not rows:
         return ""
 
-    items = []
+    grouped = {}
     for row in rows:
+        grouped.setdefault(row["team_name"], [])
         goals = int(row["goals"] or 0)
         reds = int(row["red_cards"] or 0)
-
         if goals > 0:
-            goal_suffix = f" ×{goals}" if goals > 1 else ""
-            items.append(
-                f"<span class='cn-event cn-goal'>⚽ {html.escape(row['player_name'])}{goal_suffix}</span>"
+            suffix = f" ×{goals}" if goals > 1 else ""
+            grouped[row["team_name"]].append(
+                f"<span class='cn-event cn-goal'>⚽ {html.escape(row['player_name'])}{suffix}</span>"
             )
         if reds > 0:
-            red_suffix = f" ×{reds}" if reds > 1 else ""
-            items.append(
-                f"<span class='cn-event cn-red'>🟥 {html.escape(row['player_name'])}{red_suffix}</span>"
+            suffix = f" ×{reds}" if reds > 1 else ""
+            grouped[row["team_name"]].append(
+                f"<span class='cn-event cn-red'>🟥 {html.escape(row['player_name'])}{suffix}</span>"
             )
 
-    if not items:
-        return ""
+    team_blocks = []
+    for team_name, events in grouped.items():
+        if not events:
+            continue
+        team_blocks.append(
+            "<div class='cn-event-team'>"
+            f"<div class='cn-event-team-name'>{html.escape(team_name)}</div>"
+            "<div class='cn-events-list'>" + "".join(events) + "</div>"
+            "</div>"
+        )
 
     return (
         "<div class='cn-match-events'>"
         "<div class='cn-events-title'>Matchhändelser</div>"
-        "<div class='cn-events-list'>" + "".join(items) + "</div>"
+        "<div class='cn-event-teams'>" + "".join(team_blocks) + "</div>"
         "</div>"
     )
 
@@ -3044,6 +3155,49 @@ def render_public_view(tournament_id, tournament):
     if tournament["public_information"]:
         public_text = html.escape(tournament["public_information"]).replace("\n", "<br>")
         visitor_rows.append(f"<div><b>ℹ️ Information:</b><br>{public_text}</div>")
+    if tournament["organizer_phone"]:
+        phone_display = html.escape(tournament["organizer_phone"])
+        phone_href = re.sub(r"[^0-9+]", "", tournament["organizer_phone"])
+        visitor_rows.append(
+            "<div class='cn-organizer-contact'>"
+            "<div><b>📞 Kontakta arrangören</b></div>"
+            f"<a class='cn-call-button' href='tel:{html.escape(phone_href)}'>☎ Ring {phone_display}</a>"
+            "</div>"
+        )
+    if tournament["feedback_email"]:
+        email_display = html.escape(tournament["feedback_email"])
+        email_href = html.escape(tournament["feedback_email"], quote=True)
+        visitor_rows.append(
+            "<div class='cn-organizer-contact'>"
+            "<div><b>✉️ Frågor eller feedback</b></div>"
+            f"<a class='cn-email-button' href='mailto:{email_href}?subject=CupNavi%20-%20{html.escape(tournament['name'], quote=True)}'>"
+            f"✉ Skicka e-post till {email_display}</a>"
+            "</div>"
+        )
+    if tournament["instagram_url"]:
+        instagram_raw = tournament["instagram_url"].strip()
+        if instagram_raw.startswith("@"):
+            instagram_handle = instagram_raw[1:]
+            instagram_href = f"https://www.instagram.com/{instagram_handle}/"
+            instagram_label = f"@{instagram_handle}"
+        elif instagram_raw.startswith("http://") or instagram_raw.startswith("https://"):
+            instagram_href = instagram_raw
+            instagram_label = instagram_raw.rstrip("/").split("/")[-1]
+            instagram_label = f"@{instagram_label}" if instagram_label else "Instagram"
+        else:
+            instagram_handle = instagram_raw.strip("/")
+            instagram_href = f"https://www.instagram.com/{instagram_handle}/"
+            instagram_label = f"@{instagram_handle}"
+
+        visitor_rows.append(
+            "<div class='cn-organizer-contact'>"
+            "<div><b>📷 Följ cupen</b></div>"
+            f"<a class='cn-instagram-button' href='{html.escape(instagram_href, quote=True)}' "
+            "target='_blank' rel='noopener noreferrer'>"
+            f"Instagram {html.escape(instagram_label)}</a>"
+            "</div>"
+        )
+
     schedule, tables, statistics, playoffs, information = st.tabs(
         ["Spelschema", "Tabeller", "Topplistor", "Slutspel", "Information"]
     )
@@ -3226,17 +3380,8 @@ def render_public_view(tournament_id, tournament):
             else:
                 status_text, status_class = "KOMMANDE", "status-upcoming"
             match_events_html = public_match_events_html(match_row["id"])
+            # Färgnotiser visas inte i den publika turneringsvyn.
             color_conflict_html = ""
-            if kit_color_conflict(home, away):
-                color_conflict_html = (
-                    f"<div style='margin-top:10px;padding:7px 10px;border-radius:7px;background:#fff7ed;border:1px solid #fb923c;"
-                    f"color:#9a3412;font-size:12px;font-weight:700'>ℹ Möjlig färglikhet: om färgerna upplevs som för lika kan ett extraställ behövas.</div>"
-                )
-            elif away_kit_used:
-                color_conflict_html = (
-                    f"<div style='margin-top:10px;padding:7px 10px;border-radius:7px;background:#eff6ff;border:1px solid #93c5fd;"
-                    f"color:#1e3a8a;font-size:12px;font-weight:700'>{html.escape(away_name)} använder sitt bortaställ för att skapa tydligare färgskillnad.</div>"
-                )
             st.markdown(
                 f"""
                 <div class="public-match-card" style="border:1px solid #d1d5db;border-radius:14px;padding:16px;margin:12px 0;background:linear-gradient(135deg,#ffffff,#f3f6fb);color:#172033;box-shadow:0 4px 12px rgba(15,23,42,.08)">
@@ -4062,6 +4207,25 @@ if admin_page == "Adminöversikt":
             "Övrig information", value=tournament["public_information"] or "",
             placeholder="Exempel: Parkering finns vid skolan. Omklädningsrum öppnar 07.30. Hundar ska hållas kopplade.",
         )
+        contact_col1, contact_col2 = st.columns(2)
+        edited_organizer_phone = contact_col1.text_input(
+            "Arrangörens telefonnummer",
+            value=tournament["organizer_phone"] or "",
+            placeholder="Exempel: 070-123 45 67",
+            help="Visas publikt som en klickbar ring-knapp under Information.",
+        )
+        edited_feedback_email = contact_col2.text_input(
+            "E-post för feedback",
+            value=tournament["feedback_email"] or "",
+            placeholder="Exempel: cup@foreningen.se",
+            help="Visas publikt som en klickbar e-postknapp för frågor och feedback.",
+        )
+        edited_instagram = st.text_input(
+            "Instagram för cupen",
+            value=tournament["instagram_url"] or "",
+            placeholder="Exempel: @cupnavi eller https://www.instagram.com/cupnavi/",
+            help="Ange användarnamn eller länk. Visas publikt som en knapp för att följa cupen.",
+        )
 
         st.markdown("#### Poängregler och tabell")
         bp1, bp2, bp3 = st.columns(3)
@@ -4137,11 +4301,12 @@ if admin_page == "Adminöversikt":
                     con.execute(
                         """UPDATE tournaments SET name=?,location=?,tournament_date=?,start_date=?,end_date=?,expected_team_count=?,
                         points_win=?,points_draw=?,points_loss=?,playoff_format=?,bronze_match=?,arena_address=?,kiosk_available=?,
-                        kiosk_information=?,public_information=?,table_tiebreak=?,playoff_tie_rule=?,extra_time_minutes=?,playoff_model_confirmed=1
+                        kiosk_information=?,public_information=?,organizer_phone=?,feedback_email=?,instagram_url=?,table_tiebreak=?,playoff_tie_rule=?,extra_time_minutes=?,playoff_model_confirmed=1
                         WHERE id=?""",
                         (edited_name.strip(), edited_location.strip(), edited_start.isoformat(), edited_start.isoformat(), edited_end.isoformat(),
                          edited_expected, edited_win, edited_draw, edited_loss, edited_format, int(edited_bronze), edited_address.strip(),
-                         int(bool(edited_kiosk_info.strip())), edited_kiosk_info.strip(), edited_public_info.strip(), edited_tiebreak,
+                         int(bool(edited_kiosk_info.strip())), edited_kiosk_info.strip(), edited_public_info.strip(),
+                         edited_organizer_phone.strip(), edited_feedback_email.strip(), edited_instagram.strip(), edited_tiebreak,
                          edited_tie_rule if edited_format != "Inget slutspel" else "Straffar direkt",
                          edited_extra_time if edited_format != "Inget slutspel" and edited_tie_rule == "Förlängning + straffar" else 0,
                          tid),
