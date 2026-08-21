@@ -23,6 +23,85 @@ except ImportError:
 
 st.set_page_config(page_title="Fotbollsturnering", page_icon="⚽", layout="wide")
 
+st.html("""
+<style>
+/* ===== DIALOGKONTRAST v41 ===== */
+div[role="dialog"] {
+    background:#0b1220 !important;
+    color:#f8fafc !important;
+}
+div[role="dialog"] h1,
+div[role="dialog"] h2,
+div[role="dialog"] h3,
+div[role="dialog"] p,
+div[role="dialog"] span,
+div[role="dialog"] label {
+    color:#f8fafc !important;
+}
+div[role="dialog"] [data-testid="stAlert"] {
+    background:#3f1d24 !important;
+    border:1px solid #fca5a5 !important;
+}
+div[role="dialog"] [data-testid="stAlert"] *,
+div[role="dialog"] [data-testid="stAlert"] p,
+div[role="dialog"] [data-testid="stAlert"] span {
+    color:#fee2e2 !important;
+}
+div[role="dialog"] [data-testid="stCaptionContainer"],
+div[role="dialog"] .stCaptionContainer {
+    color:#cbd5e1 !important;
+}
+div[role="dialog"] .stButton > button[kind="primary"] {
+    background:#15803d !important;
+    border-color:#15803d !important;
+    color:#ffffff !important;
+}
+div[role="dialog"] .stButton > button[kind="primary"] * {
+    color:#ffffff !important;
+}
+div[role="dialog"] .stButton > button:not([kind="primary"]) {
+    background:#ffffff !important;
+    border-color:#cbd5e1 !important;
+    color:#0f172a !important;
+}
+div[role="dialog"] .stButton > button:not([kind="primary"]) * {
+    color:#0f172a !important;
+}
+</style>
+""")
+
+
+# Global arbetsindikator: visas automatiskt medan Streamlit kör om sidan efter interaktion.
+st.html("""
+<style>
+/* Streamlits running-status finns medan Python-skriptet arbetar.
+   Förstärk den till en tydlig CupNavi-indikator utan att blockera sidan. */
+[data-testid="stStatusWidget"] {
+    position: fixed !important;
+    top: 12px !important;
+    left: 50% !important;
+    transform: translateX(-50%) !important;
+    z-index: 999999 !important;
+    background: #0f172a !important;
+    color: #ffffff !important;
+    border: 1px solid #334155 !important;
+    border-radius: 999px !important;
+    padding: 8px 14px !important;
+    box-shadow: 0 8px 24px rgba(15,23,42,.22) !important;
+}
+[data-testid="stStatusWidget"]::after {
+    content: "  CupNavi arbetar…";
+    color: #ffffff;
+    font-weight: 800;
+    white-space: nowrap;
+}
+[data-testid="stSpinner"] {
+    font-weight: 800 !important;
+}
+</style>
+""")
+
+
 
 def inject_custom_css():
     """CupNavis samlade visuella tema: ljust, konsekvent och med hög läsbarhet."""
@@ -632,7 +711,7 @@ def inject_custom_css():
 
 
 inject_custom_css()
-APP_VERSION = "2026.08.21-38-WEBTEST"
+APP_VERSION = "2026.08.21-41-WEBTEST"
 DB_FILE = Path(__file__).with_name("turnering.db")
 
 
@@ -3713,12 +3792,29 @@ if admin_page == "Lag":
         st.info("Inga lag är skapade ännu.")
 
     st.divider()
-    with st.expander("Redigera eller ta bort lag", expanded=bool(teams)):
+    st.markdown(
+        """
+        <div style="
+            background:#ffffff;
+            border:1px solid #cbd5e1;
+            border-left:5px solid #166534;
+            border-radius:10px;
+            padding:12px 16px;
+            margin:6px 0 12px 0;
+            color:#0f172a;
+            font-size:1.08rem;
+            font-weight:800;">
+            Redigera eller ta bort lag
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+    with st.container(border=True):
         if teams:
             edit_team_id = st.selectbox("Välj lag", [t["id"] for t in teams], format_func=lambda x: next(t["name"] for t in teams if t["id"] == x), key="edit_team")
             edit_team = next(t for t in teams if t["id"] == edit_team_id)
             with st.container(border=True):
-                edited_name = st.text_input("Lagnamn", value=edit_team["name"])
+                edited_name = st.text_input("Lagnamn", value=edit_team["name"], key=f"edit_name_{edit_team_id}")
                 st.markdown("#### Hemmaställ")
                 eh1, eh2, eh3 = st.columns([1.2, 1, 1])
                 saved_home_pattern = _team_value(edit_team, "home_pattern", "Helfärgad")
@@ -3727,8 +3823,8 @@ if admin_page == "Lag":
                     index=KIT_PATTERNS.index(saved_home_pattern) if saved_home_pattern in KIT_PATTERNS else 0,
                     key=f"edit_home_pattern_{edit_team_id}",
                 )
-                edited_primary = eh2.color_picker("Hemma – färg 1", edit_team["primary_color"])
-                edited_home_color_2 = eh3.color_picker("Hemma – färg 2", _team_value(edit_team, "home_color_2", "#FFFFFF"))
+                edited_primary = eh2.color_picker("Hemma – färg 1", edit_team["primary_color"], key=f"edit_home_color1_{edit_team_id}")
+                edited_home_color_2 = eh3.color_picker("Hemma – färg 2", _team_value(edit_team, "home_color_2", "#FFFFFF"), key=f"edit_home_color2_{edit_team_id}")
                 st.markdown(kit_preview_html(edited_home_pattern, edited_primary, edited_home_color_2, "Hemmaställ"), unsafe_allow_html=True)
 
                 st.markdown("#### Bortaställ")
@@ -3739,18 +3835,19 @@ if admin_page == "Lag":
                     index=KIT_PATTERNS.index(saved_away_pattern) if saved_away_pattern in KIT_PATTERNS else 0,
                     key=f"edit_away_pattern_{edit_team_id}",
                 )
-                edited_secondary = ea2.color_picker("Borta – färg 1", edit_team["secondary_color"])
-                edited_away_color_2 = ea3.color_picker("Borta – färg 2", _team_value(edit_team, "away_color_2", "#111827"))
+                edited_secondary = ea2.color_picker("Borta – färg 1", edit_team["secondary_color"], key=f"edit_away_color1_{edit_team_id}")
+                edited_away_color_2 = ea3.color_picker("Borta – färg 2", _team_value(edit_team, "away_color_2", "#111827"), key=f"edit_away_color2_{edit_team_id}")
                 st.markdown(kit_preview_html(edited_away_pattern, edited_secondary, edited_away_color_2, "Bortaställ"), unsafe_allow_html=True)
 
-                edited_distance = st.number_input("Resväg i kilometer", 0, 5000, int(edit_team["distance_km"] or 0))
-                edited_travel_note = st.text_input("Resekommentar", value=edit_team["travel_note"] or "")
-                edited_late_first = st.checkbox("Önskar senare första match", value=bool(edit_team["late_first_match"]))
+                edited_distance = st.number_input("Resväg i kilometer", 0, 5000, int(edit_team["distance_km"] or 0), key=f"edit_distance_{edit_team_id}")
+                edited_travel_note = st.text_input("Resekommentar", value=edit_team["travel_note"] or "", key=f"edit_travel_note_{edit_team_id}")
+                edited_late_first = st.checkbox("Önskar senare första match", value=bool(edit_team["late_first_match"]), key=f"edit_late_first_{edit_team_id}")
                 saved_earliest = edit_team["earliest_first_time"] or "10:00"
                 edited_earliest = st.time_input(
                     "Första match tidigast",
                     value=datetime.strptime(saved_earliest, "%H:%M").time(),
                     help="Tiden används bara om Önskar senare första match är markerat.",
+                    key=f"edit_earliest_{edit_team_id}",
                 )
                 if st.button("Spara ändringar", type="primary", key=f"save_team_{edit_team_id}"):
                     if edited_name.strip():
