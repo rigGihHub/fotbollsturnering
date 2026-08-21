@@ -698,6 +698,95 @@ def inject_custom_css():
             color:#14532D !important;
           }
 
+
+          /* ===== KONTRASTFIX v27: alla navigeringslager ===== */
+
+          /* Turneringsvy/Admin - alla inaktiva ytor ljusa */
+          [data-testid="stSegmentedControl"] [role="radiogroup"],
+          [data-testid="stSegmentedControl"] button,
+          [data-testid="stSegmentedControl"] button > div,
+          [data-testid="stSegmentedControl"] button > div > div {
+            background:#F8FAFC !important;
+            color:#0F172A !important;
+            opacity:1 !important;
+          }
+          [data-testid="stSegmentedControl"] button *,
+          [data-testid="stSegmentedControl"] button p,
+          [data-testid="stSegmentedControl"] button span {
+            color:#0F172A !important;
+            opacity:1 !important;
+          }
+
+          /* Aktiv Turneringsvy/Admin */
+          [data-testid="stSegmentedControl"] button[aria-checked="true"],
+          [data-testid="stSegmentedControl"] button[aria-checked="true"] > div,
+          [data-testid="stSegmentedControl"] button[aria-checked="true"] > div > div,
+          [data-testid="stSegmentedControl"] button[aria-selected="true"],
+          [data-testid="stSegmentedControl"] button[aria-selected="true"] > div,
+          [data-testid="stSegmentedControl"] button[aria-selected="true"] > div > div {
+            background:#DCFCE7 !important;
+            color:#14532D !important;
+          }
+          [data-testid="stSegmentedControl"] button[aria-checked="true"] *,
+          [data-testid="stSegmentedControl"] button[aria-selected="true"] * {
+            color:#14532D !important;
+          }
+
+          /* Adminpills - BaseWeb kan lägga mörk bakgrund på inner-element */
+          [data-testid="stPills"] [role="radiogroup"] {
+            background:transparent !important;
+          }
+          [data-testid="stPills"] button,
+          [data-testid="stPills"] button > div,
+          [data-testid="stPills"] button > div > div {
+            background:#F8FAFC !important;
+            color:#0F172A !important;
+            opacity:1 !important;
+          }
+          [data-testid="stPills"] button *,
+          [data-testid="stPills"] button p,
+          [data-testid="stPills"] button span {
+            color:#0F172A !important;
+            opacity:1 !important;
+          }
+
+          /* Aktiv adminflik */
+          [data-testid="stPills"] button[aria-checked="true"],
+          [data-testid="stPills"] button[aria-checked="true"] > div,
+          [data-testid="stPills"] button[aria-checked="true"] > div > div,
+          [data-testid="stPills"] button[aria-selected="true"],
+          [data-testid="stPills"] button[aria-selected="true"] > div,
+          [data-testid="stPills"] button[aria-selected="true"] > div > div {
+            background:#DCFCE7 !important;
+            color:#14532D !important;
+          }
+          [data-testid="stPills"] button[aria-checked="true"] *,
+          [data-testid="stPills"] button[aria-selected="true"] * {
+            color:#14532D !important;
+          }
+
+          /* Publika tabs: även innerlagret */
+          button[data-baseweb="tab"],
+          button[data-baseweb="tab"] > div {
+            background:#F8FAFC !important;
+            color:#0F172A !important;
+            opacity:1 !important;
+          }
+          button[data-baseweb="tab"] *,
+          button[data-baseweb="tab"] p,
+          button[data-baseweb="tab"] span {
+            color:#0F172A !important;
+            opacity:1 !important;
+          }
+          button[data-baseweb="tab"][aria-selected="true"],
+          button[data-baseweb="tab"][aria-selected="true"] > div {
+            background:#ECFDF5 !important;
+            color:#14532D !important;
+          }
+          button[data-baseweb="tab"][aria-selected="true"] * {
+            color:#14532D !important;
+          }
+
 </style>
         """,
         unsafe_allow_html=True,
@@ -705,7 +794,7 @@ def inject_custom_css():
 
 
 inject_custom_css()
-APP_VERSION = "2026.08.21-26-WEBTEST"
+APP_VERSION = "2026.08.21-27-WEBTEST"
 DB_FILE = Path(__file__).with_name("turnering.db")
 
 
