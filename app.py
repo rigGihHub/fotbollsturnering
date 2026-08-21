@@ -631,7 +631,7 @@ def inject_custom_css():
 
 
 inject_custom_css()
-APP_VERSION = "2026.08.21-35-WEBTEST"
+APP_VERSION = "2026.08.21-36-WEBTEST"
 DB_FILE = Path(__file__).with_name("turnering.db")
 
 
@@ -1528,53 +1528,59 @@ def centered_table(dataframe):
 
 
 def render_centered_table(dataframe, empty_text="Ingen data att visa."):
-    """Rendera en responsiv HTML-tabell där både rubriker och innehåll är centrerade.
-
-    Streamlits st.dataframe renderas i en canvas där vanlig CSS/text-align inte är
-    tillförlitlig. Därför används HTML för rena visningstabeller.
-    """
+    """Rendera en responsiv HTML-tabell med centrerade rubriker och celler."""
     if dataframe is None or dataframe.empty:
         st.info(empty_text)
         return
-    table_html = dataframe.to_html(index=False, escape=True, classes="cup-centered-table")
-    st.markdown(
-        """
-        <style>
-          .cup-table-scroll {
-            width:100%;
-            overflow-x:auto;
-            -webkit-overflow-scrolling:touch;
-            border:1px solid #cbd5e1;
-            border-radius:10px;
-            background:#ffffff;
-          }
-          table.cup-centered-table {
-            width:100%;
-            border-collapse:collapse;
-            color:#0f172a;
-            background:#ffffff;
-          }
-          table.cup-centered-table th,
-          table.cup-centered-table td {
-            text-align:center !important;
-            vertical-align:middle !important;
-            padding:9px 10px;
-            border-bottom:1px solid #e2e8f0;
-            border-right:1px solid #e2e8f0;
-            white-space:nowrap;
-          }
-          table.cup-centered-table th {
-            background:#f1f5f9;
-            color:#0f172a;
-            font-weight:800;
-          }
-          table.cup-centered-table tr:last-child td { border-bottom:none; }
-          table.cup-centered-table th:last-child,
-          table.cup-centered-table td:last-child { border-right:none; }
-        </style>
-        <div class="cup-table-scroll">""" + table_html + "</div>",
-        unsafe_allow_html=True,
+
+    table_html = dataframe.to_html(
+        index=False,
+        escape=True,
+        classes="cup-centered-table",
+        border=0,
     )
+
+    html_block = f"""
+<style>
+.cup-table-scroll {{
+    width:100%;
+    overflow-x:auto;
+    -webkit-overflow-scrolling:touch;
+    border:1px solid #cbd5e1;
+    border-radius:10px;
+    background:#ffffff;
+}}
+.cup-centered-table {{
+    width:100%;
+    border-collapse:collapse;
+    color:#0f172a;
+    background:#ffffff;
+}}
+.cup-centered-table th,
+.cup-centered-table td {{
+    text-align:center !important;
+    vertical-align:middle !important;
+    padding:9px 10px;
+    border-bottom:1px solid #e2e8f0;
+    border-right:1px solid #e2e8f0;
+    white-space:nowrap;
+}}
+.cup-centered-table th {{
+    background:#f1f5f9;
+    color:#0f172a;
+    font-weight:800;
+}}
+.cup-centered-table tr:last-child td {{
+    border-bottom:none;
+}}
+.cup-centered-table th:last-child,
+.cup-centered-table td:last-child {{
+    border-right:none;
+}}
+</style>
+<div class="cup-table-scroll">{table_html}</div>
+"""
+    st.markdown(html_block, unsafe_allow_html=True)
 
 
 def brackets_for_display(tournament_id):
@@ -3050,6 +3056,25 @@ if admin_page == "Adminöversikt":
                     )
                     inserted_players += 1
 
+            # Två fiktiva domare med påhittade kontaktuppgifter och nivåer.
+            referee_first_names = ["Bengt", "Arvid", "Mats", "Sara", "Johan", "Linda", "Oskar", "Emma"]
+            referee_last_names = ["Domarsson", "Pipström", "Visselberg", "Linjeman", "Rättvik", "Matchlund"]
+            referee_levels = ["Distriktsdomare", "Regional domare", "Ungdomsdomare", "Senior domare"]
+            used_ref_names = set()
+            for ref_index in range(2):
+                while True:
+                    ref_name = f"{random.choice(referee_first_names)} {random.choice(referee_last_names)}"
+                    if ref_name not in used_ref_names:
+                        used_ref_names.add(ref_name)
+                        break
+                phone = f"070-{random.randint(100,999)} {random.randint(10,99)} {random.randint(10,99)}"
+                email_local = ref_name.lower().replace(" ", ".").replace("å", "a").replace("ä", "a").replace("ö", "o")
+                email = f"{email_local}@demo.cupnavi.se"
+                con.execute(
+                    "INSERT INTO referees(tournament_id,name,phone,email,referee_level) VALUES(?,?,?,?,?)",
+                    (tid, ref_name, phone, email, random.choice(referee_levels)),
+                )
+
             # Kontrollera trupperna innan vi godkänner transaktionen.
             player_check = _one_from_cursor(
                 con.execute(
@@ -3064,11 +3089,19 @@ if admin_page == "Adminöversikt":
                     f"Truppkontrollen misslyckades: skapade {inserted_players}, hittade {player_check['n']}."
                 )
 
+            referee_check = _one_from_cursor(
+                con.execute("SELECT COUNT(*) AS n FROM referees WHERE tournament_id=?", (tid,))
+            )
+            if int(referee_check["n"] or 0) < 2:
+                raise RuntimeError(
+                    f"Domarkontrollen misslyckades: förväntade minst 2 domare, hittade {referee_check['n']}."
+                )
+
             con.commit()
             _clear_render_query_cache()
             st.success(
                 f"Demodata skapad: 8 riktiga klubbnamn (3 Allsvenskan, 2 Superettan, 3 Premier League), "
-                f"2 grupper och {inserted_players} fiktiva stjärninspirerade spelare."
+                f"2 grupper, {inserted_players} fiktiva stjärninspirerade spelare och 2 fiktiva domare."
             )
             st.rerun()
         except Exception as exc:
