@@ -6,6 +6,7 @@ import json
 import os
 import random
 import time
+import hashlib
 from datetime import datetime, timedelta
 from pathlib import Path
 from urllib.parse import urlencode
@@ -631,7 +632,7 @@ def inject_custom_css():
 
 
 inject_custom_css()
-APP_VERSION = "2026.08.21-36-WEBTEST"
+APP_VERSION = "2026.08.21-38-WEBTEST"
 DB_FILE = Path(__file__).with_name("turnering.db")
 
 
@@ -848,7 +849,12 @@ def init_db():
                 arena_address TEXT,
                 kiosk_available INTEGER NOT NULL DEFAULT 0,
                 kiosk_information TEXT,
-                public_information TEXT
+                public_information TEXT,
+                table_tiebreak TEXT NOT NULL DEFAULT 'Målskillnad först',
+                playoff_tie_rule TEXT NOT NULL DEFAULT 'Straffar direkt',
+                extra_time_minutes INTEGER NOT NULL DEFAULT 0,
+                playoff_model_confirmed INTEGER NOT NULL DEFAULT 0,
+                schedule_dirty INTEGER NOT NULL DEFAULT 1
             );
             CREATE TABLE IF NOT EXISTS feedback (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -918,7 +924,8 @@ def init_db():
                 away_penalties INTEGER,
                 referee_id INTEGER REFERENCES referees(id) ON DELETE SET NULL,
                 schedule_published INTEGER NOT NULL DEFAULT 0,
-                schedule_locked INTEGER NOT NULL DEFAULT 0
+                schedule_locked INTEGER NOT NULL DEFAULT 0,
+                decided_winner_id INTEGER REFERENCES teams(id) ON DELETE SET NULL
             );
             CREATE TABLE IF NOT EXISTS player_match_stats (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -993,6 +1000,16 @@ def init_db():
             con.execute("ALTER TABLE tournaments ADD COLUMN kiosk_information TEXT")
         if "public_information" not in tournament_cols:
             con.execute("ALTER TABLE tournaments ADD COLUMN public_information TEXT")
+        if "table_tiebreak" not in tournament_cols:
+            con.execute("ALTER TABLE tournaments ADD COLUMN table_tiebreak TEXT NOT NULL DEFAULT 'Målskillnad först'")
+        if "playoff_tie_rule" not in tournament_cols:
+            con.execute("ALTER TABLE tournaments ADD COLUMN playoff_tie_rule TEXT NOT NULL DEFAULT 'Straffar direkt'")
+        if "extra_time_minutes" not in tournament_cols:
+            con.execute("ALTER TABLE tournaments ADD COLUMN extra_time_minutes INTEGER NOT NULL DEFAULT 0")
+        if "playoff_model_confirmed" not in tournament_cols:
+            con.execute("ALTER TABLE tournaments ADD COLUMN playoff_model_confirmed INTEGER NOT NULL DEFAULT 0")
+        if "schedule_dirty" not in tournament_cols:
+            con.execute("ALTER TABLE tournaments ADD COLUMN schedule_dirty INTEGER NOT NULL DEFAULT 1")
         con.execute(
             "UPDATE tournaments SET playoff_format=? WHERE playoff_format=?",
             ("Placeringsslutspel – ettor mot ettor osv.", "Flera egna slutspel"),
@@ -1030,6 +1047,8 @@ def init_db():
             con.execute("ALTER TABLE matches ADD COLUMN schedule_published INTEGER NOT NULL DEFAULT 0")
         if "schedule_locked" not in match_cols:
             con.execute("ALTER TABLE matches ADD COLUMN schedule_locked INTEGER NOT NULL DEFAULT 0")
+        if "decided_winner_id" not in match_cols:
+            con.execute("ALTER TABLE matches ADD COLUMN decided_winner_id INTEGER REFERENCES teams(id) ON DELETE SET NULL")
         if "yellow_cards" not in stat_cols:
             con.execute("ALTER TABLE player_match_stats ADD COLUMN yellow_cards INTEGER NOT NULL DEFAULT 0")
         if "red_cards" not in stat_cols:
@@ -1042,6 +1061,67 @@ def init_db():
         if "consecutive_match_break_minutes" not in rule_cols:
             con.execute("ALTER TABLE schedule_rules ADD COLUMN consecutive_match_break_minutes INTEGER NOT NULL DEFAULT 15")
         con.execute("UPDATE tournaments SET start_date=COALESCE(start_date,tournament_date), end_date=COALESCE(end_date,tournament_date)")
+        # Ändringar som påverkar schemaförutsättningarna markerar automatiskt schemat som inaktuellt.
+        execute_script(con, """
+            DROP TRIGGER IF EXISTS cupnavi_dirty_team_insert;
+            DROP TRIGGER IF EXISTS cupnavi_dirty_team_update;
+            DROP TRIGGER IF EXISTS cupnavi_dirty_team_delete;
+            DROP TRIGGER IF EXISTS cupnavi_dirty_group_insert;
+            DROP TRIGGER IF EXISTS cupnavi_dirty_group_update;
+            DROP TRIGGER IF EXISTS cupnavi_dirty_group_delete;
+            DROP TRIGGER IF EXISTS cupnavi_dirty_ref_insert;
+            DROP TRIGGER IF EXISTS cupnavi_dirty_ref_update;
+            DROP TRIGGER IF EXISTS cupnavi_dirty_ref_delete;
+            DROP TRIGGER IF EXISTS cupnavi_dirty_rules_update;
+            DROP TRIGGER IF EXISTS cupnavi_dirty_tournament_rules;
+
+            CREATE TRIGGER cupnavi_dirty_team_insert AFTER INSERT ON teams
+            BEGIN UPDATE tournaments SET schedule_dirty=1 WHERE id=NEW.tournament_id; END;
+            CREATE TRIGGER cupnavi_dirty_team_update AFTER UPDATE OF group_id,distance_km,late_first_match,earliest_first_time ON teams
+            WHEN OLD.group_id IS NOT NEW.group_id
+              OR OLD.distance_km IS NOT NEW.distance_km
+              OR OLD.late_first_match IS NOT NEW.late_first_match
+              OR OLD.earliest_first_time IS NOT NEW.earliest_first_time
+            BEGIN UPDATE tournaments SET schedule_dirty=1 WHERE id=NEW.tournament_id; END;
+            CREATE TRIGGER cupnavi_dirty_team_delete AFTER DELETE ON teams
+            BEGIN UPDATE tournaments SET schedule_dirty=1 WHERE id=OLD.tournament_id; END;
+
+            CREATE TRIGGER cupnavi_dirty_group_insert AFTER INSERT ON groups
+            BEGIN UPDATE tournaments SET schedule_dirty=1 WHERE id=NEW.tournament_id; END;
+            CREATE TRIGGER cupnavi_dirty_group_update AFTER UPDATE OF name ON groups
+            BEGIN UPDATE tournaments SET schedule_dirty=1 WHERE id=NEW.tournament_id; END;
+            CREATE TRIGGER cupnavi_dirty_group_delete AFTER DELETE ON groups
+            BEGIN UPDATE tournaments SET schedule_dirty=1 WHERE id=OLD.tournament_id; END;
+
+            CREATE TRIGGER cupnavi_dirty_ref_insert AFTER INSERT ON referees
+            BEGIN UPDATE tournaments SET schedule_dirty=1 WHERE id=NEW.tournament_id; END;
+            CREATE TRIGGER cupnavi_dirty_ref_delete AFTER DELETE ON referees
+            BEGIN UPDATE tournaments SET schedule_dirty=1 WHERE id=OLD.tournament_id; END;
+
+            CREATE TRIGGER cupnavi_dirty_rules_update AFTER UPDATE ON schedule_rules
+            WHEN OLD.first_match_time IS NOT NEW.first_match_time
+              OR OLD.halves IS NOT NEW.halves
+              OR OLD.minutes_per_half IS NOT NEW.minutes_per_half
+              OR OLD.halftime_minutes IS NOT NEW.halftime_minutes
+              OR OLD.pitch_break_minutes IS NOT NEW.pitch_break_minutes
+              OR OLD.minimum_team_rest_minutes IS NOT NEW.minimum_team_rest_minutes
+              OR OLD.avoid_consecutive_matches IS NOT NEW.avoid_consecutive_matches
+              OR OLD.consecutive_match_break_minutes IS NOT NEW.consecutive_match_break_minutes
+              OR OLD.pitch_count IS NOT NEW.pitch_count
+              OR OLD.referee_mode IS NOT NEW.referee_mode
+              OR OLD.latest_kickoff_time IS NOT NEW.latest_kickoff_time
+            BEGIN UPDATE tournaments SET schedule_dirty=1 WHERE id=NEW.tournament_id; END;
+
+            CREATE TRIGGER cupnavi_dirty_tournament_rules
+            AFTER UPDATE OF start_date,end_date,playoff_format,bronze_match,playoff_tie_rule,extra_time_minutes ON tournaments
+            WHEN OLD.start_date IS NOT NEW.start_date
+              OR OLD.end_date IS NOT NEW.end_date
+              OR OLD.playoff_format IS NOT NEW.playoff_format
+              OR OLD.bronze_match IS NOT NEW.bronze_match
+              OR OLD.playoff_tie_rule IS NOT NEW.playoff_tie_rule
+              OR OLD.extra_time_minutes IS NOT NEW.extra_time_minutes
+            BEGIN UPDATE tournaments SET schedule_dirty=1 WHERE id=NEW.id; END;
+        """)
     st.session_state["_cupnavi_schema_ready"] = schema_key
 
 
@@ -1174,7 +1254,7 @@ def calculate_table(group_id, tournament):
         a = int(m["away_source"].split(":")[1])
         if h not in stats or a not in stats:
             continue
-        hs, aas = m["home_score"], m["away_score"]
+        hs, aas = int(m["home_score"]), int(m["away_score"])
         stats[h]["S"] += 1; stats[a]["S"] += 1
         stats[h]["GM"] += hs; stats[h]["IM"] += aas
         stats[a]["GM"] += aas; stats[a]["IM"] += hs
@@ -1187,10 +1267,54 @@ def calculate_table(group_id, tournament):
         else:
             stats[h]["O"] += 1; stats[a]["O"] += 1
             stats[h]["P"] += tournament["points_draw"]; stats[a]["P"] += tournament["points_draw"]
-    for s in stats.values():
-        s["MS"] = s["GM"] - s["IM"]
-    ordered = sorted(stats.items(), key=lambda x: (-x[1]["P"], -x[1]["MS"], -x[1]["GM"], x[1]["Lag"].lower()))
-    return [(team_id, data) for team_id, data in ordered]
+    for row in stats.values():
+        row["MS"] = row["GM"] - row["IM"]
+
+    tiebreak = tournament.get("table_tiebreak", "Målskillnad först") if hasattr(tournament, "get") else tournament["table_tiebreak"]
+    if not tiebreak:
+        tiebreak = "Målskillnad först"
+
+    # Grundsortering på poäng. Vid lika poäng kan användaren välja om målskillnad
+    # eller inbördes möten ska väga tyngst.
+    point_groups = {}
+    for team_id, data in stats.items():
+        point_groups.setdefault(data["P"], []).append(team_id)
+
+    ordered_ids = []
+    for points in sorted(point_groups.keys(), reverse=True):
+        tied_ids = point_groups[points]
+        if len(tied_ids) == 1:
+            ordered_ids.extend(tied_ids)
+            continue
+
+        if tiebreak == "Inbördes möten först":
+            h2h = {team_id: {"P": 0, "MS": 0, "GM": 0} for team_id in tied_ids}
+            tied_set = set(tied_ids)
+            for m in matches:
+                h = int(m["home_source"].split(":")[1])
+                a = int(m["away_source"].split(":")[1])
+                if h not in tied_set or a not in tied_set:
+                    continue
+                hs, aas = int(m["home_score"]), int(m["away_score"])
+                h2h[h]["GM"] += hs; h2h[h]["MS"] += hs - aas
+                h2h[a]["GM"] += aas; h2h[a]["MS"] += aas - hs
+                if hs > aas:
+                    h2h[h]["P"] += tournament["points_win"]; h2h[a]["P"] += tournament["points_loss"]
+                elif hs < aas:
+                    h2h[a]["P"] += tournament["points_win"]; h2h[h]["P"] += tournament["points_loss"]
+                else:
+                    h2h[h]["P"] += tournament["points_draw"]; h2h[a]["P"] += tournament["points_draw"]
+            tied_ids.sort(
+                key=lambda team_id: (
+                    -h2h[team_id]["P"], -h2h[team_id]["MS"], -h2h[team_id]["GM"],
+                    -stats[team_id]["MS"], -stats[team_id]["GM"], stats[team_id]["Lag"].lower()
+                )
+            )
+        else:
+            tied_ids.sort(key=lambda team_id: (-stats[team_id]["MS"], -stats[team_id]["GM"], stats[team_id]["Lag"].lower()))
+        ordered_ids.extend(tied_ids)
+
+    return [(team_id, stats[team_id]) for team_id in ordered_ids]
 
 
 def result_winner(match_row, want_loser=False):
@@ -1200,10 +1324,15 @@ def result_winner(match_row, want_loser=False):
         return None
     hs, aas = match_row["home_score"], match_row["away_score"]
     if hs == aas:
-        hp, ap = match_row["home_penalties"], match_row["away_penalties"]
-        if hp is None or ap is None or hp == ap:
-            return None
-        winner, loser = (home_id, away_id) if hp > ap else (away_id, home_id)
+        decided = match_row["decided_winner_id"] if "decided_winner_id" in match_row else None
+        if decided in (home_id, away_id):
+            winner = decided
+            loser = away_id if winner == home_id else home_id
+        else:
+            hp, ap = match_row["home_penalties"], match_row["away_penalties"]
+            if hp is None or ap is None or hp == ap:
+                return None
+            winner, loser = (home_id, away_id) if hp > ap else (away_id, home_id)
     else:
         winner, loser = (home_id, away_id) if hs > aas else (away_id, home_id)
     return loser if want_loser else winner
@@ -1251,7 +1380,10 @@ def source_label(source):
     parts = source.split(":") if source else []
     if parts and parts[0] == "group":
         group = one_row("SELECT name FROM groups WHERE id=?", (int(parts[1]),))
-        return f"{parts[2]}:an i {group['name']}" if group else "Gruppplacering"
+        if not group:
+            return "Gruppplacering"
+        rank = int(parts[2])
+        return f"Vinnaren i {group['name']}" if rank == 1 else f"{rank}:an i {group['name']}"
     if parts and parts[0] == "winner":
         source_match = one_row("SELECT * FROM matches WHERE id=?", (int(parts[1]),))
         if source_match:
@@ -1778,6 +1910,127 @@ def sync_placement_playoffs(tournament_id, bronze_match):
     return True
 
 
+def playoff_specs_for_tournament(tournament_id, tournament):
+    """Returnera önskat slutspel utifrån den modell som valts på Adminöversikten."""
+    fmt = tournament["playoff_format"]
+    if fmt == "Inget slutspel":
+        return [], ""
+    if fmt == "A- och B-slutspel":
+        groups = all_rows("SELECT * FROM groups WHERE tournament_id=? ORDER BY name", (tournament_id,))
+        if len(groups) != 2:
+            return [], "A- och B-slutspel kräver exakt två grupper."
+        counts = {
+            group["id"]: one_row("SELECT COUNT(*) AS n FROM teams WHERE group_id=?", (group["id"],))["n"]
+            for group in groups
+        }
+        if any(counts[group["id"]] < 4 for group in groups):
+            return [], "A- och B-slutspel kräver minst fyra lag i vardera gruppen."
+        group_a, group_b = groups
+        return [
+            ("A-slutspel", 4, [
+                f"group:{group_a['id']}:1", f"group:{group_b['id']}:2",
+                f"group:{group_b['id']}:1", f"group:{group_a['id']}:2",
+            ]),
+            ("B-slutspel", 4, [
+                f"group:{group_a['id']}:3", f"group:{group_b['id']}:4",
+                f"group:{group_b['id']}:3", f"group:{group_a['id']}:4",
+            ]),
+        ], ""
+    if fmt == PLACEMENT_PLAYOFF_FORMAT:
+        return placement_playoff_specs(tournament_id)
+    return [], "Okänd slutspelsmodell."
+
+
+def ensure_playoffs_for_schedule(tournament_id, tournament):
+    """Skapa/uppdatera slutspel automatiskt när hela schemat genereras."""
+    specs, error = playoff_specs_for_tournament(tournament_id, tournament)
+    if error:
+        return False, error
+
+    existing = all_rows("SELECT * FROM brackets WHERE tournament_id=? ORDER BY id", (tournament_id,))
+    existing_signature = []
+    for bracket in existing:
+        first_round = all_rows(
+            "SELECT home_source,away_source FROM matches WHERE bracket_id=? AND round_no=1 ORDER BY match_no",
+            (bracket["id"],),
+        )
+        sources = [source for row in first_round for source in (row["home_source"], row["away_source"])]
+        existing_signature.append((bracket["name"], int(bracket["size"]), sources))
+    desired_signature = [(name, int(size), sources) for name, size, sources in specs]
+
+    if existing_signature == desired_signature:
+        return True, ""
+
+    played = one_row(
+        "SELECT COUNT(*) AS n FROM matches WHERE tournament_id=? AND bracket_id IS NOT NULL AND home_score IS NOT NULL",
+        (tournament_id,),
+    )["n"]
+    if played:
+        return False, "Slutspelsmodellen kan inte byggas om eftersom slutspelsresultat redan är registrerade."
+
+    run("DELETE FROM brackets WHERE tournament_id=?", (tournament_id,))
+    for bracket_name, bracket_size, bracket_sources in specs:
+        create_bracket(
+            tournament_id,
+            bracket_name,
+            bracket_size,
+            bool(tournament["bronze_match"]) and bracket_size >= 4,
+            bracket_sources,
+        )
+    return True, ""
+
+
+def render_group_table(table_rows, tournament):
+    """Text-TV-inspirerad grupptabell med tydlig markering av A/B-slutspelsplatser."""
+    if not table_rows:
+        st.info("Ingen tabelldata att visa.")
+        return
+    rows_html = []
+    fmt = tournament["playoff_format"]
+    for position, (_, data) in enumerate(table_rows, 1):
+        qualifier = ""
+        row_class = ""
+        if fmt == "A- och B-slutspel":
+            if position <= 2:
+                qualifier = "<span class='qualifier a'>A</span>"
+                row_class = "qual-a"
+            elif position <= 4:
+                qualifier = "<span class='qualifier b'>B</span>"
+                row_class = "qual-b"
+        rows_html.append(
+            f"<tr class='{row_class}'><td>{position}</td><td class='team'>{html.escape(str(data['Lag']))}</td>"
+            f"<td>{data['S']}</td><td>{data['V']}</td><td>{data['O']}</td><td>{data['F']}</td>"
+            f"<td>{data['GM']}</td><td>{data['IM']}</td><td>{data['MS']}</td><td><b>{data['P']}</b></td><td>{qualifier}</td></tr>"
+        )
+    legend = ""
+    if fmt == "A- och B-slutspel":
+        legend = "<div class='texttv-legend'><span><i class='a'></i>A-slutspel</span><span><i class='b'></i>B-slutspel</span></div>"
+    st.markdown(
+        f"""
+        <style>
+        .texttv-wrap{{overflow-x:auto;border:2px solid #172554;border-radius:8px;background:#07111f;padding:6px}}
+        .texttv-table{{width:100%;border-collapse:collapse;font-family:ui-monospace,SFMono-Regular,Consolas,monospace;color:#f8fafc}}
+        .texttv-table th,.texttv-table td{{text-align:center!important;padding:8px 9px;border-bottom:1px solid #334155}}
+        .texttv-table th{{background:#172554;color:#facc15;font-weight:900}}
+        .texttv-table td.team{{text-align:left!important;font-weight:800}}
+        .texttv-table tr.qual-a{{background:rgba(22,163,74,.20)}}
+        .texttv-table tr.qual-b{{background:rgba(37,99,235,.20)}}
+        .qualifier{{display:inline-flex;width:24px;height:24px;align-items:center;justify-content:center;border-radius:4px;color:#fff;font-weight:900}}
+        .qualifier.a,.texttv-legend i.a{{background:#16a34a}}
+        .qualifier.b,.texttv-legend i.b{{background:#2563eb}}
+        .texttv-legend{{display:flex;gap:18px;margin-top:7px;color:#334155;font-size:13px}}
+        .texttv-legend span{{display:flex;align-items:center;gap:6px}}
+        .texttv-legend i{{width:13px;height:13px;border-radius:2px;display:inline-block}}
+        </style>
+        <div class="texttv-wrap"><table class="texttv-table">
+        <thead><tr><th>Pl</th><th>Lag</th><th>S</th><th>V</th><th>O</th><th>F</th><th>GM</th><th>IM</th><th>MS</th><th>P</th><th>Slutspel</th></tr></thead>
+        <tbody>{''.join(rows_html)}</tbody></table></div>{legend}
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+
 def generate_schedule(tournament_id, tournament, rules, preserve_existing=False):
     def schedule_source_id(source):
         if not source:
@@ -1802,6 +2055,25 @@ def generate_schedule(tournament_id, tournament, rules, preserve_existing=False)
         minutes=(rules["halves"] * rules["minutes_per_half"])
         + ((rules["halves"] - 1) * rules["halftime_minutes"])
     )
+    playoff_extra_minutes = (
+        int(tournament["extra_time_minutes"] or 0)
+        if tournament.get("playoff_tie_rule", "") == "Förlängning + straffar"
+        else 0
+    )
+
+    def duration_for_match(match_row):
+        return duration + (timedelta(minutes=playoff_extra_minutes) if match_row["stage"] != "Gruppspel" else timedelta(0))
+
+    def valid_daily_start_for(candidate, match_duration):
+        candidate_end = candidate + match_duration
+        day_limit = datetime.combine(candidate.date(), latest_kickoff)
+        if candidate_end > day_limit:
+            candidate = datetime.combine(candidate.date() + timedelta(days=1), start.time())
+            candidate_end = candidate + match_duration
+            day_limit = datetime.combine(candidate.date(), latest_kickoff)
+        if candidate.date() > end_date or candidate_end > day_limit:
+            return None
+        return candidate
 
     def valid_daily_start(candidate):
         # latest_kickoff_time behålls som databasnamn för kompatibilitet, men värdet betyder sista plantid.
@@ -1868,7 +2140,7 @@ def generate_schedule(tournament_id, tournament, rules, preserve_existing=False)
             if not home_id or not away_id:
                 continue
             existing_start = datetime.fromisoformat(existing_match["scheduled_start"])
-            existing_end = existing_start + duration
+            existing_end = existing_start + duration_for_match(existing_match)
             pitch = existing_match["pitch_number"]
             pitch_ready[pitch] = max(pitch_ready.get(pitch, start), existing_end + pitch_gap)
             team_ready[home_id] = max(team_ready.get(home_id, start), existing_end + consecutive_break)
@@ -1885,16 +2157,16 @@ def generate_schedule(tournament_id, tournament, rules, preserve_existing=False)
             locked_away = schedule_source_id(locked_match["away_source"])
             locked_start = datetime.fromisoformat(locked_match["scheduled_start"])
             locked_events.append({
-                "start": locked_start, "end": locked_start + duration, "pitch": locked_match["pitch_number"],
+                "start": locked_start, "end": locked_start + duration_for_match(locked_match), "pitch": locked_match["pitch_number"],
                 "referee": locked_match["referee_id"], "teams": {locked_home, locked_away} - {None},
             })
 
-    def move_past_locked(candidate_start, pitch, referee_id, home_id, away_id):
+    def move_past_locked(candidate_start, pitch, referee_id, home_id, away_id, match_duration):
         candidate_teams = {home_id, away_id}
         changed = True
         while changed:
             changed = False
-            candidate_end = candidate_start + duration
+            candidate_end = candidate_start + match_duration
             for locked in locked_events:
                 blocked_until = None
                 if pitch == locked["pitch"] and candidate_start < locked["end"] + pitch_gap and candidate_end + pitch_gap > locked["start"]:
@@ -1911,13 +2183,15 @@ def generate_schedule(tournament_id, tournament, rules, preserve_existing=False)
     scheduled = 0
     unresolved = 0
     remaining = []
+    placeholder_matches = []
     for match_row in matches:
         if match_row["scheduled_start"] and (preserve_existing or match_row["schedule_locked"]):
             continue
         home_id = schedule_source_id(match_row["home_source"])
         away_id = schedule_source_id(match_row["away_source"])
         if not home_id or not away_id:
-            unresolved += 1
+            # Slutspelsmatcher ska ändå få tid, plan och matchnummer redan innan lagen är klara.
+            placeholder_matches.append(match_row)
             continue
         remaining.append((match_row, home_id, away_id))
     last_scheduled_teams = set()
@@ -1936,16 +2210,17 @@ def generate_schedule(tournament_id, tournament, rules, preserve_existing=False)
                         team_last_end.get(home_id, start) + consecutive_break,
                         team_last_end.get(away_id, start) + consecutive_break,
                     )
+                match_duration = duration_for_match(match_row)
                 if rules["referee_mode"] == "Automatisk" and referees:
                     for referee in referees:
                         referee_id = referee["id"]
-                        candidate_start = valid_daily_start(max(basic_start, referee_ready[referee_id]))
-                        candidate_start = move_past_locked(candidate_start, pitch, referee_id, home_id, away_id) if candidate_start else None
+                        candidate_start = valid_daily_start_for(max(basic_start, referee_ready[referee_id]), match_duration)
+                        candidate_start = move_past_locked(candidate_start, pitch, referee_id, home_id, away_id, match_duration) if candidate_start else None
                         if candidate_start:
                             candidates.append((candidate_start, consecutive_penalty, order, pitch, referee_id))
                 else:
-                    candidate_start = valid_daily_start(basic_start)
-                    candidate_start = move_past_locked(candidate_start, pitch, match_row["referee_id"], home_id, away_id) if candidate_start else None
+                    candidate_start = valid_daily_start_for(basic_start, match_duration)
+                    candidate_start = move_past_locked(candidate_start, pitch, match_row["referee_id"], home_id, away_id, match_duration) if candidate_start else None
                     if candidate_start:
                         candidates.append((candidate_start, consecutive_penalty, order, pitch, match_row["referee_id"]))
         if not candidates:
@@ -1985,7 +2260,7 @@ def generate_schedule(tournament_id, tournament, rules, preserve_existing=False)
         match_row, home_id, away_id = remaining.pop(order)
         forced_consecutive += consecutive_penalty
         last_scheduled_teams = {home_id, away_id}
-        match_end = match_start + duration
+        match_end = match_start + duration_for_match(match_row)
         schedule_updates.append(
             (match_start.isoformat(timespec="minutes"), pitch, referee_id, match_row["id"])
         )
@@ -1997,6 +2272,89 @@ def generate_schedule(tournament_id, tournament, rules, preserve_existing=False)
         if referee_id and rules["referee_mode"] == "Automatisk":
             referee_ready[referee_id] = match_end + pitch_gap
         scheduled += 1
+
+    # Schemalägg därefter slutspelsplatshållare. De får riktiga tider och löpnummer
+    # även om gruppvinnare/semifinalvinnare ännu inte är kända.
+    scheduled_start_by_id = {}
+    scheduled_end_by_id = {}
+    for existing_match in matches:
+        if existing_match["scheduled_start"]:
+            existing_start = datetime.fromisoformat(existing_match["scheduled_start"])
+            existing_duration = duration_for_match(existing_match)
+            scheduled_start_by_id[existing_match["id"]] = existing_start
+            scheduled_end_by_id[existing_match["id"]] = existing_start + existing_duration
+    match_by_id = {m["id"]: m for m in matches}
+    for start_iso, _, _, match_id in schedule_updates:
+        scheduled_start = datetime.fromisoformat(start_iso)
+        scheduled_start_by_id[match_id] = scheduled_start
+        scheduled_end_by_id[match_id] = scheduled_start + duration_for_match(match_by_id[match_id])
+
+    group_match_ids = {}
+    for m in matches:
+        if m["stage"] == "Gruppspel" and m["group_id"]:
+            group_match_ids.setdefault(m["group_id"], []).append(m["id"])
+
+    def source_dependency_ready(source):
+        parts = source.split(":") if source else []
+        if not parts:
+            return start
+        if parts[0] == "group":
+            group_id = int(parts[1])
+            ids = group_match_ids.get(group_id, [])
+            if not ids or any(match_id not in scheduled_end_by_id for match_id in ids):
+                return None
+            return max(scheduled_end_by_id[match_id] for match_id in ids) + consecutive_break
+        if parts[0] in ("winner", "loser"):
+            feeder_id = int(parts[1])
+            if feeder_id not in scheduled_end_by_id:
+                return None
+            return scheduled_end_by_id[feeder_id] + consecutive_break
+        return start
+
+    pending_placeholders = list(placeholder_matches)
+    while pending_placeholders:
+        progress = False
+        for match_row in list(pending_placeholders):
+            home_ready = source_dependency_ready(match_row["home_source"])
+            away_ready = source_dependency_ready(match_row["away_source"])
+            if home_ready is None or away_ready is None:
+                continue
+            match_duration = duration_for_match(match_row)
+            basic_start = max(home_ready, away_ready, start)
+            candidates = []
+            for pitch in pitch_ready:
+                base = max(basic_start, pitch_ready[pitch])
+                if rules["referee_mode"] == "Automatisk" and referees:
+                    for referee in referees:
+                        referee_id = referee["id"]
+                        candidate = valid_daily_start_for(max(base, referee_ready[referee_id]), match_duration)
+                        if candidate:
+                            candidates.append((candidate, pitch, referee_id))
+                else:
+                    candidate = valid_daily_start_for(base, match_duration)
+                    if candidate:
+                        candidates.append((candidate, pitch, match_row["referee_id"]))
+            if not candidates:
+                continue
+            match_start, pitch, referee_id = min(candidates, key=lambda item: (item[0], item[1], item[2] or 0))
+            match_end = match_start + match_duration
+            schedule_updates.append((match_start.isoformat(timespec="minutes"), pitch, referee_id, match_row["id"]))
+            scheduled_start_by_id[match_row["id"]] = match_start
+            scheduled_end_by_id[match_row["id"]] = match_end
+            pitch_ready[pitch] = match_end + pitch_gap
+            if referee_id and rules["referee_mode"] == "Automatisk":
+                referee_ready[referee_id] = match_end + pitch_gap
+            scheduled += 1
+            pending_placeholders.remove(match_row)
+            progress = True
+        if not progress:
+            unresolved += len(pending_placeholders)
+            warning = (
+                (locals().get("warning", "") + " ").strip()
+                + f"{len(pending_placeholders)} slutspelsmatch(er) kunde inte få en tid inom cupens plantider."
+            ).strip()
+            break
+
     warning = locals().get("warning", "")
     if rules["referee_mode"] == "Automatisk" and not referees:
         referee_warning = "Schemat skapades utan domare eftersom inga domare är registrerade."
@@ -2023,6 +2381,8 @@ def generate_schedule(tournament_id, tournament, rules, preserve_existing=False)
                     "UPDATE matches SET scheduled_start=?,pitch_number=?,referee_id=? WHERE id=?",
                     schedule_updates,
                 )
+            if unresolved == 0:
+                con.execute("UPDATE tournaments SET schedule_dirty=0 WHERE id=?", (tournament_id,))
             con.commit()
     except Exception as exc:
         return 0, len(schedule_updates) + unresolved, f"Schemat kunde inte sparas och inga schemaändringar genomfördes: {exc}"
@@ -2037,6 +2397,10 @@ def validate_schedule(tournament_id, tournament, rules):
         (tournament_id,),
     )
     duration = timedelta(minutes=(rules["halves"] * rules["minutes_per_half"]) + ((rules["halves"] - 1) * rules["halftime_minutes"]))
+    playoff_extra = timedelta(
+        minutes=int(tournament["extra_time_minutes"] or 0)
+        if tournament["playoff_tie_rule"] == "Förlängning + straffar" else 0
+    )
     pitch_gap = timedelta(minutes=rules["pitch_break_minutes"])
     avoid_consecutive = bool(rules["avoid_consecutive_matches"])
     consecutive_break_minutes = rules["consecutive_match_break_minutes"] if avoid_consecutive else 0
@@ -2048,16 +2412,17 @@ def validate_schedule(tournament_id, tournament, rules):
     events = []
     for number, match_row in enumerate(rows, 1):
         start_at = datetime.fromisoformat(match_row["scheduled_start"])
+        match_duration = duration + (playoff_extra if match_row["stage"] != "Gruppspel" else timedelta(0))
         home_id, away_id = resolve_source(match_row["home_source"]), resolve_source(match_row["away_source"])
         home_team, away_team = team(home_id), team(away_id)
-        events.append({"number": number, "row": match_row, "start": start_at, "end": start_at + duration, "teams": {home_id, away_id} - {None}})
+        events.append({"number": number, "row": match_row, "start": start_at, "end": start_at + match_duration, "teams": {home_id, away_id} - {None}})
         if not cup_start <= start_at.date() <= cup_end:
             errors.append(f"Match {number} ligger utanför cupens datumintervall.")
         if start_at.time() < first_time:
             errors.append(f"Match {number} har avspark {start_at.strftime('%H:%M')} före första tillåtna avspark.")
-        if (start_at + duration) > datetime.combine(start_at.date(), latest_time):
+        if (start_at + match_duration) > datetime.combine(start_at.date(), latest_time):
             errors.append(
-                f"Match {number} slutar {(start_at + duration).strftime('%H:%M')}, efter sista plantid {latest_time.strftime('%H:%M')}."
+                f"Match {number} slutar {(start_at + match_duration).strftime('%H:%M')}, efter sista plantid {latest_time.strftime('%H:%M')}."
             )
         if not match_row["pitch_number"] or not 1 <= match_row["pitch_number"] <= rules["pitch_count"]:
             errors.append(f"Match {number} har en ogiltig plan.")
@@ -2181,6 +2546,9 @@ def render_bracket_tree(bracket_id, public=False):
                 home_winner = True
             elif match_row["away_score"] > match_row["home_score"]:
                 away_winner = True
+            elif match_row["decided_winner_id"] in (home_id, away_id):
+                home_winner = match_row["decided_winner_id"] == home_id
+                away_winner = match_row["decided_winner_id"] == away_id
             elif match_row["home_penalties"] is not None and match_row["away_penalties"] is not None:
                 home_winner = match_row["home_penalties"] > match_row["away_penalties"]
                 away_winner = match_row["away_penalties"] > match_row["home_penalties"]
@@ -2189,7 +2557,9 @@ def render_bracket_tree(bracket_id, public=False):
         else:
             schedule_text, referee = match_meta(match_row)
         penalties = ""
-        if match_row["home_penalties"] is not None:
+        if match_row["decided_winner_id"]:
+            penalties = "<div class='bracket-penalties'>Avgjord genom lottning</div>"
+        elif match_row["home_penalties"] is not None:
             penalties = f"<div class='bracket-penalties'>Straffar {match_row['home_penalties']}–{match_row['away_penalties']}</div>"
         top = header_height + center - card_height / 2
         return f"""
@@ -2411,8 +2781,8 @@ def render_public_view(tournament_id, tournament):
         groups = all_rows("SELECT * FROM groups WHERE tournament_id=? ORDER BY name", (tournament_id,))
         for group in groups:
             st.subheader(group["name"])
-            rows = [{"Pl": position, **data} for position, (_, data) in enumerate(calculate_table(group["id"], tournament), 1)]
-            render_centered_table(pd.DataFrame(rows))
+            group_table = calculate_table(group["id"], tournament)
+            render_group_table(group_table, tournament)
     with statistics:
         rows = all_rows(
             """
@@ -2556,17 +2926,6 @@ if not tournaments:
 tid = st.sidebar.selectbox("Aktiv turnering", [t["id"] for t in tournaments], format_func=lambda x: next(t["name"] for t in tournaments if t["id"] == x))
 tournament = next(t for t in tournaments if t["id"] == tid)
 
-if len(tournaments) > 1:
-    mobile_tid = st.selectbox(
-        "Turnering",
-        [t["id"] for t in tournaments],
-        index=[t["id"] for t in tournaments].index(tid),
-        format_func=lambda x: next(t["name"] for t in tournaments if t["id"] == x),
-        key="page_tournament_selector",
-    )
-    if mobile_tid != tid:
-        tid = mobile_tid
-        tournament = next(t for t in tournaments if t["id"] == tid)
 if view_mode == "Admin":
     st.title(f"⚽ {tournament['name']}")
     st.markdown(
@@ -2587,8 +2946,8 @@ if view_mode == "Turneringsvy":
 # SNABB ADMINNAVIGERING: visuellt som flikar, men bara vald sida körs.
 ADMIN_PAGES = [
     "Adminöversikt", "Kontroller", "Lag", "Grupper", "Trupper", "Domare",
-    "Skapa och publicera schema", "Slutspel", "Matcher och resultat",
-    "Matchhändelser", "Tabeller", "Skytteligor",
+    "Skapa och publicera schema", "Tabeller", "Matcher och resultat",
+    "Matchhändelser", "Slutspel", "Skytteligor",
 ]
 ADMIN_NAV = [
     ("Adminöversikt", "Översikt"),
@@ -2598,10 +2957,10 @@ ADMIN_NAV = [
     ("Trupper", "Trupper"),
     ("Domare", "Domare"),
     ("Skapa och publicera schema", "Schema"),
-    ("Slutspel", "Slutspel"),
+    ("Tabeller", "Tabeller"),
     ("Matcher och resultat", "Matcher"),
     ("Matchhändelser", "Händelser"),
-    ("Tabeller", "Tabeller"),
+    ("Slutspel", "Slutspel"),
     ("Skytteligor", "Skytteligor"),
 ]
 admin_page_key = f"admin_page_{tid}"
@@ -2631,10 +2990,16 @@ for nav_row in (ADMIN_NAV[:6], ADMIN_NAV[6:]):
 admin_page = st.session_state[admin_page_key]
 st.divider()
 
-# Placeringsslutspel kan kräva flera databasfrågor. Det behöver inte synkas
-# när administratören bara tittar på Lag, Grupper, Tabeller osv.
-if admin_page in {"Adminöversikt", "Slutspel"}:
-    sync_placement_playoffs(tid, tournament["bronze_match"])
+current_schedule_state = one_row(
+    "SELECT schedule_dirty,(SELECT COUNT(*) FROM matches WHERE tournament_id=? AND scheduled_start IS NOT NULL) AS scheduled_n "
+    "FROM tournaments WHERE id=?",
+    (tid, tid),
+)
+if current_schedule_state and current_schedule_state["schedule_dirty"] and current_schedule_state["scheduled_n"]:
+    st.warning(
+        "⚠️ Förutsättningarna för turneringen har ändrats efter att schemat skapades. "
+        "Schemat är markerat som inaktuellt och bör regenereras under Schema innan det publiceras på nytt."
+    )
 
 publication_pages = {"Adminöversikt", "Kontroller", "Skapa och publicera schema"}
 sidebar_rules = None
@@ -2673,7 +3038,9 @@ else:
         key=f"sidebar_warning_approval_{tid}",
     )
     sidebar_publish_blocked = (
-        not sidebar_scheduled or bool(sidebar_errors)
+        not sidebar_scheduled
+        or bool(sidebar_errors)
+        or bool(tournament["schedule_dirty"])
         or (bool(sidebar_warnings) and not sidebar_warnings_approved)
     )
 
@@ -2689,6 +3056,8 @@ if admin_page in publication_pages and st.sidebar.button("Avpublicera", use_cont
 if admin_page in publication_pages:
     if not sidebar_scheduled:
         st.sidebar.caption("Skapa spelschemat innan publicering.")
+    elif tournament["schedule_dirty"]:
+        st.sidebar.caption("Schemat är inaktuellt efter ändrade förutsättningar. Regenerera det före publicering.")
     elif sidebar_errors:
         st.sidebar.caption(f"Åtgärda {len(sidebar_errors)} schemafel före publicering.")
     elif sidebar_warnings and not sidebar_warnings_approved:
@@ -2723,6 +3092,8 @@ if admin_page == "Adminöversikt":
     format_options = ["Inget slutspel", "A- och B-slutspel", placement_format]
     stored_format = placement_format if tournament["playoff_format"] == "Flera egna slutspel" else tournament["playoff_format"]
     saved_format = stored_format if stored_format in format_options else "Inget slutspel"
+    if not tournament["playoff_model_confirmed"]:
+        st.warning("Välj och spara slutspelsmodell innan spelschemat kan genereras.")
     current_team_count_for_limit = one_row("SELECT COUNT(*) AS n FROM teams WHERE tournament_id=?", (tid,))["n"]
     with st.form("edit_tournament_basics"):
         st.markdown("#### Cup och deltagande")
@@ -2748,16 +3119,44 @@ if admin_page == "Adminöversikt":
             placeholder="Exempel: Parkering finns vid skolan. Omklädningsrum öppnar 07.30. Hundar ska hållas kopplade.",
         )
 
-        st.markdown("#### Poängregler och slutspel")
-        bp1, bp2, bp3, bp4 = st.columns(4)
+        st.markdown("#### Poängregler, tabell och slutspel")
+        bp1, bp2, bp3 = st.columns(3)
         edited_win = bp1.number_input("Poäng för vinst", 0, 10, int(tournament["points_win"]))
         edited_draw = bp2.number_input("Poäng för oavgjort", 0, 10, int(tournament["points_draw"]))
         edited_loss = bp3.number_input("Poäng för förlust", 0, 10, int(tournament["points_loss"]))
-        edited_format = bp4.selectbox("Typ av slutspel", format_options, index=format_options.index(saved_format))
+
+        tb1, tb2 = st.columns(2)
+        table_tiebreak_options = ["Målskillnad först", "Inbördes möten först"]
+        saved_tiebreak = tournament["table_tiebreak"] or "Målskillnad först"
+        edited_tiebreak = tb1.selectbox(
+            "Vid lika poäng avgör i första hand",
+            table_tiebreak_options,
+            index=table_tiebreak_options.index(saved_tiebreak) if saved_tiebreak in table_tiebreak_options else 0,
+        )
+        edited_format = tb2.selectbox("Typ av slutspel", format_options, index=format_options.index(saved_format))
         edited_bronze = st.checkbox(
             "Skapa bronsmatch automatiskt när slutspelsträdet har minst fyra lag",
             value=bool(tournament["bronze_match"]),
             disabled=edited_format == "Inget slutspel",
+        )
+
+        st.markdown("##### Oavgjort i slutspelsmatch")
+        tie1, tie2 = st.columns(2)
+        tie_options = ["Förlängning + straffar", "Straffar direkt", "Lottning"]
+        saved_tie_rule = tournament["playoff_tie_rule"] or "Straffar direkt"
+        edited_tie_rule = tie1.selectbox(
+            "Så avgörs slutspelsmatchen",
+            tie_options,
+            index=tie_options.index(saved_tie_rule) if saved_tie_rule in tie_options else 1,
+            disabled=edited_format == "Inget slutspel",
+        )
+        edited_extra_time = tie2.number_input(
+            "Förlängning (minuter)",
+            min_value=1,
+            max_value=60,
+            value=max(1, int(tournament["extra_time_minutes"] or 10)),
+            disabled=edited_format == "Inget slutspel" or edited_tie_rule != "Förlängning + straffar",
+            help="Tiden reserveras även i schemaläggningen för slutspelsmatcher.",
         )
 
         st.markdown("#### Match- och schemaregler")
@@ -2811,15 +3210,23 @@ if admin_page == "Adminöversikt":
                     edited_pitch_count != overview_rules["pitch_count"],
                     edited_latest.strftime("%H:%M") != overview_rules["latest_kickoff_time"],
                     edited_referee_mode != overview_rules["referee_mode"],
+                    edited_format != saved_format,
+                    int(edited_bronze) != int(tournament["bronze_match"]),
+                    edited_tie_rule != (tournament["playoff_tie_rule"] or "Straffar direkt"),
+                    (edited_extra_time if edited_tie_rule == "Förlängning + straffar" else 0) != int(tournament["extra_time_minutes"] or 0),
                 ])
                 with db() as con:
                     con.execute(
                         """UPDATE tournaments SET name=?,location=?,tournament_date=?,start_date=?,end_date=?,expected_team_count=?,
                         points_win=?,points_draw=?,points_loss=?,playoff_format=?,bronze_match=?,arena_address=?,kiosk_available=?,
-                        kiosk_information=?,public_information=? WHERE id=?""",
+                        kiosk_information=?,public_information=?,table_tiebreak=?,playoff_tie_rule=?,extra_time_minutes=?,playoff_model_confirmed=1
+                        WHERE id=?""",
                         (edited_name.strip(), edited_location.strip(), edited_start.isoformat(), edited_start.isoformat(), edited_end.isoformat(),
                          edited_expected, edited_win, edited_draw, edited_loss, edited_format, int(edited_bronze), edited_address.strip(),
-                         int(bool(edited_kiosk_info.strip())), edited_kiosk_info.strip(), edited_public_info.strip(), tid),
+                         int(bool(edited_kiosk_info.strip())), edited_kiosk_info.strip(), edited_public_info.strip(), edited_tiebreak,
+                         edited_tie_rule if edited_format != "Inget slutspel" else "Straffar direkt",
+                         edited_extra_time if edited_format != "Inget slutspel" and edited_tie_rule == "Förlängning + straffar" else 0,
+                         tid),
                     )
                     con.execute(
                         """UPDATE schedule_rules SET first_match_time=?,halves=?,minutes_per_half=?,halftime_minutes=?,pitch_break_minutes=?,
@@ -2829,10 +3236,13 @@ if admin_page == "Adminöversikt":
                          edited_latest.strftime("%H:%M"), edited_referee_mode, tid),
                     )
                     if scheduling_changed:
-                        con.execute("UPDATE matches SET scheduled_start=NULL,pitch_number=NULL,schedule_published=0,schedule_locked=0 WHERE tournament_id=?", (tid,))
-                        con.execute("UPDATE tournaments SET is_published=0 WHERE id=?", (tid,))
+                        con.execute("UPDATE matches SET schedule_published=0 WHERE tournament_id=?", (tid,))
+                        con.execute("UPDATE tournaments SET is_published=0,schedule_dirty=1 WHERE id=?", (tid,))
                     con.commit()
-                st.session_state["overview_saved_message"] = "Grunduppgifterna sparades. Spelschemat behöver genereras och publiceras på nytt." if scheduling_changed else "Grunduppgifterna sparades."
+                st.session_state["overview_saved_message"] = (
+                    "Grunduppgifterna sparades. Ändringarna påverkar schemat, som nu är markerat för regenerering."
+                    if scheduling_changed else "Grunduppgifterna sparades."
+                )
                 st.rerun()
     if "overview_saved_message" in st.session_state:
         st.success(st.session_state.pop("overview_saved_message"))
@@ -3227,7 +3637,7 @@ if admin_page == "Lag":
         )
     if team_limit_reached:
         st.warning(f"Maximalt antal lag ({max_teams}) är registrerade. Ändra planerat antal lag under Admin → Översikt om fler lag ska kunna läggas till.")
-    with st.form("new_team", clear_on_submit=True):
+    with st.container(border=True):
         team_name = st.text_input("Lagnamn")
         st.markdown("#### Hemmaställ")
         hc1, hc2, hc3 = st.columns([1.2, 1, 1])
@@ -3247,7 +3657,7 @@ if admin_page == "Lag":
         travel_note = st.text_input("Resekommentar", placeholder="Exempel: Reser samma morgon")
         late_first_match = st.checkbox("Önskar senare första match", help="Använd detta exempelvis för lag med lång resväg.")
         earliest_first_time = st.time_input("Första match tidigast", value=datetime.strptime("10:00", "%H:%M").time(), help="Tiden används bara om Önskar senare första match är markerat.")
-        if st.form_submit_button("Lägg till lag", type="primary", disabled=team_limit_reached):
+        if st.button("Lägg till lag", type="primary", disabled=team_limit_reached, key=f"add_team_{tid}"):
             current_count = one_row("SELECT COUNT(*) AS n FROM teams WHERE tournament_id=?", (tid,))["n"]
             if max_teams and current_count >= max_teams:
                 st.error(f"Det går inte att lägga till fler än {max_teams} lag i den här turneringen.")
@@ -3283,11 +3693,31 @@ if admin_page == "Lag":
 
     teams = all_rows("SELECT * FROM teams WHERE tournament_id=? ORDER BY name", (tid,))
     st.divider()
+    st.subheader("Skapade lag")
+    if teams:
+        group_names = {
+            row["id"]: row["name"]
+            for row in all_rows("SELECT id,name FROM groups WHERE tournament_id=? ORDER BY name", (tid,))
+        }
+        render_centered_table(
+            pd.DataFrame([
+                {
+                    "Lag": team_row["name"],
+                    "Grupp": group_names.get(team_row["group_id"], "Ej placerad"),
+                    "Resväg km": team_row["distance_km"] or 0,
+                }
+                for team_row in teams
+            ])
+        )
+    else:
+        st.info("Inga lag är skapade ännu.")
+
+    st.divider()
     with st.expander("Redigera eller ta bort lag", expanded=bool(teams)):
         if teams:
             edit_team_id = st.selectbox("Välj lag", [t["id"] for t in teams], format_func=lambda x: next(t["name"] for t in teams if t["id"] == x), key="edit_team")
             edit_team = next(t for t in teams if t["id"] == edit_team_id)
-            with st.form("edit_team_form"):
+            with st.container(border=True):
                 edited_name = st.text_input("Lagnamn", value=edit_team["name"])
                 st.markdown("#### Hemmaställ")
                 eh1, eh2, eh3 = st.columns([1.2, 1, 1])
@@ -3322,7 +3752,7 @@ if admin_page == "Lag":
                     value=datetime.strptime(saved_earliest, "%H:%M").time(),
                     help="Tiden används bara om Önskar senare första match är markerat.",
                 )
-                if st.form_submit_button("Spara ändringar", type="primary"):
+                if st.button("Spara ändringar", type="primary", key=f"save_team_{edit_team_id}"):
                     if edited_name.strip():
                         run(
                             """UPDATE teams SET
@@ -3351,9 +3781,6 @@ if admin_page == "Lag":
                         con.execute("DELETE FROM brackets WHERE id=?", (bracket_id,))
                     con.execute("DELETE FROM teams WHERE id=?", (edit_team_id,))
                     con.commit()
-                saved_rules = one_row("SELECT * FROM schedule_rules WHERE tournament_id=?", (tid,))
-                if saved_rules:
-                    generate_schedule(tid, tournament, saved_rules, preserve_existing=True)
                 st.rerun()
         else:
             st.info("Det finns inga lag att redigera.")
@@ -3536,17 +3963,25 @@ if admin_page == "Skapa och publicera schema":
         (tid,),
     )["n"]
     schedule_errors, schedule_warnings, schedule_quality = validate_schedule(tid, tournament, rules)
+    playoff_specs, playoff_setup_error = playoff_specs_for_tournament(tid, tournament)
+    playoff_model_ready = bool(tournament["playoff_model_confirmed"])
 
-    st.markdown("#### 2. Skapa och generera spelschema")
+    st.markdown("#### 2. Skapa och generera hela spelschemat")
     with st.container(border=True):
         status1, status2, status3 = st.columns(3)
         status1.metric("Gruppspelsmatcher", group_match_total)
         status2.metric("Schemalagda matcher", scheduled_total)
         status3.metric("Ej publicerade", unpublished_total)
-        create_disabled = not schedule_groups or unassigned_count > 0 or bool(too_small_groups)
+        create_disabled = (
+            not schedule_groups
+            or unassigned_count > 0
+            or bool(too_small_groups)
+            or not playoff_model_ready
+            or bool(playoff_setup_error)
+        )
         schedule_button_label = (
-            "Schemalägg återstående matcher utan att ändra spelade matcher"
-            if played_result_total else "Skapa matcher och generera spelschema"
+            "Regenerera återstående grupp- och slutspelsmatcher utan att ändra spelade matcher"
+            if played_result_total else "Skapa gruppspel + slutspel och generera hela spelschemat"
         )
         if st.button(schedule_button_label, type="primary", use_container_width=True, disabled=create_disabled):
             started_schedule = time.perf_counter()
@@ -3554,17 +3989,25 @@ if admin_page == "Skapa och publicera schema":
                 with st.spinner("CupNavi bygger schemat och fördelar planer/domare…"):
                     if played_result_total:
                         created, ready_groups, skipped_groups = 0, len(schedule_groups), []
+                        playoff_ok, playoff_error = ensure_playoffs_for_schedule(tid, tournament)
+                        if not playoff_ok:
+                            raise RuntimeError(playoff_error)
                         count, unresolved, warning = generate_schedule(tid, tournament, rules, preserve_existing=True)
                         parts = [
                             f"{played_result_total} färdigspelade matcher skyddades och lämnades oförändrade.",
+                            "Slutspelsträdet kontrollerades och uppdaterades automatiskt.",
                             f"{count} återstående matcher schemalades.",
                         ]
                     else:
                         created, ready_groups, skipped_groups = create_all_group_matches(tid)
+                        playoff_ok, playoff_error = ensure_playoffs_for_schedule(tid, tournament)
+                        if not playoff_ok:
+                            raise RuntimeError(playoff_error)
                         count, unresolved, warning = generate_schedule(tid, tournament, rules)
                         parts = [
-                            f"Alla {ready_groups} grupper kontrollerades och {created} saknade matcher skapades.",
-                            f"{count} matcher schemalades.",
+                            f"Alla {ready_groups} grupper kontrollerades och {created} saknade gruppmatcher skapades.",
+                            "Slutspelsmatcherna skapades automatiskt utifrån vald slutspelsmodell.",
+                            f"{count} matcher schemalades totalt.",
                         ]
                 elapsed = time.perf_counter() - started_schedule
                 parts.append(f"Genereringen tog {elapsed:.1f} sekunder.")
@@ -3596,9 +4039,13 @@ if admin_page == "Skapa och publicera schema":
                 problems.append(f"placera {unassigned_count} lag i en grupp")
             if too_small_groups:
                 problems.append("lägg minst två lag i: " + ", ".join(too_small_groups))
-            st.warning("Innan gruppmöten kan skapas måste du " + "; ".join(problems) + ".")
+            if not playoff_model_ready:
+                problems.append("välj och spara slutspelsmodell på Adminöversikten")
+            if playoff_setup_error:
+                problems.append(playoff_setup_error)
+            st.warning("Innan hela spelschemat kan skapas måste du " + "; ".join(problems) + ".")
         elif scheduled_total == 0:
-            st.info("Klicka på knappen ovan för att både skapa gruppmöten och generera hela spelschemat.")
+            st.info("Klicka på knappen ovan för att skapa gruppspel, slutspel och generera hela spelschemat i ett steg.")
         elif schedule_errors:
             st.error(f"Schemat har {len(schedule_errors)} fel och kan inte publiceras. Se schemakontrollen nedan.")
         elif schedule_warnings:
@@ -3645,7 +4092,11 @@ if admin_page == "Skapa och publicera schema":
         if group_status_rows:
             render_centered_table(pd.DataFrame(group_status_rows))
 
-    st.info("Blockerande fel, varningar och lagens vilotider granskas på fliken Kontroller.")
+    st.info(
+        "Blockerande fel, varningar och lagens vilotider granskas på fliken Kontroller. "
+        "Slutspelsmatcher får tid och matchnummer direkt; innan lagen är klara visas platshållare som "
+        "Vinnaren i Grupp A eller Vinnare match X."
+    )
 
     travel_teams = all_rows("SELECT * FROM teams WHERE tournament_id=? ORDER BY name", (tid,))
     st.subheader("Reseinformation för lagen")
@@ -3785,7 +4236,6 @@ if admin_page == "Skapa och publicera schema":
                     away_score = None if pd.isna(row["Bortamål"]) else int(row["Bortamål"])
                     con.execute("UPDATE matches SET home_score=?,away_score=? WHERE id=?", (home_score, away_score, int(row["match_id"])))
                 con.commit()
-            generate_schedule(tid, tournament, rules, preserve_existing=True)
             st.success("Resultaten sparades.")
         st.caption("Målskyttar, assist, varningar och utvisningar registreras under fliken Matchhändelser och visas därefter automatiskt här.")
 
@@ -3802,6 +4252,31 @@ if admin_page == "Matcher och resultat":
     if not matches:
         st.info("Inga matcher är skapade.")
     else:
+        st.subheader("Hela matchschemat")
+        all_match_rows = []
+        for m in sorted(
+            matches,
+            key=lambda row: (
+                row["scheduled_start"] is None,
+                row["scheduled_start"] or "9999-12-31T23:59",
+                row["pitch_number"] or 999,
+                row["id"],
+            ),
+        ):
+            schedule_text, referee_name = match_meta(m)
+            all_match_rows.append({
+                "Match": schedule_text.split(" · ", 1)[0] if m["scheduled_start"] else "Ej schemalagd",
+                "Fas": m["stage"],
+                "Tid/plan": schedule_text.replace(schedule_text.split(" · ", 1)[0] + " · ", "", 1) if m["scheduled_start"] else "Ej schemalagd",
+                "Hemmalag": source_label(m["home_source"]),
+                "Bortalag": source_label(m["away_source"]),
+                "Domare": referee_name,
+            })
+        render_centered_table(pd.DataFrame(all_match_rows))
+        st.caption(
+            "Slutspelsmatcherna visas även innan lagen är klara. Exempel: Vinnaren i Grupp A eller Vinnare match 17."
+        )
+
         playable_matches = [m for m in matches if resolve_source(m["home_source"]) and resolve_source(m["away_source"])]
         unresolved_count = len(matches) - len(playable_matches)
         if unresolved_count:
@@ -3812,6 +4287,10 @@ if admin_page == "Matcher och resultat":
             referee_names = {r["id"]: r["name"] for r in refs}
             referee_ids_by_name = {r["name"]: r["id"] for r in refs}
             referee_options = ["Ej tillsatt"] + [r["name"] for r in refs]
+            all_result_teams = all_rows("SELECT id,name FROM teams WHERE tournament_id=? ORDER BY name", (tid,))
+            result_team_name_by_id = {row["id"]: row["name"] for row in all_result_teams}
+            result_team_id_by_name = {row["name"]: row["id"] for row in all_result_teams}
+            decision_options = ["–"] + [row["name"] for row in all_result_teams]
             result_rows = []
             for m in playable_matches:
                 schedule_text, _ = match_meta(m)
@@ -3825,6 +4304,7 @@ if admin_page == "Matcher och resultat":
                     "Bortalag": source_label(m["away_source"]),
                     "Hemmastraffar": m["home_penalties"] if m["stage"] != "Gruppspel" else None,
                     "Bortastraffar": m["away_penalties"] if m["stage"] != "Gruppspel" else None,
+                    "Avgörande vinnare": result_team_name_by_id.get(m["decided_winner_id"], "–") if m["stage"] != "Gruppspel" else "–",
                     "Domare": referee_names.get(m["referee_id"], "Ej tillsatt"),
                 })
             edited_results = st.data_editor(
@@ -3832,17 +4312,23 @@ if admin_page == "Matcher och resultat":
                 hide_index=True,
                 use_container_width=True,
                 disabled=["match_id", "Match", "Fas", "Hemmalag", "Bortalag"],
-                column_order=["Match", "Fas", "Hemmalag", "Hemmamål", "Bortamål", "Bortalag", "Hemmastraffar", "Bortastraffar", "Domare"],
+                column_order=["Match", "Fas", "Hemmalag", "Hemmamål", "Bortamål", "Bortalag", "Hemmastraffar", "Bortastraffar", "Avgörande vinnare", "Domare"],
                 column_config={
                     "Hemmamål": st.column_config.NumberColumn(min_value=0, max_value=99, step=1),
                     "Bortamål": st.column_config.NumberColumn(min_value=0, max_value=99, step=1),
                     "Hemmastraffar": st.column_config.NumberColumn("Straffar hemma", min_value=0, max_value=99, step=1),
                     "Bortastraffar": st.column_config.NumberColumn("Straffar borta", min_value=0, max_value=99, step=1),
+                    "Avgörande vinnare": st.column_config.SelectboxColumn(options=decision_options),
                     "Domare": st.column_config.SelectboxColumn(options=referee_options),
                 },
                 key=f"bulk_results_{tid}",
             )
-            st.caption("Lämna båda målkolumnerna tomma för en ospelad match. Straffar används bara vid oavgjorda slutspelsmatcher.")
+            if tournament["playoff_tie_rule"] == "Lottning":
+                st.caption("Vid oavgjord slutspelsmatch väljer du vinnaren i kolumnen Avgörande vinnare enligt tävlingsregeln Lottning.")
+            elif tournament["playoff_tie_rule"] == "Förlängning + straffar":
+                st.caption(f"Vid oavgjort spelas {tournament['extra_time_minutes']} min förlängning och därefter straffar. Registrera straffresultatet vid fortsatt oavgjort.")
+            else:
+                st.caption("Vid oavgjord slutspelsmatch avgörs matchen med straffar direkt. Registrera straffresultatet.")
             if st.button("Spara alla resultat", type="primary", use_container_width=True):
                 updates = []
                 errors = []
@@ -3854,26 +4340,34 @@ if admin_page == "Matcher och resultat":
                     if (home_score is None) != (away_score is None):
                         errors.append(f"{row['Hemmalag']}–{row['Bortalag']}: fyll i båda målresultaten eller lämna båda tomma.")
                         continue
+                    decided_winner_id = None
                     if row["Fas"] != "Gruppspel" and home_score is not None and home_score == away_score:
-                        if home_penalties is None or away_penalties is None or home_penalties == away_penalties:
-                            errors.append(f"{row['Hemmalag']}–{row['Bortalag']}: en oavgjord slutspelsmatch måste få en vinnare efter straffar.")
-                            continue
+                        home_team_id = result_team_id_by_name.get(row["Hemmalag"])
+                        away_team_id = result_team_id_by_name.get(row["Bortalag"])
+                        if tournament["playoff_tie_rule"] == "Lottning":
+                            decided_winner_id = result_team_id_by_name.get(row["Avgörande vinnare"])
+                            if decided_winner_id not in (home_team_id, away_team_id):
+                                errors.append(f"{row['Hemmalag']}–{row['Bortalag']}: välj vilket av de två lagen som vann lottningen.")
+                                continue
+                            home_penalties = away_penalties = None
+                        else:
+                            if home_penalties is None or away_penalties is None or home_penalties == away_penalties:
+                                errors.append(f"{row['Hemmalag']}–{row['Bortalag']}: ange ett avgörande straffresultat.")
+                                continue
                     else:
                         home_penalties = away_penalties = None
+                        decided_winner_id = None
                     referee_id = referee_ids_by_name.get(row["Domare"])
-                    updates.append((home_score, away_score, home_penalties, away_penalties, referee_id, int(row["match_id"])))
+                    updates.append((home_score, away_score, home_penalties, away_penalties, decided_winner_id, referee_id, int(row["match_id"])))
                 if errors:
                     st.error("\n".join(f"• {message}" for message in errors))
                 else:
                     with db() as con:
                         con.executemany(
-                            "UPDATE matches SET home_score=?,away_score=?,home_penalties=?,away_penalties=?,referee_id=? WHERE id=?",
+                            "UPDATE matches SET home_score=?,away_score=?,home_penalties=?,away_penalties=?,decided_winner_id=?,referee_id=? WHERE id=?",
                             updates,
                         )
                         con.commit()
-                    saved_rules = one_row("SELECT * FROM schedule_rules WHERE tournament_id=?", (tid,))
-                    if saved_rules:
-                        generate_schedule(tid, tournament, saved_rules, preserve_existing=True)
                     st.session_state["bulk_result_message"] = f"{len(updates)} matchresultat sparades."
                     st.rerun()
 
@@ -3967,11 +4461,11 @@ if admin_page == "Tabeller":
     for g in groups:
         st.subheader(g["name"])
         table = calculate_table(g["id"], tournament)
-        rows = []
-        for pos, (_, data) in enumerate(table, 1):
-            rows.append({"Pl": pos, **data})
-        render_centered_table(pd.DataFrame(rows))
-        st.caption("Sortering: poäng, målskillnad, gjorda mål, lagnamn.")
+        render_group_table(table, tournament)
+        if tournament["table_tiebreak"] == "Inbördes möten först":
+            st.caption("Sortering: poäng, inbördes möten, därefter målskillnad och gjorda mål.")
+        else:
+            st.caption("Sortering: poäng, målskillnad, gjorda mål, därefter lagnamn.")
 
 
 if admin_page == "Skytteligor":
@@ -4017,101 +4511,47 @@ if admin_page == "Skytteligor":
 
 if admin_page == "Slutspel":
     st.header("Slutspel")
-    st.caption("Granska och skapa det slutspel som valts på Adminöversikten.")
-    groups = all_rows("SELECT * FROM groups WHERE tournament_id=? ORDER BY name", (tid,))
-    teams = all_rows("SELECT * FROM teams WHERE tournament_id=? ORDER BY name", (tid,))
-    placement_format = PLACEMENT_PLAYOFF_FORMAT
-    format_options = ["Inget slutspel", "A- och B-slutspel", placement_format]
-    stored_format = placement_format if tournament["playoff_format"] == "Flera egna slutspel" else tournament["playoff_format"]
-    current_format = stored_format if stored_format in format_options else "Inget slutspel"
-    selected_format = current_format
-    st.subheader("Slutspelsmodell")
-    st.info(f"Vald modell: **{selected_format}**. Modellen ändras endast under Adminöversikt → Cupens grunduppgifter.")
-    if selected_format == "A- och B-slutspel":
-        st.info("Skapa två träd nedan: ett med namnet A-slutspel och ett med namnet B-slutspel. Välj sedan vilka gruppplaceringar som ska fylla platserna i respektive träd.")
-    elif selected_format == placement_format:
-        st.info("Ettorna i grupperna möter andra gruppettor, tvåorna möter andra grupptvåor och så vidare. Appen skapar placeringsslutspelen automatiskt.")
-    st.divider()
-    existing_brackets = all_rows("SELECT * FROM brackets WHERE tournament_id=?", (tid,))
-    team_counts = {
-        group["id"]: one_row("SELECT COUNT(*) AS n FROM teams WHERE group_id=?", (group["id"],))["n"]
-        for group in groups
-    }
-    automatic_specs = []
-    automatic_error = ""
-    if selected_format == "A- och B-slutspel":
-        if len(groups) != 2 or any(team_counts[group["id"]] < 4 for group in groups):
-            automatic_error = "A- och B-slutspel kräver exakt två grupper med minst fyra lag i varje. Ändra gruppindelningen på adminsidan."
-        else:
-            group_a, group_b = groups
-            automatic_specs = [
-                ("A-slutspel", 4, [f"group:{group_a['id']}:1", f"group:{group_b['id']}:2", f"group:{group_b['id']}:1", f"group:{group_a['id']}:2"]),
-                ("B-slutspel", 4, [f"group:{group_a['id']}:3", f"group:{group_b['id']}:4", f"group:{group_b['id']}:3", f"group:{group_a['id']}:4"]),
-            ]
-            st.success(f"A: 1:a {group_a['name']}–2:a {group_b['name']} och 1:a {group_b['name']}–2:a {group_a['name']}. B: motsvarande möten mellan treor och fyror.")
-    elif selected_format == placement_format:
-        automatic_specs, automatic_error = placement_playoff_specs(tid)
-        if not automatic_error:
-            st.success("Ett separat slutspel skapas automatiskt för varje gruppplacering som finns i samtliga grupper.")
+    st.caption("Slutspelet skapas automatiskt när hela spelschemat genereras under Schema.")
 
-    if selected_format == "Inget slutspel":
-        st.info("Ingen cupbyggare behövs eftersom modellen är Inget slutspel. Befintliga träd kan tas bort nedan.")
-    elif automatic_error:
-        st.error(automatic_error)
-    elif selected_format == placement_format:
-        st.info("Placeringsmatcherna skapas och uppdateras automatiskt. Ingen separat genereringsknapp behövs för den här modellen.")
+    if not tournament["playoff_model_confirmed"]:
+        st.warning("Välj och spara först slutspelsmodell på Adminöversikten.")
+    elif tournament["playoff_format"] == "Inget slutspel":
+        st.info("Den valda modellen är Inget slutspel.")
     else:
-        with st.form("automatic_playoff_builder"):
-            if tournament["bronze_match"]:
-                st.caption("Bronsmatch skapas automatiskt i träd med minst fyra lag enligt valet på Adminöversikten.")
-            replace_existing = st.checkbox(
-                "Jag förstår att befintliga slutspel och registrerade slutspelsresultat ersätts",
-                disabled=not existing_brackets,
-            )
-            generate_automatic = st.form_submit_button(
-                "Generera hela slutspelet automatiskt",
-                type="primary",
-                disabled=bool(existing_brackets) and not replace_existing,
-            )
-            if generate_automatic:
-                with db() as con:
-                    con.execute("DELETE FROM brackets WHERE tournament_id=?", (tid,))
-                    con.commit()
-                for bracket_name, bracket_size, bracket_sources in automatic_specs:
-                    create_bracket(tid, bracket_name, bracket_size, bool(tournament["bronze_match"]) and bracket_size >= 4, bracket_sources)
-                saved_rules = one_row("SELECT * FROM schedule_rules WHERE tournament_id=?", (tid,))
-                if saved_rules:
-                    generate_schedule(tid, tournament, saved_rules, preserve_existing=True)
-                st.rerun()
-    st.divider()
+        st.info(
+            f"Vald modell: **{tournament['playoff_format']}**. "
+            "Det finns ingen separat genereringsknapp – ändra modellen på Adminöversikten och regenerera därefter schemat."
+        )
+
+    specs, setup_error = playoff_specs_for_tournament(tid, tournament)
+    if setup_error:
+        st.error(setup_error)
+
     brackets, duplicate_brackets = brackets_for_display(tid)
     if duplicate_brackets:
-        duplicate_names = ", ".join(bracket["name"] for bracket in duplicate_brackets)
-        st.warning(f"Äldre dubbla slutspel hittades ({duplicate_names}). De döljs från Turneringsvyn så att endast ett A- och ett B-slutspel visas.")
-        with st.expander("Granska och rensa äldre dubbletter"):
-            for duplicate in duplicate_brackets:
-                completed = one_row(
-                    "SELECT COUNT(*) AS n FROM matches WHERE bracket_id=? AND home_score IS NOT NULL",
-                    (duplicate["id"],),
-                )["n"]
-                st.write(f"{duplicate['name']} · databas-id {duplicate['id']} · spelade matcher: {completed}")
-                confirmed = st.checkbox(
-                    f"Bekräfta borttagning av dubblett {duplicate['name']} (id {duplicate['id']})",
-                    key=f"confirm_duplicate_{duplicate['id']}",
-                )
-                if st.button(
-                    f"Ta bort dubblett id {duplicate['id']}",
-                    disabled=not confirmed,
-                    key=f"delete_duplicate_{duplicate['id']}",
-                ):
-                    run("DELETE FROM brackets WHERE id=?", (duplicate["id"],))
-                    st.rerun()
+        st.warning("Äldre dubbletter av slutspel finns i databasen. Regenerera hela schemat för att bygga om träden rent.")
+
     if not brackets:
-        st.info("Inget slutspel är skapat. Gruppspelet fungerar ändå som vanligt.")
-    for bracket in brackets:
-        st.subheader(bracket["name"])
-        confirm_bracket_delete = st.checkbox(f"Bekräfta borttagning av {bracket['name']}", key=f"confirm_bracket_{bracket['id']}")
-        if st.button(f"Ta bort {bracket['name']}", disabled=not confirm_bracket_delete, key=f"delete_bracket_{bracket['id']}"):
-            run("DELETE FROM brackets WHERE id=?", (bracket["id"],))
-            st.rerun()
-        render_bracket_tree(bracket["id"], public=False)
+        if tournament["playoff_format"] != "Inget slutspel":
+            st.info("Inga slutspelsmatcher är skapade ännu. Gå till Schema och generera hela spelschemat.")
+    else:
+        for bracket in brackets:
+            st.subheader(bracket["name"])
+            bracket_matches = all_rows(
+                "SELECT * FROM matches WHERE bracket_id=? ORDER BY round_no,match_no",
+                (bracket["id"],),
+            )
+            if bracket_matches:
+                overview_rows = []
+                for match_row in bracket_matches:
+                    schedule_text, _ = match_meta(match_row)
+                    match_number = schedule_text.split(" · ", 1)[0] if match_row["scheduled_start"] else "Ej schemalagd"
+                    overview_rows.append({
+                        "Match": match_number,
+                        "Fas": match_row["stage"],
+                        "Hemmalag": source_label(match_row["home_source"]),
+                        "Bortalag": source_label(match_row["away_source"]),
+                    })
+                render_centered_table(pd.DataFrame(overview_rows))
+            render_bracket_tree(bracket["id"], public=False)
+
