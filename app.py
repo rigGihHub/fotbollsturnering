@@ -211,74 +211,6 @@ def inject_custom_css():
             color:var(--cup-ink) !important;
           }
 
-          /* ---------- Flikar ---------- */
-          div[data-baseweb="tab-list"] {
-            background:#e9eff4 !important;
-            border:1px solid var(--cup-border) !important;
-            border-radius:12px !important;
-            padding:5px !important;
-            gap:4px !important;
-            overflow-x:auto;
-          }
-          button[data-baseweb="tab"] {
-            background:transparent !important;
-            border-radius:8px !important;
-            border:0 !important;
-            font-weight:700 !important;
-            min-height:42px;
-          }
-          button[data-baseweb="tab"],
-          button[data-baseweb="tab"] p,
-          button[data-baseweb="tab"] span {
-            color:var(--cup-ink-soft) !important;
-          }
-          button[data-baseweb="tab"][aria-selected="true"] {
-            background:var(--cup-surface) !important;
-            box-shadow:0 1px 4px rgba(15,23,42,.10) !important;
-          }
-          button[data-baseweb="tab"][aria-selected="true"],
-          button[data-baseweb="tab"][aria-selected="true"] p,
-          button[data-baseweb="tab"][aria-selected="true"] span {
-            color:var(--cup-green) !important;
-          }
-
-
-
-          /* ---------- Adminnavigation / pills ---------- */
-          [data-testid="stPills"] [role="radiogroup"] {
-            display:flex !important;
-            flex-wrap:wrap !important;
-            gap:7px !important;
-          }
-          [data-testid="stPills"] button {
-            background:#f8fafc !important;
-            color:#111827 !important;
-            border:1px solid #b8c3cf !important;
-            border-radius:10px !important;
-            min-height:38px !important;
-            font-weight:750 !important;
-            box-shadow:none !important;
-          }
-          [data-testid="stPills"] button *,
-          [data-testid="stPills"] button span,
-          [data-testid="stPills"] button p {
-            color:#111827 !important;
-          }
-          [data-testid="stPills"] button:hover {
-            background:#e8eef4 !important;
-            border-color:#94a3b8 !important;
-          }
-          [data-testid="stPills"] button[aria-checked="true"],
-          [data-testid="stPills"] button[aria-selected="true"] {
-            background:#166534 !important;
-            border-color:#166534 !important;
-            color:#ffffff !important;
-            box-shadow:0 2px 7px rgba(22,101,52,.18) !important;
-          }
-          [data-testid="stPills"] button[aria-checked="true"] *,
-          [data-testid="stPills"] button[aria-selected="true"] * {
-            color:#ffffff !important;
-          }
 
           /* ---------- Knappar ---------- */
           .stButton > button,
@@ -456,17 +388,6 @@ def inject_custom_css():
             font-size:16px !important;
           }
 
-          /* Touchytor enligt vanlig mobil praxis. */
-          .stButton > button,
-          .stFormSubmitButton > button,
-          .stDownloadButton > button,
-          button[data-baseweb="tab"],
-          [data-testid="stPills"] button,
-          [data-testid="stSegmentedControl"] button {
-            min-height:44px !important;
-            touch-action:manipulation;
-            -webkit-tap-highlight-color:rgba(0,0,0,0);
-          }
 
           /* Datumfält: tydlig kontrast även när Safari använder native-kontroll. */
           input[type="date"],
@@ -486,16 +407,6 @@ def inject_custom_css():
             opacity:.85;
           }
 
-          /* Horisontellt innehåll ska scrolla mjukt i Safari och Android. */
-          div[data-baseweb="tab-list"],
-          [data-testid="stPills"] [role="radiogroup"],
-          .bracket-scroll,
-          .bracket-wrapper,
-          .playoff-bracket,
-          .public-bracket {
-            -webkit-overflow-scrolling:touch !important;
-            overscroll-behavior-x:contain;
-          }
 
           /* Dataframes får inte pressa hela sidan bredare än mobilen. */
           [data-testid="stDataFrame"],
@@ -520,39 +431,6 @@ def inject_custom_css():
               word-break:normal;
             }
 
-            /* Mobilnavigationen ska vara enkel att träffa med tumme. */
-            [data-testid="stSegmentedControl"] button {
-              min-width:0 !important;
-              padding-left:12px !important;
-              padding-right:12px !important;
-            }
-
-            /* Adminnavigation: två-raders/scrollbar flexibel beroende på skärmbredd. */
-            [data-testid="stPills"] [role="radiogroup"] {
-              flex-wrap:nowrap !important;
-              overflow-x:auto !important;
-              padding-bottom:4px !important;
-              scrollbar-width:none;
-            }
-            [data-testid="stPills"] [role="radiogroup"]::-webkit-scrollbar {
-              display:none;
-            }
-            [data-testid="stPills"] button {
-              flex:0 0 auto !important;
-              white-space:nowrap !important;
-            }
-
-            /* Publikflikar: horisontell swipe hellre än hoptryckta texter. */
-            div[data-baseweb="tab-list"] {
-              width:100% !important;
-              overflow-x:auto !important;
-              scroll-snap-type:x proximity;
-            }
-            button[data-baseweb="tab"] {
-              flex:0 0 auto !important;
-              scroll-snap-align:start;
-              min-width:max-content !important;
-            }
 
             /* Matchkort ska hålla sig inom viewport. */
             .public-match-card {
@@ -618,157 +496,65 @@ def inject_custom_css():
             button[data-baseweb="tab"] { min-height:40px; white-space:nowrap !important; padding-left:10px !important; padding-right:10px !important; }
             div[role="radiogroup"] { gap:.25rem !important; }
           }
-        
-          /* ===== MENYKONTRAST v26 – SKA LIGGA SIST ===== */
 
-          /* Adminflikar/pills: inaktiv = mycket ljus + mörk text */
-          [data-testid="stPills"] button,
-          [data-testid="stPills"] button[aria-checked="false"],
-          [data-testid="stPills"] button[aria-selected="false"] {
-            background:#F8FAFC !important;
+
+
+          /* ===== CENTRAL NAVIGATION v29 =====
+             Alla navigationsval använder vanliga Streamlit-knappar.
+             Inaktiv = ljus yta + mörk text.
+             Aktiv = grön yta + vit text.
+          */
+          .stButton > button,
+          .stFormSubmitButton > button,
+          .stDownloadButton > button {
+            background:#FFFFFF !important;
+            border:1px solid #B8C5D1 !important;
+            color:#0F172A !important;
+            opacity:1 !important;
+          }
+          .stButton > button *,
+          .stFormSubmitButton > button *,
+          .stDownloadButton > button * {
+            color:#0F172A !important;
+            opacity:1 !important;
+          }
+          .stButton > button:hover,
+          .stFormSubmitButton > button:hover,
+          .stDownloadButton > button:hover {
+            background:#F1F5F9 !important;
+            border-color:#94A3B8 !important;
+          }
+
+          .stButton > button[kind="primary"],
+          .stFormSubmitButton > button[kind="primary"] {
+            background:#166534 !important;
+            border-color:#166534 !important;
+            color:#FFFFFF !important;
+            opacity:1 !important;
+          }
+          .stButton > button[kind="primary"] *,
+          .stFormSubmitButton > button[kind="primary"] * {
+            color:#FFFFFF !important;
+            opacity:1 !important;
+          }
+          .stButton > button[kind="primary"]:hover,
+          .stFormSubmitButton > button[kind="primary"]:hover {
+            background:#14532D !important;
+            border-color:#14532D !important;
+          }
+
+          /* Publika st.tabs finns kvar men får ett enda tydligt färgsystem. */
+          div[data-baseweb="tab-list"] {
+            background:#F1F5F9 !important;
             border:1px solid #CBD5E1 !important;
-            color:#0F172A !important;
-            opacity:1 !important;
+            border-radius:10px !important;
+            padding:4px !important;
+            gap:3px !important;
+            overflow-x:auto !important;
           }
-          [data-testid="stPills"] button *,
-          [data-testid="stPills"] button[aria-checked="false"] *,
-          [data-testid="stPills"] button[aria-selected="false"] * {
-            color:#0F172A !important;
-            opacity:1 !important;
-          }
-
-          /* Aktiv adminflik */
-          [data-testid="stPills"] button[aria-checked="true"],
-          [data-testid="stPills"] button[aria-selected="true"] {
-            background:#DCFCE7 !important;
-            border:2px solid #16A34A !important;
-            color:#14532D !important;
-          }
-          [data-testid="stPills"] button[aria-checked="true"] *,
-          [data-testid="stPills"] button[aria-selected="true"] * {
-            color:#14532D !important;
-          }
-
-          /* Turneringsvy/Admin-väljaren */
-          [data-testid="stSegmentedControl"] button,
-          [data-testid="stSegmentedControl"] button[aria-checked="false"],
-          [data-testid="stSegmentedControl"] button[aria-selected="false"] {
-            background:#F8FAFC !important;
-            border-color:#CBD5E1 !important;
-            color:#0F172A !important;
-            opacity:1 !important;
-          }
-          [data-testid="stSegmentedControl"] button *,
-          [data-testid="stSegmentedControl"] button[aria-checked="false"] *,
-          [data-testid="stSegmentedControl"] button[aria-selected="false"] * {
-            color:#0F172A !important;
-            opacity:1 !important;
-          }
-          [data-testid="stSegmentedControl"] button[aria-checked="true"],
-          [data-testid="stSegmentedControl"] button[aria-selected="true"] {
-            background:#DCFCE7 !important;
-            border-color:#16A34A !important;
-            color:#14532D !important;
-          }
-          [data-testid="stSegmentedControl"] button[aria-checked="true"] *,
-          [data-testid="stSegmentedControl"] button[aria-selected="true"] * {
-            color:#14532D !important;
-          }
-
-          /* Publika st.tabs: inaktiv text måste alltid vara mörk */
-          button[data-baseweb="tab"] {
-            background:#F8FAFC !important;
-            color:#0F172A !important;
-            opacity:1 !important;
-          }
-          button[data-baseweb="tab"] *,
-          button[data-baseweb="tab"] p,
-          button[data-baseweb="tab"] span {
-            color:#0F172A !important;
-            opacity:1 !important;
-          }
-          button[data-baseweb="tab"][aria-selected="true"] {
-            background:#ECFDF5 !important;
-            color:#14532D !important;
-            font-weight:800 !important;
-          }
-          button[data-baseweb="tab"][aria-selected="true"] *,
-          button[data-baseweb="tab"][aria-selected="true"] p,
-          button[data-baseweb="tab"][aria-selected="true"] span {
-            color:#14532D !important;
-          }
-
-
-          /* ===== KONTRASTFIX v27: alla navigeringslager ===== */
-
-          /* Turneringsvy/Admin - alla inaktiva ytor ljusa */
-          [data-testid="stSegmentedControl"] [role="radiogroup"],
-          [data-testid="stSegmentedControl"] button,
-          [data-testid="stSegmentedControl"] button > div,
-          [data-testid="stSegmentedControl"] button > div > div {
-            background:#F8FAFC !important;
-            color:#0F172A !important;
-            opacity:1 !important;
-          }
-          [data-testid="stSegmentedControl"] button *,
-          [data-testid="stSegmentedControl"] button p,
-          [data-testid="stSegmentedControl"] button span {
-            color:#0F172A !important;
-            opacity:1 !important;
-          }
-
-          /* Aktiv Turneringsvy/Admin */
-          [data-testid="stSegmentedControl"] button[aria-checked="true"],
-          [data-testid="stSegmentedControl"] button[aria-checked="true"] > div,
-          [data-testid="stSegmentedControl"] button[aria-checked="true"] > div > div,
-          [data-testid="stSegmentedControl"] button[aria-selected="true"],
-          [data-testid="stSegmentedControl"] button[aria-selected="true"] > div,
-          [data-testid="stSegmentedControl"] button[aria-selected="true"] > div > div {
-            background:#DCFCE7 !important;
-            color:#14532D !important;
-          }
-          [data-testid="stSegmentedControl"] button[aria-checked="true"] *,
-          [data-testid="stSegmentedControl"] button[aria-selected="true"] * {
-            color:#14532D !important;
-          }
-
-          /* Adminpills - BaseWeb kan lägga mörk bakgrund på inner-element */
-          [data-testid="stPills"] [role="radiogroup"] {
-            background:transparent !important;
-          }
-          [data-testid="stPills"] button,
-          [data-testid="stPills"] button > div,
-          [data-testid="stPills"] button > div > div {
-            background:#F8FAFC !important;
-            color:#0F172A !important;
-            opacity:1 !important;
-          }
-          [data-testid="stPills"] button *,
-          [data-testid="stPills"] button p,
-          [data-testid="stPills"] button span {
-            color:#0F172A !important;
-            opacity:1 !important;
-          }
-
-          /* Aktiv adminflik */
-          [data-testid="stPills"] button[aria-checked="true"],
-          [data-testid="stPills"] button[aria-checked="true"] > div,
-          [data-testid="stPills"] button[aria-checked="true"] > div > div,
-          [data-testid="stPills"] button[aria-selected="true"],
-          [data-testid="stPills"] button[aria-selected="true"] > div,
-          [data-testid="stPills"] button[aria-selected="true"] > div > div {
-            background:#DCFCE7 !important;
-            color:#14532D !important;
-          }
-          [data-testid="stPills"] button[aria-checked="true"] *,
-          [data-testid="stPills"] button[aria-selected="true"] * {
-            color:#14532D !important;
-          }
-
-          /* Publika tabs: även innerlagret */
           button[data-baseweb="tab"],
           button[data-baseweb="tab"] > div {
-            background:#F8FAFC !important;
+            background:#FFFFFF !important;
             color:#0F172A !important;
             opacity:1 !important;
           }
@@ -780,11 +566,33 @@ def inject_custom_css():
           }
           button[data-baseweb="tab"][aria-selected="true"],
           button[data-baseweb="tab"][aria-selected="true"] > div {
-            background:#ECFDF5 !important;
+            background:#DCFCE7 !important;
             color:#14532D !important;
+            font-weight:800 !important;
           }
           button[data-baseweb="tab"][aria-selected="true"] * {
             color:#14532D !important;
+          }
+
+          @media (max-width:760px) {
+            .stButton > button {
+              min-height:44px !important;
+              font-size:14px !important;
+            }
+            div[data-baseweb="tab-list"] {
+              flex-wrap:nowrap !important;
+              overflow-x:auto !important;
+              -webkit-overflow-scrolling:touch !important;
+              scrollbar-width:none;
+            }
+            div[data-baseweb="tab-list"]::-webkit-scrollbar { display:none; }
+            button[data-baseweb="tab"] {
+              flex:0 0 auto !important;
+              min-height:44px !important;
+              white-space:nowrap !important;
+              padding-left:12px !important;
+              padding-right:12px !important;
+            }
           }
 
 </style>
@@ -794,7 +602,7 @@ def inject_custom_css():
 
 
 inject_custom_css()
-APP_VERSION = "2026.08.21-28-WEBTEST"
+APP_VERSION = "2026.08.21-29-WEBTEST"
 DB_FILE = Path(__file__).with_name("turnering.db")
 
 
@@ -2468,20 +2276,32 @@ mode_options = ["Turneringsvy", "Admin"] if CLOUD_DATABASE_ENABLED else ["Admin"
 if st.session_state.get("view_mode") not in mode_options:
     st.session_state["view_mode"] = mode_options[0]
 
-# Ett enda gemensamt lägesval används för både desktop och mobil.
-# Det måste ligga före admininloggningen så första klicket på Admin
-# alltid både markerar Admin och visar lösenordsrutan direkt.
+# Ett gemensamt lägesval med vanliga Streamlit-knappar.
+# on_click uppdaterar state före rerun, så markering och admininloggning
+# alltid hänger ihop på första klicket.
+def _set_view_mode(mode):
+    st.session_state["view_mode"] = mode
+
 st.caption("Välj läge")
-view_mode = st.segmented_control(
-    "Visningsläge",
-    mode_options,
-    key="view_mode",
-    label_visibility="collapsed",
-    width="stretch",
+mode_col1, mode_col2 = st.columns(2)
+current_mode = st.session_state["view_mode"]
+mode_col1.button(
+    "Turneringsvy",
+    key="view_mode_public_button",
+    type="primary" if current_mode == "Turneringsvy" else "secondary",
+    use_container_width=True,
+    on_click=_set_view_mode,
+    args=("Turneringsvy",),
 )
-if view_mode is None:
-    view_mode = mode_options[0]
-    st.session_state["view_mode"] = view_mode
+mode_col2.button(
+    "Admin",
+    key="view_mode_admin_button",
+    type="primary" if current_mode == "Admin" else "secondary",
+    use_container_width=True,
+    on_click=_set_view_mode,
+    args=("Admin",),
+)
+view_mode = st.session_state["view_mode"]
 
 st.sidebar.caption(f"Visningsläge: {view_mode}")
 
@@ -2582,19 +2402,25 @@ if st.session_state.get(admin_page_key) not in ADMIN_PAGES:
 
 st.markdown("### Administration")
 st.caption("Välj administrationsdel. Endast den valda delen laddas, för snabbare webbdrift.")
-_admin_labels = dict(ADMIN_NAV)
-admin_page = st.pills(
-    "Administrationsdel",
-    ADMIN_PAGES,
-    key=admin_page_key,
-    format_func=lambda page: _admin_labels.get(page, page),
-    selection_mode="single",
-    label_visibility="collapsed",
-    width="stretch",
-)
-if admin_page is None:
-    admin_page = "Adminöversikt"
-    st.session_state[admin_page_key] = admin_page
+
+def _set_admin_page(page):
+    st.session_state[admin_page_key] = page
+
+# Vanliga Streamlit-knappar används med aktiv/inaktiv typ.
+# Två rader à sex val ger tydlig kontrast och fungerar på både desktop och mobil.
+for nav_row in (ADMIN_NAV[:6], ADMIN_NAV[6:]):
+    nav_cols = st.columns(len(nav_row))
+    for nav_col, (page_name, button_label) in zip(nav_cols, nav_row):
+        nav_col.button(
+            button_label,
+            key=f"admin_nav_v29_{tid}_{page_name}",
+            type="primary" if st.session_state[admin_page_key] == page_name else "secondary",
+            use_container_width=True,
+            on_click=_set_admin_page,
+            args=(page_name,),
+        )
+
+admin_page = st.session_state[admin_page_key]
 st.divider()
 
 # Placeringsslutspel kan kräva flera databasfrågor. Det behöver inte synkas
