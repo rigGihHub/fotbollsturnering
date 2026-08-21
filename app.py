@@ -23,6 +23,8 @@ from cupnavi_core.migrations import apply_migrations, LATEST_SCHEMA_VERSION
 from cupnavi_core.health import collect_database_health
 from cupnavi_core.backup import build_backup_bytes
 from cupnavi_core.config import BACKUP_FILE_SUFFIX
+from cupnavi_core.schedule_repository import ScheduleRepository
+from cupnavi_core.schedule_domain import build_schedule_window, schedule_source_team_id
 
 try:
     from streamlit_sortables import sort_items
@@ -1698,6 +1700,15 @@ def run(sql, params=()):
     return lastrowid
 
 
+def schedule_repository():
+    """Repository-gräns för all SQL som hör till schemadomänen."""
+    return ScheduleRepository(
+        fetch_all=all_rows,
+        connection_factory=db,
+        clear_cache=_clear_render_query_cache,
+    )
+
+
 class TeamLimitReachedError(Exception):
     pass
 
@@ -2443,18 +2454,9 @@ def create_round_robin(tournament_id, group_id):
 
 
 def create_all_group_matches(tournament_id):
-    """Skapa alla saknade enkelmöten atomiskt med batchade databasfrågor."""
-    groups = all_rows("SELECT id,name FROM groups WHERE tournament_id=? ORDER BY name", (tournament_id,))
-    all_team_rows = all_rows(
-        "SELECT id,group_id FROM teams WHERE tournament_id=? ORDER BY group_id,id",
-        (tournament_id,),
-    )
-    all_existing_rows = all_rows(
-        """SELECT group_id,home_source,away_source
-           FROM matches
-           WHERE tournament_id=? AND stage='Gruppspel'""",
-        (tournament_id,),
-    )
+    """Skapa alla saknade enkelmöten via schemadomänens repository."""
+    repo = schedule_repository()
+    groups, all_team_rows, all_existing_rows = repo.group_generation_data(tournament_id)
 
     teams_by_group = {}
     for row in all_team_rows:
@@ -2494,13 +2496,7 @@ def create_all_group_matches(tournament_id):
                 match_no += 1
 
     if pending:
-        with db() as con:
-            con.executemany(
-                "INSERT INTO matches(tournament_id,group_id,stage,match_no,home_source,away_source) VALUES(?,?,'Gruppspel',?,?,?)",
-                pending,
-            )
-            con.commit()
-        _clear_render_query_cache()
+        repo.insert_group_matches(pending)
 
     # Optimera även befintliga ospelade gruppmatcher så att regenerering förbättrar
     # färgval och hemma/borta-fördelning, utan att röra spelade matcher.
@@ -2714,37 +2710,26 @@ def render_group_table(table_rows, tournament):
 
 
 def generate_schedule(tournament_id, tournament, rules, preserve_existing=False):
+    repo = schedule_repository()
+
     def schedule_source_id(source):
-        if not source:
-            return None
-        if source.startswith("team:"):
-            try:
-                return int(source.split(":", 1)[1])
-            except (TypeError, ValueError):
-                return None
+        direct_team_id = schedule_source_team_id(source)
+        if direct_team_id is not None:
+            return direct_team_id
         return resolve_source(source)
 
     try:
-        cup_start_date = tournament["start_date"] or tournament["tournament_date"]
-        cup_end_date = tournament["end_date"] or cup_start_date
-        start = datetime.fromisoformat(f"{cup_start_date}T{rules['first_match_time']}")
-        end_date = datetime.fromisoformat(cup_end_date).date()
-        latest_kickoff = datetime.strptime(rules["latest_kickoff_time"], "%H:%M").time()
-    except (TypeError, ValueError):
+        schedule_window = build_schedule_window(tournament, rules)
+    except (TypeError, ValueError, KeyError):
         return 0, 0, "Turneringen måste ha giltiga cupdatum, första avspark och sista plantid."
 
-    duration = timedelta(
-        minutes=(rules["halves"] * rules["minutes_per_half"])
-        + ((rules["halves"] - 1) * rules["halftime_minutes"])
-    )
-    playoff_extra_minutes = (
-        int(tournament["extra_time_minutes"] or 0)
-        if tournament.get("playoff_tie_rule", "") == "Förlängning + straffar"
-        else 0
-    )
+    start = schedule_window.start
+    end_date = schedule_window.end_date
+    latest_kickoff = schedule_window.latest_pitch_time
+    duration = schedule_window.group_match_duration
 
     def duration_for_match(match_row):
-        return duration + (timedelta(minutes=playoff_extra_minutes) if match_row["stage"] != "Gruppspel" else timedelta(0))
+        return schedule_window.duration_for_stage(match_row["stage"])
 
     def valid_daily_start_for(candidate, match_duration):
         candidate_end = candidate + match_duration
@@ -2778,14 +2763,11 @@ def generate_schedule(tournament_id, tournament, rules, preserve_existing=False)
     pitch_ready = {pitch: start for pitch in range(1, rules["pitch_count"] + 1)}
     team_ready = {}
     team_last_end = {}
-    referees = all_rows("SELECT id FROM referees WHERE tournament_id=? ORDER BY name", (tournament_id,))
+    referees, travel_preference_rows, matches = repo.scheduling_inputs(tournament_id)
     referee_ready = {r["id"]: start for r in referees}
     travel_preferences = {
         row["id"]: row
-        for row in all_rows(
-            "SELECT id,late_first_match,earliest_first_time FROM teams WHERE tournament_id=?",
-            (tournament_id,),
-        )
+        for row in travel_preference_rows
     }
 
     def apply_first_match_preference(candidate, team_id):
@@ -2802,16 +2784,6 @@ def generate_schedule(tournament_id, tournament, rules, preserve_existing=False)
         preferred_start = datetime.combine(start.date(), preferred_time)
         return max(candidate, preferred_start)
 
-    matches = all_rows(
-        """
-        SELECT * FROM matches WHERE tournament_id=?
-        ORDER BY CASE stage
-            WHEN 'Gruppspel' THEN 1 WHEN 'Kvartsfinal' THEN 2
-            WHEN 'Semifinal' THEN 3 WHEN 'Bronsmatch' THEN 4 WHEN 'Final' THEN 5 ELSE 6 END,
-            group_id, bracket_id, round_no, match_no
-        """,
-        (tournament_id,),
-    )
     locked_events = []
     if preserve_existing:
         for existing_match in matches:
@@ -3048,24 +3020,14 @@ def generate_schedule(tournament_id, tournament, rules, preserve_existing=False)
         )
         warning = f"{warning} {consecutive_warning}".strip()
 
-    # Spara hela schemaläggningspasset i en enda transaktion.
+    # Spara hela schemaläggningspasset atomiskt via repository-lagret.
     try:
-        with db() as con:
-            if not preserve_existing:
-                con.execute("UPDATE tournaments SET is_published=0 WHERE id=?", (tournament_id,))
-                con.execute("UPDATE matches SET schedule_published=0 WHERE tournament_id=?", (tournament_id,))
-                con.execute(
-                    "UPDATE matches SET scheduled_start=NULL,pitch_number=NULL WHERE tournament_id=? AND schedule_locked=0",
-                    (tournament_id,),
-                )
-            if schedule_updates:
-                con.executemany(
-                    "UPDATE matches SET scheduled_start=?,pitch_number=?,referee_id=? WHERE id=?",
-                    schedule_updates,
-                )
-            if unresolved == 0:
-                con.execute("UPDATE tournaments SET schedule_dirty=0 WHERE id=?", (tournament_id,))
-            con.commit()
+        repo.persist_generated_schedule(
+            tournament_id=tournament_id,
+            schedule_updates=schedule_updates,
+            unresolved=unresolved,
+            preserve_existing=preserve_existing,
+        )
     except Exception as exc:
         return 0, len(schedule_updates) + unresolved, f"Schemat kunde inte sparas och inga schemaändringar genomfördes: {exc}"
 
@@ -3074,10 +3036,7 @@ def generate_schedule(tournament_id, tournament, rules, preserve_existing=False)
 
 def validate_schedule(tournament_id, tournament, rules):
     """Kontrollera schemat och sammanställ väntetid och belastning per lag."""
-    rows = all_rows(
-        "SELECT * FROM matches WHERE tournament_id=? AND scheduled_start IS NOT NULL ORDER BY scheduled_start,pitch_number,id",
-        (tournament_id,),
-    )
+    rows = schedule_repository().scheduled_matches(tournament_id)
     duration = timedelta(minutes=(rules["halves"] * rules["minutes_per_half"]) + ((rules["halves"] - 1) * rules["halftime_minutes"]))
     playoff_extra = timedelta(
         minutes=int(tournament["extra_time_minutes"] or 0)
