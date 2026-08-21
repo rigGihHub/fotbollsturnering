@@ -9,7 +9,7 @@ Regel:
 from dataclasses import dataclass
 from datetime import datetime, timezone
 
-LATEST_SCHEMA_VERSION = 3
+LATEST_SCHEMA_VERSION = 4
 
 
 @dataclass(frozen=True)
@@ -71,6 +71,26 @@ MIGRATIONS = (
             )""",
             "CREATE INDEX IF NOT EXISTS idx_sponsors_tournament_active_order ON sponsors(tournament_id, active, sort_order)",
             "CREATE INDEX IF NOT EXISTS idx_functionaries_tournament_role ON functionaries(tournament_id, role, active)",
+        ),
+    ),
+    Migration(
+        4,
+        "visitor_analytics",
+        (
+            """CREATE TABLE IF NOT EXISTS visitor_sessions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                tournament_id INTEGER NOT NULL REFERENCES tournaments(id) ON DELETE CASCADE,
+                session_token TEXT NOT NULL,
+                first_seen TEXT NOT NULL,
+                last_seen TEXT NOT NULL,
+                view_count INTEGER NOT NULL DEFAULT 1,
+                device_type TEXT NOT NULL DEFAULT 'Dator',
+                browser TEXT NOT NULL DEFAULT 'Övrig',
+                source TEXT NOT NULL DEFAULT 'Direkt / okänd',
+                UNIQUE(tournament_id, session_token)
+            )""",
+            "CREATE INDEX IF NOT EXISTS idx_visitor_sessions_tournament_first ON visitor_sessions(tournament_id, first_seen)",
+            "CREATE INDEX IF NOT EXISTS idx_visitor_sessions_tournament_last ON visitor_sessions(tournament_id, last_seen)",
         ),
     ),
 )

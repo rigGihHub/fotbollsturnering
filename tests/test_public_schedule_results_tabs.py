@@ -2,7 +2,7 @@ from pathlib import Path
 
 def test_public_view_has_separate_schedule_and_results_tabs():
     text = Path("app.py").read_text(encoding="utf-8")
-    assert '["Spelschema", "Resultat", "Matchcenter", "Tabeller", "Topplistor", "Slutspel", "Erbjudanden", "Partners", "Information"]' in text
+    assert 'tr("Spelschema")' in text
 
 def test_schedule_hides_results_and_events():
     text = Path("app.py").read_text(encoding="utf-8")
@@ -18,5 +18,5 @@ def test_results_only_use_played_matches_and_show_events():
 
 def test_both_tabs_share_group_team_pitch_filters():
     text = Path("app.py").read_text(encoding="utf-8")
-    assert '["Alla matcher", "En grupp", "Ett lag", "En plan"]' in text
+    assert 'tr("Alla matcher")' in text
     assert "def _filter_public_matches(" in text

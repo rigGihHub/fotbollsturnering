@@ -5,9 +5,9 @@ def test_schema_contains_sponsors_and_functionaries():
     assert "CREATE TABLE IF NOT EXISTS sponsors" in text
     assert "CREATE TABLE IF NOT EXISTS functionaries" in text
 
-def test_migration_version_is_three():
+def test_migration_version_is_at_least_three():
     text = Path("cupnavi_core/migrations.py").read_text(encoding="utf-8")
-    assert "LATEST_SCHEMA_VERSION = 3" in text
+    assert "LATEST_SCHEMA_VERSION = 4" in text
     assert '"sponsors_and_functionaries"' in text
 
 def test_runtime_dependencies_cover_new_features():

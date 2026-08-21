@@ -40,7 +40,7 @@ def test_migrations_reach_latest_version():
     con = sqlite3.connect(":memory:")
     _legacy_schema(con)
     applied = apply_migrations(con)
-    assert applied == [1, 2, 3]
+    assert applied == [1, 2, 3, 4]
     assert current_schema_version(con) == LATEST_SCHEMA_VERSION
 
 
@@ -65,3 +65,5 @@ def test_performance_indexes_created():
     assert "idx_offers_tournament_active_order" in indexes
     assert "idx_sponsors_tournament_active_order" in indexes
     assert "idx_functionaries_tournament_role" in indexes
+    assert "idx_visitor_sessions_tournament_first" in indexes
+    assert "idx_visitor_sessions_tournament_last" in indexes

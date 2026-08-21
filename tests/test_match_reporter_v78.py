@@ -1,0 +1,37 @@
+from pathlib import Path
+
+def app_text():
+    return Path("app.py").read_text(encoding="utf-8")
+
+def test_matchcenter_removed_from_public_ui():
+    text = app_text()
+    assert '"Matchcenter"' not in text
+    assert "matchcenter_tab" not in text
+    assert "public_matchcenter_" not in text
+
+def test_match_reporter_is_separate_mode():
+    text = app_text()
+    assert '"Matchrapportör"' in text
+    assert "def require_match_reporter_access():" in text
+    assert 'setting("MATCH_REPORTER_PASSWORD") or "123"' in text
+    assert "reporter_authenticated" in text
+
+def test_match_reporter_stops_before_admin_navigation():
+    text = app_text()
+    assert 'if view_mode == "Matchrapportör":\n    render_match_reporter_view(tid, tournament)\n    st.stop()' in text
+
+def test_match_reporter_only_has_results_and_events_tabs():
+    text = app_text()
+    start = text.index("def render_match_reporter_view(")
+    end = text.index("init_db()", start)
+    block = text[start:end]
+    assert 'st.tabs([tr("Resultat"), tr("Matchhändelser")])' in block
+    assert "UPDATE matches" in block
+    assert "player_match_stats" in block
+    assert "referee_id=?" not in block
+    assert "Skapa ny turnering" not in block
+
+def test_admin_password_and_reporter_password_are_separate():
+    text = app_text()
+    assert 'setting("ADMIN_PASSWORD")' in text
+    assert 'setting("MATCH_REPORTER_PASSWORD") or "123"' in text

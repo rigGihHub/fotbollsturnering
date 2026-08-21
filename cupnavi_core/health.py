@@ -14,6 +14,7 @@ CRITICAL_TABLES = (
     "offers",
     "sponsors",
     "functionaries",
+    "visitor_sessions",
 )
 
 

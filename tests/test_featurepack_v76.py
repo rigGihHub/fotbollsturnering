@@ -49,10 +49,3 @@ def test_import_supports_csv_and_xlsx_for_teams_and_players():
     assert "Importera lagen" in text
     assert "Importera trupperna" in text
 
-
-def test_public_matchcenter_exists():
-    text = app_text()
-    assert "with matchcenter_tab:" in text
-    assert 'st.subheader("Matchcenter")' in text
-    assert "public_matchcenter_" in text
-    assert "player_match_stats" in text
