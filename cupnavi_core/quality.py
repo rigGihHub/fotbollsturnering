@@ -1,6 +1,6 @@
 def is_advisory_warning(message):
     lowered = (message or "").lower()
-    return "färgkrock" in lowered or "tröjfärg" in lowered
+    return any(term in lowered for term in ("färgkrock", "tröjfärg", "färglikhet", "extraställ"))
 
 def next_admin_step(teams_ready, groups_ready, players_ready, refs_ready, match_count, schedule_dirty, results_ready):
     if not teams_ready:

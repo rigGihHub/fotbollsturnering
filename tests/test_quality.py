@@ -17,3 +17,6 @@ def test_next_step_moves_to_results_after_clean_schedule():
 
 def test_next_step_moves_to_controls_when_everything_done():
     assert next_admin_step(True, True, True, True, 20, False, True) == "Kontroller"
+
+def test_possible_color_similarity_is_advisory():
+    assert is_advisory_warning("Möjlig färglikhet – extraställ kan behövas")

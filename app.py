@@ -251,6 +251,59 @@ div[role="dialog"] .stButton > button:not([kind="primary"]) * {
             .cn-next-match .teams { font-size:20px; }
           }
 
+
+          /* ===== PUBLIKT SCHEMAFILTER v52 ===== */
+          div[data-testid="stRadio"] > div {
+            gap:8px;
+          }
+          div[data-testid="stRadio"] label {
+            border:1px solid #cbd5e1;
+            border-radius:999px;
+            padding:7px 12px;
+            background:#ffffff;
+          }
+
+
+          /* ===== PUBLIKA MATCHHÄNDELSER v56 ===== */
+          .cn-match-events {
+            margin-top:10px;
+            padding-top:9px;
+            border-top:1px solid #e2e8f0;
+          }
+          .cn-events-title {
+            text-align:center;
+            color:#64748b !important;
+            font-size:11px;
+            font-weight:800;
+            text-transform:uppercase;
+            letter-spacing:.04em;
+            margin-bottom:6px;
+          }
+          .cn-events-list {
+            display:flex;
+            justify-content:center;
+            flex-wrap:wrap;
+            gap:6px;
+          }
+          .cn-event {
+            display:inline-block;
+            border-radius:999px;
+            padding:4px 8px;
+            font-size:12px;
+            font-weight:750;
+            line-height:1.2;
+          }
+          .cn-event.cn-goal {
+            background:#ecfdf5;
+            border:1px solid #86efac;
+            color:#166534 !important;
+          }
+          .cn-event.cn-red {
+            background:#fef2f2;
+            border:1px solid #fca5a5;
+            color:#991b1b !important;
+          }
+
 </style>
 """)
 
@@ -2693,7 +2746,7 @@ def validate_schedule(tournament_id, tournament, rules):
             warnings.append(f"Match {number} saknar domare.")
         if kit_color_conflict(home_team, away_team):
             warnings.append(
-                f"Färgkrock i match {number}: {away_team['name']} har fortfarande en färgkrock med hemmalaget även i sitt bortaställ. "
+                f"Möjlig färglikhet i match {number}: {away_team['name']}s ordinarie ställ och bortaställ ligger nära hemmalagets färger. "
                 f"Ett ytterligare avvikande ställ behöver användas."
             )
     for index, first in enumerate(events):
@@ -2911,6 +2964,51 @@ def render_bracket_tree(bracket_id, public=False):
     )
 
 
+
+def public_match_events_html(match_id):
+    """Kompakt publik visning av mål och röda kort i en match."""
+    rows = all_rows(
+        """
+        SELECT p.name AS player_name, t.name AS team_name,
+               s.goals, s.red_cards
+        FROM player_match_stats s
+        JOIN players p ON p.id=s.player_id
+        JOIN teams t ON t.id=p.team_id
+        WHERE s.match_id=? AND (s.goals > 0 OR s.red_cards > 0)
+        ORDER BY t.name,p.name
+        """,
+        (match_id,),
+    )
+    if not rows:
+        return ""
+
+    items = []
+    for row in rows:
+        goals = int(row["goals"] or 0)
+        reds = int(row["red_cards"] or 0)
+
+        if goals > 0:
+            goal_suffix = f" ×{goals}" if goals > 1 else ""
+            items.append(
+                f"<span class='cn-event cn-goal'>⚽ {html.escape(row['player_name'])}{goal_suffix}</span>"
+            )
+        if reds > 0:
+            red_suffix = f" ×{reds}" if reds > 1 else ""
+            items.append(
+                f"<span class='cn-event cn-red'>🟥 {html.escape(row['player_name'])}{red_suffix}</span>"
+            )
+
+    if not items:
+        return ""
+
+    return (
+        "<div class='cn-match-events'>"
+        "<div class='cn-events-title'>Matchhändelser</div>"
+        "<div class='cn-events-list'>" + "".join(items) + "</div>"
+        "</div>"
+    )
+
+
 def render_public_view(tournament_id, tournament):
     published_matches = all_rows(
         "SELECT * FROM matches WHERE tournament_id=? AND scheduled_start IS NOT NULL AND schedule_published=1 ORDER BY scheduled_start,pitch_number,id",
@@ -2922,25 +3020,11 @@ def render_public_view(tournament_id, tournament):
     team_count = len(public_teams)
     now = datetime.now()
 
-    team_filter_options = [None] + [row["id"] for row in public_teams]
-    selected_public_team = st.selectbox(
-        "🔎 Visa matcher för lag",
-        team_filter_options,
-        format_func=lambda team_id: "Alla lag" if team_id is None else next(
-            row["name"] for row in public_teams if row["id"] == team_id
-        ),
-        key=f"public_team_filter_{tournament_id}",
+    public_groups = all_rows(
+        "SELECT id,name FROM groups WHERE tournament_id=? ORDER BY name",
+        (tournament_id,),
     )
-
-    def _match_has_selected_team(match_row):
-        if selected_public_team is None:
-            return True
-        return (
-            resolve_source(match_row["home_source"]) == selected_public_team
-            or resolve_source(match_row["away_source"]) == selected_public_team
-        )
-
-    filtered_public_matches = [m for m in published_matches if _match_has_selected_team(m)]
+    filtered_public_matches = published_matches
     next_match = next(
         (
             m for m in filtered_public_matches
@@ -2978,31 +3062,116 @@ def render_public_view(tournament_id, tournament):
             </div>""",
             unsafe_allow_html=True,
         )
-        if selected_public_team is not None:
-            selected_team_name = next(row["name"] for row in public_teams if row["id"] == selected_public_team)
-            played_for_team = sum(
-                1 for m in filtered_public_matches
-                if m["home_score"] is not None and m["away_score"] is not None
-            )
-            st.caption(
-                f"Visar {len(filtered_public_matches)} publicerade matcher för {selected_team_name} · "
-                f"{played_for_team} spelade."
-            )
+        st.markdown("#### Filtrera spelschemat")
+        filter_mode = st.radio(
+            "Vad vill du visa?",
+            ["Alla matcher", "En grupp", "Ett lag"],
+            horizontal=True,
+            key=f"public_schedule_mode_{tournament_id}",
+            label_visibility="collapsed",
+        )
+
+        selected_public_group = None
+        selected_public_team = None
+        filter_label = "Alla matcher"
+
+        if filter_mode == "En grupp":
+            if public_groups:
+                selected_public_group = st.selectbox(
+                    "Välj grupp",
+                    [row["id"] for row in public_groups],
+                    format_func=lambda group_id: next(
+                        row["name"] for row in public_groups if row["id"] == group_id
+                    ),
+                    key=f"public_group_filter_{tournament_id}",
+                )
+                filter_label = next(
+                    row["name"] for row in public_groups if row["id"] == selected_public_group
+                )
+                filtered_public_matches = [
+                    match_row for match_row in published_matches
+                    if match_row["group_id"] == selected_public_group
+                ]
+            else:
+                filtered_public_matches = []
+                st.info("Det finns inga grupper att filtrera på.")
+
+        elif filter_mode == "Ett lag":
+            if public_teams:
+                selected_public_team = st.selectbox(
+                    "Välj lag",
+                    [row["id"] for row in public_teams],
+                    format_func=lambda team_id: next(
+                        row["name"] for row in public_teams if row["id"] == team_id
+                    ),
+                    key=f"public_team_filter_{tournament_id}",
+                )
+                filter_label = next(
+                    row["name"] for row in public_teams if row["id"] == selected_public_team
+                )
+
+                def _match_has_selected_team(match_row):
+                    return (
+                        resolve_source(match_row["home_source"]) == selected_public_team
+                        or resolve_source(match_row["away_source"]) == selected_public_team
+                    )
+
+                filtered_public_matches = [
+                    match_row for match_row in published_matches
+                    if _match_has_selected_team(match_row)
+                ]
+            else:
+                filtered_public_matches = []
+                st.info("Det finns inga lag att filtrera på.")
+        else:
+            filtered_public_matches = published_matches
+
+        # Säkerställ alltid datum-/tidsordning även efter filtrering.
+        filtered_public_matches = sorted(
+            filtered_public_matches,
+            key=lambda match_row: (
+                match_row["scheduled_start"] or "",
+                match_row["pitch_number"] or 0,
+                match_row["id"],
+            ),
+        )
+        played_in_filter = sum(
+            1 for match_row in filtered_public_matches
+            if match_row["home_score"] is not None and match_row["away_score"] is not None
+        )
+        st.caption(
+            f"Visar {len(filtered_public_matches)} matcher · {filter_label} · "
+            f"{played_in_filter} spelade · alltid sorterat efter datum och tid."
+        )
+
+        next_match = next(
+            (
+                match_row for match_row in filtered_public_matches
+                if datetime.fromisoformat(match_row["scheduled_start"]) >= now
+                and match_row["home_score"] is None
+            ),
+            None,
+        )
         if next_match:
             next_home = source_label(next_match["home_source"])
             next_away = source_label(next_match["away_source"])
+            next_label = (
+                "Nästa match för valt lag"
+                if filter_mode == "Ett lag"
+                else ("Nästa match i vald grupp" if filter_mode == "En grupp" else "Nästa match i turneringen")
+            )
             st.markdown(
                 f"""
                 <div class="cn-next-match">
-                  <div class="eyebrow">{'Nästa match för valt lag' if selected_public_team else 'Nästa match i turneringen'}</div>
+                  <div class="eyebrow">{next_label}</div>
                   <div class="teams">{html.escape(next_home)} – {html.escape(next_away)}</div>
                   <div class="meta">{swedish_datetime(next_match['scheduled_start'])} · Plan {next_match['pitch_number']}</div>
                 </div>
                 """,
                 unsafe_allow_html=True,
             )
-        elif selected_public_team is not None:
-            st.info("Det finns ingen kommande publicerad match för det valda laget.")
+        elif filter_mode != "Alla matcher":
+            st.info("Det finns ingen kommande publicerad match för det valda filtret.")
         st.markdown(
             """
             <style>
@@ -3056,16 +3225,17 @@ def render_public_view(tournament_id, tournament):
                 status_text, status_class = "PÅGÅR", "status-live"
             else:
                 status_text, status_class = "KOMMANDE", "status-upcoming"
+            match_events_html = public_match_events_html(match_row["id"])
             color_conflict_html = ""
             if kit_color_conflict(home, away):
                 color_conflict_html = (
                     f"<div style='margin-top:10px;padding:7px 10px;border-radius:7px;background:#fff7ed;border:1px solid #fb923c;"
-                    f"color:#9a3412;font-size:12px;font-weight:700'>⚠ Färgkrock: även {html.escape(away_name)}s andra tröjfärg krockar. Ett ytterligare avvikande ställ krävs.</div>"
+                    f"color:#9a3412;font-size:12px;font-weight:700'>ℹ Möjlig färglikhet: om färgerna upplevs som för lika kan ett extraställ behövas.</div>"
                 )
             elif away_kit_used:
                 color_conflict_html = (
                     f"<div style='margin-top:10px;padding:7px 10px;border-radius:7px;background:#eff6ff;border:1px solid #93c5fd;"
-                    f"color:#1e3a8a;font-size:12px;font-weight:700'>{html.escape(away_name)} använder sitt bortaställ på grund av färgkrock.</div>"
+                    f"color:#1e3a8a;font-size:12px;font-weight:700'>{html.escape(away_name)} använder sitt bortaställ för att skapa tydligare färgskillnad.</div>"
                 )
             st.markdown(
                 f"""
@@ -3082,6 +3252,7 @@ def render_public_view(tournament_id, tournament):
                     <br><small class="kit-label" style="color:#475569">{'Bortalagets bortaställ' if away_kit_used else 'Bortalagets hemmaställ'}</small></div>
                   </div>
                   {color_conflict_html}
+                  {match_events_html}
                   <div class="match-weather" style="font-size:12px;color:#475569;text-align:center;margin-top:10px">{html.escape(weather_text)}</div>
                   <div class="match-referee" style="font-size:12px;color:#475569;text-align:center;margin-top:10px">Domare: {referees.get(match_row['referee_id'], 'Ej tillsatt')}</div>
                 </div>
@@ -3109,11 +3280,17 @@ def render_public_view(tournament_id, tournament):
             (tournament_id,),
         )
         st.subheader("Skytteliga")
-        goal_rows = sorted(rows, key=lambda r: (-r["goals"], -r["assists"], r["player_name"].lower()))
-        render_centered_table(pd.DataFrame([{"Pl": i, "Spelare": r["player_name"], "Lag": r["team_name"], "Mål": r["goals"]} for i, r in enumerate(goal_rows, 1) if r["goals"]]))
+        goal_rows = [r for r in sorted(rows, key=lambda r: (-r["goals"], -r["assists"], r["player_name"].lower())) if int(r["goals"] or 0) > 0]
+        if goal_rows:
+            render_centered_table(pd.DataFrame([{"Pl": i, "Spelare": r["player_name"], "Lag": r["team_name"], "Mål": r["goals"]} for i, r in enumerate(goal_rows, 1)]))
+        else:
+            st.info("Inga målskyttar har registrerats.")
         st.subheader("Assistliga")
-        assist_rows = sorted(rows, key=lambda r: (-r["assists"], -r["goals"], r["player_name"].lower()))
-        render_centered_table(pd.DataFrame([{"Pl": i, "Spelare": r["player_name"], "Lag": r["team_name"], "Assist": r["assists"]} for i, r in enumerate(assist_rows, 1) if r["assists"]]))
+        assist_rows = [r for r in sorted(rows, key=lambda r: (-r["assists"], -r["goals"], r["player_name"].lower())) if int(r["assists"] or 0) > 0]
+        if assist_rows:
+            render_centered_table(pd.DataFrame([{"Pl": i, "Spelare": r["player_name"], "Lag": r["team_name"], "Assist": r["assists"]} for i, r in enumerate(assist_rows, 1)]))
+        else:
+            st.info("Inga assist har registrerats.")
     with playoffs:
         brackets = [] if tournament["playoff_format"] == "Inget slutspel" else brackets_for_display(tournament_id)[0]
         if not brackets:
@@ -3348,7 +3525,7 @@ else:
 def _is_advisory_schedule_warning(message):
     """Varningar som ska synas men aldrig blockera publicering."""
     lowered = (message or "").lower()
-    return "färgkrock" in lowered or "tröjfärg" in lowered
+    return any(term in lowered for term in ("färgkrock", "tröjfärg", "färglikhet", "extraställ"))
 
 
 blocking_sidebar_warnings = [
@@ -4988,7 +5165,7 @@ if admin_page == "Skapa och publicera schema":
             red_text = ", ".join(f"{e['name']} ({e['red_cards']})" for e in event_rows if e["red_cards"]) or "–"
             home_kit_color, away_kit_color, away_kit_used = match_kit_colors(home, away)
             if kit_color_conflict(home, away):
-                kit_note = f"⚠ {away['name']} behöver ett ytterligare avvikande ställ" if away else "⚠ Färgkrock"
+                kit_note = f"ℹ Om färgerna upplevs som för lika kan {away['name']} behöva ett extraställ" if away else "ℹ Möjlig färglikhet"
             elif away_kit_used:
                 kit_note = f"{away['name']} använder sin andra tröjfärg"
             else:
@@ -5023,7 +5200,7 @@ if admin_page == "Skapa och publicera schema":
             if row["Domare"] == "Ej tillsatt":
                 issues.append("Domare saknas")
             if row["Tröjval"].startswith("⚠"):
-                issues.append("Färgkrock")
+                issues.append("Möjlig färglikhet")
             if row["Hemmalag"].startswith(("Vinnaren i ", "Vinnare match ", "Förlorare match ")):
                 issues.append("Hemmalag ej avgjort")
             if row["Bortalag"].startswith(("Vinnaren i ", "Vinnare match ", "Förlorare match ")):
@@ -5077,7 +5254,7 @@ if admin_page == "Matcher och resultat":
     st.subheader("Registrera resultat och domare")
     st.caption("Matcherna skapas automatiskt från gruppindelningen och den valda slutspelsmodellen.")
     if "bulk_result_message" in st.session_state:
-        st.success(st.session_state.pop("bulk_result_message"))
+        st.success(st.session_state.pop("bulk_result_message"), icon="✅")
     matches = all_rows("SELECT * FROM matches WHERE tournament_id=? ORDER BY CASE stage WHEN 'Gruppspel' THEN 0 ELSE 1 END, group_id, bracket_id, round_no, match_no", (tid,))
     if not matches:
         st.info("Inga matcher är skapade.")
@@ -5159,47 +5336,123 @@ if admin_page == "Matcher och resultat":
                 st.caption(f"Vid oavgjort spelas {tournament['extra_time_minutes']} min förlängning och därefter straffar. Registrera straffresultatet vid fortsatt oavgjort.")
             else:
                 st.caption("Vid oavgjord slutspelsmatch avgörs matchen med straffar direkt. Registrera straffresultatet.")
-            if st.button("Spara alla resultat", type="primary", use_container_width=True):
-                updates = []
-                errors = []
-                for _, row in edited_results.iterrows():
-                    home_score = None if pd.isna(row["Hemmamål"]) else int(row["Hemmamål"])
-                    away_score = None if pd.isna(row["Bortamål"]) else int(row["Bortamål"])
-                    home_penalties = None if pd.isna(row["Hemmastraffar"]) else int(row["Hemmastraffar"])
-                    away_penalties = None if pd.isna(row["Bortastraffar"]) else int(row["Bortastraffar"])
-                    if (home_score is None) != (away_score is None):
-                        errors.append(f"{row['Hemmalag']}–{row['Bortalag']}: fyll i båda målresultaten eller lämna båda tomma.")
-                        continue
-                    decided_winner_id = None
-                    if row["Fas"] != "Gruppspel" and home_score is not None and home_score == away_score:
-                        home_team_id = result_team_id_by_name.get(row["Hemmalag"])
-                        away_team_id = result_team_id_by_name.get(row["Bortalag"])
-                        if tournament["playoff_tie_rule"] == "Lottning":
-                            decided_winner_id = result_team_id_by_name.get(row["Avgörande vinnare"])
-                            if decided_winner_id not in (home_team_id, away_team_id):
-                                errors.append(f"{row['Hemmalag']}–{row['Bortalag']}: välj vilket av de två lagen som vann lottningen.")
-                                continue
-                            home_penalties = away_penalties = None
+            # Resultat sparas automatiskt så snart en komplett ändring finns.
+            # Vi jämför editorn mot aktuell databasdata och skriver bara ändrade rader.
+            original_match_by_id = {int(match_row["id"]): match_row for match_row in playable_matches}
+            auto_updates = []
+            auto_messages = []
+            auto_errors = []
+
+            for _, row in edited_results.iterrows():
+                match_id = int(row["match_id"])
+                original_match = original_match_by_id[match_id]
+
+                home_score = None if pd.isna(row["Hemmamål"]) else int(row["Hemmamål"])
+                away_score = None if pd.isna(row["Bortamål"]) else int(row["Bortamål"])
+                home_penalties = None if pd.isna(row["Hemmastraffar"]) else int(row["Hemmastraffar"])
+                away_penalties = None if pd.isna(row["Bortastraffar"]) else int(row["Bortastraffar"])
+                referee_id = referee_ids_by_name.get(row["Domare"])
+
+                original_home = original_match["home_score"]
+                original_away = original_match["away_score"]
+                original_hp = original_match["home_penalties"]
+                original_ap = original_match["away_penalties"]
+                original_decided = original_match["decided_winner_id"]
+                original_referee = original_match["referee_id"]
+
+                row_changed = any([
+                    home_score != original_home,
+                    away_score != original_away,
+                    home_penalties != original_hp,
+                    away_penalties != original_ap,
+                    referee_id != original_referee,
+                    (
+                        row["Fas"] != "Gruppspel"
+                        and result_team_id_by_name.get(row["Avgörande vinnare"]) != original_decided
+                        and row["Avgörande vinnare"] != "–"
+                    ),
+                ])
+                if not row_changed:
+                    continue
+
+                # Ett resultat ska aldrig sparas halvt.
+                if (home_score is None) != (away_score is None):
+                    auto_messages.append(
+                        f"{row['Hemmalag']}–{row['Bortalag']}: fyll i båda målresultaten så sparas det automatiskt."
+                    )
+                    continue
+
+                decided_winner_id = None
+                if row["Fas"] == "Gruppspel":
+                    home_penalties = None
+                    away_penalties = None
+                elif home_score is not None and home_score == away_score:
+                    home_team_id = result_team_id_by_name.get(row["Hemmalag"])
+                    away_team_id = result_team_id_by_name.get(row["Bortalag"])
+
+                    if tournament["playoff_tie_rule"] == "Lottning":
+                        selected_winner_id = result_team_id_by_name.get(row["Avgörande vinnare"])
+                        home_penalties = None
+                        away_penalties = None
+                        if selected_winner_id in (home_team_id, away_team_id):
+                            decided_winner_id = selected_winner_id
                         else:
-                            if home_penalties is None or away_penalties is None or home_penalties == away_penalties:
-                                errors.append(f"{row['Hemmalag']}–{row['Bortalag']}: ange ett avgörande straffresultat.")
-                                continue
+                            auto_messages.append(
+                                f"{row['Hemmalag']}–{row['Bortalag']}: resultatet sparas, men välj vinnare av lottningen för att avgöra matchen."
+                            )
                     else:
-                        home_penalties = away_penalties = None
-                        decided_winner_id = None
-                    referee_id = referee_ids_by_name.get(row["Domare"])
-                    updates.append((home_score, away_score, home_penalties, away_penalties, decided_winner_id, referee_id, int(row["match_id"])))
-                if errors:
-                    st.error("\n".join(f"• {message}" for message in errors))
+                        # Oavgjort resultat får sparas direkt. Straffarna kan fyllas i efteråt.
+                        if home_penalties is not None or away_penalties is not None:
+                            if (
+                                home_penalties is None
+                                or away_penalties is None
+                                or home_penalties == away_penalties
+                            ):
+                                auto_errors.append(
+                                    f"{row['Hemmalag']}–{row['Bortalag']}: fyll i ett komplett och avgörande straffresultat."
+                                )
+                                continue
+                        else:
+                            auto_messages.append(
+                                f"{row['Hemmalag']}–{row['Bortalag']}: det oavgjorda resultatet sparas. Ange straffresultat för att avgöra matchen."
+                            )
                 else:
-                    with db() as con:
-                        con.executemany(
-                            "UPDATE matches SET home_score=?,away_score=?,home_penalties=?,away_penalties=?,decided_winner_id=?,referee_id=? WHERE id=?",
-                            updates,
-                        )
-                        con.commit()
-                    st.session_state["bulk_result_message"] = f"{len(updates)} matchresultat sparades."
-                    st.rerun()
+                    home_penalties = None
+                    away_penalties = None
+
+                auto_updates.append(
+                    (
+                        home_score,
+                        away_score,
+                        home_penalties,
+                        away_penalties,
+                        decided_winner_id,
+                        referee_id,
+                        match_id,
+                    )
+                )
+
+            for message in auto_errors:
+                st.error(message)
+            for message in auto_messages:
+                st.info(message)
+
+            if auto_updates:
+                with db() as con:
+                    con.executemany(
+                        """UPDATE matches
+                           SET home_score=?,away_score=?,home_penalties=?,away_penalties=?,
+                               decided_winner_id=?,referee_id=?
+                           WHERE id=?""",
+                        auto_updates,
+                    )
+                    con.commit()
+
+                st.session_state["_validation_dirty"] = True
+                st.session_state["bulk_result_message"] = "✓ Sparat automatiskt"
+                st.rerun()
+
+            st.caption("✓ Resultat och ändringar sparas automatiskt – ingen Spara-knapp behövs.")
 
 
 if admin_page == "Matchhändelser":
@@ -5272,34 +5525,58 @@ if admin_page == "Matchhändelser":
             for message in event_validation["errors"]:
                 st.error(f"{selected_team['name']}: {message}")
 
-            if st.button(f"Spara mål och assist för {selected_team['name']}", type="primary", key=f"save_stats_{stat_match_id}_{selected_team_id}"):
-                total_goals = int(edited["Mål"].fillna(0).sum())
-                total_assists = int(edited["Assist"].fillna(0).sum())
-                save_validation = validate_match_event_totals(
-                    team_goals_in_match, total_goals, total_assists
+            autosave_message_key = f"event_autosave_message_{stat_match_id}_{selected_team_id}"
+            if autosave_message_key in st.session_state:
+                st.success(st.session_state.pop(autosave_message_key), icon="✅")
+
+            # Händelser sparas automatiskt när ändringen är giltig.
+            # Endast faktiskt ändrade spelarrader skrivs till databasen.
+            changed_event_rows = []
+            for _, row in edited.iterrows():
+                player_id = int(row["player_id"])
+                previous = existing.get(player_id)
+
+                goals = int(row["Mål"] or 0)
+                assists = int(row["Assist"] or 0)
+                yellow_cards = int(row["Varningar"] or 0)
+                red_cards = int(row["Utvisningar"] or 0)
+
+                previous_values = (
+                    int(previous["goals"] or 0) if previous else 0,
+                    int(previous["assists"] or 0) if previous else 0,
+                    int(previous["yellow_cards"] or 0) if previous else 0,
+                    int(previous["red_cards"] or 0) if previous else 0,
                 )
-                if not save_validation["ok"]:
-                    for message in save_validation["errors"]:
-                        st.error(f"Kan inte spara – {selected_team['name']}: {message}")
-                else:
-                    with db() as con:
-                        for _, row in edited.iterrows():
-                            goals = int(row["Mål"] or 0)
-                            assists = int(row["Assist"] or 0)
-                            yellow_cards = int(row["Varningar"] or 0)
-                            red_cards = int(row["Utvisningar"] or 0)
-                            con.execute(
-                                """
-                                INSERT INTO player_match_stats(match_id,player_id,goals,assists,yellow_cards,red_cards)
-                                VALUES(?,?,?,?,?,?)
-                                ON CONFLICT(match_id,player_id)
-                                DO UPDATE SET goals=excluded.goals, assists=excluded.assists,
-                                    yellow_cards=excluded.yellow_cards, red_cards=excluded.red_cards
-                                """,
-                                (stat_match_id, int(row["player_id"]), goals, assists, yellow_cards, red_cards),
-                            )
-                        con.commit()
-                    st.success("Statistiken sparades.")
+                new_values = (goals, assists, yellow_cards, red_cards)
+
+                if new_values != previous_values:
+                    changed_event_rows.append(
+                        (stat_match_id, player_id, goals, assists, yellow_cards, red_cards)
+                    )
+
+            if changed_event_rows and event_validation["ok"]:
+                with db() as con:
+                    for match_id, player_id, goals, assists, yellow_cards, red_cards in changed_event_rows:
+                        con.execute(
+                            """
+                            INSERT INTO player_match_stats(match_id,player_id,goals,assists,yellow_cards,red_cards)
+                            VALUES(?,?,?,?,?,?)
+                            ON CONFLICT(match_id,player_id)
+                            DO UPDATE SET goals=excluded.goals, assists=excluded.assists,
+                                yellow_cards=excluded.yellow_cards, red_cards=excluded.red_cards
+                            """,
+                            (match_id, player_id, goals, assists, yellow_cards, red_cards),
+                        )
+                    con.commit()
+
+                st.session_state[autosave_message_key] = "✓ Sparat automatiskt"
+                st.rerun()
+
+            if changed_event_rows and not event_validation["ok"]:
+                st.caption("Ändringen sparas automatiskt så snart mål/assist stämmer med matchresultatet.")
+            else:
+                st.caption("✓ Händelser sparas automatiskt – ingen Spara-knapp behövs.")
+
             registered_goals = int(edited["Mål"].sum())
             expected_goals = stat_match["home_score"] if selected_team_id == home_team_id else stat_match["away_score"]
             if registered_goals != expected_goals:
@@ -5343,13 +5620,19 @@ if admin_page == "Skytteligor":
         """,
         (tid,),
     )
-    goal_rows = sorted(leaders, key=lambda r: (-r["goals"], -r["assists"], r["player_name"].lower()))
+    goal_rows = [
+        r for r in sorted(leaders, key=lambda r: (-r["goals"], -r["assists"], r["player_name"].lower()))
+        if int(r["goals"] or 0) > 0
+    ]
     if goal_rows:
         render_centered_table(pd.DataFrame([{"Pl": i, "Spelare": r["player_name"], "Lag": r["team_name"], "Mål": r["goals"]} for i, r in enumerate(goal_rows, 1)]))
     else:
         st.info("Inga målskyttar har registrerats.")
     st.subheader("Assistliga")
-    assist_rows = sorted(leaders, key=lambda r: (-r["assists"], -r["goals"], r["player_name"].lower()))
+    assist_rows = [
+        r for r in sorted(leaders, key=lambda r: (-r["assists"], -r["goals"], r["player_name"].lower()))
+        if int(r["assists"] or 0) > 0
+    ]
     if assist_rows:
         render_centered_table(pd.DataFrame([{"Pl": i, "Spelare": r["player_name"], "Lag": r["team_name"], "Assist": r["assists"]} for i, r in enumerate(assist_rows, 1)]))
     else:
