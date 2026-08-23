@@ -1981,7 +1981,8 @@ def inject_custom_css():
 inject_custom_css()
 
 # Global CupNavi-identitet. Logotypen ligger lokalt i releasen så den inte kräver
-# nätverksanrop och visas med position:fixed i alla vyer och under scrollning.
+# nätverksanrop. Den renderas som en liten integrerad brand-rad i appskalet och
+# ligger kvar i alla vyer under scrollning.
 CUPNAVI_LOGO_FILE = Path(__file__).with_name("assets") / "cupnavi_logo.png"
 
 
@@ -1995,38 +1996,52 @@ def render_persistent_brand():
         <style>
           .cn-persistent-brand {{
             position:fixed;
-            top:8px;
-            right:72px;
+            top:10px;
+            left:50%;
+            transform:translateX(-50%);
             z-index:999997;
-            width:118px;
-            padding:4px 7px;
-            border:1px solid rgba(184,197,211,.92);
-            border-radius:13px;
-            background:rgba(255,255,255,.96);
-            box-shadow:0 4px 14px rgba(15,23,42,.10);
-            backdrop-filter:blur(7px);
-            -webkit-backdrop-filter:blur(7px);
+            display:flex;
+            align-items:center;
+            justify-content:center;
+            min-width:240px;
+            max-width:min(420px, calc(100vw - 28px));
+            padding:10px 18px;
+            border:1px solid rgba(203, 213, 225, 0.88);
+            border-radius:999px;
+            background:linear-gradient(180deg, rgba(255,255,255,.98), rgba(248,250,252,.95));
+            box-shadow:0 10px 26px rgba(15,23,42,.10);
+            backdrop-filter:blur(10px);
+            -webkit-backdrop-filter:blur(10px);
             pointer-events:none;
           }}
           .cn-persistent-brand img {{
             display:block;
-            width:100%;
+            width:min(100%, 320px);
             height:auto;
+          }}
+          .stApp .block-container {{
+            padding-top:5.35rem !important;
           }}
           @media (max-width:760px) {{
             .cn-persistent-brand {{
-              top:auto;
-              right:10px;
-              bottom:10px;
-              width:82px;
-              padding:3px 5px;
-              border-radius:11px;
-              box-shadow:0 3px 12px rgba(15,23,42,.13);
+              top:8px;
+              min-width:auto;
+              width:calc(100vw - 18px);
+              max-width:320px;
+              padding:8px 12px;
+              border-radius:18px;
+              box-shadow:0 8px 20px rgba(15,23,42,.11);
+            }}
+            .cn-persistent-brand img {{
+              width:min(100%, 250px);
+            }}
+            .stApp .block-container {{
+              padding-top:4.95rem !important;
             }}
           }}
         </style>
         <div class="cn-persistent-brand" aria-label="CupNavi">
-          <img src="data:image/png;base64,{logo_b64}" alt="CupNavi">
+          <img src="data:image/png;base64,{logo_b64}" alt="CupNavi logotyp">
         </div>
         """,
         unsafe_allow_html=True,
