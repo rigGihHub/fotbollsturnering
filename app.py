@@ -666,7 +666,7 @@ def _install_streamlit_translation_hooks():
     st._cupnavi_translation_hooks = True
 
 
-st.set_page_config(page_title="Fotbollsturnering", page_icon="⚽", layout="wide")
+st.set_page_config(page_title="CupNavi", page_icon="🏆", layout="wide")
 
 st.html("""
 <style>
@@ -1458,6 +1458,57 @@ def inject_custom_css():
             color:var(--cup-ink) !important;
           }
 
+          /* ---------- Segmenterade knappar ----------
+             Streamlit kan annars ärva mörka theme-färger här.
+             Håll alla segmenterade kontroller ljusa och CupNavi-enhetliga. */
+          [data-testid="stSegmentedControl"] button,
+          [data-testid="stButtonGroup"] button,
+          [data-testid="stSegmentedControl"] [role="button"],
+          [data-testid="stButtonGroup"] [role="button"] {
+            background:#F8FAFC !important;
+            color:#172033 !important;
+            border-color:#CBD5E1 !important;
+            opacity:1 !important;
+            box-shadow:none !important;
+          }
+          [data-testid="stSegmentedControl"] button *,
+          [data-testid="stButtonGroup"] button *,
+          [data-testid="stSegmentedControl"] [role="button"] *,
+          [data-testid="stButtonGroup"] [role="button"] * {
+            color:#172033 !important;
+            opacity:1 !important;
+          }
+          [data-testid="stSegmentedControl"] button:hover,
+          [data-testid="stButtonGroup"] button:hover,
+          [data-testid="stSegmentedControl"] [role="button"]:hover,
+          [data-testid="stButtonGroup"] [role="button"]:hover {
+            background:#EEF6F0 !important;
+            border-color:#86A995 !important;
+          }
+          [data-testid="stSegmentedControl"] button[aria-pressed="true"],
+          [data-testid="stButtonGroup"] button[aria-pressed="true"],
+          [data-testid="stSegmentedControl"] [role="button"][aria-pressed="true"],
+          [data-testid="stButtonGroup"] [role="button"][aria-pressed="true"],
+          [data-testid="stSegmentedControl"] button[aria-checked="true"],
+          [data-testid="stButtonGroup"] button[aria-checked="true"],
+          [data-testid="stSegmentedControl"] [data-selected="true"],
+          [data-testid="stButtonGroup"] [data-selected="true"] {
+            background:#DCFCE7 !important;
+            color:#14532D !important;
+            border-color:#86A995 !important;
+            font-weight:800 !important;
+          }
+          [data-testid="stSegmentedControl"] button[aria-pressed="true"] *,
+          [data-testid="stButtonGroup"] button[aria-pressed="true"] *,
+          [data-testid="stSegmentedControl"] [role="button"][aria-pressed="true"] *,
+          [data-testid="stButtonGroup"] [role="button"][aria-pressed="true"] *,
+          [data-testid="stSegmentedControl"] button[aria-checked="true"] *,
+          [data-testid="stButtonGroup"] button[aria-checked="true"] *,
+          [data-testid="stSegmentedControl"] [data-selected="true"] *,
+          [data-testid="stButtonGroup"] [data-selected="true"] * {
+            color:#14532D !important;
+            opacity:1 !important;
+          }
 
           /* ---------- Knappar ---------- */
           .stButton > button,
@@ -1928,6 +1979,61 @@ def inject_custom_css():
 
 
 inject_custom_css()
+
+# Global CupNavi-identitet. Logotypen ligger lokalt i releasen så den inte kräver
+# nätverksanrop och visas med position:fixed i alla vyer och under scrollning.
+CUPNAVI_LOGO_FILE = Path(__file__).with_name("assets") / "cupnavi_logo.png"
+
+
+def render_persistent_brand():
+    try:
+        logo_b64 = base64.b64encode(CUPNAVI_LOGO_FILE.read_bytes()).decode("ascii")
+    except OSError:
+        return
+    st.markdown(
+        f"""
+        <style>
+          .cn-persistent-brand {{
+            position:fixed;
+            top:8px;
+            right:72px;
+            z-index:999997;
+            width:118px;
+            padding:4px 7px;
+            border:1px solid rgba(184,197,211,.92);
+            border-radius:13px;
+            background:rgba(255,255,255,.96);
+            box-shadow:0 4px 14px rgba(15,23,42,.10);
+            backdrop-filter:blur(7px);
+            -webkit-backdrop-filter:blur(7px);
+            pointer-events:none;
+          }}
+          .cn-persistent-brand img {{
+            display:block;
+            width:100%;
+            height:auto;
+          }}
+          @media (max-width:760px) {{
+            .cn-persistent-brand {{
+              top:auto;
+              right:10px;
+              bottom:10px;
+              width:82px;
+              padding:3px 5px;
+              border-radius:11px;
+              box-shadow:0 3px 12px rgba(15,23,42,.13);
+            }}
+          }}
+        </style>
+        <div class="cn-persistent-brand" aria-label="CupNavi">
+          <img src="data:image/png;base64,{logo_b64}" alt="CupNavi">
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+render_persistent_brand()
 # APP_VERSION centraliseras i cupnavi_core/version.py
 DB_FILE = Path(__file__).with_name("turnering.db")
 
@@ -4423,7 +4529,7 @@ def render_public_view(tournament_id, tournament):
 
     nav1, nav2, nav3 = st.columns(3)
     main_nav = [
-        (nav1, "Matcher", "⚽", tr("Matcher")),
+        (nav1, "Matcher", "🗓️", tr("Matcher")),
         (nav2, "Statistik", "🏆", tr("Tabell & statistik")),
         (nav3, "Info", "ℹ️", tr("Info")),
     ]
@@ -5250,7 +5356,7 @@ init_db()
 
 
 # SIDOMENY OCH TURNERING
-st.sidebar.title(f"⚽ {tr('Turneringar')}")
+st.sidebar.title(f"🏆 {tr('Turneringar')}")
 st.sidebar.caption(f"CupNavi version {APP_VERSION}")
 language_options = {"sv": "Svenska", "en": "English"}
 selected_language = st.sidebar.selectbox(
@@ -5343,7 +5449,7 @@ else:
     tournaments = all_rows("SELECT * FROM tournaments WHERE is_published=1 ORDER BY COALESCE(start_date,tournament_date) DESC,name")
 
 if not tournaments:
-    st.title("⚽ Fotbollsturnering")
+    st.title("🏆 CupNavi")
     st.markdown(
         f"<div class='cup-version-badge'>KÖR VERSION {APP_VERSION}</div>",
         unsafe_allow_html=True,
@@ -5377,7 +5483,7 @@ if view_mode == "Matchrapportör":
     st.stop()
 
 if view_mode == "Admin":
-    st.title(f"⚽ {tournament['name']}")
+    st.title(f"🏆 {tournament['name']}")
     admin_status_label = tr("Publicerad") if tournament["is_published"] else tr("Utkast")
     schedule_status_label = tr("Schema aktuellt") if not tournament["schedule_dirty"] else tr("Schema behöver uppdateras")
     st.markdown(

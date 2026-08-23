@@ -14,7 +14,7 @@ def public_block():
 
 def test_three_large_public_navigation_buttons_exist():
     block = public_block()
-    assert '(nav1, "Matcher", "⚽"' in block
+    assert '(nav1, "Matcher", "🗓️"' in block
     assert '(nav2, "Statistik", "🏆"' in block
     assert '(nav3, "Info", "ℹ️"' in block
     assert 'type="primary" if active else "secondary"' in block
