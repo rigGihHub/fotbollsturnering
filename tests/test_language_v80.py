@@ -13,11 +13,11 @@ def test_translation_layer_has_fallback():
     assert "def tr(value):" in text
     assert 'TRANSLATIONS["en"].get(value)' in text
 
-def test_public_tabs_are_translated():
+def test_public_navigation_is_translated():
     text = app_text()
-    assert 'tr("Spelschema")' in text
-    assert 'tr("Resultat")' in text
-    assert 'tr("Tabeller")' in text
+    assert 'tr("Matcher")' in text
+    assert 'tr("Tabell & statistik")' in text
+    assert 'tr("Info")' in text
 
 def test_admin_nav_labels_are_translated():
     text = app_text()

@@ -36,4 +36,4 @@ def test_public_view_batches_team_and_event_data():
     assert "public_team_by_id" in block
     assert "public_events_by_match" in block
     assert "JOIN matches m ON m.id=s.match_id" in block
-    assert 'if public_section == tr("Resultat"):' in block
+    assert 'if public_page == "Matcher":' in block

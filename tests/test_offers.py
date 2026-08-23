@@ -14,7 +14,7 @@ def test_offers_exist_in_admin_and_public_navigation():
     assert '("Erbjudanden", tr("Erbjudanden"))' in text
     assert 'tr("Slutspel")' in text
     assert 'if admin_page == "Erbjudanden":' in text
-    assert 'if public_section == tr("Erbjudanden"):' in text
+    assert 'with st.expander("🎁 " + tr("Erbjudanden")):' in text
 
 def test_admin_can_create_edit_hide_and_delete_offers():
     text=app_text()
