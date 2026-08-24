@@ -19,6 +19,9 @@ import streamlit as st
 import streamlit.components.v1 as components
 
 from cupnavi_core.version import APP_VERSION as CORE_APP_VERSION
+
+from cupnavi_core.product_foundation import organizer_workflow, workflow_summary
+from cupnavi_core.observability import safe_error_record, persist_error
 from cupnavi_core.rules import validate_match_event_totals
 from cupnavi_core.home_away import orientation_balance_score
 from cupnavi_core.pdf_export import build_schedule_pdf
@@ -49,7 +52,7 @@ from cupnavi_core.fairness import fairness_report
 from cupnavi_core.ux2 import ADMIN_SECTIONS, workflow_progress, attention_items, human_error_id, schedule_board
 from cupnavi_core.about import feature_catalog, about_intro
 
-APP_BUILD_VERSION = "2026.08.24-138-PUBLIC-MATCHES-STABILITY"
+APP_BUILD_VERSION = "2026.08.24-139-PRODUCT-FOUNDATION"
 APP_VERSION = APP_BUILD_VERSION
 RELEASE_FILES_MISMATCH = CORE_APP_VERSION != APP_BUILD_VERSION
 REQUIRED_SCHEMA_VERSION = max(int(LATEST_SCHEMA_VERSION), 5)
@@ -7783,7 +7786,18 @@ def _render_with_friendly_error(renderer, *args):
     try:
         renderer(*args)
     except Exception as exc:
-        error_id = human_error_id(exc)
+        context = getattr(renderer, "__name__", "page")
+        record = safe_error_record(
+            exc, context=context, app_version=APP_VERSION,
+            tournament_id=int(args[0]) if args and isinstance(args[0], int) else None,
+        )
+        error_id = record["error_id"]
+        try:
+            with db() as con:
+                persist_error(con, record)
+                con.commit()
+        except Exception as log_exc:
+            print(f"[{error_id}] diagnostic persistence failed: {type(log_exc).__name__}: {log_exc}")
         st.error(f"Något gick fel när sidan skulle visas. Dina sparade uppgifter påverkas inte. Försök igen. Fel-ID: {error_id}")
         st.caption("Tekniska detaljer loggas internt. Ange Fel-ID om du kontaktar support.")
         print(f"[{error_id}] {type(exc).__name__}: {exc}")
@@ -8671,6 +8685,36 @@ elif admin_page == "Adminöversikt":
     }
     st.caption(f"Aktuellt arbetsläge: **{mode_labels.get(current_admin_mode, 'Planeringsläge')}**")
     st.caption(f"Lagincheckning: **{'Aktiverad' if bool(_row_value(tournament, 'enable_team_checkin', 1)) else 'Avstängd'}** · valet gjordes när turneringen skapades.")
+
+    # v139: uppgiftsbaserad Organizer-vy. Den kompletterar navigationen och visar
+    # vad arrangören faktiskt behöver göra, inte bara vilka funktioner som finns.
+    _v139_counts = _admin_workflow_counts(tid)
+    _v139_classes = one_row("SELECT COUNT(*) AS n FROM competition_classes WHERE tournament_id=?", (tid,))
+    _v139_pitches = one_row("SELECT COUNT(*) AS n FROM pitches WHERE tournament_id=?", (tid,))
+    _v139_steps = organizer_workflow(
+        competition_classes=int(_row_value(_v139_classes, "n", 0) or 0),
+        teams=int(_v139_counts["teams_n"] or 0),
+        expected_teams=int(_row_value(tournament, "expected_team_count", 0) or 0),
+        groups=int(_v139_counts["groups_n"] or 0),
+        pitches=int(_row_value(_v139_pitches, "n", 0) or 0),
+        rules_ready=bool(_row_value(tournament, "setup_completed_at", None) or _row_value(tournament, "setup_completed", 0)),
+        matches=int(_v139_counts["matches_n"] or 0),
+        schedule_dirty=bool(tournament["schedule_dirty"]),
+        published=bool(tournament["is_published"]),
+    )
+    _v139_summary = workflow_summary(_v139_steps)
+    st.markdown(f"### Organizer · {_v139_summary['done']}/{_v139_summary['total']} steg klara")
+    _v139_cols = st.columns(4)
+    for _v139_i, _v139_step in enumerate(_v139_steps):
+        _v139_icon = "✓" if _v139_step.done else "•"
+        with _v139_cols[_v139_i % 4]:
+            st.markdown(f"**{_v139_icon} {_v139_step.label}**")
+            st.caption(_v139_step.detail)
+            if not _v139_step.done:
+                st.button("Öppna", key=f"v139_step_{tid}_{_v139_step.key}", use_container_width=True,
+                          on_click=_set_admin_page, args=(_v139_step.target,))
+    if _v139_summary["next"]:
+        st.info(f"Nästa rekommenderade steg: **{_v139_summary['next'].label}**")
 
     ux_counts = _admin_workflow_counts(tid)
     ux_progress = workflow_progress(

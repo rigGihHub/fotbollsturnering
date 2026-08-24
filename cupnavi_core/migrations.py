@@ -9,7 +9,7 @@ Regel:
 from dataclasses import dataclass
 from datetime import datetime, timezone
 
-LATEST_SCHEMA_VERSION = 19
+LATEST_SCHEMA_VERSION = 20
 
 
 @dataclass(frozen=True)
@@ -402,6 +402,11 @@ MIGRATIONS = (
         "messaging_schedule_travel_recovery_v137",
         (),
     ),
+    Migration(
+        20,
+        "product_foundation_v139",
+        (),
+    ),
 
 )
 
@@ -583,6 +588,39 @@ def ensure_v19_schema_compat(con):
         PRIMARY KEY(tournament_id,from_pitch_number,to_pitch_number))""")
     con.execute("CREATE INDEX IF NOT EXISTS idx_pitch_travel_times_tournament ON pitch_travel_times(tournament_id,from_pitch_number,to_pitch_number)")
 
+
+def ensure_v20_schema_compat(con):
+    """Idempotent product-foundation schema for diagnostics and future multi-tenancy."""
+    def cols(table):
+        try:
+            return {row[1] for row in con.execute(f"PRAGMA table_info({table})").fetchall()}
+        except Exception:
+            return set()
+
+    con.execute("""CREATE TABLE IF NOT EXISTS organizations (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    )""")
+    tc = cols("tournaments")
+    if "organization_id" not in tc:
+        con.execute("ALTER TABLE tournaments ADD COLUMN organization_id INTEGER")
+    con.execute("CREATE INDEX IF NOT EXISTS idx_tournaments_organization ON tournaments(organization_id)")
+
+    con.execute("""CREATE TABLE IF NOT EXISTS app_errors (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        error_id TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        app_version TEXT NOT NULL,
+        tournament_id INTEGER,
+        context TEXT NOT NULL,
+        error_type TEXT NOT NULL,
+        message TEXT
+    )""")
+    con.execute("CREATE INDEX IF NOT EXISTS idx_app_errors_error_id ON app_errors(error_id)")
+    con.execute("CREATE INDEX IF NOT EXISTS idx_app_errors_tournament_created ON app_errors(tournament_id,created_at)")
+
+
 def apply_migrations(con):
     """Applicera alla saknade migreringar och returnera nya versionsnummer."""
     ensure_migration_table(con)
@@ -594,6 +632,8 @@ def apply_migrations(con):
             continue
         if migration.version == 19:
             ensure_v19_schema_compat(con)
+        if migration.version == 20:
+            ensure_v20_schema_compat(con)
         for statement in migration.statements:
             _execute(con, statement)
         _execute(

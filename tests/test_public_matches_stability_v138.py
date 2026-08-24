@@ -2,9 +2,10 @@ from pathlib import Path
 
 APP = Path(__file__).resolve().parents[1] / "app.py"
 
-def test_v138_version_present():
+def test_v138_public_matches_fix_is_preserved():
     text = APP.read_text(encoding="utf-8")
-    assert "2026.08.24-138-PUBLIC-MATCHES-STABILITY" in text
+    assert "def weather_for_match" in text
+    assert "except (TypeError, ValueError)" in text
 
 def test_weather_for_match_tolerates_invalid_start():
     text = APP.read_text(encoding="utf-8")
