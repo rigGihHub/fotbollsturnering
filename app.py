@@ -47,7 +47,7 @@ from cupnavi_core.fairness import fairness_report
 from cupnavi_core.ux2 import ADMIN_SECTIONS, workflow_progress, attention_items, human_error_id, schedule_board
 from cupnavi_core.about import feature_catalog, about_intro
 
-APP_BUILD_VERSION = "2026.08.24-118-RELEASE-SYNC"
+APP_BUILD_VERSION = "2026.08.24-119-SHARE-VERSION-HOTFIX"
 APP_VERSION = APP_BUILD_VERSION
 RELEASE_FILES_MISMATCH = CORE_APP_VERSION != APP_BUILD_VERSION
 REQUIRED_SCHEMA_VERSION = max(int(LATEST_SCHEMA_VERSION), 5)
@@ -5169,9 +5169,8 @@ def render_public_view(tournament_id, tournament):
         .cn-fixed-share:hover {{background:#f8fafc;border-color:#aebdca;}}
         .cn-fixed-share.is-open {{border-color:#86b99a;background:#f4fbf6;color:#14532d !important;}}
         @media(max-width:760px) {{.cn-fixed-share {{top:13px;left:auto;right:9px;padding:8px 10px;font-size:0;}}
-          .cn-fixed-share .cn-share-icon {{font-size:17px;}}}}
-        </style><a class='cn-fixed-share {"is-open" if share_requested else ""}' href='{html.escape(share_href, quote=True)}'>
-          <span class='cn-share-icon'>📤</span><span>{html.escape(tr("Dela cupen"))}</span></a>""",
+          .cn-fixed-share {{font-size:14px;}}}}
+        </style><a class='cn-fixed-share {"is-open" if share_requested else ""}' href='{html.escape(share_href, quote=True)}'>📤 {html.escape(tr("Dela cupen"))}</a>""",
         unsafe_allow_html=True,
     )
     with st.container(border=True):
@@ -6729,7 +6728,6 @@ init_db()
 
 # SIDOMENY OCH TURNERING
 st.sidebar.title(f"🏆 {tr('Turneringar')}")
-st.sidebar.caption(f"CupNavi version {APP_VERSION}")
 language_options = {"sv": "Svenska", "en": "English"}
 selected_language = st.sidebar.selectbox(
     "🌐 " + tr("Välj språk"),
@@ -6773,6 +6771,8 @@ else:
     mode_col4.button(tr("Admin"), key="view_mode_admin_button", type="primary" if current_mode == "Admin" else "secondary", use_container_width=True, on_click=_set_view_mode, args=("Admin",))
     mode_col5.button(tr("Om"), key="view_mode_about_button", type="primary" if current_mode == "Om" else "secondary", use_container_width=True, on_click=_set_view_mode, args=("Om",))
 view_mode = st.session_state["view_mode"]
+if view_mode != "Turneringsvy":
+    st.sidebar.caption(f"CupNavi version {APP_VERSION}")
 
 if not public_app_mode:
     st.sidebar.caption(f"{tr('Visningsläge')}: {tr(view_mode)}")
