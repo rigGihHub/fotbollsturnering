@@ -38,10 +38,12 @@ from cupnavi_core.experience import (
     planned_delay_updates, tournament_quality_score, playoff_preview, cup_summary,
 )
 from cupnavi_core.sports import sport_definition
+from cupnavi_core.match_engine import match_format, score_model
+from cupnavi_core.schedule_optimizer import optimize_match_order, ortools_available
 from cupnavi_core.i18n import SUPPORTED_LOCALES, DEFAULT_LOCALE, DEFAULT_TIMEZONE, valid_timezone
 from cupnavi_core.lifecycle import normalize_status, status_label, is_public_status, is_editable_status, choose_unique_slug
 
-APP_BUILD_VERSION = "2026.08.24-103-LOCKED-FOUNDATION"
+APP_BUILD_VERSION = "2026.08.24-104-MULTISPORT-OPTIMIZER"
 APP_VERSION = APP_BUILD_VERSION
 RELEASE_FILES_MISMATCH = CORE_APP_VERSION != APP_BUILD_VERSION
 REQUIRED_SCHEMA_VERSION = max(int(LATEST_SCHEMA_VERSION), 5)
@@ -4144,6 +4146,20 @@ def generate_schedule(tournament_id, tournament, rules, preserve_existing=False)
             placeholder_matches.append(match_row)
             continue
         remaining.append((match_row, home_id, away_id))
+    # Optimera ordningen på konkreta matcher före exakt placering. OR-Tools
+    # löser parallella schemavågor när biblioteket finns tillgängligt; den
+    # befintliga schemaläggaren ansvarar fortfarande för exakta tider, låsta
+    # matcher, domare, reseönskemål och slutspelsberoenden.
+    if remaining:
+        optimized_order, optimization_engine = optimize_match_order(
+            remaining,
+            pitch_count=int(rules.get("pitch_count") or 1),
+            time_limit_seconds=2.0,
+        )
+        remaining = [remaining[index] for index in optimized_order]
+    else:
+        optimization_engine = "trivial"
+
     last_scheduled_teams = set()
     forced_consecutive = 0
     while remaining:
@@ -4315,6 +4331,9 @@ def generate_schedule(tournament_id, tournament, rules, preserve_existing=False)
             f"den angivna extrapusen på {rules['consecutive_match_break_minutes']} minuter lades in."
         )
         warning = f"{warning} {consecutive_warning}".strip()
+
+    if optimization_engine == "greedy-fallback":
+        warning = f"{warning} OR-Tools var inte tillgängligt; säker standardoptimering användes.".strip()
 
     # Spara hela schemaläggningspasset atomiskt via repository-lagret.
     try:
@@ -7355,6 +7374,7 @@ elif admin_page == "Adminöversikt":
     st.markdown("#### Sportprofil och internationell grund")
     saved_sport = _row_value(tournament, "sport", "Fotboll")
     selected_profile = sport_profile(saved_sport)
+    selected_match_format = match_format(saved_sport)
     saved_locale = _row_value(tournament, "locale", DEFAULT_LOCALE)
     saved_timezone = _row_value(tournament, "timezone_name", DEFAULT_TIMEZONE)
     saved_country = _row_value(tournament, "country_code", "") or "Ej angivet"
@@ -7366,7 +7386,12 @@ elif admin_page == "Adminöversikt":
     st.caption(
         f"Sportstandard: {selected_profile['halves']} {selected_profile['period_label']} × "
         f"{selected_profile['minutes_per_half']} min · vila {selected_profile['minimum_team_rest_minutes']} min · "
-        f"resultat anges som {selected_profile['score_label']} · intern deltagartyp: {participant_type}."
+        f"resultatmodell: {selected_match_format.scoring_mode} · segmenttyp: {selected_match_format.segment_kind} · "
+        f"intern deltagartyp: {participant_type}."
+    )
+    st.caption(
+        "Schemaläggning: OR-Tools CP-SAT används automatiskt när biblioteket är tillgängligt; "
+        "annars används CupNavis säkra heuristiska fallback."
     )
     if st.button("Återställ sportens standardregler", key=f"apply_sport_defaults_{tid}", use_container_width=True):
         before_rules = dict(overview_rules)
