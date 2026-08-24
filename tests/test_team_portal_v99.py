@@ -40,5 +40,6 @@ def test_app_contains_restricted_team_portal_flows():
 
 def test_schema_version_is_six_for_team_portal():
     text = Path("cupnavi_core/migrations.py").read_text(encoding="utf-8")
-    assert "LATEST_SCHEMA_VERSION = 7" in text
+    assert "LATEST_SCHEMA_VERSION =" in text
+    assert "Migration(\n        7," in text
     assert '"participant_team_portal_v99"' in text

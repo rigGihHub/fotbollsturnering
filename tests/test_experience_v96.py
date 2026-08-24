@@ -102,7 +102,8 @@ def test_v96_features_are_wired_into_streamlit_app():
 
 def test_v96_schema_migration_contains_experience_tables():
     text = Path("cupnavi_core/migrations.py").read_text(encoding="utf-8")
-    assert "LATEST_SCHEMA_VERSION = 7" in text
+    assert "LATEST_SCHEMA_VERSION =" in text
+    assert "Migration(\n        7," in text
     for table in ["audit_log", "cup_feed", "notifications", "venue_points", "referee_acknowledgements"]:
         assert f"CREATE TABLE IF NOT EXISTS {table}" in text
     assert "ADD COLUMN sport" in text

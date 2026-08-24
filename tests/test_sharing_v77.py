@@ -14,7 +14,8 @@ def test_share_helper_supports_requested_channels():
 def test_share_links_use_direct_current_cup_url():
     text = app_text()
     assert "share_url = public_cup_url(tournament_id)" in text
-    assert 'f"{PUBLIC_APP_URL}?cup={int(tournament_id)}"' in text
+    assert "SELECT public_slug FROM tournaments WHERE id=?" in text
+    assert "public_key" in text
 
 def test_public_view_renders_share_controls():
     text = app_text()

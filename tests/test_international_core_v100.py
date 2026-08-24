@@ -44,7 +44,7 @@ def test_schema_v7_adds_international_tournament_fields(tmp_path):
     except sqlite3.OperationalError:
         # Migration integration is already covered by the full migration suite; here we assert v100 contract text.
         pass
-    assert LATEST_SCHEMA_VERSION == 7
+    assert LATEST_SCHEMA_VERSION >= 7
     migration_text = Path("cupnavi_core/migrations.py").read_text(encoding="utf-8")
     for field in ("locale", "timezone_name", "participant_type", "country_code"):
         assert f"ADD COLUMN {field}" in migration_text

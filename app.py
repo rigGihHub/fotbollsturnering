@@ -39,8 +39,9 @@ from cupnavi_core.experience import (
 )
 from cupnavi_core.sports import sport_definition
 from cupnavi_core.i18n import SUPPORTED_LOCALES, DEFAULT_LOCALE, DEFAULT_TIMEZONE, valid_timezone
+from cupnavi_core.lifecycle import normalize_status, status_label, is_public_status, is_editable_status, choose_unique_slug
 
-APP_BUILD_VERSION = "2026.08.24-101-DOMAIN-FOUNDATION"
+APP_BUILD_VERSION = "2026.08.24-102-LIFECYCLE-HISTORY"
 APP_VERSION = APP_BUILD_VERSION
 RELEASE_FILES_MISMATCH = CORE_APP_VERSION != APP_BUILD_VERSION
 REQUIRED_SCHEMA_VERSION = max(int(LATEST_SCHEMA_VERSION), 5)
@@ -61,7 +62,10 @@ PUBLIC_APP_URL = PUBLIC_BASE_URL.rstrip("/") + "/"
 
 
 def public_cup_url(tournament_id):
-    return f"{PUBLIC_APP_URL}?cup={int(tournament_id)}"
+    """Permanent public link. Slug is preferred; numeric IDs remain backward compatible."""
+    row = one_row("SELECT public_slug FROM tournaments WHERE id=?", (int(tournament_id),))
+    public_key = row["public_slug"] if row and row["public_slug"] else str(int(tournament_id))
+    return f"{PUBLIC_APP_URL}?cup={quote(str(public_key))}"
 
 
 def share_panel_html(tournament_id, tournament_name):
@@ -2454,6 +2458,50 @@ def ensure_v100_international_schema_compat(con):
     )
 
 
+def ensure_v102_lifecycle_schema_compat(con):
+    """Idempotent cup lifecycle/history fields and permanent public slugs."""
+    tournament_cols = _connection_columns(con, "tournaments")
+    lifecycle_was_present = "lifecycle_status" in tournament_cols
+    additions = {
+        "lifecycle_status": "TEXT NOT NULL DEFAULT 'draft'",
+        "public_slug": "TEXT",
+        "completed_at": "TEXT",
+        "trashed_at": "TEXT",
+    }
+    for name, ddl in additions.items():
+        if name not in tournament_cols:
+            con.execute(f"ALTER TABLE tournaments ADD COLUMN {name} {ddl}")
+
+    # Preserve legacy publication state when introducing the lifecycle model.
+    if not lifecycle_was_present:
+        con.execute(
+            "UPDATE tournaments SET lifecycle_status=CASE WHEN COALESCE(is_published,0)=1 THEN 'published' ELSE 'draft' END"
+        )
+    else:
+        con.execute(
+            "UPDATE tournaments SET lifecycle_status=CASE WHEN COALESCE(is_published,0)=1 THEN 'published' ELSE 'draft' END "
+            "WHERE lifecycle_status IS NULL OR lifecycle_status='' OR lifecycle_status NOT IN ('draft','published','live','completed','trashed')"
+        )
+
+    rows = con.execute(
+        "SELECT id,name,COALESCE(start_date,tournament_date) AS start_date,public_slug FROM tournaments ORDER BY id"
+    ).fetchall()
+    used = {row[3] for row in rows if row[3]}
+    for row in rows:
+        if row[3]:
+            continue
+        slug = choose_unique_slug(row[1], row[2], row[0], used)
+        con.execute("UPDATE tournaments SET public_slug=? WHERE id=?", (slug, row[0]))
+        used.add(slug)
+
+    con.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_tournaments_public_slug ON tournaments(public_slug)")
+    con.execute("CREATE INDEX IF NOT EXISTS idx_tournaments_lifecycle_status ON tournaments(lifecycle_status)")
+    con.execute(
+        "INSERT OR IGNORE INTO cupnavi_schema_migrations(version,name,applied_at) VALUES(8,?,?)",
+        ("tournament_lifecycle_history_v102", datetime.now().isoformat(timespec="seconds")),
+    )
+
+
 @st.cache_resource(show_spinner=False)
 def init_db():
     """Initiera schema/migreringar en gång per app-process, inte en gång per besökare."""
@@ -2813,6 +2861,7 @@ def init_db():
         ensure_v96_experience_schema_compat(con)
         ensure_v99_team_portal_schema_compat(con)
         ensure_v100_international_schema_compat(con)
+        ensure_v102_lifecycle_schema_compat(con)
 
         # Från och med Stabilisering 1.0 registreras schemaändringar versionsstyrt.
         # Den äldre bootstrap-koden ovan behålls tills alla tidigare installationer
@@ -4781,6 +4830,11 @@ def render_public_view(tournament_id, tournament):
         <div class='title'>{html.escape(tournament['name'])}</div><div class='meta'>{hero_meta} · {html.escape(str(_row_value(tournament, 'sport', 'Fotboll')))}</div></div>""",
         unsafe_allow_html=True,
     )
+    public_lifecycle = normalize_status(_row_value(tournament, "lifecycle_status", None), is_published=bool(tournament["is_published"]))
+    if public_lifecycle == "completed":
+        st.success("🏆 Avslutad cup · Resultat, tabeller, slutspel och statistik är arkiverade och finns kvar som historik.")
+    elif public_lifecycle == "live":
+        st.info("🔴 Cupen pågår")
 
     # Min cup: lagvalet ligger även i URL:en så länken kan bokmärkas/delas och
     # fungerar utan konto. Session state gör växlingen snabb under samma besök.
@@ -6268,10 +6322,13 @@ if view_mode == "Admin":
                     st.error("Sista cupdagen får inte ligga före första cupdagen.")
                 else:
                     new_tournament_id = run(
-                        """INSERT INTO tournaments(name,location,tournament_date,start_date,end_date,expected_team_count,points_win,points_draw,points_loss,sport)
-                        VALUES(?,?,?,?,?,?,?,?,?,?)""",
-                        (n.strip(), place.strip(), start_date.isoformat(), start_date.isoformat(), end_date.isoformat(), expected_teams, 3, 1, 0, sport),
+                        """INSERT INTO tournaments(name,location,tournament_date,start_date,end_date,expected_team_count,points_win,points_draw,points_loss,sport,lifecycle_status)
+                        VALUES(?,?,?,?,?,?,?,?,?,?,?)""",
+                        (n.strip(), place.strip(), start_date.isoformat(), start_date.isoformat(), end_date.isoformat(), expected_teams, 3, 1, 0, sport, "draft"),
                     )
+                    used_slugs = [row["public_slug"] for row in all_rows("SELECT public_slug FROM tournaments WHERE public_slug IS NOT NULL")]
+                    public_slug = choose_unique_slug(n.strip(), start_date.isoformat(), new_tournament_id, used_slugs)
+                    run("UPDATE tournaments SET public_slug=? WHERE id=?", (public_slug, new_tournament_id))
                     defaults = sport_profile(sport)
                     run(
                         """INSERT INTO schedule_rules(
@@ -6285,9 +6342,17 @@ if view_mode == "Admin":
                     st.rerun()
 
 if view_mode in ("Admin", "Matchrapportör", "Lagportal"):
-    tournaments = all_rows("SELECT * FROM tournaments ORDER BY COALESCE(start_date,tournament_date) DESC,name")
+    tournaments = all_rows(
+        "SELECT * FROM tournaments WHERE COALESCE(lifecycle_status,'draft')!='trashed' "
+        "ORDER BY CASE COALESCE(lifecycle_status,'draft') WHEN 'live' THEN 0 WHEN 'published' THEN 1 WHEN 'draft' THEN 2 WHEN 'completed' THEN 3 ELSE 4 END, "
+        "COALESCE(start_date,tournament_date) DESC,name"
+    )
 else:
-    tournaments = all_rows("SELECT * FROM tournaments WHERE is_published=1 ORDER BY COALESCE(start_date,tournament_date) DESC,name")
+    tournaments = all_rows(
+        "SELECT * FROM tournaments WHERE is_published=1 AND COALESCE(lifecycle_status,'published') IN ('published','live','completed') "
+        "ORDER BY CASE COALESCE(lifecycle_status,'published') WHEN 'live' THEN 0 WHEN 'published' THEN 1 WHEN 'completed' THEN 2 ELSE 3 END, "
+        "COALESCE(start_date,tournament_date) DESC,name"
+    )
 
 if not tournaments:
     st.title("🏆 CupNavi")
@@ -6306,20 +6371,38 @@ if not tournaments:
     st.stop()
 
 cup_query = st.query_params.get("cup") if hasattr(st, "query_params") else None
-try:
-    requested_cup_id = int(cup_query) if cup_query else None
-except (TypeError, ValueError):
-    requested_cup_id = None
+requested_cup_id = None
+if cup_query:
+    cup_query_text = str(cup_query)
+    try:
+        requested_cup_id = int(cup_query_text)
+    except (TypeError, ValueError):
+        slug_match = next((row for row in tournaments if row["public_slug"] == cup_query_text), None)
+        requested_cup_id = slug_match["id"] if slug_match else None
 
 tournament_ids = [t["id"] for t in tournaments]
 default_tournament_index = tournament_ids.index(requested_cup_id) if requested_cup_id in tournament_ids else 0
+
+def _tournament_selector_label(tournament_id):
+    row = next(t for t in tournaments if t["id"] == tournament_id)
+    status = normalize_status(row["lifecycle_status"], is_published=bool(row["is_published"]))
+    label = row["name"]
+    if status == "completed":
+        year_source = row["start_date"] or row["tournament_date"] or ""
+        year = str(year_source)[:4] if year_source else ""
+        return f"🏆 {label}{' · ' + year if year else ''} · {status_label(status, current_language())}"
+    if status == "live":
+        return f"🔴 {label} · {status_label(status, current_language())}"
+    return label
+
 tid = st.sidebar.selectbox(
     tr("Aktiv turnering"),
     tournament_ids,
     index=default_tournament_index,
-    format_func=lambda x: next(t["name"] for t in tournaments if t["id"] == x),
+    format_func=_tournament_selector_label,
 )
 tournament = next(t for t in tournaments if t["id"] == tid)
+tournament_lifecycle = normalize_status(tournament["lifecycle_status"], is_published=bool(tournament["is_published"]))
 
 if view_mode == "Lagportal":
     render_team_portal(tid, tournament)
@@ -6331,7 +6414,7 @@ if view_mode == "Matchrapportör":
 
 if view_mode == "Admin":
     st.title(f"🏆 {tournament['name']}")
-    admin_status_label = tr("Publicerad") if tournament["is_published"] else tr("Utkast")
+    admin_status_label = status_label(tournament_lifecycle, current_language())
     schedule_status_label = tr("Schema aktuellt") if not tournament["schedule_dirty"] else tr("Schema behöver uppdateras")
     st.markdown(
         f"<div class='cn-admin-status-strip'>"
@@ -6345,6 +6428,19 @@ if view_mode == "Admin":
         unsafe_allow_html=True,
     )
     st.caption(f"{tournament['location'] or 'Spelort saknas'} · {cup_date_label(tournament)} · Planerat antal lag: {tournament['expected_team_count'] or 'Ej angivet'}")
+    if tournament_lifecycle == "completed":
+        st.success("🏆 Cupen är avslutad och ligger kvar som publik historik. Adminläget är skrivskyddat tills cupen återöppnas.")
+        st.caption(f"Permanent publik identifierare: {tournament['public_slug'] or tournament['id']}")
+        archive_col1, archive_col2 = st.columns(2)
+        if archive_col1.button("↩️ Återöppna cup", type="primary", use_container_width=True, key=f"reopen_completed_{tid}"):
+            run("UPDATE tournaments SET lifecycle_status='published',completed_at=NULL,is_published=1 WHERE id=?", (tid,))
+            st.rerun()
+        trash_confirm = archive_col2.checkbox("Tillåt flytt till papperskorg", key=f"archive_trash_confirm_{tid}")
+        if archive_col2.button("🗑️ Flytta till papperskorg", disabled=not trash_confirm, use_container_width=True, key=f"archive_trash_{tid}"):
+            run("UPDATE tournaments SET lifecycle_status='trashed',trashed_at=?,is_published=0 WHERE id=?", (datetime.now().isoformat(timespec="seconds"), tid))
+            st.rerun()
+        st.info("Växla till Turneringsvy för att se den arkiverade cupsidan precis som besökarna gör.")
+        st.stop()
 else:
     st.markdown(
         f"<div class='cup-version-badge'>KÖR VERSION {APP_VERSION}</div>",
@@ -6555,7 +6651,7 @@ if st.sidebar.button(
             "UPDATE matches SET schedule_published=1 WHERE tournament_id=? AND scheduled_start IS NOT NULL",
             (tid,),
         )
-        con.execute("UPDATE tournaments SET is_published=1 WHERE id=?", (tid,))
+        con.execute("UPDATE tournaments SET is_published=1,lifecycle_status=CASE WHEN lifecycle_status='live' THEN 'live' ELSE 'published' END WHERE id=?", (tid,))
         con.commit()
     st.rerun()
 
@@ -6565,8 +6661,34 @@ if st.sidebar.button(
     disabled=not tournament["is_published"],
     key=f"unpublish_from_any_admin_page_{tid}",
 ):
-    run("UPDATE tournaments SET is_published=0 WHERE id=?", (tid,))
+    run("UPDATE tournaments SET is_published=0,lifecycle_status='draft' WHERE id=?", (tid,))
     st.rerun()
+
+# Cupens livscykel: publicerad -> pågår -> avslutad. Avslutad cup blir skrivskyddad
+# i admin men ligger kvar publikt tills admin uttryckligen flyttar den till papperskorgen.
+if tournament_lifecycle == "published" and tournament["is_published"]:
+    if st.sidebar.button("🔴 Markera cupen som pågående", use_container_width=True, key=f"mark_live_{tid}"):
+        run("UPDATE tournaments SET lifecycle_status='live' WHERE id=?", (tid,))
+        st.rerun()
+
+lifecycle_counts = one_row(
+    "SELECT COUNT(*) AS total, SUM(CASE WHEN home_score IS NOT NULL AND away_score IS NOT NULL THEN 1 ELSE 0 END) AS played "
+    "FROM matches WHERE tournament_id=? AND scheduled_start IS NOT NULL AND schedule_published=1",
+    (tid,),
+)
+life_total = int(lifecycle_counts["total"] or 0) if lifecycle_counts else 0
+life_played = int(lifecycle_counts["played"] or 0) if lifecycle_counts else 0
+cup_can_complete = life_total > 0 and life_played == life_total and tournament_lifecycle in ("published", "live")
+if tournament_lifecycle in ("published", "live"):
+    if not cup_can_complete:
+        st.sidebar.caption(f"Avsluta cup: {life_played}/{life_total} publicerade matcher färdigrapporterade.")
+    if st.sidebar.button("🏁 Avsluta cup", disabled=not cup_can_complete, use_container_width=True, key=f"complete_cup_{tid}"):
+        run(
+            "UPDATE tournaments SET lifecycle_status='completed',completed_at=?,is_published=1 WHERE id=?",
+            (datetime.now().isoformat(timespec="seconds"), tid),
+        )
+        add_feed_item(tid, "Cupen är avslutad", "Resultat och statistik finns kvar i CupNavi-historiken.", category="Cup")
+        st.rerun()
 
 
 def _demo_distribute_count(total, players):
@@ -7498,57 +7620,89 @@ elif admin_page == "Adminöversikt":
     st.info("Publicera eller avpublicera turneringen med knapparna i vänsterspalten. Den publika sidan nås via Visningsläge → Turneringsvy.")
 
     st.divider()
-    st.subheader("⚠️ Riskzon – Radera turnering")
-    st.error(
-        "Radering tar permanent bort den valda turneringen inklusive grupper, lag, spelare, domare, matcher, "
-        "resultat, matchhändelser, tabeller, slutspel och sparad testfeedback. Åtgärden kan inte ångras i appen."
+    st.subheader("⚠️ Riskzon – Cup och papperskorg")
+    st.warning(
+        "Flytta i första hand en cup till papperskorgen. Då försvinner den från publik vy men all data finns kvar tills admin väljer permanent radering."
     )
-    delete_tournaments = all_rows("SELECT id,name FROM tournaments ORDER BY name")
-    delete_ids = [row["id"] for row in delete_tournaments]
-    delete_name_by_id = {row["id"]: row["name"] for row in delete_tournaments}
-    default_delete_index = delete_ids.index(tid) if tid in delete_ids else 0
-
-    with st.container(border=True):
-        delete_target_id = st.selectbox(
-            "Välj turnering som ska raderas",
-            delete_ids,
-            index=default_delete_index,
-            format_func=lambda tournament_id: delete_name_by_id[tournament_id],
-            key="delete_tournament_target",
-        )
-        delete_target_name = delete_name_by_id[delete_target_id]
-        st.markdown(f"**Vald turnering:** {delete_target_name}")
-        delete_selected = st.checkbox(
-            "Jag förstår att hela den valda turneringen och all tillhörande data raderas permanent",
-            key=f"delete_tournament_selected_{delete_target_id}",
-        )
-
-        @st.dialog("Radera turneringen permanent?")
-        def confirm_tournament_deletion():
-            st.error(
-                f"Du är på väg att permanent radera **{delete_target_name}** och all tillhörande information."
+    active_delete_tournaments = all_rows(
+        "SELECT id,name FROM tournaments WHERE COALESCE(lifecycle_status,'draft')!='trashed' ORDER BY name"
+    )
+    active_delete_ids = [row["id"] for row in active_delete_tournaments]
+    active_delete_name_by_id = {row["id"]: row["name"] for row in active_delete_tournaments}
+    if active_delete_ids:
+        default_delete_index = active_delete_ids.index(tid) if tid in active_delete_ids else 0
+        with st.container(border=True):
+            trash_target_id = st.selectbox(
+                "Välj cup att flytta till papperskorgen",
+                active_delete_ids,
+                index=default_delete_index,
+                format_func=lambda tournament_id: active_delete_name_by_id[tournament_id],
+                key="trash_tournament_target",
             )
-            st.caption("Det här går inte att ångra från CupNavi.")
-            confirm_delete, cancel_delete = st.columns(2)
-            if confirm_delete.button("Ja, radera turneringen", type="primary", use_container_width=True):
-                with db() as con:
-                    con.execute("DELETE FROM tournaments WHERE id=?", (delete_target_id,))
-                    con.commit()
-                st.session_state.pop(f"admin_page_{delete_target_id}", None)
-                st.session_state.pop(f"_schedule_validation_{delete_target_id}", None)
-                st.session_state.pop("delete_tournament_target", None)
+            trash_target_name = active_delete_name_by_id[trash_target_id]
+            trash_selected = st.checkbox(
+                f"Jag vill flytta {trash_target_name} till papperskorgen",
+                key=f"trash_tournament_selected_{trash_target_id}",
+            )
+            if st.button(
+                "🗑️ Flytta vald cup till papperskorgen",
+                disabled=not trash_selected,
+                key=f"trash_tournament_button_{trash_target_id}",
+                use_container_width=True,
+            ):
+                run(
+                    "UPDATE tournaments SET lifecycle_status='trashed',trashed_at=?,is_published=0 WHERE id=?",
+                    (datetime.now().isoformat(timespec="seconds"), trash_target_id),
+                )
                 _clear_render_query_cache()
                 st.rerun()
-            if cancel_delete.button("Avbryt", use_container_width=True):
-                st.rerun()
 
-        if st.button(
-            "🗑️ Radera vald turnering",
-            disabled=not delete_selected,
-            key=f"open_delete_tournament_dialog_{delete_target_id}",
-            use_container_width=True,
-        ):
-            confirm_tournament_deletion()
+    trashed_tournaments = all_rows(
+        "SELECT id,name,trashed_at FROM tournaments WHERE lifecycle_status='trashed' ORDER BY trashed_at DESC,name"
+    )
+    with st.expander(f"Papperskorg ({len(trashed_tournaments)})", expanded=bool(trashed_tournaments)):
+        if not trashed_tournaments:
+            st.caption("Papperskorgen är tom.")
+        else:
+            trashed_ids = [row["id"] for row in trashed_tournaments]
+            trash_name_by_id = {row["id"]: row["name"] for row in trashed_tournaments}
+            trash_row_by_id = {row["id"]: row for row in trashed_tournaments}
+            bin_id = st.selectbox(
+                "Cup i papperskorgen",
+                trashed_ids,
+                format_func=lambda tournament_id: trash_name_by_id[tournament_id],
+                key="trashed_tournament_target",
+            )
+            bin_name = trash_name_by_id[bin_id]
+            trashed_at = trash_row_by_id[bin_id]["trashed_at"] or "Tid saknas"
+            st.caption(f"Flyttad till papperskorgen: {trashed_at.replace('T',' ')}")
+            restore_col, permanent_col = st.columns(2)
+            if restore_col.button("↩️ Återställ cup", use_container_width=True, key=f"restore_trashed_{bin_id}"):
+                run(
+                    "UPDATE tournaments SET lifecycle_status='draft',trashed_at=NULL,is_published=0 WHERE id=?",
+                    (bin_id,),
+                )
+                _clear_render_query_cache()
+                st.rerun()
+            permanent_col.error("Permanent radering går inte att ångra.")
+            typed_name = permanent_col.text_input(
+                f"Skriv exakt: {bin_name}",
+                key=f"permanent_delete_name_{bin_id}",
+            )
+            if permanent_col.button(
+                "Radera permanent",
+                disabled=typed_name != bin_name,
+                type="primary",
+                use_container_width=True,
+                key=f"permanent_delete_{bin_id}",
+            ):
+                with db() as con:
+                    con.execute("DELETE FROM tournaments WHERE id=?", (bin_id,))
+                    con.commit()
+                st.session_state.pop(f"admin_page_{bin_id}", None)
+                st.session_state.pop(f"_schedule_validation_{bin_id}", None)
+                _clear_render_query_cache()
+                st.rerun()
 
 
     st.divider()

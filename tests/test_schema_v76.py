@@ -7,7 +7,8 @@ def test_schema_contains_sponsors_and_functionaries():
 
 def test_migration_version_is_at_least_three():
     text = Path("cupnavi_core/migrations.py").read_text(encoding="utf-8")
-    assert "LATEST_SCHEMA_VERSION = 7" in text
+    assert "LATEST_SCHEMA_VERSION =" in text
+    assert "Migration(\n        7," in text
     assert '"sponsors_and_functionaries"' in text
 
 def test_runtime_dependencies_cover_new_features():
