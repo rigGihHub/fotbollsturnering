@@ -17,8 +17,9 @@ def test_v109_version_and_weather_default():
 
 def test_public_version_badge_not_rendered_before_public_view():
     text = app_text()
-    marker = 'if view_mode == "Turneringsvy":\n    render_public_view(tid, tournament)'
-    assert marker in text
+    assert 'if view_mode == "Turneringsvy":' in text
+    assert '_render_with_friendly_error(render_public_view, tid, tournament)' in text
+    marker = 'if view_mode == "Turneringsvy":'
     before = text[text.find('if view_mode == "Admin":'):text.find(marker)]
     assert "else:\n    st.markdown(\n        f\"<div class='cup-version-badge'>KÖR VERSION" not in before
 

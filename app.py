@@ -44,8 +44,9 @@ from cupnavi_core.i18n import SUPPORTED_LOCALES, DEFAULT_LOCALE, DEFAULT_TIMEZON
 from cupnavi_core.lifecycle import normalize_status, status_label, is_public_status, is_editable_status, choose_unique_slug
 from cupnavi_core.qol import TOURNAMENT_TEMPLATES, template_definition, clone_tournament_payload, checklist_items, admin_mode
 from cupnavi_core.fairness import fairness_report
+from cupnavi_core.ux2 import ADMIN_SECTIONS, workflow_progress, attention_items, human_error_id, schedule_board
 
-APP_BUILD_VERSION = "2026.08.24-115-QA-HOTFIX"
+APP_BUILD_VERSION = "2026.08.24-116-UX2"
 APP_VERSION = APP_BUILD_VERSION
 RELEASE_FILES_MISMATCH = CORE_APP_VERSION != APP_BUILD_VERSION
 REQUIRED_SCHEMA_VERSION = max(int(LATEST_SCHEMA_VERSION), 5)
@@ -2044,6 +2045,38 @@ def inject_custom_css():
 
 
 inject_custom_css()
+
+
+def render_empty_state(title, body, icon="＋"):
+    st.markdown(
+        f"<div class='cn-empty-state'><div class='icon'>{html.escape(icon)}</div><div><b>{html.escape(title)}</b><p>{html.escape(body)}</p></div></div>",
+        unsafe_allow_html=True,
+    )
+
+def inject_ux2_css():
+    st.markdown(
+        """<style>
+        :root{--cn-space-1:4px;--cn-space-2:8px;--cn-space-3:12px;--cn-space-4:16px;--cn-space-5:24px;--cn-radius:14px;--cn-primary:#176b3a;--cn-primary-soft:#eef8f1;--cn-text:#132033;--cn-muted:#64748b;--cn-border:#dbe4ea}
+        .cn-recommend-card,.cn-progress-hero,.cn-attention-row{background:#fff;border:1px solid var(--cn-border);border-radius:var(--cn-radius);box-shadow:0 5px 18px rgba(15,23,42,.05)}
+        .cn-recommend-card{padding:14px 16px;margin:8px 0 12px;display:flex;flex-direction:column;gap:4px}.cn-recommend-card b{color:var(--cn-primary)}.cn-recommend-card span{font-weight:750;color:var(--cn-text)}.cn-recommend-card small{color:var(--cn-muted)}
+        .cn-progress-hero{padding:16px 18px;margin:8px 0 18px}.cn-progress-hero>div:first-child{display:flex;justify-content:space-between;gap:16px;align-items:baseline}.cn-progress-hero span{color:var(--cn-muted);font-weight:700}.cn-progress-hero strong{color:var(--cn-text);font-size:22px}.cn-progress-track{height:9px;background:#edf2f7;border-radius:99px;margin-top:10px;overflow:hidden}.cn-progress-track i{display:block;height:100%;background:var(--cn-primary);border-radius:99px}
+        .cn-attention-row{padding:11px 13px;margin:3px 0;color:var(--cn-text)}
+        .cn-empty-state{display:flex;gap:13px;align-items:center;padding:18px;border:1px dashed #b9c7d2;border-radius:14px;background:#fbfcfd;margin:10px 0 16px}.cn-empty-state .icon{width:42px;height:42px;border-radius:12px;background:#eef8f1;display:grid;place-items:center;font-size:22px;color:#176b3a}.cn-empty-state b{color:#132033;font-size:16px}.cn-empty-state p{margin:3px 0 0;color:#64748b} 
+        .cn-schedule-grid{display:grid;grid-template-columns:72px repeat(var(--cn-pitches,4),minmax(150px,1fr));gap:8px;margin:7px 0;min-width:720px}.cn-schedule-head>div{font-size:12px;font-weight:850;color:var(--cn-muted);text-transform:uppercase;padding:4px 6px}.cn-schedule-time{font-weight:850;color:var(--cn-text);padding:11px 6px}.cn-match-tile{display:grid;grid-template-columns:auto 1fr auto 1fr;gap:5px;align-items:center;padding:10px 11px;border:1px solid var(--cn-border);border-radius:12px;background:#fff;color:var(--cn-text);box-shadow:0 2px 8px rgba(15,23,42,.04)}.cn-match-tile small{color:var(--cn-muted)}.cn-match-tile.empty{display:block;color:#94a3b8;background:#f8fafc;box-shadow:none}.stExpander:has(.cn-schedule-grid){overflow-x:auto}
+        .cn-mobile-bottom-nav{display:none}
+        [data-testid="stButton"] button{min-height:44px;border-radius:12px;font-weight:720}
+        [data-testid="stButton"] button[kind="primary"]{box-shadow:0 4px 12px rgba(23,107,58,.14)}
+        .cn-current-admin-page{position:sticky;top:78px;z-index:50;background:rgba(248,250,252,.94);backdrop-filter:blur(8px);border:1px solid var(--cn-border);box-shadow:0 5px 14px rgba(15,23,42,.05)}
+        .cn-admin-nav-group-title{margin-top:18px!important;color:#64748b!important;font-size:12px!important;letter-spacing:.06em!important}
+        @media(max-width:760px){
+          .cn-mobile-bottom-nav{display:grid;grid-template-columns:repeat(4,1fr);position:fixed;left:8px;right:8px;bottom:8px;z-index:999996;background:rgba(255,255,255,.97);border:1px solid #dbe4ea;border-radius:18px;box-shadow:0 10px 28px rgba(15,23,42,.16);padding:6px;backdrop-filter:blur(12px)}
+          .cn-mobile-bottom-nav a{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;min-height:52px;text-decoration:none!important;color:#475569!important;font-size:17px;border-radius:12px}.cn-mobile-bottom-nav a span{font-size:10px;font-weight:800}.cn-mobile-bottom-nav a.active{background:#eef8f1;color:#14532d!important}
+          .stApp .block-container{padding-bottom:5.8rem!important}.cn-schedule-grid{min-width:640px}.cn-current-admin-page{top:70px}
+        }
+        </style>""", unsafe_allow_html=True)
+    components.html("""<script>document.addEventListener('keydown',function(e){if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='k'){e.preventDefault();const f=window.parent.document.querySelector('input[aria-label*=\"Sök lag\"],input[placeholder*=\"ÖSK\"]');if(f){f.focus();f.scrollIntoView({block:'center'});}}});</script>""",height=0)
+
+inject_ux2_css()
 
 # Global CupNavi-identitet. Logotypen ligger lokalt i releasen så den inte kräver
 # nätverksanrop. Den renderas som en liten integrerad brand-rad i appskalet och
@@ -5192,6 +5225,10 @@ def render_public_view(tournament_id, tournament):
         )
 
     public_page_key = f"public_page_v92_{tournament_id}"
+    requested_section = str(st.query_params.get("section", "")) if hasattr(st, "query_params") else ""
+    requested_section_map = {"matches": "Matcher", "stats": "Statistik", "info": "Info"}
+    if requested_section in requested_section_map:
+        st.session_state[public_page_key] = requested_section_map[requested_section]
     if public_page_key not in st.session_state:
         st.session_state[public_page_key] = "Matcher"
 
@@ -5213,6 +5250,14 @@ def render_public_view(tournament_id, tournament):
             st.rerun()
 
     public_page = st.session_state[public_page_key]
+    cup_key = quote(str(_row_value(tournament, "public_slug", tournament_id) or tournament_id))
+    st.markdown(
+        f"""<nav class='cn-mobile-bottom-nav' aria-label='Cup navigation'>
+          <a class='{"active" if public_page == "Matcher" else ""}' href='?cup={cup_key}&section=matches'>🗓️<span>{html.escape(tr("Matcher"))}</span></a>
+          <a class='{"active" if public_page == "Statistik" else ""}' href='?cup={cup_key}&section=stats'>🏆<span>{html.escape(tr("Tabell & statistik"))}</span></a>
+          <a href='?cup={cup_key}&section=matches&team=all'>⭐<span>{html.escape(tr("Mitt lag"))}</span></a>
+          <a class='{"active" if public_page == "Info" else ""}' href='?cup={cup_key}&section=info'>ℹ️<span>{html.escape(tr("Info"))}</span></a>
+        </nav>""", unsafe_allow_html=True)
 
     def _filter_public_matches(base_matches, key_prefix, heading):
         """Gemensamt filter för den sammanslagna matchsidan."""
@@ -6223,7 +6268,7 @@ def render_match_reporter_view(tournament_id, tournament):
         st.caption("Domare kan se sitt dagsprogram och bekräfta att uppdraget är sett. Ingen adminnavigation visas här.")
         referee_rows = all_rows("SELECT * FROM referees WHERE tournament_id=? ORDER BY name", (tournament_id,))
         if not referee_rows:
-            st.info("Inga domare är registrerade.")
+            render_empty_state("Inga domare ännu", "Lägg till domare för att kunna använda automatisk domartillsättning.", "🧑‍⚖️")
         else:
             referee_id = st.selectbox(
                 "Välj domare",
@@ -6721,6 +6766,10 @@ if view_mode == "Admin":
         )
         selected_template = template_definition(template_id)
         st.caption(selected_template["description_sv"])
+        st.markdown(
+            f"<div class='cn-recommend-card'><b>CupNavi rekommenderar</b><span>{html.escape(selected_template['label_sv'])} · {int(selected_template['expected_participants'])} deltagare som startvärde</span><small>Du kan börja enkelt och öppna avancerade inställningar först när de behövs.</small></div>",
+            unsafe_allow_html=True,
+        )
         with st.form("new_tournament", clear_on_submit=True):
             n = st.text_input("Namn")
             place = st.text_input("Spelort")
@@ -6946,12 +6995,21 @@ _a11y_css.append("button,[role='button'],input,select,textarea{min-height:44px;}
 if _a11y_css:
     st.markdown("<style>" + "".join(_a11y_css) + "</style><div class='cn-sr-only' role='status' aria-live='polite'>CupNavi är redo. Navigation och formulär kan användas med tangentbord och skärmläsare.</div>", unsafe_allow_html=True)
 
+def _render_with_friendly_error(renderer, *args):
+    try:
+        renderer(*args)
+    except Exception as exc:
+        error_id = human_error_id(exc)
+        st.error(f"Något gick fel när sidan skulle visas. Dina sparade uppgifter påverkas inte. Försök igen. Fel-ID: {error_id}")
+        st.caption("Tekniska detaljer loggas internt. Ange Fel-ID om du kontaktar support.")
+        print(f"[{error_id}] {type(exc).__name__}: {exc}")
+
 if view_mode == "Lagportal":
-    render_team_portal(tid, tournament)
+    _render_with_friendly_error(render_team_portal, tid, tournament)
     st.stop()
 
 if view_mode == "Matchrapportör":
-    render_match_reporter_view(tid, tournament)
+    _render_with_friendly_error(render_match_reporter_view, tid, tournament)
     st.stop()
 
 if view_mode == "Admin":
@@ -6984,7 +7042,7 @@ if view_mode == "Admin":
         st.info("Växla till Turneringsvy för att se den arkiverade cupsidan precis som besökarna gör.")
         st.stop()
 if view_mode == "Turneringsvy":
-    render_public_view(tid, tournament)
+    _render_with_friendly_error(render_public_view, tid, tournament)
     st.stop()
 
 # SNABB ADMINNAVIGERING: visuellt som flikar, men bara vald sida körs.
@@ -6995,33 +7053,11 @@ ADMIN_PAGES = [
     "Sponsorer", "Funktionärer", "Import", "Besöksstatistik", "Cupverktyg",
 ]
 ADMIN_NAV_GROUPS = [
-    ("Kom igång", [
-        ("Instruktioner", tr("Instruktioner")),
-        ("Adminöversikt", tr("Översikt")),
-        ("Lag", tr("Lag")),
-        ("Grupper", tr("Grupper")),
-        ("Trupper", tr("Trupper")),
-        ("Import", tr("Import")),
-    ]),
-    ("Planering", [
-        ("Domare", tr("Domare")),
-        ("Skapa och publicera schema", tr("Schema")),
-        ("Kontroller", tr("Kontroller")),
-        ("Slutspel", tr("Slutspel")),
-    ]),
-    ("Under cupen", [
-        ("Matcher och resultat", tr("Matcher")),
-        ("Matchhändelser", tr("Händelser")),
-        ("Tabeller", tr("Tabeller")),
-        ("Skytteligor", tr("Skytteligor")),
-        ("Cupverktyg", "Cupverktyg"),
-    ]),
-    ("Besökare och övrigt", [
-        ("Erbjudanden", tr("Erbjudanden")),
-        ("Sponsorer", tr("Sponsorer")),
-        ("Funktionärer", tr("Funktionärer")),
-        ("Besöksstatistik", tr("Besök")),
-    ]),
+    ("Översikt", [("Adminöversikt", tr("Översikt")), ("Kontroller", tr("Kontroller")), ("Instruktioner", tr("Instruktioner"))]),
+    ("Deltagare", [("Lag", tr("Lag")), ("Grupper", tr("Grupper")), ("Trupper", tr("Trupper")), ("Import", tr("Import"))]),
+    ("Matcher", [("Skapa och publicera schema", tr("Schema")), ("Matcher och resultat", tr("Matcher")), ("Matchhändelser", tr("Händelser")), ("Tabeller", tr("Tabeller")), ("Slutspel", tr("Slutspel")), ("Skytteligor", tr("Skytteligor"))]),
+    ("Organisation", [("Domare", tr("Domare")), ("Funktionärer", tr("Funktionärer")), ("Cupverktyg", "Cupverktyg")]),
+    ("Kommunikation", [("Erbjudanden", tr("Erbjudanden")), ("Sponsorer", tr("Sponsorer")), ("Besöksstatistik", tr("Besök"))]),
 ]
 ADMIN_NAV = [item for _, items in ADMIN_NAV_GROUPS for item in items]
 admin_page_key = f"admin_page_{tid}"
@@ -7789,6 +7825,26 @@ elif admin_page == "Adminöversikt":
         "after": "🏆 Efter cupen",
     }
     st.caption(f"Aktuellt arbetsläge: **{mode_labels.get(current_admin_mode, 'Planeringsläge')}**")
+
+    ux_counts = _admin_workflow_counts(tid)
+    ux_progress = workflow_progress(
+        teams_ready=bool(ux_counts["teams_n"]), groups_ready=bool(ux_counts["groups_n"]),
+        schedule_ready=bool(ux_counts["matches_n"]) and not bool(tournament["schedule_dirty"]),
+        referees_ready=bool(ux_counts["refs_n"]), published=bool(tournament["is_published"]),
+    )
+    ux_missing_refs = one_row("SELECT COUNT(*) AS n FROM matches WHERE tournament_id=? AND scheduled_start IS NOT NULL AND referee_id IS NULL", (tid,))["n"]
+    ux_unchecked = one_row("SELECT COUNT(*) AS n FROM teams WHERE tournament_id=? AND COALESCE(checked_in,0)=0", (tid,))["n"]
+    ux_attention = attention_items(missing_referees=int(ux_missing_refs or 0), unchecked_teams=int(ux_unchecked or 0), schedule_dirty=bool(tournament["schedule_dirty"]), unpublished=not bool(tournament["is_published"]))
+    st.markdown(f"<div class='cn-progress-hero'><div><span>Förberedelser</span><strong>{ux_progress['percent']} % klara</strong></div><div class='cn-progress-track'><i style='width:{ux_progress['percent']}%'></i></div></div>", unsafe_allow_html=True)
+    if ux_attention:
+        st.markdown("#### Kräver din uppmärksamhet")
+        for ux_idx, item in enumerate(ux_attention[:4]):
+            cols = st.columns([6, 1])
+            icon = {"critical":"🔴", "warning":"🟠", "info":"🔵"}.get(item["level"], "🔵")
+            cols[0].markdown(f"<div class='cn-attention-row'>{icon} <b>{html.escape(item['text'])}</b></div>", unsafe_allow_html=True)
+            if cols[1].button("Lös", key=f"ux_attention_{tid}_{ux_idx}", use_container_width=True):
+                st.session_state[admin_page_key] = item["target"]
+                st.rerun()
 
     st.markdown("#### Snabbkommandon")
     quick_cols = st.columns(4)
@@ -9134,7 +9190,7 @@ if admin_page == "Lag":
             ])
         )
     else:
-        st.info("Inga lag är skapade ännu.")
+        render_empty_state("Inga deltagare ännu", "Lägg till första laget/deltagaren eller använd Import för flera på en gång.", "👥")
 
     if teams:
         st.divider()
@@ -9932,11 +9988,43 @@ if admin_page == "Skapa och publicera schema":
             for t in travel_teams
         ])
     )
+    undo_schedule_key = f"ux2_schedule_undo_{tid}"
+    if st.session_state.get(undo_schedule_key):
+        undo_cols = st.columns([5,1])
+        undo_cols[0].success("Schemaändringen sparades.")
+        if undo_cols[1].button("↶ Ångra", key=f"undo_schedule_{tid}", use_container_width=True):
+            undo_rows = st.session_state.pop(undo_schedule_key)
+            with db() as con:
+                con.executemany("UPDATE matches SET scheduled_start=?,pitch_number=?,schedule_locked=?,schedule_published=? WHERE id=?", undo_rows)
+                con.execute("UPDATE tournaments SET is_published=0,schedule_dirty=0 WHERE id=?", (tid,))
+                con.commit()
+            _clear_render_query_cache()
+            st.toast("Schemaändringen ångrades.")
+            st.rerun()
+
     adjustable_matches = all_rows(
         "SELECT * FROM matches WHERE tournament_id=? AND scheduled_start IS NOT NULL ORDER BY scheduled_start,pitch_number,id",
         (tid,),
     )
     if adjustable_matches:
+        board_rows = [dict(row) for row in adjustable_matches]
+        board = schedule_board(board_rows, source_label)
+        with st.expander("🗓️ Visuellt schema", expanded=True):
+            st.caption("Överblick per tid och plan. Drag-and-drop och konfliktkontroll finns direkt under vyn.")
+            if board["pitches"]:
+                st.caption("Tips: använd ⋯/redigeringsverktygen under schemat för att ändra en match i sitt sammanhang i stället för att leta i andra vyer.")
+                header = f"<div class='cn-schedule-grid cn-schedule-head' style='--cn-pitches:{len(board["pitches"])}'><div>Tid</div>" + "".join(f"<div>Plan {p}</div>" for p in board["pitches"]) + "</div>"
+                rows_html = []
+                for time_label in board["times"]:
+                    cells = [f"<div class='cn-schedule-time'>{html.escape(time_label)}</div>"]
+                    for pitch in board["pitches"]:
+                        cell = board["cells"].get(time_label, {}).get(pitch)
+                        if cell:
+                            cells.append(f"<div class='cn-match-tile'><small>#{cell['id']}</small><b>{html.escape(str(cell['home']))}</b><span>–</span><b>{html.escape(str(cell['away']))}</b></div>")
+                        else:
+                            cells.append("<div class='cn-match-tile empty'>Ledigt</div>")
+                    rows_html.append(f"<div class='cn-schedule-grid' style='--cn-pitches:{len(board["pitches"])}'>" + "".join(cells) + "</div>")
+                st.markdown(header + "".join(rows_html), unsafe_allow_html=True)
         with st.expander("Dra och släpp matcher mellan befintliga tid/plan-platser", expanded=False):
             st.caption(
                 "Dra matcherna till önskad ordning. När du tillämpar ordningen får matcherna "
@@ -10014,6 +10102,10 @@ if admin_page == "Skapa och publicera schema":
                                 match_id,
                             )
                         )
+                    st.session_state[undo_schedule_key] = [
+                        (row["scheduled_start"], row["pitch_number"], int(row["schedule_locked"] or 0), int(row["schedule_published"] or 0), row["id"])
+                        for row in adjustable_matches
+                    ]
                     with db() as con:
                         con.executemany(
                             """UPDATE matches
@@ -10748,7 +10840,7 @@ if admin_page == "Sponsorer":
     )
     st.markdown("#### Befintliga sponsorer")
     if not sponsor_rows:
-        st.info("Inga sponsorer har lagts till ännu.")
+        render_empty_state("Inga partners ännu", "Lägg till en sponsor eller partner när du vill visa dem publikt och på informationsskärmen.", "🤝")
     else:
         for sponsor in sponsor_rows:
             status = "Publicerad" if sponsor["active"] else "Dold"
@@ -10910,7 +11002,7 @@ if admin_page == "Funktionärer":
                     run("DELETE FROM functionaries WHERE id=? AND tournament_id=?", (row["id"], tid))
                     st.rerun()
     else:
-        st.info("Inga funktionärer är registrerade ännu.")
+        render_empty_state("Inga funktionärer ännu", "Lägg till funktionärer för kiosk, sekretariat, planvärd eller andra uppdrag.", "🙋")
 
     st.divider()
     st.subheader("📅 Funktionärsschema")

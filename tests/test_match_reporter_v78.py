@@ -18,7 +18,8 @@ def test_match_reporter_is_separate_mode():
 
 def test_match_reporter_stops_before_admin_navigation():
     text = app_text()
-    assert 'if view_mode == "Matchrapportör":\n    render_match_reporter_view(tid, tournament)\n    st.stop()' in text
+    assert 'if view_mode == "Matchrapportör":' in text
+    assert '_render_with_friendly_error(render_match_reporter_view, tid, tournament)' in text
 
 def test_match_reporter_stays_in_restricted_operational_workspace():
     text = app_text()
