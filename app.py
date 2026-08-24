@@ -45,8 +45,9 @@ from cupnavi_core.lifecycle import normalize_status, status_label, is_public_sta
 from cupnavi_core.qol import TOURNAMENT_TEMPLATES, template_definition, clone_tournament_payload, checklist_items, admin_mode
 from cupnavi_core.fairness import fairness_report
 from cupnavi_core.ux2 import ADMIN_SECTIONS, workflow_progress, attention_items, human_error_id, schedule_board
+from cupnavi_core.about import feature_catalog, about_intro
 
-APP_BUILD_VERSION = "2026.08.24-116-UX2"
+APP_BUILD_VERSION = "2026.08.24-118-RELEASE-SYNC"
 APP_VERSION = APP_BUILD_VERSION
 RELEASE_FILES_MISMATCH = CORE_APP_VERSION != APP_BUILD_VERSION
 REQUIRED_SCHEMA_VERSION = max(int(LATEST_SCHEMA_VERSION), 5)
@@ -522,7 +523,7 @@ TRANSLATIONS = {
     "sv": {},
     "en": {
         "Välj språk": "Choose language", "Turneringar": "Tournaments",
-        "Välj läge": "Choose mode", "Turneringsvy": "Tournament view",
+        "Välj läge": "Choose mode", "Turneringsvy": "Tournament view", "Om": "About",
         "Matchrapportör": "Match reporter", "Visningsläge": "Mode",
         "Aktiv turnering": "Active tournament", "Instruktioner": "Instructions",
         "Översikt": "Overview", "Kontroller": "Checks", "Lag": "Teams",
@@ -2045,6 +2046,17 @@ def inject_custom_css():
 
 
 inject_custom_css()
+
+st.markdown(
+    """<style>
+      .cn-about-hero { max-width:900px; margin:0 auto 22px; }
+      .cn-about-card { min-height:150px; background:#fff; border:1px solid #D8E2EC; border-radius:16px; padding:18px 20px; margin:0 0 14px; box-shadow:0 5px 18px rgba(15,23,42,.05); }
+      .cn-about-card .title { color:#0F172A !important; font-weight:850; font-size:18px; margin-bottom:8px; }
+      .cn-about-card .body { color:#475569 !important; line-height:1.55; }
+      @media (max-width:760px) { .cn-about-card { min-height:auto; padding:16px; } }
+    </style>""",
+    unsafe_allow_html=True,
+)
 
 
 def render_empty_state(title, body, icon="＋"):
@@ -4920,6 +4932,48 @@ def public_rules_html(tournament, rules):
     """
 
 
+def render_about_page():
+    """Publik Om-sida driven av CupNavis centrala feature-katalog."""
+    language = current_language()
+    intro = about_intro(language)
+    st.markdown("<div class='cn-about-hero'>", unsafe_allow_html=True)
+    st.title(intro["title"])
+    st.markdown(f"### {html.escape(intro['lead'])}")
+    st.caption(intro["vision"])
+    st.markdown("</div>", unsafe_allow_html=True)
+
+    labels = {
+        "organizer": "För arrangören" if language == "sv" else "For organizers",
+        "teams": "För lag och deltagare" if language == "sv" else "For teams and participants",
+        "officials": "För domare och rapportörer" if language == "sv" else "For officials and reporters",
+        "audience": "För publik" if language == "sv" else "For spectators",
+        "platform": "Plattformen" if language == "sv" else "The platform",
+    }
+    grouped = {}
+    for item in feature_catalog(language):
+        grouped.setdefault(item["category"], []).append(item)
+    for category in ("organizer", "teams", "officials", "audience", "platform"):
+        items = grouped.get(category, [])
+        if not items:
+            continue
+        st.subheader(labels[category])
+        cols = st.columns(2)
+        for index, item in enumerate(items):
+            with cols[index % 2]:
+                st.markdown(
+                    f"<div class='cn-about-card'><div class='title'>{html.escape(item['title'])}</div>"
+                    f"<div class='body'>{html.escape(item['description'])}</div></div>",
+                    unsafe_allow_html=True,
+                )
+    st.markdown("---")
+    st.markdown(
+        "**CupNavi** · " + (
+            "Byggd för att kunna växa från lokala cuper till internationella multisportturneringar." if language == "sv"
+            else "Built to grow from local tournaments to international multi-sport events."
+        )
+    )
+
+
 def render_public_view(tournament_id, tournament):
     track_public_visit(tournament_id)
     published_matches = all_rows(
@@ -6690,58 +6744,42 @@ if st.session_state.get("language") != selected_language:
 
 _install_streamlit_translation_hooks()
 st.sidebar.caption("Databas: Turso" if CLOUD_DATABASE_ENABLED else "Databas: Lokal SQLite")
+public_app_mode = str(st.query_params.get("public_only", "")).lower() in {"1", "true", "yes"}
+
 mode_options = (
-    ["Turneringsvy", "Lagportal", "Matchrapportör", "Admin"]
-    if CLOUD_DATABASE_ENABLED
-    else ["Admin", "Lagportal", "Matchrapportör", "Turneringsvy"]
+    ["Turneringsvy", "Om"]
+    if public_app_mode
+    else (["Turneringsvy", "Lagportal", "Matchrapportör", "Admin", "Om"]
+          if CLOUD_DATABASE_ENABLED
+          else ["Admin", "Lagportal", "Matchrapportör", "Turneringsvy", "Om"])
 )
 if st.session_state.get("view_mode") not in mode_options:
     st.session_state["view_mode"] = mode_options[0]
 
-# Ett gemensamt lägesval med vanliga Streamlit-knappar.
-# on_click uppdaterar state före rerun, så markering och admininloggning
-# alltid hänger ihop på första klicket.
 def _set_view_mode(mode):
     st.session_state["view_mode"] = mode
 
-st.caption(tr("Välj läge"))
-mode_col1, mode_col2, mode_col3, mode_col4 = st.columns(4)
 current_mode = st.session_state["view_mode"]
-mode_col1.button(
-    tr("Turneringsvy"),
-    key="view_mode_public_button",
-    type="primary" if current_mode == "Turneringsvy" else "secondary",
-    use_container_width=True,
-    on_click=_set_view_mode,
-    args=("Turneringsvy",),
-)
-mode_col2.button(
-    "Lagportal",
-    key="view_mode_team_portal_button",
-    type="primary" if current_mode == "Lagportal" else "secondary",
-    use_container_width=True,
-    on_click=_set_view_mode,
-    args=("Lagportal",),
-)
-mode_col3.button(
-    tr("Matchrapportör"),
-    key="view_mode_reporter_button",
-    type="primary" if current_mode == "Matchrapportör" else "secondary",
-    use_container_width=True,
-    on_click=_set_view_mode,
-    args=("Matchrapportör",),
-)
-mode_col4.button(
-    tr("Admin"),
-    key="view_mode_admin_button",
-    type="primary" if current_mode == "Admin" else "secondary",
-    use_container_width=True,
-    on_click=_set_view_mode,
-    args=("Admin",),
-)
+st.caption(tr("Välj läge"))
+if public_app_mode:
+    mode_col1, mode_col2 = st.columns(2)
+    mode_col1.button(tr("Turneringsvy"), key="view_mode_public_button", type="primary" if current_mode == "Turneringsvy" else "secondary", use_container_width=True, on_click=_set_view_mode, args=("Turneringsvy",))
+    mode_col2.button(tr("Om"), key="view_mode_about_button", type="primary" if current_mode == "Om" else "secondary", use_container_width=True, on_click=_set_view_mode, args=("Om",))
+else:
+    mode_col1, mode_col2, mode_col3, mode_col4, mode_col5 = st.columns(5)
+    mode_col1.button(tr("Turneringsvy"), key="view_mode_public_button", type="primary" if current_mode == "Turneringsvy" else "secondary", use_container_width=True, on_click=_set_view_mode, args=("Turneringsvy",))
+    mode_col2.button("Lagportal", key="view_mode_team_portal_button", type="primary" if current_mode == "Lagportal" else "secondary", use_container_width=True, on_click=_set_view_mode, args=("Lagportal",))
+    mode_col3.button(tr("Matchrapportör"), key="view_mode_reporter_button", type="primary" if current_mode == "Matchrapportör" else "secondary", use_container_width=True, on_click=_set_view_mode, args=("Matchrapportör",))
+    mode_col4.button(tr("Admin"), key="view_mode_admin_button", type="primary" if current_mode == "Admin" else "secondary", use_container_width=True, on_click=_set_view_mode, args=("Admin",))
+    mode_col5.button(tr("Om"), key="view_mode_about_button", type="primary" if current_mode == "Om" else "secondary", use_container_width=True, on_click=_set_view_mode, args=("Om",))
 view_mode = st.session_state["view_mode"]
 
-st.sidebar.caption(f"{tr('Visningsläge')}: {tr(view_mode)}")
+if not public_app_mode:
+    st.sidebar.caption(f"{tr('Visningsläge')}: {tr(view_mode)}")
+if view_mode == "Om":
+    render_about_page()
+    st.stop()
+
 if RELEASE_FILES_MISMATCH and view_mode == "Admin":
     st.sidebar.error(
         f"Ofullständig release\n\n"
