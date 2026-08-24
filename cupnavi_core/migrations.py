@@ -9,7 +9,7 @@ Regel:
 from dataclasses import dataclass
 from datetime import datetime, timezone
 
-LATEST_SCHEMA_VERSION = 9
+LATEST_SCHEMA_VERSION = 11
 
 
 @dataclass(frozen=True)
@@ -228,6 +228,38 @@ MIGRATIONS = (
             "ALTER TABLE players ADD COLUMN first_name TEXT",
             "ALTER TABLE players ADD COLUMN last_name TEXT",
             "ALTER TABLE players ADD COLUMN is_protected INTEGER NOT NULL DEFAULT 0",
+        ),
+    ),
+    Migration(
+        10,
+        "team_messaging_v108",
+        (
+            """CREATE TABLE IF NOT EXISTS team_messages (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                tournament_id INTEGER NOT NULL REFERENCES tournaments(id) ON DELETE CASCADE,
+                sender_type TEXT NOT NULL CHECK(sender_type IN ('team','organizer')),
+                sender_team_id INTEGER REFERENCES teams(id) ON DELETE CASCADE,
+                recipient_type TEXT NOT NULL CHECK(recipient_type IN ('team','organizer')),
+                recipient_team_id INTEGER REFERENCES teams(id) ON DELETE CASCADE,
+                created_at TEXT NOT NULL,
+                subject TEXT NOT NULL,
+                message TEXT NOT NULL,
+                read_at TEXT
+            )""",
+            "CREATE INDEX IF NOT EXISTS idx_team_messages_tournament_created ON team_messages(tournament_id, created_at)",
+            "CREATE INDEX IF NOT EXISTS idx_team_messages_recipient_team ON team_messages(tournament_id, recipient_type, recipient_team_id, created_at)",
+            "CREATE INDEX IF NOT EXISTS idx_team_messages_sender_team ON team_messages(tournament_id, sender_type, sender_team_id, created_at)",
+        ),
+    ),
+    Migration(
+        11,
+        "age_classes_v109",
+        (
+            "ALTER TABLE tournaments ADD COLUMN age_classes_json TEXT NOT NULL DEFAULT '[]'",
+            "ALTER TABLE teams ADD COLUMN age_class TEXT",
+            "ALTER TABLE groups ADD COLUMN age_class TEXT",
+            "CREATE INDEX IF NOT EXISTS idx_teams_tournament_age_class ON teams(tournament_id, age_class)",
+            "CREATE INDEX IF NOT EXISTS idx_groups_tournament_age_class ON groups(tournament_id, age_class)",
         ),
     ),
 )
