@@ -52,7 +52,7 @@ def test_schema_v7_adds_international_tournament_fields(tmp_path):
 
 def test_app_exposes_international_settings_without_replacing_legacy_ui():
     text = Path("app.py").read_text(encoding="utf-8")
-    assert "Internationella inställningar" in text
+    assert "Internationell grund" in text
     assert "Språk/region" in text
     assert "IANA-tidszon" in text
     assert "participant_type" in text

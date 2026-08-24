@@ -41,7 +41,7 @@ from cupnavi_core.sports import sport_definition
 from cupnavi_core.i18n import SUPPORTED_LOCALES, DEFAULT_LOCALE, DEFAULT_TIMEZONE, valid_timezone
 from cupnavi_core.lifecycle import normalize_status, status_label, is_public_status, is_editable_status, choose_unique_slug
 
-APP_BUILD_VERSION = "2026.08.24-102-LIFECYCLE-HISTORY"
+APP_BUILD_VERSION = "2026.08.24-103-LOCKED-FOUNDATION"
 APP_VERSION = APP_BUILD_VERSION
 RELEASE_FILES_MISMATCH = CORE_APP_VERSION != APP_BUILD_VERSION
 REQUIRED_SCHEMA_VERSION = max(int(LATEST_SCHEMA_VERSION), 5)
@@ -2024,9 +2024,9 @@ def render_persistent_brand():
             display:flex;
             align-items:center;
             justify-content:center;
-            min-width:240px;
-            max-width:min(420px, calc(100vw - 28px));
-            padding:10px 18px;
+            min-width:210px;
+            max-width:min(360px, calc(100vw - 28px));
+            padding:8px 14px;
             border:1px solid rgba(203, 213, 225, 0.88);
             border-radius:999px;
             background:linear-gradient(180deg, rgba(255,255,255,.98), rgba(248,250,252,.95));
@@ -2037,27 +2037,27 @@ def render_persistent_brand():
           }}
           .cn-persistent-brand img {{
             display:block;
-            width:min(100%, 320px);
+            width:min(100%, 270px);
             height:auto;
           }}
           .stApp .block-container {{
-            padding-top:5.35rem !important;
+            padding-top:4.85rem !important;
           }}
           @media (max-width:760px) {{
             .cn-persistent-brand {{
               top:8px;
               min-width:auto;
               width:calc(100vw - 18px);
-              max-width:320px;
-              padding:8px 12px;
+              max-width:280px;
+              padding:6px 10px;
               border-radius:18px;
               box-shadow:0 8px 20px rgba(15,23,42,.11);
             }}
             .cn-persistent-brand img {{
-              width:min(100%, 250px);
+              width:min(100%, 215px);
             }}
             .stApp .block-container {{
-              padding-top:4.95rem !important;
+              padding-top:4.45rem !important;
             }}
           }}
         </style>
@@ -6310,21 +6310,61 @@ if view_mode == "Admin":
         with st.form("new_tournament", clear_on_submit=True):
             n = st.text_input("Namn")
             place = st.text_input("Spelort")
-            sport = st.selectbox("Sport", list(SPORT_PROFILES), index=0, key="new_tournament_sport")
+            sport = st.selectbox(
+                "Sport",
+                list(SPORT_PROFILES),
+                index=0,
+                key="new_tournament_sport",
+                help="Sport väljs när cupen skapas och låses därefter, eftersom den styr matchmodell, terminologi och sportregler.",
+            )
+            st.markdown("##### Internationell grund")
+            create_locale = st.selectbox(
+                "Språk/region",
+                list(SUPPORTED_LOCALES),
+                index=list(SUPPORTED_LOCALES).index(DEFAULT_LOCALE) if DEFAULT_LOCALE in SUPPORTED_LOCALES else 0,
+                key="new_tournament_locale",
+                help="Väljs vid skapandet och används som cupens regionala grundinställning.",
+            )
+            create_timezone = st.text_input(
+                "Tidszon",
+                value=DEFAULT_TIMEZONE,
+                key="new_tournament_timezone",
+                help="IANA-tidszon, exempelvis Europe/Stockholm, Europe/London eller America/New_York. Låses efter skapandet.",
+            )
+            create_country = st.text_input(
+                "Landkod",
+                value="SE",
+                max_chars=2,
+                key="new_tournament_country",
+                help="Två bokstäver enligt ISO-format, exempelvis SE, GB eller US. Låses efter skapandet.",
+            ).upper().strip()
             start_date = st.date_input("Första cupdag")
             end_date = st.date_input("Sista cupdag", value=start_date)
             expected_teams = st.number_input("Planerat antal lag", 2, 500, 8)
-            st.caption("Poängregler och övriga cupinställningar görs på Adminöversikt efter att turneringen har skapats.")
+            st.caption("Sport, språk/region, tidszon och land är grundegenskaper och kan inte ändras efter att turneringen har skapats. Övriga cupregler kan justeras senare.")
             if st.form_submit_button("Skapa", type="primary", use_container_width=True):
+                normalized_timezone = valid_timezone(create_timezone)
                 if not n.strip():
                     st.error("Ange ett namn.")
                 elif end_date < start_date:
                     st.error("Sista cupdagen får inte ligga före första cupdagen.")
+                elif normalized_timezone != create_timezone.strip():
+                    st.error("Ogiltig tidszon. Använd ett IANA-namn, exempelvis Europe/Stockholm.")
+                elif create_country and (len(create_country) != 2 or not create_country.isalpha()):
+                    st.error("Landkod ska vara två bokstäver enligt ISO-format, exempelvis SE, GB eller US.")
                 else:
+                    participant_type = str(sport_definition(sport)["participant_type"])
                     new_tournament_id = run(
-                        """INSERT INTO tournaments(name,location,tournament_date,start_date,end_date,expected_team_count,points_win,points_draw,points_loss,sport,lifecycle_status)
-                        VALUES(?,?,?,?,?,?,?,?,?,?,?)""",
-                        (n.strip(), place.strip(), start_date.isoformat(), start_date.isoformat(), end_date.isoformat(), expected_teams, 3, 1, 0, sport, "draft"),
+                        """INSERT INTO tournaments(
+                               name,location,tournament_date,start_date,end_date,expected_team_count,
+                               points_win,points_draw,points_loss,sport,lifecycle_status,
+                               locale,timezone_name,participant_type,country_code
+                           ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                        (
+                            n.strip(), place.strip(), start_date.isoformat(), start_date.isoformat(), end_date.isoformat(),
+                            expected_teams, 3, 1, 0, sport, "draft", create_locale, normalized_timezone,
+                            participant_type, create_country or None,
+                        ),
                     )
                     used_slugs = [row["public_slug"] for row in all_rows("SELECT public_slug FROM tournaments WHERE public_slug IS NOT NULL")]
                     public_slug = choose_unique_slug(n.strip(), start_date.isoformat(), new_tournament_id, used_slugs)
@@ -7312,30 +7352,23 @@ elif admin_page == "Adminöversikt":
         st.warning("Välj och spara slutspelsmodell innan spelschemat kan genereras.")
     current_team_count_for_limit = one_row("SELECT COUNT(*) AS n FROM teams WHERE tournament_id=?", (tid,))["n"]
 
-    st.markdown("#### Sportprofil")
+    st.markdown("#### Sportprofil och internationell grund")
     saved_sport = _row_value(tournament, "sport", "Fotboll")
-    sport_options = list(SPORT_PROFILES)
-    selected_sport = st.selectbox(
-        "Sport", sport_options,
-        index=sport_options.index(saved_sport) if saved_sport in sport_options else 0,
-        key=f"overview_sport_{tid}",
-        help="Sportprofilen styr standardvärden och terminologi. Du kan fortfarande finjustera reglerna manuellt.",
+    selected_profile = sport_profile(saved_sport)
+    saved_locale = _row_value(tournament, "locale", DEFAULT_LOCALE)
+    saved_timezone = _row_value(tournament, "timezone_name", DEFAULT_TIMEZONE)
+    saved_country = _row_value(tournament, "country_code", "") or "Ej angivet"
+    participant_type = _row_value(tournament, "participant_type", str(sport_definition(saved_sport)["participant_type"]))
+    st.info(
+        f"**{saved_sport}** · {saved_locale} · {saved_timezone} · {saved_country}  \n"
+        "Dessa grundinställningar valdes när turneringen skapades och är låsta för att skydda matchmodell, statistik och regional tolkning."
     )
-    selected_profile = sport_profile(selected_sport)
     st.caption(
-        f"Standard: {selected_profile['halves']} {selected_profile['period_label']} × "
+        f"Sportstandard: {selected_profile['halves']} {selected_profile['period_label']} × "
         f"{selected_profile['minutes_per_half']} min · vila {selected_profile['minimum_team_rest_minutes']} min · "
-        f"resultat anges som {selected_profile['score_label']}."
+        f"resultat anges som {selected_profile['score_label']} · intern deltagartyp: {participant_type}."
     )
-    sport_col1, sport_col2 = st.columns([1, 2])
-    if sport_col1.button("Spara sport", key=f"save_sport_{tid}", use_container_width=True):
-        before = {"sport": saved_sport}
-        run("UPDATE tournaments SET sport=? WHERE id=?", (selected_sport, tid))
-        record_audit(tid, "sport_change", "tournament", f"Sport ändrad till {selected_sport}",
-                     entity_id=tid, before=before, after={"sport": selected_sport}, reversible=True)
-        add_feed_item(tid, "Sportprofil uppdaterad", selected_sport, category="Cup", public=False)
-        st.rerun()
-    if sport_col2.button("Använd sportens standardregler", key=f"apply_sport_defaults_{tid}", use_container_width=True):
+    if st.button("Återställ sportens standardregler", key=f"apply_sport_defaults_{tid}", use_container_width=True):
         before_rules = dict(overview_rules)
         run(
             """UPDATE schedule_rules SET halves=?,minutes_per_half=?,halftime_minutes=?,minimum_team_rest_minutes=?
@@ -7343,47 +7376,12 @@ elif admin_page == "Adminöversikt":
             (selected_profile["halves"], selected_profile["minutes_per_half"], selected_profile["halftime_minutes"],
              selected_profile["minimum_team_rest_minutes"], tid),
         )
-        run("UPDATE tournaments SET sport=?,schedule_dirty=1,is_published=0 WHERE id=?", (selected_sport, tid))
+        run("UPDATE tournaments SET schedule_dirty=1,is_published=0 WHERE id=?", (tid,))
         run("UPDATE matches SET schedule_published=0 WHERE tournament_id=?", (tid,))
-        record_audit(tid, "sport_defaults", "schedule_rules", f"Standardregler för {selected_sport} tillämpades",
+        record_audit(tid, "sport_defaults", "schedule_rules", f"Standardregler för {saved_sport} tillämpades",
                      entity_id=tid, before=before_rules, after=dict(selected_profile), reversible=False)
         st.session_state["overview_saved_message"] = "Sportprofilens standardregler har lagts in. Schemat behöver regenereras."
         st.rerun()
-
-    st.markdown("#### Internationella inställningar")
-    saved_locale = _row_value(tournament, "locale", DEFAULT_LOCALE)
-    locale_options = list(SUPPORTED_LOCALES)
-    intl1, intl2, intl3 = st.columns([1, 1.2, .8])
-    selected_locale = intl1.selectbox(
-        "Språk/region", locale_options,
-        index=locale_options.index(saved_locale) if saved_locale in locale_options else 0,
-        key=f"overview_locale_{tid}",
-        help="Styr språk- och formatgrund för datum, klocka och regional presentation. Fler språk kan läggas till utan att ändra domänmodellen.",
-    )
-    selected_timezone = intl2.text_input(
-        "Tidszon", value=_row_value(tournament, "timezone_name", DEFAULT_TIMEZONE),
-        key=f"overview_timezone_{tid}",
-        help="Ange en IANA-tidszon, t.ex. Europe/Stockholm, Europe/London eller America/New_York.",
-    )
-    selected_country = intl3.text_input(
-        "Landkod", value=_row_value(tournament, "country_code", ""), max_chars=2,
-        key=f"overview_country_{tid}", placeholder="SE",
-    ).upper().strip()
-    participant_type = str(sport_definition(selected_sport)["participant_type"])
-    st.caption(f"Intern deltagartyp för vald sport: {participant_type}. Detta håller kärnan oberoende av ordet lag.")
-    if st.button("Spara internationella inställningar", key=f"save_intl_{tid}", use_container_width=True):
-        normalized_timezone = valid_timezone(selected_timezone)
-        if normalized_timezone != selected_timezone.strip():
-            st.error("Ogiltig tidszon. Använd ett IANA-namn, exempelvis Europe/Stockholm.")
-        elif selected_country and (len(selected_country) != 2 or not selected_country.isalpha()):
-            st.error("Landkod ska vara två bokstäver enligt ISO-format, exempelvis SE, GB eller US.")
-        else:
-            run(
-                "UPDATE tournaments SET locale=?,timezone_name=?,participant_type=?,country_code=? WHERE id=?",
-                (selected_locale, normalized_timezone, participant_type, selected_country or None, tid),
-            )
-            st.success("Internationella inställningar sparade.")
-            st.rerun()
 
     # Slutspelsvalen ligger utanför formuläret så de reagerar direkt på användarens val.
     # Streamlit-formulär skickar annars inte widgetändringar förrän "Spara" trycks.
@@ -10627,7 +10625,7 @@ if admin_page == "Cupverktyg":
             with st.container(border=True):
                 status = " · ÅNGRAD" if audit["undone_at"] else ""
                 st.markdown(f"**{audit['created_at'].replace('T',' ')} · {audit['actor']}**{status}  \\n{audit['description']}")
-                can_undo = bool(audit["reversible"]) and not audit["undone_at"] and audit["action_type"] in {"schedule_move", "delay_shift", "sport_change"}
+                can_undo = bool(audit["reversible"]) and not audit["undone_at"] and audit["action_type"] in {"schedule_move", "delay_shift"}
                 if can_undo and st.button("Ångra denna ändring", key=f"undo_audit_{audit['id']}"):
                     before = json.loads(audit["before_json"] or "null")
                     if audit["action_type"] == "schedule_move" and isinstance(before, dict):
@@ -10638,8 +10636,6 @@ if admin_page == "Cupverktyg":
                                 con.execute("UPDATE matches SET scheduled_start=? WHERE id=?", (item.get("scheduled_start"), item.get("id")))
                             con.commit()
                         _clear_render_query_cache()
-                    elif audit["action_type"] == "sport_change" and isinstance(before, dict):
-                        run("UPDATE tournaments SET sport=? WHERE id=?", (before.get("sport") or "Fotboll", tid))
                     run("UPDATE audit_log SET undone_at=? WHERE id=?", (datetime.now().isoformat(timespec="seconds"), audit["id"]))
                     record_audit(tid, "undo", audit["entity_type"], f"Ångrade: {audit['description']}", entity_id=audit["entity_id"], actor="Admin")
                     st.rerun()
