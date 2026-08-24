@@ -32,12 +32,15 @@ from cupnavi_core.import_service import (
     TEAM_FIELDS, PLAYER_FIELDS, auto_map_columns,
     build_team_import_plan, build_player_import_plan,
 )
+from cupnavi_core.team_portal import generate_access_code, new_code_hash, verify_access_code, squad_deadline_at, squad_is_locked
 from cupnavi_core.experience import (
     SPORT_PROFILES, sport_profile, match_duration_minutes, analyze_schedule_change,
     planned_delay_updates, tournament_quality_score, playoff_preview, cup_summary,
 )
+from cupnavi_core.sports import sport_definition
+from cupnavi_core.i18n import SUPPORTED_LOCALES, DEFAULT_LOCALE, DEFAULT_TIMEZONE, valid_timezone
 
-APP_BUILD_VERSION = "2026.08.24-97-STABILITY-UX"
+APP_BUILD_VERSION = "2026.08.24-100-INTERNATIONAL-CORE"
 APP_VERSION = APP_BUILD_VERSION
 RELEASE_FILES_MISMATCH = CORE_APP_VERSION != APP_BUILD_VERSION
 REQUIRED_SCHEMA_VERSION = max(int(LATEST_SCHEMA_VERSION), 5)
@@ -486,7 +489,7 @@ TRANSLATIONS = {
         "Partners": "Partners", "Information": "Information", "Alla matcher": "All matches",
         "En grupp": "A group", "Ett lag": "A team", "En plan": "A pitch",
         "Vad vill du visa?": "What do you want to show?", "Välj grupp": "Choose group",
-        "Välj lag": "Choose team", "Välj plan": "Choose pitch", "Plan": "Pitch",
+        "Välj lag": "Choose team", "Alla lag": "All teams", "Visa alla lag": "Show all teams", "Välj plan": "Choose pitch", "Plan": "Pitch",
         "Skytteliga": "Top scorers", "Assistliga": "Assists",
         "Varningar och utvisningar": "Cards", "Praktisk information": "Practical information",
         "Cupens partners": "Tournament partners",
@@ -2379,6 +2382,78 @@ def ensure_v96_experience_schema_compat(con):
     )
 
 
+def ensure_v99_team_portal_schema_compat(con):
+    """Idempotent skydd för Lagportalens schema även vid blandade releasefiler."""
+    tournament_cols = _connection_columns(con, "tournaments")
+    team_cols = _connection_columns(con, "teams")
+    tournament_additions = {
+        "squad_deadline_minutes": "INTEGER NOT NULL DEFAULT 30",
+        "max_roster_size": "INTEGER NOT NULL DEFAULT 0",
+        "allow_team_public_contact": "INTEGER NOT NULL DEFAULT 0",
+    }
+    team_additions = {
+        "checked_in_by": "TEXT",
+        "kit_confirmed_at": "TEXT",
+        "public_contact_name": "TEXT",
+        "public_contact_phone": "TEXT",
+        "public_contact_email": "TEXT",
+        "public_contact_enabled": "INTEGER NOT NULL DEFAULT 0",
+    }
+    for name, ddl in tournament_additions.items():
+        if name not in tournament_cols:
+            con.execute(f"ALTER TABLE tournaments ADD COLUMN {name} {ddl}")
+    for name, ddl in team_additions.items():
+        if name not in team_cols:
+            con.execute(f"ALTER TABLE teams ADD COLUMN {name} {ddl}")
+    execute_script(
+        con,
+        """
+        CREATE TABLE IF NOT EXISTS participant_access_credentials (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            tournament_id INTEGER NOT NULL REFERENCES tournaments(id) ON DELETE CASCADE,
+            team_id INTEGER NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
+            code_salt TEXT NOT NULL,
+            code_hash TEXT NOT NULL,
+            created_at TEXT NOT NULL,
+            rotated_at TEXT,
+            UNIQUE(tournament_id, team_id)
+        );
+        CREATE TABLE IF NOT EXISTS match_rosters (
+            match_id INTEGER NOT NULL REFERENCES matches(id) ON DELETE CASCADE,
+            team_id INTEGER NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
+            player_id INTEGER NOT NULL REFERENCES players(id) ON DELETE CASCADE,
+            selected_at TEXT NOT NULL,
+            selected_by TEXT NOT NULL DEFAULT 'Deltagaransvarig',
+            PRIMARY KEY(match_id, team_id, player_id)
+        );
+        CREATE INDEX IF NOT EXISTS idx_participant_access_tournament_team ON participant_access_credentials(tournament_id, team_id);
+        CREATE INDEX IF NOT EXISTS idx_match_rosters_match_team ON match_rosters(match_id, team_id);
+        """,
+    )
+    con.execute(
+        "INSERT OR IGNORE INTO cupnavi_schema_migrations(version,name,applied_at) VALUES(6,?,?)",
+        ("participant_team_portal_v99", datetime.now().isoformat(timespec="seconds")),
+    )
+
+
+def ensure_v100_international_schema_compat(con):
+    """Idempotent international/multisport fields for mixed or legacy deployments."""
+    tournament_cols = _connection_columns(con, "tournaments")
+    additions = {
+        "locale": "TEXT NOT NULL DEFAULT 'sv-SE'",
+        "timezone_name": "TEXT NOT NULL DEFAULT 'Europe/Stockholm'",
+        "participant_type": "TEXT NOT NULL DEFAULT 'team'",
+        "country_code": "TEXT",
+    }
+    for name, ddl in additions.items():
+        if name not in tournament_cols:
+            con.execute(f"ALTER TABLE tournaments ADD COLUMN {name} {ddl}")
+    con.execute(
+        "INSERT OR IGNORE INTO cupnavi_schema_migrations(version,name,applied_at) VALUES(7,?,?)",
+        ("international_multisport_foundation_v100", datetime.now().isoformat(timespec="seconds")),
+    )
+
+
 @st.cache_resource(show_spinner=False)
 def init_db():
     """Initiera schema/migreringar en gång per app-process, inte en gång per besökare."""
@@ -2736,6 +2811,8 @@ def init_db():
         # V96+ måste även tåla blandade releasefiler i drift. Säkerställ därför
         # erfarenhets-/multisportschemat innan den versionsstyrda migreringen körs.
         ensure_v96_experience_schema_compat(con)
+        ensure_v99_team_portal_schema_compat(con)
+        ensure_v100_international_schema_compat(con)
 
         # Från och med Stabilisering 1.0 registreras schemaändringar versionsstyrt.
         # Den äldre bootstrap-koden ovan behålls tills alla tidigare installationer
@@ -4728,16 +4805,24 @@ def render_public_view(tournament_id, tournament):
             "⭐ Min cup – följ ett lag",
             favorite_options,
             index=favorite_index,
-            format_func=lambda team_id: "Välj lag" if team_id is None else public_team_names.get(team_id, "Lag"),
+            format_func=lambda team_id: tr("Alla lag") if team_id is None else public_team_names.get(team_id, "Lag"),
             key=f"public_favorite_team_{tournament_id}",
         )
-        if favorite_team_id and favorite_team_id != requested_team_id:
+        if favorite_team_id is not None and favorite_team_id != requested_team_id:
             if hasattr(st, "query_params"):
                 st.query_params["team"] = str(favorite_team_id)
                 st.query_params["cup"] = str(tournament_id)
             st.rerun()
+        if favorite_team_id is None and requested_team_id is not None:
+            if hasattr(st, "query_params"):
+                try:
+                    del st.query_params["team"]
+                except KeyError:
+                    pass
+                st.query_params["cup"] = str(tournament_id)
+            st.rerun()
         if requested_team_id:
-            if min_cup_col2.button("Rensa", key=f"clear_favorite_team_{tournament_id}", use_container_width=True):
+            if min_cup_col2.button(tr("Visa alla lag"), key=f"clear_favorite_team_{tournament_id}", use_container_width=True):
                 if hasattr(st, "query_params"):
                     try:
                         del st.query_params["team"]
@@ -5275,6 +5360,21 @@ def render_public_view(tournament_id, tournament):
                 if summary.get("top_scorer") and summary.get("top_scorer_score", 0) > 0:
                     st.caption(f"Toppscorer: {summary['top_scorer']} ({summary['top_scorer_team']}) – {summary['top_scorer_score']}")
 
+        public_team_contacts = []
+        if bool(_row_value(tournament, "allow_team_public_contact", 0)):
+            public_team_contacts = all_rows(
+                """SELECT name,public_contact_name,public_contact_phone,public_contact_email
+                   FROM teams WHERE tournament_id=? AND public_contact_enabled=1
+                   AND (COALESCE(public_contact_name,'')<>'' OR COALESCE(public_contact_phone,'')<>'' OR COALESCE(public_contact_email,'')<>'')
+                   ORDER BY name""",
+                (tournament_id,),
+            )
+        if public_team_contacts:
+            with st.expander("📞 Lagkontakter"):
+                for contact in public_team_contacts:
+                    bits = [x for x in (contact["public_contact_name"], contact["public_contact_phone"], contact["public_contact_email"]) if x]
+                    st.markdown(f"**{html.escape(contact['name'])}** · " + " · ".join(html.escape(str(x)) for x in bits))
+
         public_functionaries = all_rows(
             """SELECT * FROM functionaries
                WHERE tournament_id=? AND active=1 AND public_contact=1
@@ -5634,11 +5734,22 @@ def render_match_reporter_view(tournament_id, tournament):
 
             for selected_team_id in [home_team_id, away_team_id]:
                 selected_team = team(selected_team_id)
-                players = all_rows(
+                registered_match_roster = all_rows(
+                    """SELECT p.* FROM players p
+                       JOIN match_rosters mr ON mr.player_id=p.id
+                       WHERE mr.match_id=? AND mr.team_id=? AND p.team_id=?
+                       ORDER BY p.player_number,p.name""",
+                    (match_id, selected_team_id, selected_team_id),
+                )
+                players = registered_match_roster or all_rows(
                     "SELECT * FROM players WHERE team_id=? ORDER BY player_number,name",
                     (selected_team_id,),
                 )
                 st.markdown(f"#### {selected_team['name']}")
+                if registered_match_roster:
+                    st.caption(f"Matchtrupp registrerad · {len(registered_match_roster)} spelare. Endast dessa kan få matchhändelser.")
+                elif players:
+                    st.warning("Matchtrupp saknas. Alla spelare visas tills en matchtrupp registreras.")
                 if not players:
                     st.warning("Laget saknar registrerade spelare.")
                     continue
@@ -5819,6 +5930,242 @@ def render_match_reporter_view(tournament_id, tournament):
         components.html(offline_html, height=210, scrolling=False)
 
 
+def _participant_role_label(tournament):
+    sport = str(_row_value(tournament, "sport", "Fotboll") or "Fotboll")
+    return "Spelare/Paransvarig" if sport in {"Tennis", "Padel"} else "Lagledare"
+
+
+def _portal_match_label(match_row):
+    when = swedish_datetime(match_row["scheduled_start"]) if match_row["scheduled_start"] else "Tid ej satt"
+    pitch = f"Plan {match_row['pitch_number']}" if match_row["pitch_number"] else "Plan ej satt"
+    return f"{when} · {pitch} · {source_label(match_row['home_source'])} – {source_label(match_row['away_source'])}"
+
+
+def _save_match_roster(match_id, team_id, player_ids, actor="Deltagaransvarig"):
+    selected_at = datetime.now().isoformat(timespec="seconds")
+    with db() as con:
+        con.execute("DELETE FROM match_rosters WHERE match_id=? AND team_id=?", (match_id, team_id))
+        for player_id in player_ids:
+            con.execute(
+                "INSERT INTO match_rosters(match_id,team_id,player_id,selected_at,selected_by) VALUES(?,?,?,?,?)",
+                (match_id, team_id, int(player_id), selected_at, actor),
+            )
+        con.commit()
+    _clear_render_query_cache()
+
+
+def render_team_portal(tournament_id, tournament):
+    """Begränsad portal för ett enda lag/deltagare i en enda cup."""
+    role_label = _participant_role_label(tournament)
+    st.title(f"👥 {role_label} · {tournament['name']}")
+    st.caption("Portalen ger endast åtkomst till det egna laget/deltagaren. Resultat och officiella matchhändelser rapporteras av matchrapportör eller domare.")
+
+    teams = all_rows("SELECT * FROM teams WHERE tournament_id=? ORDER BY name", (tournament_id,))
+    if not teams:
+        st.info("Det finns ännu inga deltagare/lag i cupen.")
+        return
+
+    auth = st.session_state.get("participant_portal_auth") or {}
+    authenticated_team_id = auth.get("team_id") if auth.get("tournament_id") == tournament_id else None
+    valid_team_ids = {int(row["id"]) for row in teams}
+    if authenticated_team_id not in valid_team_ids:
+        authenticated_team_id = None
+
+    if not authenticated_team_id:
+        with st.form(f"participant_login_{tournament_id}"):
+            selected_team_id = st.selectbox(
+                "Välj lag/deltagare",
+                [row["id"] for row in teams],
+                format_func=lambda team_id: next(row["name"] for row in teams if row["id"] == team_id),
+            )
+            code = st.text_input("Lagkod / deltagarkod", type="password", max_chars=12)
+            submitted = st.form_submit_button("Logga in", type="primary", use_container_width=True)
+        if submitted:
+            credential = one_row(
+                "SELECT * FROM participant_access_credentials WHERE tournament_id=? AND team_id=?",
+                (tournament_id, selected_team_id),
+            )
+            if credential and verify_access_code(code, credential["code_salt"], credential["code_hash"]):
+                st.session_state["participant_portal_auth"] = {
+                    "tournament_id": int(tournament_id), "team_id": int(selected_team_id)
+                }
+                st.rerun()
+            st.error("Fel kod, eller så har laget ännu ingen kod. Kontakta cupadministratören.")
+        return
+
+    team_row = next(row for row in teams if int(row["id"]) == int(authenticated_team_id))
+    team_id = int(team_row["id"])
+    top1, top2 = st.columns([3, 1])
+    top1.success(f"Inloggad: {team_row['name']}")
+    if top2.button("Logga ut", key=f"participant_logout_{tournament_id}_{team_id}", use_container_width=True):
+        st.session_state.pop("participant_portal_auth", None)
+        st.rerun()
+
+    portal_tabs = st.tabs(["Översikt", "Trupp", "Matchtrupper", "Meddelanden"])
+
+    with portal_tabs[0]:
+        st.subheader("Lagstatus")
+        c1, c2 = st.columns(2)
+        if bool(team_row["checked_in"]):
+            c1.success(f"✅ Incheckad {team_row['checked_in_at'] or ''}" + (f" av {team_row['checked_in_by']}" if team_row["checked_in_by"] else ""))
+            if c1.button("Ta bort incheckning", key=f"portal_uncheck_{team_id}"):
+                run("UPDATE teams SET checked_in=0,checked_in_at=NULL,checked_in_by=NULL WHERE id=?", (team_id,))
+                record_audit(tournament_id, "team_checkin", "team", f"{team_row['name']}: incheckning borttagen", entity_id=team_id, actor=role_label)
+                st.rerun()
+        else:
+            checkin_name = c1.text_input("Vem checkar in laget?", placeholder="Namn", key=f"checkin_name_{team_id}")
+            if c1.button("✅ Vi är på plats", type="primary", key=f"portal_check_{team_id}", use_container_width=True):
+                run(
+                    "UPDATE teams SET checked_in=1,checked_in_at=?,checked_in_by=? WHERE id=?",
+                    (datetime.now().isoformat(timespec="seconds"), checkin_name.strip() or role_label, team_id),
+                )
+                record_audit(tournament_id, "team_checkin", "team", f"{team_row['name']}: incheckad", entity_id=team_id, actor=role_label)
+                st.rerun()
+
+        if team_row["kit_confirmed_at"]:
+            c2.success(f"👕 Matchställ bekräftade {team_row['kit_confirmed_at']}")
+        else:
+            c2.info("👕 Matchställ är ännu inte bekräftade.")
+        c2.markdown(kit_preview_html(_team_value(team_row, "home_pattern", "Helfärgad"), team_row["primary_color"], _team_value(team_row, "home_color_2", "#FFFFFF"), "Hemmaställ"), unsafe_allow_html=True)
+        c2.markdown(kit_preview_html(_team_value(team_row, "away_pattern", "Helfärgad"), team_row["secondary_color"], _team_value(team_row, "away_color_2", "#111827"), "Bortaställ"), unsafe_allow_html=True)
+        if c2.button("Bekräfta matchställ", key=f"confirm_kit_{team_id}", use_container_width=True):
+            run("UPDATE teams SET kit_confirmed_at=? WHERE id=?", (datetime.now().isoformat(timespec="seconds"), team_id))
+            record_audit(tournament_id, "kit_confirmed", "team", f"{team_row['name']}: matchställ bekräftade", entity_id=team_id, actor=role_label)
+            st.rerun()
+
+        st.subheader("Mina matcher")
+        matches = [
+            row for row in all_rows(
+                "SELECT * FROM matches WHERE tournament_id=? AND scheduled_start IS NOT NULL ORDER BY scheduled_start,pitch_number,id",
+                (tournament_id,),
+            )
+            if team_id in _match_team_ids(row)
+        ]
+        if matches:
+            for match_row in matches:
+                score = ""
+                if match_row["home_score"] is not None and match_row["away_score"] is not None:
+                    score = f" · {match_row['home_score']}–{match_row['away_score']}"
+                st.markdown(f"**{html.escape(_portal_match_label(match_row))}{score}**")
+        else:
+            st.info("Inga schemalagda matcher ännu.")
+
+        if bool(_row_value(tournament, "allow_team_public_contact", 0)):
+            st.subheader("Publik kontaktperson")
+            with st.form(f"portal_contact_{team_id}"):
+                contact_name = st.text_input("Namn", value=team_row["public_contact_name"] or "")
+                contact_phone = st.text_input("Telefon", value=team_row["public_contact_phone"] or "")
+                contact_email = st.text_input("E-post", value=team_row["public_contact_email"] or "")
+                contact_public = st.checkbox("Visa dessa kontaktuppgifter publikt", value=bool(team_row["public_contact_enabled"]))
+                if st.form_submit_button("Spara kontaktuppgifter"):
+                    run(
+                        "UPDATE teams SET public_contact_name=?,public_contact_phone=?,public_contact_email=?,public_contact_enabled=? WHERE id=?",
+                        (contact_name.strip(), contact_phone.strip(), contact_email.strip(), int(contact_public), team_id),
+                    )
+                    st.success("Kontaktuppgifterna är sparade.")
+                    st.rerun()
+
+    with portal_tabs[1]:
+        st.subheader("Hantera truppen")
+        max_roster = int(_row_value(tournament, "max_roster_size", 0) or 0)
+        players = all_rows("SELECT * FROM players WHERE team_id=? ORDER BY player_number,name", (team_id,))
+        st.caption(f"{len(players)} registrerade spelare" + (f" · max {max_roster}" if max_roster else " · ingen maxgräns satt"))
+        with st.form(f"portal_add_player_{team_id}", clear_on_submit=True):
+            pc1, pc2, pc3 = st.columns(3)
+            pname = pc1.text_input("Spelare")
+            pnumber = pc2.number_input("Nummer", 0, 999, 0)
+            pposition = pc3.text_input("Position/roll", placeholder="Frivilligt")
+            if st.form_submit_button("Lägg till spelare", type="primary", disabled=bool(max_roster and len(players) >= max_roster)):
+                if not pname.strip():
+                    st.error("Ange spelarens namn.")
+                elif max_roster and len(players) >= max_roster:
+                    st.error(f"Arrangören har satt max {max_roster} spelare.")
+                else:
+                    run("INSERT INTO players(team_id,player_number,name,position) VALUES(?,?,?,?)", (team_id, pnumber, pname.strip(), pposition.strip()))
+                    record_audit(tournament_id, "roster_player_added", "team", f"{team_row['name']}: {pname.strip()} tillagd", entity_id=team_id, actor=role_label)
+                    st.rerun()
+        for player in players:
+            with st.expander(f"#{player['player_number'] if player['player_number'] is not None else '–'} {player['name']}"):
+                with st.form(f"portal_edit_player_{player['id']}"):
+                    ec1, ec2 = st.columns(2)
+                    ename = ec1.text_input("Namn", value=player["name"])
+                    enumber = ec2.number_input("Nummer", 0, 999, int(player["player_number"] or 0))
+                    eposition = st.text_input("Position/roll", value=player["position"] or "")
+                    save_player = st.form_submit_button("Spara")
+                if save_player and ename.strip():
+                    run("UPDATE players SET name=?,player_number=?,position=? WHERE id=? AND team_id=?", (ename.strip(), enumber, eposition.strip(), player["id"], team_id))
+                    st.rerun()
+                if st.button("Ta bort spelaren", key=f"portal_delete_player_{player['id']}"):
+                    run("DELETE FROM players WHERE id=? AND team_id=?", (player["id"], team_id))
+                    record_audit(tournament_id, "roster_player_deleted", "team", f"{team_row['name']}: spelare borttagen", entity_id=team_id, actor=role_label)
+                    st.rerun()
+
+    with portal_tabs[2]:
+        st.subheader("Matchtrupper")
+        deadline_minutes = int(_row_value(tournament, "squad_deadline_minutes", 30) or 0)
+        st.caption(f"Matchtruppen låses {deadline_minutes} minuter före matchstart. Admin kan alltid ändra den.")
+        team_matches = [
+            row for row in all_rows(
+                "SELECT * FROM matches WHERE tournament_id=? AND scheduled_start IS NOT NULL ORDER BY scheduled_start,id",
+                (tournament_id,),
+            ) if team_id in _match_team_ids(row)
+        ]
+        if not team_matches:
+            st.info("Inga matcher att registrera matchtrupp för ännu.")
+        else:
+            match_id = st.selectbox("Välj match", [row["id"] for row in team_matches], format_func=lambda mid: _portal_match_label(next(row for row in team_matches if row["id"] == mid)), key=f"portal_squad_match_{team_id}")
+            match_row = next(row for row in team_matches if row["id"] == match_id)
+            locked = squad_is_locked(match_row["scheduled_start"], deadline_minutes)
+            deadline = squad_deadline_at(match_row["scheduled_start"], deadline_minutes)
+            if locked:
+                st.warning(f"Matchtruppen är låst. Deadline var {swedish_datetime(deadline.isoformat(timespec='minutes'))}.")
+            else:
+                st.info(f"Deadline: {swedish_datetime(deadline.isoformat(timespec='minutes')) if deadline else 'Ingen deadline'}")
+            players = all_rows("SELECT * FROM players WHERE team_id=? ORDER BY player_number,name", (team_id,))
+            existing_ids = {int(row["player_id"]) for row in all_rows("SELECT player_id FROM match_rosters WHERE match_id=? AND team_id=?", (match_id, team_id))}
+            options = [int(row["id"]) for row in players]
+            selected_ids = st.multiselect(
+                "Spelare i matchtruppen",
+                options,
+                default=[pid for pid in options if pid in existing_ids],
+                format_func=lambda pid: next(f"#{row['player_number'] if row['player_number'] is not None else '–'} {row['name']}" for row in players if int(row["id"]) == int(pid)),
+                disabled=locked,
+                key=f"portal_match_roster_{match_id}_{team_id}",
+            )
+            prev_with_roster = None
+            for candidate in reversed([row for row in team_matches if row["scheduled_start"] < match_row["scheduled_start"]]):
+                count = one_row("SELECT COUNT(*) AS n FROM match_rosters WHERE match_id=? AND team_id=?", (candidate["id"], team_id))
+                if count and int(count["n"] or 0) > 0:
+                    prev_with_roster = candidate
+                    break
+            bc1, bc2 = st.columns(2)
+            if bc1.button("Spara matchtrupp", type="primary", disabled=locked, key=f"save_match_roster_{match_id}_{team_id}", use_container_width=True):
+                _save_match_roster(match_id, team_id, selected_ids, role_label)
+                record_audit(tournament_id, "match_roster_saved", "match", f"{team_row['name']}: matchtrupp sparad ({len(selected_ids)} spelare)", entity_id=match_id, actor=role_label)
+                st.success("Matchtruppen är sparad.")
+                st.rerun()
+            if bc2.button("Kopiera föregående matchtrupp", disabled=locked or prev_with_roster is None, key=f"copy_match_roster_{match_id}_{team_id}", use_container_width=True):
+                previous_ids = [row["player_id"] for row in all_rows("SELECT player_id FROM match_rosters WHERE match_id=? AND team_id=?", (prev_with_roster["id"], team_id))]
+                valid_ids = {int(row["id"]) for row in players}
+                _save_match_roster(match_id, team_id, [pid for pid in previous_ids if int(pid) in valid_ids], role_label)
+                st.success("Föregående matchtrupp kopierades.")
+                st.rerun()
+            if not existing_ids:
+                st.warning("⚠️ Matchtrupp ej registrerad.")
+
+    with portal_tabs[3]:
+        st.subheader("Meddelanden för laget")
+        notifications = all_rows(
+            "SELECT * FROM notifications WHERE tournament_id=? AND (team_id=? OR team_id IS NULL) ORDER BY created_at DESC,id DESC LIMIT 100",
+            (tournament_id, team_id),
+        )
+        if not notifications:
+            st.info("Inga meddelanden ännu.")
+        for note in notifications:
+            st.markdown(f"**{html.escape(note['title'])}**  \n{html.escape(note['message'])}")
+            st.caption(note["created_at"])
+
+
 init_db()
 
 
@@ -5840,9 +6187,9 @@ if st.session_state.get("language") != selected_language:
 _install_streamlit_translation_hooks()
 st.sidebar.caption("Databas: Turso" if CLOUD_DATABASE_ENABLED else "Databas: Lokal SQLite")
 mode_options = (
-    ["Turneringsvy", "Matchrapportör", "Admin"]
+    ["Turneringsvy", "Lagportal", "Matchrapportör", "Admin"]
     if CLOUD_DATABASE_ENABLED
-    else ["Admin", "Matchrapportör", "Turneringsvy"]
+    else ["Admin", "Lagportal", "Matchrapportör", "Turneringsvy"]
 )
 if st.session_state.get("view_mode") not in mode_options:
     st.session_state["view_mode"] = mode_options[0]
@@ -5854,7 +6201,7 @@ def _set_view_mode(mode):
     st.session_state["view_mode"] = mode
 
 st.caption(tr("Välj läge"))
-mode_col1, mode_col2, mode_col3 = st.columns(3)
+mode_col1, mode_col2, mode_col3, mode_col4 = st.columns(4)
 current_mode = st.session_state["view_mode"]
 mode_col1.button(
     tr("Turneringsvy"),
@@ -5865,6 +6212,14 @@ mode_col1.button(
     args=("Turneringsvy",),
 )
 mode_col2.button(
+    "Lagportal",
+    key="view_mode_team_portal_button",
+    type="primary" if current_mode == "Lagportal" else "secondary",
+    use_container_width=True,
+    on_click=_set_view_mode,
+    args=("Lagportal",),
+)
+mode_col3.button(
     tr("Matchrapportör"),
     key="view_mode_reporter_button",
     type="primary" if current_mode == "Matchrapportör" else "secondary",
@@ -5872,7 +6227,7 @@ mode_col2.button(
     on_click=_set_view_mode,
     args=("Matchrapportör",),
 )
-mode_col3.button(
+mode_col4.button(
     tr("Admin"),
     key="view_mode_admin_button",
     type="primary" if current_mode == "Admin" else "secondary",
@@ -5926,7 +6281,7 @@ if view_mode == "Admin":
                     add_feed_item(new_tournament_id, f"{n.strip()} skapad", f"Sport: {sport}", category="Cup")
                     st.rerun()
 
-if view_mode in ("Admin", "Matchrapportör"):
+if view_mode in ("Admin", "Matchrapportör", "Lagportal"):
     tournaments = all_rows("SELECT * FROM tournaments ORDER BY COALESCE(start_date,tournament_date) DESC,name")
 else:
     tournaments = all_rows("SELECT * FROM tournaments WHERE is_published=1 ORDER BY COALESCE(start_date,tournament_date) DESC,name")
@@ -5941,6 +6296,8 @@ if not tournaments:
         st.info("Skapa den första turneringen i vänstermenyn.")
     elif view_mode == "Matchrapportör":
         st.info("Det finns ingen turnering att rapportera ännu.")
+    elif view_mode == "Lagportal":
+        st.info("Det finns ingen turnering med registrerade lag ännu.")
     else:
         st.info("Ingen turnering är publicerad ännu.")
     st.stop()
@@ -5960,6 +6317,10 @@ tid = st.sidebar.selectbox(
     format_func=lambda x: next(t["name"] for t in tournaments if t["id"] == x),
 )
 tournament = next(t for t in tournaments if t["id"] == tid)
+
+if view_mode == "Lagportal":
+    render_team_portal(tid, tournament)
+    st.stop()
 
 if view_mode == "Matchrapportör":
     render_match_reporter_view(tid, tournament)
@@ -6864,6 +7225,41 @@ elif admin_page == "Adminöversikt":
         st.session_state["overview_saved_message"] = "Sportprofilens standardregler har lagts in. Schemat behöver regenereras."
         st.rerun()
 
+    st.markdown("#### Internationella inställningar")
+    saved_locale = _row_value(tournament, "locale", DEFAULT_LOCALE)
+    locale_options = list(SUPPORTED_LOCALES)
+    intl1, intl2, intl3 = st.columns([1, 1.2, .8])
+    selected_locale = intl1.selectbox(
+        "Språk/region", locale_options,
+        index=locale_options.index(saved_locale) if saved_locale in locale_options else 0,
+        key=f"overview_locale_{tid}",
+        help="Styr språk- och formatgrund för datum, klocka och regional presentation. Fler språk kan läggas till utan att ändra domänmodellen.",
+    )
+    selected_timezone = intl2.text_input(
+        "Tidszon", value=_row_value(tournament, "timezone_name", DEFAULT_TIMEZONE),
+        key=f"overview_timezone_{tid}",
+        help="Ange en IANA-tidszon, t.ex. Europe/Stockholm, Europe/London eller America/New_York.",
+    )
+    selected_country = intl3.text_input(
+        "Landkod", value=_row_value(tournament, "country_code", ""), max_chars=2,
+        key=f"overview_country_{tid}", placeholder="SE",
+    ).upper().strip()
+    participant_type = str(sport_definition(selected_sport)["participant_type"])
+    st.caption(f"Intern deltagartyp för vald sport: {participant_type}. Detta håller kärnan oberoende av ordet lag.")
+    if st.button("Spara internationella inställningar", key=f"save_intl_{tid}", use_container_width=True):
+        normalized_timezone = valid_timezone(selected_timezone)
+        if normalized_timezone != selected_timezone.strip():
+            st.error("Ogiltig tidszon. Använd ett IANA-namn, exempelvis Europe/Stockholm.")
+        elif selected_country and (len(selected_country) != 2 or not selected_country.isalpha()):
+            st.error("Landkod ska vara två bokstäver enligt ISO-format, exempelvis SE, GB eller US.")
+        else:
+            run(
+                "UPDATE tournaments SET locale=?,timezone_name=?,participant_type=?,country_code=? WHERE id=?",
+                (selected_locale, normalized_timezone, participant_type, selected_country or None, tid),
+            )
+            st.success("Internationella inställningar sparade.")
+            st.rerun()
+
     # Slutspelsvalen ligger utanför formuläret så de reagerar direkt på användarens val.
     # Streamlit-formulär skickar annars inte widgetändringar förrän "Spara" trycks.
     st.markdown("#### Slutspelsmodell och avgörande")
@@ -7754,8 +8150,8 @@ if admin_page == "Lag":
                         continue
                     changed += 1
                     con.execute(
-                        "UPDATE teams SET checked_in=?,checked_in_at=? WHERE id=?",
-                        (new_value, now_iso if new_value else None, team_id),
+                        "UPDATE teams SET checked_in=?,checked_in_at=?,checked_in_by=? WHERE id=?",
+                        (new_value, now_iso if new_value else None, "Admin" if new_value else None, team_id),
                     )
                 con.commit()
             if changed:
@@ -7771,6 +8167,35 @@ if admin_page == "Lag":
                 st.rerun()
             else:
                 st.info("Inga ändringar att spara.")
+
+        st.divider()
+        st.subheader("🔐 Lagportal – koder")
+        st.caption("Varje lag får en unik kod. Koden visas endast när den skapas eller återställs; CupNavi lagrar bara en saltad hash.")
+        access_team_id = st.selectbox(
+            "Lag för portalåtkomst",
+            [row["id"] for row in teams],
+            format_func=lambda selected_id: next(row["name"] for row in teams if row["id"] == selected_id),
+            key=f"portal_access_team_{tid}",
+        )
+        credential = one_row("SELECT id FROM participant_access_credentials WHERE tournament_id=? AND team_id=?", (tid, access_team_id))
+        st.caption("Kod skapad" if credential else "Ingen kod skapad ännu")
+        if st.button("Skapa ny kod" if not credential else "Återställ och skapa ny kod", key=f"generate_portal_code_{tid}_{access_team_id}", type="primary"):
+            plain_code = generate_access_code()
+            salt, code_hash = new_code_hash(plain_code)
+            now_iso = datetime.now().isoformat(timespec="seconds")
+            run(
+                """INSERT INTO participant_access_credentials(tournament_id,team_id,code_salt,code_hash,created_at,rotated_at)
+                   VALUES(?,?,?,?,?,NULL)
+                   ON CONFLICT(tournament_id,team_id) DO UPDATE SET code_salt=excluded.code_salt,code_hash=excluded.code_hash,rotated_at=excluded.created_at""",
+                (tid, access_team_id, salt, code_hash, now_iso),
+            )
+            st.session_state[f"new_portal_code_{tid}_{access_team_id}"] = plain_code
+            record_audit(tid, "participant_code_rotated", "team", "Ny portal-kod skapad", entity_id=access_team_id, actor="Admin")
+            st.rerun()
+        generated_code = st.session_state.get(f"new_portal_code_{tid}_{access_team_id}")
+        if generated_code:
+            st.success(f"Ny lagkod: **{generated_code}**")
+            st.caption("Kopiera koden nu och skicka den till lagledaren. Den kan inte visas igen efter att sidan laddats om.")
 
     st.divider()
     st.markdown(
@@ -7835,7 +8260,7 @@ if admin_page == "Lag":
                         run(
                             """UPDATE teams SET
                                 name=?,primary_color=?,secondary_color=?,home_pattern=?,home_color_2=?,away_pattern=?,away_color_2=?,
-                                distance_km=?,late_first_match=?,earliest_first_time=?,travel_note=? WHERE id=?""",
+                                distance_km=?,late_first_match=?,earliest_first_time=?,travel_note=?,kit_confirmed_at=NULL WHERE id=?""",
                             (edited_name.strip(), edited_primary, edited_secondary,
                              edited_home_pattern, edited_home_color_2, edited_away_pattern, edited_away_color_2,
                              edited_distance, int(edited_late_first), edited_earliest.strftime("%H:%M") if edited_late_first else None,
@@ -7964,7 +8389,16 @@ if admin_page == "Grupper":
 
 if admin_page == "Trupper":
     st.header("Trupper")
-    st.caption("Registrera spelare och truppuppgifter för respektive lag.")
+    st.caption("Registrera spelare och truppuppgifter för respektive lag. Här styr du också reglerna för lagens egna trupp- och matchtruppsregistrering.")
+    with st.expander("⚙️ Regler för Lagportal och matchtrupper", expanded=False):
+        rc1, rc2 = st.columns(2)
+        portal_max_roster = rc1.number_input("Max spelare i truppen (0 = ingen gräns)", 0, 200, int(_row_value(tournament, "max_roster_size", 0) or 0), key=f"max_roster_{tid}")
+        portal_deadline = rc2.number_input("Matchtrupp låses minuter före match", 0, 1440, int(_row_value(tournament, "squad_deadline_minutes", 30) or 30), key=f"squad_deadline_{tid}")
+        portal_public_contact = st.checkbox("Tillåt lagledare/deltagaransvarig att ange en publik kontaktperson", value=bool(_row_value(tournament, "allow_team_public_contact", 0)), key=f"allow_public_contact_{tid}")
+        if st.button("Spara portalregler", key=f"save_portal_rules_{tid}", type="primary"):
+            run("UPDATE tournaments SET max_roster_size=?,squad_deadline_minutes=?,allow_team_public_contact=? WHERE id=?", (portal_max_roster, portal_deadline, int(portal_public_contact), tid))
+            st.success("Portalreglerna är sparade.")
+            st.rerun()
     teams = all_rows("SELECT * FROM teams WHERE tournament_id=? ORDER BY name", (tid,))
     if not teams:
         st.info("Lägg först till ett lag.")
@@ -7983,6 +8417,32 @@ if admin_page == "Trupper":
                 st.error("Ange spelarens namn.")
         players = all_rows("SELECT * FROM players WHERE team_id=? ORDER BY player_number,name", (team_id,))
         render_centered_table(pd.DataFrame([{"Nr": p["player_number"], "Spelare": p["name"], "Födelseår": p["birth_year"], "Position": p["position"]} for p in players]))
+
+        st.markdown("#### Matchtrupper – admin")
+        admin_team_matches = [
+            row for row in all_rows("SELECT * FROM matches WHERE tournament_id=? AND scheduled_start IS NOT NULL ORDER BY scheduled_start,id", (tid,))
+            if team_id in _match_team_ids(row)
+        ]
+        if not admin_team_matches:
+            st.info("Laget har ännu inga schemalagda matcher.")
+        elif not players:
+            st.info("Lägg till spelare innan matchtrupp kan registreras.")
+        else:
+            admin_match_id = st.selectbox("Välj match för matchtrupp", [row["id"] for row in admin_team_matches], format_func=lambda mid: _portal_match_label(next(row for row in admin_team_matches if row["id"] == mid)), key=f"admin_squad_match_{team_id}")
+            existing_admin_squad = {int(row["player_id"]) for row in all_rows("SELECT player_id FROM match_rosters WHERE match_id=? AND team_id=?", (admin_match_id, team_id))}
+            admin_player_ids = [int(row["id"]) for row in players]
+            admin_selected = st.multiselect(
+                "Spelare i matchtruppen",
+                admin_player_ids,
+                default=[pid for pid in admin_player_ids if pid in existing_admin_squad],
+                format_func=lambda pid: next(f"#{row['player_number'] if row['player_number'] is not None else '–'} {row['name']}" for row in players if int(row["id"]) == int(pid)),
+                key=f"admin_match_roster_{admin_match_id}_{team_id}",
+            )
+            if st.button("Spara matchtrupp som admin", key=f"admin_save_squad_{admin_match_id}_{team_id}", type="primary"):
+                _save_match_roster(admin_match_id, team_id, admin_selected, "Admin")
+                record_audit(tid, "match_roster_saved", "match", f"Admin sparade matchtrupp för {next(row['name'] for row in teams if row['id'] == team_id)}", entity_id=admin_match_id, actor="Admin")
+                st.success("Matchtruppen är sparad. Admin kan ändra även efter deadline.")
+                st.rerun()
 
 
 if admin_page == "Domare":

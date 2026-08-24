@@ -11,102 +11,16 @@ from datetime import datetime, timedelta
 from typing import Callable, Iterable, Mapping, Sequence
 
 
-SPORT_PROFILES = {
-    "Fotboll": {
-        "period_label": "halvlekar",
-        "score_label": "mål",
-        "halves": 2,
-        "minutes_per_half": 20,
-        "halftime_minutes": 5,
-        "minimum_team_rest_minutes": 45,
-        "cards": True,
-        "assists": True,
-    },
-    "Innebandy": {
-        "period_label": "perioder",
-        "score_label": "mål",
-        "halves": 3,
-        "minutes_per_half": 15,
-        "halftime_minutes": 5,
-        "minimum_team_rest_minutes": 45,
-        "cards": False,
-        "assists": True,
-    },
-    "Handboll": {
-        "period_label": "halvlekar",
-        "score_label": "mål",
-        "halves": 2,
-        "minutes_per_half": 20,
-        "halftime_minutes": 5,
-        "minimum_team_rest_minutes": 45,
-        "cards": True,
-        "assists": False,
-    },
-    "Ishockey": {
-        "period_label": "perioder",
-        "score_label": "mål",
-        "halves": 3,
-        "minutes_per_half": 15,
-        "halftime_minutes": 5,
-        "minimum_team_rest_minutes": 60,
-        "cards": False,
-        "assists": True,
-    },
-    "Basket": {
-        "period_label": "perioder",
-        "score_label": "poäng",
-        "halves": 4,
-        "minutes_per_half": 10,
-        "halftime_minutes": 3,
-        "minimum_team_rest_minutes": 45,
-        "cards": False,
-        "assists": False,
-    },
-    "Volleyboll": {
-        "period_label": "set",
-        "score_label": "set",
-        "halves": 3,
-        "minutes_per_half": 20,
-        "halftime_minutes": 3,
-        "minimum_team_rest_minutes": 45,
-        "cards": False,
-        "assists": False,
-    },
-    "Tennis": {
-        "period_label": "set",
-        "score_label": "set",
-        "halves": 3,
-        "minutes_per_half": 30,
-        "halftime_minutes": 2,
-        "minimum_team_rest_minutes": 60,
-        "cards": False,
-        "assists": False,
-    },
-    "Padel": {
-        "period_label": "set",
-        "score_label": "set",
-        "halves": 3,
-        "minutes_per_half": 25,
-        "halftime_minutes": 2,
-        "minimum_team_rest_minutes": 45,
-        "cards": False,
-        "assists": False,
-    },
-    "Annan": {
-        "period_label": "perioder",
-        "score_label": "poäng",
-        "halves": 2,
-        "minutes_per_half": 20,
-        "halftime_minutes": 5,
-        "minimum_team_rest_minutes": 45,
-        "cards": False,
-        "assists": False,
-    },
-}
+from .sports import SPORTS, legacy_profile
+
+
+# Backward-compatible display-keyed catalogue. New domain code should use
+# cupnavi_core.sports and canonical language-independent sport IDs.
+SPORT_PROFILES = {sport["sv"]: legacy_profile(sport_id) for sport_id, sport in SPORTS.items()}
 
 
 def sport_profile(name: str | None) -> Mapping[str, object]:
-    return SPORT_PROFILES.get(str(name or "Fotboll"), SPORT_PROFILES["Annan"])
+    return legacy_profile(name)
 
 
 def match_duration_minutes(rules: Mapping[str, object] | None) -> int:
@@ -291,9 +205,32 @@ def tournament_quality_score(
     return max(0, min(100, score)), findings
 
 
-def playoff_preview(group_tables: Mapping[str, Sequence[Mapping[str, object]]], playoff_format: str) -> list[str]:
-    """Human-readable projection based on current standings, not a promise of final seeding."""
-    group_tables = {name: [dict(row) for row in rows] for name, rows in group_tables.items()}
+def playoff_preview(group_tables: Mapping[str, Sequence[object]], playoff_format: str) -> list[str]:
+    """Human-readable projection based on current standings, not a promise of final seeding.
+
+    ``calculate_table`` in the Streamlit app returns ``(team_id, stats)`` tuples,
+    while callers/tests may also provide plain mapping rows. Normalize both shapes
+    here so the public playoff preview cannot crash merely because the table's
+    internal representation changes.
+    """
+    normalized_tables: dict[str, list[dict]] = {}
+    for name, rows in group_tables.items():
+        normalized_rows: list[dict] = []
+        for row in rows:
+            if isinstance(row, Mapping):
+                normalized_rows.append(dict(row))
+                continue
+            if (
+                isinstance(row, (tuple, list))
+                and len(row) >= 2
+                and isinstance(row[1], Mapping)
+            ):
+                normalized_rows.append(dict(row[1]))
+                continue
+            # Unknown row shapes should not take down the whole public page.
+            # They are ignored because a preview is informational only.
+        normalized_tables[str(name)] = normalized_rows
+    group_tables = normalized_tables
     fmt = str(playoff_format or "")
     if not group_tables or fmt == "Inget slutspel":
         return []

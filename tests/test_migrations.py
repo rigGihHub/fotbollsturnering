@@ -40,7 +40,7 @@ def test_migrations_reach_latest_version():
     con = sqlite3.connect(":memory:")
     _legacy_schema(con)
     applied = apply_migrations(con)
-    assert applied == [1, 2, 3, 4, 5]
+    assert applied == [1, 2, 3, 4, 5, 6, 7]
     assert current_schema_version(con) == LATEST_SCHEMA_VERSION
 
 

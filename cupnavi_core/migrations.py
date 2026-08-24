@@ -9,7 +9,7 @@ Regel:
 from dataclasses import dataclass
 from datetime import datetime, timezone
 
-LATEST_SCHEMA_VERSION = 5
+LATEST_SCHEMA_VERSION = 7
 
 
 @dataclass(frozen=True)
@@ -157,6 +157,51 @@ MIGRATIONS = (
             "CREATE INDEX IF NOT EXISTS idx_notifications_tournament_team ON notifications(tournament_id, team_id, created_at)",
             "CREATE INDEX IF NOT EXISTS idx_venue_points_tournament ON venue_points(tournament_id, sort_order)",
             "CREATE INDEX IF NOT EXISTS idx_ref_ack_tournament_referee ON referee_acknowledgements(tournament_id, referee_id)",
+        ),
+    ),
+    Migration(
+        6,
+        "participant_team_portal_v99",
+        (
+            "ALTER TABLE tournaments ADD COLUMN squad_deadline_minutes INTEGER NOT NULL DEFAULT 30",
+            "ALTER TABLE tournaments ADD COLUMN max_roster_size INTEGER NOT NULL DEFAULT 0",
+            "ALTER TABLE tournaments ADD COLUMN allow_team_public_contact INTEGER NOT NULL DEFAULT 0",
+            "ALTER TABLE teams ADD COLUMN checked_in_by TEXT",
+            "ALTER TABLE teams ADD COLUMN kit_confirmed_at TEXT",
+            "ALTER TABLE teams ADD COLUMN public_contact_name TEXT",
+            "ALTER TABLE teams ADD COLUMN public_contact_phone TEXT",
+            "ALTER TABLE teams ADD COLUMN public_contact_email TEXT",
+            "ALTER TABLE teams ADD COLUMN public_contact_enabled INTEGER NOT NULL DEFAULT 0",
+            """CREATE TABLE IF NOT EXISTS participant_access_credentials (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                tournament_id INTEGER NOT NULL REFERENCES tournaments(id) ON DELETE CASCADE,
+                team_id INTEGER NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
+                code_salt TEXT NOT NULL,
+                code_hash TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                rotated_at TEXT,
+                UNIQUE(tournament_id, team_id)
+            )""",
+            """CREATE TABLE IF NOT EXISTS match_rosters (
+                match_id INTEGER NOT NULL REFERENCES matches(id) ON DELETE CASCADE,
+                team_id INTEGER NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
+                player_id INTEGER NOT NULL REFERENCES players(id) ON DELETE CASCADE,
+                selected_at TEXT NOT NULL,
+                selected_by TEXT NOT NULL DEFAULT 'Deltagaransvarig',
+                PRIMARY KEY(match_id, team_id, player_id)
+            )""",
+            "CREATE INDEX IF NOT EXISTS idx_participant_access_tournament_team ON participant_access_credentials(tournament_id, team_id)",
+            "CREATE INDEX IF NOT EXISTS idx_match_rosters_match_team ON match_rosters(match_id, team_id)",
+        ),
+    ),
+    Migration(
+        7,
+        "international_multisport_foundation_v100",
+        (
+            "ALTER TABLE tournaments ADD COLUMN locale TEXT NOT NULL DEFAULT 'sv-SE'",
+            "ALTER TABLE tournaments ADD COLUMN timezone_name TEXT NOT NULL DEFAULT 'Europe/Stockholm'",
+            "ALTER TABLE tournaments ADD COLUMN participant_type TEXT NOT NULL DEFAULT 'team'",
+            "ALTER TABLE tournaments ADD COLUMN country_code TEXT",
         ),
     ),
 )
