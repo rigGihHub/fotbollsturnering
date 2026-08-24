@@ -6,11 +6,11 @@ def app_text():
 def test_public_share_contains_qr_share_panel():
     text = app_text()
     start = text.index("def render_public_view(")
-    block = text[start:start+22000]
+    block = text[start:text.index("def render_match_reporter_view(", start)]
     assert "share_qr = qr_png_bytes(share_url)" in block
-    assert "cn-share-inline-qr" in block
-    assert "loading='lazy'" in block
-    assert "popover='auto'" in block
+    assert "qr_png_bytes(share_url)" in block
+    assert "if st.session_state[share_visible_key]:" in block
+    assert "qr_col1.image(share_qr" in block
     assert 'tr("Dela länken eller QR-koden till den här cupen.")' in block
 
 def test_qr_can_share_png_file():

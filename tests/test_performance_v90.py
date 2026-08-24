@@ -29,9 +29,10 @@ def test_public_view_renders_only_selected_main_page():
 def test_share_qr_uses_cached_generator_and_single_share_entry():
     block = public_block()
     assert "share_qr = qr_png_bytes(share_url)" in block
-    assert "popovertarget=" in block
+    assert "cn_share_visible_" in block
+    assert "if st.session_state[share_visible_key]:" in block
     assert "public_share_open_" not in block
-    assert "loading='lazy'" in block
+    assert block.index('share_qr = qr_png_bytes(share_url)') > block.index('if st.session_state[share_visible_key]:')
 
 def test_weather_is_opt_in():
     block = public_block()

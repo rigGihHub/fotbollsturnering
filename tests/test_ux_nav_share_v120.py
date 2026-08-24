@@ -7,9 +7,11 @@ def app_text():
 
 def test_share_expands_in_place_without_navigation():
     text = app_text()
-    assert "popovertarget=" in text
-    assert "class='cn-fixed-share-button'" in text
-    assert "popover='auto'" in text
+    assert "cn_share_visible_" in text
+    assert "cn_share_panel_" in text
+    assert 'cn_share_button_' in text
+    assert "popover='auto'" not in text
+    assert "popovertarget=" not in text
     assert "share=1#cn-share-section" not in text
     assert "share_requested =" not in text
 

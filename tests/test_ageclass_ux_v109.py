@@ -26,10 +26,11 @@ def test_public_version_badge_not_rendered_before_public_view():
 
 def test_share_button_is_fixed_beside_brand():
     text = app_text()
-    assert '.cn-fixed-share-button {{position:fixed;' in text
-    assert 'left:calc(50% + 185px)' in text
-    assert "popovertarget=" in text
-    assert 'cn-share-inline-panel' in text
+    assert '[class*="st-key-cn_share_toggle_"] {' in text
+    assert 'left:calc(50% + 184px)' in text
+    assert 'cn_share_button_' in text
+    assert 'cn_share_panel_' in text
+    assert 'popovertarget=' not in text
 
 
 def test_input_instruction_is_hidden_and_weekday_helpers_exist():
@@ -41,11 +42,11 @@ def test_input_instruction_is_hidden_and_weekday_helpers_exist():
 
 def test_age_classes_are_modeled_and_filtered():
     text = app_text()
-    assert 'Åldersklasser i turneringen' in text
-    assert '"Åldersklass"' in text
-    assert 'age_classes_json' in text
+    assert 'Tävlingsklasser i turneringen' in text
+    assert '"Tävlingsklass"' in text
+    assert 'competition_classes' in text
     assert 'eligible_groups = [g for g in groups' in text
-    assert 'filter_mode == "Åldersklass"' in text
+    assert 'filter_mode == "Tävlingsklass"' in text
 
 
 def test_schema_v11_adds_age_class_fields():

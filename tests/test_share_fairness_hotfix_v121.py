@@ -5,16 +5,18 @@ def app_text():
     return Path("app.py").read_text(encoding="utf-8")
 
 
-def test_share_uses_same_page_light_dismiss_popover():
+def test_share_uses_same_page_native_toggle_panel():
     text = app_text()
     start = text.index("# En enda delningsingång bredvid logotypen.")
     block = text[start:text.index("with st.container(border=True):", start)]
-    assert "popovertarget=" in block
-    assert "popover='auto'" in block
+    assert "cn_share_visible_" in block
+    assert "cn_share_button_" in block
+    assert "cn_share_panel_" in block
+    assert "if st.session_state[share_visible_key]:" in block
     assert "target='_blank'" not in block
-    assert "<details class='cn-fixed-share'>" not in block
-    assert "share=1#cn-share-section" not in block
-    assert "loading='lazy'" in block
+    assert "popovertarget=" not in block
+    assert "popover='auto'" not in block
+    assert "share_qr = qr_png_bytes(share_url)" in block
 
 
 def test_fairness_query_uses_robust_full_match_rows_and_cannot_crash_admin():

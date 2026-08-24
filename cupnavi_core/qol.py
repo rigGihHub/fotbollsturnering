@@ -61,7 +61,7 @@ def clone_tournament_payload(source: dict, *, name: str, start_date: str, end_da
         "playoff_format", "bronze_match", "arena_address", "kiosk_information",
         "public_information", "organizer_phone", "feedback_email", "instagram_url",
         "table_tiebreak", "playoff_tie_rule", "extra_time_minutes", "sport",
-        "locale", "timezone_name", "participant_type", "country_code",
+        "locale", "timezone_name", "participant_type", "country_code", "enable_team_checkin",
     )
     payload = {key: source.get(key) for key in keys}
     payload.update({

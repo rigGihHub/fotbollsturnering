@@ -9,7 +9,7 @@ Regel:
 from dataclasses import dataclass
 from datetime import datetime, timezone
 
-LATEST_SCHEMA_VERSION = 12
+LATEST_SCHEMA_VERSION = 14
 
 
 @dataclass(frozen=True)
@@ -300,6 +300,47 @@ MIGRATIONS = (
             "CREATE INDEX IF NOT EXISTS idx_control_incidents_tournament_status ON control_incidents(tournament_id, status, created_at)",
         ),
     ),
+    Migration(
+        13,
+        "optional_team_checkin_v123",
+        (
+            "ALTER TABLE tournaments ADD COLUMN enable_team_checkin INTEGER NOT NULL DEFAULT 1",
+        ),
+    ),
+    Migration(
+        14,
+        "competition_classes_v124",
+        (
+            """CREATE TABLE IF NOT EXISTS competition_classes (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                tournament_id INTEGER NOT NULL REFERENCES tournaments(id) ON DELETE CASCADE,
+                name TEXT NOT NULL,
+                sort_order INTEGER NOT NULL DEFAULT 0,
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(tournament_id, name)
+            )""",
+            "ALTER TABLE teams ADD COLUMN competition_class_id INTEGER REFERENCES competition_classes(id) ON DELETE SET NULL",
+            "ALTER TABLE groups ADD COLUMN competition_class_id INTEGER REFERENCES competition_classes(id) ON DELETE SET NULL",
+            "CREATE INDEX IF NOT EXISTS idx_competition_classes_tournament_order ON competition_classes(tournament_id, sort_order, name)",
+            "CREATE INDEX IF NOT EXISTS idx_teams_competition_class ON teams(tournament_id, competition_class_id)",
+            "CREATE INDEX IF NOT EXISTS idx_groups_competition_class ON groups(tournament_id, competition_class_id)",
+            """INSERT OR IGNORE INTO competition_classes(tournament_id,name,sort_order)
+                SELECT DISTINCT tournament_id, TRIM(age_class), 0 FROM teams
+                WHERE age_class IS NOT NULL AND TRIM(age_class)<>''""",
+            """INSERT OR IGNORE INTO competition_classes(tournament_id,name,sort_order)
+                SELECT DISTINCT tournament_id, TRIM(age_class), 0 FROM groups
+                WHERE age_class IS NOT NULL AND TRIM(age_class)<>''""",
+            """UPDATE teams SET competition_class_id=(
+                SELECT cc.id FROM competition_classes cc
+                WHERE cc.tournament_id=teams.tournament_id AND cc.name=TRIM(teams.age_class) LIMIT 1
+            ) WHERE age_class IS NOT NULL AND TRIM(age_class)<>'' AND competition_class_id IS NULL""",
+            """UPDATE groups SET competition_class_id=(
+                SELECT cc.id FROM competition_classes cc
+                WHERE cc.tournament_id=groups.tournament_id AND cc.name=TRIM(groups.age_class) LIMIT 1
+            ) WHERE age_class IS NOT NULL AND TRIM(age_class)<>'' AND competition_class_id IS NULL""",
+        ),
+    ),
+
 )
 
 

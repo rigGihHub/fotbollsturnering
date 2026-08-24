@@ -21,14 +21,13 @@ def test_public_view_renders_share_controls():
     text = app_text()
     start = text.index("def render_public_view(")
     public_block = text[start:text.index("init_db()", start)]
-    assert "cn-share-inline-panel" in public_block
+    assert "cn_share_panel_" in public_block
     assert "WhatsApp" in public_block
     assert "mailto:?subject=" in public_block
     assert "sms:?&body=" in public_block
     assert "public_share_toggle_" not in public_block
 
-def test_admin_qr_panel_also_has_share_controls():
+def test_admin_legacy_qr_panel_is_removed():
     text = app_text()
-    start = text.index('with st.expander("Dela cupen med QR-kod"')
-    block = text[start:start+1200]
-    assert 'render_share_panel(tid, tournament["name"])' in block
+    assert 'with st.expander("Dela cupen med QR-kod"' not in text
+    assert "Delning sköts via den integrerade Dela cupen-knappen" in text
