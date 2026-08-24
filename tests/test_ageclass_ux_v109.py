@@ -26,8 +26,9 @@ def test_public_version_badge_not_rendered_before_public_view():
 def test_share_button_is_fixed_beside_brand():
     text = app_text()
     assert '.cn-fixed-share {{position:fixed;' in text
-    assert 'left:calc(50% + 190px)' in text
-    assert 'share=1' in text
+    assert 'left:calc(50% + 185px)' in text
+    assert "<a class='cn-fixed-share" in text
+    assert 'share=1#cn-share-section' in text
 
 
 def test_input_instruction_is_hidden_and_weekday_helpers_exist():
@@ -47,7 +48,7 @@ def test_age_classes_are_modeled_and_filtered():
 
 
 def test_schema_v11_adds_age_class_fields():
-    assert LATEST_SCHEMA_VERSION == 11
+    assert LATEST_SCHEMA_VERSION >= 11
     con = sqlite3.connect(':memory:')
     con.executescript('''
         CREATE TABLE tournaments(id INTEGER PRIMARY KEY);

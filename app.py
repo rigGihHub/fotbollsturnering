@@ -43,8 +43,9 @@ from cupnavi_core.schedule_optimizer import optimize_match_order, ortools_availa
 from cupnavi_core.i18n import SUPPORTED_LOCALES, DEFAULT_LOCALE, DEFAULT_TIMEZONE, valid_timezone
 from cupnavi_core.lifecycle import normalize_status, status_label, is_public_status, is_editable_status, choose_unique_slug
 from cupnavi_core.qol import TOURNAMENT_TEMPLATES, template_definition, clone_tournament_payload, checklist_items, admin_mode
+from cupnavi_core.fairness import fairness_report
 
-APP_BUILD_VERSION = "2026.08.24-110-TESTDATA-QA"
+APP_BUILD_VERSION = "2026.08.24-112-CONTROL-ACCESSIBILITY"
 APP_VERSION = APP_BUILD_VERSION
 RELEASE_FILES_MISMATCH = CORE_APP_VERSION != APP_BUILD_VERSION
 REQUIRED_SCHEMA_VERSION = max(int(LATEST_SCHEMA_VERSION), 5)
@@ -5010,19 +5011,25 @@ def render_public_view(tournament_id, tournament):
     if requested_team_id not in public_team_names:
         requested_team_id = None
 
-    share_href = public_cup_url(tournament_id) + ("&" if "?" in public_cup_url(tournament_id) else "?") + "share=1"
+    # En enda delningsingång bredvid logotypen. Den använder samma sida och
+    # öppnar en inbäddad delningsyta längre ned i publikvyn, inte popup/native share.
+    share_url = public_cup_url(tournament_id)
+    share_requested = bool(hasattr(st, "query_params") and str(st.query_params.get("share", "")) == "1")
+    share_href = share_url + ("&" if "?" in share_url else "?") + "share=1#cn-share-section"
     st.markdown(
         f"""<style>
-        .cn-fixed-share {{position:fixed;top:17px;left:calc(50% + 190px);z-index:999998;
-          display:inline-flex;align-items:center;gap:7px;padding:9px 14px;border:1px solid #cbd5e1;
-          border-radius:999px;background:rgba(255,255,255,.96);color:#0f172a !important;text-decoration:none !important;
-          font-weight:750;box-shadow:0 8px 22px rgba(15,23,42,.08);backdrop-filter:blur(10px);}}
-        .cn-fixed-share:hover {{background:#f8fafc;border-color:#94a3b8;}}
-        @media(max-width:760px) {{.cn-fixed-share {{top:13px;left:auto;right:9px;padding:8px 10px;font-size:0;}} .cn-fixed-share::after {{content:'📤';font-size:17px;}}}}
-        </style><a class='cn-fixed-share' href='{html.escape(share_href, quote=True)}'>📤 {html.escape(tr("Dela cupen"))}</a>""",
+        .cn-fixed-share {{position:fixed;top:17px;left:calc(50% + 185px);z-index:999998;
+          display:inline-flex;align-items:center;gap:7px;padding:9px 14px;border:1px solid #d7e0e8;
+          border-radius:999px;background:rgba(255,255,255,.97);color:#172033 !important;text-decoration:none !important;
+          font-weight:780;box-shadow:0 8px 22px rgba(15,23,42,.07);backdrop-filter:blur(10px);}}
+        .cn-fixed-share:hover {{background:#f8fafc;border-color:#aebdca;}}
+        .cn-fixed-share.is-open {{border-color:#86b99a;background:#f4fbf6;color:#14532d !important;}}
+        @media(max-width:760px) {{.cn-fixed-share {{top:13px;left:auto;right:9px;padding:8px 10px;font-size:0;}}
+          .cn-fixed-share .cn-share-icon {{font-size:17px;}}}}
+        </style><a class='cn-fixed-share {"is-open" if share_requested else ""}' href='{html.escape(share_href, quote=True)}'>
+          <span class='cn-share-icon'>📤</span><span>{html.escape(tr("Dela cupen"))}</span></a>""",
         unsafe_allow_html=True,
     )
-
     with st.container(border=True):
         min_cup_col1, min_cup_col2 = st.columns([3, 1])
         favorite_options = [None] + [row["id"] for row in public_teams]
@@ -5078,21 +5085,54 @@ def render_public_view(tournament_id, tournament):
                         st.caption(note["created_at"].replace("T", " "))
             st.caption("Tips: bokmärk den här sidan så öppnas CupNavi med ditt lag valt nästa gång.")
 
-    share_state_key = f"public_share_open_{tournament_id}"
-    share_requested = bool(hasattr(st, "query_params") and str(st.query_params.get("share", "")) == "1")
-    share_is_open = bool(st.session_state.get(share_state_key, False) or share_requested)
-    if st.button(
-        ("✕ " + tr("Dölj delning")) if share_is_open else ("📤 " + tr("Dela cupen")),
-        key=f"public_share_toggle_{tournament_id}",
-    ):
-        share_is_open = not share_is_open
-        st.session_state[share_state_key] = share_is_open
-
+    share_is_open = share_requested
     if share_is_open:
-        with st.container(border=True):
-            st.caption(tr("Dela länken eller QR-koden till den här cupen."))
-            render_share_panel(tournament_id, tournament["name"])
-            render_qr_share_panel(tournament_id, tournament["name"])
+        share_text = f"{tr('Följ cupen')}: {tournament['name']} – {share_url}"
+        share_qr = qr_png_bytes(share_url)
+        share_qr_b64 = base64.b64encode(share_qr).decode("ascii") if share_qr else ""
+        whatsapp_href = "https://wa.me/?text=" + quote(share_text)
+        email_href = "mailto:?subject=" + quote(f"CupNavi – {tournament['name']}") + "&body=" + quote(share_text)
+        sms_href = "sms:?&body=" + quote(share_text)
+        qr_html = (
+            f"<img class='cn-integrated-share-qr' src='data:image/png;base64,{share_qr_b64}' alt='QR-kod'>"
+            if share_qr_b64 else ""
+        )
+        st.markdown(
+            f"""<div id='cn-share-section' class='cn-integrated-share'>
+              <div class='cn-integrated-share-copy'>
+                <div class='cn-integrated-share-title'>📤 {html.escape(tr("Dela cupen"))}</div>
+                <div class='cn-integrated-share-help'>{html.escape(tr("Dela länken eller QR-koden till den här cupen."))}</div>
+                <div class='cn-integrated-share-url'>{html.escape(share_url)}</div>
+                <div class='cn-integrated-share-actions'>
+                  <a href='{html.escape(whatsapp_href, quote=True)}'>WhatsApp</a>
+                  <a href='{html.escape(email_href, quote=True)}'>{html.escape(tr("E-post"))}</a>
+                  <a href='{html.escape(sms_href, quote=True)}'>SMS</a>
+                </div>
+              </div>
+              <div class='cn-integrated-share-qrwrap'>{qr_html}</div>
+            </div>""",
+            unsafe_allow_html=True,
+        )
+        st.markdown(
+            """<style>
+            .cn-integrated-share{display:grid;grid-template-columns:minmax(0,1fr) 145px;gap:18px;align-items:center;
+              margin:12px 0 18px;padding:16px 18px;border:1px solid #dbe4ea;border-radius:16px;
+              background:linear-gradient(180deg,#ffffff,#f8fbf9);box-shadow:0 8px 24px rgba(15,23,42,.06)}
+            .cn-integrated-share-title{font-size:16px;font-weight:850;color:#172033;margin-bottom:4px}
+            .cn-integrated-share-help{font-size:13px;color:#64748b;margin-bottom:10px}
+            .cn-integrated-share-url{padding:9px 10px;border:1px solid #dbe4ea;border-radius:10px;background:#f8fafc;
+              font-size:11px;color:#475569;overflow-wrap:anywhere}
+            .cn-integrated-share-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+            .cn-integrated-share-actions a{display:inline-flex;align-items:center;justify-content:center;min-height:36px;padding:6px 11px;
+              border:1px solid #d5dee6;border-radius:10px;background:#fff;color:#243447!important;text-decoration:none!important;
+              font-size:12px;font-weight:750}
+            .cn-integrated-share-actions a:hover{background:#f4f8f5;border-color:#9fb9a8}
+            .cn-integrated-share-qr{display:block;width:125px;height:125px;object-fit:contain;border:1px solid #e2e8f0;
+              border-radius:10px;background:#fff;padding:4px;margin:auto}
+            @media(max-width:620px){.cn-integrated-share{grid-template-columns:1fr}.cn-integrated-share-qrwrap{order:-1}}
+            </style>""",
+            unsafe_allow_html=True,
+        )
 
     public_page_key = f"public_page_v92_{tournament_id}"
     if public_page_key not in st.session_state:
@@ -5437,9 +5477,15 @@ def render_public_view(tournament_id, tournament):
         _render_public_match_cards(match_list, show_results=None, show_weather=show_match_weather)
 
     if public_page == "Statistik":
+        _has_toplists = any([
+            bool(_row_value(tournament, "enable_scorer_leaderboard", 1)),
+            bool(_row_value(tournament, "enable_assist_leaderboard", 1)),
+            bool(_row_value(tournament, "enable_card_statistics", 1)),
+        ])
+        _stats_options = [tr("Tabeller")] + ([tr("Topplistor")] if _has_toplists else []) + [tr("Slutspel")]
         stats_section = st.segmented_control(
             tr("Statistik"),
-            [tr("Tabeller"), tr("Topplistor"), tr("Slutspel")],
+            _stats_options,
             default=tr("Tabeller"),
             key=f"public_stats_section_{tournament_id}",
         ) or tr("Tabeller")
@@ -5466,39 +5512,42 @@ def render_public_view(tournament_id, tournament):
                 """,
                 (tournament_id,),
             )
-            st.subheader(tr("Skytteliga"))
-            goal_rows = [r for r in sorted(rows, key=lambda r: (-r["goals"], -r["assists"], r["player_name"].lower())) if int(r["goals"] or 0) > 0]
-            if goal_rows:
-                render_centered_table(pd.DataFrame([{"Pl": i, "Spelare": r["player_name"], "Lag": r["team_name"], "Mål": r["goals"]} for i, r in enumerate(goal_rows, 1)]))
-            else:
-                st.info(tr("Inga målskyttar har registrerats."))
-            st.subheader(tr("Assistliga"))
-            assist_rows = [r for r in sorted(rows, key=lambda r: (-r["assists"], -r["goals"], r["player_name"].lower())) if int(r["assists"] or 0) > 0]
-            if assist_rows:
-                render_centered_table(pd.DataFrame([{"Pl": i, "Spelare": r["player_name"], "Lag": r["team_name"], "Assist": r["assists"]} for i, r in enumerate(assist_rows, 1)]))
-            else:
-                st.info(tr("Inga assist har registrerats."))
+            if bool(_row_value(tournament, "enable_scorer_leaderboard", 1)):
+                st.subheader(tr("Skytteliga"))
+                goal_rows = [r for r in sorted(rows, key=lambda r: (-r["goals"], -r["assists"], r["player_name"].lower())) if int(r["goals"] or 0) > 0]
+                if goal_rows:
+                    render_centered_table(pd.DataFrame([{"Pl": i, "Spelare": r["player_name"], "Lag": r["team_name"], "Mål": r["goals"]} for i, r in enumerate(goal_rows, 1)]))
+                else:
+                    st.info(tr("Inga målskyttar har registrerats."))
+            if bool(_row_value(tournament, "enable_assist_leaderboard", 1)):
+                st.subheader(tr("Assistliga"))
+                assist_rows = [r for r in sorted(rows, key=lambda r: (-r["assists"], -r["goals"], r["player_name"].lower())) if int(r["assists"] or 0) > 0]
+                if assist_rows:
+                    render_centered_table(pd.DataFrame([{"Pl": i, "Spelare": r["player_name"], "Lag": r["team_name"], "Assist": r["assists"]} for i, r in enumerate(assist_rows, 1)]))
+                else:
+                    st.info(tr("Inga assist har registrerats."))
 
-            st.subheader(tr("Kortstatistik"))
-            card_rows = [
+            if bool(_row_value(tournament, "enable_card_statistics", 1)):
+                st.subheader(tr("Kortstatistik"))
+                card_rows = [
                 r for r in sorted(
                     rows,
                     key=lambda r: (-(int(r["yellow_cards"] or 0) + int(r["red_cards"] or 0)), -int(r["red_cards"] or 0), r["player_name"].lower()),
                 )
                 if int(r["yellow_cards"] or 0) > 0 or int(r["red_cards"] or 0) > 0
             ]
-            if card_rows:
-                render_centered_table(pd.DataFrame([
-                    {
-                        "Spelare": r["player_name"],
-                        "Lag": r["team_name"],
-                        "Gula": int(r["yellow_cards"] or 0),
-                        "Röda": int(r["red_cards"] or 0),
-                    }
-                    for r in card_rows
-                ]))
-            else:
-                st.info(tr("Inga kort har registrerats."))
+                if card_rows:
+                    render_centered_table(pd.DataFrame([
+                        {
+                            "Spelare": r["player_name"],
+                            "Lag": r["team_name"],
+                            "Gula": int(r["yellow_cards"] or 0),
+                            "Röda": int(r["red_cards"] or 0),
+                        }
+                        for r in card_rows
+                    ]))
+                else:
+                    st.info(tr("Inga kort har registrerats."))
 
         if stats_section == tr("Slutspel"):
             forecast_groups = all_rows("SELECT * FROM groups WHERE tournament_id=? ORDER BY name", (tournament_id,))
@@ -5566,6 +5615,16 @@ def render_public_view(tournament_id, tournament):
             st.markdown("<div class='cn-practical-info-card'>" + "".join(practical_rows) + "</div>", unsafe_allow_html=True)
         else:
             st.info(tr("Ingen praktisk information har publicerats ännu."))
+
+        if bool(_row_value(tournament, "enable_medical_info", 0)) and (_row_value(tournament, "medical_info", "") or "").strip():
+            st.markdown("### 🩹 Medicinsk beredskap")
+            st.markdown(f"<div class='cn-custom-info-card'>{html.escape(_row_value(tournament, 'medical_info', '')).replace(chr(10), '<br>')}</div>", unsafe_allow_html=True)
+        if bool(_row_value(tournament, "enable_lost_found", 0)) and (_row_value(tournament, "lost_found_info", "") or "").strip():
+            st.markdown("### 🧳 Lost & found / hittegods")
+            st.markdown(f"<div class='cn-custom-info-card'>{html.escape(_row_value(tournament, 'lost_found_info', '')).replace(chr(10), '<br>')}</div>", unsafe_allow_html=True)
+        if bool(_row_value(tournament, "enable_accessibility_info", 0)) and (_row_value(tournament, "accessibility_info", "") or "").strip():
+            st.markdown("### ♿ Tillgänglighet")
+            st.markdown(f"<div class='cn-custom-info-card'>{html.escape(_row_value(tournament, 'accessibility_info', '')).replace(chr(10), '<br>')}</div>", unsafe_allow_html=True)
 
         venue_rows = all_rows(
             """SELECT * FROM venue_points WHERE tournament_id=? ORDER BY sort_order,id""",
@@ -6021,12 +6080,17 @@ def render_match_reporter_view(tournament_id, tournament):
                     for player in players
                 ])
 
+                reporter_columns = ["Nr", "Spelare", "Mål"]
+                if bool(_row_value(tournament, "enable_assist_leaderboard", 1)):
+                    reporter_columns.append("Assist")
+                if bool(_row_value(tournament, "enable_card_statistics", 1)):
+                    reporter_columns.extend(["Varningar", "Utvisningar"])
                 edited = st.data_editor(
                     data,
                     hide_index=True,
                     use_container_width=True,
                     disabled=["player_id", "Nr", "Spelare"],
-                    column_order=["Nr", "Spelare", "Mål", "Assist", "Varningar", "Utvisningar"],
+                    column_order=reporter_columns,
                     column_config={
                         "Mål": st.column_config.NumberColumn(min_value=0, step=1),
                         "Assist": st.column_config.NumberColumn(min_value=0, step=1),
@@ -6810,6 +6874,20 @@ tid = st.sidebar.selectbox(
 )
 tournament = next(t for t in tournaments if t["id"] == tid)
 tournament_lifecycle = normalize_status(tournament["lifecycle_status"], is_published=bool(tournament["is_published"]))
+
+with st.sidebar.expander("♿ Tillgänglighet", expanded=False):
+    a11y_high_contrast = st.toggle("Hög kontrast", value=bool(st.session_state.get("a11y_high_contrast", False)), key="a11y_high_contrast")
+    a11y_large_text = st.toggle("Större text", value=bool(st.session_state.get("a11y_large_text", False)), key="a11y_large_text")
+    st.caption("CupNavi använder text + symboler, stora klickytor och tydliga fokusmarkeringar så färg aldrig är enda informationsbäraren.")
+
+_a11y_css = []
+if a11y_high_contrast:
+    _a11y_css.append(".stApp{--cup-ink:#000!important;--cup-border:#475569!important;--cup-border-strong:#111827!important;} .stApp a{text-decoration:underline!important;} button{border-width:2px!important;}")
+if a11y_large_text:
+    _a11y_css.append(".stApp{font-size:1.08rem!important;} .stApp p,.stApp label,.stApp input,.stApp textarea,.stApp button{font-size:1.02rem!important;}")
+_a11y_css.append("button,[role='button'],input,select,textarea{min-height:44px;} :focus-visible{outline:3px solid #2563EB!important;outline-offset:2px!important;} .cn-sr-only{position:absolute!important;width:1px!important;height:1px!important;padding:0!important;margin:-1px!important;overflow:hidden!important;clip:rect(0,0,0,0)!important;white-space:nowrap!important;border:0!important;}")
+if _a11y_css:
+    st.markdown("<style>" + "".join(_a11y_css) + "</style><div class='cn-sr-only' role='status' aria-live='polite'>CupNavi är redo. Navigation och formulär kan användas med tangentbord och skärmläsare.</div>", unsafe_allow_html=True)
 
 if view_mode == "Lagportal":
     render_team_portal(tid, tournament)
@@ -7803,6 +7881,51 @@ elif admin_page == "Adminöversikt":
     ])
     st.markdown(f"<div class='cn-workflow'>{workflow_html}</div>", unsafe_allow_html=True)
 
+    fairness_matches = all_rows("SELECT home_team_id,away_team_id,scheduled_start,pitch_number FROM matches WHERE tournament_id=? AND scheduled_start IS NOT NULL ORDER BY scheduled_start", (tid,))
+    fairness = fairness_report(fairness_matches)
+    with st.expander(f"⚖️ Fairness · {fairness['score']}/100", expanded=False):
+        st.progress(int(fairness["score"]) / 100)
+        st.caption("Fairness analyserar bland annat skillnader i vila, tidiga/sena matcher och byten av plan/spelplats. Poängen är rådgivande – sportspecifika regler gäller alltid först.")
+        for finding in fairness["findings"]:
+            st.write(f"• {finding}")
+
+    if bool(_row_value(tournament, "enable_control_center", 0)):
+        st.markdown("### 🎛️ Cup Control Center")
+        control_matches = all_rows("SELECT * FROM matches WHERE tournament_id=? AND scheduled_start IS NOT NULL ORDER BY scheduled_start", (tid,))
+        now_dt = datetime.now()
+        missing_refs = sum(1 for m in control_matches if m["referee_id"] is None and m["home_score"] is None)
+        unplayed = sum(1 for m in control_matches if m["home_score"] is None or m["away_score"] is None)
+        unchecked = one_row("SELECT COUNT(*) AS n FROM teams WHERE tournament_id=? AND COALESCE(checked_in,0)=0", (tid,))["n"]
+        open_incidents = all_rows("SELECT * FROM control_incidents WHERE tournament_id=? AND status='open' ORDER BY created_at DESC", (tid,))
+        cc1, cc2, cc3, cc4 = st.columns(4)
+        cc1.metric("Matcher kvar", unplayed)
+        cc2.metric("Ej incheckade", unchecked)
+        cc3.metric("Domare saknas", missing_refs)
+        cc4.metric("Öppna incidenter", len(open_incidents))
+        with st.expander("Rapportera incident / avvikelse", expanded=False):
+            with st.form(f"control_incident_{tid}", clear_on_submit=True):
+                ic1, ic2 = st.columns(2)
+                incident_category = ic1.selectbox("Kategori", ["Försening", "Plan/spelplats", "Domare", "Lag/deltagare", "Medicinskt", "Säkerhet", "Övrigt"])
+                incident_severity = ic2.selectbox("Prioritet", ["info", "warning", "critical"], format_func=lambda x: {"info":"Info", "warning":"Varning", "critical":"Kritisk"}[x])
+                incident_title = st.text_input("Rubrik")
+                incident_detail = st.text_area("Beskrivning")
+                if st.form_submit_button("Registrera incident", type="primary", use_container_width=True):
+                    if not incident_title.strip():
+                        st.error("Ange en rubrik.")
+                    else:
+                        run("INSERT INTO control_incidents(tournament_id,created_at,category,severity,title,detail,status) VALUES(?,?,?,?,?,?,'open')", (tid, datetime.now().isoformat(timespec='seconds'), incident_category, incident_severity, incident_title.strip(), incident_detail.strip() or None))
+                        st.rerun()
+        if open_incidents:
+            for incident in open_incidents:
+                icon = {"critical":"🔴", "warning":"🟠", "info":"🔵"}.get(incident["severity"], "🔵")
+                with st.container(border=True):
+                    st.markdown(f"**{icon} {html.escape(incident['title'])}** · {html.escape(incident['category'])}")
+                    if incident["detail"]:
+                        st.write(incident["detail"])
+                    if st.button("Markera löst", key=f"resolve_incident_{incident['id']}"):
+                        run("UPDATE control_incidents SET status='resolved',resolved_at=? WHERE id=? AND tournament_id=?", (datetime.now().isoformat(timespec='seconds'), incident["id"], tid))
+                        st.rerun()
+
     # Tydlig rekommendation om nästa arbetssteg.
     if not teams_ready:
         next_step_title = "Nästa steg: registrera lag"
@@ -8006,6 +8129,19 @@ elif admin_page == "Adminöversikt":
             help="Ange användarnamn eller länk. Visas publikt som en knapp för att följa cupen.",
         )
 
+        st.markdown("#### Valbara funktioner")
+        feature_col1, feature_col2 = st.columns(2)
+        edited_control_center = feature_col1.checkbox("Cup Control Center", value=bool(_row_value(tournament, "enable_control_center", 0)), help="Visar en operativ cupdagsvy med incidenter, förseningar och snabbstatus.")
+        edited_scorers = feature_col1.checkbox("Skytteliga", value=bool(_row_value(tournament, "enable_scorer_leaderboard", 1)))
+        edited_assists = feature_col1.checkbox("Assistliga", value=bool(_row_value(tournament, "enable_assist_leaderboard", 1)))
+        edited_cards = feature_col1.checkbox("Gula/röda kort och kortstatistik", value=bool(_row_value(tournament, "enable_card_statistics", 1)))
+        edited_medical = feature_col2.checkbox("Medicinsk beredskap på infosidan", value=bool(_row_value(tournament, "enable_medical_info", 0)))
+        edited_lost_found = feature_col2.checkbox("Lost & found / hittegods på infosidan", value=bool(_row_value(tournament, "enable_lost_found", 0)))
+        edited_accessibility_info = feature_col2.checkbox("Tillgänglighetsinfo på infosidan", value=bool(_row_value(tournament, "enable_accessibility_info", 0)))
+        edited_medical_info = st.text_area("Medicinsk beredskap", value=_row_value(tournament, "medical_info", "") or "", disabled=not edited_medical, placeholder="Exempel: Sjukvårdare finns vid sekretariatet. Hjärtstartare finns i entréhallen.")
+        edited_lost_found_info = st.text_area("Lost & found / hittegods", value=_row_value(tournament, "lost_found_info", "") or "", disabled=not edited_lost_found, placeholder="Exempel: Hittegods lämnas och hämtas i sekretariatet.")
+        edited_accessibility_text = st.text_area("Tillgänglighet för besökare", value=_row_value(tournament, "accessibility_info", "") or "", disabled=not edited_accessibility_info, placeholder="Exempel: Tillgänglig entré, RWC och reserverade parkeringsplatser finns vid huvudentrén.")
+
         st.markdown("#### Poängregler och tabell")
         bp1, bp2, bp3 = st.columns(3)
         edited_win = bp1.number_input("Poäng för vinst", 0, 10, int(tournament["points_win"]))
@@ -8080,7 +8216,9 @@ elif admin_page == "Adminöversikt":
                     con.execute(
                         """UPDATE tournaments SET name=?,location=?,tournament_date=?,start_date=?,end_date=?,expected_team_count=?,
                         points_win=?,points_draw=?,points_loss=?,playoff_format=?,bronze_match=?,arena_address=?,kiosk_available=?,
-                        kiosk_information=?,public_information=?,organizer_phone=?,feedback_email=?,instagram_url=?,table_tiebreak=?,playoff_tie_rule=?,extra_time_minutes=?,playoff_model_confirmed=1
+                        kiosk_information=?,public_information=?,organizer_phone=?,feedback_email=?,instagram_url=?,table_tiebreak=?,playoff_tie_rule=?,extra_time_minutes=?,playoff_model_confirmed=1,
+                        enable_control_center=?,enable_scorer_leaderboard=?,enable_assist_leaderboard=?,enable_card_statistics=?,
+                        enable_medical_info=?,medical_info=?,enable_lost_found=?,lost_found_info=?,enable_accessibility_info=?,accessibility_info=?
                         WHERE id=?""",
                         (edited_name.strip(), edited_location.strip(), edited_start.isoformat(), edited_start.isoformat(), edited_end.isoformat(),
                          edited_expected, edited_win, edited_draw, edited_loss, edited_format, int(edited_bronze), edited_address.strip(),
@@ -8088,7 +8226,9 @@ elif admin_page == "Adminöversikt":
                          edited_organizer_phone.strip(), edited_feedback_email.strip(), edited_instagram.strip(), edited_tiebreak,
                          edited_tie_rule if edited_format != "Inget slutspel" else "Straffar direkt",
                          edited_extra_time if edited_format != "Inget slutspel" and edited_tie_rule == "Förlängning + straffar" else 0,
-                         tid),
+                         int(edited_control_center), int(edited_scorers), int(edited_assists), int(edited_cards),
+                         int(edited_medical), edited_medical_info.strip(), int(edited_lost_found), edited_lost_found_info.strip(),
+                         int(edited_accessibility_info), edited_accessibility_text.strip(), tid),
                     )
                     con.execute(
                         """UPDATE schedule_rules SET first_match_time=?,halves=?,minutes_per_half=?,halftime_minutes=?,pitch_break_minutes=?,
@@ -10263,12 +10403,17 @@ if admin_page == "Matchhändelser":
                 }
                 for p in players
             ])
+            admin_event_columns = ["Nr", "Spelare", "Mål"]
+            if bool(_row_value(tournament, "enable_assist_leaderboard", 1)):
+                admin_event_columns.append("Assist")
+            if bool(_row_value(tournament, "enable_card_statistics", 1)):
+                admin_event_columns.extend(["Varningar", "Utvisningar"])
             edited = st.data_editor(
                 data,
                 hide_index=True,
                 use_container_width=True,
                 disabled=["player_id", "Nr", "Spelare"],
-                column_order=["Nr", "Spelare", "Mål", "Assist", "Varningar", "Utvisningar"],
+                column_order=admin_event_columns,
                 column_config={
                     "Mål": st.column_config.NumberColumn(min_value=0, step=1),
                     "Assist": st.column_config.NumberColumn(min_value=0, step=1),
@@ -10709,6 +10854,42 @@ if admin_page == "Funktionärer":
                     st.rerun()
     else:
         st.info("Inga funktionärer är registrerade ännu.")
+
+    st.divider()
+    st.subheader("📅 Funktionärsschema")
+    if not fn_rows:
+        st.caption("Lägg först till minst en funktionär för att skapa arbetspass.")
+    else:
+        fn_by_id = {row["id"]: row for row in fn_rows}
+        with st.form(f"new_functionary_shift_{tid}", clear_on_submit=True):
+            sc1, sc2 = st.columns(2)
+            shift_functionary = sc1.selectbox("Funktionär", list(fn_by_id), format_func=lambda x: f"{fn_by_id[x]['name']} · {fn_by_id[x]['role']}")
+            shift_date = sc2.date_input("Datum", value=saved_start if 'saved_start' in locals() else datetime.now().date())
+            st.caption(f"📅 {date_with_weekday(shift_date)}")
+            st1, st2 = st.columns(2)
+            shift_start_time = st1.time_input("Start", value=datetime.strptime("08:00", "%H:%M").time())
+            shift_end_time = st2.time_input("Slut", value=datetime.strptime("12:00", "%H:%M").time())
+            shift_assignment = st.text_input("Uppdrag", placeholder="Exempel: Planvärd, sekretariat eller kiosk")
+            shift_location = st.text_input("Plats", placeholder="Exempel: Plan 2 eller huvudentrén")
+            if st.form_submit_button("Lägg till arbetspass", type="primary", use_container_width=True):
+                start_dt = datetime.combine(shift_date, shift_start_time)
+                end_dt = datetime.combine(shift_date, shift_end_time)
+                if end_dt <= start_dt:
+                    st.error("Sluttiden måste ligga efter starttiden.")
+                else:
+                    run("INSERT INTO functionary_shifts(tournament_id,functionary_id,shift_start,shift_end,assignment,location) VALUES(?,?,?,?,?,?)", (tid, shift_functionary, start_dt.isoformat(timespec='minutes'), end_dt.isoformat(timespec='minutes'), shift_assignment.strip() or None, shift_location.strip() or None))
+                    st.rerun()
+        shift_rows = all_rows("SELECT fs.*, f.name, f.role FROM functionary_shifts fs JOIN functionaries f ON f.id=fs.functionary_id WHERE fs.tournament_id=? ORDER BY fs.shift_start,f.name", (tid,))
+        if shift_rows:
+            render_centered_table(pd.DataFrame([{
+                "Datum": date_with_weekday(datetime.fromisoformat(r["shift_start"]).date()),
+                "Tid": f"{datetime.fromisoformat(r['shift_start']).strftime('%H:%M')}–{datetime.fromisoformat(r['shift_end']).strftime('%H:%M')}",
+                "Funktionär": r["name"], "Roll": r["role"], "Uppdrag": r["assignment"] or "", "Plats": r["location"] or ""
+            } for r in shift_rows]))
+            shift_delete = st.selectbox("Ta bort arbetspass", [0] + [r["id"] for r in shift_rows], format_func=lambda x: "Välj arbetspass" if x == 0 else next(f"{r['name']} · {r['shift_start'].replace('T',' ')}" for r in shift_rows if r['id']==x), key=f"delete_shift_select_{tid}")
+            if st.button("Ta bort valt arbetspass", disabled=not shift_delete, key=f"delete_shift_{tid}"):
+                run("DELETE FROM functionary_shifts WHERE id=? AND tournament_id=?", (shift_delete, tid))
+                st.rerun()
 
 
 if admin_page == "Erbjudanden":
@@ -11542,50 +11723,52 @@ if admin_page == "Tabeller":
 
 
 if admin_page == "Skytteligor":
-    st.header("Skytteligor")
-    st.caption("Här visas skytteliga, assistliga och kortstatistik utifrån registrerade matchhändelser.")
-    st.subheader(tr("Skytteliga"))
-    leaders = all_rows(
-        """
-        SELECT players.name AS player_name, teams.name AS team_name,
-               SUM(player_match_stats.goals) AS goals,
-               SUM(player_match_stats.assists) AS assists,
-               SUM(player_match_stats.yellow_cards) AS yellow_cards,
-               SUM(player_match_stats.red_cards) AS red_cards
-        FROM player_match_stats
-        JOIN players ON players.id=player_match_stats.player_id
-        JOIN teams ON teams.id=players.team_id
-        JOIN matches ON matches.id=player_match_stats.match_id
-        WHERE matches.tournament_id=?
-        GROUP BY players.id, players.name, teams.name
-        HAVING goals > 0 OR assists > 0 OR yellow_cards > 0 OR red_cards > 0
-        """,
-        (tid,),
-    )
-    goal_rows = [
-        r for r in sorted(leaders, key=lambda r: (-r["goals"], -r["assists"], r["player_name"].lower()))
-        if int(r["goals"] or 0) > 0
-    ]
-    if goal_rows:
-        render_centered_table(pd.DataFrame([{"Pl": i, "Spelare": r["player_name"], "Lag": r["team_name"], "Mål": r["goals"]} for i, r in enumerate(goal_rows, 1)]))
+    st.header("Statistiktopplistor")
+    enabled_scorers = bool(_row_value(tournament, "enable_scorer_leaderboard", 1))
+    enabled_assists = bool(_row_value(tournament, "enable_assist_leaderboard", 1))
+    enabled_cards = bool(_row_value(tournament, "enable_card_statistics", 1))
+    if not any([enabled_scorers, enabled_assists, enabled_cards]):
+        st.info("Topplistor och kortstatistik är avstängda för den här turneringen. Aktivera önskade delar på Adminöversikten.")
     else:
-        st.info("Inga målskyttar har registrerats.")
-    st.subheader(tr("Assistliga"))
-    assist_rows = [
-        r for r in sorted(leaders, key=lambda r: (-r["assists"], -r["goals"], r["player_name"].lower()))
-        if int(r["assists"] or 0) > 0
-    ]
-    if assist_rows:
-        render_centered_table(pd.DataFrame([{"Pl": i, "Spelare": r["player_name"], "Lag": r["team_name"], "Assist": r["assists"]} for i, r in enumerate(assist_rows, 1)]))
-    else:
-        st.info("Inga assist har registrerats.")
-    st.subheader("Varningar och utvisningar")
-    card_rows = sorted(leaders, key=lambda r: (-r["red_cards"], -r["yellow_cards"], r["player_name"].lower()))
-    card_rows = [r for r in card_rows if r["yellow_cards"] or r["red_cards"]]
-    if card_rows:
-        render_centered_table(pd.DataFrame([{"Spelare": r["player_name"], "Lag": r["team_name"], "Varningar": r["yellow_cards"], "Utvisningar": r["red_cards"]} for r in card_rows]))
-    else:
-        st.info("Inga varningar eller utvisningar har registrerats.")
+        leaders = all_rows(
+            """
+            SELECT players.name AS player_name, teams.name AS team_name,
+                   SUM(player_match_stats.goals) AS goals,
+                   SUM(player_match_stats.assists) AS assists,
+                   SUM(player_match_stats.yellow_cards) AS yellow_cards,
+                   SUM(player_match_stats.red_cards) AS red_cards
+            FROM player_match_stats
+            JOIN players ON players.id=player_match_stats.player_id
+            JOIN teams ON teams.id=players.team_id
+            JOIN matches ON matches.id=player_match_stats.match_id
+            WHERE matches.tournament_id=?
+            GROUP BY players.id, players.name, teams.name
+            HAVING goals > 0 OR assists > 0 OR yellow_cards > 0 OR red_cards > 0
+            """,
+            (tid,),
+        )
+        if enabled_scorers:
+            st.subheader(tr("Skytteliga"))
+            goal_rows = [r for r in sorted(leaders, key=lambda r: (-r["goals"], -r["assists"], r["player_name"].lower())) if int(r["goals"] or 0) > 0]
+            if goal_rows:
+                render_centered_table(pd.DataFrame([{"Pl": i, "Spelare": r["player_name"], "Lag": r["team_name"], "Mål": r["goals"]} for i, r in enumerate(goal_rows, 1)]))
+            else:
+                st.info("Inga målskyttar har registrerats.")
+        if enabled_assists:
+            st.subheader(tr("Assistliga"))
+            assist_rows = [r for r in sorted(leaders, key=lambda r: (-r["assists"], -r["goals"], r["player_name"].lower())) if int(r["assists"] or 0) > 0]
+            if assist_rows:
+                render_centered_table(pd.DataFrame([{"Pl": i, "Spelare": r["player_name"], "Lag": r["team_name"], "Assist": r["assists"]} for i, r in enumerate(assist_rows, 1)]))
+            else:
+                st.info("Inga assist har registrerats.")
+        if enabled_cards:
+            st.subheader("Gula/röda kort")
+            card_rows = sorted(leaders, key=lambda r: (-r["red_cards"], -r["yellow_cards"], r["player_name"].lower()))
+            card_rows = [r for r in card_rows if r["yellow_cards"] or r["red_cards"]]
+            if card_rows:
+                render_centered_table(pd.DataFrame([{"Spelare": r["player_name"], "Lag": r["team_name"], "Gula": r["yellow_cards"], "Röda": r["red_cards"]} for r in card_rows]))
+            else:
+                st.info("Inga kort har registrerats.")
 
 
 if admin_page == "Slutspel":

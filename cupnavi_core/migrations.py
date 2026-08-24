@@ -9,7 +9,7 @@ Regel:
 from dataclasses import dataclass
 from datetime import datetime, timezone
 
-LATEST_SCHEMA_VERSION = 11
+LATEST_SCHEMA_VERSION = 12
 
 
 @dataclass(frozen=True)
@@ -260,6 +260,44 @@ MIGRATIONS = (
             "ALTER TABLE groups ADD COLUMN age_class TEXT",
             "CREATE INDEX IF NOT EXISTS idx_teams_tournament_age_class ON teams(tournament_id, age_class)",
             "CREATE INDEX IF NOT EXISTS idx_groups_tournament_age_class ON groups(tournament_id, age_class)",
+        ),
+    ),
+    Migration(
+        12,
+        "control_center_accessibility_staff_v112",
+        (
+            "ALTER TABLE tournaments ADD COLUMN enable_control_center INTEGER NOT NULL DEFAULT 0",
+            "ALTER TABLE tournaments ADD COLUMN enable_scorer_leaderboard INTEGER NOT NULL DEFAULT 1",
+            "ALTER TABLE tournaments ADD COLUMN enable_assist_leaderboard INTEGER NOT NULL DEFAULT 1",
+            "ALTER TABLE tournaments ADD COLUMN enable_card_statistics INTEGER NOT NULL DEFAULT 1",
+            "ALTER TABLE tournaments ADD COLUMN enable_medical_info INTEGER NOT NULL DEFAULT 0",
+            "ALTER TABLE tournaments ADD COLUMN medical_info TEXT",
+            "ALTER TABLE tournaments ADD COLUMN enable_lost_found INTEGER NOT NULL DEFAULT 0",
+            "ALTER TABLE tournaments ADD COLUMN lost_found_info TEXT",
+            "ALTER TABLE tournaments ADD COLUMN enable_accessibility_info INTEGER NOT NULL DEFAULT 0",
+            "ALTER TABLE tournaments ADD COLUMN accessibility_info TEXT",
+            """CREATE TABLE IF NOT EXISTS functionary_shifts (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                tournament_id INTEGER NOT NULL REFERENCES tournaments(id) ON DELETE CASCADE,
+                functionary_id INTEGER NOT NULL REFERENCES functionaries(id) ON DELETE CASCADE,
+                shift_start TEXT NOT NULL,
+                shift_end TEXT NOT NULL,
+                assignment TEXT,
+                location TEXT
+            )""",
+            "CREATE INDEX IF NOT EXISTS idx_functionary_shifts_tournament_start ON functionary_shifts(tournament_id, shift_start)",
+            """CREATE TABLE IF NOT EXISTS control_incidents (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                tournament_id INTEGER NOT NULL REFERENCES tournaments(id) ON DELETE CASCADE,
+                created_at TEXT NOT NULL,
+                category TEXT NOT NULL,
+                severity TEXT NOT NULL DEFAULT 'info',
+                title TEXT NOT NULL,
+                detail TEXT,
+                status TEXT NOT NULL DEFAULT 'open',
+                resolved_at TEXT
+            )""",
+            "CREATE INDEX IF NOT EXISTS idx_control_incidents_tournament_status ON control_incidents(tournament_id, status, created_at)",
         ),
     ),
 )

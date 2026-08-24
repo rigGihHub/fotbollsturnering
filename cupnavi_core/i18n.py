@@ -27,3 +27,14 @@ def valid_timezone(value: str | None) -> str:
     except ZoneInfoNotFoundError:
         return DEFAULT_TIMEZONE
     return candidate
+
+RTL_LANGUAGES = {"ar", "he", "fa", "ur"}
+
+
+def text_direction(locale_or_language: str | None) -> str:
+    """Return document direction for current/future locales."""
+    raw = str(locale_or_language or "").strip()
+    language = raw.split("-", 1)[0].lower()
+    if raw in SUPPORTED_LOCALES:
+        language = str(SUPPORTED_LOCALES[raw]["language"]).lower()
+    return "rtl" if language in RTL_LANGUAGES else "ltr"
