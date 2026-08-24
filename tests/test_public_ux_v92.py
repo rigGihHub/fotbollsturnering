@@ -53,7 +53,10 @@ def test_info_rules_derive_from_all_requested_saved_settings():
 
 
 def test_statistics_include_goal_assist_cards_and_playoffs():
-    block = public_block()
+    text = app_text()
+    start = text.index("def render_public_statistics_section(")
+    end = text.index("def render_public_info_section(", start)
+    block = text[start:end]
     assert 'st.subheader(tr("Skytteliga"))' in block
     assert 'st.subheader(tr("Assistliga"))' in block
     assert 'st.subheader(tr("Kortstatistik"))' in block
@@ -63,7 +66,10 @@ def test_statistics_include_goal_assist_cards_and_playoffs():
 
 
 def test_info_page_keeps_custom_and_practical_content():
-    block = public_block()
+    text = app_text()
+    start = text.index("def render_public_info_section(")
+    end = text.index("def render_public_view(", start)
+    block = text[start:end]
     assert 'if tournament["public_information"]:' in block
     assert 'Information från arrangören' in block
     assert 'tournament["arena_address"]' in block

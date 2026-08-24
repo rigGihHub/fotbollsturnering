@@ -22,7 +22,7 @@ def test_public_views_use_friendly_error_boundary():
     text = app_text()
     assert "def _render_with_friendly_error" in text
     assert "Fel-ID:" in text
-    assert "human_error_id" in text
+    assert "safe_error_record" in text
 
 def test_schedule_has_visual_board():
     text = app_text()

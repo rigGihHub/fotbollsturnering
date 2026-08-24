@@ -16,4 +16,4 @@ def test_screen_mode_keeps_live_upcoming_results_and_tables():
     assert 'Pågår / nu' in t
     assert 'Kommande' in t
     assert 'Senaste resultat' in t
-    assert 'screen_groups = public_groups[:4]' in t
+    assert 'screen_groups = _load_public_groups()[:4]' in t

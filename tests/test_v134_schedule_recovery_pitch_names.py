@@ -4,7 +4,7 @@ APP=Path("app.py").read_text(encoding="utf-8")
 MIG=Path("cupnavi_core/migrations.py").read_text(encoding="utf-8")
 
 def test_named_pitches_are_schema_backed_and_autosaved():
-    assert "LATEST_SCHEMA_VERSION = 20" in MIG
+    assert "LATEST_SCHEMA_VERSION = 21" in MIG
     assert "CREATE TABLE IF NOT EXISTS pitches" in MIG
     assert "ensure_v18_pitch_names_schema_compat" in MIG
     assert "def save_pitch_name" in APP

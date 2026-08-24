@@ -9,7 +9,7 @@ Regel:
 from dataclasses import dataclass
 from datetime import datetime, timezone
 
-LATEST_SCHEMA_VERSION = 20
+LATEST_SCHEMA_VERSION = 21
 
 
 @dataclass(frozen=True)
@@ -407,6 +407,11 @@ MIGRATIONS = (
         "product_foundation_v139",
         (),
     ),
+    Migration(
+        21,
+        "team_notification_subscriptions_v151",
+        (),
+    ),
 
 )
 
@@ -621,6 +626,40 @@ def ensure_v20_schema_compat(con):
     con.execute("CREATE INDEX IF NOT EXISTS idx_app_errors_tournament_created ON app_errors(tournament_id,created_at)")
 
 
+def ensure_v21_schema_compat(con):
+    """Verified public team-notification subscriptions and delivery log."""
+    con.execute("""CREATE TABLE IF NOT EXISTS notification_subscriptions (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        tournament_id INTEGER NOT NULL REFERENCES tournaments(id) ON DELETE CASCADE,
+        team_id INTEGER NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
+        email TEXT NOT NULL,
+        verification_token_hash TEXT NOT NULL,
+        unsubscribe_token_hash TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        verified_at TEXT,
+        disabled_at TEXT,
+        notify_schedule INTEGER NOT NULL DEFAULT 1,
+        notify_results INTEGER NOT NULL DEFAULT 1,
+        notify_messages INTEGER NOT NULL DEFAULT 1,
+        UNIQUE(tournament_id,team_id,email)
+    )""")
+    con.execute("""CREATE TABLE IF NOT EXISTS notification_deliveries (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        subscription_id INTEGER NOT NULL REFERENCES notification_subscriptions(id) ON DELETE CASCADE,
+        notification_id INTEGER,
+        created_at TEXT NOT NULL,
+        category TEXT NOT NULL,
+        subject TEXT NOT NULL,
+        body TEXT NOT NULL,
+        status TEXT NOT NULL DEFAULT 'pending',
+        attempted_at TEXT,
+        error TEXT,
+        UNIQUE(subscription_id,notification_id,category)
+    )""")
+    con.execute("CREATE INDEX IF NOT EXISTS idx_notification_subscriptions_team_verified ON notification_subscriptions(tournament_id,team_id,verified_at,disabled_at)")
+    con.execute("CREATE INDEX IF NOT EXISTS idx_notification_deliveries_status ON notification_deliveries(status,created_at)")
+
+
 def apply_migrations(con):
     """Applicera alla saknade migreringar och returnera nya versionsnummer."""
     ensure_migration_table(con)
@@ -634,6 +673,8 @@ def apply_migrations(con):
             ensure_v19_schema_compat(con)
         if migration.version == 20:
             ensure_v20_schema_compat(con)
+        if migration.version == 21:
+            ensure_v21_schema_compat(con)
         for statement in migration.statements:
             _execute(con, statement)
         _execute(
