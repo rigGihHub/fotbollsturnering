@@ -17,7 +17,8 @@ def make_db():
         CREATE TABLE groups(id INTEGER PRIMARY KEY,tournament_id INTEGER,name TEXT);
         CREATE TABLE teams(
             id INTEGER PRIMARY KEY,tournament_id INTEGER,group_id INTEGER,
-            late_first_match INTEGER DEFAULT 0,earliest_first_time TEXT
+            late_first_match INTEGER DEFAULT 0,earliest_first_time TEXT,
+            avoid_late_group_match INTEGER DEFAULT 0
         );
         CREATE TABLE referees(id INTEGER PRIMARY KEY,tournament_id INTEGER,name TEXT);
         CREATE TABLE matches(

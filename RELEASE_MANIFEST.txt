@@ -1,5 +1,6 @@
+CupNavi 2026.08.24-129-TOURNAMENT-SETUP-RANKING
 .github/workflows/ci.yml
-QUALITY_V127.md
+QUALITY_V129.md
 RELEASE_MANIFEST.txt
 VERSION.txt
 app.py
@@ -74,6 +75,7 @@ tests/test_organizer_phone.py
 tests/test_pdf_export.py
 tests/test_performance_polish_v81.py
 tests/test_performance_v126.py
+tests/test_performance_v128.py
 tests/test_performance_v90.py
 tests/test_public_about_v117.py
 tests/test_public_color_notices.py
@@ -118,4 +120,6 @@ tests/test_update_package_integrity_v107.py
 tests/test_ux2_v116.py
 tests/test_ux_nav_share_v120.py
 tests/test_ux_polish_v83.py
+tests/test_v129_schema_fields.py
+tests/test_v129_setup_ranking_testdata.py
 tests/test_visitor_analytics_v79.py

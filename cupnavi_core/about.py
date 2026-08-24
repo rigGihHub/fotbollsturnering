@@ -79,6 +79,14 @@ FEATURE_CATALOG = (
         "en": "Player names can be protected from public display while authorized roles retain the information they need.",
     },
     {
+        "id": "final_ranking",
+        "category": "audience",
+        "sv_title": "Slutlig ranking för hela cupen",
+        "en_title": "Final tournament ranking",
+        "sv": "Arrangören kan välja en slutlig 1–N-ranking av alla lag baserad på slutspelsplacering och gruppresultat.",
+        "en": "Organizers can enable a final 1–N ranking of all teams based on playoff placement and group results.",
+    },
+    {
         "id": "sharing",
         "category": "audience",
         "sv_title": "Enkelt att hitta och dela",

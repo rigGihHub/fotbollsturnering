@@ -49,7 +49,7 @@ class ScheduleRepository:
             (tournament_id,),
         )
         travel_preferences = self._fetch_all(
-            """SELECT id,late_first_match,earliest_first_time
+            """SELECT id,late_first_match,earliest_first_time,avoid_late_group_match
                FROM teams WHERE tournament_id=?""",
             (tournament_id,),
         )

@@ -10,6 +10,7 @@ TEAM_FIELDS = {
     "Resväg km": {"required": False, "aliases": ["resväg km", "resvag km", "distance km", "distance", "resväg"]},
     "Senare första match": {"required": False, "aliases": ["senare första match", "senare forsta match", "late first match", "late start"]},
     "Första match tidigast": {"required": False, "aliases": ["första match tidigast", "forsta match tidigast", "earliest first time", "earliest start"]},
+    "Undvik senaste gruppspelsmatchen": {"required": False, "aliases": ["undvik senaste gruppspelsmatchen", "avoid late group match", "avoid latest group match"]},
     "Kommentar": {"required": False, "aliases": ["kommentar", "comment", "note", "anteckning"]},
 }
 
@@ -143,6 +144,7 @@ def build_team_import_plan(dataframe, mapping, existing_names, max_new_teams=Non
                 row.get(mapping.get("Senare första match")) if mapping.get("Senare första match") else None
             ),
             "earliest_first_time": earliest,
+            "avoid_late_group_match": parse_bool(row.get(mapping.get("Undvik senaste gruppspelsmatchen")) if mapping.get("Undvik senaste gruppspelsmatchen") else None),
             "comment": clean_text(row.get(mapping.get("Kommentar"))) if mapping.get("Kommentar") else "",
             "source_row": row_index,
         }

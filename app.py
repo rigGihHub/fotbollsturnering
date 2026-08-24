@@ -47,7 +47,7 @@ from cupnavi_core.fairness import fairness_report
 from cupnavi_core.ux2 import ADMIN_SECTIONS, workflow_progress, attention_items, human_error_id, schedule_board
 from cupnavi_core.about import feature_catalog, about_intro
 
-APP_BUILD_VERSION = "2026.08.24-127-SHARE-PERFORMANCE-UX"
+APP_BUILD_VERSION = "2026.08.24-129-TOURNAMENT-SETUP-RANKING"
 APP_VERSION = APP_BUILD_VERSION
 RELEASE_FILES_MISMATCH = CORE_APP_VERSION != APP_BUILD_VERSION
 REQUIRED_SCHEMA_VERSION = max(int(LATEST_SCHEMA_VERSION), 5)
@@ -488,7 +488,7 @@ def track_public_visit(tournament_id):
     previous_count_at = st.session_state.get(throttle_key)
     count_view = (
         previous_count_at is None
-        or (now_dt - previous_count_at).total_seconds() >= 60
+        or (now_dt - previous_count_at).total_seconds() >= 300
     )
     if not count_view:
         return
@@ -3254,7 +3254,7 @@ class TeamLimitReachedError(Exception):
 
 def insert_team_with_limit(tournament_id, name, primary_color, secondary_color,
                            home_pattern, home_color_2, away_pattern, away_color_2,
-                           distance_km, late_first_match, earliest_first_time, travel_note):
+                           distance_km, late_first_match, earliest_first_time, travel_note, avoid_late_group_match=False):
     """Lägg till ett lag atomiskt och respektera alltid turneringens sparade maxantal."""
     con = db()
     try:
@@ -3279,11 +3279,11 @@ def insert_team_with_limit(tournament_id, name, primary_color, secondary_color,
             """INSERT INTO teams(
                 tournament_id,name,group_id,primary_color,secondary_color,
                 home_pattern,home_color_2,away_pattern,away_color_2,
-                distance_km,late_first_match,earliest_first_time,travel_note
-            ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                distance_km,late_first_match,earliest_first_time,travel_note,avoid_late_group_match
+            ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
             (tournament_id, name, None, primary_color, secondary_color,
              home_pattern, home_color_2, away_pattern, away_color_2,
-             distance_km, int(late_first_match), earliest_first_time, travel_note),
+             distance_km, int(late_first_match), earliest_first_time, travel_note, int(bool(avoid_late_group_match))),
         )
         con.commit()
         return cur.lastrowid
@@ -3374,6 +3374,49 @@ def calculate_table(group_id, tournament):
         ordered_ids.extend(tied_ids)
 
     return [(team_id, stats[team_id]) for team_id in ordered_ids]
+
+
+def final_ranking_rows(tournament_id, tournament):
+    teams = all_rows("SELECT * FROM teams WHERE tournament_id=? ORDER BY name", (tournament_id,))
+    if not teams:
+        return []
+    team_by_id = {int(row["id"]): row for row in teams}
+    group_metrics = {}
+    for group in all_rows("SELECT id FROM groups WHERE tournament_id=? ORDER BY name,id", (tournament_id,)):
+        for pos, (team_id, stats) in enumerate(calculate_table(group["id"], tournament), 1):
+            group_metrics[int(team_id)] = {"pos": pos, "P": int(stats["P"] or 0), "MS": int(stats["MS"] or 0), "GM": int(stats["GM"] or 0)}
+    depth = {team_id: 0 for team_id in team_by_id}
+    stage_depth = {"Kvartsfinal": 1, "Semifinal": 2, "Bronsmatch": 3, "Final": 4}
+    playoff = all_rows("SELECT * FROM matches WHERE tournament_id=? AND stage<>'Gruppspel' ORDER BY round_no,match_no,id", (tournament_id,))
+    for match_row in playoff:
+        for source in (match_row["home_source"], match_row["away_source"]):
+            resolved = resolve_source(source)
+            if resolved and int(resolved) in depth:
+                depth[int(resolved)] = max(depth[int(resolved)], stage_depth.get(match_row["stage"], int(match_row["round_no"] or 0)))
+    pinned = []
+    for stage in ("Final", "Bronsmatch"):
+        completed = [m for m in playoff if m["stage"] == stage and m["home_score"] is not None and m["away_score"] is not None]
+        if not completed:
+            continue
+        m = completed[-1]
+        h, a = resolve_source(m["home_source"]), resolve_source(m["away_source"])
+        if not h or not a:
+            continue
+        winner = int(m["decided_winner_id"] or 0)
+        if not winner:
+            hs, aas = int(m["home_score"]), int(m["away_score"])
+            if hs == aas and m["home_penalties"] is not None and m["away_penalties"] is not None:
+                winner = int(h if int(m["home_penalties"]) > int(m["away_penalties"]) else a)
+            else:
+                winner = int(h if hs > aas else a)
+        loser = int(a if winner == int(h) else h)
+        for team_id in (winner, loser):
+            if team_id in team_by_id and team_id not in pinned:
+                pinned.append(team_id)
+    remaining = [team_id for team_id in team_by_id if team_id not in pinned]
+    remaining.sort(key=lambda team_id: (-depth.get(team_id,0), group_metrics.get(team_id,{}).get("pos",999), -group_metrics.get(team_id,{}).get("P",0), -group_metrics.get(team_id,{}).get("MS",0), -group_metrics.get(team_id,{}).get("GM",0), str(team_by_id[team_id]["name"]).casefold()))
+    class_map = {row["id"]: row["name"] for row in competition_classes(tournament_id)}
+    return [{"Placering": i, "Lag": team_by_id[team_id]["name"], "Tävlingsklass": class_map.get(_row_value(team_by_id[team_id], "competition_class_id", None), "–")} for i, team_id in enumerate(pinned + remaining, 1)]
 
 
 def result_winner(match_row, want_loser=False):
@@ -4411,6 +4454,22 @@ def generate_schedule(tournament_id, tournament, rules, preserve_existing=False)
 
     last_scheduled_teams = set()
     forced_consecutive = 0
+
+    def late_group_penalty(match_row, candidate_start, home_id, away_id):
+        if match_row["stage"] != "Gruppspel":
+            return 0
+        requests = any(
+            bool(_row_value(travel_preferences.get(team_id), "avoid_late_group_match", 0))
+            for team_id in (home_id, away_id)
+        )
+        if not requests:
+            return 0
+        day_start = datetime.combine(candidate_start.date(), start.time())
+        day_end = datetime.combine(candidate_start.date(), latest_kickoff)
+        span_seconds = max(1, (day_end - day_start).total_seconds())
+        progress = (candidate_start - day_start).total_seconds() / span_seconds
+        return 1 if progress >= 0.75 else 0
+
     while remaining:
         candidates = []
         for order, (match_row, home_id, away_id) in enumerate(remaining):
@@ -4432,12 +4491,12 @@ def generate_schedule(tournament_id, tournament, rules, preserve_existing=False)
                         candidate_start = valid_daily_start_for(max(basic_start, referee_ready[referee_id]), match_duration)
                         candidate_start = move_past_locked(candidate_start, pitch, referee_id, home_id, away_id, match_duration) if candidate_start else None
                         if candidate_start:
-                            candidates.append((candidate_start, consecutive_penalty, order, pitch, referee_id))
+                            candidates.append((candidate_start, consecutive_penalty, late_group_penalty(match_row, candidate_start, home_id, away_id), order, pitch, referee_id))
                 else:
                     candidate_start = valid_daily_start_for(basic_start, match_duration)
                     candidate_start = move_past_locked(candidate_start, pitch, match_row["referee_id"], home_id, away_id, match_duration) if candidate_start else None
                     if candidate_start:
-                        candidates.append((candidate_start, consecutive_penalty, order, pitch, match_row["referee_id"]))
+                        candidates.append((candidate_start, consecutive_penalty, late_group_penalty(match_row, candidate_start, home_id, away_id), order, pitch, match_row["referee_id"]))
         if not candidates:
             unresolved += len(remaining)
             days = (end_date - start.date()).days + 1
@@ -4467,11 +4526,11 @@ def generate_schedule(tournament_id, tournament, rules, preserve_existing=False)
             )
             break
         sort_key = (
-            (lambda item: (item[1], item[0], item[2], item[3], item[4] or 0))
+            (lambda item: (item[1], item[2], item[0], item[3], item[4], item[5] or 0))
             if avoid_consecutive else
-            (lambda item: (item[0], item[2], item[3], item[4] or 0))
+            (lambda item: (item[2], item[0], item[3], item[4], item[5] or 0))
         )
-        match_start, consecutive_penalty, order, pitch, referee_id = min(candidates, key=sort_key)
+        match_start, consecutive_penalty, _late_penalty, order, pitch, referee_id = min(candidates, key=sort_key)
         match_row, home_id, away_id = remaining.pop(order)
         forced_consecutive += consecutive_penalty
         last_scheduled_teams = {home_id, away_id}
@@ -5644,7 +5703,7 @@ def render_public_view(tournament_id, tournament):
         st.markdown(
             f"""<div class='public-metric-grid'>
               <div class='public-metric'><div class='label'>{html.escape(tr("Lag"))}</div><div class='value'>{team_count}</div></div>
-              <div class='public-metric'><div class='label'>{html.escape(tr("Matcher"))}</div><div class='value'>{len(played_matches)} {html.escape(tr("av"))} {len(published_matches)}</div></div>
+              <div class='public-metric'><div class='label'>{html.escape(tr("Matcher spelade"))}</div><div class='value'>{len(played_matches)} {html.escape(tr("av"))} {len(published_matches)}</div></div>
               <div class='public-metric'><div class='label'>{html.escape(str(sport_profile(_row_value(tournament, 'sport', 'Fotboll'))['score_label']).capitalize())}</div><div class='value'>{total_goals}</div></div>
             </div>""",
             unsafe_allow_html=True,
@@ -5757,6 +5816,14 @@ def render_public_view(tournament_id, tournament):
                 st.subheader(group["name"])
                 group_table = calculate_table(group["id"], tournament)
                 render_group_table(group_table, tournament)
+            if bool(_row_value(tournament, "enable_final_ranking", 0)):
+                st.subheader("Slutlig ranking")
+                ranking = final_ranking_rows(tournament_id, tournament)
+                all_done = bool(published_matches) and len(played_matches) == len(published_matches)
+                if all_done and ranking:
+                    render_centered_table(pd.DataFrame(ranking))
+                else:
+                    st.caption("Den slutliga rankingen visas när alla publicerade matcher är färdigspelade.")
 
         if stats_section == tr("Topplistor"):
             rows = all_rows(
@@ -6960,6 +7027,10 @@ if view_mode == "Admin":
                 key="new_tournament_team_checkin",
                 help="Om aktivt kan lagledare eller Admin markera att laget är på plats. Varningar och Control Center tar bara hänsyn till incheckning när funktionen är vald.",
             )
+            create_final_ranking = st.checkbox(
+                "Skapa slutlig ranking av alla lag", value=False, key="new_tournament_final_ranking",
+                help="Visar en slutlig 1–N-ranking när cupen är färdigspelad."
+            )
             start_date = st.date_input("Första cupdag")
             st.caption(f"📅 {date_with_weekday(start_date)}")
             end_date = st.date_input("Sista cupdag", value=start_date)
@@ -6982,13 +7053,13 @@ if view_mode == "Admin":
                         """INSERT INTO tournaments(
                                name,location,tournament_date,start_date,end_date,expected_team_count,
                                points_win,points_draw,points_loss,sport,lifecycle_status,
-                               locale,timezone_name,participant_type,country_code,age_classes_json,enable_team_checkin
-                           ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                               locale,timezone_name,participant_type,country_code,age_classes_json,enable_team_checkin,enable_final_ranking
+                           ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
                         (
                             n.strip(), place.strip(), start_date.isoformat(), start_date.isoformat(), end_date.isoformat(),
                             expected_teams, 3, 1, 0, sport, "draft", create_locale, normalized_timezone,
                             participant_type, create_country or None, json.dumps(parse_age_classes(create_age_classes_text), ensure_ascii=False),
-                            1 if create_team_checkin else 0,
+                            1 if create_team_checkin else 0, 1 if create_final_ranking else 0,
                         ),
                     )
                     used_slugs = [row["public_slug"] for row in all_rows("SELECT public_slug FROM tournaments WHERE public_slug IS NOT NULL")]
@@ -7005,6 +7076,8 @@ if view_mode == "Admin":
                          defaults["halftime_minutes"], defaults["minimum_team_rest_minutes"]),
                     )
                     add_feed_item(new_tournament_id, f"{n.strip()} skapad", f"Sport: {sport}", category="Cup")
+                    st.session_state["new_tournament_setup_id"] = int(new_tournament_id)
+                    st.session_state["preferred_tournament_id"] = int(new_tournament_id)
                     st.rerun()
 
 if view_mode == "Admin":
@@ -7056,12 +7129,12 @@ if view_mode == "Admin":
                             (new_id, *(source_rule[column] for column in rule_columns)),
                         )
                     if copy_teams:
-                        source_teams = all_rows("SELECT name,primary_color,secondary_color,home_pattern,home_color_2,away_pattern,away_color_2,distance_km,late_first_match,earliest_first_time,travel_note,age_class FROM teams WHERE tournament_id=? ORDER BY id", (source_id,))
+                        source_teams = all_rows("SELECT name,primary_color,secondary_color,home_pattern,home_color_2,away_pattern,away_color_2,distance_km,late_first_match,earliest_first_time,travel_note,age_class,avoid_late_group_match FROM teams WHERE tournament_id=? ORDER BY id", (source_id,))
                         for row in source_teams:
                             run(
-                                """INSERT INTO teams(tournament_id,name,primary_color,secondary_color,home_pattern,home_color_2,away_pattern,away_color_2,distance_km,late_first_match,earliest_first_time,travel_note,age_class)
-                                   VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)""",
-                                (new_id, row["name"], row["primary_color"], row["secondary_color"], row["home_pattern"], row["home_color_2"], row["away_pattern"], row["away_color_2"], row["distance_km"], row["late_first_match"], row["earliest_first_time"], row["travel_note"], _row_value(row, "age_class", None)),
+                                """INSERT INTO teams(tournament_id,name,primary_color,secondary_color,home_pattern,home_color_2,away_pattern,away_color_2,distance_km,late_first_match,earliest_first_time,travel_note,age_class,avoid_late_group_match)
+                                   VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                                (new_id, row["name"], row["primary_color"], row["secondary_color"], row["home_pattern"], row["home_color_2"], row["away_pattern"], row["away_color_2"], row["distance_km"], row["late_first_match"], row["earliest_first_time"], row["travel_note"], _row_value(row, "age_class", None), _row_value(row, "avoid_late_group_match", 0)),
                             )
                     if copy_teams:
                         sync_competition_classes(new_id)
@@ -7114,7 +7187,13 @@ if cup_query:
         requested_cup_id = slug_match["id"] if slug_match else None
 
 tournament_ids = [t["id"] for t in tournaments]
-default_tournament_index = tournament_ids.index(requested_cup_id) if requested_cup_id in tournament_ids else 0
+preferred_tournament_id = st.session_state.get("preferred_tournament_id")
+if preferred_tournament_id in tournament_ids:
+    default_tournament_index = tournament_ids.index(preferred_tournament_id)
+elif requested_cup_id in tournament_ids:
+    default_tournament_index = tournament_ids.index(requested_cup_id)
+else:
+    default_tournament_index = 0
 
 def _tournament_selector_label(tournament_id):
     row = next(t for t in tournaments if t["id"] == tournament_id)
@@ -7128,11 +7207,16 @@ def _tournament_selector_label(tournament_id):
         return f"🔴 {label} · {status_label(status, current_language())}"
     return label
 
+if preferred_tournament_id in tournament_ids:
+    st.session_state["active_tournament_selector"] = preferred_tournament_id
+elif st.session_state.get("active_tournament_selector") not in tournament_ids:
+    st.session_state["active_tournament_selector"] = tournament_ids[default_tournament_index]
 tid = st.sidebar.selectbox(
     tr("Aktiv turnering"),
     tournament_ids,
     index=default_tournament_index,
     format_func=_tournament_selector_label,
+    key="active_tournament_selector",
 )
 tournament = next(t for t in tournaments if t["id"] == tid)
 # Competition classes are migrated/backfilled by init_db(). Do not perform remote
@@ -7153,6 +7237,101 @@ _a11y_css.append("button,[role='button'],input,select,textarea{min-height:44px;}
 if _a11y_css:
     st.markdown("<style>" + "".join(_a11y_css) + "</style><div class='cn-sr-only' role='status' aria-live='polite'>CupNavi är redo. Navigation och formulär kan användas med tangentbord och skärmläsare.</div>", unsafe_allow_html=True)
 
+def render_initial_tournament_setup(tournament_id, tournament):
+    """Obligatorisk första konfigurationssida efter att en ny turnering skapats."""
+    st.title("Konfigurera turneringen")
+    st.caption("Turneringen är skapad. Gör nu de val som formar tävlingen innan du börjar lägga in lag och grupper.")
+    st.info(f"**{tournament['name']}** · {tournament['sport']} · {cup_date_label(tournament)}")
+    rules = one_row("SELECT * FROM schedule_rules WHERE tournament_id=?", (tournament_id,))
+    if rules is None:
+        run("INSERT INTO schedule_rules(tournament_id) VALUES(?)", (tournament_id,))
+        rules = one_row("SELECT * FROM schedule_rules WHERE tournament_id=?", (tournament_id,))
+    class_text = ", ".join(row["name"] for row in competition_classes(tournament_id))
+    format_options = ["Inget slutspel", "A- och B-slutspel", PLACEMENT_PLAYOFF_FORMAT]
+    stored_format = PLACEMENT_PLAYOFF_FORMAT if tournament["playoff_format"] == "Flera egna slutspel" else tournament["playoff_format"]
+    if stored_format not in format_options:
+        stored_format = "Inget slutspel"
+    tie_options = ["Förlängning + straffar", "Straffar direkt", "Lottning"]
+    with st.form(f"initial_tournament_setup_{tournament_id}"):
+        st.markdown("### 1. Tävlingsstruktur")
+        setup_classes = st.text_input("Tävlingsklasser", value=class_text, placeholder="P2014, F2014, Herr, Dam")
+        sc1, sc2 = st.columns(2)
+        setup_final_ranking = sc1.checkbox("Slutlig ranking av alla lag", value=bool(_row_value(tournament, "enable_final_ranking", 0)))
+        sc2.caption("Lagincheckning: " + ("På" if bool(_row_value(tournament, "enable_team_checkin", 1)) else "Av") + " · valdes när cupen skapades")
+
+        st.markdown("### 2. Grupp- och poängregler")
+        p1,p2,p3 = st.columns(3)
+        setup_win = p1.number_input("Poäng vinst", 0, 10, int(tournament["points_win"]))
+        setup_draw = p2.number_input("Poäng oavgjort", 0, 10, int(tournament["points_draw"]))
+        setup_loss = p3.number_input("Poäng förlust", 0, 10, int(tournament["points_loss"]))
+        tiebreak_opts = ["Målskillnad först", "Inbördes möten först"]
+        setup_tiebreak = st.selectbox("Skiljekriterium", tiebreak_opts, index=tiebreak_opts.index(tournament["table_tiebreak"] or "Målskillnad först"))
+
+        st.markdown("### 3. Match- och schemaregler")
+        m1,m2,m3 = st.columns(3)
+        setup_first = m1.time_input("Första match", value=datetime.strptime(rules["first_match_time"], "%H:%M").time())
+        setup_halves = m2.number_input("Perioder/halvlekar/set", 1, 7, int(rules["halves"]))
+        setup_minutes = m3.number_input("Minuter per period/halvlek/set", 1, 120, int(rules["minutes_per_half"]))
+        m4,m5,m6 = st.columns(3)
+        setup_halftime = m4.number_input("Paus mellan perioder", 0, 60, int(rules["halftime_minutes"]))
+        setup_pitch_break = m5.number_input("Paus mellan matcher på plan", 0, 120, int(rules["pitch_break_minutes"]))
+        setup_rest = m6.number_input("Minsta lagvila", 0, 300, int(rules["minimum_team_rest_minutes"]))
+        m7,m8,m9 = st.columns(3)
+        setup_pitches = m7.number_input("Antal planer/spelytor", 1, 50, int(rules["pitch_count"]))
+        setup_latest = m8.time_input("Sista plantid", value=datetime.strptime(rules["latest_kickoff_time"], "%H:%M").time())
+        setup_referee_mode = m9.selectbox("Domartillsättning", ["Automatisk", "Manuell"], index=0 if rules["referee_mode"] == "Automatisk" else 1)
+        c1,c2 = st.columns(2)
+        setup_avoid_consecutive = c1.checkbox("Försök undvika följdmatcher", value=bool(rules["avoid_consecutive_matches"]))
+        setup_consecutive_break = c2.number_input("Extra paus vid följdmatch", 0, 180, int(rules["consecutive_match_break_minutes"]), disabled=not setup_avoid_consecutive)
+
+        st.markdown("### 4. Slutspel")
+        s1,s2 = st.columns(2)
+        setup_playoff = s1.selectbox("Slutspelsformat", format_options, index=format_options.index(stored_format))
+        setup_bronze = s2.checkbox("Bronsmatch", value=bool(tournament["bronze_match"]), disabled=setup_playoff == "Inget slutspel")
+        s3,s4 = st.columns(2)
+        saved_tie = tournament["playoff_tie_rule"] or "Straffar direkt"
+        setup_tie = s3.selectbox("Oavgjort i slutspel", tie_options, index=tie_options.index(saved_tie) if saved_tie in tie_options else 1, disabled=setup_playoff == "Inget slutspel")
+        setup_extra = s4.number_input("Förlängning (min)", 1, 60, max(1,int(tournament["extra_time_minutes"] or 10)), disabled=setup_playoff == "Inget slutspel" or setup_tie != "Förlängning + straffar")
+
+        st.markdown("### 5. Statistik och cupdrift")
+        f1,f2,f3,f4 = st.columns(4)
+        setup_scorers = f1.checkbox("Skytteliga", value=bool(_row_value(tournament,"enable_scorer_leaderboard",1)))
+        setup_assists = f2.checkbox("Assistliga", value=bool(_row_value(tournament,"enable_assist_leaderboard",1)))
+        setup_cards = f3.checkbox("Gula/röda kort", value=bool(_row_value(tournament,"enable_card_statistics",1)))
+        setup_control = f4.checkbox("Control Center", value=bool(_row_value(tournament,"enable_control_center",0)))
+
+        submitted = st.form_submit_button("Spara upplägg och fortsätt", type="primary", use_container_width=True)
+    if submitted:
+        labels = parse_age_classes(setup_classes)
+        with db() as con:
+            con.execute(
+                """UPDATE tournaments SET points_win=?,points_draw=?,points_loss=?,table_tiebreak=?,
+                       playoff_format=?,bronze_match=?,playoff_tie_rule=?,extra_time_minutes=?,playoff_model_confirmed=1,
+                       enable_final_ranking=?,enable_scorer_leaderboard=?,enable_assist_leaderboard=?,enable_card_statistics=?,enable_control_center=?,schedule_dirty=1
+                   WHERE id=?""",
+                (setup_win,setup_draw,setup_loss,setup_tiebreak,setup_playoff,int(setup_bronze),
+                 setup_tie if setup_playoff != "Inget slutspel" else "Straffar direkt",
+                 setup_extra if setup_playoff != "Inget slutspel" and setup_tie == "Förlängning + straffar" else 0,
+                 int(setup_final_ranking),int(setup_scorers),int(setup_assists),int(setup_cards),int(setup_control),tournament_id),
+            )
+            con.execute(
+                """UPDATE schedule_rules SET first_match_time=?,halves=?,minutes_per_half=?,halftime_minutes=?,pitch_break_minutes=?,
+                       minimum_team_rest_minutes=?,avoid_consecutive_matches=?,consecutive_match_break_minutes=?,pitch_count=?,latest_kickoff_time=?,referee_mode=?
+                   WHERE tournament_id=?""",
+                (setup_first.strftime("%H:%M"),setup_halves,setup_minutes,setup_halftime,setup_pitch_break,setup_rest,
+                 int(setup_avoid_consecutive),setup_consecutive_break,setup_pitches,setup_latest.strftime("%H:%M"),setup_referee_mode,tournament_id),
+            )
+            con.execute("UPDATE tournaments SET age_classes_json=? WHERE id=?", (json.dumps(labels, ensure_ascii=False), tournament_id))
+            con.commit()
+        sync_competition_classes(tournament_id, labels)
+        _clear_render_query_cache()
+        st.session_state.pop("new_tournament_setup_id", None)
+        st.session_state.pop("preferred_tournament_id", None)
+        st.session_state[f"admin_page_{tournament_id}"] = "Adminöversikt"
+        st.session_state["initial_setup_saved"] = True
+        st.rerun()
+
+
 def _render_with_friendly_error(renderer, *args):
     try:
         renderer(*args)
@@ -7168,6 +7347,10 @@ if view_mode == "Lagportal":
 
 if view_mode == "Matchrapportör":
     _render_with_friendly_error(render_match_reporter_view, tid, tournament)
+    st.stop()
+
+if view_mode == "Admin" and st.session_state.get("new_tournament_setup_id") == tid:
+    render_initial_tournament_setup(tid, tournament)
     st.stop()
 
 if view_mode == "Admin":
@@ -7244,9 +7427,10 @@ with st.expander("🔎 Sök i cupen", expanded=False):
             for hit_index, (kind, label, target_page) in enumerate(search_hits[:15]):
                 hit_cols = st.columns([4, 1])
                 hit_cols[0].markdown(f"**{html.escape(kind)}:** {html.escape(str(label))}")
-                if hit_cols[1].button("Öppna", key=f"global_hit_{tid}_{hit_index}", use_container_width=True):
-                    st.session_state[admin_page_key] = target_page
-                    st.rerun()
+                hit_cols[1].button(
+                    "Öppna", key=f"global_hit_{tid}_{hit_index}", use_container_width=True,
+                    on_click=_set_admin_page, args=(target_page,),
+                )
         else:
             st.caption("Inga träffar i den aktiva cupen.")
 
@@ -7255,6 +7439,9 @@ st.caption("Välj administrationsdel. Endast den valda delen laddas, för snabba
 
 def _set_admin_page(page):
     st.session_state[admin_page_key] = page
+
+def _set_view_mode(mode):
+    st.session_state["view_mode"] = mode
 
 # Två nivåer i adminnavigationen: fem tydliga huvudområden och bara relevanta
 # underknappar för valt område. Det minskar knappmängden utan att gömma funktioner.
@@ -7773,6 +7960,7 @@ def _demo_apply_progress_level(tournament_id, level):
 
 
 def _admin_workflow_counts(tournament_id):
+    # Samla dashboardens vanligaste räknare i ett enda Turso-anrop.
     return one_row(
         """SELECT
           (SELECT COUNT(*) FROM teams WHERE tournament_id=?) AS teams_n,
@@ -7780,9 +7968,11 @@ def _admin_workflow_counts(tournament_id):
           (SELECT COUNT(*) FROM players p JOIN teams t ON t.id=p.team_id WHERE t.tournament_id=?) AS players_n,
           (SELECT COUNT(*) FROM referees WHERE tournament_id=?) AS refs_n,
           (SELECT COUNT(*) FROM matches WHERE tournament_id=?) AS matches_n,
-          (SELECT COUNT(*) FROM matches WHERE tournament_id=? AND home_score IS NOT NULL AND away_score IS NOT NULL) AS played_n
+          (SELECT COUNT(*) FROM matches WHERE tournament_id=? AND home_score IS NOT NULL AND away_score IS NOT NULL) AS played_n,
+          (SELECT COUNT(*) FROM matches WHERE tournament_id=? AND scheduled_start IS NOT NULL AND referee_id IS NULL) AS missing_refs_n,
+          (SELECT COUNT(*) FROM teams WHERE tournament_id=? AND COALESCE(checked_in,0)=0) AS unchecked_n
         """,
-        (tournament_id, tournament_id, tournament_id, tournament_id, tournament_id, tournament_id),
+        (tournament_id, tournament_id, tournament_id, tournament_id, tournament_id, tournament_id, tournament_id, tournament_id),
     )
 
 
@@ -8041,9 +8231,9 @@ elif admin_page == "Adminöversikt":
         schedule_ready=bool(ux_counts["matches_n"]) and not bool(tournament["schedule_dirty"]),
         referees_ready=bool(ux_counts["refs_n"]), published=bool(tournament["is_published"]),
     )
-    ux_missing_refs = one_row("SELECT COUNT(*) AS n FROM matches WHERE tournament_id=? AND scheduled_start IS NOT NULL AND referee_id IS NULL", (tid,))["n"]
+    ux_missing_refs = int(ux_counts["missing_refs_n"] or 0)
     checkin_enabled = bool(_row_value(tournament, "enable_team_checkin", 1))
-    ux_unchecked = one_row("SELECT COUNT(*) AS n FROM teams WHERE tournament_id=? AND COALESCE(checked_in,0)=0", (tid,))["n"] if checkin_enabled else 0
+    ux_unchecked = int(ux_counts["unchecked_n"] or 0) if checkin_enabled else 0
     ux_attention = attention_items(missing_referees=int(ux_missing_refs or 0), unchecked_teams=int(ux_unchecked or 0), schedule_dirty=bool(tournament["schedule_dirty"]), unpublished=not bool(tournament["is_published"]))
     st.markdown(f"<div class='cn-progress-hero'><div><span>Förberedelser</span><strong>{ux_progress['percent']} % klara</strong></div><div class='cn-progress-track'><i style='width:{ux_progress['percent']}%'></i></div></div>", unsafe_allow_html=True)
     if ux_attention:
@@ -8052,9 +8242,10 @@ elif admin_page == "Adminöversikt":
             cols = st.columns([6, 1])
             icon = {"critical":"🔴", "warning":"🟠", "info":"🔵"}.get(item["level"], "🔵")
             cols[0].markdown(f"<div class='cn-attention-row'>{icon} <b>{html.escape(item['text'])}</b></div>", unsafe_allow_html=True)
-            if cols[1].button("Lös", key=f"ux_attention_{tid}_{ux_idx}", use_container_width=True):
-                st.session_state[admin_page_key] = item["target"]
-                st.rerun()
+            cols[1].button(
+                "Lös", key=f"ux_attention_{tid}_{ux_idx}", use_container_width=True,
+                on_click=_set_admin_page, args=(item["target"],),
+            )
 
     st.markdown("#### Snabbkommandon")
     quick_cols = st.columns(4)
@@ -8065,9 +8256,10 @@ elif admin_page == "Adminöversikt":
         ("✅ Kontroller", "Kontroller"),
     ]
     for quick_index, (quick_label, quick_target) in enumerate(quick_actions):
-        if quick_cols[quick_index].button(quick_label, key=f"quick_action_{tid}_{quick_index}", use_container_width=True):
-            st.session_state[admin_page_key] = quick_target
-            st.rerun()
+        quick_cols[quick_index].button(
+            quick_label, key=f"quick_action_{tid}_{quick_index}", use_container_width=True,
+            on_click=_set_admin_page, args=(quick_target,),
+        )
 
     preview_cols = st.columns(2)
     if preview_cols[0].button("👁️ Förhandsgranska publik vy", key=f"preview_public_{tid}", use_container_width=True):
@@ -8079,18 +8271,12 @@ elif admin_page == "Adminöversikt":
 
     st.caption("Delning sköts via den integrerade Dela cupen-knappen bredvid CupNavi-logotypen.")
     st.caption("Här ställer du in cupens grunduppgifter, poängregler, slutspelsformat och regler för schemaläggningen.")
-    overview_counts = one_row(
-        """SELECT
-             (SELECT COUNT(*) FROM teams WHERE tournament_id=?) AS teams_n,
-             (SELECT COUNT(*) FROM groups WHERE tournament_id=?) AS groups_n,
-             (SELECT COUNT(*) FROM matches WHERE tournament_id=?) AS matches_n""",
-        (tid, tid, tid),
-    )
-    overview_team_count = overview_counts["teams_n"]
-    overview_group_count = overview_counts["groups_n"]
-    overview_match_count = overview_counts["matches_n"]
-
-    workflow_counts = _admin_workflow_counts(tid)
+    # ux_counts innehåller redan dashboardens samtliga räknare. Undvik två
+    # extra Turso-roundtrips för samma information.
+    overview_team_count = ux_counts["teams_n"]
+    overview_group_count = ux_counts["groups_n"]
+    overview_match_count = ux_counts["matches_n"]
+    workflow_counts = ux_counts
     cup_checklist = checklist_items(
         teams=int(workflow_counts["teams_n"] or 0),
         groups=int(workflow_counts["groups_n"] or 0),
@@ -8105,9 +8291,11 @@ elif admin_page == "Adminöversikt":
             check_cols = st.columns([5, 1])
             icon = "✅" if item["done"] else "⚠️"
             check_cols[0].markdown(f"{icon} {html.escape(item['label'])}")
-            if not item["done"] and check_cols[1].button("Åtgärda", key=f"check_fix_{tid}_{check_index}", use_container_width=True):
-                st.session_state[admin_page_key] = item["target"]
-                st.rerun()
+            if not item["done"]:
+                check_cols[1].button(
+                    "Åtgärda", key=f"check_fix_{tid}_{check_index}", use_container_width=True,
+                    on_click=_set_admin_page, args=(item["target"],),
+                )
 
     expected_teams = int(tournament["expected_team_count"] or 0)
     teams_ready = workflow_counts["teams_n"] > 0 and (
@@ -8210,7 +8398,9 @@ elif admin_page == "Adminöversikt":
 
     if bool(_row_value(tournament, "enable_control_center", 0)):
         st.markdown("### 🎛️ Cup Control Center")
-        control_matches = all_rows("SELECT * FROM matches WHERE tournament_id=? AND scheduled_start IS NOT NULL ORDER BY scheduled_start", (tid,))
+        # Fairness hämtade redan samma schemalagda matcher ovan. Återanvänd
+        # dem i Control Center i stället för ett nytt Turso-anrop.
+        control_matches = fairness_matches
         now_dt = datetime.now()
         missing_refs = sum(1 for m in control_matches if m["referee_id"] is None and m["home_score"] is None)
         unplayed = sum(1 for m in control_matches if m["home_score"] is None or m["away_score"] is None)
@@ -8281,13 +8471,13 @@ elif admin_page == "Adminöversikt":
         next_step_text = "Grundflödet är klart. Kontrollera varningar och publiceringsstatus."
 
     st.info(f"**{next_step_title}**\\n\\n{next_step_text}")
-    if st.button(
+    st.button(
         next_step_title,
         key=f"dashboard_next_step_{tid}",
         use_container_width=True,
-    ):
-        st.session_state[admin_page_key] = next_step_target
-        st.rerun()
+        on_click=_set_admin_page,
+        args=(next_step_target,),
+    )
 
     if bool(tournament["schedule_dirty"]) and workflow_counts["matches_n"] > 0:
         st.markdown(
@@ -8297,14 +8487,14 @@ elif admin_page == "Adminöversikt":
             </div>""",
             unsafe_allow_html=True,
         )
-        if st.button(
+        st.button(
             "Gå till Schema",
             type="primary",
             use_container_width=True,
             key=f"dashboard_go_schedule_{tid}",
-        ):
-            st.session_state[admin_page_key] = "Skapa och publicera schema"
-            st.rerun()
+            on_click=_set_admin_page,
+            args=("Skapa och publicera schema",),
+        )
     st.subheader("Cupens grunduppgifter")
     saved_start = datetime.fromisoformat(tournament["start_date"] or tournament["tournament_date"]).date()
     saved_end = datetime.fromisoformat(tournament["end_date"] or tournament["start_date"] or tournament["tournament_date"]).date()
@@ -8709,7 +8899,13 @@ elif admin_page == "Adminöversikt":
     demo_allowed = demo_counts["teams_n"] == 0 and demo_counts["groups_n"] == 0 and demo_counts["matches_n"] == 0
     if not demo_allowed:
         st.caption("Demodata kan bara skapas i en tom turnering, så befintlig cupdata kan aldrig skrivas över.")
-    if st.button("Skapa demodata: 8 lag + trupper + 2 grupper", disabled=not demo_allowed, key=f"demo_{tid}"):
+    td1, td2 = st.columns(2)
+    demo_team_count = int(td1.number_input("Antal testlag", min_value=4, max_value=24, value=8, step=1, disabled=not demo_allowed, key=f"demo_team_count_{tid}"))
+    demo_group_count = int(td2.selectbox("Antal testgrupper", [2, 4, 8], index=0, disabled=not demo_allowed, key=f"demo_group_count_{tid}"))
+    demo_shape_valid = demo_team_count >= demo_group_count * 2
+    if demo_allowed and not demo_shape_valid:
+        st.warning("Varje testgrupp behöver minst två lag. Minska antal grupper eller öka antal lag.")
+    if st.button(f"Skapa testdata: {demo_team_count} lag + trupper + {demo_group_count} grupper", disabled=not demo_allowed or not demo_shape_valid, key=f"demo_{tid}"):
         con = db()
         try:
             # Riktiga klubbnamn används som testlag. Alla spelare nedan är påhittad demo-data.
@@ -8736,11 +8932,11 @@ elif admin_page == "Adminöversikt":
                     ("West Ham United", "#7F1D1D", "#93C5FD"),
                 ],
             }
-            chosen = (
-                [("Allsvenskan", *club) for club in random.sample(demo_clubs["Allsvenskan"], 3)]
-                + [("Superettan", *club) for club in random.sample(demo_clubs["Superettan"], 2)]
-                + [("Premier League", *club) for club in random.sample(demo_clubs["Premier League"], 3)]
-            )
+            club_pool = [(league, *club) for league, clubs in demo_clubs.items() for club in clubs]
+            chosen = random.sample(club_pool, min(demo_team_count, len(club_pool)))
+            while len(chosen) < demo_team_count:
+                index = len(chosen) + 1
+                chosen.append(("Demo", f"Testlag {index}", "#166534", "#FFFFFF"))
             random.shuffle(chosen)
 
             # Fiktiva namn inspirerade av kända fotbollsstjärnors förnamn/klang,
@@ -8759,7 +8955,7 @@ elif admin_page == "Adminöversikt":
             away_palette = ["#FFFFFF", "#111827", "#FACC15", "#22C55E", "#F97316", "#E5E7EB", "#7DD3FC"]
 
             con.execute(
-                """UPDATE tournaments SET expected_team_count=8,
+                """UPDATE tournaments SET expected_team_count=?,
                        playoff_format='A- och B-slutspel',bronze_match=1,playoff_model_confirmed=1,
                        arena_address='CupNavi Arena, Testvägen 1',kiosk_available=1,
                        kiosk_information='Kiosk öppen hela cupdagen med kaffe, mat och dryck.',
@@ -8769,15 +8965,21 @@ elif admin_page == "Adminöversikt":
                        squad_deadline_minutes=30,max_roster_size=18,
                        age_classes_json=?
                    WHERE id=?""",
-                (json.dumps(["U14", "U15"], ensure_ascii=False), tid),
+                (demo_team_count, json.dumps(["U14"], ensure_ascii=False), tid),
             )
-            g1 = con.execute("INSERT INTO groups(tournament_id,name,age_class) VALUES(?,?,?)", (tid, "Grupp A", "U14")).lastrowid
-            g2 = con.execute("INSERT INTO groups(tournament_id,name,age_class) VALUES(?,?,?)", (tid, "Grupp B", "U14")).lastrowid
+            group_names = []
+            for group_index in range(demo_group_count):
+                group_name = f"Grupp {chr(65 + group_index)}"
+                group_names.append(group_name)
+                con.execute("INSERT INTO groups(tournament_id,name,age_class) VALUES(?,?,?)", (tid, group_name, "U14"))
+            created_groups = _rows_from_cursor(con.execute("SELECT id,name FROM groups WHERE tournament_id=? ORDER BY id", (tid,)))
+            group_id_by_name = {row["name"]: row["id"] for row in created_groups}
+            group_ids = [group_id_by_name[name] for name in group_names]
 
             # Första passet: skapa alla lag.
             team_specs = []
             for index, (league, club_name, home1, home2) in enumerate(chosen):
-                group_id = g1 if index < 4 else g2
+                group_id = group_ids[index % demo_group_count]
                 home_pattern = random.choice(patterns)
                 away_pattern = random.choice(patterns)
                 away1 = random.choice(away_palette)
@@ -8807,8 +9009,8 @@ elif admin_page == "Adminöversikt":
                 con.execute("SELECT id,name FROM teams WHERE tournament_id=? ORDER BY id", (tid,))
             )
             team_id_by_name = {row["name"]: row["id"] for row in created_teams}
-            if len(team_id_by_name) != 8:
-                raise RuntimeError(f"Förväntade 8 demolag men hittade {len(team_id_by_name)}.")
+            if len(team_id_by_name) != demo_team_count:
+                raise RuntimeError(f"Förväntade {demo_team_count} demolag men hittade {len(team_id_by_name)}.")
 
             # Andra passet: skapa 14 fiktiva spelare per lag.
             inserted_players = 0
@@ -8846,7 +9048,8 @@ elif admin_page == "Adminöversikt":
             referee_last_names = ["Domarsson", "Pipström", "Visselberg", "Linjeman", "Rättvik", "Matchlund"]
             referee_levels = ["Distriktsdomare", "Regional domare", "Ungdomsdomare", "Senior domare"]
             used_ref_names = set()
-            for ref_index in range(2):
+            referee_target = max(2, min(8, demo_group_count))
+            for ref_index in range(referee_target):
                 while True:
                     ref_name = f"{random.choice(referee_first_names)} {random.choice(referee_last_names)}"
                     if ref_name not in used_ref_names:
@@ -8877,9 +9080,9 @@ elif admin_page == "Adminöversikt":
             referee_check = _one_from_cursor(
                 con.execute("SELECT COUNT(*) AS n FROM referees WHERE tournament_id=?", (tid,))
             )
-            if int(referee_check["n"] or 0) < 2:
+            if int(referee_check["n"] or 0) < referee_target:
                 raise RuntimeError(
-                    f"Domarkontrollen misslyckades: förväntade minst 2 domare, hittade {referee_check['n']}."
+                    f"Domarkontrollen misslyckades: förväntade minst {referee_target} domare, hittade {referee_check['n']}."
                 )
 
             # Komplett kringdata för att testköra publik vy, lagportal och adminflöden.
@@ -8941,9 +9144,10 @@ elif admin_page == "Adminöversikt":
             )
             con.commit()
             _clear_render_query_cache()
+            sync_competition_classes(tid, ["U14"])
             st.success(
-                f"Demodata skapad: 8 riktiga klubbnamn (3 Allsvenskan, 2 Superettan, 3 Premier League), "
-                f"2 grupper, {inserted_players} fiktiva stjärninspirerade spelare och 2 fiktiva domare."
+                f"Testdata skapad: {demo_team_count} lag, {demo_group_count} grupper, "
+                f"{inserted_players} fiktiva spelare och {referee_target} fiktiva domare."
             )
             st.rerun()
         except Exception as exc:
@@ -8959,6 +9163,9 @@ elif admin_page == "Adminöversikt":
         "Testlägena bygger ett komplett schema och fyller resultat, matchhändelser och status till vald nivå. "
         "Varje körning nollställer tidigare testresultat men behåller lag, trupper, domare, lagkoder och övrig demodata."
     )
+    testdata_ready = int(demo_counts["teams_n"] or 0) > 0 and int(demo_counts["groups_n"] or 0) > 0
+    if not testdata_ready:
+        st.info("Skapa testdata i steg 1 innan du väljer hur långt turneringen har pågått.")
     demo_level = st.selectbox(
         "Testnivå",
         [
@@ -8968,6 +9175,7 @@ elif admin_page == "Adminöversikt":
             "Hela cupen färdig",
         ],
         key=f"demo_progress_level_{tid}",
+        disabled=not testdata_ready,
     )
     level_key = {
         "Halva gruppspelet": "half_group",
@@ -8980,6 +9188,7 @@ elif admin_page == "Adminöversikt":
         use_container_width=True,
         type="primary",
         key=f"demo_progress_apply_{tid}",
+        disabled=not testdata_ready,
     ):
         with st.spinner(f"Bygger testläge: {demo_level}…", show_time=True):
             ok, message = _demo_apply_progress_level(tid, level_key)
@@ -9354,6 +9563,7 @@ if admin_page == "Lag":
         travel_note = st.text_input("Resekommentar", placeholder="Exempel: Reser samma morgon")
         late_first_match = st.checkbox("Önskar senare första match", help="Använd detta exempelvis för lag med lång resväg.")
         earliest_first_time = st.time_input("Första match tidigast", value=datetime.strptime("10:00", "%H:%M").time(), help="Tiden används bara om Önskar senare första match är markerat.")
+        avoid_late_group_match = st.checkbox("Undvik senaste gruppspelsmatchen", help="CupNavi försöker undvika dagens sista gruppspelstid för laget när schemat tillåter det.")
         if st.button("Lägg till lag", type="primary", disabled=team_limit_reached, key=f"add_team_{tid}"):
             current_count = one_row("SELECT COUNT(*) AS n FROM teams WHERE tournament_id=?", (tid,))["n"]
             if max_teams and current_count >= max_teams:
@@ -9373,6 +9583,7 @@ if admin_page == "Lag":
                         late_first_match,
                         earliest_first_time.strftime("%H:%M") if late_first_match else None,
                         travel_note.strip(),
+                        avoid_late_group_match,
                     )
                     run(
                         "UPDATE teams SET responsible_name=?,responsible_phone=?,responsible_email=?,age_class=?,competition_class_id=? WHERE id=?",
@@ -9687,6 +9898,7 @@ if admin_page == "Lag":
                 edited_distance = st.number_input("Resväg i kilometer", 0, 5000, int(edit_team["distance_km"] or 0), key=f"edit_distance_{edit_team_id}")
                 edited_travel_note = st.text_input("Resekommentar", value=edit_team["travel_note"] or "", key=f"edit_travel_note_{edit_team_id}")
                 edited_late_first = st.checkbox("Önskar senare första match", value=bool(edit_team["late_first_match"]), key=f"edit_late_first_{edit_team_id}")
+                edited_avoid_late = st.checkbox("Undvik senaste gruppspelsmatchen", value=bool(_row_value(edit_team, "avoid_late_group_match", 0)), key=f"edit_avoid_late_{edit_team_id}")
                 saved_earliest = edit_team["earliest_first_time"] or "10:00"
                 edited_earliest = st.time_input(
                     "Första match tidigast",
@@ -9699,12 +9911,12 @@ if admin_page == "Lag":
                         run(
                             """UPDATE teams SET
                                 name=?,primary_color=?,secondary_color=?,home_pattern=?,home_color_2=?,away_pattern=?,away_color_2=?,
-                                distance_km=?,late_first_match=?,earliest_first_time=?,travel_note=?,kit_confirmed_at=NULL,
+                                distance_km=?,late_first_match=?,earliest_first_time=?,travel_note=?,avoid_late_group_match=?,kit_confirmed_at=NULL,
                                 responsible_name=?,responsible_phone=?,responsible_email=?,age_class=?,competition_class_id=?,group_id=CASE WHEN COALESCE(competition_class_id,-1)!=COALESCE(?,-1) THEN NULL ELSE group_id END WHERE id=?""",
                             (edited_name.strip(), edited_primary, edited_secondary,
                              edited_home_pattern, edited_home_color_2, edited_away_pattern, edited_away_color_2,
                              edited_distance, int(edited_late_first), edited_earliest.strftime("%H:%M") if edited_late_first else None,
-                             edited_travel_note.strip(), edited_responsible_name.strip(), edited_responsible_phone.strip(),
+                             edited_travel_note.strip(), int(edited_avoid_late), edited_responsible_name.strip(), edited_responsible_phone.strip(),
                              edited_responsible_email.strip(), edited_age_class or None, edited_class_id, edited_class_id, edit_team_id),
                         )
                         st.rerun()
@@ -11750,14 +11962,14 @@ if admin_page == "Import":
                                         """INSERT INTO teams(
                                                tournament_id,name,group_id,primary_color,secondary_color,
                                                home_pattern,home_color_2,away_pattern,away_color_2,
-                                               distance_km,late_first_match,earliest_first_time,travel_note
-                                           ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                                               distance_km,late_first_match,earliest_first_time,travel_note,avoid_late_group_match
+                                           ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
                                         (
                                             tid, record["name"], group_id,
                                             record["home_color"], record["away_color"],
                                             "Helfärgad", "#FFFFFF", "Helfärgad", "#111827",
                                             record["distance_km"], int(record["late_first_match"]),
-                                            record["earliest_first_time"], record["comment"] or None,
+                                            record["earliest_first_time"], record["comment"] or None, int(record.get("avoid_late_group_match", False)),
                                         ),
                                     )
                                 con.execute(
@@ -12128,6 +12340,14 @@ if admin_page == "Tabeller":
             st.caption("Sortering: poäng, inbördes möten, därefter målskillnad och gjorda mål.")
         else:
             st.caption("Sortering: poäng, målskillnad, gjorda mål, därefter lagnamn.")
+    if bool(_row_value(tournament, "enable_final_ranking", 0)):
+        st.subheader("Slutlig ranking")
+        ranking = final_ranking_rows(tid, tournament)
+        admin_rank_counts = one_row("SELECT COUNT(*) AS total, SUM(CASE WHEN home_score IS NOT NULL AND away_score IS NOT NULL THEN 1 ELSE 0 END) AS played FROM matches WHERE tournament_id=?", (tid,))
+        if ranking and int(admin_rank_counts["total"] or 0) > 0 and int(admin_rank_counts["played"] or 0) == int(admin_rank_counts["total"] or 0):
+            render_centered_table(pd.DataFrame(ranking))
+        else:
+            st.info("Slutlig ranking visas när hela cupen är färdigspelad.")
 
 
 if admin_page == "Skytteligor":

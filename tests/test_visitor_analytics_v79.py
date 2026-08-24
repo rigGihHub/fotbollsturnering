@@ -31,9 +31,9 @@ def test_admin_has_detailed_visitor_statistics_page():
     assert "#### Trafikkälla" in text
     assert "#### Senaste besöken" in text
 
-def test_tracking_has_60_second_view_throttle():
+def test_tracking_throttles_repeat_writes_for_at_least_five_minutes():
     text = app_text()
-    assert "total_seconds() >= 60" in text
+    assert "total_seconds() >= 300" in text
 
 def test_schema_migration_v4_exists():
     text = Path("cupnavi_core/migrations.py").read_text(encoding="utf-8")

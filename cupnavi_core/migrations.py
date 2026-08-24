@@ -9,7 +9,7 @@ Regel:
 from dataclasses import dataclass
 from datetime import datetime, timezone
 
-LATEST_SCHEMA_VERSION = 14
+LATEST_SCHEMA_VERSION = 15
 
 
 @dataclass(frozen=True)
@@ -338,6 +338,14 @@ MIGRATIONS = (
                 SELECT cc.id FROM competition_classes cc
                 WHERE cc.tournament_id=groups.tournament_id AND cc.name=TRIM(groups.age_class) LIMIT 1
             ) WHERE age_class IS NOT NULL AND TRIM(age_class)<>'' AND competition_class_id IS NULL""",
+        ),
+    ),
+    Migration(
+        15,
+        "final_ranking_and_late_group_preference_v129",
+        (
+            "ALTER TABLE tournaments ADD COLUMN enable_final_ranking INTEGER NOT NULL DEFAULT 0",
+            "ALTER TABLE teams ADD COLUMN avoid_late_group_match INTEGER NOT NULL DEFAULT 0",
         ),
     ),
 
