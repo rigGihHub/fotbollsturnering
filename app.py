@@ -49,7 +49,7 @@ from cupnavi_core.fairness import fairness_report
 from cupnavi_core.ux2 import ADMIN_SECTIONS, workflow_progress, attention_items, human_error_id, schedule_board
 from cupnavi_core.about import feature_catalog, about_intro
 
-APP_BUILD_VERSION = "2026.08.24-137-MESSAGING-SCHEDULE-TRAVEL-RECOVERY"
+APP_BUILD_VERSION = "2026.08.24-138-PUBLIC-MATCHES-STABILITY"
 APP_VERSION = APP_BUILD_VERSION
 RELEASE_FILES_MISMATCH = CORE_APP_VERSION != APP_BUILD_VERSION
 REQUIRED_SCHEMA_VERSION = max(int(LATEST_SCHEMA_VERSION), 5)
@@ -3958,9 +3958,13 @@ def fetch_weather_forecast(place):
 
 
 def weather_for_match(forecast, scheduled_start):
+    """Returnera prognos för matchen utan att publikvyn kan krascha på gammal/ofullständig data."""
     if not forecast or not scheduled_start:
         return None
-    moment = datetime.fromisoformat(scheduled_start)
+    try:
+        moment = datetime.fromisoformat(str(scheduled_start))
+    except (TypeError, ValueError):
+        return None
     forecast_hour = moment.replace(minute=0, second=0, microsecond=0)
     if moment.minute >= 30:
         forecast_hour += timedelta(hours=1)
@@ -5991,8 +5995,11 @@ def render_public_view(tournament_id, tournament):
             start = swedish_datetime(match_row["scheduled_start"])
             weather_text = ""
             if show_weather:
-                match_weather = weather_for_match(weather_forecast, match_row["scheduled_start"])
-                weather_text = weather_label(match_weather) if weather_forecast else weather_status
+                try:
+                    match_weather = weather_for_match(weather_forecast, _row_value(match_row, "scheduled_start"))
+                    weather_text = weather_label(match_weather) if weather_forecast else weather_status
+                except Exception:
+                    weather_text = "Väderprognosen kan inte visas för den här matchen."
 
             _, _, away_kit_used = match_kit_colors(home, away)
             home_kit_bg = kit_background_for_team(home, "home") if home else "#94a3b8"
@@ -6040,7 +6047,7 @@ def render_public_view(tournament_id, tournament):
                   </div>
                   {match_events_html}
                   {f'<div class="match-weather" style="font-size:12px;text-align:center;margin-top:10px">{html.escape(weather_text)}</div>' if show_weather else ''}
-                  <div class="match-referee" style="font-size:12px;text-align:center;margin-top:10px">Domare: {html.escape(referees.get(match_row['referee_id'], 'Ej tillsatt'))}</div>
+                  <div class="match-referee" style="font-size:12px;text-align:center;margin-top:10px">Domare: {html.escape(referees.get(_row_value(match_row, 'referee_id'), 'Ej tillsatt'))}</div>
                 </div>
                 """,
                 unsafe_allow_html=True,
