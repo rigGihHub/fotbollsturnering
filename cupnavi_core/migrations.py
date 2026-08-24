@@ -9,7 +9,7 @@ Regel:
 from dataclasses import dataclass
 from datetime import datetime, timezone
 
-LATEST_SCHEMA_VERSION = 8
+LATEST_SCHEMA_VERSION = 9
 
 
 @dataclass(frozen=True)
@@ -214,6 +214,20 @@ MIGRATIONS = (
             "ALTER TABLE tournaments ADD COLUMN trashed_at TEXT",
             "CREATE UNIQUE INDEX IF NOT EXISTS idx_tournaments_public_slug ON tournaments(public_slug)",
             "CREATE INDEX IF NOT EXISTS idx_tournaments_lifecycle_status ON tournaments(lifecycle_status)",
+        ),
+    ),
+    Migration(
+        9,
+        "participant_privacy_and_admin_codes_v106",
+        (
+            "ALTER TABLE participant_access_credentials ADD COLUMN admin_code TEXT",
+            "ALTER TABLE teams ADD COLUMN responsible_name TEXT",
+            "ALTER TABLE teams ADD COLUMN responsible_phone TEXT",
+            "ALTER TABLE teams ADD COLUMN responsible_email TEXT",
+            "ALTER TABLE teams ADD COLUMN responsible_contact_protected INTEGER NOT NULL DEFAULT 1",
+            "ALTER TABLE players ADD COLUMN first_name TEXT",
+            "ALTER TABLE players ADD COLUMN last_name TEXT",
+            "ALTER TABLE players ADD COLUMN is_protected INTEGER NOT NULL DEFAULT 0",
         ),
     ),
 )
