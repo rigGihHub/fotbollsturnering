@@ -25,7 +25,7 @@ from cupnavi_core.pdf_export import build_schedule_pdf
 from cupnavi_core.migrations import apply_migrations, LATEST_SCHEMA_VERSION
 from cupnavi_core.health import collect_database_health
 from cupnavi_core.backup import build_backup_bytes
-from cupnavi_core.config import BACKUP_FILE_SUFFIX
+from cupnavi_core.config import BACKUP_FILE_SUFFIX, PUBLIC_BASE_URL, OFFICIAL_PUBLIC_BASE_URL, LEGACY_STREAMLIT_BASE_URL
 from cupnavi_core.schedule_repository import ScheduleRepository
 from cupnavi_core.schedule_domain import build_schedule_window, schedule_source_team_id
 from cupnavi_core.import_service import (
@@ -40,7 +40,7 @@ from cupnavi_core.experience import (
 from cupnavi_core.sports import sport_definition
 from cupnavi_core.i18n import SUPPORTED_LOCALES, DEFAULT_LOCALE, DEFAULT_TIMEZONE, valid_timezone
 
-APP_BUILD_VERSION = "2026.08.24-100-INTERNATIONAL-CORE"
+APP_BUILD_VERSION = "2026.08.24-101-DOMAIN-FOUNDATION"
 APP_VERSION = APP_BUILD_VERSION
 RELEASE_FILES_MISMATCH = CORE_APP_VERSION != APP_BUILD_VERSION
 REQUIRED_SCHEMA_VERSION = max(int(LATEST_SCHEMA_VERSION), 5)
@@ -57,7 +57,7 @@ except ImportError:
 
 
 
-PUBLIC_APP_URL = os.getenv("CUPNAVI_PUBLIC_URL", "https://cupnavi.streamlit.app/").rstrip("/") + "/"
+PUBLIC_APP_URL = PUBLIC_BASE_URL.rstrip("/") + "/"
 
 
 def public_cup_url(tournament_id):
@@ -6240,8 +6240,11 @@ view_mode = st.session_state["view_mode"]
 st.sidebar.caption(f"{tr('Visningsläge')}: {tr(view_mode)}")
 if RELEASE_FILES_MISMATCH and view_mode == "Admin":
     st.sidebar.error(
-        f"Ofullständig release: app.py är {APP_BUILD_VERSION}, men cupnavi_core/version.py är {CORE_APP_VERSION}. "
-        "Lägg in hela releasepaketet i GitHub, inte bara app.py."
+        f"Ofullständig release\n\n"
+        f"app.py: {APP_BUILD_VERSION}\n\n"
+        f"cupnavi_core/version.py: {CORE_APP_VERSION}\n\n"
+        "Lägg in hela releasepaketet i GitHub, inte bara app.py. "
+        "Kontrollera särskilt cupnavi_core/version.py. Starta sedan om Streamlit-appen."
     )
 
 if view_mode == "Matchrapportör":
