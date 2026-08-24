@@ -8,15 +8,15 @@ def test_named_pitches_are_schema_backed_and_autosaved():
     assert "CREATE TABLE IF NOT EXISTS pitches" in MIG
     assert "ensure_v18_pitch_names_schema_compat" in MIG
     assert "def save_pitch_name" in APP
-    assert "Namn på planer/spelytor" in APP
-    assert "Namnet visas för arrangör, lag och publik" in APP
+    assert "Namnge planer/spelytor" in APP
+    assert "Planens nummer behålls bara som internt ID" in APP
 
 def test_schedule_failures_offer_ranked_one_click_recovery():
     assert "def render_schedule_recovery_actions" in APP
-    assert "Förslag på lösningar" in APP
-    assert "Ta bort önskemål om senare första match" in APP
-    assert "Ta bort önskemål om att undvika sena gruppmatcher" in APP
-    assert "Förläng plantiden sista dagen" in APP
+    assert "CupNavi föreslår en lösning" in APP
+    assert "Släpp önskemål om senare första match" in APP
+    assert "mjuk prioritering och blockerar inte i sig schemaläggningen" in APP
+    assert "Förläng sista dagens plantider" in APP
     assert "Lägg till en extra plan/spelyta" in APP
     assert 'st.session_state["schedule_recovery"] = _schedule_recovery_context' in APP
 

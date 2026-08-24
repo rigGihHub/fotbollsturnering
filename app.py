@@ -47,7 +47,7 @@ from cupnavi_core.fairness import fairness_report
 from cupnavi_core.ux2 import ADMIN_SECTIONS, workflow_progress, attention_items, human_error_id, schedule_board
 from cupnavi_core.about import feature_catalog, about_intro
 
-APP_BUILD_VERSION = "2026.08.24-134-SCHEDULE-RECOVERY-PITCH-NAMES"
+APP_BUILD_VERSION = "2026.08.24-135-SMART-SCHEDULE-RECOVERY"
 APP_VERSION = APP_BUILD_VERSION
 RELEASE_FILES_MISMATCH = CORE_APP_VERSION != APP_BUILD_VERSION
 REQUIRED_SCHEMA_VERSION = max(int(LATEST_SCHEMA_VERSION), 5)
@@ -275,93 +275,127 @@ def _schedule_recovery_context(tournament_id, tournament, rules, unresolved):
         "avoid_consecutive":bool(rules["avoid_consecutive_matches"]),
     }
 
+def _rerun_schedule_after_recovery(tournament_id, tournament, rules, action_label):
+    """Kör om schemat direkt efter en föreslagen återställningsåtgärd."""
+    fresh_rules = one_row("SELECT * FROM schedule_rules WHERE tournament_id=?", (int(tournament_id),)) or rules
+    started = time.perf_counter()
+    try:
+        optimize_group_home_away(tournament_id)
+        count, unresolved, warning = generate_schedule(tournament_id, tournament, fresh_rules)
+        elapsed = time.perf_counter() - started
+        if unresolved:
+            st.session_state["schedule_recovery"] = _schedule_recovery_context(tournament_id, tournament, fresh_rules, unresolved)
+            detail = f" {warning}" if warning else ""
+            st.session_state["schedule_message"] = (
+                "warning",
+                f"{action_label} genomfördes och schemat genererades om på {elapsed:.1f} s. "
+                f"{count} matcher fick tid, men {unresolved} återstår.{detail} Nästa bästa lösning visas nedan.",
+            )
+        else:
+            st.session_state.pop("schedule_recovery", None)
+            st.session_state["schedule_message"] = (
+                "success",
+                f"{action_label} genomfördes. Hela schemat gick nu ihop ({count} matcher) på {elapsed:.1f} s.",
+            )
+    except Exception as exc:
+        st.session_state["schedule_message"] = ("error", f"Åtgärden sparades men omgenereringen misslyckades: {exc}")
+    st.rerun()
+
+
 def render_schedule_recovery_actions(tournament_id,tournament,rules,context):
     if not context or int(context.get("unresolved",0) or 0)<=0:
         return
-    st.markdown("#### Förslag på lösningar")
+    unresolved=int(context.get("unresolved",0) or 0)
+    st.markdown("#### CupNavi föreslår en lösning")
+    st.caption(
+        "Förslagen är rangordnade efter minsta praktiska förändring som bedöms ge störst effekt. "
+        "Varje knapp genomför ändringen och provar schemat igen direkt. Om det fortfarande inte går ihop visas nästa bästa åtgärd automatiskt."
+    )
     if context.get("physical_shortfall",0)>0:
-        st.warning(f"Nuvarande plantider har teoretisk kapacitet för cirka {context.get('capacity',0)} matcher, men cupen innehåller {context.get('total_matches',0)}. Minst {context.get('physical_shortfall',0)} ytterligare matchplatser behövs.")
-    st.caption("CupNavi rangordnar åtgärderna från minsta praktiska förändring med störst sannolik effekt. Efter en åtgärd genererar du schemat på nytt.")
-    rank=1
-    if context.get("physical_shortfall",0)>0 and context.get("last_date"):
+        st.error(
+            f"Cupen saknar minst {context.get('physical_shortfall',0)} teoretiska matchplatser med nuvarande plan- och öppettider "
+            f"({context.get('capacity',0)} platser för {context.get('total_matches',0)} matcher)."
+        )
+
+    solutions=[]
+    # Hårda kapacitetsproblem måste lösas med mer faktisk speltid/kapacitet.
+    if context.get("last_date"):
         minutes=int(context.get("extension_minutes",30))
-        with st.container(border=True):
-            st.markdown(f"**{rank}. Förläng plantiden sista dagen med cirka {minutes} min**")
-            st.caption("Det finns ett faktiskt kapacitetsunderskott. Den här ändringen skapar nya matchplatser direkt och rankas därför först.")
-            if st.button(f"Förläng sista dagens plantider +{minutes} min",key=f"recover_extend_capacity_{tournament_id}",use_container_width=True):
-                rows=pitch_day_windows(tournament_id,int(rules["pitch_count"]))
-                for row in rows:
-                    if str(row["play_date"])!=str(context["last_date"]): continue
-                    old=datetime.strptime(row["end_time"],"%H:%M")
-                    proposed=old+timedelta(minutes=minutes)
-                    latest=datetime.strptime("23:55","%H:%M")
-                    if proposed>latest: proposed=latest
-                    new=proposed.strftime("%H:%M")
-                    if new>row["end_time"]:
-                        save_pitch_day_window(tournament_id,int(row["pitch_number"]),row["play_date"],row["start_time"],new,True)
-                st.session_state["schedule_message"]=("success",f"Sista dagens plantider förlängdes med {minutes} minuter. Generera schemat på nytt.")
-                st.session_state.pop("schedule_recovery",None); st.rerun()
-        rank+=1
+        solutions.append({
+            "kind":"extend", "title":f"Förläng sista dagens plantider med {minutes} min",
+            "effect":f"Skapar ungefär den extra tidskapacitet som behövs för de {unresolved} matcher som saknar tid.",
+            "change":f"Endast sluttiden på sista cupdagen ändras (+{minutes} min per tillgänglig plan).",
+            "certainty":"Hög" if context.get("physical_shortfall",0)>0 else "Medel–hög",
+            "score": 10 if context.get("physical_shortfall",0)>0 else 30,
+            "minutes":minutes,
+        })
     if context.get("late_first"):
-        with st.container(border=True):
-            st.markdown(f"**{rank}. Ta bort önskemål om senare första match**")
-            st.caption(f"Berör {context['late_first']} lag och ändrar inga plantider eller matchregler.")
-            if st.button(f"Ta bort {context['late_first']} senare-start-önskemål",key=f"recover_late_{tournament_id}",use_container_width=True):
-                run("UPDATE teams SET late_first_match=0,earliest_first_time=NULL WHERE tournament_id=? AND late_first_match=1",(int(tournament_id),))
-                run("UPDATE tournaments SET schedule_dirty=1,is_published=0 WHERE id=?",(int(tournament_id),))
-                st.session_state["schedule_message"]=("success","Önskemålen om senare första match är borttagna. Generera schemat på nytt.")
-                st.session_state.pop("schedule_recovery",None); st.rerun()
-        rank+=1
-    if context.get("avoid_late"):
-        with st.container(border=True):
-            st.markdown(f"**{rank}. Ta bort önskemål om att undvika sena gruppmatcher**")
-            st.caption(f"Berör {context['avoid_late']} lag och frigör sena tider utan att ändra cupens öppettider.")
-            if st.button(f"Ta bort {context['avoid_late']} sena-match-önskemål",key=f"recover_avoidlate_{tournament_id}",use_container_width=True):
-                run("UPDATE teams SET avoid_late_group_match=0 WHERE tournament_id=?",(int(tournament_id),))
-                run("UPDATE tournaments SET schedule_dirty=1,is_published=0 WHERE id=?",(int(tournament_id),))
-                st.session_state["schedule_message"]=("success","Önskemålen om att undvika sena gruppmatcher är borttagna. Generera schemat på nytt.")
-                st.session_state.pop("schedule_recovery",None); st.rerun()
-        rank+=1
-    if context.get("last_date") and not context.get("physical_shortfall",0):
-        minutes=int(context.get("extension_minutes",30))
-        with st.container(border=True):
-            st.markdown(f"**{rank}. Förläng plantiden sista dagen med cirka {minutes} min**")
-            st.caption("Ökar den faktiska kapaciteten direkt och är den minsta automatiskt beräknade tidsförlängningen utifrån antalet oschemalagda matcher.")
-            if st.button(f"Förläng sista dagens plantider +{minutes} min",key=f"recover_extend_{tournament_id}",use_container_width=True):
-                rows=pitch_day_windows(tournament_id,int(rules["pitch_count"]))
-                for row in rows:
-                    if str(row["play_date"])!=str(context["last_date"]): continue
-                    old=datetime.strptime(row["end_time"],"%H:%M")
-                    proposed=old+timedelta(minutes=minutes)
-                    latest=datetime.strptime("23:55","%H:%M")
-                    if proposed>latest: proposed=latest
-                    new=proposed.strftime("%H:%M")
-                    if new>row["end_time"]:
-                        save_pitch_day_window(tournament_id,int(row["pitch_number"]),row["play_date"],row["start_time"],new,True)
-                st.session_state["schedule_message"]=("success",f"Sista dagens plantider förlängdes med {minutes} minuter. Generera schemat på nytt.")
-                st.session_state.pop("schedule_recovery",None); st.rerun()
-        rank+=1
+        solutions.append({
+            "kind":"late_first", "title":"Släpp önskemål om senare första match",
+            "effect":f"Frigör tidiga matchtider för {context['late_first']} lag som idag har en hård startbegränsning.",
+            "change":"Plantider och matchregler ändras inte; endast lagens reseönskemål tas bort.",
+            "certainty":"Medel–hög", "score":20 if not context.get("physical_shortfall",0) else 45,
+        })
     if context.get("avoid_consecutive") and context.get("consecutive_break",0)>0:
+        solutions.append({
+            "kind":"break", "title":f"Minska extra lagvila ({context['consecutive_break']} min → 0 min)",
+            "effect":"Frigör fler möjliga starttider mellan ett lags matcher.",
+            "change":"Sportslig återhämtning påverkas, därför rankas detta efter mindre ingripande lösningar.",
+            "certainty":"Medel", "score":40,
+        })
+    # Undvik-sen-match är en preferens/straffterm, inte en hård blockerare. Visa den därför inte som primär lösning.
+    solutions.append({
+        "kind":"pitch", "title":"Lägg till en extra plan/spelyta",
+        "effect":"Ger en stor och robust kapacitetsökning under samtliga öppettider.",
+        "change":"Kräver att arrangören faktiskt har ytterligare en spelplan tillgänglig.",
+        "certainty":"Mycket hög", "score":90,
+    })
+    solutions.sort(key=lambda x:x["score"])
+
+    for rank,sol in enumerate(solutions,1):
         with st.container(border=True):
-            st.markdown(f"**{rank}. Minska extrapusen vid följdmatcher**")
-            st.caption(f"Nuvarande extra paus är {context['consecutive_break']} min. Detta är en större sportslig förändring och föreslås därför senare.")
-            if st.button("Sätt extra paus vid följdmatcher till 0 min",key=f"recover_break_{tournament_id}",use_container_width=True):
-                run("UPDATE schedule_rules SET consecutive_match_break_minutes=0 WHERE tournament_id=?",(int(tournament_id),))
-                run("UPDATE tournaments SET schedule_dirty=1,is_published=0 WHERE id=?",(int(tournament_id),))
-                st.session_state["schedule_message"]=("success","Extrapusen vid följdmatcher är satt till 0 minuter. Generera schemat på nytt.")
-                st.session_state.pop("schedule_recovery",None); st.rerun()
-        rank+=1
-    with st.container(border=True):
-        st.markdown(f"**{rank}. Lägg till en extra plan/spelyta**")
-        st.caption("Ger stor kapacitetsökning men kräver en faktisk extra spelplan och visas därför sist.")
-        if st.button("Lägg till 1 plan",key=f"recover_pitch_{tournament_id}",use_container_width=True):
-            new_count=int(rules["pitch_count"] or 1)+1
-            run("UPDATE schedule_rules SET pitch_count=? WHERE tournament_id=?",(new_count,int(tournament_id)))
-            ensure_pitch_definitions(tournament_id,new_count)
-            ensure_pitch_day_windows(tournament_id,tournament,new_count,rules["first_match_time"],rules["latest_kickoff_time"])
-            run("UPDATE tournaments SET schedule_dirty=1,is_published=0 WHERE id=?",(int(tournament_id),))
-            st.session_state["schedule_message"]=("success",f"Plan {new_count} är tillagd med standardtider. Justera namn/tider under Konfigurera turneringen och generera sedan schemat på nytt.")
-            st.session_state.pop("schedule_recovery",None); st.rerun()
+            st.markdown(f"**{rank}. {sol['title']}**")
+            a,b=st.columns([3,1])
+            a.caption(sol["effect"] + " " + sol["change"])
+            b.markdown(f"**Bedömd effekt:** {sol['certainty']}")
+            if sol["kind"]=="extend":
+                minutes=sol["minutes"]
+                label=f"Tillämpa +{minutes} min och generera om"
+                if st.button(label,key=f"recover_extend_{tournament_id}_{rank}",use_container_width=True,type="primary" if rank==1 else "secondary"):
+                    rows=pitch_day_windows(tournament_id,int(rules["pitch_count"]))
+                    changed=0
+                    for row in rows:
+                        if str(row["play_date"])!=str(context["last_date"]): continue
+                        old=datetime.strptime(row["end_time"],"%H:%M")
+                        proposed=min(old+timedelta(minutes=minutes),datetime.strptime("23:55","%H:%M"))
+                        new=proposed.strftime("%H:%M")
+                        if new>row["end_time"]:
+                            save_pitch_day_window(tournament_id,int(row["pitch_number"]),row["play_date"],row["start_time"],new,True); changed+=1
+                    _rerun_schedule_after_recovery(tournament_id,tournament,rules,f"Plantiderna förlängdes på {changed} plan(er) med upp till {minutes} minuter")
+            elif sol["kind"]=="late_first":
+                if st.button("Ta bort reservationerna och generera om",key=f"recover_late_{tournament_id}_{rank}",use_container_width=True,type="primary" if rank==1 else "secondary"):
+                    run("UPDATE teams SET late_first_match=0,earliest_first_time=NULL WHERE tournament_id=? AND late_first_match=1",(int(tournament_id),))
+                    run("UPDATE tournaments SET schedule_dirty=1,is_published=0 WHERE id=?",(int(tournament_id),))
+                    _rerun_schedule_after_recovery(tournament_id,tournament,rules,"Lagens önskemål om senare första match togs bort")
+            elif sol["kind"]=="break":
+                if st.button("Sätt extrapusen till 0 min och generera om",key=f"recover_break_{tournament_id}_{rank}",use_container_width=True,type="primary" if rank==1 else "secondary"):
+                    run("UPDATE schedule_rules SET consecutive_match_break_minutes=0 WHERE tournament_id=?",(int(tournament_id),))
+                    run("UPDATE tournaments SET schedule_dirty=1,is_published=0 WHERE id=?",(int(tournament_id),))
+                    _rerun_schedule_after_recovery(tournament_id,tournament,rules,"Extra lagvila sattes till 0 minuter")
+            elif sol["kind"]=="pitch":
+                if st.button("Lägg till 1 plan och generera om",key=f"recover_pitch_{tournament_id}_{rank}",use_container_width=True,type="primary" if rank==1 else "secondary"):
+                    new_count=int(rules["pitch_count"] or 1)+1
+                    run("UPDATE schedule_rules SET pitch_count=? WHERE tournament_id=?",(new_count,int(tournament_id)))
+                    ensure_pitch_definitions(tournament_id,new_count)
+                    ensure_pitch_day_windows(tournament_id,tournament,new_count,rules["first_match_time"],rules["latest_kickoff_time"])
+                    run("UPDATE tournaments SET schedule_dirty=1,is_published=0 WHERE id=?",(int(tournament_id),))
+                    _rerun_schedule_after_recovery(tournament_id,tournament,rules,f"Plan {new_count} lades till med standardtider")
+
+    if context.get("avoid_late"):
+        st.caption(
+            f"Obs: {context['avoid_late']} lag har önskemål om att undvika den senaste gruppspelsmatchen. "
+            "Detta är en mjuk prioritering och blockerar inte i sig schemaläggningen, därför visas den inte som en huvudlösning."
+        )
 
 def _autosave_tournament_field(tournament_id, column, key, cast=None, dirty=False):
     value = st.session_state.get(key)
@@ -7530,8 +7564,8 @@ def render_initial_tournament_setup(tournament_id, tournament):
     )
     current_pitch_count=int(st.session_state.get(pitch_key,rules["pitch_count"]))
     pitch_rows=ensure_pitch_definitions(tournament_id,current_pitch_count)
-    st.markdown("**Namn på planer/spelytor**")
-    st.caption("Planens nummer används internt. Namnet visas för arrangör, lag och publik.")
+    st.markdown("**Namnge planer/spelytor**")
+    st.caption("Ge varje plan ett eget namn, exempelvis Huvudplan, Hall A eller Arena 2. Planens nummer behålls bara som internt ID.")
     pitch_names={}
     for pr in pitch_rows:
         pitch=int(pr["pitch_number"]); saved_name=str(pr["name"] or f"Plan {pitch}")
