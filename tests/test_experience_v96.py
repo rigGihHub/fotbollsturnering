@@ -80,7 +80,7 @@ def test_cup_summary_counts_played_and_score():
 def test_v96_features_are_wired_into_streamlit_app():
     text = Path("app.py").read_text(encoding="utf-8")
     required = [
-        "Min cup – följ ett lag",
+        "Följ mitt lag",
         "notifications",
         "CupNavi Score",
         "Digital lagincheckning",
