@@ -20,15 +20,19 @@ def test_match_reporter_stops_before_admin_navigation():
     text = app_text()
     assert 'if view_mode == "Matchrapportör":\n    render_match_reporter_view(tid, tournament)\n    st.stop()' in text
 
-def test_match_reporter_only_has_results_and_events_tabs():
+def test_match_reporter_stays_in_restricted_operational_workspace():
     text = app_text()
     start = text.index("def render_match_reporter_view(")
     end = text.index("init_db()", start)
     block = text[start:end]
-    assert 'st.tabs([tr("Resultat"), tr("Matchhändelser")])' in block
+    assert 'tr("CupNavi Score")' in block
+    assert 'tr("Matchhändelser")' in block
+    assert 'tr("Domarcentral")' in block
+    assert 'tr("Offlineutkast")' in block
+    assert "ADMIN_NAV_GROUPS" not in block
     assert "UPDATE matches" in block
     assert "player_match_stats" in block
-    assert "referee_id=?" not in block
+    assert "SET referee_id=?" not in block
     assert "Skapa ny turnering" not in block
 
 def test_admin_password_and_reporter_password_are_separate():

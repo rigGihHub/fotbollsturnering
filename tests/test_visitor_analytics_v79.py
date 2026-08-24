@@ -37,6 +37,6 @@ def test_tracking_has_60_second_view_throttle():
 
 def test_schema_migration_v4_exists():
     text = Path("cupnavi_core/migrations.py").read_text(encoding="utf-8")
-    assert "LATEST_SCHEMA_VERSION = 4" in text
+    assert "LATEST_SCHEMA_VERSION = 5" in text
     assert '"visitor_analytics"' in text
     assert "idx_visitor_sessions_tournament_first" in text

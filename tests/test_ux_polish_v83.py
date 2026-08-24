@@ -18,7 +18,7 @@ def test_current_page_and_status_are_visible():
 def test_public_share_is_compact():
     text=app_text()
     start=text.index("def render_public_view(")
-    block=text[start:start+9000]
+    block=text[start:start+18000]
     assert "public_share_open_" in block
     assert "if share_is_open:" in block
     assert 'render_share_panel(tournament_id, tournament["name"])' in block

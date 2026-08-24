@@ -11,3 +11,6 @@ men ny ren affärslogik ska placeras i `cupnavi_core/` och testas utan Streamlit
 
 Nästa tekniska steg är att bryta ut databas/repositories, scheduler och standings i separata moduler.
 Det bör göras stegvis med tester runt befintligt beteende, inte som en stor omskrivning.
+
+## V96
+`cupnavi_core/experience.py` innehåller testbar domänlogik för sportprofiler, schemaeffektanalys, kvalitetsbetyg, förseningsplanering, slutspelsprognos och cupsummering. UI och persistens ligger fortsatt i `app.py` för att undvika en riskfylld storrefaktor samtidigt som funktionerna införs.

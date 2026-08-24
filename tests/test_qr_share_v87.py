@@ -6,7 +6,7 @@ def app_text():
 def test_public_share_contains_qr_share_panel():
     text = app_text()
     start = text.index("def render_public_view(")
-    block = text[start:start+8000]
+    block = text[start:start+18000]
     assert 'render_qr_share_panel(tournament_id, tournament["name"])' in block
     assert 'tr("Dela länken eller QR-koden till den här cupen.")' in block
 

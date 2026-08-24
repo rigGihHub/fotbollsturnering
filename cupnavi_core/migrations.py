@@ -9,7 +9,7 @@ Regel:
 from dataclasses import dataclass
 from datetime import datetime, timezone
 
-LATEST_SCHEMA_VERSION = 4
+LATEST_SCHEMA_VERSION = 5
 
 
 @dataclass(frozen=True)
@@ -91,6 +91,72 @@ MIGRATIONS = (
             )""",
             "CREATE INDEX IF NOT EXISTS idx_visitor_sessions_tournament_first ON visitor_sessions(tournament_id, first_seen)",
             "CREATE INDEX IF NOT EXISTS idx_visitor_sessions_tournament_last ON visitor_sessions(tournament_id, last_seen)",
+        ),
+    ),
+    Migration(
+        5,
+        "experience_toolkit_v96",
+        (
+            "ALTER TABLE tournaments ADD COLUMN sport TEXT NOT NULL DEFAULT 'Fotboll'",
+            "ALTER TABLE teams ADD COLUMN checked_in INTEGER NOT NULL DEFAULT 0",
+            "ALTER TABLE teams ADD COLUMN checked_in_at TEXT",
+            "ALTER TABLE matches ADD COLUMN original_scheduled_start TEXT",
+            """CREATE TABLE IF NOT EXISTS audit_log (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                tournament_id INTEGER NOT NULL REFERENCES tournaments(id) ON DELETE CASCADE,
+                created_at TEXT NOT NULL,
+                actor TEXT NOT NULL DEFAULT 'Admin',
+                action_type TEXT NOT NULL,
+                entity_type TEXT NOT NULL,
+                entity_id INTEGER,
+                description TEXT NOT NULL,
+                before_json TEXT,
+                after_json TEXT,
+                reversible INTEGER NOT NULL DEFAULT 0,
+                undone_at TEXT
+            )""",
+            """CREATE TABLE IF NOT EXISTS cup_feed (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                tournament_id INTEGER NOT NULL REFERENCES tournaments(id) ON DELETE CASCADE,
+                created_at TEXT NOT NULL,
+                category TEXT NOT NULL DEFAULT 'Info',
+                title TEXT NOT NULL,
+                detail TEXT,
+                public INTEGER NOT NULL DEFAULT 1,
+                related_match_id INTEGER REFERENCES matches(id) ON DELETE SET NULL
+            )""",
+            """CREATE TABLE IF NOT EXISTS notifications (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                tournament_id INTEGER NOT NULL REFERENCES tournaments(id) ON DELETE CASCADE,
+                team_id INTEGER REFERENCES teams(id) ON DELETE CASCADE,
+                created_at TEXT NOT NULL,
+                title TEXT NOT NULL,
+                message TEXT NOT NULL,
+                event_key TEXT,
+                UNIQUE(tournament_id, team_id, event_key)
+            )""",
+            """CREATE TABLE IF NOT EXISTS venue_points (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                tournament_id INTEGER NOT NULL REFERENCES tournaments(id) ON DELETE CASCADE,
+                kind TEXT NOT NULL DEFAULT 'Övrigt',
+                label TEXT NOT NULL,
+                detail TEXT,
+                url TEXT,
+                sort_order INTEGER NOT NULL DEFAULT 0
+            )""",
+            """CREATE TABLE IF NOT EXISTS referee_acknowledgements (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                tournament_id INTEGER NOT NULL REFERENCES tournaments(id) ON DELETE CASCADE,
+                referee_id INTEGER NOT NULL REFERENCES referees(id) ON DELETE CASCADE,
+                match_id INTEGER NOT NULL REFERENCES matches(id) ON DELETE CASCADE,
+                acknowledged_at TEXT NOT NULL,
+                UNIQUE(referee_id, match_id)
+            )""",
+            "CREATE INDEX IF NOT EXISTS idx_audit_tournament_created ON audit_log(tournament_id, created_at)",
+            "CREATE INDEX IF NOT EXISTS idx_feed_tournament_created ON cup_feed(tournament_id, created_at)",
+            "CREATE INDEX IF NOT EXISTS idx_notifications_tournament_team ON notifications(tournament_id, team_id, created_at)",
+            "CREATE INDEX IF NOT EXISTS idx_venue_points_tournament ON venue_points(tournament_id, sort_order)",
+            "CREATE INDEX IF NOT EXISTS idx_ref_ack_tournament_referee ON referee_acknowledgements(tournament_id, referee_id)",
         ),
     ),
 )

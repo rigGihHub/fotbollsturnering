@@ -27,4 +27,4 @@ def test_guide_mentions_current_automatic_behaviors():
     section=text[text.index('if admin_page == "Instruktioner":'):text.index('elif admin_page == "Adminöversikt":')]
     assert "sparas automatiskt" in section
     assert "PDF-paket" in section
-    assert "Spelschema och Resultat är separata" in section
+    assert "Matcher är samlade på en publik sida" in section

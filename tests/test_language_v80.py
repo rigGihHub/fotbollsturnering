@@ -26,4 +26,6 @@ def test_admin_nav_labels_are_translated():
 
 def test_reporter_tabs_are_translated():
     text = app_text()
-    assert 'st.tabs([tr("Resultat"), tr("Matchhändelser")])' in text
+    assert 'tr("Matchhändelser")' in text
+    assert 'tr("Domarcentral")' in text
+    assert 'tr("Offlineutkast")' in text

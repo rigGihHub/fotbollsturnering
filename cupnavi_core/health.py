@@ -15,6 +15,11 @@ CRITICAL_TABLES = (
     "sponsors",
     "functionaries",
     "visitor_sessions",
+    "audit_log",
+    "cup_feed",
+    "notifications",
+    "venue_points",
+    "referee_acknowledgements",
 )
 
 
