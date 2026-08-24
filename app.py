@@ -22,7 +22,7 @@ from cupnavi_core.version import APP_VERSION as CORE_APP_VERSION
 from cupnavi_core.rules import validate_match_event_totals
 from cupnavi_core.home_away import orientation_balance_score
 from cupnavi_core.pdf_export import build_schedule_pdf
-from cupnavi_core.migrations import apply_migrations, LATEST_SCHEMA_VERSION, ensure_competition_class_schema_compat, ensure_v16_setup_schema_compat
+from cupnavi_core.migrations import apply_migrations, LATEST_SCHEMA_VERSION, ensure_competition_class_schema_compat, ensure_v16_setup_schema_compat, ensure_v18_pitch_names_schema_compat
 from cupnavi_core.health import collect_database_health
 from cupnavi_core.backup import build_backup_bytes
 from cupnavi_core.config import BACKUP_FILE_SUFFIX, PUBLIC_BASE_URL, OFFICIAL_PUBLIC_BASE_URL, LEGACY_STREAMLIT_BASE_URL
@@ -47,7 +47,7 @@ from cupnavi_core.fairness import fairness_report
 from cupnavi_core.ux2 import ADMIN_SECTIONS, workflow_progress, attention_items, human_error_id, schedule_board
 from cupnavi_core.about import feature_catalog, about_intro
 
-APP_BUILD_VERSION = "2026.08.24-131-SETUP-AUTOSAVE"
+APP_BUILD_VERSION = "2026.08.24-134-SCHEDULE-RECOVERY-PITCH-NAMES"
 APP_VERSION = APP_BUILD_VERSION
 RELEASE_FILES_MISMATCH = CORE_APP_VERSION != APP_BUILD_VERSION
 REQUIRED_SCHEMA_VERSION = max(int(LATEST_SCHEMA_VERSION), 5)
@@ -173,6 +173,195 @@ def save_tournament_day_window(tournament_id, play_date, start_time, end_time):
     run("""INSERT INTO tournament_day_windows(tournament_id,play_date,start_time,end_time,confirmed) VALUES(?,?,?,?,1)
            ON CONFLICT(tournament_id,play_date) DO UPDATE SET start_time=excluded.start_time,end_time=excluded.end_time,confirmed=1""",
         (int(tournament_id), str(play_date), str(start_time), str(end_time)))
+
+def pitch_day_windows(tournament_id, pitch_count=None):
+    params=[int(tournament_id)]
+    sql="SELECT tournament_id,pitch_number,play_date,start_time,end_time,confirmed FROM pitch_day_windows WHERE tournament_id=?"
+    if pitch_count is not None:
+        sql += " AND pitch_number<=?"; params.append(int(pitch_count))
+    sql += " ORDER BY play_date,pitch_number"
+    return all_rows(sql, tuple(params))
+
+def ensure_pitch_day_windows(tournament_id, tournament, pitch_count, default_start="09:00", default_end="18:00"):
+    pitch_count=max(1,int(pitch_count or 1))
+    legacy={str(r["play_date"]):r for r in ensure_tournament_day_windows(tournament_id,tournament,default_start,default_end)}
+    existing={(str(r["play_date"]),int(r["pitch_number"])) for r in pitch_day_windows(tournament_id)}
+    start_date=datetime.fromisoformat(tournament["start_date"] or tournament["tournament_date"]).date()
+    end_date=datetime.fromisoformat(tournament["end_date"] or tournament["start_date"] or tournament["tournament_date"]).date()
+    day=start_date
+    while day<=end_date:
+        ds=day.isoformat(); base=legacy.get(ds)
+        ds_start=base["start_time"] if base else default_start; ds_end=base["end_time"] if base else default_end
+        for pitch in range(1,pitch_count+1):
+            if (ds,pitch) not in existing:
+                run("INSERT OR IGNORE INTO pitch_day_windows(tournament_id,pitch_number,play_date,start_time,end_time,confirmed) VALUES(?,?,?,?,?,0)", (int(tournament_id),pitch,ds,ds_start,ds_end))
+        day += timedelta(days=1)
+    return pitch_day_windows(tournament_id,pitch_count)
+
+def save_pitch_day_window(tournament_id,pitch_number,play_date,start_time,end_time,confirmed=True):
+    if start_time >= end_time:
+        raise ValueError("Sluttiden måste vara senare än starttiden.")
+    run("""INSERT INTO pitch_day_windows(tournament_id,pitch_number,play_date,start_time,end_time,confirmed) VALUES(?,?,?,?,?,?)
+           ON CONFLICT(tournament_id,pitch_number,play_date) DO UPDATE SET start_time=excluded.start_time,end_time=excluded.end_time,confirmed=excluded.confirmed""",
+        (int(tournament_id),int(pitch_number),str(play_date),str(start_time),str(end_time),1 if confirmed else 0))
+    rows=pitch_day_windows(tournament_id)
+    starts=[r["start_time"] for r in rows if r["start_time"]]; ends=[r["end_time"] for r in rows if r["end_time"]]
+    if starts and ends:
+        run("UPDATE schedule_rules SET first_match_time=?,latest_kickoff_time=? WHERE tournament_id=?",(min(starts),max(ends),int(tournament_id)))
+
+
+def pitch_definitions(tournament_id, pitch_count=None):
+    params=[int(tournament_id)]
+    sql="SELECT tournament_id,pitch_number,name FROM pitches WHERE tournament_id=?"
+    if pitch_count is not None:
+        sql += " AND pitch_number<=?"; params.append(int(pitch_count))
+    sql += " ORDER BY pitch_number"
+    return all_rows(sql, tuple(params))
+
+def ensure_pitch_definitions(tournament_id, pitch_count):
+    pitch_count=max(1,int(pitch_count or 1))
+    existing={int(r["pitch_number"]):str(r["name"] or "").strip() for r in pitch_definitions(tournament_id)}
+    for pitch in range(1,pitch_count+1):
+        if pitch not in existing:
+            run("INSERT OR IGNORE INTO pitches(tournament_id,pitch_number,name) VALUES(?,?,?)", (int(tournament_id),pitch,f"Plan {pitch}"))
+    return pitch_definitions(tournament_id,pitch_count)
+
+def save_pitch_name(tournament_id,pitch_number,name):
+    clean=str(name or "").strip() or f"Plan {int(pitch_number)}"
+    run("""INSERT INTO pitches(tournament_id,pitch_number,name) VALUES(?,?,?)
+           ON CONFLICT(tournament_id,pitch_number) DO UPDATE SET name=excluded.name""",
+        (int(tournament_id),int(pitch_number),clean))
+    return clean
+
+def pitch_name_map(tournament_id,pitch_count=None):
+    rows=ensure_pitch_definitions(tournament_id,pitch_count or 1) if pitch_count else pitch_definitions(tournament_id)
+    return {int(r["pitch_number"]):str(r["name"] or f"Plan {int(r['pitch_number'])}") for r in rows}
+
+def pitch_label(tournament_id,pitch_number,names=None):
+    if not pitch_number:
+        return "Plan ej satt"
+    pitch_number=int(pitch_number)
+    names=names or pitch_name_map(tournament_id)
+    return names.get(pitch_number,f"Plan {pitch_number}")
+
+def _schedule_recovery_context(tournament_id, tournament, rules, unresolved):
+    unresolved=max(0,int(unresolved or 0))
+    teams=all_rows("SELECT id,late_first_match,earliest_first_time,avoid_late_group_match FROM teams WHERE tournament_id=?",(int(tournament_id),))
+    late_first=sum(1 for r in teams if bool(r["late_first_match"]) and r["earliest_first_time"])
+    avoid_late=sum(1 for r in teams if bool(_row_value(r,"avoid_late_group_match",0)))
+    windows=ensure_pitch_day_windows(tournament_id,tournament,int(rules["pitch_count"]),rules["first_match_time"],rules["latest_kickoff_time"])
+    last_date=max((str(r["play_date"]) for r in windows),default=None)
+    last_rows=[r for r in windows if str(r["play_date"])==last_date]
+    duration_min=int(rules["halves"] or 1)*int(rules["minutes_per_half"] or 0)+max(0,int(rules["halves"] or 1)-1)*int(rules["halftime_minutes"] or 0)
+    slot=max(1,duration_min+int(rules["pitch_break_minutes"] or 0))
+    pitches=max(1,len(last_rows) or int(rules["pitch_count"] or 1))
+    total_capacity=0
+    for row in windows:
+        start_dt=datetime.strptime(row["start_time"],"%H:%M")
+        end_dt=datetime.strptime(row["end_time"],"%H:%M")
+        available=max(0,int((end_dt-start_dt).total_seconds()//60))
+        if available>=duration_min:
+            total_capacity += 1 + max(0,(available-duration_min)//slot)
+    total_matches=int(one_row("SELECT COUNT(*) AS n FROM matches WHERE tournament_id=?",(int(tournament_id),))["n"] or 0)
+    physical_shortfall=max(0,total_matches-total_capacity)
+    needed_slots=max(unresolved,physical_shortfall)
+    extra_slots_per_pitch=(needed_slots+pitches-1)//pitches if needed_slots else 1
+    extension=max(5,((extra_slots_per_pitch*slot+4)//5)*5)
+    return {
+        "unresolved":unresolved,"late_first":late_first,"avoid_late":avoid_late,
+        "last_date":last_date,"extension_minutes":extension,
+        "capacity":total_capacity,"total_matches":total_matches,"physical_shortfall":physical_shortfall,
+        "consecutive_break":int(rules["consecutive_match_break_minutes"] or 0),
+        "avoid_consecutive":bool(rules["avoid_consecutive_matches"]),
+    }
+
+def render_schedule_recovery_actions(tournament_id,tournament,rules,context):
+    if not context or int(context.get("unresolved",0) or 0)<=0:
+        return
+    st.markdown("#### Förslag på lösningar")
+    if context.get("physical_shortfall",0)>0:
+        st.warning(f"Nuvarande plantider har teoretisk kapacitet för cirka {context.get('capacity',0)} matcher, men cupen innehåller {context.get('total_matches',0)}. Minst {context.get('physical_shortfall',0)} ytterligare matchplatser behövs.")
+    st.caption("CupNavi rangordnar åtgärderna från minsta praktiska förändring med störst sannolik effekt. Efter en åtgärd genererar du schemat på nytt.")
+    rank=1
+    if context.get("physical_shortfall",0)>0 and context.get("last_date"):
+        minutes=int(context.get("extension_minutes",30))
+        with st.container(border=True):
+            st.markdown(f"**{rank}. Förläng plantiden sista dagen med cirka {minutes} min**")
+            st.caption("Det finns ett faktiskt kapacitetsunderskott. Den här ändringen skapar nya matchplatser direkt och rankas därför först.")
+            if st.button(f"Förläng sista dagens plantider +{minutes} min",key=f"recover_extend_capacity_{tournament_id}",use_container_width=True):
+                rows=pitch_day_windows(tournament_id,int(rules["pitch_count"]))
+                for row in rows:
+                    if str(row["play_date"])!=str(context["last_date"]): continue
+                    old=datetime.strptime(row["end_time"],"%H:%M")
+                    proposed=old+timedelta(minutes=minutes)
+                    latest=datetime.strptime("23:55","%H:%M")
+                    if proposed>latest: proposed=latest
+                    new=proposed.strftime("%H:%M")
+                    if new>row["end_time"]:
+                        save_pitch_day_window(tournament_id,int(row["pitch_number"]),row["play_date"],row["start_time"],new,True)
+                st.session_state["schedule_message"]=("success",f"Sista dagens plantider förlängdes med {minutes} minuter. Generera schemat på nytt.")
+                st.session_state.pop("schedule_recovery",None); st.rerun()
+        rank+=1
+    if context.get("late_first"):
+        with st.container(border=True):
+            st.markdown(f"**{rank}. Ta bort önskemål om senare första match**")
+            st.caption(f"Berör {context['late_first']} lag och ändrar inga plantider eller matchregler.")
+            if st.button(f"Ta bort {context['late_first']} senare-start-önskemål",key=f"recover_late_{tournament_id}",use_container_width=True):
+                run("UPDATE teams SET late_first_match=0,earliest_first_time=NULL WHERE tournament_id=? AND late_first_match=1",(int(tournament_id),))
+                run("UPDATE tournaments SET schedule_dirty=1,is_published=0 WHERE id=?",(int(tournament_id),))
+                st.session_state["schedule_message"]=("success","Önskemålen om senare första match är borttagna. Generera schemat på nytt.")
+                st.session_state.pop("schedule_recovery",None); st.rerun()
+        rank+=1
+    if context.get("avoid_late"):
+        with st.container(border=True):
+            st.markdown(f"**{rank}. Ta bort önskemål om att undvika sena gruppmatcher**")
+            st.caption(f"Berör {context['avoid_late']} lag och frigör sena tider utan att ändra cupens öppettider.")
+            if st.button(f"Ta bort {context['avoid_late']} sena-match-önskemål",key=f"recover_avoidlate_{tournament_id}",use_container_width=True):
+                run("UPDATE teams SET avoid_late_group_match=0 WHERE tournament_id=?",(int(tournament_id),))
+                run("UPDATE tournaments SET schedule_dirty=1,is_published=0 WHERE id=?",(int(tournament_id),))
+                st.session_state["schedule_message"]=("success","Önskemålen om att undvika sena gruppmatcher är borttagna. Generera schemat på nytt.")
+                st.session_state.pop("schedule_recovery",None); st.rerun()
+        rank+=1
+    if context.get("last_date") and not context.get("physical_shortfall",0):
+        minutes=int(context.get("extension_minutes",30))
+        with st.container(border=True):
+            st.markdown(f"**{rank}. Förläng plantiden sista dagen med cirka {minutes} min**")
+            st.caption("Ökar den faktiska kapaciteten direkt och är den minsta automatiskt beräknade tidsförlängningen utifrån antalet oschemalagda matcher.")
+            if st.button(f"Förläng sista dagens plantider +{minutes} min",key=f"recover_extend_{tournament_id}",use_container_width=True):
+                rows=pitch_day_windows(tournament_id,int(rules["pitch_count"]))
+                for row in rows:
+                    if str(row["play_date"])!=str(context["last_date"]): continue
+                    old=datetime.strptime(row["end_time"],"%H:%M")
+                    proposed=old+timedelta(minutes=minutes)
+                    latest=datetime.strptime("23:55","%H:%M")
+                    if proposed>latest: proposed=latest
+                    new=proposed.strftime("%H:%M")
+                    if new>row["end_time"]:
+                        save_pitch_day_window(tournament_id,int(row["pitch_number"]),row["play_date"],row["start_time"],new,True)
+                st.session_state["schedule_message"]=("success",f"Sista dagens plantider förlängdes med {minutes} minuter. Generera schemat på nytt.")
+                st.session_state.pop("schedule_recovery",None); st.rerun()
+        rank+=1
+    if context.get("avoid_consecutive") and context.get("consecutive_break",0)>0:
+        with st.container(border=True):
+            st.markdown(f"**{rank}. Minska extrapusen vid följdmatcher**")
+            st.caption(f"Nuvarande extra paus är {context['consecutive_break']} min. Detta är en större sportslig förändring och föreslås därför senare.")
+            if st.button("Sätt extra paus vid följdmatcher till 0 min",key=f"recover_break_{tournament_id}",use_container_width=True):
+                run("UPDATE schedule_rules SET consecutive_match_break_minutes=0 WHERE tournament_id=?",(int(tournament_id),))
+                run("UPDATE tournaments SET schedule_dirty=1,is_published=0 WHERE id=?",(int(tournament_id),))
+                st.session_state["schedule_message"]=("success","Extrapusen vid följdmatcher är satt till 0 minuter. Generera schemat på nytt.")
+                st.session_state.pop("schedule_recovery",None); st.rerun()
+        rank+=1
+    with st.container(border=True):
+        st.markdown(f"**{rank}. Lägg till en extra plan/spelyta**")
+        st.caption("Ger stor kapacitetsökning men kräver en faktisk extra spelplan och visas därför sist.")
+        if st.button("Lägg till 1 plan",key=f"recover_pitch_{tournament_id}",use_container_width=True):
+            new_count=int(rules["pitch_count"] or 1)+1
+            run("UPDATE schedule_rules SET pitch_count=? WHERE tournament_id=?",(new_count,int(tournament_id)))
+            ensure_pitch_definitions(tournament_id,new_count)
+            ensure_pitch_day_windows(tournament_id,tournament,new_count,rules["first_match_time"],rules["latest_kickoff_time"])
+            run("UPDATE tournaments SET schedule_dirty=1,is_published=0 WHERE id=?",(int(tournament_id),))
+            st.session_state["schedule_message"]=("success",f"Plan {new_count} är tillagd med standardtider. Justera namn/tider under Konfigurera turneringen och generera sedan schemat på nytt.")
+            st.session_state.pop("schedule_recovery",None); st.rerun()
 
 def _autosave_tournament_field(tournament_id, column, key, cast=None, dirty=False):
     value = st.session_state.get(key)
@@ -3182,6 +3371,7 @@ def init_db():
         # already marked but objects are missing, make the schema complete.
         ensure_competition_class_schema_compat(con)
         ensure_v16_setup_schema_compat(con)
+        ensure_v18_pitch_names_schema_compat(con)
         con.commit()
     return schema_key
 
@@ -3576,7 +3766,7 @@ def match_meta(match_row):
     referee = one_row("SELECT name FROM referees WHERE id=?", (match_row["referee_id"],)) if match_row["referee_id"] else None
     if match_row["scheduled_start"]:
         start = swedish_datetime(match_row["scheduled_start"])
-        schedule_text = f"Match {match_number} · {start} · Plan {match_row['pitch_number']}"
+        schedule_text = f"Match {match_number} · {start} · {pitch_label(match_row['tournament_id'],match_row['pitch_number'])}"
     else:
         schedule_text = "Ej schemalagd"
     return schedule_text, referee["name"] if referee else "Ej tillsatt"
@@ -4375,34 +4565,33 @@ def generate_schedule(tournament_id, tournament, rules, preserve_existing=False)
     try:
         schedule_window = build_schedule_window(tournament, rules)
     except (TypeError, ValueError, KeyError):
-        return 0, 0, "Turneringen måste ha giltiga cupdatum, första avspark och sista plantid."
+        return 0, 0, "Turneringen måste ha giltiga cupdatum och tillgängliga tider för planerna."
 
     start = schedule_window.start
     end_date = schedule_window.end_date
     latest_kickoff = schedule_window.latest_pitch_time
     duration = schedule_window.group_match_duration
-    daily_windows = {str(r["play_date"]): (datetime.strptime(r["start_time"], "%H:%M").time(), datetime.strptime(r["end_time"], "%H:%M").time()) for r in ensure_tournament_day_windows(tournament_id, tournament, rules["first_match_time"], rules["latest_kickoff_time"])}
+    pitch_windows = {(str(r["play_date"]), int(r["pitch_number"])): (datetime.strptime(r["start_time"], "%H:%M").time(), datetime.strptime(r["end_time"], "%H:%M").time()) for r in ensure_pitch_day_windows(tournament_id, tournament, rules["pitch_count"], rules["first_match_time"], rules["latest_kickoff_time"])}
 
-    def day_bounds(day):
-        return daily_windows.get(day.isoformat(), (start.time(), latest_kickoff))
+    def pitch_bounds(day,pitch):
+        return pitch_windows.get((day.isoformat(),int(pitch)),(start.time(),latest_kickoff))
 
     def duration_for_match(match_row):
         return schedule_window.duration_for_stage(match_row["stage"])
 
-    def valid_daily_start_for(candidate, match_duration):
+    def valid_pitch_start_for(candidate, match_duration, pitch):
         while candidate.date() <= end_date:
-            day_start_time, day_end_time = day_bounds(candidate.date())
+            day_start_time, day_end_time = pitch_bounds(candidate.date(),pitch)
             day_start = datetime.combine(candidate.date(), day_start_time)
             day_limit = datetime.combine(candidate.date(), day_end_time)
             if candidate < day_start:
                 candidate = day_start
             if candidate + match_duration <= day_limit:
                 return candidate
-            candidate = datetime.combine(candidate.date() + timedelta(days=1), day_bounds(candidate.date() + timedelta(days=1))[0])
+            next_day=candidate.date()+timedelta(days=1)
+            if next_day>end_date: return None
+            candidate=datetime.combine(next_day,pitch_bounds(next_day,pitch)[0])
         return None
-
-    def valid_daily_start(candidate):
-        return valid_daily_start_for(candidate, duration)
     # Databasen ändras först när hela schemaläggningspasset är färdigberäknat.
     # Det minskar risken för ett halvuppdaterat schema om ett oväntat fel inträffar.
     schedule_updates = []
@@ -4482,7 +4671,7 @@ def generate_schedule(tournament_id, tournament, rules, preserve_existing=False)
                     candidate_start = blocked_until
                     changed = True
                     break
-        return valid_daily_start(candidate_start)
+        return valid_pitch_start_for(candidate_start,match_duration,pitch)
     scheduled = 0
     unresolved = 0
     remaining = []
@@ -4514,7 +4703,7 @@ def generate_schedule(tournament_id, tournament, rules, preserve_existing=False)
     last_scheduled_teams = set()
     forced_consecutive = 0
 
-    def late_group_penalty(match_row, candidate_start, home_id, away_id):
+    def late_group_penalty(match_row, candidate_start, pitch, home_id, away_id):
         if match_row["stage"] != "Gruppspel":
             return 0
         requests = any(
@@ -4523,8 +4712,9 @@ def generate_schedule(tournament_id, tournament, rules, preserve_existing=False)
         )
         if not requests:
             return 0
-        day_start = datetime.combine(candidate_start.date(), start.time())
-        day_end = datetime.combine(candidate_start.date(), latest_kickoff)
+        p_start,p_end=pitch_bounds(candidate_start.date(),pitch)
+        day_start=datetime.combine(candidate_start.date(),p_start)
+        day_end=datetime.combine(candidate_start.date(),p_end)
         span_seconds = max(1, (day_end - day_start).total_seconds())
         progress = (candidate_start - day_start).total_seconds() / span_seconds
         return 1 if progress >= 0.75 else 0
@@ -4547,15 +4737,15 @@ def generate_schedule(tournament_id, tournament, rules, preserve_existing=False)
                 if rules["referee_mode"] == "Automatisk" and referees:
                     for referee in referees:
                         referee_id = referee["id"]
-                        candidate_start = valid_daily_start_for(max(basic_start, referee_ready[referee_id]), match_duration)
+                        candidate_start = valid_pitch_start_for(max(basic_start, referee_ready[referee_id]), match_duration, pitch)
                         candidate_start = move_past_locked(candidate_start, pitch, referee_id, home_id, away_id, match_duration) if candidate_start else None
                         if candidate_start:
-                            candidates.append((candidate_start, consecutive_penalty, late_group_penalty(match_row, candidate_start, home_id, away_id), order, pitch, referee_id))
+                            candidates.append((candidate_start, consecutive_penalty, late_group_penalty(match_row, candidate_start, pitch, home_id, away_id), order, pitch, referee_id))
                 else:
-                    candidate_start = valid_daily_start_for(basic_start, match_duration)
+                    candidate_start = valid_pitch_start_for(basic_start, match_duration, pitch)
                     candidate_start = move_past_locked(candidate_start, pitch, match_row["referee_id"], home_id, away_id, match_duration) if candidate_start else None
                     if candidate_start:
-                        candidates.append((candidate_start, consecutive_penalty, late_group_penalty(match_row, candidate_start, home_id, away_id), order, pitch, match_row["referee_id"]))
+                        candidates.append((candidate_start, consecutive_penalty, late_group_penalty(match_row, candidate_start, pitch, home_id, away_id), order, pitch, match_row["referee_id"]))
         if not candidates:
             unresolved += len(remaining)
             days = (end_date - start.date()).days + 1
@@ -4580,7 +4770,7 @@ def generate_schedule(tournament_id, tournament, rules, preserve_existing=False)
                 reasons.append(f"kravet på extra lagvila är {rules['consecutive_match_break_minutes']} minuter")
             reason_text = "; ".join(reasons) if reasons else "kombinationen av plan-, lag-, domar- och tidsbegränsningar"
             warning = (
-                "Alla matcher fick inte plats inom cupens datumintervall och sista plantid. "
+                "Alla matcher fick inte plats inom cupens datumintervall och planernas tillgängliga tider. "
                 f"Möjliga orsaker: {reason_text}."
             )
             break
@@ -4660,11 +4850,11 @@ def generate_schedule(tournament_id, tournament, rules, preserve_existing=False)
                 if rules["referee_mode"] == "Automatisk" and referees:
                     for referee in referees:
                         referee_id = referee["id"]
-                        candidate = valid_daily_start_for(max(base, referee_ready[referee_id]), match_duration)
+                        candidate = valid_pitch_start_for(max(base, referee_ready[referee_id]), match_duration, pitch)
                         if candidate:
                             candidates.append((candidate, pitch, referee_id))
                 else:
-                    candidate = valid_daily_start_for(base, match_duration)
+                    candidate = valid_pitch_start_for(base, match_duration, pitch)
                     if candidate:
                         candidates.append((candidate, pitch, match_row["referee_id"]))
             if not candidates:
@@ -4731,7 +4921,7 @@ def validate_schedule(tournament_id, tournament, rules):
     cup_end = datetime.fromisoformat(tournament["end_date"] or tournament["start_date"] or tournament["tournament_date"]).date()
     first_time = datetime.strptime(rules["first_match_time"], "%H:%M").time()
     latest_time = datetime.strptime(rules["latest_kickoff_time"], "%H:%M").time()
-    validation_windows = {str(r["play_date"]): (datetime.strptime(r["start_time"], "%H:%M").time(), datetime.strptime(r["end_time"], "%H:%M").time()) for r in ensure_tournament_day_windows(tournament_id, tournament, rules["first_match_time"], rules["latest_kickoff_time"])}
+    validation_windows = {(str(r["play_date"]),int(r["pitch_number"])): (datetime.strptime(r["start_time"], "%H:%M").time(), datetime.strptime(r["end_time"], "%H:%M").time()) for r in ensure_pitch_day_windows(tournament_id, tournament, rules["pitch_count"], rules["first_match_time"], rules["latest_kickoff_time"])}
     errors, warnings = [], []
     events = []
     for number, match_row in enumerate(rows, 1):
@@ -4742,11 +4932,12 @@ def validate_schedule(tournament_id, tournament, rules):
         events.append({"number": number, "row": match_row, "start": start_at, "end": start_at + match_duration, "teams": {home_id, away_id} - {None}})
         if not cup_start <= start_at.date() <= cup_end:
             errors.append(f"Match {number} ligger utanför cupens datumintervall.")
-        day_first, day_last = validation_windows.get(start_at.date().isoformat(), (first_time, latest_time))
+        pitch_no=int(match_row["pitch_number"] or 0)
+        day_first, day_last = validation_windows.get((start_at.date().isoformat(),pitch_no), (first_time, latest_time))
         if start_at.time() < day_first:
-            errors.append(f"Match {number} har avspark {start_at.strftime('%H:%M')} före dagens tillåtna starttid {day_first.strftime('%H:%M')}.")
+            errors.append(f"Match {number} har avspark {start_at.strftime('%H:%M')} före planens tillåtna starttid {day_first.strftime('%H:%M')}.")
         if (start_at + match_duration) > datetime.combine(start_at.date(), day_last):
-            errors.append(f"Match {number} slutar {(start_at + match_duration).strftime('%H:%M')}, efter dagens sluttid {day_last.strftime('%H:%M')}.")
+            errors.append(f"Match {number} slutar {(start_at + match_duration).strftime('%H:%M')}, efter planens sluttid {day_last.strftime('%H:%M')}.")
         if not match_row["pitch_number"] or not 1 <= match_row["pitch_number"] <= rules["pitch_count"]:
             errors.append(f"Match {number} har en ogiltig plan.")
         if rules["referee_mode"] == "Automatisk" and not match_row["referee_id"]:
@@ -5227,7 +5418,7 @@ def render_public_view(tournament_id, tournament):
                 if kind=='recent':
                     info=f"<span class='cn-screen-score'>{int(m['home_score'])}–{int(m['away_score'])}</span>"
                 else:
-                    info=f"<span class='cn-screen-time'>{start.strftime('%H:%M')}</span> · Plan {int(m['pitch_number'])}"
+                    info=f"<span class='cn-screen-time'>{start.strftime('%H:%M')}</span> · {html.escape(pitch_label(tournament_id,m['pitch_number']))}"
                 out.append(f"<div class='cn-screen-match'><div><b>{html.escape(label)}</b></div><div>{info}</div></div>")
             return ''.join(out)
         st.markdown(f"<div class='cn-screen-grid'><div class='cn-screen-card'><h3>🔴 Pågår / nu</h3>{_screen_matches(live_rows,'live')}</div><div class='cn-screen-card'><h3>⏭ Kommande</h3>{_screen_matches(upcoming_rows,'upcoming')}</div><div class='cn-screen-card'><h3>✅ Senaste resultat</h3>{_screen_matches(recent_rows,'recent')}</div></div>", unsafe_allow_html=True)
@@ -5491,7 +5682,7 @@ def render_public_view(tournament_id, tournament):
             if favorite_next:
                 st.caption(
                     f"Nästa: {_public_source_label(favorite_next['home_source'])} – {_public_source_label(favorite_next['away_source'])} · "
-                    f"{swedish_datetime(favorite_next['scheduled_start'])} · Plan {favorite_next['pitch_number']}"
+                    f"{swedish_datetime(favorite_next['scheduled_start'])} · {pitch_label(tournament_id,favorite_next['pitch_number'])}"
                 )
             if notification_rows:
                 with st.expander(f"🔔 Notiser ({len(notification_rows)})", expanded=False):
@@ -5725,7 +5916,7 @@ def render_public_view(tournament_id, tournament):
                 <div class="public-match-card" style="border:1px solid #d1d5db;border-radius:14px;padding:16px;margin:12px 0;background:linear-gradient(135deg,#ffffff,#f3f6fb);color:#172033;box-shadow:0 4px 12px rgba(15,23,42,.08)">
                   <div style="display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #e5e7eb;padding-bottom:9px">
                     <div style="display:flex;gap:7px;align-items:center"><span class="match-stage" style="font-size:12px;font-weight:700;color:#fff;background:#166534;padding:4px 9px;border-radius:999px">{match_row['stage']}</span><span class="status-pill {status_class}">{status_text}</span></div>
-                    <span class="match-meta" style="font-size:13px;color:#334155">Match {number} · <b>{start}</b> · Plan {match_row['pitch_number']}</span>
+                    <span class="match-meta" style="font-size:13px;color:#334155">Match {number} · <b>{start}</b> · {html.escape(pitch_label(tournament_id,match_row['pitch_number']))}</span>
                   </div>
                   <div style="display:grid;grid-template-columns:1fr auto 1fr;gap:15px;align-items:center;margin-top:8px;color:#0f172a">
                     <div><span style="display:inline-block;width:22px;height:15px;background:{home_kit_bg};border:1px solid #444;border-radius:3px"></span>
@@ -6635,7 +6826,7 @@ def _participant_role_label(tournament):
 
 def _portal_match_label(match_row):
     when = swedish_datetime(match_row["scheduled_start"]) if match_row["scheduled_start"] else "Tid ej satt"
-    pitch = f"Plan {match_row['pitch_number']}" if match_row["pitch_number"] else "Plan ej satt"
+    pitch = pitch_label(match_row['tournament_id'],match_row['pitch_number'])
     return f"{when} · {pitch} · {source_label(match_row['home_source'])} – {source_label(match_row['away_source'])}"
 
 
@@ -7042,10 +7233,6 @@ if view_mode == "Admin":
         )
         selected_template = template_definition(template_id)
         st.caption(selected_template["description_sv"])
-        st.markdown(
-            f"<div class='cn-recommend-card'><b>CupNavi rekommenderar</b><span>{html.escape(selected_template['label_sv'])} · {int(selected_template['expected_participants'])} deltagare som startvärde</span><small>Du kan börja enkelt och öppna avancerade inställningar först när de behövs.</small></div>",
-            unsafe_allow_html=True,
-        )
         with st.form("new_tournament", clear_on_submit=True):
             n = st.text_input("Namn")
             place = st.text_input("Spelort")
@@ -7314,7 +7501,6 @@ def render_initial_tournament_setup(tournament_id, tournament):
         rules = one_row("SELECT * FROM schedule_rules WHERE tournament_id=?", (tournament_id,))
 
     # Säkerställ obligatoriska öppettider per cupdag.
-    windows = ensure_tournament_day_windows(tournament_id, tournament, rules["first_match_time"], rules["latest_kickoff_time"])
     class_rows = competition_classes(tournament_id)
 
     st.markdown("### 1. Tävlingsklasser och svårighetsgrad")
@@ -7331,24 +7517,49 @@ def render_initial_tournament_setup(tournament_id, tournament):
             run("UPDATE competition_classes SET difficulty=? WHERE id=?", (choice, row["id"]))
             st.session_state[f"autosave_notice_{tournament_id}"]="✓ Sparat automatiskt"
 
-    st.markdown("### 2. Planernas öppettider per dag")
-    st.caption("Start- och sluttid måste anges för varje cupdag. Schemaläggaren använder dessa tider som hårda gränser.")
+    st.markdown("### 2. Planer och öppettider per dag")
+    st.caption("Ange först hur många planer/spelytor som finns och därefter när de är tillgängliga varje cupdag. Schemaläggaren använder detta som hårda kapacitetsgränser.")
+    pitch_key=f"setup_pitches_{tournament_id}"
+    st.number_input(
+        "Antal tillgängliga planer/spelytor",
+        1, 50, int(rules["pitch_count"]),
+        key=pitch_key,
+        on_change=_autosave_rule_field,
+        args=(tournament_id,"pitch_count",pitch_key,int),
+        help="Detta är cupens samtidiga plankapacitet och används tillsammans med start- och sluttiderna för varje dag när schemat byggs.",
+    )
+    current_pitch_count=int(st.session_state.get(pitch_key,rules["pitch_count"]))
+    pitch_rows=ensure_pitch_definitions(tournament_id,current_pitch_count)
+    st.markdown("**Namn på planer/spelytor**")
+    st.caption("Planens nummer används internt. Namnet visas för arrangör, lag och publik.")
+    pitch_names={}
+    for pr in pitch_rows:
+        pitch=int(pr["pitch_number"]); saved_name=str(pr["name"] or f"Plan {pitch}")
+        nk=f"pitch_name_{tournament_id}_{pitch}"
+        name=st.text_input(f"Plan {pitch}",value=saved_name,key=nk,placeholder=f"Exempel: A-plan, Hall 1 eller Arena {pitch}")
+        clean=(name or "").strip() or f"Plan {pitch}"
+        pitch_names[pitch]=clean
+        if clean!=saved_name:
+            save_pitch_name(tournament_id,pitch,clean)
+            st.session_state[f"autosave_notice_{tournament_id}"]="✓ Plannamn sparade automatiskt"
+    windows=ensure_pitch_day_windows(tournament_id,tournament,current_pitch_count,rules["first_match_time"],rules["latest_kickoff_time"])
     valid_windows=True
-    for w in windows:
-        d=datetime.fromisoformat(w["play_date"]).date()
-        a,b=st.columns(2)
-        sk=f"day_start_{tournament_id}_{w['play_date']}"; ek=f"day_end_{tournament_id}_{w['play_date']}"
-        sv=a.time_input(f"Starttid – {date_with_weekday(d)}", value=datetime.strptime(w["start_time"], "%H:%M").time(), key=sk)
-        ev=b.time_input(f"Sluttid – {date_with_weekday(d)}", value=datetime.strptime(w["end_time"], "%H:%M").time(), key=ek)
-        confirm_key=f"day_confirm_{tournament_id}_{w['play_date']}"
-        confirmed=st.checkbox(f"Bekräfta plantider för {date_with_weekday(d)}", value=bool(_row_value(w,"confirmed",0)), key=confirm_key)
-        if sv >= ev:
-            valid_windows=False; st.error(f"{date_with_weekday(d)}: sluttiden måste vara senare än starttiden.")
-        elif sv.strftime("%H:%M") != w["start_time"] or ev.strftime("%H:%M") != w["end_time"] or (confirmed and not bool(_row_value(w,"confirmed",0))):
-            save_tournament_day_window(tournament_id, w["play_date"], sv.strftime("%H:%M"), ev.strftime("%H:%M"))
-            st.session_state[f"autosave_notice_{tournament_id}"]="✓ Sparat automatiskt"
-        if not confirmed:
-            valid_windows=False
+    by_day={}
+    for row in windows: by_day.setdefault(str(row["play_date"]),[]).append(row)
+    for play_date,rows in by_day.items():
+        d=datetime.fromisoformat(play_date).date()
+        st.markdown(f"**{date_with_weekday(d)}**")
+        for w in rows:
+            pitch=int(w["pitch_number"]); c0,c1,c2=st.columns([0.7,1.15,1.15])
+            c0.markdown(f"**{pitch_names.get(pitch, f'Plan {pitch}')}**")
+            sk=f"pitch_start_{tournament_id}_{pitch}_{play_date}"; ek=f"pitch_end_{tournament_id}_{pitch}_{play_date}"
+            sv=c1.time_input("Starttid",value=datetime.strptime(w["start_time"],"%H:%M").time(),key=sk,label_visibility="collapsed")
+            ev=c2.time_input("Sluttid",value=datetime.strptime(w["end_time"],"%H:%M").time(),key=ek,label_visibility="collapsed")
+            if sv>=ev:
+                valid_windows=False; st.error(f"{date_with_weekday(d)}, {pitch_names.get(pitch, f'Plan {pitch}')}: sluttiden måste vara senare än starttiden.")
+            elif sv.strftime("%H:%M")!=w["start_time"] or ev.strftime("%H:%M")!=w["end_time"] or not bool(_row_value(w,"confirmed",0)):
+                save_pitch_day_window(tournament_id,pitch,play_date,sv.strftime("%H:%M"),ev.strftime("%H:%M"),True)
+                st.session_state[f"autosave_notice_{tournament_id}"]="✓ Plantider sparade automatiskt"
 
     st.markdown("### 3. Praktisk information")
     cr_toggle=f"setup_changing_rooms_{tournament_id}"
@@ -7381,11 +7592,10 @@ def render_initial_tournament_setup(tournament_id, tournament):
                 on_change=_autosave_tournament_field,args=(tournament_id,"enable_final_ranking",rk,lambda v:1 if v else 0))
 
     st.markdown("### 5. Match- och schemaregler")
-    r1,r2,r3=st.columns(3)
-    hk=f"setup_halves_{tournament_id}"; mk=f"setup_minutes_{tournament_id}"; pk=f"setup_pitches_{tournament_id}"
+    r1,r2=st.columns(2)
+    hk=f"setup_halves_{tournament_id}"; mk=f"setup_minutes_{tournament_id}"
     r1.number_input("Perioder/halvlekar/set",1,7,int(rules["halves"]),key=hk,on_change=_autosave_rule_field,args=(tournament_id,"halves",hk,int))
     r2.number_input("Minuter per period/halvlek/set",1,120,int(rules["minutes_per_half"]),key=mk,on_change=_autosave_rule_field,args=(tournament_id,"minutes_per_half",mk,int))
-    r3.number_input("Antal planer/spelytor",1,50,int(rules["pitch_count"]),key=pk,on_change=_autosave_rule_field,args=(tournament_id,"pitch_count",pk,int))
     r4,r5,r6=st.columns(3)
     htk=f"setup_halftime_{tournament_id}"; pbk=f"setup_pitchbreak_{tournament_id}"; restk=f"setup_rest_{tournament_id}"
     r4.number_input("Paus mellan perioder",0,60,int(rules["halftime_minutes"]),key=htk,on_change=_autosave_rule_field,args=(tournament_id,"halftime_minutes",htk,int))
@@ -8762,8 +8972,7 @@ elif admin_page == "Adminöversikt":
         )
 
         st.markdown("#### Match- och schemaregler")
-        br1, br2, br3 = st.columns(3)
-        edited_first_time = br1.time_input("Första avspark", value=datetime.strptime(overview_rules["first_match_time"], "%H:%M").time())
+        br2, br3 = st.columns(2)
         edited_halves = br2.number_input("Antal perioder/halvlekar/set", 1, 4, int(overview_rules["halves"]))
         edited_minutes_half = br3.number_input("Minuter per period/halvlek/set", 1, 120, int(overview_rules["minutes_per_half"]))
         br4, br5 = st.columns(2)
@@ -8781,32 +8990,10 @@ elif admin_page == "Adminöversikt":
                 0, 180, int(overview_rules["consecutive_match_break_minutes"]),
                 disabled=not edited_avoid_consecutive,
             )
-        br7, br8, br9 = st.columns(3)
-        edited_pitch_count = br7.number_input("Antal planer", 1, 30, int(overview_rules["pitch_count"]))
-        final_date_label = f"{SWEDISH_WEEKDAYS[edited_end.weekday()]} {edited_end.day} {SWEDISH_MONTHS[edited_end.month - 1]} {edited_end.year}"
-        edited_latest = br8.time_input(
-            f"Sista plantid – {final_date_label}",
-            value=datetime.strptime(overview_rules["latest_kickoff_time"], "%H:%M").time(),
-            help="Ingen match får planeras så att den slutar efter denna tid. På sista cupdagen är detta turneringens absoluta sluttid.",
-        )
-        edited_referee_mode = br9.selectbox("Domartillsättning", ["Automatisk", "Manuell"], index=0 if overview_rules["referee_mode"] == "Automatisk" else 1)
+        edited_referee_mode = st.selectbox("Domartillsättning", ["Automatisk", "Manuell"], index=0 if overview_rules["referee_mode"] == "Automatisk" else 1)
         edited_match_minutes = (edited_halves * edited_minutes_half) + ((edited_halves - 1) * edited_halftime)
         st.info(f"Med dessa regler tar en match {edited_match_minutes} minuter från avspark till slutsignal.")
-        st.markdown("##### Plantider per cupdag")
-        st.caption("Dessa tider är hårda gränser för schemaläggningen och autosparas.")
-        day_rows = ensure_tournament_day_windows(tid, tournament, overview_rules["first_match_time"], overview_rules["latest_kickoff_time"])
-        for day_row in day_rows:
-            day_date = datetime.fromisoformat(day_row["play_date"]).date()
-            dc1,dc2 = st.columns(2)
-            ds = dc1.time_input(f"Start – {date_with_weekday(day_date)}", value=datetime.strptime(day_row["start_time"], "%H:%M").time(), key=f"admin_day_start_{tid}_{day_row['play_date']}")
-            de = dc2.time_input(f"Slut – {date_with_weekday(day_date)}", value=datetime.strptime(day_row["end_time"], "%H:%M").time(), key=f"admin_day_end_{tid}_{day_row['play_date']}")
-            if ds < de and (ds.strftime("%H:%M") != day_row["start_time"] or de.strftime("%H:%M") != day_row["end_time"]):
-                save_tournament_day_window(tid, day_row["play_date"], ds.strftime("%H:%M"), de.strftime("%H:%M"))
-                st.session_state["overview_saved_message"] = "✓ Plantider sparade automatiskt. Schemat behöver regenereras."
-                run("UPDATE tournaments SET schedule_dirty=1,is_published=0 WHERE id=?", (tid,))
-                run("UPDATE matches SET schedule_published=0 WHERE tournament_id=?", (tid,))
-            elif ds >= de:
-                st.error(f"{date_with_weekday(day_date)}: sluttiden måste vara senare än starttiden.")
+        st.caption("Antal planer och tillgänglig start-/sluttid för varje plan och cupdag anges under Konfigurera turneringen.")
 
         overview_autosave_changed = any([
             edited_name.strip() != (tournament["name"] or ""), edited_location.strip() != (tournament["location"] or ""),
@@ -8822,11 +9009,10 @@ elif admin_page == "Adminöversikt":
             bool(edited_medical) != bool(_row_value(tournament,"enable_medical_info",0)), edited_medical_info.strip() != (_row_value(tournament,"medical_info","") or ""),
             bool(edited_lost_found) != bool(_row_value(tournament,"enable_lost_found",0)), edited_lost_found_info.strip() != (_row_value(tournament,"lost_found_info","") or ""),
             bool(edited_accessibility_info) != bool(_row_value(tournament,"enable_accessibility_info",0)), edited_accessibility_text.strip() != (_row_value(tournament,"accessibility_info","") or ""),
-            edited_first_time.strftime("%H:%M") != overview_rules["first_match_time"], int(edited_halves) != int(overview_rules["halves"]),
+int(edited_halves) != int(overview_rules["halves"]),
             int(edited_minutes_half) != int(overview_rules["minutes_per_half"]), int(edited_halftime) != int(overview_rules["halftime_minutes"]),
             int(edited_pitch_break) != int(overview_rules["pitch_break_minutes"]), bool(edited_avoid_consecutive) != bool(overview_rules["avoid_consecutive_matches"]),
-            int(edited_consecutive_break) != int(overview_rules["consecutive_match_break_minutes"]), int(edited_pitch_count) != int(overview_rules["pitch_count"]),
-            edited_latest.strftime("%H:%M") != overview_rules["latest_kickoff_time"], edited_referee_mode != overview_rules["referee_mode"]
+            int(edited_consecutive_break) != int(overview_rules["consecutive_match_break_minutes"]), edited_referee_mode != overview_rules["referee_mode"]
         ])
         if overview_autosave_changed:
             if not edited_name.strip():
@@ -8837,15 +9023,12 @@ elif admin_page == "Adminöversikt":
                 scheduling_changed = any([
                     edited_start != saved_start,
                     edited_end != saved_end,
-                    edited_first_time.strftime("%H:%M") != overview_rules["first_match_time"],
                     edited_halves != overview_rules["halves"],
                     edited_minutes_half != overview_rules["minutes_per_half"],
                     edited_halftime != overview_rules["halftime_minutes"],
                     edited_pitch_break != overview_rules["pitch_break_minutes"],
                     int(edited_avoid_consecutive) != overview_rules["avoid_consecutive_matches"],
                     edited_consecutive_break != overview_rules["consecutive_match_break_minutes"],
-                    edited_pitch_count != overview_rules["pitch_count"],
-                    edited_latest.strftime("%H:%M") != overview_rules["latest_kickoff_time"],
                     edited_referee_mode != overview_rules["referee_mode"],
                     edited_format != saved_format,
                     int(edited_bronze) != int(tournament["bronze_match"]),
@@ -8872,11 +9055,10 @@ elif admin_page == "Adminöversikt":
                          int(edited_accessibility_info), edited_accessibility_text.strip(), int(edited_changing_rooms), edited_changing_room_info.strip(), int(edited_show_prices), edited_price_info.strip(), tid),
                     )
                     con.execute(
-                        """UPDATE schedule_rules SET first_match_time=?,halves=?,minutes_per_half=?,halftime_minutes=?,pitch_break_minutes=?,
-                        avoid_consecutive_matches=?,consecutive_match_break_minutes=?,pitch_count=?,latest_kickoff_time=?,referee_mode=? WHERE tournament_id=?""",
-                        (edited_first_time.strftime("%H:%M"), edited_halves, edited_minutes_half, edited_halftime, edited_pitch_break,
-                         int(edited_avoid_consecutive), edited_consecutive_break, edited_pitch_count,
-                         edited_latest.strftime("%H:%M"), edited_referee_mode, tid),
+                        """UPDATE schedule_rules SET halves=?,minutes_per_half=?,halftime_minutes=?,pitch_break_minutes=?,
+                        avoid_consecutive_matches=?,consecutive_match_break_minutes=?,referee_mode=? WHERE tournament_id=?""",
+                        (edited_halves, edited_minutes_half, edited_halftime, edited_pitch_break,
+                         int(edited_avoid_consecutive), edited_consecutive_break, edited_referee_mode, tid),
                     )
                     if scheduling_changed:
                         con.execute("UPDATE matches SET schedule_published=0 WHERE tournament_id=?", (tid,))
@@ -10311,10 +10493,12 @@ if admin_page == "Skapa och publicera schema":
     )
     st.info(
         f"{rules['halves']} × {rules['minutes_per_half']} minuter · halvtidspaus {rules['halftime_minutes']} min · "
-        f"matchtid totalt {match_minutes} min · första avspark {rules['first_match_time']} · sista plantid {rules['latest_kickoff_time']} · "
-        f"{rules['pitch_count']} planer · {consecutive_rule_text} · domare: {rules['referee_mode']}."
+        f"matchtid totalt {match_minutes} min · {rules['pitch_count']} planer/spelytor med individuella öppettider · "
+        f"{consecutive_rule_text} · domare: {rules['referee_mode']}."
     )
     st.caption("Regelverket och slutspelsformatet ändras under Adminöversikt → Cupens grunduppgifter.")
+    if st.session_state.get("schedule_recovery"):
+        render_schedule_recovery_actions(tid,tournament,rules,st.session_state.get("schedule_recovery"))
     schedule_groups = all_rows("SELECT id,name FROM groups WHERE tournament_id=? ORDER BY name", (tid,))
     schedule_teams = all_rows("SELECT id,group_id FROM teams WHERE tournament_id=?", (tid,))
     unassigned_count = sum(1 for team_row in schedule_teams if team_row["group_id"] is None)
@@ -10388,6 +10572,10 @@ if admin_page == "Skapa och publicera schema":
                     "warning" if unresolved or warning else "success",
                     " ".join(parts),
                 )
+                if unresolved:
+                    st.session_state["schedule_recovery"] = _schedule_recovery_context(tid,tournament,rules,unresolved)
+                else:
+                    st.session_state.pop("schedule_recovery",None)
             except Exception as exc:
                 elapsed = time.perf_counter() - started_schedule
                 st.session_state["schedule_message"] = (
@@ -10769,6 +10957,7 @@ if admin_page == "Skapa och publicera schema":
     st.subheader("Matchschema")
     refs = all_rows("SELECT * FROM referees WHERE tournament_id=? ORDER BY name", (tid,))
     referee_names = {r["id"]: r["name"] for r in refs}
+    schedule_pitch_names = pitch_name_map(tid,int(rules["pitch_count"]))
     scheduled_matches = all_rows("SELECT * FROM matches WHERE tournament_id=? AND scheduled_start IS NOT NULL ORDER BY scheduled_start,pitch_number,id", (tid,))
     if not scheduled_matches:
         st.info("Klicka på Skapa matcher och generera spelschema ovan.")
@@ -10803,7 +10992,7 @@ if admin_page == "Skapa och publicera schema":
                 "match_id": m["id"],
                 "Match": index,
                 "Fas": m["stage"],
-                "Plan": m["pitch_number"],
+                "Plan": schedule_pitch_names.get(int(m["pitch_number"] or 0), f"Plan {m['pitch_number']}") if m["pitch_number"] else "–",
                 "Datum": f"{SWEDISH_WEEKDAYS[start_dt.weekday()]} {start_dt.strftime('%Y-%m-%d')}",
                 "Tid": start_dt.strftime("%H:%M"),
                 "Hemmalag": home["name"] if home else source_label(m["home_source"]),

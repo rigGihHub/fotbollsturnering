@@ -9,7 +9,7 @@ Regel:
 from dataclasses import dataclass
 from datetime import datetime, timezone
 
-LATEST_SCHEMA_VERSION = 16
+LATEST_SCHEMA_VERSION = 18
 
 
 @dataclass(frozen=True)
@@ -368,6 +368,35 @@ MIGRATIONS = (
             "CREATE INDEX IF NOT EXISTS idx_tournament_day_windows_tournament_date ON tournament_day_windows(tournament_id, play_date)",
         ),
     ),
+    Migration(
+        17,
+        "pitch_day_availability_v133",
+        (
+            """CREATE TABLE IF NOT EXISTS pitch_day_windows (
+                tournament_id INTEGER NOT NULL REFERENCES tournaments(id) ON DELETE CASCADE,
+                pitch_number INTEGER NOT NULL,
+                play_date TEXT NOT NULL,
+                start_time TEXT NOT NULL,
+                end_time TEXT NOT NULL,
+                confirmed INTEGER NOT NULL DEFAULT 0,
+                PRIMARY KEY(tournament_id,pitch_number,play_date)
+            )""",
+            "CREATE INDEX IF NOT EXISTS idx_pitch_day_windows_tournament_date_pitch ON pitch_day_windows(tournament_id,play_date,pitch_number)",
+        ),
+    ),
+    Migration(
+        18,
+        "named_pitches_v134",
+        (
+            """CREATE TABLE IF NOT EXISTS pitches (
+                tournament_id INTEGER NOT NULL REFERENCES tournaments(id) ON DELETE CASCADE,
+                pitch_number INTEGER NOT NULL,
+                name TEXT NOT NULL,
+                PRIMARY KEY(tournament_id,pitch_number)
+            )""",
+            "CREATE INDEX IF NOT EXISTS idx_pitches_tournament_number ON pitches(tournament_id,pitch_number)",
+        ),
+    ),
 
 )
 
@@ -499,6 +528,21 @@ def ensure_v16_setup_schema_compat(con):
         play_date TEXT NOT NULL,start_time TEXT NOT NULL,end_time TEXT NOT NULL,confirmed INTEGER NOT NULL DEFAULT 0,
         PRIMARY KEY(tournament_id,play_date))""")
     con.execute("CREATE INDEX IF NOT EXISTS idx_tournament_day_windows_tournament_date ON tournament_day_windows(tournament_id,play_date)")
+    con.execute("""CREATE TABLE IF NOT EXISTS pitch_day_windows (
+        tournament_id INTEGER NOT NULL REFERENCES tournaments(id) ON DELETE CASCADE,
+        pitch_number INTEGER NOT NULL, play_date TEXT NOT NULL, start_time TEXT NOT NULL, end_time TEXT NOT NULL, confirmed INTEGER NOT NULL DEFAULT 0,
+        PRIMARY KEY(tournament_id,pitch_number,play_date))""")
+    con.execute("CREATE INDEX IF NOT EXISTS idx_pitch_day_windows_tournament_date_pitch ON pitch_day_windows(tournament_id,play_date,pitch_number)")
+
+
+def ensure_v18_pitch_names_schema_compat(con):
+    """Idempotent repair for named pitches in mixed cloud deployments."""
+    con.execute("""CREATE TABLE IF NOT EXISTS pitches (
+        tournament_id INTEGER NOT NULL REFERENCES tournaments(id) ON DELETE CASCADE,
+        pitch_number INTEGER NOT NULL,
+        name TEXT NOT NULL,
+        PRIMARY KEY(tournament_id,pitch_number))""")
+    con.execute("CREATE INDEX IF NOT EXISTS idx_pitches_tournament_number ON pitches(tournament_id,pitch_number)")
 
 def apply_migrations(con):
     """Applicera alla saknade migreringar och returnera nya versionsnummer."""

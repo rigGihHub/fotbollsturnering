@@ -1,5 +1,5 @@
 ./.github/workflows/ci.yml
-./QUALITY_V131.md
+./QUALITY_V134.md
 ./RELEASE_MANIFEST.txt
 ./VERSION.txt
 ./app.py
@@ -99,6 +99,7 @@
 ./tests/test_schedule_domain.py
 ./tests/test_schedule_repository.py
 ./tests/test_schema_v76.py
+./tests/test_setup_capacity_ux_v132.py
 ./tests/test_share_fairness_hotfix_v121.py
 ./tests/test_share_performance_ux_v127.py
 ./tests/test_share_render_hotfix_v122.py
@@ -123,4 +124,6 @@
 ./tests/test_v129_schema_fields.py
 ./tests/test_v129_setup_ranking_testdata.py
 ./tests/test_v131_setup_autosave.py
+./tests/test_v133_pitch_day_availability.py
+./tests/test_v134_schedule_recovery_pitch_names.py
 ./tests/test_visitor_analytics_v79.py

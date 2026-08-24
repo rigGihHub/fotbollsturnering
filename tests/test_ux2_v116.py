@@ -30,10 +30,13 @@ def test_schedule_has_visual_board():
     assert "schedule_board(" in text
     assert "cn-match-tile" in text
 
-def test_onboarding_has_recommendation_card():
+def test_onboarding_start_template_is_clean_without_recommendation_card():
     text = app_text()
-    assert "CupNavi rekommenderar" in text
-    assert "cn-recommend-card" in text
+    start = text.index('with st.sidebar.expander("Skapa ny turnering")')
+    end = text.index('if view_mode == "Admin":\n    clone_sources', start)
+    block = text[start:end]
+    assert "Startmall" in block
+    assert "CupNavi rekommenderar" not in block
 
 def test_command_palette_shortcut_exists():
     text = app_text()

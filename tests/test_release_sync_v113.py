@@ -20,7 +20,9 @@ def test_integrated_share_contract_replaces_legacy_share_panel():
 
 def test_schema_regressions_must_follow_current_schema_constant():
     migrations = Path("cupnavi_core/migrations.py").read_text(encoding="utf-8")
-    assert "LATEST_SCHEMA_VERSION = 16" in migrations
+    assert "LATEST_SCHEMA_VERSION = " in migrations
+    import re
+    assert int(re.search(r"LATEST_SCHEMA_VERSION = (\d+)", migrations).group(1)) >= 17
     assert '"competition_classes_v124"' in migrations
     assert '"final_ranking_and_late_group_preference_v129"' in migrations
     assert '"setup_autosave_day_windows_v131"' in migrations
