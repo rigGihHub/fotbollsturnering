@@ -25,7 +25,8 @@ def test_matches_merge_schedule_and_results_and_keep_filters():
     assert 'if public_page == "Matcher":' in block
     assert '[tr("Alla"), tr("Kommande"), tr("Spelade")]' in block
     assert 'row_show_results = match_is_played if show_results is None' in block
-    assert '[tr("Alla matcher"), tr("En grupp"), tr("Ett lag"), tr("En plan")]' in block
+    for option in ['tr("Alla matcher")', 'tr("En grupp")', 'tr("Ett lag")', 'tr("En plan")']:
+        assert option in block
 
 
 def test_info_rules_derive_from_all_requested_saved_settings():

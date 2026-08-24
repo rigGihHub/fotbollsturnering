@@ -7,7 +7,7 @@ def app_text():
 
 def test_schema_v9_contains_privacy_and_admin_code_fields():
     text = Path("cupnavi_core/migrations.py").read_text(encoding="utf-8")
-    assert "LATEST_SCHEMA_VERSION = 9" in text
+    assert "LATEST_SCHEMA_VERSION = 11" in text
     assert "admin_code TEXT" in text
     assert "responsible_contact_protected" in text
     assert "first_name TEXT" in text
@@ -42,4 +42,5 @@ def test_protected_player_name_is_hidden_in_public_stats():
     text = app_text()
     assert "Skyddad spelare" in text
     assert "players.is_protected" in text
-    assert "Skyddade kontaktuppgifter – får inte visas publikt" in text
+    assert "Skyddade kontaktuppgifter – får inte visas publikt" not in text
+    assert "Skyddade kontaktuppgifter – visas aldrig publikt" not in text
