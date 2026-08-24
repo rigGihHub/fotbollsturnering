@@ -22,10 +22,11 @@ from cupnavi_core.version import APP_VERSION as CORE_APP_VERSION
 
 from cupnavi_core.product_foundation import organizer_workflow, workflow_summary
 from cupnavi_core.observability import safe_error_record, persist_error
+from cupnavi_core.schedule_quality import assess_schedule
 from cupnavi_core.rules import validate_match_event_totals
 from cupnavi_core.home_away import orientation_balance_score
 from cupnavi_core.pdf_export import build_schedule_pdf
-from cupnavi_core.migrations import apply_migrations, LATEST_SCHEMA_VERSION, ensure_competition_class_schema_compat, ensure_v16_setup_schema_compat, ensure_v18_pitch_names_schema_compat
+from cupnavi_core.migrations import apply_migrations, LATEST_SCHEMA_VERSION, ensure_competition_class_schema_compat, ensure_v16_setup_schema_compat, ensure_v18_pitch_names_schema_compat, ensure_v19_schema_compat, ensure_v20_schema_compat
 from cupnavi_core.health import collect_database_health
 from cupnavi_core.backup import build_backup_bytes
 from cupnavi_core.config import BACKUP_FILE_SUFFIX, PUBLIC_BASE_URL, OFFICIAL_PUBLIC_BASE_URL, LEGACY_STREAMLIT_BASE_URL
@@ -52,7 +53,7 @@ from cupnavi_core.fairness import fairness_report
 from cupnavi_core.ux2 import ADMIN_SECTIONS, workflow_progress, attention_items, human_error_id, schedule_board
 from cupnavi_core.about import feature_catalog, about_intro
 
-APP_BUILD_VERSION = "2026.08.24-139-PRODUCT-FOUNDATION"
+APP_BUILD_VERSION = "2026.08.24-143-PUBLIC-MOBILE-FOLLOW"
 APP_VERSION = APP_BUILD_VERSION
 RELEASE_FILES_MISMATCH = CORE_APP_VERSION != APP_BUILD_VERSION
 REQUIRED_SCHEMA_VERSION = max(int(LATEST_SCHEMA_VERSION), 5)
@@ -248,12 +249,29 @@ def save_pitch_day_window(tournament_id,pitch_number,play_date,start_time,end_ti
 
 
 def pitch_definitions(tournament_id, pitch_count=None):
+    """Return pitch metadata and repair mixed cloud schemas once if needed.
+
+    v137 introduced pitches.address. A deployment can legitimately have the
+    migration marker while the remote table is still missing that column.
+    Never let that compatibility state crash Match/Result views.
+    """
     params=[int(tournament_id)]
     sql="SELECT tournament_id,pitch_number,name,address FROM pitches WHERE tournament_id=?"
     if pitch_count is not None:
         sql += " AND pitch_number<=?"; params.append(int(pitch_count))
     sql += " ORDER BY pitch_number"
-    return all_rows(sql, tuple(params))
+    try:
+        return all_rows(sql, tuple(params))
+    except Exception as exc:
+        message=str(exc).lower()
+        if "address" not in message and "column" not in message and "schema" not in message:
+            raise
+        with db() as con:
+            ensure_v18_pitch_names_schema_compat(con)
+            ensure_v19_schema_compat(con)
+            con.commit()
+        _clear_render_query_cache()
+        return all_rows(sql, tuple(params))
 
 def ensure_pitch_definitions(tournament_id, pitch_count):
     pitch_count=max(1,int(pitch_count or 1))
@@ -3474,6 +3492,10 @@ def init_db():
         ensure_competition_class_schema_compat(con)
         ensure_v16_setup_schema_compat(con)
         ensure_v18_pitch_names_schema_compat(con)
+        # v140: migration markers alone are not enough in mixed Turso deploys.
+        # Repair the concrete v19/v20 objects idempotently on startup.
+        ensure_v19_schema_compat(con)
+        ensure_v20_schema_compat(con)
         con.commit()
     return schema_key
 
@@ -5756,16 +5778,44 @@ def render_public_view(tournament_id, tournament):
 
     render_public_share_fragment()
 
+    # v143: mobil först – "Följ mitt lag" är en personlig cupyta, inte bara ett filter.
+    st.markdown(
+        """<style>
+        .cn-follow-shell{border:1px solid #dce6e1;border-radius:20px;background:#fff;
+          padding:16px 18px;margin:8px 0 14px;box-shadow:0 8px 24px rgba(15,23,42,.05)}
+        .cn-follow-kicker{font-size:.78rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#15733c}
+        .cn-follow-team{font-size:1.45rem;font-weight:850;color:#142033;margin:2px 0 10px}
+        .cn-next-card{border-radius:18px;background:#f5fbf7;border:1px solid #cfe5d7;padding:16px;margin-top:8px}
+        .cn-next-meta{font-size:.83rem;font-weight:750;color:#51606d;margin-bottom:8px}
+        .cn-next-teams{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:10px;
+          font-size:1.06rem;font-weight:800;color:#152033}
+        .cn-next-teams .away{text-align:right}.cn-next-vs{color:#6b7785;font-size:.85rem}
+        .cn-follow-mini{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:10px}
+        .cn-follow-mini>div{border:1px solid #e2e8ec;border-radius:14px;padding:10px;background:#fbfcfd}
+        .cn-follow-mini span{display:block;color:#73808d;font-size:.75rem}.cn-follow-mini strong{font-size:1rem;color:#172033}
+        @media(max-width:760px){
+          .cn-follow-shell{padding:14px;margin-top:4px;border-radius:16px}
+          .cn-follow-team{font-size:1.22rem}
+          .cn-next-card{padding:13px;border-radius:15px}
+          .cn-next-teams{grid-template-columns:1fr auto 1fr;font-size:.98rem}
+          .cn-follow-mini{grid-template-columns:1fr 1fr 1fr;gap:6px}
+          .cn-follow-mini>div{padding:8px}
+          [class*="st-key-public_favorite_team_"] label{font-size:.82rem!important}
+        }
+        </style>""",
+        unsafe_allow_html=True,
+    )
+
     with st.container(border=True):
-        min_cup_col1, min_cup_col2 = st.columns([3, 1])
         favorite_options = [None] + [row["id"] for row in public_teams]
         favorite_index = favorite_options.index(requested_team_id) if requested_team_id in favorite_options else 0
-        favorite_team_id = min_cup_col1.selectbox(
+        favorite_team_id = st.selectbox(
             "⭐ Följ mitt lag",
             favorite_options,
             index=favorite_index,
             format_func=lambda team_id: tr("Alla lag") if team_id is None else public_team_names.get(team_id, "Lag"),
             key=f"public_favorite_team_{tournament_id}",
+            help="Valet sparas i sidans länk. Bokmärk länken så öppnas cupen direkt med ditt lag nästa gång.",
         )
         if favorite_team_id is not None and favorite_team_id != requested_team_id:
             if hasattr(st, "query_params"):
@@ -5780,36 +5830,123 @@ def render_public_view(tournament_id, tournament):
                     pass
                 st.query_params["cup"] = str(tournament_id)
             st.rerun()
+
         if requested_team_id:
-            if min_cup_col2.button(tr("Visa alla lag"), key=f"clear_favorite_team_{tournament_id}", use_container_width=True):
+            favorite_matches = [
+                m for m in published_matches
+                if requested_team_id in (_public_source_team_id(m["home_source"]), _public_source_team_id(m["away_source"]))
+            ]
+
+            def _public_match_dt(match_row):
+                value = _row_value(match_row, "scheduled_start", None)
+                if not value:
+                    return None
+                try:
+                    return datetime.fromisoformat(str(value))
+                except (TypeError, ValueError):
+                    return None
+
+            favorite_matches = sorted(
+                favorite_matches,
+                key=lambda m: (_public_match_dt(m) is None, _public_match_dt(m) or datetime.max),
+            )
+            favorite_next = next(
+                (
+                    m for m in favorite_matches
+                    if _row_value(m, "home_score", None) is None
+                    and _row_value(m, "away_score", None) is None
+                    and _public_match_dt(m) is not None
+                    and _public_match_dt(m) >= now
+                ),
+                None,
+            )
+            favorite_latest = next(
+                (
+                    m for m in reversed(favorite_matches)
+                    if _row_value(m, "home_score", None) is not None
+                    and _row_value(m, "away_score", None) is not None
+                ),
+                None,
+            )
+            played_count = sum(
+                1 for m in favorite_matches
+                if _row_value(m, "home_score", None) is not None and _row_value(m, "away_score", None) is not None
+            )
+            wins = 0
+            for m in favorite_matches:
+                hs, aw = _row_value(m, "home_score", None), _row_value(m, "away_score", None)
+                if hs is None or aw is None:
+                    continue
+                home_id = _public_source_team_id(m["home_source"])
+                if (home_id == requested_team_id and hs > aw) or (home_id != requested_team_id and aw > hs):
+                    wins += 1
+
+            team_name = public_team_names.get(requested_team_id, "Lag")
+            hero_html = (
+                f"<div class='cn-follow-shell'><div class='cn-follow-kicker'>⭐ Mitt lag</div>"
+                f"<div class='cn-follow-team'>{html.escape(team_name)}</div>"
+            )
+            if favorite_next:
+                next_dt = _public_match_dt(favorite_next)
+                minutes_until = max(0, int((next_dt-now).total_seconds()//60)) if next_dt else None
+                if minutes_until is None:
+                    relative_text = ""
+                elif minutes_until < 60:
+                    relative_text = f" · om {minutes_until} min"
+                elif minutes_until < 24*60:
+                    relative_text = f" · om {minutes_until//60} h {minutes_until%60:02d} min"
+                else:
+                    relative_text = ""
+                hero_html += (
+                    f"<div class='cn-next-card'><div class='cn-next-meta'>Nästa match · "
+                    f"{html.escape(swedish_datetime(favorite_next['scheduled_start']))} · "
+                    f"{html.escape(pitch_label(tournament_id,favorite_next['pitch_number']))}"
+                    f"{html.escape(relative_text)}</div>"
+                    f"<div class='cn-next-teams'><div>{html.escape(_public_source_label(favorite_next['home_source']))}</div>"
+                    f"<div class='cn-next-vs'>VS</div>"
+                    f"<div class='away'>{html.escape(_public_source_label(favorite_next['away_source']))}</div></div></div>"
+                )
+            else:
+                hero_html += "<div class='cn-next-card'><div class='cn-next-meta'>Ingen kommande match är schemalagd just nu.</div></div>"
+
+            latest_text = "–"
+            if favorite_latest:
+                latest_text = f"{favorite_latest['home_score']}–{favorite_latest['away_score']}"
+            hero_html += (
+                "<div class='cn-follow-mini'>"
+                f"<div><span>Matcher</span><strong>{len(favorite_matches)}</strong></div>"
+                f"<div><span>Spelade</span><strong>{played_count}</strong></div>"
+                f"<div><span>Senaste</span><strong>{html.escape(str(latest_text))}</strong></div>"
+                "</div></div>"
+            )
+            st.markdown(hero_html, unsafe_allow_html=True)
+
+            team_action_1, team_action_2 = st.columns(2)
+            if team_action_1.button("🗓️ Visa mitt lags matcher", key=f"favorite_matches_btn_{tournament_id}", use_container_width=True, type="primary"):
+                st.session_state[f"public_force_team_filter_{tournament_id}"] = requested_team_id
+                st.session_state[f"public_page_v92_{tournament_id}"] = "Matcher"
+                st.rerun()
+            if team_action_2.button(tr("Visa alla lag"), key=f"clear_favorite_team_{tournament_id}", use_container_width=True):
                 if hasattr(st, "query_params"):
                     try:
                         del st.query_params["team"]
                     except KeyError:
                         pass
                 st.rerun()
-            favorite_matches = [
-                m for m in published_matches
-                if requested_team_id in (_public_source_team_id(m["home_source"]), _public_source_team_id(m["away_source"]))
-            ]
-            favorite_next = next((m for m in favorite_matches if m["home_score"] is None and datetime.fromisoformat(m["scheduled_start"]) >= now), None)
+
             notification_rows = all_rows(
                 """SELECT * FROM notifications WHERE tournament_id=? AND (team_id=? OR team_id IS NULL)
                    ORDER BY created_at DESC,id DESC LIMIT 5""",
                 (tournament_id, requested_team_id),
             )
-            st.markdown(f"**{html.escape(public_team_names[requested_team_id])}** · {len(favorite_matches)} matcher")
-            if favorite_next:
-                st.caption(
-                    f"Nästa: {_public_source_label(favorite_next['home_source'])} – {_public_source_label(favorite_next['away_source'])} · "
-                    f"{swedish_datetime(favorite_next['scheduled_start'])} · {pitch_label(tournament_id,favorite_next['pitch_number'])}"
-                )
             if notification_rows:
-                with st.expander(f"🔔 Notiser ({len(notification_rows)})", expanded=False):
+                with st.expander(f"🔔 Viktigt för {team_name} ({len(notification_rows)})", expanded=False):
                     for note in notification_rows:
                         st.markdown(f"**{note['title']}**  \n{note['message']}")
                         st.caption(note["created_at"].replace("T", " "))
-            st.caption("Tips: bokmärk den här sidan så öppnas CupNavi med ditt lag valt nästa gång.")
+            st.caption("Bokmärk sidan – lagvalet ligger i länken och följer med nästa gång.")
+        else:
+            st.caption("Välj ett lag för att få nästa match, senaste resultat och lagets matcher samlade på ett ställe.")
 
     public_page_key = f"public_page_v92_{tournament_id}"
     requested_section = str(st.query_params.get("section", "")) if hasattr(st, "query_params") else ""
@@ -5842,7 +5979,7 @@ def render_public_view(tournament_id, tournament):
         f"""<nav class='cn-mobile-bottom-nav' aria-label='Cup navigation'>
           <a class='{"active" if public_page == "Matcher" else ""}' href='?cup={cup_key}&section=matches'>🗓️<span>{html.escape(tr("Matcher"))}</span></a>
           <a class='{"active" if public_page == "Statistik" else ""}' href='?cup={cup_key}&section=stats'>🏆<span>{html.escape(tr("Tabell & statistik"))}</span></a>
-          <a href='?cup={cup_key}&section=matches&team=all'>⭐<span>{html.escape(tr("Mitt lag"))}</span></a>
+          <a class='{"active" if requested_team_id else ""}' href='?cup={cup_key}&section=matches{"&team="+str(requested_team_id) if requested_team_id else ""}'>⭐<span>{html.escape(tr("Mitt lag"))}</span></a>
           <a class='{"active" if public_page == "Info" else ""}' href='?cup={cup_key}&section=info'>ℹ️<span>{html.escape(tr("Info"))}</span></a>
         </nav>""", unsafe_allow_html=True)
 
@@ -5858,6 +5995,17 @@ def render_public_view(tournament_id, tournament):
         )
         filtered = list(base_matches)
         filter_label = "Alla matcher"
+        forced_team_id = st.session_state.pop(f"public_force_team_filter_{tournament_id}", None)
+        if forced_team_id:
+            filtered = [
+                match_row for match_row in base_matches
+                if forced_team_id in (
+                    _public_source_team_id(match_row["home_source"]),
+                    _public_source_team_id(match_row["away_source"]),
+                )
+            ]
+            filter_label = public_team_names.get(forced_team_id, "Mitt lag")
+            st.info(f"Visar matcher för **{filter_label}**. Du kan byta filter nedan.")
 
         if filter_mode == "Tävlingsklass":
             age_options = sorted({str(_row_value(team, "age_class", "") or "").strip() for team in public_teams if str(_row_value(team, "age_class", "") or "").strip()})
@@ -8716,6 +8864,22 @@ elif admin_page == "Adminöversikt":
     if _v139_summary["next"]:
         st.info(f"Nästa rekommenderade steg: **{_v139_summary['next'].label}**")
 
+    # v141 Control Center: operational status for the tournament.
+    _cc_matches = [dict(r) for r in all_rows(
+        "SELECT scheduled_start,home_score,away_score FROM matches WHERE tournament_id=? ORDER BY scheduled_start",
+        (tid,),
+    )]
+    from cupnavi_core.control_center import control_center_snapshot
+    _cc = control_center_snapshot(_cc_matches, schedule_dirty=bool(tournament["schedule_dirty"]))
+    st.markdown("### Cup Control Center")
+    _cc_cols = st.columns(4)
+    _cc_cols[0].metric("Kommande matcher", _cc["upcoming"])
+    _cc_cols[1].metric("Resultat saknas", _cc["missing_results"])
+    _cc_cols[2].metric("Kraftigt försenade", _cc["delayed"])
+    _cc_cols[3].metric("Problem", _cc["problems"])
+    if _cc["schedule_dirty"]:
+        st.warning("Schemat behöver genereras om efter ändrade förutsättningar.")
+
     ux_counts = _admin_workflow_counts(tid)
     ux_progress = workflow_progress(
         teams_ready=bool(ux_counts["teams_n"]), groups_ready=bool(ux_counts["groups_n"]),
@@ -10000,10 +10164,48 @@ if admin_page == "Problem & lösningar":
         problem_rules = one_row("SELECT * FROM schedule_rules WHERE tournament_id=?", (tid,))
     p_errors, p_warnings, _ = validate_schedule(tid, tournament, problem_rules)
     unresolved = int((one_row("SELECT COUNT(*) AS n FROM matches WHERE tournament_id=? AND scheduled_start IS NULL",(tid,)) or {"n":0})["n"] or 0)
+
+    # v142: transparent Schedule Score based on the actual saved schedule.
+    _quality_rows = [dict(r) for r in all_rows(
+        "SELECT scheduled_start,home_team_id,away_team_id FROM matches WHERE tournament_id=?",
+        (tid,),
+    )]
+    _late_pref_rows = all_rows(
+        "SELECT id,earliest_first_time FROM teams WHERE tournament_id=? AND late_first_match=1 AND earliest_first_time IS NOT NULL",
+        (tid,),
+    )
+    _late_prefs = {int(r["id"]): r["earliest_first_time"] for r in _late_pref_rows}
+    _min_rest = int(problem_rules["consecutive_match_break_minutes"] or 0) if bool(problem_rules["avoid_consecutive_matches"]) else 0
+    _quality = assess_schedule(_quality_rows, min_rest_minutes=_min_rest, late_preferences=_late_prefs)
+    st.subheader("Schedule Score")
+    _q1,_q2,_q3,_q4 = st.columns(4)
+    _q1.metric("Schemakvalitet", f"{_quality['score']}/100")
+    _q2.metric("Ej schemalagda", _quality["unscheduled"])
+    _q3.metric("Vilokonflikter", _quality["short_rest"])
+    _q4.metric("Missade startönskemål", _quality["late_preferences_missed"])
+    st.caption(
+        f"Bedömning: **{_quality['grade']}**. Poängen är deterministisk och bygger på sparad schemadata – "
+        "det är inte en AI-sannolikhet. Kapacitetsproblem väger tyngst."
+    )
+    if _quality["penalties"]:
+        _penalty_text = " · ".join(
+            f"{name}: −{value}" for name,value in _quality["penalties"].items() if value
+        )
+        if _penalty_text:
+            st.caption("Poängavdrag: " + _penalty_text)
+
     if unresolved:
         context = _schedule_recovery_context(tid,tournament,problem_rules,unresolved)
         st.error(f"{unresolved} matcher saknar schematid.")
-        st.markdown("**Varför?** Cupens hårda kapacitet, lagvila, domare eller önskemål gör att alla matcher inte får plats.")
+        if context.get("physical_shortfall", 0) > 0:
+            _slot_minutes = max(1, int(context.get("extension_minutes", 0) or 0))
+            st.markdown(
+                f"**Varför?** Nuvarande planfönster rymmer cirka **{context.get('capacity',0)} matcher** "
+                f"men cupen innehåller **{context.get('total_matches',0)} matcher**. "
+                f"Det saknas minst **{context.get('physical_shortfall',0)} matchplatser**."
+            )
+        else:
+            st.markdown("**Varför?** Den teoretiska plankapaciteten räcker, men lagvila, domare eller hårda önskemål blockerar återstående placeringar.")
         st.markdown("**Vad påverkas?** Schemat kan inte betraktas som färdigt eller publiceringsklart.")
         render_schedule_recovery_actions(tid,tournament,problem_rules,context)
     if p_errors:
