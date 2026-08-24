@@ -370,6 +370,80 @@ def current_schema_version(con):
     return int(row[0] if row is not None else 0)
 
 
+
+def ensure_competition_class_schema_compat(con):
+    """Repair/ensure the v14 competition-class schema for mixed deployments.
+
+    This is intentionally idempotent. It covers deployments where app.py was
+    updated before migrations.py, or where a schema version marker exists but
+    the corresponding table/columns are missing in the remote database.
+    """
+    ensure_migration_table(con)
+
+    con.execute("""CREATE TABLE IF NOT EXISTS competition_classes (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        tournament_id INTEGER NOT NULL REFERENCES tournaments(id) ON DELETE CASCADE,
+        name TEXT NOT NULL,
+        sort_order INTEGER NOT NULL DEFAULT 0,
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(tournament_id, name)
+    )""")
+
+    def _column_names(table):
+        cur = con.execute(f"PRAGMA table_info({table})")
+        rows = cur.fetchall()
+        names = set()
+        for row in rows:
+            try:
+                names.add(row[1])
+            except Exception:
+                try:
+                    names.add(row["name"])
+                except Exception:
+                    pass
+        return names
+
+    team_cols = _column_names("teams")
+    group_cols = _column_names("groups")
+    if "competition_class_id" not in team_cols:
+        # Keep ALTER simple for maximum libSQL/Turso compatibility. The logical
+        # relationship is still maintained by CupNavi and the class table.
+        con.execute("ALTER TABLE teams ADD COLUMN competition_class_id INTEGER")
+    if "competition_class_id" not in group_cols:
+        con.execute("ALTER TABLE groups ADD COLUMN competition_class_id INTEGER")
+
+    con.execute("CREATE INDEX IF NOT EXISTS idx_competition_classes_tournament_order ON competition_classes(tournament_id, sort_order, name)")
+    con.execute("CREATE INDEX IF NOT EXISTS idx_teams_competition_class ON teams(tournament_id, competition_class_id)")
+    con.execute("CREATE INDEX IF NOT EXISTS idx_groups_competition_class ON groups(tournament_id, competition_class_id)")
+
+    # Backfill from the legacy text fields when those fields exist.
+    team_cols = _column_names("teams")
+    group_cols = _column_names("groups")
+    if "age_class" in team_cols:
+        con.execute("""INSERT OR IGNORE INTO competition_classes(tournament_id,name,sort_order)
+            SELECT DISTINCT tournament_id, TRIM(age_class), 0 FROM teams
+            WHERE age_class IS NOT NULL AND TRIM(age_class)<>''""")
+        con.execute("""UPDATE teams SET competition_class_id=(
+            SELECT cc.id FROM competition_classes cc
+            WHERE cc.tournament_id=teams.tournament_id AND cc.name=TRIM(teams.age_class) LIMIT 1
+        ) WHERE age_class IS NOT NULL AND TRIM(age_class)<>'' AND competition_class_id IS NULL""")
+    if "age_class" in group_cols:
+        con.execute("""INSERT OR IGNORE INTO competition_classes(tournament_id,name,sort_order)
+            SELECT DISTINCT tournament_id, TRIM(age_class), 0 FROM groups
+            WHERE age_class IS NOT NULL AND TRIM(age_class)<>''""")
+        con.execute("""UPDATE groups SET competition_class_id=(
+            SELECT cc.id FROM competition_classes cc
+            WHERE cc.tournament_id=groups.tournament_id AND cc.name=TRIM(groups.age_class) LIMIT 1
+        ) WHERE age_class IS NOT NULL AND TRIM(age_class)<>'' AND competition_class_id IS NULL""")
+
+    # A mixed deployment may already claim schema v14 while missing objects.
+    # Mark v14 only after the compatibility schema has been successfully ensured.
+    con.execute(
+        "INSERT OR IGNORE INTO cupnavi_schema_migrations(version,name,applied_at) VALUES(14,?,?)",
+        ("competition_classes_v124", datetime.now(timezone.utc).isoformat(timespec="seconds")),
+    )
+
+
 def apply_migrations(con):
     """Applicera alla saknade migreringar och returnera nya versionsnummer."""
     ensure_migration_table(con)

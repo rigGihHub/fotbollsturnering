@@ -22,7 +22,7 @@ from cupnavi_core.version import APP_VERSION as CORE_APP_VERSION
 from cupnavi_core.rules import validate_match_event_totals
 from cupnavi_core.home_away import orientation_balance_score
 from cupnavi_core.pdf_export import build_schedule_pdf
-from cupnavi_core.migrations import apply_migrations, LATEST_SCHEMA_VERSION
+from cupnavi_core.migrations import apply_migrations, LATEST_SCHEMA_VERSION, ensure_competition_class_schema_compat
 from cupnavi_core.health import collect_database_health
 from cupnavi_core.backup import build_backup_bytes
 from cupnavi_core.config import BACKUP_FILE_SUFFIX, PUBLIC_BASE_URL, OFFICIAL_PUBLIC_BASE_URL, LEGACY_STREAMLIT_BASE_URL
@@ -47,7 +47,7 @@ from cupnavi_core.fairness import fairness_report
 from cupnavi_core.ux2 import ADMIN_SECTIONS, workflow_progress, attention_items, human_error_id, schedule_board
 from cupnavi_core.about import feature_catalog, about_intro
 
-APP_BUILD_VERSION = "2026.08.24-124-COMPETITION-CLASSES"
+APP_BUILD_VERSION = "2026.08.24-125-COMPETITION-CLASS-DB-HOTFIX"
 APP_VERSION = APP_BUILD_VERSION
 RELEASE_FILES_MISMATCH = CORE_APP_VERSION != APP_BUILD_VERSION
 REQUIRED_SCHEMA_VERSION = max(int(LATEST_SCHEMA_VERSION), 5)
@@ -99,11 +99,21 @@ def parse_age_classes(value):
 
 
 def competition_classes(tournament_id):
-    """Returnera turneringens tävlingsklasser som riktiga databasobjekt."""
-    return all_rows(
-        "SELECT id,tournament_id,name,sort_order FROM competition_classes WHERE tournament_id=? ORDER BY sort_order,name,id",
-        (int(tournament_id),),
-    )
+    """Returnera turneringens tävlingsklasser som riktiga databasobjekt.
+
+    Mixed Streamlit/Turso deployments can briefly have new app code before the
+    matching remote schema. Repair that state once instead of crashing the UI.
+    """
+    sql = "SELECT id,tournament_id,name,sort_order FROM competition_classes WHERE tournament_id=? ORDER BY sort_order,name,id"
+    params = (int(tournament_id),)
+    try:
+        return all_rows(sql, params)
+    except Exception:
+        with db() as con:
+            ensure_competition_class_schema_compat(con)
+            con.commit()
+        _clear_render_query_cache()
+        return all_rows(sql, params)
 
 
 def sync_competition_classes(tournament_id, labels=None):
@@ -3105,6 +3115,9 @@ def init_db():
         # Den äldre bootstrap-koden ovan behålls tills alla tidigare installationer
         # har migrerats säkert till den nya modellen.
         apply_migrations(con)
+        # Defensive repair for mixed/partial cloud deployments. If v14 is
+        # already marked but objects are missing, make the schema complete.
+        ensure_competition_class_schema_compat(con)
         con.commit()
     return schema_key
 

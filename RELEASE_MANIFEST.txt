@@ -1,11 +1,12 @@
 .github/workflows/ci.yml
-QUALITY_V124.md
+ARCHITECTURE.md
+ARCHITECTURE_STABILISERING.md
+ARCHITECTURE_V100.md
+QUALITY_V125.md
+RELEASE_CHECKLIST.md
 RELEASE_MANIFEST.txt
 VERSION.txt
 app.py
-pyproject.toml
-requirements-dev.txt
-requirements.txt
 assets/cupnavi_logo.png
 cupnavi_core/__init__.py
 cupnavi_core/about.py
@@ -34,6 +35,9 @@ cupnavi_core/team_portal.py
 cupnavi_core/ui_logic.py
 cupnavi_core/ux2.py
 cupnavi_core/version.py
+pyproject.toml
+requirements-dev.txt
+requirements.txt
 tests/__init__.py
 tests/test_admin_instructions.py
 tests/test_ageclass_ux_v109.py
@@ -42,6 +46,7 @@ tests/test_backup.py
 tests/test_brand_v94.py
 tests/test_brand_v95.py
 tests/test_checkin_ux_v123.py
+tests/test_competition_class_db_hotfix_v125.py
 tests/test_competition_classes_v124.py
 tests/test_control_accessibility_v112.py
 tests/test_dependency_contract_v72.py
