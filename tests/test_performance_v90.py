@@ -29,7 +29,8 @@ def test_public_view_renders_only_selected_main_page():
 def test_share_and_qr_are_lazy():
     block = public_block()
     assert "if share_is_open:" in block
-    assert 'render_qr_share_panel(tournament_id, tournament["name"])' in block
+    assert "share_qr = qr_png_bytes(share_url)" in block
+    assert block.index("share_qr = qr_png_bytes(share_url)") > block.index("if share_is_open:")
 
 def test_weather_is_opt_in():
     block = public_block()

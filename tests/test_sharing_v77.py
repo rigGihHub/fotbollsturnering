@@ -21,11 +21,11 @@ def test_public_view_renders_share_controls():
     text = app_text()
     start = text.index("def render_public_view(")
     public_block = text[start:text.index("init_db()", start)]
-    assert 'render_share_panel(tournament_id, tournament["name"])' in public_block
-    assert "Messenger" in text
-    assert "WhatsApp" in text
-    assert "E-post" in text
-    assert "SMS" in text
+    assert "cn-integrated-share" in public_block
+    assert "WhatsApp" in public_block
+    assert "mailto:?subject=" in public_block
+    assert "sms:?&body=" in public_block
+    assert "public_share_toggle_" not in public_block
 
 def test_admin_qr_panel_also_has_share_controls():
     text = app_text()

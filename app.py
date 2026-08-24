@@ -45,7 +45,7 @@ from cupnavi_core.lifecycle import normalize_status, status_label, is_public_sta
 from cupnavi_core.qol import TOURNAMENT_TEMPLATES, template_definition, clone_tournament_payload, checklist_items, admin_mode
 from cupnavi_core.fairness import fairness_report
 
-APP_BUILD_VERSION = "2026.08.24-112-CONTROL-ACCESSIBILITY"
+APP_BUILD_VERSION = "2026.08.24-113-QA-SYNC"
 APP_VERSION = APP_BUILD_VERSION
 RELEASE_FILES_MISMATCH = CORE_APP_VERSION != APP_BUILD_VERSION
 REQUIRED_SCHEMA_VERSION = max(int(LATEST_SCHEMA_VERSION), 5)
