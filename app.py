@@ -22,7 +22,7 @@ from cupnavi_core.version import APP_VERSION as CORE_APP_VERSION
 from cupnavi_core.rules import validate_match_event_totals
 from cupnavi_core.home_away import orientation_balance_score
 from cupnavi_core.pdf_export import build_schedule_pdf
-from cupnavi_core.migrations import apply_migrations, LATEST_SCHEMA_VERSION, ensure_competition_class_schema_compat
+from cupnavi_core.migrations import apply_migrations, LATEST_SCHEMA_VERSION, ensure_competition_class_schema_compat, ensure_v16_setup_schema_compat
 from cupnavi_core.health import collect_database_health
 from cupnavi_core.backup import build_backup_bytes
 from cupnavi_core.config import BACKUP_FILE_SUFFIX, PUBLIC_BASE_URL, OFFICIAL_PUBLIC_BASE_URL, LEGACY_STREAMLIT_BASE_URL
@@ -47,7 +47,7 @@ from cupnavi_core.fairness import fairness_report
 from cupnavi_core.ux2 import ADMIN_SECTIONS, workflow_progress, attention_items, human_error_id, schedule_board
 from cupnavi_core.about import feature_catalog, about_intro
 
-APP_BUILD_VERSION = "2026.08.24-129-TOURNAMENT-SETUP-RANKING"
+APP_BUILD_VERSION = "2026.08.24-131-SETUP-AUTOSAVE"
 APP_VERSION = APP_BUILD_VERSION
 RELEASE_FILES_MISMATCH = CORE_APP_VERSION != APP_BUILD_VERSION
 REQUIRED_SCHEMA_VERSION = max(int(LATEST_SCHEMA_VERSION), 5)
@@ -104,7 +104,7 @@ def competition_classes(tournament_id):
     Mixed Streamlit/Turso deployments can briefly have new app code before the
     matching remote schema. Repair that state once instead of crashing the UI.
     """
-    sql = "SELECT id,tournament_id,name,sort_order FROM competition_classes WHERE tournament_id=? ORDER BY sort_order,name,id"
+    sql = "SELECT id,tournament_id,name,sort_order,difficulty FROM competition_classes WHERE tournament_id=? ORDER BY sort_order,name,id"
     params = (int(tournament_id),)
     try:
         return all_rows(sql, params)
@@ -148,6 +148,49 @@ def sync_competition_classes(tournament_id, labels=None):
 
 def competition_class_label(row):
     return str(_row_value(row, "name", "") or "").strip()
+
+
+DIFFICULTY_LEVELS = ["Lätt", "Medel", "Svår", "Extra svår"]
+
+def tournament_day_windows(tournament_id):
+    return all_rows("SELECT tournament_id,play_date,start_time,end_time,confirmed FROM tournament_day_windows WHERE tournament_id=? ORDER BY play_date", (int(tournament_id),))
+
+def ensure_tournament_day_windows(tournament_id, tournament, default_start="09:00", default_end="18:00"):
+    start_date = datetime.fromisoformat(tournament["start_date"] or tournament["tournament_date"]).date()
+    end_date = datetime.fromisoformat(tournament["end_date"] or tournament["start_date"] or tournament["tournament_date"]).date()
+    existing = {str(r["play_date"]): r for r in tournament_day_windows(tournament_id)}
+    day = start_date
+    while day <= end_date:
+        key = day.isoformat()
+        if key not in existing:
+            run("INSERT OR IGNORE INTO tournament_day_windows(tournament_id,play_date,start_time,end_time,confirmed) VALUES(?,?,?,?,0)", (int(tournament_id), key, default_start, default_end))
+        day += timedelta(days=1)
+    return tournament_day_windows(tournament_id)
+
+def save_tournament_day_window(tournament_id, play_date, start_time, end_time):
+    if start_time >= end_time:
+        raise ValueError("Sluttiden måste vara senare än starttiden.")
+    run("""INSERT INTO tournament_day_windows(tournament_id,play_date,start_time,end_time,confirmed) VALUES(?,?,?,?,1)
+           ON CONFLICT(tournament_id,play_date) DO UPDATE SET start_time=excluded.start_time,end_time=excluded.end_time,confirmed=1""",
+        (int(tournament_id), str(play_date), str(start_time), str(end_time)))
+
+def _autosave_tournament_field(tournament_id, column, key, cast=None, dirty=False):
+    value = st.session_state.get(key)
+    if cast is not None:
+        value = cast(value)
+    run(f"UPDATE tournaments SET {column}=?{',schedule_dirty=1,is_published=0' if dirty else ''} WHERE id=?", (value, int(tournament_id)))
+    if dirty:
+        run("UPDATE matches SET schedule_published=0 WHERE tournament_id=?", (int(tournament_id),))
+    st.session_state[f"autosave_notice_{tournament_id}"] = "✓ Sparat automatiskt"
+
+def _autosave_rule_field(tournament_id, column, key, cast=None):
+    value = st.session_state.get(key)
+    if cast is not None:
+        value = cast(value)
+    run(f"UPDATE schedule_rules SET {column}=? WHERE tournament_id=?", (value, int(tournament_id)))
+    run("UPDATE tournaments SET schedule_dirty=1,is_published=0 WHERE id=?", (int(tournament_id),))
+    run("UPDATE matches SET schedule_published=0 WHERE tournament_id=?", (int(tournament_id),))
+    st.session_state[f"autosave_notice_{tournament_id}"] = "✓ Sparat automatiskt"
 
 
 def weekday_short(value):
@@ -1992,6 +2035,26 @@ def inject_custom_css():
             background:#F1F5F9 !important;
             border-color:#94A3B8 !important;
           }
+          [data-testid="stLinkButton"] a {
+            background:#FFFFFF !important;
+            border:1px solid #B8C5D1 !important;
+            color:#0F172A !important;
+            opacity:1 !important;
+            border-radius:10px !important;
+            font-weight:700 !important;
+            min-height:2.55rem !important;
+            box-shadow:0 1px 2px rgba(15,23,42,.04) !important;
+          }
+          [data-testid="stLinkButton"] a *,
+          [data-testid="stLinkButton"] a p,
+          [data-testid="stLinkButton"] a span {
+            color:#0F172A !important;
+            opacity:1 !important;
+          }
+          [data-testid="stLinkButton"] a:hover {
+            background:#F1F5F9 !important;
+            border-color:#94A3B8 !important;
+          }
 
           .stButton > button[kind="primary"],
           .stFormSubmitButton > button[kind="primary"] {
@@ -3118,6 +3181,7 @@ def init_db():
         # Defensive repair for mixed/partial cloud deployments. If v14 is
         # already marked but objects are missing, make the schema complete.
         ensure_competition_class_schema_compat(con)
+        ensure_v16_setup_schema_compat(con)
         con.commit()
     return schema_key
 
@@ -4317,33 +4381,28 @@ def generate_schedule(tournament_id, tournament, rules, preserve_existing=False)
     end_date = schedule_window.end_date
     latest_kickoff = schedule_window.latest_pitch_time
     duration = schedule_window.group_match_duration
+    daily_windows = {str(r["play_date"]): (datetime.strptime(r["start_time"], "%H:%M").time(), datetime.strptime(r["end_time"], "%H:%M").time()) for r in ensure_tournament_day_windows(tournament_id, tournament, rules["first_match_time"], rules["latest_kickoff_time"])}
+
+    def day_bounds(day):
+        return daily_windows.get(day.isoformat(), (start.time(), latest_kickoff))
 
     def duration_for_match(match_row):
         return schedule_window.duration_for_stage(match_row["stage"])
 
     def valid_daily_start_for(candidate, match_duration):
-        candidate_end = candidate + match_duration
-        day_limit = datetime.combine(candidate.date(), latest_kickoff)
-        if candidate_end > day_limit:
-            candidate = datetime.combine(candidate.date() + timedelta(days=1), start.time())
-            candidate_end = candidate + match_duration
-            day_limit = datetime.combine(candidate.date(), latest_kickoff)
-        if candidate.date() > end_date or candidate_end > day_limit:
-            return None
-        return candidate
+        while candidate.date() <= end_date:
+            day_start_time, day_end_time = day_bounds(candidate.date())
+            day_start = datetime.combine(candidate.date(), day_start_time)
+            day_limit = datetime.combine(candidate.date(), day_end_time)
+            if candidate < day_start:
+                candidate = day_start
+            if candidate + match_duration <= day_limit:
+                return candidate
+            candidate = datetime.combine(candidate.date() + timedelta(days=1), day_bounds(candidate.date() + timedelta(days=1))[0])
+        return None
 
     def valid_daily_start(candidate):
-        # latest_kickoff_time behålls som databasnamn för kompatibilitet, men värdet betyder sista plantid.
-        # Matchen måste vara färdig innan planerna stänger.
-        candidate_end = candidate + duration
-        day_limit = datetime.combine(candidate.date(), latest_kickoff)
-        if candidate_end > day_limit:
-            candidate = datetime.combine(candidate.date() + timedelta(days=1), start.time())
-            candidate_end = candidate + duration
-            day_limit = datetime.combine(candidate.date(), latest_kickoff)
-        if candidate.date() > end_date or candidate_end > day_limit:
-            return None
-        return candidate
+        return valid_daily_start_for(candidate, duration)
     # Databasen ändras först när hela schemaläggningspasset är färdigberäknat.
     # Det minskar risken för ett halvuppdaterat schema om ett oväntat fel inträffar.
     schedule_updates = []
@@ -4672,6 +4731,7 @@ def validate_schedule(tournament_id, tournament, rules):
     cup_end = datetime.fromisoformat(tournament["end_date"] or tournament["start_date"] or tournament["tournament_date"]).date()
     first_time = datetime.strptime(rules["first_match_time"], "%H:%M").time()
     latest_time = datetime.strptime(rules["latest_kickoff_time"], "%H:%M").time()
+    validation_windows = {str(r["play_date"]): (datetime.strptime(r["start_time"], "%H:%M").time(), datetime.strptime(r["end_time"], "%H:%M").time()) for r in ensure_tournament_day_windows(tournament_id, tournament, rules["first_match_time"], rules["latest_kickoff_time"])}
     errors, warnings = [], []
     events = []
     for number, match_row in enumerate(rows, 1):
@@ -4682,12 +4742,11 @@ def validate_schedule(tournament_id, tournament, rules):
         events.append({"number": number, "row": match_row, "start": start_at, "end": start_at + match_duration, "teams": {home_id, away_id} - {None}})
         if not cup_start <= start_at.date() <= cup_end:
             errors.append(f"Match {number} ligger utanför cupens datumintervall.")
-        if start_at.time() < first_time:
-            errors.append(f"Match {number} har avspark {start_at.strftime('%H:%M')} före första tillåtna avspark.")
-        if (start_at + match_duration) > datetime.combine(start_at.date(), latest_time):
-            errors.append(
-                f"Match {number} slutar {(start_at + match_duration).strftime('%H:%M')}, efter sista plantid {latest_time.strftime('%H:%M')}."
-            )
+        day_first, day_last = validation_windows.get(start_at.date().isoformat(), (first_time, latest_time))
+        if start_at.time() < day_first:
+            errors.append(f"Match {number} har avspark {start_at.strftime('%H:%M')} före dagens tillåtna starttid {day_first.strftime('%H:%M')}.")
+        if (start_at + match_duration) > datetime.combine(start_at.date(), day_last):
+            errors.append(f"Match {number} slutar {(start_at + match_duration).strftime('%H:%M')}, efter dagens sluttid {day_last.strftime('%H:%M')}.")
         if not match_row["pitch_number"] or not 1 <= match_row["pitch_number"] <= rules["pitch_count"]:
             errors.append(f"Match {number} har en ogiltig plan.")
         if rules["referee_mode"] == "Automatisk" and not match_row["referee_id"]:
@@ -5909,6 +5968,11 @@ def render_public_view(tournament_id, tournament):
             practical_rows.append(f"<div><b>📍 {html.escape(tr('Arena'))}:</b> {html.escape(tournament['arena_address'])}</div>")
         if tournament["kiosk_information"]:
             practical_rows.append(f"<div><b>☕ {html.escape(tr('Kiosk'))}:</b> {html.escape(tournament['kiosk_information'])}</div>")
+        if bool(_row_value(tournament, "changing_rooms_available", 0)):
+            room_info = (_row_value(tournament, "changing_room_info", "") or "").strip() or "Omklädningsrum finns tillgängliga."
+            practical_rows.append(f"<div><b>🚿 Omklädningsrum:</b> {html.escape(room_info)}</div>")
+        if bool(_row_value(tournament, "show_price_information", 0)) and (_row_value(tournament, "price_information", "") or "").strip():
+            practical_rows.append(f"<div><b>💳 Priser/avgifter:</b> {html.escape(_row_value(tournament, 'price_information', ''))}</div>")
         if tournament["organizer_phone"]:
             phone_display = html.escape(tournament["organizer_phone"])
             phone_href = re.sub(r"[^0-9+]", "", tournament["organizer_phone"])
@@ -7031,6 +7095,8 @@ if view_mode == "Admin":
                 "Skapa slutlig ranking av alla lag", value=False, key="new_tournament_final_ranking",
                 help="Visar en slutlig 1–N-ranking när cupen är färdigspelad."
             )
+            create_changing_rooms = st.checkbox("Tillgång till omklädningsrum", value=False, key="new_tournament_changing_rooms")
+            create_show_prices = st.checkbox("Visa priser/avgifter för cupen eller matchcamp", value=False, key="new_tournament_show_prices")
             start_date = st.date_input("Första cupdag")
             st.caption(f"📅 {date_with_weekday(start_date)}")
             end_date = st.date_input("Sista cupdag", value=start_date)
@@ -7053,13 +7119,13 @@ if view_mode == "Admin":
                         """INSERT INTO tournaments(
                                name,location,tournament_date,start_date,end_date,expected_team_count,
                                points_win,points_draw,points_loss,sport,lifecycle_status,
-                               locale,timezone_name,participant_type,country_code,age_classes_json,enable_team_checkin,enable_final_ranking
-                           ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                               locale,timezone_name,participant_type,country_code,age_classes_json,enable_team_checkin,enable_final_ranking,changing_rooms_available,show_price_information
+                           ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
                         (
                             n.strip(), place.strip(), start_date.isoformat(), start_date.isoformat(), end_date.isoformat(),
                             expected_teams, 3, 1, 0, sport, "draft", create_locale, normalized_timezone,
                             participant_type, create_country or None, json.dumps(parse_age_classes(create_age_classes_text), ensure_ascii=False),
-                            1 if create_team_checkin else 0, 1 if create_final_ranking else 0,
+                            1 if create_team_checkin else 0, 1 if create_final_ranking else 0, 1 if create_changing_rooms else 0, 1 if create_show_prices else 0,
                         ),
                     )
                     used_slugs = [row["public_slug"] for row in all_rows("SELECT public_slug FROM tournaments WHERE public_slug IS NOT NULL")]
@@ -7238,97 +7304,109 @@ if _a11y_css:
     st.markdown("<style>" + "".join(_a11y_css) + "</style><div class='cn-sr-only' role='status' aria-live='polite'>CupNavi är redo. Navigation och formulär kan användas med tangentbord och skärmläsare.</div>", unsafe_allow_html=True)
 
 def render_initial_tournament_setup(tournament_id, tournament):
-    """Obligatorisk första konfigurationssida efter att en ny turnering skapats."""
+    """Första konfigurationssidan efter skapande. Vanliga fält autosparas."""
     st.title("Konfigurera turneringen")
-    st.caption("Turneringen är skapad. Gör nu de val som formar tävlingen innan du börjar lägga in lag och grupper.")
+    st.caption("Turneringen är skapad. Alla vanliga inställningar nedan sparas automatiskt när de ändras.")
     st.info(f"**{tournament['name']}** · {tournament['sport']} · {cup_date_label(tournament)}")
     rules = one_row("SELECT * FROM schedule_rules WHERE tournament_id=?", (tournament_id,))
     if rules is None:
         run("INSERT INTO schedule_rules(tournament_id) VALUES(?)", (tournament_id,))
         rules = one_row("SELECT * FROM schedule_rules WHERE tournament_id=?", (tournament_id,))
-    class_text = ", ".join(row["name"] for row in competition_classes(tournament_id))
-    format_options = ["Inget slutspel", "A- och B-slutspel", PLACEMENT_PLAYOFF_FORMAT]
-    stored_format = PLACEMENT_PLAYOFF_FORMAT if tournament["playoff_format"] == "Flera egna slutspel" else tournament["playoff_format"]
-    if stored_format not in format_options:
-        stored_format = "Inget slutspel"
-    tie_options = ["Förlängning + straffar", "Straffar direkt", "Lottning"]
-    with st.form(f"initial_tournament_setup_{tournament_id}"):
-        st.markdown("### 1. Tävlingsstruktur")
-        setup_classes = st.text_input("Tävlingsklasser", value=class_text, placeholder="P2014, F2014, Herr, Dam")
-        sc1, sc2 = st.columns(2)
-        setup_final_ranking = sc1.checkbox("Slutlig ranking av alla lag", value=bool(_row_value(tournament, "enable_final_ranking", 0)))
-        sc2.caption("Lagincheckning: " + ("På" if bool(_row_value(tournament, "enable_team_checkin", 1)) else "Av") + " · valdes när cupen skapades")
 
-        st.markdown("### 2. Grupp- och poängregler")
-        p1,p2,p3 = st.columns(3)
-        setup_win = p1.number_input("Poäng vinst", 0, 10, int(tournament["points_win"]))
-        setup_draw = p2.number_input("Poäng oavgjort", 0, 10, int(tournament["points_draw"]))
-        setup_loss = p3.number_input("Poäng förlust", 0, 10, int(tournament["points_loss"]))
-        tiebreak_opts = ["Målskillnad först", "Inbördes möten först"]
-        setup_tiebreak = st.selectbox("Skiljekriterium", tiebreak_opts, index=tiebreak_opts.index(tournament["table_tiebreak"] or "Målskillnad först"))
+    # Säkerställ obligatoriska öppettider per cupdag.
+    windows = ensure_tournament_day_windows(tournament_id, tournament, rules["first_match_time"], rules["latest_kickoff_time"])
+    class_rows = competition_classes(tournament_id)
 
-        st.markdown("### 3. Match- och schemaregler")
-        m1,m2,m3 = st.columns(3)
-        setup_first = m1.time_input("Första match", value=datetime.strptime(rules["first_match_time"], "%H:%M").time())
-        setup_halves = m2.number_input("Perioder/halvlekar/set", 1, 7, int(rules["halves"]))
-        setup_minutes = m3.number_input("Minuter per period/halvlek/set", 1, 120, int(rules["minutes_per_half"]))
-        m4,m5,m6 = st.columns(3)
-        setup_halftime = m4.number_input("Paus mellan perioder", 0, 60, int(rules["halftime_minutes"]))
-        setup_pitch_break = m5.number_input("Paus mellan matcher på plan", 0, 120, int(rules["pitch_break_minutes"]))
-        setup_rest = m6.number_input("Minsta lagvila", 0, 300, int(rules["minimum_team_rest_minutes"]))
-        m7,m8,m9 = st.columns(3)
-        setup_pitches = m7.number_input("Antal planer/spelytor", 1, 50, int(rules["pitch_count"]))
-        setup_latest = m8.time_input("Sista plantid", value=datetime.strptime(rules["latest_kickoff_time"], "%H:%M").time())
-        setup_referee_mode = m9.selectbox("Domartillsättning", ["Automatisk", "Manuell"], index=0 if rules["referee_mode"] == "Automatisk" else 1)
-        c1,c2 = st.columns(2)
-        setup_avoid_consecutive = c1.checkbox("Försök undvika följdmatcher", value=bool(rules["avoid_consecutive_matches"]))
-        setup_consecutive_break = c2.number_input("Extra paus vid följdmatch", 0, 180, int(rules["consecutive_match_break_minutes"]), disabled=not setup_avoid_consecutive)
+    st.markdown("### 1. Tävlingsklasser och svårighetsgrad")
+    if not class_rows:
+        st.warning("Lägg till minst en tävlingsklass innan du går vidare.")
+    for row in class_rows:
+        c1,c2 = st.columns([2,1])
+        c1.markdown(f"**{competition_class_label(row)}**")
+        saved_diff = _row_value(row, "difficulty", "Medel") or "Medel"
+        if saved_diff not in DIFFICULTY_LEVELS: saved_diff = "Medel"
+        key=f"setup_diff_{row['id']}"
+        choice=c2.selectbox("Svårighetsgrad", DIFFICULTY_LEVELS, index=DIFFICULTY_LEVELS.index(saved_diff), key=key, label_visibility="collapsed")
+        if choice != saved_diff:
+            run("UPDATE competition_classes SET difficulty=? WHERE id=?", (choice, row["id"]))
+            st.session_state[f"autosave_notice_{tournament_id}"]="✓ Sparat automatiskt"
 
-        st.markdown("### 4. Slutspel")
-        s1,s2 = st.columns(2)
-        setup_playoff = s1.selectbox("Slutspelsformat", format_options, index=format_options.index(stored_format))
-        setup_bronze = s2.checkbox("Bronsmatch", value=bool(tournament["bronze_match"]), disabled=setup_playoff == "Inget slutspel")
-        s3,s4 = st.columns(2)
-        saved_tie = tournament["playoff_tie_rule"] or "Straffar direkt"
-        setup_tie = s3.selectbox("Oavgjort i slutspel", tie_options, index=tie_options.index(saved_tie) if saved_tie in tie_options else 1, disabled=setup_playoff == "Inget slutspel")
-        setup_extra = s4.number_input("Förlängning (min)", 1, 60, max(1,int(tournament["extra_time_minutes"] or 10)), disabled=setup_playoff == "Inget slutspel" or setup_tie != "Förlängning + straffar")
+    st.markdown("### 2. Planernas öppettider per dag")
+    st.caption("Start- och sluttid måste anges för varje cupdag. Schemaläggaren använder dessa tider som hårda gränser.")
+    valid_windows=True
+    for w in windows:
+        d=datetime.fromisoformat(w["play_date"]).date()
+        a,b=st.columns(2)
+        sk=f"day_start_{tournament_id}_{w['play_date']}"; ek=f"day_end_{tournament_id}_{w['play_date']}"
+        sv=a.time_input(f"Starttid – {date_with_weekday(d)}", value=datetime.strptime(w["start_time"], "%H:%M").time(), key=sk)
+        ev=b.time_input(f"Sluttid – {date_with_weekday(d)}", value=datetime.strptime(w["end_time"], "%H:%M").time(), key=ek)
+        confirm_key=f"day_confirm_{tournament_id}_{w['play_date']}"
+        confirmed=st.checkbox(f"Bekräfta plantider för {date_with_weekday(d)}", value=bool(_row_value(w,"confirmed",0)), key=confirm_key)
+        if sv >= ev:
+            valid_windows=False; st.error(f"{date_with_weekday(d)}: sluttiden måste vara senare än starttiden.")
+        elif sv.strftime("%H:%M") != w["start_time"] or ev.strftime("%H:%M") != w["end_time"] or (confirmed and not bool(_row_value(w,"confirmed",0))):
+            save_tournament_day_window(tournament_id, w["play_date"], sv.strftime("%H:%M"), ev.strftime("%H:%M"))
+            st.session_state[f"autosave_notice_{tournament_id}"]="✓ Sparat automatiskt"
+        if not confirmed:
+            valid_windows=False
 
-        st.markdown("### 5. Statistik och cupdrift")
-        f1,f2,f3,f4 = st.columns(4)
-        setup_scorers = f1.checkbox("Skytteliga", value=bool(_row_value(tournament,"enable_scorer_leaderboard",1)))
-        setup_assists = f2.checkbox("Assistliga", value=bool(_row_value(tournament,"enable_assist_leaderboard",1)))
-        setup_cards = f3.checkbox("Gula/röda kort", value=bool(_row_value(tournament,"enable_card_statistics",1)))
-        setup_control = f4.checkbox("Control Center", value=bool(_row_value(tournament,"enable_control_center",0)))
+    st.markdown("### 3. Praktisk information")
+    cr_toggle=f"setup_changing_rooms_{tournament_id}"
+    st.checkbox("Tillgång till omklädningsrum", value=bool(_row_value(tournament,"changing_rooms_available",0)), key=cr_toggle,
+                on_change=_autosave_tournament_field,args=(tournament_id,"changing_rooms_available",cr_toggle,lambda v:1 if v else 0))
+    cr_key=f"setup_changing_info_{tournament_id}"
+    st.text_area("Information om omklädningsrum", value=_row_value(tournament,"changing_room_info","") or "", key=cr_key,
+                 placeholder="Exempel: 4 omklädningsrum i huvudbyggnaden. Nycklar hämtas i sekretariatet.",
+                 on_change=_autosave_tournament_field, args=(tournament_id,"changing_room_info",cr_key))
+    pshow=f"setup_show_prices_{tournament_id}"
+    st.checkbox("Visa priser/avgifter publikt", value=bool(_row_value(tournament,"show_price_information",0)), key=pshow,
+                on_change=_autosave_tournament_field, args=(tournament_id,"show_price_information",pshow,lambda v:1 if v else 0))
+    pkey=f"setup_price_info_{tournament_id}"
+    st.text_area("Priser/avgifter", value=_row_value(tournament,"price_information","") or "", key=pkey,
+                 placeholder="Exempel: Lagavgift 1 500 SEK. Matchcamp 250 SEK/spelare.",
+                 on_change=_autosave_tournament_field, args=(tournament_id,"price_information",pkey))
 
-        submitted = st.form_submit_button("Spara upplägg och fortsätt", type="primary", use_container_width=True)
-    if submitted:
-        labels = parse_age_classes(setup_classes)
-        with db() as con:
-            con.execute(
-                """UPDATE tournaments SET points_win=?,points_draw=?,points_loss=?,table_tiebreak=?,
-                       playoff_format=?,bronze_match=?,playoff_tie_rule=?,extra_time_minutes=?,playoff_model_confirmed=1,
-                       enable_final_ranking=?,enable_scorer_leaderboard=?,enable_assist_leaderboard=?,enable_card_statistics=?,enable_control_center=?,schedule_dirty=1
-                   WHERE id=?""",
-                (setup_win,setup_draw,setup_loss,setup_tiebreak,setup_playoff,int(setup_bronze),
-                 setup_tie if setup_playoff != "Inget slutspel" else "Straffar direkt",
-                 setup_extra if setup_playoff != "Inget slutspel" and setup_tie == "Förlängning + straffar" else 0,
-                 int(setup_final_ranking),int(setup_scorers),int(setup_assists),int(setup_cards),int(setup_control),tournament_id),
-            )
-            con.execute(
-                """UPDATE schedule_rules SET first_match_time=?,halves=?,minutes_per_half=?,halftime_minutes=?,pitch_break_minutes=?,
-                       minimum_team_rest_minutes=?,avoid_consecutive_matches=?,consecutive_match_break_minutes=?,pitch_count=?,latest_kickoff_time=?,referee_mode=?
-                   WHERE tournament_id=?""",
-                (setup_first.strftime("%H:%M"),setup_halves,setup_minutes,setup_halftime,setup_pitch_break,setup_rest,
-                 int(setup_avoid_consecutive),setup_consecutive_break,setup_pitches,setup_latest.strftime("%H:%M"),setup_referee_mode,tournament_id),
-            )
-            con.execute("UPDATE tournaments SET age_classes_json=? WHERE id=?", (json.dumps(labels, ensure_ascii=False), tournament_id))
-            con.commit()
-        sync_competition_classes(tournament_id, labels)
-        _clear_render_query_cache()
+    st.markdown("### 4. Tävlingsregler")
+    fields=[
+        ("Poäng vinst","points_win",int(tournament["points_win"])),
+        ("Poäng oavgjort","points_draw",int(tournament["points_draw"])),
+        ("Poäng förlust","points_loss",int(tournament["points_loss"])),
+    ]
+    cols=st.columns(3)
+    for col,(label,column,val) in zip(cols,fields):
+        k=f"setup_{column}_{tournament_id}"
+        col.number_input(label,0,10,val,key=k,on_change=_autosave_tournament_field,args=(tournament_id,column,k,int))
+    rk=f"setup_final_ranking_{tournament_id}"
+    st.checkbox("Slutlig ranking av alla lag", value=bool(_row_value(tournament,"enable_final_ranking",0)), key=rk,
+                on_change=_autosave_tournament_field,args=(tournament_id,"enable_final_ranking",rk,lambda v:1 if v else 0))
+
+    st.markdown("### 5. Match- och schemaregler")
+    r1,r2,r3=st.columns(3)
+    hk=f"setup_halves_{tournament_id}"; mk=f"setup_minutes_{tournament_id}"; pk=f"setup_pitches_{tournament_id}"
+    r1.number_input("Perioder/halvlekar/set",1,7,int(rules["halves"]),key=hk,on_change=_autosave_rule_field,args=(tournament_id,"halves",hk,int))
+    r2.number_input("Minuter per period/halvlek/set",1,120,int(rules["minutes_per_half"]),key=mk,on_change=_autosave_rule_field,args=(tournament_id,"minutes_per_half",mk,int))
+    r3.number_input("Antal planer/spelytor",1,50,int(rules["pitch_count"]),key=pk,on_change=_autosave_rule_field,args=(tournament_id,"pitch_count",pk,int))
+    r4,r5,r6=st.columns(3)
+    htk=f"setup_halftime_{tournament_id}"; pbk=f"setup_pitchbreak_{tournament_id}"; restk=f"setup_rest_{tournament_id}"
+    r4.number_input("Paus mellan perioder",0,60,int(rules["halftime_minutes"]),key=htk,on_change=_autosave_rule_field,args=(tournament_id,"halftime_minutes",htk,int))
+    r5.number_input("Paus mellan matcher på plan",0,120,int(rules["pitch_break_minutes"]),key=pbk,on_change=_autosave_rule_field,args=(tournament_id,"pitch_break_minutes",pbk,int))
+    r6.number_input("Minsta lagvila",0,300,int(rules["minimum_team_rest_minutes"]),key=restk,on_change=_autosave_rule_field,args=(tournament_id,"minimum_team_rest_minutes",restk,int))
+
+    st.markdown("### 6. Publik statistik och drift")
+    f1,f2,f3,f4=st.columns(4)
+    for col,label,column,default in [
+        (f1,"Skytteliga","enable_scorer_leaderboard",1),(f2,"Assistliga","enable_assist_leaderboard",1),
+        (f3,"Gula/röda kort","enable_card_statistics",1),(f4,"Control Center","enable_control_center",0)]:
+        k=f"setup_{column}_{tournament_id}"
+        col.checkbox(label,value=bool(_row_value(tournament,column,default)),key=k,on_change=_autosave_tournament_field,args=(tournament_id,column,k,lambda v:1 if v else 0))
+
+    notice=st.session_state.pop(f"autosave_notice_{tournament_id}",None)
+    if notice: st.success(notice)
+    st.caption("Vanliga inställningar autosparas. Endast åtgärder som publicering, schemagenerering och radering kräver fortfarande ett aktivt knapptryck.")
+    if st.button("Fortsätt till Admin", type="primary", use_container_width=True, disabled=not valid_windows):
         st.session_state.pop("new_tournament_setup_id", None)
         st.session_state.pop("preferred_tournament_id", None)
         st.session_state[f"admin_page_{tournament_id}"] = "Adminöversikt"
-        st.session_state["initial_setup_saved"] = True
         st.rerun()
 
 
@@ -8267,10 +8345,7 @@ elif admin_page == "Adminöversikt":
         if hasattr(st, "query_params"):
             st.query_params["cup"] = tournament["public_slug"] or str(tid)
         st.rerun()
-    preview_cols[1].link_button("🔗 Kopiera/öppna publik länk", public_cup_url(tid), use_container_width=True)
-
-    st.caption("Delning sköts via den integrerade Dela cupen-knappen bredvid CupNavi-logotypen.")
-    st.caption("Här ställer du in cupens grunduppgifter, poängregler, slutspelsformat och regler för schemaläggningen.")
+    preview_cols[1].link_button("🔗 Öppna publik vy", public_cup_url(tid), use_container_width=True)
     # ux_counts innehåller redan dashboardens samtliga räknare. Undvik två
     # extra Turso-roundtrips för samma information.
     overview_team_count = ux_counts["teams_n"]
@@ -8470,7 +8545,7 @@ elif admin_page == "Adminöversikt":
         next_step_target = "Kontroller"
         next_step_text = "Grundflödet är klart. Kontrollera varningar och publiceringsstatus."
 
-    st.info(f"**{next_step_title}**\\n\\n{next_step_text}")
+    st.info(f"**{next_step_title}**\n\n{next_step_text}")
     st.button(
         next_step_title,
         key=f"dashboard_next_step_{tid}",
@@ -8592,7 +8667,7 @@ elif admin_page == "Adminöversikt":
     else:
         st.caption("Välj en slutspelsmodell för att aktivera reglerna för oavgjorda slutspelsmatcher.")
 
-    with st.form("edit_tournament_basics"):
+    with st.container():
         st.markdown("#### Cup och deltagande")
         bn1, bn2 = st.columns(2)
         edited_name = bn1.text_input("Turneringens namn", value=tournament["name"])
@@ -8613,6 +8688,11 @@ elif admin_page == "Adminöversikt":
             "Kiosk och servering (frivillig information)", value=tournament["kiosk_information"] or "",
             placeholder="Exempel: Kiosk finns och är öppen 08.00–17.00 med kaffe, korv och enklare lunch",
         )
+        practical1, practical2 = st.columns(2)
+        edited_changing_rooms = practical1.checkbox("Tillgång till omklädningsrum", value=bool(_row_value(tournament,"changing_rooms_available",0)))
+        edited_show_prices = practical2.checkbox("Visa priser/avgifter publikt", value=bool(_row_value(tournament,"show_price_information",0)))
+        edited_changing_room_info = st.text_input("Information om omklädningsrum", value=_row_value(tournament,"changing_room_info","") or "", placeholder="Exempel: 4 omklädningsrum i huvudbyggnaden")
+        edited_price_info = st.text_input("Priser/avgifter för cup eller matchcamp", value=_row_value(tournament,"price_information","") or "", placeholder="Exempel: Lagavgift 1 500 SEK · Matchcamp 250 SEK/spelare")
         edited_public_info = st.text_area(
             "Egen information på publika infosidan",
             value=tournament["public_information"] or "",
@@ -8648,9 +8728,24 @@ elif admin_page == "Adminöversikt":
         edited_medical = feature_col2.checkbox("Medicinsk beredskap på infosidan", value=bool(_row_value(tournament, "enable_medical_info", 0)))
         edited_lost_found = feature_col2.checkbox("Lost & found / hittegods på infosidan", value=bool(_row_value(tournament, "enable_lost_found", 0)))
         edited_accessibility_info = feature_col2.checkbox("Tillgänglighetsinfo på infosidan", value=bool(_row_value(tournament, "enable_accessibility_info", 0)))
-        edited_medical_info = st.text_area("Medicinsk beredskap", value=_row_value(tournament, "medical_info", "") or "", disabled=not edited_medical, placeholder="Exempel: Sjukvårdare finns vid sekretariatet. Hjärtstartare finns i entréhallen.")
-        edited_lost_found_info = st.text_area("Lost & found / hittegods", value=_row_value(tournament, "lost_found_info", "") or "", disabled=not edited_lost_found, placeholder="Exempel: Hittegods lämnas och hämtas i sekretariatet.")
-        edited_accessibility_text = st.text_area("Tillgänglighet för besökare", value=_row_value(tournament, "accessibility_info", "") or "", disabled=not edited_accessibility_info, placeholder="Exempel: Tillgänglig entré, RWC och reserverade parkeringsplatser finns vid huvudentrén.")
+        edited_medical_info = st.text_area(
+            "Medicinsk beredskap",
+            value=_row_value(tournament, "medical_info", "") or "",
+            placeholder="Exempel: Sjukvårdare finns vid sekretariatet. Hjärtstartare finns i entréhallen.",
+            help="Du kan skriva och spara texten oavsett om den visas publikt. Kryssrutan ovan styr endast om informationen visas på infosidan.",
+        )
+        edited_lost_found_info = st.text_area(
+            "Lost & found / hittegods",
+            value=_row_value(tournament, "lost_found_info", "") or "",
+            placeholder="Exempel: Hittegods lämnas och hämtas i sekretariatet.",
+            help="Du kan skriva och spara texten oavsett om den visas publikt. Kryssrutan ovan styr endast om informationen visas på infosidan.",
+        )
+        edited_accessibility_text = st.text_area(
+            "Tillgänglighet för besökare",
+            value=_row_value(tournament, "accessibility_info", "") or "",
+            placeholder="Exempel: Tillgänglig entré, RWC och reserverade parkeringsplatser finns vid huvudentrén.",
+            help="Du kan skriva och spara texten oavsett om den visas publikt. Kryssrutan ovan styr endast om informationen visas på infosidan.",
+        )
 
         st.markdown("#### Poängregler och tabell")
         bp1, bp2, bp3 = st.columns(3)
@@ -8697,8 +8792,43 @@ elif admin_page == "Adminöversikt":
         edited_referee_mode = br9.selectbox("Domartillsättning", ["Automatisk", "Manuell"], index=0 if overview_rules["referee_mode"] == "Automatisk" else 1)
         edited_match_minutes = (edited_halves * edited_minutes_half) + ((edited_halves - 1) * edited_halftime)
         st.info(f"Med dessa regler tar en match {edited_match_minutes} minuter från avspark till slutsignal.")
+        st.markdown("##### Plantider per cupdag")
+        st.caption("Dessa tider är hårda gränser för schemaläggningen och autosparas.")
+        day_rows = ensure_tournament_day_windows(tid, tournament, overview_rules["first_match_time"], overview_rules["latest_kickoff_time"])
+        for day_row in day_rows:
+            day_date = datetime.fromisoformat(day_row["play_date"]).date()
+            dc1,dc2 = st.columns(2)
+            ds = dc1.time_input(f"Start – {date_with_weekday(day_date)}", value=datetime.strptime(day_row["start_time"], "%H:%M").time(), key=f"admin_day_start_{tid}_{day_row['play_date']}")
+            de = dc2.time_input(f"Slut – {date_with_weekday(day_date)}", value=datetime.strptime(day_row["end_time"], "%H:%M").time(), key=f"admin_day_end_{tid}_{day_row['play_date']}")
+            if ds < de and (ds.strftime("%H:%M") != day_row["start_time"] or de.strftime("%H:%M") != day_row["end_time"]):
+                save_tournament_day_window(tid, day_row["play_date"], ds.strftime("%H:%M"), de.strftime("%H:%M"))
+                st.session_state["overview_saved_message"] = "✓ Plantider sparade automatiskt. Schemat behöver regenereras."
+                run("UPDATE tournaments SET schedule_dirty=1,is_published=0 WHERE id=?", (tid,))
+                run("UPDATE matches SET schedule_published=0 WHERE tournament_id=?", (tid,))
+            elif ds >= de:
+                st.error(f"{date_with_weekday(day_date)}: sluttiden måste vara senare än starttiden.")
 
-        if st.form_submit_button("Spara alla grunduppgifter", type="primary", use_container_width=True):
+        overview_autosave_changed = any([
+            edited_name.strip() != (tournament["name"] or ""), edited_location.strip() != (tournament["location"] or ""),
+            edited_start != saved_start, edited_end != saved_end, int(edited_expected) != int(tournament["expected_team_count"] or 0),
+            int(edited_win) != int(tournament["points_win"]), int(edited_draw) != int(tournament["points_draw"]), int(edited_loss) != int(tournament["points_loss"]),
+            edited_address.strip() != (tournament["arena_address"] or ""), edited_kiosk_info.strip() != (tournament["kiosk_information"] or ""), bool(edited_changing_rooms) != bool(_row_value(tournament,"changing_rooms_available",0)), bool(edited_show_prices) != bool(_row_value(tournament,"show_price_information",0)), edited_changing_room_info.strip() != (_row_value(tournament,"changing_room_info","") or ""), edited_price_info.strip() != (_row_value(tournament,"price_information","") or ""),
+            edited_public_info.strip() != (tournament["public_information"] or ""), edited_organizer_phone.strip() != (tournament["organizer_phone"] or ""),
+            edited_feedback_email.strip() != (tournament["feedback_email"] or ""), edited_instagram.strip() != (tournament["instagram_url"] or ""),
+            edited_tiebreak != (tournament["table_tiebreak"] or "Målskillnad först"), edited_format != saved_format, int(edited_bronze) != int(tournament["bronze_match"]),
+            edited_tie_rule != (tournament["playoff_tie_rule"] or "Straffar direkt"),
+            bool(edited_control_center) != bool(_row_value(tournament,"enable_control_center",0)), bool(edited_scorers) != bool(_row_value(tournament,"enable_scorer_leaderboard",1)),
+            bool(edited_assists) != bool(_row_value(tournament,"enable_assist_leaderboard",1)), bool(edited_cards) != bool(_row_value(tournament,"enable_card_statistics",1)),
+            bool(edited_medical) != bool(_row_value(tournament,"enable_medical_info",0)), edited_medical_info.strip() != (_row_value(tournament,"medical_info","") or ""),
+            bool(edited_lost_found) != bool(_row_value(tournament,"enable_lost_found",0)), edited_lost_found_info.strip() != (_row_value(tournament,"lost_found_info","") or ""),
+            bool(edited_accessibility_info) != bool(_row_value(tournament,"enable_accessibility_info",0)), edited_accessibility_text.strip() != (_row_value(tournament,"accessibility_info","") or ""),
+            edited_first_time.strftime("%H:%M") != overview_rules["first_match_time"], int(edited_halves) != int(overview_rules["halves"]),
+            int(edited_minutes_half) != int(overview_rules["minutes_per_half"]), int(edited_halftime) != int(overview_rules["halftime_minutes"]),
+            int(edited_pitch_break) != int(overview_rules["pitch_break_minutes"]), bool(edited_avoid_consecutive) != bool(overview_rules["avoid_consecutive_matches"]),
+            int(edited_consecutive_break) != int(overview_rules["consecutive_match_break_minutes"]), int(edited_pitch_count) != int(overview_rules["pitch_count"]),
+            edited_latest.strftime("%H:%M") != overview_rules["latest_kickoff_time"], edited_referee_mode != overview_rules["referee_mode"]
+        ])
+        if overview_autosave_changed:
             if not edited_name.strip():
                 st.error("Turneringens namn får inte vara tomt.")
             elif edited_end < edited_start:
@@ -8728,7 +8858,8 @@ elif admin_page == "Adminöversikt":
                         points_win=?,points_draw=?,points_loss=?,playoff_format=?,bronze_match=?,arena_address=?,kiosk_available=?,
                         kiosk_information=?,public_information=?,organizer_phone=?,feedback_email=?,instagram_url=?,table_tiebreak=?,playoff_tie_rule=?,extra_time_minutes=?,playoff_model_confirmed=1,
                         enable_control_center=?,enable_scorer_leaderboard=?,enable_assist_leaderboard=?,enable_card_statistics=?,
-                        enable_medical_info=?,medical_info=?,enable_lost_found=?,lost_found_info=?,enable_accessibility_info=?,accessibility_info=?
+                        enable_medical_info=?,medical_info=?,enable_lost_found=?,lost_found_info=?,enable_accessibility_info=?,accessibility_info=?,
+                        changing_rooms_available=?,changing_room_info=?,show_price_information=?,price_information=?
                         WHERE id=?""",
                         (edited_name.strip(), edited_location.strip(), edited_start.isoformat(), edited_start.isoformat(), edited_end.isoformat(),
                          edited_expected, edited_win, edited_draw, edited_loss, edited_format, int(edited_bronze), edited_address.strip(),
@@ -8738,7 +8869,7 @@ elif admin_page == "Adminöversikt":
                          edited_extra_time if edited_format != "Inget slutspel" and edited_tie_rule == "Förlängning + straffar" else 0,
                          int(edited_control_center), int(edited_scorers), int(edited_assists), int(edited_cards),
                          int(edited_medical), edited_medical_info.strip(), int(edited_lost_found), edited_lost_found_info.strip(),
-                         int(edited_accessibility_info), edited_accessibility_text.strip(), tid),
+                         int(edited_accessibility_info), edited_accessibility_text.strip(), int(edited_changing_rooms), edited_changing_room_info.strip(), int(edited_show_prices), edited_price_info.strip(), tid),
                     )
                     con.execute(
                         """UPDATE schedule_rules SET first_match_time=?,halves=?,minutes_per_half=?,halftime_minutes=?,pitch_break_minutes=?,
@@ -8752,10 +8883,9 @@ elif admin_page == "Adminöversikt":
                         con.execute("UPDATE tournaments SET is_published=0,schedule_dirty=1 WHERE id=?", (tid,))
                     con.commit()
                 st.session_state["overview_saved_message"] = (
-                    "Grunduppgifterna sparades. Ändringarna påverkar schemat, som nu är markerat för regenerering."
-                    if scheduling_changed else "Grunduppgifterna sparades."
+                    "✓ Sparat automatiskt. Ändringarna påverkar schemat, som nu är markerat för regenerering."
+                    if scheduling_changed else "✓ Sparat automatiskt."
                 )
-                st.rerun()
     if "overview_saved_message" in st.session_state:
         st.success(st.session_state.pop("overview_saved_message"))
     if tournament["playoff_format"] != "Inget slutspel":
@@ -9490,8 +9620,8 @@ if admin_page == "Lag":
             key=f"manage_competition_classes_{tid}",
             placeholder="P2014, F2014, Herr, Dam, Mixed",
         )
-        if st.button("Spara tävlingsklasser", key=f"save_competition_classes_{tid}", use_container_width=True):
-            updated_classes = parse_age_classes(classes_text)
+        updated_classes = parse_age_classes(classes_text)
+        if updated_classes != current_classes:
             used_rows = all_rows(
                 """SELECT DISTINCT cc.name FROM competition_classes cc
                    WHERE cc.tournament_id=? AND (
@@ -9511,8 +9641,19 @@ if admin_page == "Lag":
                 for row in competition_classes(tid):
                     if competition_class_label(row).casefold() not in keep:
                         run("DELETE FROM competition_classes WHERE id=?", (row["id"],))
-                st.success("Tävlingsklasser sparade.")
-                st.rerun()
+                st.success("✓ Tävlingsklasser sparade automatiskt.")
+        class_rows = competition_classes(tid)
+        if class_rows:
+            st.markdown("##### Svårighetsgrad per tävlingsklass")
+            for class_row in class_rows:
+                dc1,dc2 = st.columns([2,1])
+                dc1.write(competition_class_label(class_row))
+                saved_difficulty = _row_value(class_row,"difficulty","Medel") or "Medel"
+                if saved_difficulty not in DIFFICULTY_LEVELS: saved_difficulty = "Medel"
+                difficulty = dc2.selectbox("Nivå", DIFFICULTY_LEVELS, index=DIFFICULTY_LEVELS.index(saved_difficulty), key=f"class_difficulty_{class_row['id']}", label_visibility="collapsed")
+                if difficulty != saved_difficulty:
+                    run("UPDATE competition_classes SET difficulty=? WHERE id=?", (difficulty,class_row["id"]))
+                    st.success(f"✓ {competition_class_label(class_row)} sparad som {difficulty}.")
     max_teams = int(tournament["expected_team_count"] or 0)
     registered_team_count = one_row("SELECT COUNT(*) AS n FROM teams WHERE tournament_id=?", (tid,))["n"]
     team_limit_reached = bool(max_teams and registered_team_count >= max_teams)

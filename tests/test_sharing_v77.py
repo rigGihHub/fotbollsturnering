@@ -30,4 +30,5 @@ def test_public_view_renders_share_controls():
 def test_admin_legacy_qr_panel_is_removed():
     text = app_text()
     assert 'with st.expander("Dela cupen med QR-kod"' not in text
-    assert "Delning sköts via den integrerade Dela cupen-knappen" in text
+    assert "Delning sköts via den integrerade Dela cupen-knappen" not in text
+    assert "cn_share_panel_" in text

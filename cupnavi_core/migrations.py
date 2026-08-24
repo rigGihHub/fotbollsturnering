@@ -9,7 +9,7 @@ Regel:
 from dataclasses import dataclass
 from datetime import datetime, timezone
 
-LATEST_SCHEMA_VERSION = 15
+LATEST_SCHEMA_VERSION = 16
 
 
 @dataclass(frozen=True)
@@ -348,6 +348,26 @@ MIGRATIONS = (
             "ALTER TABLE teams ADD COLUMN avoid_late_group_match INTEGER NOT NULL DEFAULT 0",
         ),
     ),
+    Migration(
+        16,
+        "setup_autosave_day_windows_v131",
+        (
+            "ALTER TABLE competition_classes ADD COLUMN difficulty TEXT NOT NULL DEFAULT 'Medel'",
+            "ALTER TABLE tournaments ADD COLUMN changing_rooms_available INTEGER NOT NULL DEFAULT 0",
+            "ALTER TABLE tournaments ADD COLUMN changing_room_info TEXT",
+            "ALTER TABLE tournaments ADD COLUMN show_price_information INTEGER NOT NULL DEFAULT 0",
+            "ALTER TABLE tournaments ADD COLUMN price_information TEXT",
+            """CREATE TABLE IF NOT EXISTS tournament_day_windows (
+                tournament_id INTEGER NOT NULL REFERENCES tournaments(id) ON DELETE CASCADE,
+                play_date TEXT NOT NULL,
+                start_time TEXT NOT NULL,
+                end_time TEXT NOT NULL,
+                confirmed INTEGER NOT NULL DEFAULT 0,
+                PRIMARY KEY(tournament_id, play_date)
+            )""",
+            "CREATE INDEX IF NOT EXISTS idx_tournament_day_windows_tournament_date ON tournament_day_windows(tournament_id, play_date)",
+        ),
+    ),
 
 )
 
@@ -451,6 +471,34 @@ def ensure_competition_class_schema_compat(con):
         ("competition_classes_v124", datetime.now(timezone.utc).isoformat(timespec="seconds")),
     )
 
+
+def ensure_v16_setup_schema_compat(con):
+    """Idempotent repair for v16 setup fields and day windows in mixed cloud deployments."""
+    def cols(table):
+        rows = con.execute(f"PRAGMA table_info({table})").fetchall()
+        result=set()
+        for row in rows:
+            try: result.add(row[1])
+            except Exception:
+                try: result.add(row["name"])
+                except Exception: pass
+        return result
+    cc=cols("competition_classes")
+    if "difficulty" not in cc:
+        con.execute("ALTER TABLE competition_classes ADD COLUMN difficulty TEXT NOT NULL DEFAULT 'Medel'")
+    tc=cols("tournaments")
+    for name,ddl in [
+        ("changing_rooms_available","ALTER TABLE tournaments ADD COLUMN changing_rooms_available INTEGER NOT NULL DEFAULT 0"),
+        ("changing_room_info","ALTER TABLE tournaments ADD COLUMN changing_room_info TEXT"),
+        ("show_price_information","ALTER TABLE tournaments ADD COLUMN show_price_information INTEGER NOT NULL DEFAULT 0"),
+        ("price_information","ALTER TABLE tournaments ADD COLUMN price_information TEXT"),
+    ]:
+        if name not in tc: con.execute(ddl)
+    con.execute("""CREATE TABLE IF NOT EXISTS tournament_day_windows (
+        tournament_id INTEGER NOT NULL REFERENCES tournaments(id) ON DELETE CASCADE,
+        play_date TEXT NOT NULL,start_time TEXT NOT NULL,end_time TEXT NOT NULL,confirmed INTEGER NOT NULL DEFAULT 0,
+        PRIMARY KEY(tournament_id,play_date))""")
+    con.execute("CREATE INDEX IF NOT EXISTS idx_tournament_day_windows_tournament_date ON tournament_day_windows(tournament_id,play_date)")
 
 def apply_migrations(con):
     """Applicera alla saknade migreringar och returnera nya versionsnummer."""

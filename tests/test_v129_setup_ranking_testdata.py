@@ -38,4 +38,5 @@ def test_new_tournament_enters_setup_wizard():
     text = app_text()
     assert 'new_tournament_setup_id' in text
     assert 'def render_initial_tournament_setup' in text
-    assert 'Spara upplägg och fortsätt' in text
+    assert 'Fortsätt till Admin' in text
+    assert 'sparas automatiskt' in text
