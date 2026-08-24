@@ -1,5 +1,5 @@
 ./.github/workflows/ci.yml
-./QUALITY_V134.md
+./QUALITY_V137.md
 ./RELEASE_MANIFEST.txt
 ./VERSION.txt
 ./app.py
@@ -8,6 +8,7 @@
 ./cupnavi_core/about.py
 ./cupnavi_core/backup.py
 ./cupnavi_core/config.py
+./cupnavi_core/email_service.py
 ./cupnavi_core/experience.py
 ./cupnavi_core/fairness.py
 ./cupnavi_core/health.py
@@ -30,6 +31,7 @@
 ./cupnavi_core/team_portal.py
 ./cupnavi_core/ui_logic.py
 ./cupnavi_core/ux2.py
+./cupnavi_core/v137.py
 ./cupnavi_core/version.py
 ./pyproject.toml
 ./requirements-dev.txt
@@ -43,6 +45,7 @@
 ./tests/test_brand_v95.py
 ./tests/test_checkin_ux_v123.py
 ./tests/test_competition_class_db_hotfix_v125.py
+./tests/test_competition_class_picker_v136.py
 ./tests/test_competition_classes_v124.py
 ./tests/test_control_accessibility_v112.py
 ./tests/test_dependency_contract_v72.py
@@ -126,4 +129,6 @@
 ./tests/test_v131_setup_autosave.py
 ./tests/test_v133_pitch_day_availability.py
 ./tests/test_v134_schedule_recovery_pitch_names.py
+./tests/test_v135_smart_recovery.py
+./tests/test_v137_messaging_schedule_travel_recovery.py
 ./tests/test_visitor_analytics_v79.py

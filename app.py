@@ -40,6 +40,8 @@ from cupnavi_core.experience import (
 from cupnavi_core.sports import sport_definition
 from cupnavi_core.match_engine import match_format, score_model
 from cupnavi_core.schedule_optimizer import optimize_match_order, ortools_available
+from cupnavi_core.v137 import candidate_sort_key, normalize_schedule_strategy, travel_minutes
+from cupnavi_core.email_service import send_notification_email, smtp_configured
 from cupnavi_core.i18n import SUPPORTED_LOCALES, DEFAULT_LOCALE, DEFAULT_TIMEZONE, valid_timezone
 from cupnavi_core.lifecycle import normalize_status, status_label, is_public_status, is_editable_status, choose_unique_slug
 from cupnavi_core.qol import TOURNAMENT_TEMPLATES, template_definition, clone_tournament_payload, checklist_items, admin_mode
@@ -47,7 +49,7 @@ from cupnavi_core.fairness import fairness_report
 from cupnavi_core.ux2 import ADMIN_SECTIONS, workflow_progress, attention_items, human_error_id, schedule_board
 from cupnavi_core.about import feature_catalog, about_intro
 
-APP_BUILD_VERSION = "2026.08.24-135-SMART-SCHEDULE-RECOVERY"
+APP_BUILD_VERSION = "2026.08.24-137-MESSAGING-SCHEDULE-TRAVEL-RECOVERY"
 APP_VERSION = APP_BUILD_VERSION
 RELEASE_FILES_MISMATCH = CORE_APP_VERSION != APP_BUILD_VERSION
 REQUIRED_SCHEMA_VERSION = max(int(LATEST_SCHEMA_VERSION), 5)
@@ -97,6 +99,38 @@ def parse_age_classes(value):
             seen.add(label.casefold())
     return result
 
+
+YOUTH_CLASS_CATEGORIES = {"Pojkar": "P", "Flickor": "F"}
+YOUTH_CLASS_YEARS = list(range(2008, 2023))
+
+def youth_competition_class_label(category, year):
+    prefix = YOUTH_CLASS_CATEGORIES.get(str(category), "P")
+    return f"{prefix}{int(year)}"
+
+def add_competition_class(tournament_id, category, year):
+    """Lägg till en fördefinierad ungdomsklass utan fritext."""
+    label = youth_competition_class_label(category, year)
+    current = [competition_class_label(row) for row in competition_classes(tournament_id)]
+    if label.casefold() in {item.casefold() for item in current}:
+        return False, f"{label} finns redan."
+    updated = current + [label]
+    run("UPDATE tournaments SET age_classes_json=? WHERE id=?", (json.dumps(updated, ensure_ascii=False), tournament_id))
+    sync_competition_classes(tournament_id, updated)
+    return True, f"{label} tillagd."
+
+def remove_competition_class(tournament_id, class_id):
+    """Ta bort en oanvänd tävlingsklass. Använda klasser raderas aldrig blint."""
+    row = one_row("SELECT id,name FROM competition_classes WHERE id=? AND tournament_id=?", (class_id, tournament_id))
+    if row is None:
+        return False, "Tävlingsklassen finns inte längre."
+    team_count = int(one_row("SELECT COUNT(*) AS n FROM teams WHERE tournament_id=? AND competition_class_id=?", (tournament_id, class_id))["n"] or 0)
+    group_count = int(one_row("SELECT COUNT(*) AS n FROM groups WHERE tournament_id=? AND competition_class_id=?", (tournament_id, class_id))["n"] or 0)
+    if team_count or group_count:
+        return False, f"{row['name']} används av {team_count} lag och {group_count} grupper. Flytta eller ta bort dessa kopplingar först."
+    run("DELETE FROM competition_classes WHERE id=? AND tournament_id=?", (class_id, tournament_id))
+    remaining = [competition_class_label(item) for item in competition_classes(tournament_id)]
+    run("UPDATE tournaments SET age_classes_json=? WHERE id=?", (json.dumps(remaining, ensure_ascii=False), tournament_id))
+    return True, f"{row['name']} borttagen."
 
 def competition_classes(tournament_id):
     """Returnera turneringens tävlingsklasser som riktiga databasobjekt.
@@ -212,7 +246,7 @@ def save_pitch_day_window(tournament_id,pitch_number,play_date,start_time,end_ti
 
 def pitch_definitions(tournament_id, pitch_count=None):
     params=[int(tournament_id)]
-    sql="SELECT tournament_id,pitch_number,name FROM pitches WHERE tournament_id=?"
+    sql="SELECT tournament_id,pitch_number,name,address FROM pitches WHERE tournament_id=?"
     if pitch_count is not None:
         sql += " AND pitch_number<=?"; params.append(int(pitch_count))
     sql += " ORDER BY pitch_number"
@@ -232,6 +266,23 @@ def save_pitch_name(tournament_id,pitch_number,name):
            ON CONFLICT(tournament_id,pitch_number) DO UPDATE SET name=excluded.name""",
         (int(tournament_id),int(pitch_number),clean))
     return clean
+
+def save_pitch_address(tournament_id,pitch_number,address):
+    run("UPDATE pitches SET address=? WHERE tournament_id=? AND pitch_number=?",
+        (str(address or "").strip() or None,int(tournament_id),int(pitch_number)))
+
+def pitch_travel_matrix(tournament_id):
+    rows=all_rows("SELECT from_pitch_number,to_pitch_number,minutes FROM pitch_travel_times WHERE tournament_id=?",(int(tournament_id),))
+    return {(int(r["from_pitch_number"]),int(r["to_pitch_number"])):max(0,int(r["minutes"] or 0)) for r in rows}
+
+def save_pitch_travel_time(tournament_id,from_pitch,to_pitch,minutes):
+    a,b=int(from_pitch),int(to_pitch); minutes=max(0,int(minutes or 0))
+    run("""INSERT INTO pitch_travel_times(tournament_id,from_pitch_number,to_pitch_number,minutes) VALUES(?,?,?,?)
+           ON CONFLICT(tournament_id,from_pitch_number,to_pitch_number) DO UPDATE SET minutes=excluded.minutes""",
+        (int(tournament_id),a,b,minutes))
+    run("""INSERT INTO pitch_travel_times(tournament_id,from_pitch_number,to_pitch_number,minutes) VALUES(?,?,?,?)
+           ON CONFLICT(tournament_id,from_pitch_number,to_pitch_number) DO UPDATE SET minutes=excluded.minutes""",
+        (int(tournament_id),b,a,minutes))
 
 def pitch_name_map(tournament_id,pitch_count=None):
     rows=ensure_pitch_definitions(tournament_id,pitch_count or 1) if pitch_count else pitch_definitions(tournament_id)
@@ -2955,11 +3006,25 @@ def _send_team_message(tournament_id, sender_type, subject, message, *, sender_t
         raise ValueError("Avsändande lag saknas.")
     if recipient_type == "team" and not recipient_team_id:
         raise ValueError("Mottagande lag saknas.")
-    run(
-        """INSERT INTO team_messages(tournament_id,sender_type,sender_team_id,recipient_type,recipient_team_id,created_at,subject,message)
-           VALUES(?,?,?,?,?,?,?,?)""",
-        (tournament_id, sender_type, sender_team_id, recipient_type, recipient_team_id, datetime.now().isoformat(timespec="seconds"), subject, message),
+    message_id = run(
+        """INSERT INTO team_messages(tournament_id,sender_type,sender_team_id,recipient_type,recipient_team_id,created_at,subject,message,email_status)
+           VALUES(?,?,?,?,?,?,?,?,?)""",
+        (tournament_id, sender_type, sender_team_id, recipient_type, recipient_team_id, datetime.now().isoformat(timespec="seconds"), subject, message, "pending" if recipient_type == "team" else "not_applicable"),
     )
+    # Persist first; email is best-effort and must never lose the in-app message.
+    if recipient_type == "team" and recipient_team_id:
+        recipient = one_row("SELECT name,responsible_name,responsible_email FROM teams WHERE id=? AND tournament_id=?", (int(recipient_team_id), int(tournament_id)))
+        email = str(_row_value(recipient, "responsible_email", "") or "").strip() if recipient else ""
+        if email:
+            ok, error = send_notification_email(
+                email,
+                f"Nytt meddelande i CupNavi: {subject}",
+                f"Hej {(_row_value(recipient, 'responsible_name', '') or '').strip() or 'lagansvarig'},\n\n{recipient['name']} har fått ett nytt meddelande i CupNavi. Logga in i lagportalen för att läsa det.\n\nÄmne: {subject}",
+            )
+            run("UPDATE team_messages SET email_status=?,email_error=? WHERE id=?", ("sent" if ok else "failed", error, int(message_id)))
+        else:
+            run("UPDATE team_messages SET email_status='skipped',email_error='responsible_email_missing' WHERE id=?", (int(message_id),))
+    return message_id
 
 
 def _player_display_name(player_row, public=False):
@@ -4641,6 +4706,11 @@ def generate_schedule(tournament_id, tournament, rules, preserve_existing=False)
         row["id"]: row
         for row in travel_preference_rows
     }
+    schedule_strategy = normalize_schedule_strategy(_row_value(rules, "schedule_strategy", "earliest_finish"))
+    consider_pitch_travel = bool(_row_value(rules, "consider_pitch_travel", 0))
+    travel_matrix = pitch_travel_matrix(tournament_id) if consider_pitch_travel else {}
+    team_last_pitch = {}
+    pitch_loads = {pitch: 0 for pitch in pitch_ready}
 
     def apply_first_match_preference(candidate, team_id):
         preference = travel_preferences.get(team_id)
@@ -4758,7 +4828,14 @@ def generate_schedule(tournament_id, tournament, rules, preserve_existing=False)
         for order, (match_row, home_id, away_id) in enumerate(remaining):
             for pitch in pitch_ready:
                 consecutive_penalty = int(avoid_consecutive and bool({home_id, away_id} & last_scheduled_teams))
-                basic_start = max(pitch_ready[pitch], team_ready.get(home_id, start), team_ready.get(away_id, start))
+                home_ready = team_ready.get(home_id, start)
+                away_ready = team_ready.get(away_id, start)
+                if consider_pitch_travel:
+                    if home_id in team_last_end:
+                        home_ready = max(home_ready, team_last_end[home_id] + timedelta(minutes=travel_minutes(travel_matrix, team_last_pitch.get(home_id), pitch)))
+                    if away_id in team_last_end:
+                        away_ready = max(away_ready, team_last_end[away_id] + timedelta(minutes=travel_minutes(travel_matrix, team_last_pitch.get(away_id), pitch)))
+                basic_start = max(pitch_ready[pitch], home_ready, away_ready)
                 basic_start = apply_first_match_preference(basic_start, home_id)
                 basic_start = apply_first_match_preference(basic_start, away_id)
                 if consecutive_penalty:
@@ -4808,11 +4885,10 @@ def generate_schedule(tournament_id, tournament, rules, preserve_existing=False)
                 f"Möjliga orsaker: {reason_text}."
             )
             break
-        sort_key = (
-            (lambda item: (item[1], item[2], item[0], item[3], item[4], item[5] or 0))
-            if avoid_consecutive else
-            (lambda item: (item[2], item[0], item[3], item[4], item[5] or 0))
-        )
+        if avoid_consecutive:
+            sort_key = lambda item: candidate_sort_key(item, schedule_strategy, pitch_loads)
+        else:
+            sort_key = lambda item: candidate_sort_key((item[0], 0, item[2], item[3], item[4], item[5]), schedule_strategy, pitch_loads)
         match_start, consecutive_penalty, _late_penalty, order, pitch, referee_id = min(candidates, key=sort_key)
         match_row, home_id, away_id = remaining.pop(order)
         forced_consecutive += consecutive_penalty
@@ -4826,6 +4902,9 @@ def generate_schedule(tournament_id, tournament, rules, preserve_existing=False)
         team_ready[away_id] = match_end + consecutive_break
         team_last_end[home_id] = match_end
         team_last_end[away_id] = match_end
+        team_last_pitch[home_id] = pitch
+        team_last_pitch[away_id] = pitch
+        pitch_loads[pitch] = int(pitch_loads.get(pitch, 0)) + 1
         if referee_id and rules["referee_mode"] == "Automatisk":
             referee_ready[referee_id] = match_end + pitch_gap
         scheduled += 1
@@ -6924,7 +7003,11 @@ def render_team_portal(tournament_id, tournament):
         st.session_state.pop("participant_portal_auth", None)
         st.rerun()
 
-    portal_tabs = st.tabs(["Översikt", "Trupp", "Matchtrupper", "Meddelanden"])
+    unread_team_count = int((one_row("""SELECT COUNT(*) AS n FROM team_messages
+        WHERE tournament_id=? AND recipient_type='team' AND recipient_team_id=? AND read_at IS NULL""",
+        (tournament_id, team_id)) or {"n":0})["n"] or 0)
+    message_tab_label = f"🔴 Meddelanden ({unread_team_count})" if unread_team_count else "Meddelanden"
+    portal_tabs = st.tabs(["Översikt", "Trupp", "Matchtrupper", message_tab_label])
 
     with portal_tabs[0]:
         st.subheader("Lagstatus")
@@ -7300,12 +7383,6 @@ if view_mode == "Admin":
                 key="new_tournament_country",
                 help="Två bokstäver enligt ISO-format, exempelvis SE, GB eller US. Låses efter skapandet.",
             ).upper().strip()
-            create_age_classes_text = st.text_input(
-                "Tävlingsklasser (frivilligt)",
-                placeholder="Exempel: P2014, F2014, U14, Herr, Dam eller Mixed",
-                key="new_tournament_age_classes",
-                help="Flera klasser separeras med komma. En tävlingsklass är en sportsligt separat tävling i samma cup och kan exempelvis vara P2014, F2014, Herr, Dam eller Mixed.",
-            )
             create_team_checkin = st.checkbox(
                 "Använd lagincheckning",
                 value=True,
@@ -7345,14 +7422,14 @@ if view_mode == "Admin":
                         (
                             n.strip(), place.strip(), start_date.isoformat(), start_date.isoformat(), end_date.isoformat(),
                             expected_teams, 3, 1, 0, sport, "draft", create_locale, normalized_timezone,
-                            participant_type, create_country or None, json.dumps(parse_age_classes(create_age_classes_text), ensure_ascii=False),
+                            participant_type, create_country or None, json.dumps([], ensure_ascii=False),
                             1 if create_team_checkin else 0, 1 if create_final_ranking else 0, 1 if create_changing_rooms else 0, 1 if create_show_prices else 0,
                         ),
                     )
                     used_slugs = [row["public_slug"] for row in all_rows("SELECT public_slug FROM tournaments WHERE public_slug IS NOT NULL")]
                     public_slug = choose_unique_slug(n.strip(), start_date.isoformat(), new_tournament_id, used_slugs)
                     run("UPDATE tournaments SET public_slug=? WHERE id=?", (public_slug, new_tournament_id))
-                    sync_competition_classes(new_tournament_id, parse_age_classes(create_age_classes_text))
+                    sync_competition_classes(new_tournament_id, [])
                     defaults = sport_profile(sport)
                     run(
                         """INSERT INTO schedule_rules(
@@ -7538,18 +7615,33 @@ def render_initial_tournament_setup(tournament_id, tournament):
     class_rows = competition_classes(tournament_id)
 
     st.markdown("### 1. Tävlingsklasser och svårighetsgrad")
+    st.caption("Lägg till tävlingsklasser via fasta val. Välj Pojkar eller Flickor och födelseår 2008–2022.")
+    add_c1, add_c2, add_c3 = st.columns([1.2, 1, 1])
+    setup_category = add_c1.selectbox("Kategori", list(YOUTH_CLASS_CATEGORIES), key=f"setup_class_category_{tournament_id}")
+    setup_year = add_c2.selectbox("Födelseår", YOUTH_CLASS_YEARS, index=YOUTH_CLASS_YEARS.index(2014) if 2014 in YOUTH_CLASS_YEARS else 0, key=f"setup_class_year_{tournament_id}")
+    if add_c3.button("Lägg till tävlingsklass", key=f"setup_add_class_{tournament_id}", use_container_width=True):
+        ok, message = add_competition_class(tournament_id, setup_category, setup_year)
+        (st.success if ok else st.info)(message)
+        st.rerun()
+    class_rows = competition_classes(tournament_id)
     if not class_rows:
         st.warning("Lägg till minst en tävlingsklass innan du går vidare.")
     for row in class_rows:
-        c1,c2 = st.columns([2,1])
+        c1, c2, c3 = st.columns([2, 1, 0.8])
         c1.markdown(f"**{competition_class_label(row)}**")
         saved_diff = _row_value(row, "difficulty", "Medel") or "Medel"
-        if saved_diff not in DIFFICULTY_LEVELS: saved_diff = "Medel"
-        key=f"setup_diff_{row['id']}"
-        choice=c2.selectbox("Svårighetsgrad", DIFFICULTY_LEVELS, index=DIFFICULTY_LEVELS.index(saved_diff), key=key, label_visibility="collapsed")
+        if saved_diff not in DIFFICULTY_LEVELS:
+            saved_diff = "Medel"
+        key = f"setup_diff_{row['id']}"
+        choice = c2.selectbox("Svårighetsgrad", DIFFICULTY_LEVELS, index=DIFFICULTY_LEVELS.index(saved_diff), key=key, label_visibility="collapsed")
         if choice != saved_diff:
             run("UPDATE competition_classes SET difficulty=? WHERE id=?", (choice, row["id"]))
-            st.session_state[f"autosave_notice_{tournament_id}"]="✓ Sparat automatiskt"
+            st.session_state[f"autosave_notice_{tournament_id}"] = "✓ Sparat automatiskt"
+        if c3.button("Ta bort", key=f"setup_remove_class_{row['id']}", use_container_width=True):
+            ok, message = remove_competition_class(tournament_id, int(row["id"]))
+            (st.success if ok else st.error)(message)
+            if ok:
+                st.rerun()
 
     st.markdown("### 2. Planer och öppettider per dag")
     st.caption("Ange först hur många planer/spelytor som finns och därefter när de är tillgängliga varje cupdag. Schemaläggaren använder detta som hårda kapacitetsgränser.")
@@ -7576,6 +7668,32 @@ def render_initial_tournament_setup(tournament_id, tournament):
         if clean!=saved_name:
             save_pitch_name(tournament_id,pitch,clean)
             st.session_state[f"autosave_notice_{tournament_id}"]="✓ Plannamn sparade automatiskt"
+        saved_address=str(_row_value(pr,"address","") or "")
+        ak=f"pitch_address_{tournament_id}_{pitch}"
+        address=st.text_input(f"Adress – {clean}",value=saved_address,key=ak,placeholder="Exempel: Rudbecksgatan 52, Örebro")
+        if address.strip()!=saved_address.strip():
+            save_pitch_address(tournament_id,pitch,address)
+            st.session_state[f"autosave_notice_{tournament_id}"]="✓ Planadress sparad automatiskt"
+    strategy_key=f"setup_schedule_strategy_{tournament_id}"
+    strategy_options={"earliest_finish":"Bli klar så tidigt som möjligt","use_pitch_windows":"Utnyttja plantiderna"}
+    current_strategy=normalize_schedule_strategy(_row_value(rules,"schedule_strategy","earliest_finish"))
+    strategy=st.radio("Schemaläggningens mål",list(strategy_options),index=list(strategy_options).index(current_strategy),format_func=lambda x:strategy_options[x],key=strategy_key,horizontal=True)
+    if strategy!=current_strategy:
+        run("UPDATE schedule_rules SET schedule_strategy=? WHERE tournament_id=?",(strategy,int(tournament_id)))
+        rules=one_row("SELECT * FROM schedule_rules WHERE tournament_id=?",(int(tournament_id),))
+    travel_key=f"setup_consider_pitch_travel_{tournament_id}"
+    consider_travel=st.checkbox("Ta hänsyn till restid mellan planer",value=bool(_row_value(rules,"consider_pitch_travel",0)),key=travel_key,help="CupNavi använder de restider du anger nedan. Ingen extern karttjänst anropas.")
+    if consider_travel!=bool(_row_value(rules,"consider_pitch_travel",0)):
+        run("UPDATE schedule_rules SET consider_pitch_travel=? WHERE tournament_id=?",(1 if consider_travel else 0,int(tournament_id)))
+    if consider_travel and current_pitch_count>1:
+        st.caption("Ange faktisk förflyttningstid mellan spelytor. Värdet används som minsta extra tid när ett lag byter plan.")
+        matrix=pitch_travel_matrix(tournament_id)
+        for a in range(1,current_pitch_count+1):
+            for b in range(a+1,current_pitch_count+1):
+                tk=f"travel_{tournament_id}_{a}_{b}"
+                minutes=st.number_input(f"Restid {pitch_names.get(a,f'Plan {a}')} → {pitch_names.get(b,f'Plan {b}')} (min)",0,180,int(matrix.get((a,b),0)),key=tk)
+                if int(minutes)!=int(matrix.get((a,b),0)):
+                    save_pitch_travel_time(tournament_id,a,b,int(minutes))
     windows=ensure_pitch_day_windows(tournament_id,tournament,current_pitch_count,rules["first_match_time"],rules["latest_kickoff_time"])
     valid_windows=True
     by_day={}
@@ -7710,13 +7828,13 @@ if view_mode == "Turneringsvy":
 
 # SNABB ADMINNAVIGERING: visuellt som flikar, men bara vald sida körs.
 ADMIN_PAGES = [
-    "Instruktioner", "Adminöversikt", "Kontroller", "Lag", "Grupper", "Trupper", "Domare",
+    "Instruktioner", "Adminöversikt", "Kontroller", "Problem & lösningar", "Lag", "Grupper", "Trupper", "Domare",
     "Skapa och publicera schema", "Tabeller", "Matcher och resultat",
     "Matchhändelser", "Slutspel", "Skytteligor", "Erbjudanden",
     "Sponsorer", "Funktionärer", "Import", "Besöksstatistik", "Cupverktyg",
 ]
 ADMIN_NAV_GROUPS = [
-    ("Översikt", [("Adminöversikt", tr("Översikt")), ("Kontroller", tr("Kontroller")), ("Instruktioner", tr("Instruktioner"))]),
+    ("Översikt", [("Adminöversikt", tr("Översikt")), ("Kontroller", tr("Kontroller")), ("Problem & lösningar", "Problem & lösningar"), ("Instruktioner", tr("Instruktioner"))]),
     ("Deltagare", [("Lag", tr("Lag")), ("Grupper", tr("Grupper")), ("Trupper", tr("Trupper")), ("Import", tr("Import"))]),
     ("Matcher", [("Skapa och publicera schema", tr("Schema")), ("Matcher och resultat", tr("Matcher")), ("Matchhändelser", tr("Händelser")), ("Tabeller", tr("Tabeller")), ("Slutspel", tr("Slutspel")), ("Skytteligor", tr("Skytteligor"))]),
     ("Organisation", [("Domare", tr("Domare")), ("Funktionärer", tr("Funktionärer")), ("Cupverktyg", "Cupverktyg")]),
@@ -9822,6 +9940,30 @@ if admin_page == "Kontroller":
         st.success("Alla skapade grupper har minst två lag.")
 
 
+if admin_page == "Problem & lösningar":
+    st.header("Problem & lösningar")
+    st.caption("Här samlas schemaproblem och valideringsproblem som går att åtgärda utan tekniska stack traces. Förslag rangordnas efter minsta åtgärd och största sannolika effekt.")
+    problem_rules = one_row("SELECT * FROM schedule_rules WHERE tournament_id=?", (tid,))
+    if problem_rules is None:
+        run("INSERT INTO schedule_rules(tournament_id) VALUES(?)", (tid,))
+        problem_rules = one_row("SELECT * FROM schedule_rules WHERE tournament_id=?", (tid,))
+    p_errors, p_warnings, _ = validate_schedule(tid, tournament, problem_rules)
+    unresolved = int((one_row("SELECT COUNT(*) AS n FROM matches WHERE tournament_id=? AND scheduled_start IS NULL",(tid,)) or {"n":0})["n"] or 0)
+    if unresolved:
+        context = _schedule_recovery_context(tid,tournament,problem_rules,unresolved)
+        st.error(f"{unresolved} matcher saknar schematid.")
+        st.markdown("**Varför?** Cupens hårda kapacitet, lagvila, domare eller önskemål gör att alla matcher inte får plats.")
+        st.markdown("**Vad påverkas?** Schemat kan inte betraktas som färdigt eller publiceringsklart.")
+        render_schedule_recovery_actions(tid,tournament,problem_rules,context)
+    if p_errors:
+        st.subheader("Blockerande valideringsproblem")
+        for i,msg in enumerate(p_errors,1): st.error(f"{i}. {msg}")
+    if p_warnings:
+        st.subheader("Varningar")
+        for i,msg in enumerate(p_warnings,1): st.warning(f"{i}. {msg}")
+    if not unresolved and not p_errors and not p_warnings:
+        st.success("Inga aktuella schema- eller valideringsproblem hittades.")
+
 if admin_page == "Lag":
     st.header("Lag")
     st.caption("Registrera lagen först. Varje hemma- och bortaställ kan vara helfärgat, randigt, rutigt eller delat och ha upp till två färger. Här anger du även resväg och önskemål om en senare första match. Gruppindelningen görs därefter under fliken Grupper.")
@@ -9829,47 +9971,34 @@ if admin_page == "Lag":
     current_classes = [competition_class_label(row) for row in class_rows]
     with st.container(border=True):
         st.markdown("#### Tävlingsklasser i turneringen")
-        st.caption("En cup kan innehålla flera sportsligt separata tävlingar, exempelvis P2014, F2014, Herr eller Mixed. Varje lag och grupp kopplas till en tävlingsklass, medan planer, funktionärer och cupinformation kan delas av hela turneringen.")
-        classes_text = st.text_input(
-            "Tävlingsklasser",
-            value=", ".join(current_classes),
-            key=f"manage_competition_classes_{tid}",
-            placeholder="P2014, F2014, Herr, Dam, Mixed",
-        )
-        updated_classes = parse_age_classes(classes_text)
-        if updated_classes != current_classes:
-            used_rows = all_rows(
-                """SELECT DISTINCT cc.name FROM competition_classes cc
-                   WHERE cc.tournament_id=? AND (
-                     EXISTS(SELECT 1 FROM teams t WHERE t.competition_class_id=cc.id) OR
-                     EXISTS(SELECT 1 FROM groups g WHERE g.competition_class_id=cc.id)
-                   )""",
-                (tid,),
-            )
-            in_use = {str(row["name"]).strip() for row in used_rows}
-            missing = sorted(in_use - set(updated_classes))
-            if missing:
-                st.error("Följande tävlingsklasser används redan och kan inte tas bort ännu: " + ", ".join(missing))
-            else:
-                run("UPDATE tournaments SET age_classes_json=? WHERE id=?", (json.dumps(updated_classes, ensure_ascii=False), tid))
-                sync_competition_classes(tid, updated_classes)
-                keep = {label.casefold() for label in updated_classes}
-                for row in competition_classes(tid):
-                    if competition_class_label(row).casefold() not in keep:
-                        run("DELETE FROM competition_classes WHERE id=?", (row["id"],))
-                st.success("✓ Tävlingsklasser sparade automatiskt.")
+        st.caption("En cup kan innehålla flera sportsligt separata tävlingar. Tävlingsklasser läggs till via fasta val: Pojkar eller Flickor samt födelseår 2008–2022. Fritext används inte.")
+        ac1, ac2, ac3 = st.columns([1.2, 1, 1])
+        admin_category = ac1.selectbox("Kategori", list(YOUTH_CLASS_CATEGORIES), key=f"manage_class_category_{tid}")
+        admin_year = ac2.selectbox("Födelseår", YOUTH_CLASS_YEARS, index=YOUTH_CLASS_YEARS.index(2014) if 2014 in YOUTH_CLASS_YEARS else 0, key=f"manage_class_year_{tid}")
+        if ac3.button("Lägg till tävlingsklass", key=f"manage_add_class_{tid}", use_container_width=True):
+            ok, message = add_competition_class(tid, admin_category, admin_year)
+            (st.success if ok else st.info)(message)
+            st.rerun()
         class_rows = competition_classes(tid)
         if class_rows:
-            st.markdown("##### Svårighetsgrad per tävlingsklass")
+            st.markdown("##### Befintliga tävlingsklasser")
             for class_row in class_rows:
-                dc1,dc2 = st.columns([2,1])
+                dc1, dc2, dc3 = st.columns([2, 1, 0.8])
                 dc1.write(competition_class_label(class_row))
-                saved_difficulty = _row_value(class_row,"difficulty","Medel") or "Medel"
-                if saved_difficulty not in DIFFICULTY_LEVELS: saved_difficulty = "Medel"
+                saved_difficulty = _row_value(class_row, "difficulty", "Medel") or "Medel"
+                if saved_difficulty not in DIFFICULTY_LEVELS:
+                    saved_difficulty = "Medel"
                 difficulty = dc2.selectbox("Nivå", DIFFICULTY_LEVELS, index=DIFFICULTY_LEVELS.index(saved_difficulty), key=f"class_difficulty_{class_row['id']}", label_visibility="collapsed")
                 if difficulty != saved_difficulty:
-                    run("UPDATE competition_classes SET difficulty=? WHERE id=?", (difficulty,class_row["id"]))
+                    run("UPDATE competition_classes SET difficulty=? WHERE id=?", (difficulty, class_row["id"]))
                     st.success(f"✓ {competition_class_label(class_row)} sparad som {difficulty}.")
+                if dc3.button("Ta bort", key=f"remove_class_{class_row['id']}", use_container_width=True):
+                    ok, message = remove_competition_class(tid, int(class_row["id"]))
+                    (st.success if ok else st.error)(message)
+                    if ok:
+                        st.rerun()
+        else:
+            st.info("Inga tävlingsklasser har lagts till ännu.")
     max_teams = int(tournament["expected_team_count"] or 0)
     registered_team_count = one_row("SELECT COUNT(*) AS n FROM teams WHERE tournament_id=?", (tid,))["n"]
     team_limit_reached = bool(max_teams and registered_team_count >= max_teams)

@@ -9,7 +9,7 @@ Regel:
 from dataclasses import dataclass
 from datetime import datetime, timezone
 
-LATEST_SCHEMA_VERSION = 18
+LATEST_SCHEMA_VERSION = 19
 
 
 @dataclass(frozen=True)
@@ -397,6 +397,11 @@ MIGRATIONS = (
             "CREATE INDEX IF NOT EXISTS idx_pitches_tournament_number ON pitches(tournament_id,pitch_number)",
         ),
     ),
+    Migration(
+        19,
+        "messaging_schedule_travel_recovery_v137",
+        (),
+    ),
 
 )
 
@@ -544,6 +549,40 @@ def ensure_v18_pitch_names_schema_compat(con):
         PRIMARY KEY(tournament_id,pitch_number))""")
     con.execute("CREATE INDEX IF NOT EXISTS idx_pitches_tournament_number ON pitches(tournament_id,pitch_number)")
 
+
+def ensure_v19_schema_compat(con):
+    """Idempotent v137 repair, including sparse legacy schemas used by tests/deployments."""
+    def cols(table):
+        try:
+            rows=con.execute(f"PRAGMA table_info({table})").fetchall()
+        except Exception:
+            return set()
+        return {row[1] for row in rows}
+    if not cols("schedule_rules"):
+        con.execute("CREATE TABLE schedule_rules(tournament_id INTEGER PRIMARY KEY)")
+    sc=cols("schedule_rules")
+    if "schedule_strategy" not in sc:
+        con.execute("ALTER TABLE schedule_rules ADD COLUMN schedule_strategy TEXT NOT NULL DEFAULT 'earliest_finish'")
+    if "consider_pitch_travel" not in sc:
+        con.execute("ALTER TABLE schedule_rules ADD COLUMN consider_pitch_travel INTEGER NOT NULL DEFAULT 0")
+    if not cols("pitches"):
+        con.execute("CREATE TABLE pitches(tournament_id INTEGER NOT NULL,pitch_number INTEGER NOT NULL,name TEXT NOT NULL,PRIMARY KEY(tournament_id,pitch_number))")
+    pc=cols("pitches")
+    if "address" not in pc:
+        con.execute("ALTER TABLE pitches ADD COLUMN address TEXT")
+    if not cols("team_messages"):
+        con.execute("""CREATE TABLE team_messages(id INTEGER PRIMARY KEY AUTOINCREMENT,tournament_id INTEGER NOT NULL,sender_type TEXT NOT NULL,sender_team_id INTEGER,recipient_type TEXT NOT NULL,recipient_team_id INTEGER,created_at TEXT NOT NULL,subject TEXT NOT NULL,message TEXT NOT NULL,read_at TEXT)""")
+    mc=cols("team_messages")
+    if "email_status" not in mc:
+        con.execute("ALTER TABLE team_messages ADD COLUMN email_status TEXT")
+    if "email_error" not in mc:
+        con.execute("ALTER TABLE team_messages ADD COLUMN email_error TEXT")
+    con.execute("""CREATE TABLE IF NOT EXISTS pitch_travel_times (
+        tournament_id INTEGER NOT NULL REFERENCES tournaments(id) ON DELETE CASCADE,
+        from_pitch_number INTEGER NOT NULL,to_pitch_number INTEGER NOT NULL,minutes INTEGER NOT NULL DEFAULT 0,
+        PRIMARY KEY(tournament_id,from_pitch_number,to_pitch_number))""")
+    con.execute("CREATE INDEX IF NOT EXISTS idx_pitch_travel_times_tournament ON pitch_travel_times(tournament_id,from_pitch_number,to_pitch_number)")
+
 def apply_migrations(con):
     """Applicera alla saknade migreringar och returnera nya versionsnummer."""
     ensure_migration_table(con)
@@ -553,6 +592,8 @@ def apply_migrations(con):
     for migration in MIGRATIONS:
         if migration.version <= current:
             continue
+        if migration.version == 19:
+            ensure_v19_schema_compat(con)
         for statement in migration.statements:
             _execute(con, statement)
         _execute(
