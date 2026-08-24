@@ -18,7 +18,7 @@ import pandas as pd
 import streamlit as st
 import streamlit.components.v1 as components
 
-from cupnavi_core.version import APP_VERSION
+from cupnavi_core.version import APP_VERSION as CORE_APP_VERSION
 from cupnavi_core.rules import validate_match_event_totals
 from cupnavi_core.home_away import orientation_balance_score
 from cupnavi_core.pdf_export import build_schedule_pdf
@@ -36,6 +36,11 @@ from cupnavi_core.experience import (
     SPORT_PROFILES, sport_profile, match_duration_minutes, analyze_schedule_change,
     planned_delay_updates, tournament_quality_score, playoff_preview, cup_summary,
 )
+
+APP_BUILD_VERSION = "2026.08.24-97-STABILITY-UX"
+APP_VERSION = APP_BUILD_VERSION
+RELEASE_FILES_MISMATCH = CORE_APP_VERSION != APP_BUILD_VERSION
+REQUIRED_SCHEMA_VERSION = max(int(LATEST_SCHEMA_VERSION), 5)
 
 try:
     from streamlit_sortables import sort_items
@@ -2272,6 +2277,108 @@ def columns(table):
         return {row["name"] for row in _rows_from_cursor(cursor)}
 
 
+def _connection_columns(con, table):
+    cursor = con.execute(f"PRAGMA table_info({table})")
+    return {row["name"] for row in _rows_from_cursor(cursor)}
+
+
+def ensure_v96_experience_schema_compat(con):
+    """
+    Självläkande kompatibilitetslager för v96+-data.
+
+    Det här skyddar särskilt mot en ofullständig GitHub-upload där ny app.py
+    har publicerats tillsammans med en äldre migrationsmodul. Alla operationer
+    är idempotenta och migration 5 markeras först efter att hela minimischemat
+    finns på plats.
+    """
+    con.execute(
+        """CREATE TABLE IF NOT EXISTS cupnavi_schema_migrations (
+            version INTEGER PRIMARY KEY,
+            name TEXT NOT NULL,
+            applied_at TEXT NOT NULL
+        )"""
+    )
+
+    tournament_cols = _connection_columns(con, "tournaments")
+    team_cols = _connection_columns(con, "teams")
+    match_cols = _connection_columns(con, "matches")
+
+    if "sport" not in tournament_cols:
+        con.execute("ALTER TABLE tournaments ADD COLUMN sport TEXT NOT NULL DEFAULT 'Fotboll'")
+    if "checked_in" not in team_cols:
+        con.execute("ALTER TABLE teams ADD COLUMN checked_in INTEGER NOT NULL DEFAULT 0")
+    if "checked_in_at" not in team_cols:
+        con.execute("ALTER TABLE teams ADD COLUMN checked_in_at TEXT")
+    if "original_scheduled_start" not in match_cols:
+        con.execute("ALTER TABLE matches ADD COLUMN original_scheduled_start TEXT")
+
+    execute_script(
+        con,
+        """
+        CREATE TABLE IF NOT EXISTS audit_log (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            tournament_id INTEGER NOT NULL REFERENCES tournaments(id) ON DELETE CASCADE,
+            created_at TEXT NOT NULL,
+            actor TEXT NOT NULL DEFAULT 'Admin',
+            action_type TEXT NOT NULL,
+            entity_type TEXT NOT NULL,
+            entity_id INTEGER,
+            description TEXT NOT NULL,
+            before_json TEXT,
+            after_json TEXT,
+            reversible INTEGER NOT NULL DEFAULT 0,
+            undone_at TEXT
+        );
+        CREATE TABLE IF NOT EXISTS cup_feed (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            tournament_id INTEGER NOT NULL REFERENCES tournaments(id) ON DELETE CASCADE,
+            created_at TEXT NOT NULL,
+            category TEXT NOT NULL DEFAULT 'Info',
+            title TEXT NOT NULL,
+            detail TEXT,
+            public INTEGER NOT NULL DEFAULT 1,
+            related_match_id INTEGER REFERENCES matches(id) ON DELETE SET NULL
+        );
+        CREATE TABLE IF NOT EXISTS notifications (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            tournament_id INTEGER NOT NULL REFERENCES tournaments(id) ON DELETE CASCADE,
+            team_id INTEGER REFERENCES teams(id) ON DELETE CASCADE,
+            created_at TEXT NOT NULL,
+            title TEXT NOT NULL,
+            message TEXT NOT NULL,
+            event_key TEXT,
+            UNIQUE(tournament_id, team_id, event_key)
+        );
+        CREATE TABLE IF NOT EXISTS venue_points (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            tournament_id INTEGER NOT NULL REFERENCES tournaments(id) ON DELETE CASCADE,
+            kind TEXT NOT NULL DEFAULT 'Övrigt',
+            label TEXT NOT NULL,
+            detail TEXT,
+            url TEXT,
+            sort_order INTEGER NOT NULL DEFAULT 0
+        );
+        CREATE TABLE IF NOT EXISTS referee_acknowledgements (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            tournament_id INTEGER NOT NULL REFERENCES tournaments(id) ON DELETE CASCADE,
+            referee_id INTEGER NOT NULL REFERENCES referees(id) ON DELETE CASCADE,
+            match_id INTEGER NOT NULL REFERENCES matches(id) ON DELETE CASCADE,
+            acknowledged_at TEXT NOT NULL,
+            UNIQUE(referee_id, match_id)
+        );
+        CREATE INDEX IF NOT EXISTS idx_audit_tournament_created ON audit_log(tournament_id, created_at);
+        CREATE INDEX IF NOT EXISTS idx_feed_tournament_created ON cup_feed(tournament_id, created_at);
+        CREATE INDEX IF NOT EXISTS idx_notifications_tournament_team ON notifications(tournament_id, team_id, created_at);
+        CREATE INDEX IF NOT EXISTS idx_venue_points_tournament ON venue_points(tournament_id, sort_order);
+        CREATE INDEX IF NOT EXISTS idx_ref_ack_tournament_referee ON referee_acknowledgements(tournament_id, referee_id);
+        """,
+    )
+    con.execute(
+        "INSERT OR IGNORE INTO cupnavi_schema_migrations(version,name,applied_at) VALUES(5,?,?)",
+        ("experience_toolkit_v96", datetime.now().isoformat(timespec="seconds")),
+    )
+
+
 @st.cache_resource(show_spinner=False)
 def init_db():
     """Initiera schema/migreringar en gång per app-process, inte en gång per besökare."""
@@ -2626,6 +2733,10 @@ def init_db():
               OR OLD.extra_time_minutes IS NOT NEW.extra_time_minutes
             BEGIN UPDATE tournaments SET schedule_dirty=1 WHERE id=NEW.id; END;
         """)
+        # V96+ måste även tåla blandade releasefiler i drift. Säkerställ därför
+        # erfarenhets-/multisportschemat innan den versionsstyrda migreringen körs.
+        ensure_v96_experience_schema_compat(con)
+
         # Från och med Stabilisering 1.0 registreras schemaändringar versionsstyrt.
         # Den äldre bootstrap-koden ovan behålls tills alla tidigare installationer
         # har migrerats säkert till den nya modellen.
@@ -3093,15 +3204,22 @@ def weather_label(weather):
     return f"{icon} {description} · {temperature} · {rain} · {wind}"
 
 
-def _team_value(team_row, key, default=None):
-    """Läs ett teamfält säkert från sqlite/libsql-rader och äldre data."""
-    if not team_row:
+def _row_value(row, key, default=None):
+    """Läs ett fält säkert från sqlite/libsql-rader, dictar och äldre schema."""
+    if not row:
         return default
     try:
-        value = team_row[key]
+        value = row[key]
+    except (KeyError, IndexError, TypeError):
+        value = default
     except Exception:
         value = default
     return default if value is None else value
+
+
+def _team_value(team_row, key, default=None):
+    """Bakåtkompatibel wrapper för lagrader."""
+    return _row_value(team_row, key, default)
 
 
 KIT_PATTERNS = ["Helfärgad", "Vertikala ränder", "Horisontella ränder", "Rutigt", "Delad"]
@@ -4417,7 +4535,7 @@ def public_rules_html(tournament, rules):
     if not rules:
         return ""
 
-    profile = sport_profile(tournament["sport"] or "Fotboll")
+    profile = sport_profile(_row_value(tournament, "sport", "Fotboll"))
     period_label = str(profile["period_label"])
     halves = int(rules["halves"] or 1)
     minutes = int(rules["minutes_per_half"] or 0)
@@ -4583,7 +4701,7 @@ def render_public_view(tournament_id, tournament):
 
     st.markdown(
         f"""<div class='cup-hero'><div class='eyebrow'>CupNavi · {html.escape(tr("Turneringsöversikt"))}</div>
-        <div class='title'>{html.escape(tournament['name'])}</div><div class='meta'>{hero_meta} · {html.escape(tournament['sport'] or 'Fotboll')}</div></div>""",
+        <div class='title'>{html.escape(tournament['name'])}</div><div class='meta'>{hero_meta} · {html.escape(str(_row_value(tournament, 'sport', 'Fotboll')))}</div></div>""",
         unsafe_allow_html=True,
     )
 
@@ -4901,7 +5019,7 @@ def render_public_view(tournament_id, tournament):
               <div class='public-metric'><div class='label'>{html.escape(tr("Lag"))}</div><div class='value'>{team_count}</div></div>
               <div class='public-metric'><div class='label'>{html.escape(tr("Matcher"))}</div><div class='value'>{len(published_matches)}</div></div>
               <div class='public-metric'><div class='label'>{html.escape(tr("Spelade"))}</div><div class='value'>{len(played_matches)}</div></div>
-              <div class='public-metric'><div class='label'>{html.escape(str(sport_profile(tournament['sport'] or 'Fotboll')['score_label']).capitalize())}</div><div class='value'>{total_goals}</div></div>
+              <div class='public-metric'><div class='label'>{html.escape(str(sport_profile(_row_value(tournament, 'sport', 'Fotboll'))['score_label']).capitalize())}</div><div class='value'>{total_goals}</div></div>
             </div>""",
             unsafe_allow_html=True,
         )
@@ -5765,6 +5883,11 @@ mode_col3.button(
 view_mode = st.session_state["view_mode"]
 
 st.sidebar.caption(f"{tr('Visningsläge')}: {tr(view_mode)}")
+if RELEASE_FILES_MISMATCH and view_mode == "Admin":
+    st.sidebar.error(
+        f"Ofullständig release: app.py är {APP_BUILD_VERSION}, men cupnavi_core/version.py är {CORE_APP_VERSION}. "
+        "Lägg in hela releasepaketet i GitHub, inte bara app.py."
+    )
 
 if view_mode == "Matchrapportör":
     require_match_reporter_access()
@@ -6704,7 +6827,7 @@ elif admin_page == "Adminöversikt":
     current_team_count_for_limit = one_row("SELECT COUNT(*) AS n FROM teams WHERE tournament_id=?", (tid,))["n"]
 
     st.markdown("#### Sportprofil")
-    saved_sport = tournament["sport"] or "Fotboll"
+    saved_sport = _row_value(tournament, "sport", "Fotboll")
     sport_options = list(SPORT_PROFILES)
     selected_sport = st.selectbox(
         "Sport", sport_options,
@@ -7278,22 +7401,26 @@ if admin_page == "Kontroller":
             with db() as con:
                 technical_health = collect_database_health(con)
             hc1, hc2 = st.columns(2)
+            health_ok = (
+                technical_health["schema_version"] >= REQUIRED_SCHEMA_VERSION
+                and not technical_health["missing_tables"]
+            )
             hc1.metric(
                 "Databasschema",
                 f"v{technical_health['schema_version']}",
-                help=f"Senaste stödda schema är v{technical_health['latest_schema_version']}.",
+                help=f"CupNavi {APP_BUILD_VERSION} kräver minst schema v{REQUIRED_SCHEMA_VERSION}.",
             )
             hc2.metric(
                 "Teknisk status",
-                "OK" if technical_health["ok"] else "Kontroll krävs",
+                "OK" if health_ok else "Kontroll krävs",
             )
-            if technical_health["ok"]:
+            if health_ok:
                 st.success("✓ Databasen har rätt schema och alla kritiska tabeller finns.")
             else:
-                if technical_health["schema_version"] != LATEST_SCHEMA_VERSION:
+                if technical_health["schema_version"] < REQUIRED_SCHEMA_VERSION:
                     st.error(
                         f"Databasschema v{technical_health['schema_version']} används, "
-                        f"men appen förväntar v{LATEST_SCHEMA_VERSION}."
+                        f"men appen kräver minst v{REQUIRED_SCHEMA_VERSION}."
                     )
                 if technical_health["missing_tables"]:
                     st.error(
