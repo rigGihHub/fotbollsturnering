@@ -26,11 +26,12 @@ def test_public_view_renders_only_selected_main_page():
     assert 'if public_page == "Info":' in block
     assert "schedule, results_tab, tables, statistics" not in block
 
-def test_share_and_qr_are_lazy():
+def test_share_qr_uses_cached_generator_and_single_share_entry():
     block = public_block()
-    assert "if share_is_open:" in block
     assert "share_qr = qr_png_bytes(share_url)" in block
-    assert block.index("share_qr = qr_png_bytes(share_url)") > block.index("if share_is_open:")
+    assert "popovertarget=" in block
+    assert "public_share_open_" not in block
+    assert "loading='lazy'" in block
 
 def test_weather_is_opt_in():
     block = public_block()

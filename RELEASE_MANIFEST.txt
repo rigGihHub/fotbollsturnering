@@ -1,5 +1,5 @@
 CupNavi release sync manifest
-Version: 2026.08.24-119-SHARE-VERSION-HOTFIX
+Version: 2026.08.24-121-SHARE-FAIRNESS-HOTFIX
 
 Required core files:
 cupnavi_core/__init__.py
@@ -31,7 +31,6 @@ cupnavi_core/ux2.py
 cupnavi_core/version.py
 
 Required test files:
-tests/__init__.py
 tests/test_admin_instructions.py
 tests/test_ageclass_ux_v109.py
 tests/test_architecture_v73.py
@@ -91,6 +90,7 @@ tests/test_rules.py
 tests/test_schedule_domain.py
 tests/test_schedule_repository.py
 tests/test_schema_v76.py
+tests/test_share_fairness_hotfix_v121.py
 tests/test_share_simplify_v84.py
 tests/test_share_version_hotfix_v119.py
 tests/test_sharing_v77.py
@@ -106,5 +106,6 @@ tests/test_testdata_levels_v110.py
 tests/test_ui_logic.py
 tests/test_update_package_integrity_v107.py
 tests/test_ux2_v116.py
+tests/test_ux_nav_share_v120.py
 tests/test_ux_polish_v83.py
 tests/test_visitor_analytics_v79.py

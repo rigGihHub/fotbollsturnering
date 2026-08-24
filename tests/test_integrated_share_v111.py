@@ -7,11 +7,11 @@ def app_text():
 
 def test_public_share_is_single_integrated_inline_panel():
     text = app_text()
-    assert "<a class='cn-fixed-share" in text
-    assert "cn-integrated-share" in text
+    assert "popovertarget=" in text
+    assert "popover='auto'" in text
     assert "public_share_toggle_" not in text
     assert "public_share_open_" not in text
-    assert "share=1#cn-share-section" in text
+    assert "share=1#cn-share-section" not in text
 
 
 def test_integrated_share_uses_inline_links_not_public_native_share():

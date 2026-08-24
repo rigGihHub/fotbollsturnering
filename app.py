@@ -47,7 +47,7 @@ from cupnavi_core.fairness import fairness_report
 from cupnavi_core.ux2 import ADMIN_SECTIONS, workflow_progress, attention_items, human_error_id, schedule_board
 from cupnavi_core.about import feature_catalog, about_intro
 
-APP_BUILD_VERSION = "2026.08.24-119-SHARE-VERSION-HOTFIX"
+APP_BUILD_VERSION = "2026.08.24-121-SHARE-FAIRNESS-HOTFIX"
 APP_VERSION = APP_BUILD_VERSION
 RELEASE_FILES_MISMATCH = CORE_APP_VERSION != APP_BUILD_VERSION
 REQUIRED_SCHEMA_VERSION = max(int(LATEST_SCHEMA_VERSION), 5)
@@ -5155,22 +5155,59 @@ def render_public_view(tournament_id, tournament):
     screen_url = public_cup_url(tournament_id) + ("&" if "?" in public_cup_url(tournament_id) else "?") + "screen=1"
     st.markdown(f"<div style='text-align:right;margin:-4px 0 8px'><a class='cn-screen-link' href='{html.escape(screen_url, quote=True)}'>🖥 Informationsskärm</a></div>", unsafe_allow_html=True)
 
-    # En enda delningsingång bredvid logotypen. Den använder samma sida och
-    # öppnar en inbäddad delningsyta längre ned i publikvyn, inte popup/native share.
+    # En enda delningsingång bredvid logotypen. HTML Popover API ger en
+    # light-dismiss-yta: samma knapp öppnar/stänger och klick utanför stänger panelen.
+    # Ingen navigation, ny flik eller separat Streamlit-dialog används.
     share_url = public_cup_url(tournament_id)
-    share_requested = bool(hasattr(st, "query_params") and str(st.query_params.get("share", "")) == "1")
-    share_href = share_url + ("&" if "?" in share_url else "?") + "share=1#cn-share-section"
+    share_text = f"{tr('Följ cupen')}: {tournament['name']} – {share_url}"
+    # QR-generatorn är cachead. Bilden är dessutom browser-lazy så den avkodas först
+    # när den integrerade delningspanelen faktiskt visas.
+    share_qr = qr_png_bytes(share_url)
+    share_qr_b64 = base64.b64encode(share_qr).decode("ascii") if share_qr else ""
+    whatsapp_href = "https://wa.me/?text=" + quote(share_text)
+    email_href = "mailto:?subject=" + quote(f"CupNavi – {tournament['name']}") + "&body=" + quote(share_text)
+    sms_href = "sms:?&body=" + quote(share_text)
+    share_qr_html = (
+        f"<img loading='lazy' decoding='async' class='cn-share-inline-qr' src='data:image/png;base64,{share_qr_b64}' alt='QR-kod'>"
+        if share_qr_b64 else ""
+    )
+    share_popover_id = f"cn-share-popover-{int(tournament_id)}"
     st.markdown(
         f"""<style>
-        .cn-fixed-share {{position:fixed;top:17px;left:calc(50% + 185px);z-index:999998;
+        .cn-fixed-share-button {{position:fixed;top:17px;left:calc(50% + 185px);z-index:999998;
           display:inline-flex;align-items:center;gap:7px;padding:9px 14px;border:1px solid #d7e0e8;
-          border-radius:999px;background:rgba(255,255,255,.97);color:#172033 !important;text-decoration:none !important;
-          font-weight:780;box-shadow:0 8px 22px rgba(15,23,42,.07);backdrop-filter:blur(10px);}}
-        .cn-fixed-share:hover {{background:#f8fafc;border-color:#aebdca;}}
-        .cn-fixed-share.is-open {{border-color:#86b99a;background:#f4fbf6;color:#14532d !important;}}
-        @media(max-width:760px) {{.cn-fixed-share {{top:13px;left:auto;right:9px;padding:8px 10px;font-size:0;}}
-          .cn-fixed-share {{font-size:14px;}}}}
-        </style><a class='cn-fixed-share {"is-open" if share_requested else ""}' href='{html.escape(share_href, quote=True)}'>📤 {html.escape(tr("Dela cupen"))}</a>""",
+          border-radius:999px;background:rgba(255,255,255,.97);color:#172033;font-weight:780;
+          box-shadow:0 8px 22px rgba(15,23,42,.07);backdrop-filter:blur(10px);cursor:pointer;}}
+        .cn-fixed-share-button:hover {{background:#f8fafc;border-color:#aebdca}}
+        .cn-share-inline-panel[popover] {{position:fixed;inset:auto;top:68px;left:calc(50% + 40px);
+          width:min(420px,calc(100vw - 24px));padding:14px;border:1px solid #dbe4ea;border-radius:16px;
+          background:#fff;color:#172033;box-shadow:0 16px 38px rgba(15,23,42,.14);z-index:1000000;}}
+        .cn-share-inline-panel[popover]::backdrop {{background:transparent}}
+        .cn-share-inline-title {{font-weight:850;color:#172033;margin-bottom:4px}}
+        .cn-share-inline-help {{font-size:12px;color:#64748b;margin-bottom:9px}}
+        .cn-share-inline-url {{padding:8px 9px;border:1px solid #e2e8f0;border-radius:9px;background:#f8fafc;
+          color:#475569;font-size:11px;overflow-wrap:anywhere}}
+        .cn-share-inline-actions {{display:flex;gap:7px;flex-wrap:wrap;margin-top:9px}}
+        .cn-share-inline-actions a {{display:inline-flex;align-items:center;min-height:36px;padding:6px 10px;border:1px solid #d7e0e8;
+          border-radius:9px;background:#fff;color:#243447!important;text-decoration:none!important;font-size:12px;font-weight:750}}
+        .cn-share-inline-qr {{display:block;width:112px;height:112px;object-fit:contain;margin:10px auto 0;padding:4px;
+          border:1px solid #e2e8f0;border-radius:10px;background:#fff}}
+        @media(max-width:760px) {{.cn-fixed-share-button {{top:13px;left:auto;right:9px;padding:8px 10px}}
+          .cn-share-inline-panel[popover] {{top:62px;right:9px;left:9px;width:auto}}}}
+        </style>
+        <button type='button' class='cn-fixed-share-button' popovertarget='{share_popover_id}'
+          aria-controls='{share_popover_id}' aria-label='{html.escape(tr("Dela cupen"))}'>📤 {html.escape(tr("Dela cupen"))}</button>
+        <div id='{share_popover_id}' class='cn-share-inline-panel' popover='auto'>
+          <div class='cn-share-inline-title'>{html.escape(tr("Dela cupen"))}</div>
+          <div class='cn-share-inline-help'>{html.escape(tr("Dela länken eller QR-koden till den här cupen."))}</div>
+          <div class='cn-share-inline-url'>{html.escape(share_url)}</div>
+          <div class='cn-share-inline-actions'>
+            <a href='{html.escape(whatsapp_href, quote=True)}'>WhatsApp</a>
+            <a href='{html.escape(email_href, quote=True)}'>{html.escape(tr("E-post"))}</a>
+            <a href='{html.escape(sms_href, quote=True)}'>SMS</a>
+          </div>
+          {share_qr_html}
+        </div>""",
         unsafe_allow_html=True,
     )
     with st.container(border=True):
@@ -5227,55 +5264,6 @@ def render_public_view(tournament_id, tournament):
                         st.markdown(f"**{note['title']}**  \n{note['message']}")
                         st.caption(note["created_at"].replace("T", " "))
             st.caption("Tips: bokmärk den här sidan så öppnas CupNavi med ditt lag valt nästa gång.")
-
-    share_is_open = share_requested
-    if share_is_open:
-        share_text = f"{tr('Följ cupen')}: {tournament['name']} – {share_url}"
-        share_qr = qr_png_bytes(share_url)
-        share_qr_b64 = base64.b64encode(share_qr).decode("ascii") if share_qr else ""
-        whatsapp_href = "https://wa.me/?text=" + quote(share_text)
-        email_href = "mailto:?subject=" + quote(f"CupNavi – {tournament['name']}") + "&body=" + quote(share_text)
-        sms_href = "sms:?&body=" + quote(share_text)
-        qr_html = (
-            f"<img class='cn-integrated-share-qr' src='data:image/png;base64,{share_qr_b64}' alt='QR-kod'>"
-            if share_qr_b64 else ""
-        )
-        st.markdown(
-            f"""<div id='cn-share-section' class='cn-integrated-share'>
-              <div class='cn-integrated-share-copy'>
-                <div class='cn-integrated-share-title'>📤 {html.escape(tr("Dela cupen"))}</div>
-                <div class='cn-integrated-share-help'>{html.escape(tr("Dela länken eller QR-koden till den här cupen."))}</div>
-                <div class='cn-integrated-share-url'>{html.escape(share_url)}</div>
-                <div class='cn-integrated-share-actions'>
-                  <a href='{html.escape(whatsapp_href, quote=True)}'>WhatsApp</a>
-                  <a href='{html.escape(email_href, quote=True)}'>{html.escape(tr("E-post"))}</a>
-                  <a href='{html.escape(sms_href, quote=True)}'>SMS</a>
-                </div>
-              </div>
-              <div class='cn-integrated-share-qrwrap'>{qr_html}</div>
-            </div>""",
-            unsafe_allow_html=True,
-        )
-        st.markdown(
-            """<style>
-            .cn-integrated-share{display:grid;grid-template-columns:minmax(0,1fr) 145px;gap:18px;align-items:center;
-              margin:12px 0 18px;padding:16px 18px;border:1px solid #dbe4ea;border-radius:16px;
-              background:linear-gradient(180deg,#ffffff,#f8fbf9);box-shadow:0 8px 24px rgba(15,23,42,.06)}
-            .cn-integrated-share-title{font-size:16px;font-weight:850;color:#172033;margin-bottom:4px}
-            .cn-integrated-share-help{font-size:13px;color:#64748b;margin-bottom:10px}
-            .cn-integrated-share-url{padding:9px 10px;border:1px solid #dbe4ea;border-radius:10px;background:#f8fafc;
-              font-size:11px;color:#475569;overflow-wrap:anywhere}
-            .cn-integrated-share-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
-            .cn-integrated-share-actions a{display:inline-flex;align-items:center;justify-content:center;min-height:36px;padding:6px 11px;
-              border:1px solid #d5dee6;border-radius:10px;background:#fff;color:#243447!important;text-decoration:none!important;
-              font-size:12px;font-weight:750}
-            .cn-integrated-share-actions a:hover{background:#f4f8f5;border-color:#9fb9a8}
-            .cn-integrated-share-qr{display:block;width:125px;height:125px;object-fit:contain;border:1px solid #e2e8f0;
-              border-radius:10px;background:#fff;padding:4px;margin:auto}
-            @media(max-width:620px){.cn-integrated-share{grid-template-columns:1fr}.cn-integrated-share-qrwrap{order:-1}}
-            </style>""",
-            unsafe_allow_html=True,
-        )
 
     public_page_key = f"public_page_v92_{tournament_id}"
     requested_section = str(st.query_params.get("section", "")) if hasattr(st, "query_params") else ""
@@ -7136,23 +7124,73 @@ st.caption("Välj administrationsdel. Endast den valda delen laddas, för snabba
 def _set_admin_page(page):
     st.session_state[admin_page_key] = page
 
-# Grupperad navigation minskar mängden likvärdiga val på samma nivå.
-for group_title, nav_items in ADMIN_NAV_GROUPS:
-    st.markdown(
-        f"<div class='cn-admin-nav-group-title'>{html.escape(tr(group_title))}</div>",
-        unsafe_allow_html=True,
+# Två nivåer i adminnavigationen: fem tydliga huvudområden och bara relevanta
+# underknappar för valt område. Det minskar knappmängden utan att gömma funktioner.
+def _admin_group_for_page(page):
+    for group_name, group_items in ADMIN_NAV_GROUPS:
+        if any(item_page == page for item_page, _ in group_items):
+            return group_name
+    return "Översikt"
+
+admin_group_key = f"admin_group_{tid}"
+current_group = _admin_group_for_page(st.session_state[admin_page_key])
+st.session_state[admin_group_key] = current_group
+
+def _set_admin_group(group_name):
+    st.session_state[admin_group_key] = group_name
+    first_page = next(items[0][0] for name, items in ADMIN_NAV_GROUPS if name == group_name)
+    st.session_state[admin_page_key] = first_page
+
+group_names = [group_name for group_name, _ in ADMIN_NAV_GROUPS]
+group_cols = st.columns(len(group_names))
+for idx, group_name in enumerate(group_names):
+    group_cols[idx].button(
+        tr(group_name),
+        key=f"admin_group_nav_{tid}_{group_name}",
+        type="primary" if st.session_state[admin_group_key] == group_name else "secondary",
+        use_container_width=True,
+        on_click=_set_admin_group,
+        args=(group_name,),
     )
-    nav_cols = st.columns(min(3, len(nav_items)))
-    for nav_index, (page_name, button_label) in enumerate(nav_items):
-        nav_col = nav_cols[nav_index % len(nav_cols)]
-        nav_col.button(
-            button_label,
-            key=f"admin_nav_v83_{tid}_{page_name}",
-            type="primary" if st.session_state[admin_page_key] == page_name else "secondary",
-            use_container_width=True,
-            on_click=_set_admin_page,
-            args=(page_name,),
-        )
+
+selected_group = st.session_state[admin_group_key]
+raw_items = next(items for group_name, items in ADMIN_NAV_GROUPS if group_name == selected_group)
+# Logiska sammanslagningar i navigationen. Själva funktionerna ligger kvar som
+# separata lätta vyer och växlas inne på den sammanslagna sidan.
+if selected_group == "Kommunikation":
+    nav_items = [("Sponsorer", "Partners & erbjudanden"), ("Besöksstatistik", tr("Besök"))]
+elif selected_group == "Matcher":
+    nav_items = []
+    for page_name, button_label in raw_items:
+        if page_name == "Skytteligor":
+            continue
+        if page_name == "Tabeller":
+            nav_items.append(("Tabeller", "Tabell & statistik"))
+        else:
+            nav_items.append((page_name, button_label))
+else:
+    nav_items = raw_items
+
+st.markdown(
+    f"<div class='cn-admin-nav-group-title'>{html.escape(tr(selected_group))}</div>",
+    unsafe_allow_html=True,
+)
+nav_cols = st.columns(min(3, len(nav_items)))
+for nav_index, (page_name, button_label) in enumerate(nav_items):
+    nav_col = nav_cols[nav_index % len(nav_cols)]
+    is_active = st.session_state[admin_page_key] == page_name
+    if page_name == "Sponsorer":
+        is_active = st.session_state[admin_page_key] in ("Sponsorer", "Erbjudanden")
+    elif page_name == "Tabeller":
+        is_active = st.session_state[admin_page_key] in ("Tabeller", "Skytteligor")
+    nav_col.button(
+        button_label,
+        key=f"admin_nav_v120_{tid}_{selected_group}_{page_name}",
+        type="primary" if is_active else "secondary",
+        use_container_width=True,
+        on_click=_set_admin_page,
+        args=(page_name,),
+    )
 
 admin_page = st.session_state[admin_page_key]
 current_page_label = dict(ADMIN_NAV).get(admin_page, admin_page)
@@ -8032,8 +8070,22 @@ elif admin_page == "Adminöversikt":
     ])
     st.markdown(f"<div class='cn-workflow'>{workflow_html}</div>", unsafe_allow_html=True)
 
-    fairness_matches = all_rows("SELECT home_team_id,away_team_id,scheduled_start,pitch_number FROM matches WHERE tournament_id=? AND scheduled_start IS NOT NULL ORDER BY scheduled_start", (tid,))
-    fairness = fairness_report(fairness_matches)
+    # Fairness ska aldrig kunna fälla hela Adminöversikten. Hämta hela matchrader
+    # via samma beprövade SELECT *-väg som övriga schemavyer (Turso/libSQL har i
+    # vissa miljöer gett ValueError för den tidigare smala SELECT-listan).
+    try:
+        fairness_matches = all_rows(
+            "SELECT * FROM matches WHERE tournament_id=? AND scheduled_start IS NOT NULL ORDER BY scheduled_start,pitch_number,id",
+            (int(tid),),
+        )
+        fairness = fairness_report(fairness_matches)
+    except Exception as exc:
+        fairness = {
+            "score": 100,
+            "findings": ["Fairnessanalysen kunde inte beräknas just nu. Övrig cupdata påverkas inte."],
+            "participants": 0,
+        }
+        print(f"CupNavi fairness warning for tournament {tid}: {type(exc).__name__}: {exc}")
     with st.expander(f"⚖️ Fairness · {fairness['score']}/100", expanded=False):
         st.progress(int(fairness["score"]) / 100)
         st.caption("Fairness analyserar bland annat skillnader i vila, tidiga/sena matcher och byten av plan/spelplats. Poängen är rådgivande – sportspecifika regler gäller alltid först.")
@@ -10829,6 +10881,15 @@ if admin_page == "Besöksstatistik":
 
 
 if admin_page == "Sponsorer":
+    partner_section = st.segmented_control(
+        "Partners & erbjudanden",
+        ["Sponsorer", "Erbjudanden"],
+        default="Sponsorer",
+        key=f"partner_offer_switch_{tid}_sponsors",
+    )
+    if partner_section == "Erbjudanden":
+        st.session_state[admin_page_key] = "Erbjudanden"
+        st.rerun()
     st.header("Sponsorer")
     st.caption("Administrera cupens partners. Aktiva sponsorer visas under fliken Partners i turneringsvyn.")
 
@@ -11080,6 +11141,15 @@ if admin_page == "Funktionärer":
 
 
 if admin_page == "Erbjudanden":
+    partner_section = st.segmented_control(
+        "Partners & erbjudanden",
+        ["Sponsorer", "Erbjudanden"],
+        default="Erbjudanden",
+        key=f"partner_offer_switch_{tid}_offers",
+    )
+    if partner_section == "Sponsorer":
+        st.session_state[admin_page_key] = "Sponsorer"
+        st.rerun()
     st.header("Erbjudanden")
     st.caption(
         "Administrera erbjudanden som cupdeltagare och besökare kan använda. "
@@ -11894,6 +11964,15 @@ if admin_page == "Cupverktyg":
 
 
 if admin_page == "Tabeller":
+    table_stats_section = st.segmented_control(
+        "Tabell & statistik",
+        ["Tabeller", "Topplistor"],
+        default="Tabeller",
+        key=f"table_stats_switch_{tid}_tables",
+    )
+    if table_stats_section == "Topplistor":
+        st.session_state[admin_page_key] = "Skytteligor"
+        st.rerun()
     st.header("Tabeller")
     st.caption("Här visas grupptabellerna automatiskt utifrån registrerade matchresultat.")
     groups = all_rows("SELECT * FROM groups WHERE tournament_id=? ORDER BY name", (tid,))
@@ -11910,6 +11989,15 @@ if admin_page == "Tabeller":
 
 
 if admin_page == "Skytteligor":
+    table_stats_section = st.segmented_control(
+        "Tabell & statistik",
+        ["Tabeller", "Topplistor"],
+        default="Topplistor",
+        key=f"table_stats_switch_{tid}_leaders",
+    )
+    if table_stats_section == "Tabeller":
+        st.session_state[admin_page_key] = "Tabeller"
+        st.rerun()
     st.header("Statistiktopplistor")
     enabled_scorers = bool(_row_value(tournament, "enable_scorer_leaderboard", 1))
     enabled_assists = bool(_row_value(tournament, "enable_assist_leaderboard", 1))

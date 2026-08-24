@@ -2,16 +2,18 @@ from pathlib import Path
 
 
 def app_text():
-    return Path('app.py').read_text(encoding='utf-8')
+    return Path("app.py").read_text(encoding="utf-8")
 
 
-def test_fixed_share_uses_plain_anchor_label_not_nested_span_markup():
+def test_fixed_share_is_same_page_details_control():
     text = app_text()
-    start = text.index(".cn-fixed-share {{position:fixed;")
-    block = text[start:start+1800]
-    assert "<a class='cn-fixed-share" in block
-    assert "📤 {html.escape(tr(\"Dela cupen\"))}</a>" in block
-    assert "cn-share-icon" not in block
+    start = text.index(".cn-fixed-share-button {{position:fixed;")
+    block = text[start:start+5000]
+    assert "popovertarget=" in block
+    assert "class='cn-fixed-share-button'" in block
+    assert "popover='auto'" in block
+    assert "share=1#cn-share-section" not in block
+    assert "target='_blank'" not in block
 
 
 def test_version_is_hidden_in_public_tournament_view_sidebar():

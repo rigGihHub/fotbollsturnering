@@ -26,10 +26,10 @@ def test_public_version_badge_not_rendered_before_public_view():
 
 def test_share_button_is_fixed_beside_brand():
     text = app_text()
-    assert '.cn-fixed-share {{position:fixed;' in text
+    assert '.cn-fixed-share-button {{position:fixed;' in text
     assert 'left:calc(50% + 185px)' in text
-    assert "<a class='cn-fixed-share" in text
-    assert 'share=1#cn-share-section' in text
+    assert "popovertarget=" in text
+    assert 'cn-share-inline-panel' in text
 
 
 def test_input_instruction_is_hidden_and_weekday_helpers_exist():

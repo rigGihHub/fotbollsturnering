@@ -21,7 +21,7 @@ def test_public_view_renders_share_controls():
     text = app_text()
     start = text.index("def render_public_view(")
     public_block = text[start:text.index("init_db()", start)]
-    assert "cn-integrated-share" in public_block
+    assert "cn-share-inline-panel" in public_block
     assert "WhatsApp" in public_block
     assert "mailto:?subject=" in public_block
     assert "sms:?&body=" in public_block
