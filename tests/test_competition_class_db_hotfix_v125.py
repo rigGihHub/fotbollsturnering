@@ -38,4 +38,4 @@ def test_runtime_path_has_self_healing_schema_repair():
     text = Path("app.py").read_text(encoding="utf-8")
     assert "ensure_competition_class_schema_compat(con)" in text
     assert "except Exception:" in text[text.index("def competition_classes"):text.index("def sync_competition_classes")]
-    assert 'APP_BUILD_VERSION = "2026.08.24-125-COMPETITION-CLASS-DB-HOTFIX"' in text
+    assert "ensure_competition_class_schema_compat(con)" in text

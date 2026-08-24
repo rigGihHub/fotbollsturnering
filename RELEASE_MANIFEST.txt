@@ -1,9 +1,5 @@
 .github/workflows/ci.yml
-ARCHITECTURE.md
-ARCHITECTURE_STABILISERING.md
-ARCHITECTURE_V100.md
-QUALITY_V125.md
-RELEASE_CHECKLIST.md
+QUALITY_V127.md
 RELEASE_MANIFEST.txt
 VERSION.txt
 app.py
@@ -77,6 +73,7 @@ tests/test_offers.py
 tests/test_organizer_phone.py
 tests/test_pdf_export.py
 tests/test_performance_polish_v81.py
+tests/test_performance_v126.py
 tests/test_performance_v90.py
 tests/test_public_about_v117.py
 tests/test_public_color_notices.py
@@ -102,6 +99,7 @@ tests/test_schedule_domain.py
 tests/test_schedule_repository.py
 tests/test_schema_v76.py
 tests/test_share_fairness_hotfix_v121.py
+tests/test_share_performance_ux_v127.py
 tests/test_share_render_hotfix_v122.py
 tests/test_share_simplify_v84.py
 tests/test_share_version_hotfix_v119.py

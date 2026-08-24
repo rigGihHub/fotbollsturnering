@@ -47,7 +47,7 @@ from cupnavi_core.fairness import fairness_report
 from cupnavi_core.ux2 import ADMIN_SECTIONS, workflow_progress, attention_items, human_error_id, schedule_board
 from cupnavi_core.about import feature_catalog, about_intro
 
-APP_BUILD_VERSION = "2026.08.24-125-COMPETITION-CLASS-DB-HOTFIX"
+APP_BUILD_VERSION = "2026.08.24-127-SHARE-PERFORMANCE-UX"
 APP_VERSION = APP_BUILD_VERSION
 RELEASE_FILES_MISMATCH = CORE_APP_VERSION != APP_BUILD_VERSION
 REQUIRED_SCHEMA_VERSION = max(int(LATEST_SCHEMA_VERSION), 5)
@@ -633,7 +633,7 @@ TRANSLATIONS = {
         "Offlineutkast": "Offline draft", "Cupverktyg": "Tournament tools",
         "Cupflöde": "Tournament feed", "Cupkarta": "Tournament map",
         "Kvalitet": "Quality", "Försening": "Delay", "Historik": "History",
-        "Summering": "Summary", "Sport": "Sport",
+        "Summering": "Summary", "Sport": "Sport", "av": "of",
     }
 }
 
@@ -5256,42 +5256,76 @@ def render_public_view(tournament_id, tournament):
         </style>""",
         unsafe_allow_html=True,
     )
-    with st.container(key=f"cn_share_toggle_{int(tournament_id)}"):
-        if st.button(
-            ("✕ " if st.session_state[share_visible_key] else "📤 ") + tr("Dela cupen"),
-            key=f"cn_share_button_{int(tournament_id)}",
-            use_container_width=False,
-        ):
-            st.session_state[share_visible_key] = not st.session_state[share_visible_key]
-            st.rerun()
+    # Isolera delningen som ett Streamlit-fragment. Ett klick på Dela cupen
+    # rerunnar då bara den här lilla ytan i stället för hela Turneringsvyn.
+    @st.fragment
+    def render_public_share_fragment():
+        with st.container(key=f"cn_share_toggle_{int(tournament_id)}"):
+            if st.button(
+                ("✕ " if st.session_state[share_visible_key] else "📤 ") + tr("Dela cupen"),
+                key=f"cn_share_button_{int(tournament_id)}",
+                use_container_width=False,
+            ):
+                st.session_state[share_visible_key] = not st.session_state[share_visible_key]
 
-    if st.session_state[share_visible_key]:
-        with st.container(border=True, key=f"cn_share_panel_{int(tournament_id)}"):
-            panel_title_col, panel_close_col = st.columns([8, 1])
-            panel_title_col.markdown(f"### 📤 {tr('Dela cupen')}")
-            if panel_close_col.button("✕", key=f"cn_share_close_{int(tournament_id)}", help=tr("Stäng")):
-                st.session_state[share_visible_key] = False
-                st.rerun()
-            st.caption(tr("Dela länken eller QR-koden till den här cupen."))
-            st.code(share_url, language=None)
-            share_col1, share_col2, share_col3 = st.columns(3)
-            share_col1.link_button("WhatsApp", whatsapp_href, use_container_width=True)
-            share_col2.link_button(tr("E-post"), email_href, use_container_width=True)
-            share_col3.link_button("SMS", sms_href, use_container_width=True)
-
-            # QR genereras först när delningsytan verkligen är öppen.
-            share_qr = qr_png_bytes(share_url)
-            if share_qr:
-                qr_col1, qr_col2 = st.columns([1, 2], vertical_alignment="center")
-                qr_col1.image(share_qr, width=132)
-                qr_col2.download_button(
-                    tr("Ladda ner QR-kod"),
-                    data=share_qr,
-                    file_name=f"cupnavi-{int(tournament_id)}-qr.png",
-                    mime="image/png",
-                    key=f"cn_share_qr_download_{int(tournament_id)}",
-                    use_container_width=True,
+        if st.session_state[share_visible_key]:
+            # Panelen har ett eget ljust designsystem så globala mörka knappregler
+            # inte spiller över på publikdelningen.
+            st.markdown(
+                """<style>
+                [class*="st-key-cn_share_panel_"] [data-testid="stVerticalBlockBorderWrapper"] {
+                  border:1px solid #d9e3ea!important;border-radius:18px!important;background:#ffffff!important;
+                  box-shadow:0 10px 30px rgba(15,23,42,.08)!important;padding:4px!important;
+                }
+                [class*="st-key-cn_share_panel_"] [data-testid="stLinkButton"] a,
+                [class*="st-key-cn_share_panel_"] [data-testid="stDownloadButton"] button,
+                [class*="st-key-cn_share_panel_"] button {
+                  background:#f7faf8!important;color:#163126!important;border:1px solid #cbded3!important;
+                  box-shadow:none!important;font-weight:700!important;
+                }
+                [class*="st-key-cn_share_panel_"] [data-testid="stLinkButton"] a:hover,
+                [class*="st-key-cn_share_panel_"] [data-testid="stDownloadButton"] button:hover {
+                  background:#eef8f1!important;border-color:#8fc6a1!important;color:#126b36!important;
+                }
+                .cn-share-url-box {
+                  padding:12px 14px;border:1px solid #d9e3ea;border-radius:12px;background:#f8fafb;
+                  color:#24313d;font:600 14px/1.4 ui-monospace,SFMono-Regular,Menlo,monospace;
+                  overflow-wrap:anywhere;margin:4px 0 12px;
+                }
+                </style>""",
+                unsafe_allow_html=True,
+            )
+            with st.container(border=True, key=f"cn_share_panel_{int(tournament_id)}"):
+                panel_title_col, panel_close_col = st.columns([8, 1])
+                panel_title_col.markdown(f"### 📤 {tr('Dela cupen')}")
+                if panel_close_col.button("✕", key=f"cn_share_close_{int(tournament_id)}", help=tr("Stäng")):
+                    st.session_state[share_visible_key] = False
+                st.caption(tr("Dela länken eller QR-koden till den här cupen."))
+                st.markdown(
+                    f"<div class='cn-share-url-box'>{html.escape(share_url)}</div>",
+                    unsafe_allow_html=True,
                 )
+                share_col1, share_col2, share_col3 = st.columns(3)
+                share_col1.link_button("WhatsApp", whatsapp_href, use_container_width=True)
+                share_col2.link_button(tr("E-post"), email_href, use_container_width=True)
+                share_col3.link_button("SMS", sms_href, use_container_width=True)
+
+                # QR genereras först när delningsytan faktiskt är öppen. Eftersom
+                # detta ligger i fragmentet blockeras inte resten av cupsidan.
+                share_qr = qr_png_bytes(share_url)
+                if share_qr:
+                    qr_col1, qr_col2 = st.columns([1, 2], vertical_alignment="center")
+                    qr_col1.image(share_qr, width=132)
+                    qr_col2.download_button(
+                        tr("Ladda ner QR-kod"),
+                        data=share_qr,
+                        file_name=f"cupnavi-{int(tournament_id)}-qr.png",
+                        mime="image/png",
+                        key=f"cn_share_qr_download_{int(tournament_id)}",
+                        use_container_width=True,
+                    )
+
+    render_public_share_fragment()
 
     with st.container(border=True):
         min_cup_col1, min_cup_col2 = st.columns([3, 1])
@@ -5610,8 +5644,7 @@ def render_public_view(tournament_id, tournament):
         st.markdown(
             f"""<div class='public-metric-grid'>
               <div class='public-metric'><div class='label'>{html.escape(tr("Lag"))}</div><div class='value'>{team_count}</div></div>
-              <div class='public-metric'><div class='label'>{html.escape(tr("Matcher"))}</div><div class='value'>{len(published_matches)}</div></div>
-              <div class='public-metric'><div class='label'>{html.escape(tr("Spelade"))}</div><div class='value'>{len(played_matches)}</div></div>
+              <div class='public-metric'><div class='label'>{html.escape(tr("Matcher"))}</div><div class='value'>{len(played_matches)} {html.escape(tr("av"))} {len(published_matches)}</div></div>
               <div class='public-metric'><div class='label'>{html.escape(str(sport_profile(_row_value(tournament, 'sport', 'Fotboll'))['score_label']).capitalize())}</div><div class='value'>{total_goals}</div></div>
             </div>""",
             unsafe_allow_html=True,
@@ -7102,7 +7135,8 @@ tid = st.sidebar.selectbox(
     format_func=_tournament_selector_label,
 )
 tournament = next(t for t in tournaments if t["id"] == tid)
-sync_competition_classes(tid)
+# Competition classes are migrated/backfilled by init_db(). Do not perform remote
+# write-sync on every Streamlit rerun; explicit create/edit flows call sync as needed.
 tournament_lifecycle = normalize_status(tournament["lifecycle_status"], is_published=bool(tournament["is_published"]))
 
 with st.sidebar.expander("♿ Tillgänglighet", expanded=False):
