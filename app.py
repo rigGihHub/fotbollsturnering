@@ -11820,30 +11820,33 @@ int(edited_halves) != int(overview_rules["halves"]),
         )
         if not testdata_ready:
             st.info("Skapa testdata i steg 1 innan du väljer hur långt turneringen har pågått.")
-        demo_level = st.selectbox(
-            "Testnivå",
-            [
-                "Halva gruppspelet",
-                "Hela gruppspelet",
-                "Halva slutspelet",
-                "Hela cupen färdig",
-            ],
-            key=f"demo_progress_level_{tid}",
-            disabled=not testdata_ready,
-        )
+        # Submit selection + action atomically. A normal selectbox rerun can replace
+        # the button DOM exactly when it is clicked, which made the real UI flaky.
+        with st.form(f"demo_progress_form_{tid}", border=False):
+            demo_level = st.selectbox(
+                "Testnivå",
+                [
+                    "Halva gruppspelet",
+                    "Hela gruppspelet",
+                    "Halva slutspelet",
+                    "Hela cupen färdig",
+                ],
+                key=f"demo_progress_level_{tid}",
+                disabled=not testdata_ready,
+            )
+            generate_demo = st.form_submit_button(
+                "🧪 Generera valt testläge",
+                use_container_width=True,
+                type="primary",
+                disabled=not testdata_ready,
+            )
         level_key = {
             "Halva gruppspelet": "half_group",
             "Hela gruppspelet": "full_group",
             "Halva slutspelet": "half_playoff",
             "Hela cupen färdig": "complete",
         }[demo_level]
-        if st.button(
-            f"🧪 Generera testläge: {demo_level}",
-            use_container_width=True,
-            type="primary",
-            key=f"demo_progress_apply_{tid}",
-            disabled=not testdata_ready,
-        ):
+        if generate_demo:
             with st.spinner(f"Bygger testläge: {demo_level}…", show_time=True):
                 ok, message = _demo_apply_progress_level(tid, level_key)
             if ok:

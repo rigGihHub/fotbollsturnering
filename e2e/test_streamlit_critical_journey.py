@@ -111,46 +111,13 @@ def _cup_progress_state(tournament_id):
 
 
 def click_demo_generation_and_wait(page, tournament_id, timeout=60000):
-    """Click the Streamlit test-progress action only after its rerun is stable.
-
-    Streamlit can briefly expose the newly rendered button while the selectbox
-    rerun is still settling. A click in that narrow window may be lost by the
-    frontend. Require an acknowledgement (spinner or persisted DB change) and
-    retry only when the click was demonstrably not accepted.
-    """
-    button_locator=page.get_by_role(
-        "button", name=re.compile(r"Generera testläge: Hela cupen färdig")
+    """Submit Testnivå and wait for the durable completed-cup state."""
+    button=wait_until_enabled(
+        page.get_by_role("button", name=re.compile(r"Generera valt testläge")),
+        timeout=20000,
     )
-    acknowledged=False
-    for _attempt in range(3):
-        button=wait_until_enabled(button_locator,timeout=20000)
-        button.scroll_into_view_if_needed()
-        # The label itself is server-rendered from session state. Seeing it enabled
-        # in two consecutive frames avoids clicking a component from the outgoing DOM.
-        page.wait_for_timeout(250)
-        assert button.is_visible() and button.is_enabled()
-        button.click()
-
-        ack_deadline=time.time()+8
-        while time.time()<ack_deadline:
-            state=_cup_progress_state(tournament_id)
-            if state and (int(state[2]) == 1 or state[3] != "draft" or state[1] > 0):
-                acknowledged=True
-                break
-            try:
-                if page.get_by_text(re.compile(r"Bygger testläge: Hela cupen färdig")).count():
-                    acknowledged=True
-                    break
-            except Exception:
-                pass
-            time.sleep(.2)
-        if acknowledged:
-            break
-        # No UI or persistence acknowledgement means the click was lost during
-        # Streamlit's rerender. Wait for the app shell and retry the real button.
-        wait_app(page)
-
-    assert acknowledged, "Streamlit did not acknowledge the full-cup test generation click"
+    button.scroll_into_view_if_needed()
+    button.click()
 
     deadline=time.time()+timeout/1000
     last_state=None
