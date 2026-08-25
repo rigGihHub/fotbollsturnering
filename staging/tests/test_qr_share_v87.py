@@ -1,0 +1,32 @@
+from pathlib import Path
+
+def app_text():
+    return Path("app.py").read_text(encoding="utf-8")
+
+def test_public_share_contains_qr_share_panel():
+    text = app_text()
+    start = text.index("def render_public_view(")
+    block = text[start:text.index("def render_match_reporter_view(", start)]
+    assert "share_qr = qr_png_bytes(share_url)" in block
+    assert "qr_png_bytes(share_url)" in block
+    assert "if st.session_state[share_visible_key]:" in block
+    assert "qr_col1.image(share_qr" in block
+    assert 'tr("Dela länken eller QR-koden till den här cupen.")' in block
+
+def test_qr_can_share_png_file():
+    text = app_text()
+    start = text.index("def qr_share_panel_html(")
+    end = text.index("def render_qr_share_panel(", start)
+    block = text[start:end]
+    assert "navigator.canShare" in block
+    assert "files:[file]" in block
+    assert "new File([blob]" in block
+    assert "image/png" in block
+
+def test_qr_has_download_fallback():
+    text = app_text()
+    start = text.index("def qr_share_panel_html(")
+    end = text.index("def render_qr_share_panel(", start)
+    block = text[start:end]
+    assert 'download="' in block
+    assert 'link.download = filename' in block

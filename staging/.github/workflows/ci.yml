@@ -1,0 +1,45 @@
+name: CupNavi CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-dev.txt
+          pip check
+
+      - name: Compile all Python
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import py_compile
+          files = [p for p in Path(".").rglob("*.py") if ".git" not in p.parts]
+          for path in files:
+              py_compile.compile(str(path), doraise=True)
+          print(f"Compiled {len(files)} Python files")
+          PY
+
+      - name: Run tests
+        run: pytest
+
+      - name: Migration smoke test
+        run: pytest tests/test_migrations.py -q
+
+      - name: Backup smoke test
+        run: pytest tests/test_backup.py -q
