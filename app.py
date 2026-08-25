@@ -55,7 +55,7 @@ from cupnavi_core.fairness import fairness_report
 from cupnavi_core.ux2 import workflow_progress, attention_items, schedule_board
 from cupnavi_core.about import feature_catalog, about_intro
 
-APP_BUILD_VERSION = "2026.08.25-165-PUBLIC-PAGE-ORDER-FIX"
+APP_BUILD_VERSION = "2026.08.25-167-PUBLIC-COMPETITION-NAV"
 APP_VERSION = APP_BUILD_VERSION
 RELEASE_FILES_MISMATCH = CORE_APP_VERSION != APP_BUILD_VERSION
 REQUIRED_SCHEMA_VERSION = max(int(LATEST_SCHEMA_VERSION), 5)
@@ -930,6 +930,7 @@ TRANSLATIONS = {
         "Erbjudanden": "Offers", "Sponsorer": "Sponsors", "Funktionärer": "Staff",
         "Import": "Import", "Besök": "Visitors", "Besöksstatistik": "Visitor analytics",
         "Spelschema": "Schedule", "Resultat": "Results", "Topplistor": "Statistics",
+        "Spelschema & resultat": "Schedule & results", "Tabeller gruppspel": "Group-stage tables",
         "Partners": "Partners", "Information": "Information", "Alla matcher": "All matches",
         "En grupp": "A group", "Ett lag": "A team", "En plan": "A pitch",
         "Vad vill du visa?": "What do you want to show?", "Välj grupp": "Choose group",
@@ -5569,8 +5570,8 @@ def render_about_page():
 
 
 @st.fragment
-def render_public_statistics_section(tournament_id, tournament, published_matches, played_matches):
-    """Render only public statistics; fragment reruns do not rebuild the full public page."""
+def render_public_statistics_section(tournament_id, tournament, published_matches, played_matches, forced_section=None):
+    """Render one public competition/statistics section without rebuilding the full public page."""
     _fragment_started = time.perf_counter()
     _db_calls_before = _PERF["db_calls"]
     _db_ms_before = _PERF["db_ms"]
@@ -5580,12 +5581,15 @@ def render_public_statistics_section(tournament_id, tournament, published_matche
         bool(_row_value(tournament, "enable_card_statistics", 1)),
     ])
     _stats_options = [tr("Tabeller")] + ([tr("Topplistor")] if _has_toplists else []) + [tr("Slutspel")]
-    stats_section = st.segmented_control(
-        tr("Statistik"),
-        _stats_options,
-        default=tr("Tabeller"),
-        key=f"public_stats_section_{tournament_id}",
-    ) or tr("Tabeller")
+    if forced_section:
+        stats_section = forced_section
+    else:
+        stats_section = st.segmented_control(
+            tr("Statistik"),
+            _stats_options,
+            default=tr("Tabeller"),
+            key=f"public_stats_section_{tournament_id}",
+        ) or tr("Tabeller")
 
     if stats_section == tr("Tabeller"):
         groups = all_rows("SELECT * FROM groups WHERE tournament_id=? ORDER BY name", (tournament_id,))
@@ -5604,7 +5608,10 @@ def render_public_statistics_section(tournament_id, tournament, published_matche
             else:
                 st.caption("Den slutliga rankingen visas när alla publicerade matcher är färdigspelade.")
 
-    if stats_section == tr("Topplistor"):
+    if stats_section == tr("Topplistor") and not _has_toplists:
+        st.info("Ingen individuell statistik är aktiverad för den här turneringen.")
+
+    if stats_section == tr("Topplistor") and _has_toplists:
         rows = all_rows(
             """
             SELECT CASE WHEN COALESCE(players.is_protected,0)=1 THEN 'Skyddad spelare' ELSE players.name END AS player_name,
@@ -6206,9 +6213,28 @@ def render_public_view(tournament_id, tournament):
         .cn-live-vs{color:#94a3b8;font-weight:750;padding:0 3px}
         .cn-live-card.is-live{border-color:#fecaca;background:linear-gradient(180deg,#fff,#fff7f7)}
         .cn-live-card.is-live .cn-live-time{color:#b91c1c}
+
+                .cn-public-main-nav-note{font-size:12px;color:#64748b;margin:2px 0 6px}
+.cn-public-follow-anchor{height:0;margin:0;padding:0}
+        .cn-share-toggle-anchor,.cn-share-panel-anchor{height:0;margin:0;padding:0}
+        @media(min-width:901px){
+          .cn-public-follow-anchor + div{margin-top:0!important;margin-bottom:2px!important}
+          .cn-share-toggle-anchor + div{margin:0!important}
+          .cn-live-strip{margin-top:2px!important;margin-bottom:8px!important}
+        }
         @media(max-width:900px){.cn-live-grid{grid-template-columns:1fr}.cn-live-head{align-items:flex-start}.cn-live-status{display:none}}
         .cn-my-status{display:flex;gap:8px;flex-wrap:wrap;margin:8px 0}.cn-my-pill{border:1px solid #dbe5df;border-radius:999px;padding:6px 10px;background:#f8fbf9;font-size:.8rem;font-weight:750}
         .cn-venue-card{border:1px solid #e2e8f0;border-radius:14px;padding:11px 12px;margin:7px 0;background:#fff}
+
+        /* v166: tighter desktop rhythm. */
+        @media(min-width:901px){
+          .stApp .block-container{padding-top:1.05rem!important;padding-bottom:1.8rem!important}
+          .cn-flow-context{margin-top:2px!important;margin-bottom:7px!important;padding:10px 14px!important}
+          .cn-next-action{margin:4px 0 7px!important;padding:8px 12px!important}
+          hr{margin:.95rem 0!important}
+          [data-testid="stAlert"]{margin-top:.3rem!important;margin-bottom:.45rem!important}
+          [data-testid="stVerticalBlock"]{gap:.55rem!important}
+        }
 
         /* v162: publika desktopvyn använder bredden bättre och minskar dubblerad höjd. */
         @media(min-width:901px){
@@ -6455,21 +6481,34 @@ def render_public_view(tournament_id, tournament):
         else:
             st.caption("Välj ett lag för att få nästa match, senaste resultat och lagets matcher samlade på ett ställe.")
 
-    public_page_key = f"public_page_v92_{tournament_id}"
+    public_page_key = f"public_page_v167_{tournament_id}"
     requested_section = str(st.query_params.get("section", "")) if hasattr(st, "query_params") else ""
-    requested_section_map = {"matches": "Matcher", "stats": "Statistik", "info": "Info"}
+    requested_section_map = {
+        "matches": "Matcher",
+        "tables": "Tabeller",
+        "playoffs": "Slutspel",
+        "stats": "Statistik",
+        "info": "Info",
+    }
     if requested_section in requested_section_map:
         st.session_state[public_page_key] = requested_section_map[requested_section]
     if public_page_key not in st.session_state:
         st.session_state[public_page_key] = "Matcher"
 
-    nav1, nav2, nav3 = st.columns(3)
+    nav1, nav2, nav3, nav4 = st.columns(4)
     main_nav = [
-        (nav1, "Matcher", "🗓️", tr("Matcher")),
-        (nav2, "Statistik", "🏆", tr("Tabell & statistik")),
-        (nav3, "Info", "ℹ️", tr("Info")),
+        (nav1, "Matcher", "🗓️", tr("Spelschema & resultat")),
+        (nav2, "Tabeller", "📊", tr("Tabeller gruppspel")),
+        (nav3, "Slutspel", "🏆", tr("Slutspel")),
+        (nav4, "Statistik", "📈", tr("Statistik")),
     ]
-    _public_section_by_page = {"Matcher": "matches", "Statistik": "stats", "Info": "info"}
+    _public_section_by_page = {
+        "Matcher": "matches",
+        "Tabeller": "tables",
+        "Slutspel": "playoffs",
+        "Statistik": "stats",
+        "Info": "info",
+    }
     for nav_col, page_value, icon, label in main_nav:
         active = st.session_state[public_page_key] == page_value
         if nav_col.button(
@@ -6486,6 +6525,21 @@ def render_public_view(tournament_id, tournament):
                     st.query_params["team"] = str(requested_team_id)
             st.rerun()
 
+    _info_active = st.session_state[public_page_key] == "Info"
+    if st.button(
+        "ℹ️ Information om cupen",
+        key=f"public_info_secondary_{tournament_id}",
+        type="primary" if _info_active else "secondary",
+        use_container_width=False,
+    ):
+        st.session_state[public_page_key] = "Info"
+        if hasattr(st, "query_params"):
+            st.query_params["cup"] = str(_row_value(tournament, "public_slug", tournament_id) or tournament_id)
+            st.query_params["section"] = "info"
+            if requested_team_id:
+                st.query_params["team"] = str(requested_team_id)
+        st.rerun()
+
     public_page = st.session_state[public_page_key]
 
     # Page-specific UI must only be evaluated after public_page is resolved.
@@ -6499,10 +6553,10 @@ def render_public_view(tournament_id, tournament):
     cup_key = quote(str(_row_value(tournament, "public_slug", tournament_id) or tournament_id))
     st.markdown(
         f"""<nav class='cn-mobile-bottom-nav' aria-label='Cup navigation'>
-          <a class='{"active" if public_page == "Matcher" else ""}' href='?cup={cup_key}&section=matches'>🗓️<span>{html.escape(tr("Matcher"))}</span></a>
-          <a class='{"active" if public_page == "Statistik" else ""}' href='?cup={cup_key}&section=stats'>🏆<span>{html.escape(tr("Tabell & statistik"))}</span></a>
-          <a class='{"active" if requested_team_id else ""}' href='?cup={cup_key}&section=matches{"&team="+str(requested_team_id) if requested_team_id else ""}'>⭐<span>{html.escape(tr("Mitt lag"))}</span></a>
-          <a class='{"active" if public_page == "Info" else ""}' href='?cup={cup_key}&section=info'>ℹ️<span>{html.escape(tr("Info"))}</span></a>
+          <a class='{"active" if public_page == "Matcher" else ""}' href='?cup={cup_key}&section=matches{"&team="+str(requested_team_id) if requested_team_id else ""}'>🗓️<span>Schema</span></a>
+          <a class='{"active" if public_page == "Tabeller" else ""}' href='?cup={cup_key}&section=tables{"&team="+str(requested_team_id) if requested_team_id else ""}'>📊<span>Tabeller</span></a>
+          <a class='{"active" if public_page == "Slutspel" else ""}' href='?cup={cup_key}&section=playoffs{"&team="+str(requested_team_id) if requested_team_id else ""}'>🏆<span>Slutspel</span></a>
+          <a class='{"active" if public_page == "Statistik" else ""}' href='?cup={cup_key}&section=stats{"&team="+str(requested_team_id) if requested_team_id else ""}'>📈<span>Statistik</span></a>
         </nav>""", unsafe_allow_html=True)
 
     def _filter_public_matches(base_matches, key_prefix, heading):
@@ -6926,8 +6980,23 @@ def render_public_view(tournament_id, tournament):
 
         render_public_matches_fragment()
 
+    if public_page == "Tabeller":
+        render_public_statistics_section(
+            tournament_id, tournament, published_matches, played_matches,
+            forced_section=tr("Tabeller"),
+        )
+
+    if public_page == "Slutspel":
+        render_public_statistics_section(
+            tournament_id, tournament, published_matches, played_matches,
+            forced_section=tr("Slutspel"),
+        )
+
     if public_page == "Statistik":
-        render_public_statistics_section(tournament_id, tournament, published_matches, played_matches)
+        render_public_statistics_section(
+            tournament_id, tournament, published_matches, played_matches,
+            forced_section=tr("Topplistor"),
+        )
 
     if public_page == "Info":
         render_public_info_section(tournament_id, tournament, published_matches)
@@ -7835,7 +7904,7 @@ if view_mode == "Om":
 
 if RELEASE_FILES_MISMATCH and view_mode == "Admin":
     st.sidebar.error(
-        f"Ofullständig release\n\n"
+        f"Releasefilerna är inte synkade\n\n"
         f"app.py: {APP_BUILD_VERSION}\n\n"
         f"cupnavi_core/version.py: {CORE_APP_VERSION}\n\n"
         "Lägg in hela releasepaketet i GitHub, inte bara app.py. "

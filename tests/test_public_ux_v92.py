@@ -12,11 +12,12 @@ def public_block():
     return text[start:end]
 
 
-def test_three_large_public_navigation_buttons_exist():
+def test_four_large_public_competition_navigation_buttons_exist():
     block = public_block()
     assert '(nav1, "Matcher", "🗓️"' in block
-    assert '(nav2, "Statistik", "🏆"' in block
-    assert '(nav3, "Info", "ℹ️"' in block
+    assert '(nav2, "Tabeller", "📊"' in block
+    assert '(nav3, "Slutspel", "🏆"' in block
+    assert '(nav4, "Statistik", "📈"' in block
     assert 'type="primary" if active else "secondary"' in block
 
 

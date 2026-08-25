@@ -14,7 +14,10 @@ def test_statistics_and_info_are_streamlit_fragments():
 
 def test_main_public_renderer_delegates_heavy_sections():
     public=_block("def render_public_view(", "def render_match_reporter_view(")
-    assert "render_public_statistics_section(tournament_id, tournament, published_matches, played_matches)" in public
+    assert "render_public_statistics_section(" in public
+    assert 'forced_section=tr("Tabeller")' in public
+    assert 'forced_section=tr("Slutspel")' in public
+    assert 'forced_section=tr("Topplistor")' in public
     assert "render_public_info_section(tournament_id, tournament, published_matches)" in public
     # Screen mode intentionally keeps a tiny LIMIT 8 sponsor query.
     assert 'SELECT * FROM offers WHERE tournament_id=?' not in public
@@ -23,7 +26,7 @@ def test_main_public_renderer_delegates_heavy_sections():
 
 def test_statistics_queries_are_branch_local():
     stats=_block("def render_public_statistics_section(", "def render_public_info_section(")
-    top=stats.index('if stats_section == tr("Topplistor"):')
+    top=stats.index('if stats_section == tr("Topplistor") and _has_toplists:')
     query=stats.index("FROM player_match_stats s JOIN players")
     assert query > top
     assert 'if stats_section == tr("Slutspel"):' in stats
