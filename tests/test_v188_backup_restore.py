@@ -2,7 +2,7 @@ from pathlib import Path
 ROOT=Path(__file__).resolve().parents[1]
 APP=(ROOT/"app.py").read_text(encoding="utf-8")
 BACKUP=(ROOT/"cupnavi_core/backup.py").read_text(encoding="utf-8")
-R="2026.08.25-191-BEAUTIFY-FULL-E2E"
+R="2026.08.25-192-CI-HEALTH-DEPENDENCY"
 
 def test_restore_is_non_destructive():
     assert "restore_backup_as_new_tournament" in BACKUP
@@ -26,5 +26,5 @@ def test_rollback_runbook_exists():
     assert (ROOT/"ROLLBACK.md").exists()
 
 def test_version():
-    assert "Version v.1.191" in APP
+    assert "Version v.1.192" in APP
     assert f'APP_BUILD_VERSION = "{R}"' in APP

@@ -1,7 +1,7 @@
 from pathlib import Path
 ROOT=Path(__file__).resolve().parents[1]
 APP=(ROOT/"app.py").read_text(encoding="utf-8")
-R="2026.08.25-191-BEAUTIFY-FULL-E2E"
+R="2026.08.25-192-CI-HEALTH-DEPENDENCY"
 
 def test_desktop_nav_has_real_vertical_safezone():
     assert ".cn-mode-nav-safezone{height:72px!important;display:block!important}" in APP

@@ -2,7 +2,7 @@ from pathlib import Path
 ROOT=Path(__file__).resolve().parents[1]
 APP=(ROOT/"app.py").read_text(encoding="utf-8")
 PWA=(ROOT/"public_pwa/styles.css").read_text(encoding="utf-8")
-R="2026.08.25-191-BEAUTIFY-FULL-E2E"
+R="2026.08.25-192-CI-HEALTH-DEPENDENCY"
 
 def test_design_system_has_functional_tokens():
     for token in (
@@ -42,6 +42,6 @@ def test_pwa_uses_same_restrained_tokens():
     assert "@media(prefers-reduced-motion:reduce)" in PWA
 
 def test_version():
-    assert "Version v.1.191" in APP
+    assert "Version v.1.192" in APP
     assert f'APP_BUILD_VERSION = "{R}"' in APP
     assert f'APP_VERSION = "{R}"' in (ROOT/"cupnavi_core/version.py").read_text(encoding="utf-8")

@@ -113,12 +113,28 @@ def test_full_cup_lifecycle_journey(server,browser_name):
         page.get_by_text("Testmiljö",exact=True).click()
         page.get_by_role("button",name="Skapa",exact=True).click()
         wait_app(page)
-        assert "TESTMILJÖ" in page.locator("body").inner_text()
 
-        # If the guided setup is shown, finish its valid default configuration.
+        # Creation lands in the guided setup before the normal Admin header is
+        # rendered. Verify the persisted environment first instead of assuming
+        # that the TESTMILJÖ banner is already visible on this intermediate page.
+        with sqlite3.connect(DB) as con:
+            created=con.execute(
+                "SELECT environment_type FROM tournaments WHERE name=? ORDER BY id DESC LIMIT 1",
+                (cup_name,),
+            ).fetchone()
+        assert created is not None
+        assert created[0] == "test"
+
+        # Finish the guided setup when its current defaults are valid. Once we
+        # reach the regular Admin view, the visible environment marker must agree
+        # with the persisted environment type.
         continue_button=page.get_by_role("button",name="Fortsätt till Admin",exact=True)
-        if click_if_enabled(continue_button):
+        if continue_button.count():
+            continue_button.wait_for(state="visible",timeout=20000)
+            assert continue_button.is_enabled(), "Guided setup unexpectedly blocks a newly created Testmiljö"
+            continue_button.click()
             wait_app(page)
+        assert "TESTMILJÖ" in page.locator("body").inner_text()
 
         # 2. Classes → teams → groups → players/referees through the app's Testmiljö tool.
         demo_button=page.get_by_role("button",name=re.compile(r"^Skapa testdata:"))

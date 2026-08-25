@@ -17,5 +17,5 @@ def test_fixed_share_is_same_page_native_control():
 def test_only_short_version_is_used_for_users():
     text = app_text()
     assert 'st.sidebar.caption(f"CupNavi version {APP_VERSION}")' not in text
-    assert "Version v.1.191" in text
+    assert "Version v.1.192" in text
     assert "KÖR VERSION" not in text
