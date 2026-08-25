@@ -1,0 +1,25 @@
+name: Cross-browser compatibility
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  browser-matrix:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install application dependencies
+        run: pip install -r requirements.txt
+      - name: Install browser test dependencies
+        run: |
+          pip install pytest playwright
+          python -m playwright install --with-deps chromium firefox webkit
+      - name: Run PWA browser matrix
+        run: pytest -q e2e/test_cross_browser_matrix.py
+      - name: Run Streamlit browser smoke matrix
+        run: pytest -q e2e/test_streamlit_browser_smoke.py

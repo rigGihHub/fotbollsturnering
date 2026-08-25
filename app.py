@@ -102,7 +102,7 @@ from cupnavi_core.fairness import fairness_report
 from cupnavi_core.ux2 import workflow_progress, attention_items, schedule_board
 from cupnavi_core.about import feature_catalog, about_intro
 
-APP_BUILD_VERSION = "2026.08.25-179-PUBLIC-VIEW-POLISH"
+APP_BUILD_VERSION = "2026.08.25-182-SIDEBAR-VERSION"
 APP_VERSION = APP_BUILD_VERSION
 
 def read_core_version_from_disk():
@@ -2073,7 +2073,7 @@ def inject_custom_css():
             background:var(--cup-bg) !important;
             color:var(--cup-ink) !important;
           }
-          .stApp { min-height:100vh; }
+          .stApp { min-height:100vh; min-height:100dvh; }
           [data-testid="stHeader"] { background:rgba(244,247,250,.96) !important; }
           [data-testid="stToolbar"] { color:var(--cup-ink) !important; }
           .block-container {
@@ -2892,9 +2892,10 @@ def inject_ux2_css():
         .cn-empty-state{display:flex;gap:13px;align-items:center;padding:18px;border:1px dashed #b9c7d2;border-radius:14px;background:#fbfcfd;margin:10px 0 16px}.cn-empty-state .icon{width:42px;height:42px;border-radius:12px;background:#eef8f1;display:grid;place-items:center;font-size:22px;color:#176b3a}.cn-empty-state b{color:#132033;font-size:16px}.cn-empty-state p{margin:3px 0 0;color:#64748b} 
         .cn-schedule-grid{display:grid;grid-template-columns:72px repeat(var(--cn-pitches,4),minmax(150px,1fr));gap:8px;margin:7px 0;min-width:720px}.cn-schedule-head>div{font-size:12px;font-weight:850;color:var(--cn-muted);text-transform:uppercase;padding:4px 6px}.cn-schedule-time{font-weight:850;color:var(--cn-text);padding:11px 6px}.cn-match-tile{display:grid;grid-template-columns:auto 1fr auto 1fr;gap:5px;align-items:center;padding:10px 11px;border:1px solid var(--cn-border);border-radius:12px;background:#fff;color:var(--cn-text);box-shadow:0 2px 8px rgba(15,23,42,.04)}.cn-match-tile small{color:var(--cn-muted)}.cn-match-tile.empty{display:block;color:#94a3b8;background:#f8fafc;box-shadow:none}.stExpander:has(.cn-schedule-grid){overflow-x:auto}
         .cn-mobile-bottom-nav{display:none}
-        [data-testid="stButton"] button{min-height:44px;border-radius:12px;font-weight:720}
+        [data-testid="stButton"] button{min-height:44px;border-radius:12px;font-weight:720;touch-action:manipulation;-webkit-tap-highlight-color:transparent}
+        [data-testid="stDataFrame"],.texttv-table-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
         [data-testid="stButton"] button[kind="primary"]{box-shadow:0 4px 12px rgba(23,107,58,.14)}
-        .cn-current-admin-page{position:sticky;top:78px;z-index:50;background:rgba(248,250,252,.94);backdrop-filter:blur(8px);border:1px solid var(--cn-border);box-shadow:0 5px 14px rgba(15,23,42,.05)}
+        .cn-current-admin-page{position:sticky;top:78px;z-index:50;background:rgba(248,250,252,.94);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);border:1px solid var(--cn-border);box-shadow:0 5px 14px rgba(15,23,42,.05)}
         .cn-admin-nav-group-title{margin-top:18px!important;color:#64748b!important;font-size:12px!important;letter-spacing:.06em!important}
 
         .cn-admin-section-label{font-size:12px;font-weight:900;text-transform:uppercase;letter-spacing:.07em;color:#64748b;margin:2px 0 5px}
@@ -2925,7 +2926,7 @@ def inject_ux2_css():
         .cn-next-action b{color:#14532d}.cn-next-action span{color:#475569;font-size:13px}
 
         @media(max-width:760px){
-          .cn-mobile-bottom-nav{display:grid;grid-template-columns:repeat(4,1fr);position:fixed;left:8px;right:8px;bottom:8px;z-index:999996;background:rgba(255,255,255,.97);border:1px solid #dbe4ea;border-radius:18px;box-shadow:0 10px 28px rgba(15,23,42,.16);padding:6px;backdrop-filter:blur(12px)}
+          .cn-mobile-bottom-nav{display:grid;grid-template-columns:repeat(4,1fr);position:fixed;left:8px;right:8px;bottom:8px;z-index:999996;background:rgba(255,255,255,.97);border:1px solid #dbe4ea;border-radius:18px;box-shadow:0 10px 28px rgba(15,23,42,.16);padding:6px;-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px)}
           .cn-mobile-bottom-nav a{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;min-height:52px;text-decoration:none!important;color:#475569!important;font-size:17px;border-radius:12px}.cn-mobile-bottom-nav a span{font-size:10px;font-weight:800}.cn-mobile-bottom-nav a.active{background:#eef8f1;color:#14532d!important}
           .stApp .block-container{padding-bottom:5.8rem!important}.cn-schedule-grid{min-width:640px}.cn-current-admin-page{top:70px} [data-testid="stButton"] button{min-height:46px !important}
         }
@@ -5169,10 +5170,19 @@ def group_playoff_qualifiers(tournament_id, group_id):
                 rank = int(source.split(":")[-1])
             except (TypeError, ValueError):
                 continue
-            if bracket_name.lower().startswith("a-"):
+            lower_name = bracket_name.lower()
+            if lower_name.startswith("a-"):
                 mapping[rank] = ("A", "qual-a")
-            elif bracket_name.lower().startswith("b-"):
+            elif lower_name.startswith("b-"):
                 mapping[rank] = ("B", "qual-b")
+            elif "ettornas" in lower_name or "1:ornas" in lower_name or "1ornas" in lower_name:
+                mapping[rank] = (bracket_name or "Ettornas slutspel", "qual-rank-1")
+            elif "tvåornas" in lower_name or "2:ornas" in lower_name or "2ornas" in lower_name:
+                mapping[rank] = (bracket_name or "Tvåornas slutspel", "qual-rank-2")
+            elif "treornas" in lower_name or "3:ornas" in lower_name or "3ornas" in lower_name:
+                mapping[rank] = (bracket_name or "Treornas slutspel", "qual-rank-3")
+            elif "fyrornas" in lower_name or "4:ornas" in lower_name or "4ornas" in lower_name:
+                mapping[rank] = (bracket_name or "Fyrornas slutspel", "qual-rank-4")
             else:
                 mapping.setdefault(rank, (bracket_name or "Slutspel", "qual-playoff"))
     return mapping
@@ -5191,7 +5201,14 @@ def render_group_table(table_rows, tournament, group_id=None):
         row_class = ""
         if position in qualifier_map:
             qualifier_label, row_class = qualifier_map[position]
-            css_class = "a" if qualifier_label == "A" else ("b" if qualifier_label == "B" else "playoff")
+            if qualifier_label == "A":
+                css_class = "a"
+            elif qualifier_label == "B":
+                css_class = "b"
+            elif row_class.startswith("qual-rank-"):
+                css_class = row_class.replace("qual-", "")
+            else:
+                css_class = "playoff"
             qualifier = f"<span class='qualifier {css_class}'>{html.escape(str(qualifier_label))}</span>"
         elif fmt == "A- och B-slutspel":
             # Fallback before the bracket has been generated.
@@ -5219,10 +5236,18 @@ def render_group_table(table_rows, tournament, group_id=None):
         .texttv-table td.team{{text-align:left!important;font-weight:800}}
         .texttv-table tr.qual-a td{{background:#dcfce7!important;color:#14532d!important}}
         .texttv-table tr.qual-b td{{background:#dbeafe!important;color:#1e3a8a!important}}
+        .texttv-table tr.qual-rank-1 td{{background:#dcfce7!important;color:#14532d!important}}
+        .texttv-table tr.qual-rank-2 td{{background:#dbeafe!important;color:#1e3a8a!important}}
+        .texttv-table tr.qual-rank-3 td{{background:#fef3c7!important;color:#78350f!important}}
+        .texttv-table tr.qual-rank-4 td{{background:#f1f5f9!important;color:#334155!important}}
         .texttv-table tr.qual-playoff td{{background:#fef3c7!important;color:#78350f!important}}
         .qualifier{{display:inline-flex;width:24px;height:24px;align-items:center;justify-content:center;border-radius:4px;color:#fff;font-weight:900}}
         .qualifier.a,.texttv-legend i.a{{background:#16a34a}}
         .qualifier.b,.texttv-legend i.b{{background:#2563eb}}
+        .qualifier.rank-1{{background:#15803d;min-width:28px;width:auto;padding:0 6px}}
+        .qualifier.rank-2{{background:#2563eb;min-width:28px;width:auto;padding:0 6px}}
+        .qualifier.rank-3{{background:#d97706;min-width:28px;width:auto;padding:0 6px}}
+        .qualifier.rank-4{{background:#64748b;min-width:28px;width:auto;padding:0 6px}}
         .qualifier.playoff{{background:#d97706;min-width:28px;width:auto;padding:0 6px}}
         .texttv-legend{{display:flex;gap:18px;margin-top:7px;color:#334155;font-size:13px}}
         .texttv-legend span{{display:flex;align-items:center;gap:6px}}
@@ -6604,7 +6629,7 @@ def render_public_view(tournament_id, tournament):
           min-height:36px!important;padding:6px 11px!important;
           border:1px solid rgba(255,255,255,.40)!important;border-radius:999px!important;
           background:rgba(255,255,255,.12)!important;color:#fff!important;
-          font-weight:800!important;box-shadow:none!important;backdrop-filter:blur(6px);
+          font-weight:800!important;box-shadow:none!important;-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);
         }
         .cn-share-toggle-anchor + div button:hover {
           background:rgba(255,255,255,.22)!important;border-color:rgba(255,255,255,.65)!important;
@@ -8354,6 +8379,7 @@ if st.session_state.get("view_mode") not in mode_options:
     st.session_state["view_mode"] = mode_options[0]
 if st.session_state.get("view_mode") != "Turneringsvy":
     st.sidebar.caption("Databas: Turso" if CLOUD_DATABASE_ENABLED else "Databas: Lokal SQLite")
+st.sidebar.caption("Version v.1.182")
 
 def _set_view_mode(mode):
     st.session_state["view_mode"] = mode

@@ -1,7 +1,7 @@
 from pathlib import Path
 ROOT=Path(__file__).resolve().parents[1]
 APP=(ROOT/"app.py").read_text(encoding="utf-8")
-R="2026.08.25-179-PUBLIC-VIEW-POLISH"
+R="2026.08.25-182-SIDEBAR-VERSION"
 
 def test_final_ranking_has_schema_fallback():
     assert "Fall back to the pre-v176 columns" in APP
@@ -9,7 +9,7 @@ def test_final_ranking_has_schema_fallback():
 
 def test_group_qualifiers_derive_from_real_brackets():
     assert "def group_playoff_qualifiers" in APP
-    assert 'bracket_name.lower().startswith("a-")' in APP
+    assert 'lower_name.startswith("a-")' in APP
     assert ".texttv-table tr.qual-a td" in APP
     assert ".texttv-table tr.qual-b td" in APP
 
