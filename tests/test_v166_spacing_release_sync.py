@@ -2,7 +2,7 @@ from pathlib import Path
 ROOT=Path(__file__).resolve().parents[1]
 APP=(ROOT/"app.py").read_text(encoding="utf-8")
 VER=(ROOT/"cupnavi_core/version.py").read_text(encoding="utf-8")
-R="2026.08.25-182-SIDEBAR-VERSION"
+R="2026.08.25-183-BROWSER-SMOKE-FIX"
 
 def test_release_sync():
     assert f'APP_BUILD_VERSION = "{R}"' in APP

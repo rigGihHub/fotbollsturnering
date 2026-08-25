@@ -2,7 +2,7 @@ from pathlib import Path
 ROOT=Path(__file__).resolve().parents[1]
 APP=(ROOT/"app.py").read_text(encoding="utf-8")
 MIG=(ROOT/"cupnavi_core/migrations.py").read_text(encoding="utf-8")
-R="2026.08.25-182-SIDEBAR-VERSION"
+R="2026.08.25-183-BROWSER-SMOKE-FIX"
 
 def test_sidebar_no_longer_asks_global_team_count():
     start=APP.index('with st.sidebar.expander("Skapa ny turnering")')

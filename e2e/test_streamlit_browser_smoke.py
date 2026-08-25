@@ -45,12 +45,31 @@ def test_streamlit_public_shell(streamlit_server,browser_name,viewport):
         ctx=browser.new_context(viewport=viewport,has_touch=viewport["width"]<600)
         page=ctx.new_page()
         page.goto(BASE,wait_until="domcontentloaded")
-        page.wait_for_selector("body",timeout=20000)
-        page.wait_for_timeout(2500)
+
+        # Streamlit can temporarily keep <body> hidden while its frontend
+        # bootstraps. Waiting for body visibility makes the browser smoke test
+        # fail even though the app itself is healthy. Wait for the body to be
+        # attached, then for Streamlit's app root to become visible.
+        page.wait_for_selector("body",state="attached",timeout=20000)
+        page.wait_for_selector(
+            '[data-testid="stAppViewContainer"], [data-testid="stApp"], .stApp',
+            state="visible",
+            timeout=30000,
+        )
+
+        # Give Streamlit one short render cycle after the shell becomes visible.
+        page.wait_for_timeout(750)
         body=page.locator("body").inner_text()
         assert "This app has encountered an error" not in body
-        assert "CupNavi" in body or "Turneringar" in body
-        overflow=page.evaluate("() => document.documentElement.scrollWidth-document.documentElement.clientWidth")
+        assert "Traceback" not in body
+
+        # A healthy shell should expose CupNavi content or the initial
+        # tournament selector/login view.
+        assert any(token in body for token in ("CupNavi","Turneringar","Turneringsvy","Administratörsinloggning"))
+
+        overflow=page.evaluate(
+            "() => Math.max(0, document.documentElement.scrollWidth-document.documentElement.clientWidth)"
+        )
         assert overflow <= 4
         ctx.close()
         browser.close()
