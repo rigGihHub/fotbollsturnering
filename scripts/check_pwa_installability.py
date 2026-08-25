@@ -13,7 +13,7 @@ if manifest.get("display")!="standalone":
     errors.append("manifest display must be standalone")
 
 sw=(PWA/"service-worker.js").read_text(encoding="utf-8")
-for required in ('addEventListener("install"','addEventListener("fetch"',"manifest.webmanifest","app.js","styles.css"):
+for required in ('addEventListener("install"','addEventListener("fetch"',"manifest.webmanifest","app.js","styles.css",'req.mode==="navigate"','caches.match("./index.html")'):
     if required not in sw:
         errors.append(f"service worker missing {required}")
 

@@ -15,6 +15,7 @@ self.addEventListener("fetch",event=>{
   const req=event.request;
   if(req.method!=="GET") return;
   const url=new URL(req.url);
+
   if(url.pathname.includes("/api/public/")){
     event.respondWith(
       fetch(req).then(resp=>{
@@ -25,5 +26,19 @@ self.addEventListener("fetch",event=>{
     );
     return;
   }
+
+  // Navigations can contain cup/team query parameters. Those URLs are not
+  // literal app-shell cache keys, so always fall back to the cached index.
+  if(req.mode==="navigate"){
+    event.respondWith(
+      fetch(req).catch(async()=>{
+        return (await caches.match("./index.html")) ||
+               (await caches.match("./")) ||
+               Response.error();
+      })
+    );
+    return;
+  }
+
   event.respondWith(caches.match(req).then(hit=>hit||fetch(req)));
 });

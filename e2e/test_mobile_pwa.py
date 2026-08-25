@@ -74,10 +74,17 @@ def _run_device(browser, device, servers):
     assert "Mitt lag" in page.locator("#view").inner_text()
 
     # Offline app-shell should survive after one online load.
+    # Wait until the service worker actually controls this page; registration
+    # alone is not sufficient for an offline navigation test.
+    page.wait_for_function(
+        "() => navigator.serviceWorker && navigator.serviceWorker.controller !== null",
+        timeout=10000,
+    )
     context.set_offline(True)
     page.reload(wait_until="domcontentloaded")
-    page.wait_for_timeout(500)
+    page.wait_for_selector("body")
     assert page.locator("body").is_visible()
+    assert page.locator("#nav").is_visible()
     context.close()
 
 def test_android_and_iphone_mobile_pwa(servers):

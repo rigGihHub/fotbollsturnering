@@ -13,3 +13,5 @@ Focus only: flow, logic and visual hierarchy.
 - Mobile touch targets improved while deep functions remain in grouped navigation.
 
 - Same-package hotfix: public match cards receive match-event data explicitly, preventing NameError after fragment/lazy-load refactoring.
+
+- Same-package PWA hotfix: offline navigation with cup/team query parameters falls back to cached index.html; mobile E2E waits for service-worker control before offline reload.
