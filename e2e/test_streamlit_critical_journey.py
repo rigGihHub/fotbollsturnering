@@ -177,17 +177,60 @@ def test_full_cup_lifecycle_journey(server,browser_name):
         demo_button.wait_for(state="visible",timeout=20000)
         assert demo_button.is_enabled()
         demo_button.click()
-        wait_app(page)
-        body=page.locator("body").inner_text()
-        assert "Aktuellt testläge" in body
+        # Do not assert transient success/caption text after a Streamlit rerun.
+        # The durable contract is that test data exists and the Testnivå control
+        # becomes enabled. This also avoids browser-specific rerender timing.
+        test_level=wait_until_enabled(page.get_by_label("Testnivå",exact=True),timeout=30000)
+        with sqlite3.connect(DB) as con:
+            tid=con.execute(
+                "SELECT id FROM tournaments WHERE name=? ORDER BY id DESC LIMIT 1",
+                (cup_name,),
+            ).fetchone()[0]
+            demo_counts=con.execute(
+                """SELECT
+                     (SELECT COUNT(*) FROM teams WHERE tournament_id=?),
+                     (SELECT COUNT(*) FROM groups WHERE tournament_id=?),
+                     (SELECT COUNT(*) FROM referees WHERE tournament_id=?)""",
+                (tid,tid,tid),
+            ).fetchone()
+        assert demo_counts[0] == 8
+        assert demo_counts[1] == 2
+        assert demo_counts[2] >= 1
 
         # 3. Build schedule + publish + results + events + playoff to completion.
         choose_streamlit_option(page,"Testnivå","Hela cupen färdig")
-        generate=page.get_by_role("button",name=re.compile(r"Generera testläge: Hela cupen färdig"))
-        assert generate.is_enabled()
+        generate=wait_until_enabled(
+            page.get_by_role("button",name=re.compile(r"Generera testläge: Hela cupen färdig")),
+            timeout=20000,
+        )
         generate.click()
-        wait_app(page)
 
+        # Streamlit rerenders immediately when the button is clicked, while the
+        # demo generator continues server-side. Wait for the persisted completion
+        # state instead of sleeping for a fixed amount of time.
+        deadline=time.time()+45
+        last_state=None
+        while time.time()<deadline:
+            try:
+                with sqlite3.connect(DB) as con:
+                    row=con.execute(
+                        """SELECT
+                             (SELECT COUNT(*) FROM matches WHERE tournament_id=?),
+                             (SELECT COUNT(*) FROM matches WHERE tournament_id=? AND home_score IS NOT NULL AND away_score IS NOT NULL),
+                             is_published,lifecycle_status
+                           FROM tournaments WHERE id=?""",
+                        (tid,tid,tid),
+                    ).fetchone()
+                last_state=row
+                if row and row[0] > 0 and row[1] == row[0] and int(row[2]) == 1 and row[3] == "completed":
+                    break
+            except sqlite3.OperationalError:
+                pass
+            time.sleep(.25)
+        else:
+            raise AssertionError(f"Timed out waiting for completed demo cup; last DB state={last_state}")
+
+        wait_app(page)
         # DB verification proves the UI action completed the whole persistence chain.
         tid=assert_complete_database(cup_name)
 
