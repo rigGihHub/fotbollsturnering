@@ -1,9 +1,0 @@
-{
-  "name": "CupNavi",
-  "short_name": "CupNavi",
-  "start_url": "/",
-  "display": "standalone",
-  "background_color": "#f8fafc",
-  "theme_color": "#166534",
-  "description": "Turneringen i mobilen – matcher, tabeller, slutspel och cupinformation."
-}

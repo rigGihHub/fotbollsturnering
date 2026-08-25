@@ -6,10 +6,10 @@ import re
 ROOT = Path(__file__).resolve().parents[1]
 MANIFEST = ROOT / "RELEASE_MANIFEST.txt"
 
-# Manifest integrity is intentionally scoped to release-critical files.
-# Historical QA notes and other non-runtime documents may remain in a Git repo
-# after a GitHub Desktop "replace files" update and must not make a clean CI
-# checkout disagree with a manifest produced from the update package.
+# Release integrity is deliberately based on an explicit, shallow allowlist.
+# A Git repository updated by overlay/copy can contain stale historical copies of
+# the whole project under legitimate directories such as scripts/, staging/ or
+# cupnavi_core/. Those copies must never become release inputs.
 INCLUDED_TOP_LEVEL_FILES = {
     ".gitignore",
     "app.py",
@@ -19,65 +19,100 @@ INCLUDED_TOP_LEVEL_FILES = {
     "pyproject.toml",
     "Dockerfile.api",
     "docker-compose.staging.yml",
+    "CLEANUP_LEGACY_DUPLICATES.bat",
 }
-INCLUDED_TOP_LEVEL_DIRS = {
-    ".github",
-    ".streamlit",
-    "assets",
-    "cupnavi_api",
-    "cupnavi_core",
-    "e2e",
-    "public_pwa",
-    "scripts",
-    "staging",
-    "static",
-    "tests",
-}
-EXCLUDED_PARTS = {".git", ".pytest_cache", "__pycache__", ".idea", ".vscode", "backups", ".venv", "venv", "dist", "build"}
-EXCLUDED_NAMES = {"RELEASE_MANIFEST.txt", ".DS_Store"}
-EXCLUDED_SUFFIXES = {".pyc", ".db", ".sqlite", ".sqlite3", ".bak", ".tmp"}
+
+# Patterns are relative to ROOT and intentionally shallow where the runtime
+# structure is shallow. This is the key protection against nested stale repos.
+INCLUDED_PATTERNS = (
+    ".github/workflows/*.yml",
+    ".github/workflows/*.yaml",
+    ".streamlit/config.toml",
+    "assets/*",
+    "cupnavi_api/*.py",
+    "cupnavi_core/*.py",
+    "e2e/*.py",
+    "public_pwa/*",
+    "scripts/*.py",
+    "staging/Caddyfile",
+    "staging/.env.staging.example",
+    "static/*",
+    "tests/*.py",
+)
+
+EXCLUDED_NAMES = {"RELEASE_MANIFEST.txt", ".DS_Store", "secrets.toml"}
+EXCLUDED_PARTS = {"backups", "__pycache__", ".pytest_cache", ".git", ".venv", "venv"}
+EXCLUDED_SUFFIXES = {".pyc", ".db", ".sqlite", ".sqlite3", ".bak", ".tmp", ".log"}
 EXCLUDED_ENDINGS = (".db-shm", ".db-wal")
 
 
-def is_release_file(path: Path, rel: Path) -> bool:
-    if len(rel.parts) == 1:
-        if rel.as_posix() not in INCLUDED_TOP_LEVEL_FILES:
-            return False
-    elif rel.parts[0] not in INCLUDED_TOP_LEVEL_DIRS:
-        return False
+def _allowed_candidates():
+    seen = set()
+    for name in INCLUDED_TOP_LEVEL_FILES:
+        path = ROOT / name
+        if path.is_file():
+            rel = Path(name)
+            if rel not in seen:
+                seen.add(rel)
+                yield path, rel
+    for pattern in INCLUDED_PATTERNS:
+        for path in ROOT.glob(pattern):
+            if not path.is_file():
+                continue
+            rel = path.relative_to(ROOT)
+            if rel not in seen:
+                seen.add(rel)
+                yield path, rel
 
-    # cupnavi_core is the Python package, not a container for another checkout.
-    # Older GitHub Desktop update flows could leave an entire stale project tree
-    # nested under cupnavi_core/ (for example cupnavi_core/app.py,
-    # cupnavi_core/.github/... or cupnavi_core/cupnavi_core/...). Such files are
-    # not part of the runtime package and must never enter the release manifest.
-    if rel.parts[0] == "cupnavi_core":
-        if len(rel.parts) != 2 or path.suffix.lower() != ".py" or path.name == "app.py":
+
+def is_release_file(path: Path, rel: Path) -> bool:
+    """Return True only for files belonging to the explicit release structure."""
+    rel = Path(rel)
+    if len(rel.parts) == 1:
+        allowed = rel.as_posix() in INCLUDED_TOP_LEVEL_FILES
+    else:
+        allowed = False
+        # Compare against the same shapes as INCLUDED_PATTERNS without relying
+        # on recursive filesystem traversal.
+        p = rel.as_posix()
+        if len(rel.parts) == 3 and rel.parts[:2] == (".github", "workflows") and rel.suffix in {".yml", ".yaml"}:
+            allowed = True
+        elif p == ".streamlit/config.toml":
+            allowed = True
+        elif len(rel.parts) == 2 and rel.parts[0] == "assets":
+            allowed = True
+        elif len(rel.parts) == 2 and rel.parts[0] in {"cupnavi_api", "cupnavi_core", "e2e", "scripts", "tests"} and rel.suffix == ".py":
+            # app.py is a project-root entry point; a copy inside scripts/ or
+            # cupnavi_core/ is proof of a stale nested checkout, not a release file.
+            allowed = not (rel.name == "app.py" and rel.parts[0] in {"scripts", "cupnavi_core"})
+        elif len(rel.parts) == 2 and rel.parts[0] in {"public_pwa", "static"}:
+            allowed = True
+        elif p in {"staging/Caddyfile", "staging/.env.staging.example"}:
+            allowed = True
+        if not allowed:
             return False
+
     if any(part in EXCLUDED_PARTS for part in rel.parts):
         return False
     if path.name in EXCLUDED_NAMES:
         return False
-    if path.name == ".env" or path.name.startswith(".env.") and path.name != ".env.staging.example":
+    if path.name == ".env":
         return False
-    if path.as_posix().endswith(".streamlit/secrets.toml"):
+    if rel.as_posix() == ".streamlit/secrets.toml":
         return False
     if path.suffix.lower() in EXCLUDED_SUFFIXES:
         return False
     if path.name.lower().endswith(EXCLUDED_ENDINGS):
         return False
-    return True
+    return allowed
 
 
 def release_files():
     files = []
-    for path in ROOT.rglob("*"):
-        if not path.is_file():
-            continue
-        rel = path.relative_to(ROOT)
+    for path, rel in _allowed_candidates():
         if is_release_file(path, rel):
             files.append(rel)
-    return sorted(files, key=lambda p: p.as_posix().casefold())
+    return sorted(set(files), key=lambda p: p.as_posix().casefold())
 
 
 def render():
@@ -125,7 +160,6 @@ def manifest_diagnostics(actual: str, expected: str):
                 f"CHANGED: {path} manifest_sha256={actual_entries[path]} current_sha256={expected_entries[path]}"
             )
 
-    # If parsing found no structural/hash difference, show a compact textual clue.
     if len(lines) == 1:
         actual_lines = actual.splitlines()
         expected_lines = expected.splitlines()
