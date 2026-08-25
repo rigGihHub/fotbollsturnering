@@ -9,6 +9,8 @@ import re
 import io
 import time
 import hashlib
+import sys
+import importlib
 from datetime import datetime, timedelta
 from pathlib import Path
 from urllib.parse import urlencode, quote, urlparse
@@ -17,6 +19,51 @@ from urllib.request import Request, urlopen
 import pandas as pd
 import streamlit as st
 import streamlit.components.v1 as components
+
+
+def _compute_source_fingerprint():
+    """Fingerprint deployed application sources without relying on imported modules."""
+    root = Path(__file__).resolve().parent
+    candidates = [root / "app.py", root / "requirements.txt", root / "VERSION.txt"]
+    core_root = root / "cupnavi_core"
+    if core_root.exists():
+        candidates.extend(sorted(core_root.rglob("*.py")))
+    digest = hashlib.sha256()
+    for path in candidates:
+        try:
+            relative = path.relative_to(root).as_posix()
+            data = path.read_bytes()
+        except (OSError, ValueError):
+            continue
+        digest.update(relative.encode("utf-8"))
+        digest.update(b"\0")
+        digest.update(data)
+        digest.update(b"\0")
+    return digest.hexdigest()
+
+
+def _refresh_cupnavi_imports_if_sources_changed():
+    """Reload CupNavi's own Python package automatically after a deployed source change."""
+    current = _compute_source_fingerprint()
+    previous = st.session_state.get("_cupnavi_source_fingerprint")
+    changed = previous != current
+
+    if changed:
+        # The Streamlit process can survive a GitHub redeploy. Remove only our own
+        # package modules so subsequent imports in this script load the new files.
+        for module_name in list(sys.modules):
+            if module_name == "cupnavi_core" or module_name.startswith("cupnavi_core."):
+                sys.modules.pop(module_name, None)
+        importlib.invalidate_caches()
+        st.session_state["_cupnavi_source_fingerprint"] = current
+        st.session_state["_cupnavi_source_reload_count"] = int(
+            st.session_state.get("_cupnavi_source_reload_count", 0)
+        ) + 1
+        st.session_state["_cupnavi_source_reloaded_at"] = datetime.now().isoformat(timespec="seconds")
+    return current, changed
+
+
+ACTIVE_SOURCE_FINGERPRINT, SOURCE_PACKAGE_REFRESHED = _refresh_cupnavi_imports_if_sources_changed()
 
 from cupnavi_core.version import APP_VERSION as IMPORTED_CORE_APP_VERSION
 
@@ -55,7 +102,7 @@ from cupnavi_core.fairness import fairness_report
 from cupnavi_core.ux2 import workflow_progress, attention_items, schedule_board
 from cupnavi_core.about import feature_catalog, about_intro
 
-APP_BUILD_VERSION = "2026.08.25-177-ADMIN-OVERVIEW-CLASS-PROGRESS"
+APP_BUILD_VERSION = "2026.08.25-179-PUBLIC-VIEW-POLISH"
 APP_VERSION = APP_BUILD_VERSION
 
 def read_core_version_from_disk():
@@ -71,6 +118,19 @@ def read_core_version_from_disk():
 CORE_APP_VERSION = read_core_version_from_disk()
 RELEASE_FILES_MISMATCH = CORE_APP_VERSION != APP_BUILD_VERSION
 REQUIRED_SCHEMA_VERSION = max(int(LATEST_SCHEMA_VERSION), 5)
+
+
+def deployment_diagnostics():
+    return {
+        "release": APP_BUILD_VERSION,
+        "core_disk_version": CORE_APP_VERSION,
+        "core_imported_version": IMPORTED_CORE_APP_VERSION,
+        "fingerprint": ACTIVE_SOURCE_FINGERPRINT,
+        "fingerprint_short": ACTIVE_SOURCE_FINGERPRINT[:12],
+        "auto_refresh_count": int(st.session_state.get("_cupnavi_source_reload_count", 0)),
+        "last_auto_refresh": st.session_state.get("_cupnavi_source_reloaded_at"),
+        "package_refreshed_this_run": bool(SOURCE_PACKAGE_REFRESHED),
+    }
 
 try:
     from streamlit_sortables import sort_items
@@ -276,21 +336,33 @@ def remove_competition_class(tournament_id, class_id):
     return True, f"{row['name']} borttagen."
 
 def competition_classes(tournament_id):
-    """Returnera turneringens tävlingsklasser som riktiga databasobjekt.
-
-    Mixed Streamlit/Turso deployments can briefly have new app code before the
-    matching remote schema. Repair that state once instead of crashing the UI.
-    """
+    """Return tournament classes without letting a lagging remote migration crash public pages."""
     sql = "SELECT id,tournament_id,name,sort_order,difficulty,planned_team_count FROM competition_classes WHERE tournament_id=? ORDER BY sort_order,name,id"
     params = (int(tournament_id),)
     try:
         return all_rows(sql, params)
     except Exception:
-        with db() as con:
-            ensure_competition_class_schema_compat(con)
-            con.commit()
-        _clear_render_query_cache()
-        return all_rows(sql, params)
+        # First try to repair the schema. Turso/libSQL deployments can briefly
+        # expose new app code before the ALTER has reached the remote database.
+        try:
+            with db() as con:
+                ensure_competition_class_schema_compat(con)
+                con.commit()
+            _clear_render_query_cache()
+            return all_rows(sql, params)
+        except Exception:
+            # Public rendering must remain available even if ALTER TABLE cannot
+            # be completed right now. Fall back to the pre-v176 columns.
+            fallback = all_rows(
+                "SELECT id,tournament_id,name,sort_order,difficulty FROM competition_classes WHERE tournament_id=? ORDER BY sort_order,name,id",
+                params,
+            )
+            normalized = []
+            for row in fallback:
+                item = dict(row)
+                item["planned_team_count"] = 0
+                normalized.append(item)
+            return normalized
 
 
 def sync_competition_classes(tournament_id, labels=None):
@@ -2829,7 +2901,7 @@ def inject_ux2_css():
 
         .cn-mode-nav-safezone{height:0;margin:0;padding:0}
         @media(min-width:901px){
-          .cn-mode-nav-safezone{height:40px!important;display:block!important}
+          .cn-mode-nav-safezone{height:72px!important;display:block!important}
           .cn-mode-nav-safezone + div{position:relative;z-index:20}
           .cn-mode-nav-safezone + div [data-testid="stButton"] button{min-height:42px}
         }
@@ -2886,7 +2958,7 @@ def render_persistent_brand():
             align-items:center;
             justify-content:center;
             min-width:190px;
-            max-width:min(285px, calc(100vw - 28px));
+            max-width:min(255px, calc(100vw - 28px));
             padding:6px 12px;
             border:1px solid rgba(203, 213, 225, 0.88);
             border-radius:999px;
@@ -2898,11 +2970,11 @@ def render_persistent_brand():
           }}
           .cn-persistent-brand img {{
             display:block;
-            width:min(100%, 210px);
+            width:min(100%, 190px);
             height:auto;
           }}
           .stApp .block-container {{
-            padding-top:3.75rem !important;
+            padding-top:3.2rem !important;
           }}
           @media (max-width:760px) {{
             .cn-persistent-brand {{
@@ -5076,17 +5148,53 @@ def ensure_playoffs_for_schedule(tournament_id, tournament):
     return True, ""
 
 
-def render_group_table(table_rows, tournament):
-    """Text-TV-inspirerad grupptabell med tydlig markering av A/B-slutspelsplatser."""
+def group_playoff_qualifiers(tournament_id, group_id):
+    """Map group position -> playoff label from actual generated bracket sources."""
+    rows = all_rows(
+        """SELECT b.name,m.home_source,m.away_source
+           FROM matches m
+           LEFT JOIN brackets b ON b.id=m.bracket_id
+           WHERE m.tournament_id=? AND m.stage<>'Gruppspel' AND m.bracket_id IS NOT NULL""",
+        (int(tournament_id),),
+    )
+    mapping = {}
+    prefix = f"group:{int(group_id)}:"
+    for row in rows:
+        bracket_name = str(_row_value(row, "name", "") or "").strip()
+        for source in (_row_value(row, "home_source", ""), _row_value(row, "away_source", "")):
+            source = str(source or "")
+            if not source.startswith(prefix):
+                continue
+            try:
+                rank = int(source.split(":")[-1])
+            except (TypeError, ValueError):
+                continue
+            if bracket_name.lower().startswith("a-"):
+                mapping[rank] = ("A", "qual-a")
+            elif bracket_name.lower().startswith("b-"):
+                mapping[rank] = ("B", "qual-b")
+            else:
+                mapping.setdefault(rank, (bracket_name or "Slutspel", "qual-playoff"))
+    return mapping
+
+
+def render_group_table(table_rows, tournament, group_id=None):
+    """Text-TV-inspirerad grupptabell med tydlig markering av slutspelsplatser."""
     if not table_rows:
         st.info("Ingen tabelldata att visa.")
         return
     rows_html = []
     fmt = tournament["playoff_format"]
+    qualifier_map = group_playoff_qualifiers(tournament["id"], group_id) if group_id else {}
     for position, (_, data) in enumerate(table_rows, 1):
         qualifier = ""
         row_class = ""
-        if fmt == "A- och B-slutspel":
+        if position in qualifier_map:
+            qualifier_label, row_class = qualifier_map[position]
+            css_class = "a" if qualifier_label == "A" else ("b" if qualifier_label == "B" else "playoff")
+            qualifier = f"<span class='qualifier {css_class}'>{html.escape(str(qualifier_label))}</span>"
+        elif fmt == "A- och B-slutspel":
+            # Fallback before the bracket has been generated.
             if position <= 2:
                 qualifier = "<span class='qualifier a'>A</span>"
                 row_class = "qual-a"
@@ -5109,11 +5217,13 @@ def render_group_table(table_rows, tournament):
         .texttv-table th,.texttv-table td{{text-align:center!important;padding:8px 9px;border-bottom:1px solid #334155}}
         .texttv-table th{{background:#172554;color:#facc15;font-weight:900}}
         .texttv-table td.team{{text-align:left!important;font-weight:800}}
-        .texttv-table tr.qual-a{{background:rgba(22,163,74,.20)}}
-        .texttv-table tr.qual-b{{background:rgba(37,99,235,.20)}}
+        .texttv-table tr.qual-a td{{background:#dcfce7!important;color:#14532d!important}}
+        .texttv-table tr.qual-b td{{background:#dbeafe!important;color:#1e3a8a!important}}
+        .texttv-table tr.qual-playoff td{{background:#fef3c7!important;color:#78350f!important}}
         .qualifier{{display:inline-flex;width:24px;height:24px;align-items:center;justify-content:center;border-radius:4px;color:#fff;font-weight:900}}
         .qualifier.a,.texttv-legend i.a{{background:#16a34a}}
         .qualifier.b,.texttv-legend i.b{{background:#2563eb}}
+        .qualifier.playoff{{background:#d97706;min-width:28px;width:auto;padding:0 6px}}
         .texttv-legend{{display:flex;gap:18px;margin-top:7px;color:#334155;font-size:13px}}
         .texttv-legend span{{display:flex;align-items:center;gap:6px}}
         .texttv-legend i{{width:13px;height:13px;border-radius:2px;display:inline-block}}
@@ -5991,7 +6101,7 @@ def render_public_statistics_section(tournament_id, tournament, published_matche
         for group in groups:
             st.subheader(group["name"])
             group_table = calculate_table(group["id"], tournament)
-            render_group_table(group_table, tournament)
+            render_group_table(group_table, tournament, group['id'])
         if bool(_row_value(tournament, "enable_final_ranking", 0)):
             st.subheader("Slutlig ranking")
             ranking = final_ranking_rows(tournament_id, tournament)
@@ -6487,23 +6597,28 @@ def render_public_view(tournament_id, tournament):
     st.markdown(
         """<style>
         .cn-share-toggle-anchor + div {
-          position:fixed;top:14px;left:calc(50% + 184px);z-index:999998;width:auto!important;
+          position:relative!important;z-index:30!important;width:max-content!important;
+          margin:-58px 16px 20px auto!important;
         }
         .cn-share-toggle-anchor + div button {
-          min-height:42px!important;padding:8px 14px!important;border:1px solid #d7e0e8!important;
-          border-radius:999px!important;background:rgba(255,255,255,.98)!important;color:#172033!important;
-          font-weight:780!important;box-shadow:0 8px 22px rgba(15,23,42,.07)!important;
+          min-height:36px!important;padding:6px 11px!important;
+          border:1px solid rgba(255,255,255,.40)!important;border-radius:999px!important;
+          background:rgba(255,255,255,.12)!important;color:#fff!important;
+          font-weight:800!important;box-shadow:none!important;backdrop-filter:blur(6px);
+        }
+        .cn-share-toggle-anchor + div button:hover {
+          background:rgba(255,255,255,.22)!important;border-color:rgba(255,255,255,.65)!important;
         }
         .cn-share-panel-anchor + div {
-          margin:-2px 0 14px!important;padding:2px 0 0!important;
+          margin:0 0 14px!important;padding:2px 0 0!important;
         }
         .cn-share-panel-anchor + div [data-testid="stVerticalBlockBorderWrapper"] {
           border-color:#dbe4ea!important;border-radius:16px!important;background:#fff!important;
           box-shadow:0 10px 28px rgba(15,23,42,.08)!important;
         }
         @media(max-width:760px) {
-          .cn-share-toggle-anchor + div {top:10px;left:auto;right:8px;}
-          .cn-share-toggle-anchor + div button {min-height:38px!important;padding:7px 10px!important;}
+          .cn-share-toggle-anchor + div {margin:-52px 10px 18px auto!important;}
+          .cn-share-toggle-anchor + div button {min-height:34px!important;padding:6px 9px!important;}
         }
         </style>""",
         unsafe_allow_html=True,
@@ -6902,12 +7017,13 @@ def render_public_view(tournament_id, tournament):
     if public_page_key not in st.session_state:
         st.session_state[public_page_key] = "Matcher"
 
-    nav1, nav2, nav3, nav4 = st.columns(4)
+    nav1, nav2, nav3, nav4, nav5 = st.columns(5)
     main_nav = [
         (nav1, "Matcher", "🗓️", tr("Spelschema & resultat")),
         (nav2, "Tabeller", "📊", tr("Tabeller gruppspel")),
         (nav3, "Slutspel", "🏆", tr("Slutspel")),
         (nav4, "Statistik", "📈", tr("Statistik")),
+        (nav5, "Info", "ℹ️", "Cupinfo"),
     ]
     _public_section_by_page = {
         "Matcher": "matches",
@@ -6931,21 +7047,6 @@ def render_public_view(tournament_id, tournament):
                 if requested_team_id:
                     st.query_params["team"] = str(requested_team_id)
             st.rerun()
-
-    _info_active = st.session_state[public_page_key] == "Info"
-    if st.button(
-        "ℹ️ Information om cupen",
-        key=f"public_info_secondary_{tournament_id}",
-        type="primary" if _info_active else "secondary",
-        use_container_width=False,
-    ):
-        st.session_state[public_page_key] = "Info"
-        if hasattr(st, "query_params"):
-            st.query_params["cup"] = str(_row_value(tournament, "public_slug", tournament_id) or tournament_id)
-            st.query_params["section"] = "info"
-            if requested_team_id:
-                st.query_params["team"] = str(requested_team_id)
-        st.rerun()
 
     public_page = st.session_state[public_page_key]
 
@@ -8240,7 +8341,6 @@ if st.session_state.get("language") != selected_language:
     st.rerun()
 
 _install_streamlit_translation_hooks()
-st.sidebar.caption("Databas: Turso" if CLOUD_DATABASE_ENABLED else "Databas: Lokal SQLite")
 public_app_mode = str(st.query_params.get("public_only", "")).lower() in {"1", "true", "yes"}
 
 mode_options = (
@@ -8252,6 +8352,8 @@ mode_options = (
 )
 if st.session_state.get("view_mode") not in mode_options:
     st.session_state["view_mode"] = mode_options[0]
+if st.session_state.get("view_mode") != "Turneringsvy":
+    st.sidebar.caption("Databas: Turso" if CLOUD_DATABASE_ENABLED else "Databas: Lokal SQLite")
 
 def _set_view_mode(mode):
     st.session_state["view_mode"] = mode
@@ -8317,7 +8419,8 @@ if RELEASE_FILES_MISMATCH and view_mode == "Admin":
         f"app.py: {APP_BUILD_VERSION}\n\n"
         f"cupnavi_core/version.py: {CORE_APP_VERSION}\n\n"
         "Kontrollen läser versionsfilen direkt från den deployade disken. "
-        "Om GitHub visar samma version i båda filerna: starta om Streamlit-appen så den hämtar senaste commit."
+        "CupNavi laddar automatiskt om egna Pythonmoduler när källkoden ändras. "
+        "Om denna varning kvarstår har den deployade filuppsättningen faktiskt olika versioner."
     )
 
 if view_mode == "Matchrapportör":
@@ -11203,6 +11306,21 @@ if admin_page == "Cupinställningar":
     _is_public = bool(tournament["is_published"])
     _phase = "STARTAD" if _is_started else ("PUBLICERAD" if _is_public else "UTKAST")
     st.info(f"Nuvarande fas: **{_phase}** · Spelade matcher: **{_played_count}**")
+    _deploy=deployment_diagnostics()
+    with st.expander("Teknisk release-status", expanded=False):
+        dc1,dc2,dc3=st.columns(3)
+        dc1.metric("Aktiv release",_deploy["release"])
+        dc2.metric("Deploy-fingerprint",_deploy["fingerprint_short"])
+        dc3.metric("Automatiska kodomladdningar",_deploy["auto_refresh_count"])
+        st.caption(
+            f'Core på disk: {_deploy["core_disk_version"]} · importerad core: {_deploy["core_imported_version"]}'
+        )
+        if _deploy["last_auto_refresh"]:
+            st.caption(f'Senaste automatiska kodomladdning: {_deploy["last_auto_refresh"]}')
+        if _deploy["package_refreshed_this_run"]:
+            st.success("Ny deploy upptäcktes och CupNavi-koden laddades om automatiskt i den här körningen.")
+        elif not RELEASE_FILES_MISMATCH:
+            st.success("App- och corefiler är synkade.")
     _admin_sport_rec=sport_setup_recommendation(_row_value(tournament,"sport","Fotboll"))
     st.caption(
         f'Sportprofil: **{_admin_sport_rec["display_name"]}** · '
@@ -14609,7 +14727,7 @@ if admin_page == "Tabeller":
     for g in groups:
         st.subheader(g["name"])
         table = calculate_table(g["id"], tournament)
-        render_group_table(table, tournament)
+        render_group_table(table, tournament, group['id'])
         if tournament["table_tiebreak"] == "Inbördes möten först":
             st.caption("Sortering: poäng, inbördes möten, därefter målskillnad och gjorda mål.")
         else:

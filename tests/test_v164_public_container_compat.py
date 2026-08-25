@@ -2,7 +2,7 @@ from pathlib import Path
 
 ROOT=Path(__file__).resolve().parents[1]
 APP=(ROOT/"app.py").read_text(encoding="utf-8")
-RELEASE="2026.08.25-177-ADMIN-OVERVIEW-CLASS-PROGRESS"
+RELEASE="2026.08.25-179-PUBLIC-VIEW-POLISH"
 
 def test_public_view_has_no_keyed_streamlit_containers():
     start=APP.index("def render_public_view")

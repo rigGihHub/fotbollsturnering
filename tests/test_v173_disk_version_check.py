@@ -1,7 +1,7 @@
 from pathlib import Path
 ROOT=Path(__file__).resolve().parents[1]
 APP=(ROOT/"app.py").read_text(encoding="utf-8")
-R="2026.08.25-177-ADMIN-OVERVIEW-CLASS-PROGRESS"
+R="2026.08.25-179-PUBLIC-VIEW-POLISH"
 
 def test_version_check_reads_deployed_file_directly():
     assert "def read_core_version_from_disk" in APP

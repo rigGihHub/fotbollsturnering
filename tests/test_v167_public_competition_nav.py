@@ -1,12 +1,12 @@
 from pathlib import Path
 ROOT=Path(__file__).resolve().parents[1]
 APP=(ROOT/"app.py").read_text(encoding="utf-8")
-R="2026.08.25-177-ADMIN-OVERVIEW-CLASS-PROGRESS"
+R="2026.08.25-179-PUBLIC-VIEW-POLISH"
 
 def test_public_has_four_clear_competition_buttons():
     for label in ("Spelschema & resultat","Tabeller gruppspel","Slutspel","Statistik"):
         assert label in APP
-    assert "nav1, nav2, nav3, nav4 = st.columns(4)" in APP
+    assert "nav1, nav2, nav3, nav4, nav5 = st.columns(5)" in APP
 
 def test_sections_have_distinct_urls():
     assert '"tables": "Tabeller"' in APP
@@ -24,10 +24,9 @@ def test_mobile_bottom_nav_matches_competition_flow():
     assert "<span>Schema</span>" in APP
     assert "<span>Statistik</span>" in APP
 
-def test_info_is_secondary_not_main_competition_button():
-    assert "ℹ️ Information om cupen" in APP
+def test_info_is_same_profile_cupinfo_button():
     main=APP[APP.index("main_nav = ["):APP.index("_public_section_by_page",APP.index("main_nav = ["))]
-    assert '"Info"' not in main
+    assert '(nav5, "Info", "ℹ️", "Cupinfo")' in main
 
 def test_release_sync():
     assert f'APP_BUILD_VERSION = "{R}"' in APP

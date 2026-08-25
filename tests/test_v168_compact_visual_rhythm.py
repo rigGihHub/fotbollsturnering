@@ -1,7 +1,7 @@
 from pathlib import Path
 ROOT=Path(__file__).resolve().parents[1]
 APP=(ROOT/"app.py").read_text(encoding="utf-8")
-R="2026.08.25-177-ADMIN-OVERVIEW-CLASS-PROGRESS"
+R="2026.08.25-179-PUBLIC-VIEW-POLISH"
 
 def test_public_status_is_integrated_into_hero():
     assert "cn-hero-status" in APP
@@ -12,7 +12,7 @@ def test_redundant_mode_caption_is_removed():
     assert 'st.caption(tr("Välj läge"))' not in APP
 
 def test_desktop_density_is_tighter_but_mobile_rules_remain():
-    assert "padding-top:3.75rem !important;" in APP
+    assert "padding-top:3.2rem !important;" in APP
     assert ".stApp .block-container{padding-top:.75rem!important" in APP
     assert '[data-testid="stVerticalBlock"]{gap:.42rem!important}' in APP
     assert "@media(max-width:760px)" in APP

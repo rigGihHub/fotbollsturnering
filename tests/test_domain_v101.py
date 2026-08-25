@@ -28,4 +28,4 @@ def test_release_mismatch_help_is_actionable():
     text = Path("app.py").read_text(encoding="utf-8")
     assert "cupnavi_core/version.py:" in text
     assert "Kontrollen läser versionsfilen direkt från den deployade disken." in text
-    assert "starta om Streamlit-appen" in text
+    assert "laddar automatiskt om egna Pythonmoduler" in text
