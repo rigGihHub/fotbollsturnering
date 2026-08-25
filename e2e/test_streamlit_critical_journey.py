@@ -93,6 +93,76 @@ def choose_streamlit_option(page, label, option, timeout=20000):
     )
 
 
+
+
+def _cup_progress_state(tournament_id):
+    try:
+        with sqlite3.connect(DB) as con:
+            return con.execute(
+                """SELECT
+                     (SELECT COUNT(*) FROM matches WHERE tournament_id=?),
+                     (SELECT COUNT(*) FROM matches WHERE tournament_id=? AND home_score IS NOT NULL AND away_score IS NOT NULL),
+                     is_published,lifecycle_status
+                   FROM tournaments WHERE id=?""",
+                (tournament_id,tournament_id,tournament_id),
+            ).fetchone()
+    except sqlite3.OperationalError:
+        return None
+
+
+def click_demo_generation_and_wait(page, tournament_id, timeout=60000):
+    """Click the Streamlit test-progress action only after its rerun is stable.
+
+    Streamlit can briefly expose the newly rendered button while the selectbox
+    rerun is still settling. A click in that narrow window may be lost by the
+    frontend. Require an acknowledgement (spinner or persisted DB change) and
+    retry only when the click was demonstrably not accepted.
+    """
+    button_locator=page.get_by_role(
+        "button", name=re.compile(r"Generera testläge: Hela cupen färdig")
+    )
+    acknowledged=False
+    for _attempt in range(3):
+        button=wait_until_enabled(button_locator,timeout=20000)
+        button.scroll_into_view_if_needed()
+        # The label itself is server-rendered from session state. Seeing it enabled
+        # in two consecutive frames avoids clicking a component from the outgoing DOM.
+        page.wait_for_timeout(250)
+        assert button.is_visible() and button.is_enabled()
+        button.click()
+
+        ack_deadline=time.time()+8
+        while time.time()<ack_deadline:
+            state=_cup_progress_state(tournament_id)
+            if state and (int(state[2]) == 1 or state[3] != "draft" or state[1] > 0):
+                acknowledged=True
+                break
+            try:
+                if page.get_by_text(re.compile(r"Bygger testläge: Hela cupen färdig")).count():
+                    acknowledged=True
+                    break
+            except Exception:
+                pass
+            time.sleep(.2)
+        if acknowledged:
+            break
+        # No UI or persistence acknowledgement means the click was lost during
+        # Streamlit's rerender. Wait for the app shell and retry the real button.
+        wait_app(page)
+
+    assert acknowledged, "Streamlit did not acknowledge the full-cup test generation click"
+
+    deadline=time.time()+timeout/1000
+    last_state=None
+    while time.time()<deadline:
+        row=_cup_progress_state(tournament_id)
+        if row is not None:
+            last_state=row
+            if row[0] > 0 and row[1] == row[0] and int(row[2]) == 1 and row[3] == "completed":
+                return
+        time.sleep(.25)
+    raise AssertionError(f"Timed out waiting for completed demo cup; last DB state={last_state}")
+
 def assert_complete_database(cup_name):
     con=sqlite3.connect(DB)
     con.row_factory=sqlite3.Row
@@ -199,37 +269,7 @@ def test_full_cup_lifecycle_journey(server,browser_name):
 
         # 3. Build schedule + publish + results + events + playoff to completion.
         choose_streamlit_option(page,"Testnivå","Hela cupen färdig")
-        generate=wait_until_enabled(
-            page.get_by_role("button",name=re.compile(r"Generera testläge: Hela cupen färdig")),
-            timeout=20000,
-        )
-        generate.click()
-
-        # Streamlit rerenders immediately when the button is clicked, while the
-        # demo generator continues server-side. Wait for the persisted completion
-        # state instead of sleeping for a fixed amount of time.
-        deadline=time.time()+45
-        last_state=None
-        while time.time()<deadline:
-            try:
-                with sqlite3.connect(DB) as con:
-                    row=con.execute(
-                        """SELECT
-                             (SELECT COUNT(*) FROM matches WHERE tournament_id=?),
-                             (SELECT COUNT(*) FROM matches WHERE tournament_id=? AND home_score IS NOT NULL AND away_score IS NOT NULL),
-                             is_published,lifecycle_status
-                           FROM tournaments WHERE id=?""",
-                        (tid,tid,tid),
-                    ).fetchone()
-                last_state=row
-                if row and row[0] > 0 and row[1] == row[0] and int(row[2]) == 1 and row[3] == "completed":
-                    break
-            except sqlite3.OperationalError:
-                pass
-            time.sleep(.25)
-        else:
-            raise AssertionError(f"Timed out waiting for completed demo cup; last DB state={last_state}")
-
+        click_demo_generation_and_wait(page,tid,timeout=60000)
         wait_app(page)
         # DB verification proves the UI action completed the whole persistence chain.
         tid=assert_complete_database(cup_name)

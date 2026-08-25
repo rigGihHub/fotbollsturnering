@@ -57,3 +57,23 @@ def test_manifest_diagnostics_identifies_changed_missing_and_extra_files():
     assert "EXTRA_IN_MANIFEST: obsolete.txt" in detail
     assert "manifest_sha256=" in detail
     assert "current_sha256=" in detail
+
+
+def test_nested_legacy_project_inside_core_is_ignored():
+    module = _load_manifest_module()
+    assert not module.is_release_file(
+        module.ROOT / "cupnavi_core" / "app.py",
+        Path("cupnavi_core/app.py"),
+    )
+    assert not module.is_release_file(
+        module.ROOT / "cupnavi_core" / ".github" / "workflows" / "ci.yml",
+        Path("cupnavi_core/.github/workflows/ci.yml"),
+    )
+    assert not module.is_release_file(
+        module.ROOT / "cupnavi_core" / "cupnavi_core" / "version.py",
+        Path("cupnavi_core/cupnavi_core/version.py"),
+    )
+    assert module.is_release_file(
+        module.ROOT / "cupnavi_core" / "version.py",
+        Path("cupnavi_core/version.py"),
+    )

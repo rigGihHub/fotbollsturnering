@@ -45,6 +45,15 @@ def is_release_file(path: Path, rel: Path) -> bool:
             return False
     elif rel.parts[0] not in INCLUDED_TOP_LEVEL_DIRS:
         return False
+
+    # cupnavi_core is the Python package, not a container for another checkout.
+    # Older GitHub Desktop update flows could leave an entire stale project tree
+    # nested under cupnavi_core/ (for example cupnavi_core/app.py,
+    # cupnavi_core/.github/... or cupnavi_core/cupnavi_core/...). Such files are
+    # not part of the runtime package and must never enter the release manifest.
+    if rel.parts[0] == "cupnavi_core":
+        if len(rel.parts) != 2 or path.suffix.lower() != ".py" or path.name == "app.py":
+            return False
     if any(part in EXCLUDED_PARTS for part in rel.parts):
         return False
     if path.name in EXCLUDED_NAMES:
