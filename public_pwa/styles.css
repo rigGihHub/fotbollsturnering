@@ -23,3 +23,32 @@ button{-webkit-tap-highlight-color:transparent}
 @supports(padding:max(0px)){
   nav{padding-bottom:max(6px,env(safe-area-inset-bottom))}
 }
+
+
+/* v191 product design system */
+:root{
+  --cn-primary:#176b3a;--cn-primary-hover:#12572f;--cn-primary-soft:#edf7f0;
+  --cn-bg:#f6f8f7;--cn-surface:#fff;--cn-border:#d9e2dd;--cn-border-strong:#c4d1ca;
+  --cn-text:#17231d;--cn-muted:#5f6f66;--cn-error:#b42318;--cn-warning:#9a5b0a;
+  --cn-radius-sm:8px;--cn-radius-md:12px;
+}
+html,body{background:var(--cn-bg);color:var(--cn-text);font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+main{max-width:1120px;margin:0 auto;padding-left:clamp(12px,3vw,28px);padding-right:clamp(12px,3vw,28px)}
+button,select,input{border-radius:var(--cn-radius-sm)!important}
+button{font-weight:650;box-shadow:none!important;transition:background-color .12s ease,border-color .12s ease}
+button:focus-visible,a:focus-visible,select:focus-visible,input:focus-visible{outline:3px solid rgba(23,107,58,.28);outline-offset:2px}
+.card,.panel,.match-card,.table-wrap{border-color:var(--cn-border)!important;box-shadow:none!important;border-radius:var(--cn-radius-md)!important;background:var(--cn-surface)!important}
+nav{background:#fff!important;border-top:1px solid var(--cn-border)!important;box-shadow:0 -4px 14px rgba(16,24,20,.07)!important;-webkit-backdrop-filter:none!important;backdrop-filter:none!important}
+nav button{background:transparent!important;color:var(--cn-muted)!important}
+nav button.active{background:var(--cn-primary-soft)!important;color:#14552f!important}
+table th{background:#eef3f0!important;color:#263a2e!important;font-weight:700}
+table td,table th{padding:9px 10px}
+.empty-state{background:#f8faf9!important;border:1px dashed var(--cn-border-strong)!important;border-radius:var(--cn-radius-md)!important}
+@media(max-width:600px){
+  main{padding-left:10px;padding-right:10px}
+  button{min-height:44px}
+  table td,table th{padding:8px}
+}
+@media(prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation:none!important;transition:none!important;scroll-behavior:auto!important}
+}

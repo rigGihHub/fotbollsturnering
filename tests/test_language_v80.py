@@ -15,8 +15,8 @@ def test_translation_layer_has_fallback():
 
 def test_public_navigation_is_translated():
     text = app_text()
-    assert 'tr("Spelschema & resultat")' in text
-    assert 'tr("Tabeller gruppspel")' in text
+    assert 'tr("Schema & resultat")' in text
+    assert 'tr("Tabeller")' in text
     assert 'tr("Slutspel")' in text
     assert 'tr("Statistik")' in text
 

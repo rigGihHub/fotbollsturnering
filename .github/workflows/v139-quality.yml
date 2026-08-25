@@ -30,6 +30,8 @@ jobs:
           CUPNAVI_PARITY_CUP: parity-cup
       - name: Check PWA installability contract
         run: python scripts/check_pwa_installability.py
+      - name: Check API health contract
+        run: python scripts/check_health_contract.py
       - name: Verify version sync
         run: |
           python - <<'PY'

@@ -1,7 +1,7 @@
 from pathlib import Path
 ROOT=Path(__file__).resolve().parents[1]
 APP=(ROOT/"app.py").read_text(encoding="utf-8")
-R="2026.08.25-184-STREAMLIT-SMOKE-SEMANTICS"
+R="2026.08.25-191-BEAUTIFY-FULL-E2E"
 
 def test_public_has_four_clear_competition_buttons():
     for label in ("Spelschema & resultat","Tabeller gruppspel","Slutspel","Statistik"):
@@ -26,7 +26,7 @@ def test_mobile_bottom_nav_matches_competition_flow():
 
 def test_info_is_same_profile_cupinfo_button():
     main=APP[APP.index("main_nav = ["):APP.index("_public_section_by_page",APP.index("main_nav = ["))]
-    assert '(nav5, "Info", "ℹ️", "Cupinfo")' in main
+    assert '(nav5, "Info", "Cupinfo")' in main
 
 def test_release_sync():
     assert f'APP_BUILD_VERSION = "{R}"' in APP

@@ -1,7 +1,7 @@
 from pathlib import Path
 ROOT=Path(__file__).resolve().parents[1]
 APP=(ROOT/"app.py").read_text(encoding="utf-8")
-R="2026.08.25-184-STREAMLIT-SMOKE-SEMANTICS"
+R="2026.08.25-191-BEAUTIFY-FULL-E2E"
 
 def test_sport_setup_engine_exists():
     assert "def sport_setup_recommendation" in APP
@@ -19,7 +19,7 @@ def test_format_recommender_uses_same_sport_profile():
 
 def test_top_nav_has_safe_brand_clearance():
     assert "padding-top:3.2rem !important;" in APP
-    assert "width:min(100%, 190px);" in APP
+    assert "width:min(100%, 155px);" in APP
     assert "cn-mode-nav-safezone" in APP
 
 def test_release_sync():

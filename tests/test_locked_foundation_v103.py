@@ -29,7 +29,7 @@ def test_existing_tournament_foundation_is_read_only():
 
 def test_logo_is_smaller_than_v102_shell():
     text = app_text()
-    assert 'max-width:min(255px, calc(100vw - 28px));' in text
-    assert 'width:min(100%, 190px);' in text
-    assert 'max-width:280px;' in text
-    assert 'width:min(100%, 215px);' in text
+    assert 'max-width:min(185px, calc(100vw - 28px));' in text
+    assert 'width:min(100%, 155px);' in text
+    assert 'max-width:170px;' in text
+    assert 'width:min(100%, 145px);' in text

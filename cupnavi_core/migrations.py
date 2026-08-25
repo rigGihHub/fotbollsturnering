@@ -9,7 +9,7 @@ Regel:
 from dataclasses import dataclass
 from datetime import datetime, timezone
 
-LATEST_SCHEMA_VERSION = 22
+LATEST_SCHEMA_VERSION = 23
 
 
 @dataclass(frozen=True)
@@ -416,6 +416,21 @@ MIGRATIONS = (
         22,
         "competition_class_planned_team_count_v176",
         (),
+    ),
+    Migration(
+        23,
+        "server_side_rate_limits_v190",
+        (
+            """CREATE TABLE IF NOT EXISTS rate_limits (
+                scope TEXT NOT NULL,
+                subject_hash TEXT NOT NULL,
+                window_start INTEGER NOT NULL,
+                count INTEGER NOT NULL DEFAULT 0,
+                last_seen INTEGER NOT NULL,
+                PRIMARY KEY(scope,subject_hash,window_start)
+            )""",
+            "CREATE INDEX IF NOT EXISTS idx_rate_limits_last_seen ON rate_limits(last_seen)",
+        ),
     ),
 
 )

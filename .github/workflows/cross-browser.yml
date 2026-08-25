@@ -23,3 +23,5 @@ jobs:
         run: pytest -q e2e/test_cross_browser_matrix.py
       - name: Run Streamlit browser smoke matrix
         run: pytest -q e2e/test_streamlit_browser_smoke.py
+      - name: Run critical Streamlit user journey
+        run: pytest -q e2e/test_streamlit_critical_journey.py

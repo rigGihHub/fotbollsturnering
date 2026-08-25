@@ -14,10 +14,11 @@ def public_block():
 
 def test_four_large_public_competition_navigation_buttons_exist():
     block = public_block()
-    assert '(nav1, "Matcher", "🗓️"' in block
-    assert '(nav2, "Tabeller", "📊"' in block
-    assert '(nav3, "Slutspel", "🏆"' in block
-    assert '(nav4, "Statistik", "📈"' in block
+    assert '(nav1, "Matcher", tr("Schema & resultat"))' in block
+    assert '(nav2, "Tabeller", tr("Tabeller"))' in block
+    assert '(nav3, "Slutspel", tr("Slutspel"))' in block
+    assert '(nav4, "Statistik", tr("Statistik"))' in block
+    assert '(nav5, "Info", "Cupinfo")' in block
     assert 'type="primary" if active else "secondary"' in block
 
 

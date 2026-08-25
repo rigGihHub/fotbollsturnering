@@ -18,6 +18,23 @@ PUBLIC_TOURNAMENT_FIELDS = (
 def backend_name() -> str:
     return "turso" if os.getenv("TURSO_DATABASE_URL") and os.getenv("TURSO_AUTH_TOKEN") else "sqlite"
 
+def database_probe():
+    """Small read-only probe used by /health; does not expose secrets or schema content."""
+    import time
+    started=time.perf_counter()
+    try:
+        row=one("SELECT 1 AS ok")
+        ok=bool(row and int(row.get("ok",0))==1)
+        error=None
+    except Exception as exc:
+        ok=False
+        error=type(exc).__name__
+    return {
+        "ok":ok,
+        "latency_ms":round((time.perf_counter()-started)*1000,1),
+        "error":error,
+    }
+
 def _database_path() -> str:
     return os.getenv("CUPNAVI_API_SQLITE_PATH", "turnering.db")
 
@@ -134,19 +151,51 @@ def group_completed_matches(group_id):
         (int(group_id),),
     )
 
+def standings_inputs(tournament_id):
+    """Batch-load all standings input in three queries regardless of group count."""
+    tid=int(tournament_id)
+    groups=public_groups(tid)
+    teams=all_rows(
+        "SELECT id,name,group_id FROM teams WHERE tournament_id=? ORDER BY name",
+        (tid,),
+    )
+    matches=all_rows(
+        """SELECT group_id,home_source,away_source,home_score,away_score
+           FROM matches
+           WHERE tournament_id=? AND stage='Gruppspel'
+             AND home_score IS NOT NULL AND away_score IS NOT NULL""",
+        (tid,),
+    )
+    teams_by_group={}
+    for row in teams:
+        teams_by_group.setdefault(row.get("group_id"),[]).append(row)
+    matches_by_group={}
+    for row in matches:
+        matches_by_group.setdefault(row.get("group_id"),[]).append(row)
+    return groups,teams_by_group,matches_by_group
+
 def public_brackets(tournament_id):
+    """Load every bracket and its matches in two queries instead of one query per bracket."""
+    tid=int(tournament_id)
     brackets=all_rows(
         "SELECT id,name,size,bronze_match FROM brackets WHERE tournament_id=? ORDER BY id",
-        (int(tournament_id),),
+        (tid,),
     )
+    if not brackets:
+        return []
+    matches=all_rows(
+        """SELECT id,bracket_id,stage,round_no,match_no,home_source,away_source,scheduled_start,pitch_number,
+                  home_score,away_score,home_penalties,away_penalties,decided_winner_id,schedule_published
+           FROM matches
+           WHERE tournament_id=? AND bracket_id IS NOT NULL AND schedule_published=1
+           ORDER BY bracket_id,round_no,match_no,id""",
+        (tid,),
+    )
+    by_bracket={}
+    for row in matches:
+        by_bracket.setdefault(int(row["bracket_id"]),[]).append(row)
     for bracket in brackets:
-        bracket["matches"]=all_rows(
-            """SELECT id,stage,round_no,match_no,home_source,away_source,scheduled_start,pitch_number,
-                      home_score,away_score,home_penalties,away_penalties,decided_winner_id,schedule_published
-               FROM matches WHERE bracket_id=? AND schedule_published=1
-               ORDER BY round_no,match_no,id""",
-            (int(bracket["id"]),),
-        )
+        bracket["matches"]=by_bracket.get(int(bracket["id"]),[])
     return brackets
 
 def public_snapshot(public_key):

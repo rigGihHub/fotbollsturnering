@@ -14,7 +14,8 @@ def test_fixed_share_is_same_page_native_control():
     assert 'popovertarget=' not in text
     assert "popover='auto'" not in text
 
-def test_version_is_hidden_in_public_tournament_view_sidebar():
+def test_only_short_version_is_used_for_users():
     text = app_text()
-    assert 'if view_mode != "Turneringsvy":\n    st.sidebar.caption(f"CupNavi version {APP_VERSION}")' in text
-    assert 'st.sidebar.caption(f"CupNavi version {APP_VERSION}")\nlanguage_options' not in text
+    assert 'st.sidebar.caption(f"CupNavi version {APP_VERSION}")' not in text
+    assert "Version v.1.191" in text
+    assert "KÖR VERSION" not in text

@@ -25,10 +25,10 @@ def test_pitch_creation_and_travel_writes_are_batched():
     assert "run_many(" in ensure
     assert "run_many(" in travel
 
-def test_public_groups_are_loaded_only_inside_statistics_fragment():
+def test_public_group_tables_use_batched_statistics_path():
     stats=APP[APP.index("def render_public_statistics_section"):APP.index("def render_public_info_section")]
-    assert 'groups = all_rows("SELECT * FROM groups WHERE tournament_id=? ORDER BY name"' in stats
-    assert 'forecast_groups = all_rows("SELECT * FROM groups WHERE tournament_id=? ORDER BY name"' in stats
+    assert "calculate_all_group_tables(tournament_id, tournament)" in stats
+    assert 'groups = all_rows("SELECT * FROM groups WHERE tournament_id=? ORDER BY name"' not in stats
 
 def test_source_resolution_and_labels_have_render_local_cache():
     resolve=APP[APP.index("def resolve_source"):APP.index("def match_meta")]

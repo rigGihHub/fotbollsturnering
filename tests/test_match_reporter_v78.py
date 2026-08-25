@@ -13,7 +13,8 @@ def test_match_reporter_is_separate_mode():
     text = app_text()
     assert '"Matchrapportör"' in text
     assert "def require_match_reporter_access():" in text
-    assert 'setting("MATCH_REPORTER_PASSWORD") or "123"' in text
+    assert 'reporter_password = setting("MATCH_REPORTER_PASSWORD")' in text
+    assert 'test_password = setting("TEST_MATCH_REPORTER_PASSWORD") or "123"' in text
     assert "reporter_authenticated" in text
 
 def test_match_reporter_stops_before_admin_navigation():
@@ -31,7 +32,7 @@ def test_match_reporter_stays_in_restricted_operational_workspace():
     assert 'tr("Domarcentral")' in block
     assert 'tr("Offlineutkast")' in block
     assert "ADMIN_NAV_GROUPS" not in block
-    assert "UPDATE matches" in block
+    assert "update_match_result_if_unchanged" in block
     assert "player_match_stats" in block
     assert "SET referee_id=?" not in block
     assert "Skapa ny turnering" not in block
@@ -39,4 +40,5 @@ def test_match_reporter_stays_in_restricted_operational_workspace():
 def test_admin_password_and_reporter_password_are_separate():
     text = app_text()
     assert 'setting("ADMIN_PASSWORD")' in text
-    assert 'setting("MATCH_REPORTER_PASSWORD") or "123"' in text
+    assert 'reporter_password = setting("MATCH_REPORTER_PASSWORD")' in text
+    assert 'test_password = setting("TEST_MATCH_REPORTER_PASSWORD") or "123"' in text

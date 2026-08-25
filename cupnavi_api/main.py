@@ -1,11 +1,14 @@
 """Standalone read-only public API for the future CupNavi PWA."""
 from __future__ import annotations
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, HTTPException, Query, Response
 import os
 from fastapi.middleware.cors import CORSMiddleware
 from cupnavi_core.version import APP_VERSION
 from cupnavi_core.public_competition import calculate_group_table, team_competition_summary
-from .repository import public_tournament, public_teams, public_groups, public_matches, public_venue_points, public_notifications, group_teams, group_completed_matches, public_brackets, backend_name
+from .repository import (
+    public_tournament, public_teams, public_groups, public_matches, public_venue_points,
+    public_notifications, public_brackets, backend_name, standings_inputs, database_probe
+)
 
 app=FastAPI(title="CupNavi Public API",version=APP_VERSION,docs_url="/docs",redoc_url=None)
 
@@ -21,8 +24,18 @@ app.add_middleware(
 )
 
 @app.get("/health")
-def health():
-    return {"ok":True,"version":APP_VERSION,"database_backend":backend_name()}
+def health(response:Response):
+    probe=database_probe()
+    if not probe["ok"]:
+        response.status_code=503
+    return {
+        "ok":bool(probe["ok"]),
+        "version":APP_VERSION,
+        "database_backend":backend_name(),
+        "database_ok":bool(probe["ok"]),
+        "database_latency_ms":probe["latency_ms"],
+        "database_error":probe["error"],
+    }
 
 @app.get("/api/public/cups/{public_key}")
 def cup(public_key:str):
@@ -40,10 +53,12 @@ def cup(public_key:str):
 
 def _standings_payload(tournament):
     result=[]
-    for group in public_groups(int(tournament["id"])):
+    groups,teams_by_group,matches_by_group=standings_inputs(int(tournament["id"]))
+    for group in groups:
+        group_id=int(group["id"])
         rows=calculate_group_table(
-            group_teams(group["id"]),
-            group_completed_matches(group["id"]),
+            teams_by_group.get(group_id,[]),
+            matches_by_group.get(group_id,[]),
             points_win=int(tournament.get("points_win") or 0),
             points_draw=int(tournament.get("points_draw") or 0),
             points_loss=int(tournament.get("points_loss") or 0),

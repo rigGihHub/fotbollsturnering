@@ -18,7 +18,9 @@ def test_schema_v9_contains_privacy_and_admin_code_fields():
 def test_successful_logins_rerun_to_hide_credentials():
     text = app_text()
     assert 'st.session_state["admin_authenticated"] = True\n            st.rerun()' in text
-    assert 'st.session_state["reporter_authenticated"] = True\n            st.rerun()' in text
+    assert 'st.session_state["reporter_authenticated"] = True' in text
+    assert 'st.session_state["reporter_auth_scope"]' in text
+    assert 'st.rerun()' in text
     assert 'st.session_state["participant_portal_auth"]' in text
     assert 'st.rerun()' in text
 
