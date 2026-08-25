@@ -4,12 +4,12 @@ APP=(ROOT/"app.py").read_text(encoding="utf-8")
 
 def test_v139_version_sync():
     v=(ROOT/"VERSION.txt").read_text().strip()
-    assert v=="2026.08.25-172-REQUESTS-SCORE-IMPACT"
+    assert v=="2026.08.25-177-ADMIN-OVERVIEW-CLASS-PROGRESS"
     assert v in APP
     assert v in (ROOT/"cupnavi_core/version.py").read_text()
 
 def test_admin_uses_task_based_organizer():
-    assert "Organizer ·" in APP
+    assert "### Förberedelser" in APP
     assert "Nästa rekommenderade steg" in APP
     assert "organizer_workflow(" in APP
 

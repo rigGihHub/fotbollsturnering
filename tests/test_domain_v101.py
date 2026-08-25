@@ -27,5 +27,5 @@ def test_public_urls_are_centralized():
 def test_release_mismatch_help_is_actionable():
     text = Path("app.py").read_text(encoding="utf-8")
     assert "cupnavi_core/version.py:" in text
-    assert "Lägg in hela releasepaketet i GitHub, inte bara app.py." in text
-    assert "Starta sedan om Streamlit-appen" in text
+    assert "Kontrollen läser versionsfilen direkt från den deployade disken." in text
+    assert "starta om Streamlit-appen" in text

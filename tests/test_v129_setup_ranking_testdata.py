@@ -20,7 +20,7 @@ def test_testdata_has_variable_team_and_group_counts_and_gated_progress():
 
 def test_final_ranking_is_optional_at_creation_and_rendered():
     text = app_text()
-    assert 'new_tournament_final_ranking' in text
+    assert 'setup_final_ranking_' in text
     assert 'enable_final_ranking' in text
     assert 'def final_ranking_rows' in text
     assert 'Slutlig ranking' in text

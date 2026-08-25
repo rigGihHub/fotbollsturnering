@@ -9,7 +9,7 @@ Regel:
 from dataclasses import dataclass
 from datetime import datetime, timezone
 
-LATEST_SCHEMA_VERSION = 21
+LATEST_SCHEMA_VERSION = 22
 
 
 @dataclass(frozen=True)
@@ -412,6 +412,11 @@ MIGRATIONS = (
         "team_notification_subscriptions_v151",
         (),
     ),
+    Migration(
+        22,
+        "competition_class_planned_team_count_v176",
+        (),
+    ),
 
 )
 
@@ -457,6 +462,7 @@ def ensure_competition_class_schema_compat(con):
         tournament_id INTEGER NOT NULL REFERENCES tournaments(id) ON DELETE CASCADE,
         name TEXT NOT NULL,
         sort_order INTEGER NOT NULL DEFAULT 0,
+        planned_team_count INTEGER NOT NULL DEFAULT 0,
         created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
         UNIQUE(tournament_id, name)
     )""")
@@ -474,6 +480,10 @@ def ensure_competition_class_schema_compat(con):
                 except Exception:
                     pass
         return names
+
+    class_cols = _column_names("competition_classes")
+    if "planned_team_count" not in class_cols:
+        con.execute("ALTER TABLE competition_classes ADD COLUMN planned_team_count INTEGER NOT NULL DEFAULT 0")
 
     team_cols = _column_names("teams")
     group_cols = _column_names("groups")
@@ -675,6 +685,8 @@ def apply_migrations(con):
             ensure_v20_schema_compat(con)
         if migration.version == 21:
             ensure_v21_schema_compat(con)
+        if migration.version == 22:
+            ensure_competition_class_schema_compat(con)
         for statement in migration.statements:
             _execute(con, statement)
         _execute(

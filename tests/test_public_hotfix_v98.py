@@ -23,7 +23,7 @@ def test_playoff_preview_still_accepts_plain_mapping_rows():
 def test_min_cup_has_all_teams_option_and_can_clear_team_query():
     text = Path("app.py").read_text(encoding="utf-8")
     assert '"Alla lag": "All teams"' in text
-    assert 'format_func=lambda team_id: tr("Alla lag") if team_id is None' in text
+    assert 'format_func=lambda team_id: tr("Alla lag") if team_id == _all_teams_value' in text
     assert "if favorite_team_id is None and requested_team_id is not None:" in text
     assert 'del st.query_params["team"]' in text
     assert 'button(tr("Visa alla lag")' in text

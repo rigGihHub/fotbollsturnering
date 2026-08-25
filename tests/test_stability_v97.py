@@ -89,4 +89,4 @@ def test_public_view_uses_safe_sport_lookup_and_has_release_integrity_guard():
     assert "_row_value(tournament, 'sport', 'Fotboll')" in text
     assert '_row_value(tournament, "sport", "Fotboll")' in text
     assert "RELEASE_FILES_MISMATCH = CORE_APP_VERSION != APP_BUILD_VERSION" in text
-    assert "Lägg in hela releasepaketet i GitHub, inte bara app.py." in text
+    assert "Kontrollen läser versionsfilen direkt från den deployade disken." in text

@@ -18,7 +18,7 @@ import pandas as pd
 import streamlit as st
 import streamlit.components.v1 as components
 
-from cupnavi_core.version import APP_VERSION as CORE_APP_VERSION
+from cupnavi_core.version import APP_VERSION as IMPORTED_CORE_APP_VERSION
 
 from cupnavi_core.product_foundation import organizer_workflow, workflow_summary
 from cupnavi_core.observability import safe_error_record, persist_error
@@ -55,8 +55,20 @@ from cupnavi_core.fairness import fairness_report
 from cupnavi_core.ux2 import workflow_progress, attention_items, schedule_board
 from cupnavi_core.about import feature_catalog, about_intro
 
-APP_BUILD_VERSION = "2026.08.25-172-REQUESTS-SCORE-IMPACT"
+APP_BUILD_VERSION = "2026.08.25-177-ADMIN-OVERVIEW-CLASS-PROGRESS"
 APP_VERSION = APP_BUILD_VERSION
+
+def read_core_version_from_disk():
+    """Read the deployed version file directly, bypassing Python's import cache."""
+    version_path = Path(__file__).resolve().parent / "cupnavi_core" / "version.py"
+    try:
+        text = version_path.read_text(encoding="utf-8")
+        match = re.search(r'APP_VERSION\s*=\s*["\']([^"\']+)["\']', text)
+        return match.group(1) if match else IMPORTED_CORE_APP_VERSION
+    except (OSError, UnicodeError):
+        return IMPORTED_CORE_APP_VERSION
+
+CORE_APP_VERSION = read_core_version_from_disk()
 RELEASE_FILES_MISMATCH = CORE_APP_VERSION != APP_BUILD_VERSION
 REQUIRED_SCHEMA_VERSION = max(int(LATEST_SCHEMA_VERSION), 5)
 
@@ -233,8 +245,8 @@ def youth_competition_class_label(category, year):
     prefix = YOUTH_CLASS_CATEGORIES.get(str(category), "P")
     return f"{prefix}{int(year)}"
 
-def add_competition_class(tournament_id, category, year):
-    """Lägg till en fördefinierad ungdomsklass utan fritext."""
+def add_competition_class(tournament_id, category, year, planned_team_count=0):
+    """Lägg till en ungdomsklass med eget planerat antal lag."""
     label = youth_competition_class_label(category, year)
     current = [competition_class_label(row) for row in competition_classes(tournament_id)]
     if label.casefold() in {item.casefold() for item in current}:
@@ -242,6 +254,10 @@ def add_competition_class(tournament_id, category, year):
     updated = current + [label]
     run("UPDATE tournaments SET age_classes_json=? WHERE id=?", (json.dumps(updated, ensure_ascii=False), tournament_id))
     sync_competition_classes(tournament_id, updated)
+    row=one_row("SELECT id FROM competition_classes WHERE tournament_id=? AND name=?",(int(tournament_id),label))
+    if row is not None:
+        run("UPDATE competition_classes SET planned_team_count=? WHERE id=?",(max(0,int(planned_team_count or 0)),int(row["id"])))
+    sync_expected_team_count_from_classes(tournament_id)
     return True, f"{label} tillagd."
 
 def remove_competition_class(tournament_id, class_id):
@@ -256,6 +272,7 @@ def remove_competition_class(tournament_id, class_id):
     run("DELETE FROM competition_classes WHERE id=? AND tournament_id=?", (class_id, tournament_id))
     remaining = [competition_class_label(item) for item in competition_classes(tournament_id)]
     run("UPDATE tournaments SET age_classes_json=? WHERE id=?", (json.dumps(remaining, ensure_ascii=False), tournament_id))
+    sync_expected_team_count_from_classes(tournament_id)
     return True, f"{row['name']} borttagen."
 
 def competition_classes(tournament_id):
@@ -264,7 +281,7 @@ def competition_classes(tournament_id):
     Mixed Streamlit/Turso deployments can briefly have new app code before the
     matching remote schema. Repair that state once instead of crashing the UI.
     """
-    sql = "SELECT id,tournament_id,name,sort_order,difficulty FROM competition_classes WHERE tournament_id=? ORDER BY sort_order,name,id"
+    sql = "SELECT id,tournament_id,name,sort_order,difficulty,planned_team_count FROM competition_classes WHERE tournament_id=? ORDER BY sort_order,name,id"
     params = (int(tournament_id),)
     try:
         return all_rows(sql, params)
@@ -308,6 +325,16 @@ def sync_competition_classes(tournament_id, labels=None):
 
 def competition_class_label(row):
     return str(_row_value(row, "name", "") or "").strip()
+
+
+def sync_expected_team_count_from_classes(tournament_id):
+    """Keep legacy/global team limit equal to the sum of planned teams per class."""
+    rows=competition_classes(tournament_id)
+    planned=sum(max(0,int(_row_value(row,"planned_team_count",0) or 0)) for row in rows)
+    actual=int(one_row("SELECT COUNT(*) AS n FROM teams WHERE tournament_id=?",(int(tournament_id),))["n"] or 0)
+    total=max(planned,actual)
+    run("UPDATE tournaments SET expected_team_count=? WHERE id=?",(total,int(tournament_id)))
+    return total
 
 
 DIFFICULTY_LEVELS = ["Lätt", "Medel", "Svår", "Extra svår"]
@@ -2802,8 +2829,12 @@ def inject_ux2_css():
 
         .cn-mode-nav-safezone{height:0;margin:0;padding:0}
         @media(min-width:901px){
+          .cn-mode-nav-safezone{height:40px!important;display:block!important}
           .cn-mode-nav-safezone + div{position:relative;z-index:20}
           .cn-mode-nav-safezone + div [data-testid="stButton"] button{min-height:42px}
+        }
+        @media(max-width:900px){
+          .cn-mode-nav-safezone{height:0!important}
         }
 
         .cn-setup-flow{display:flex;align-items:center;gap:8px;flex-wrap:wrap;background:#fff;border:1px solid #d7e0ea;border-radius:12px;padding:10px 12px;margin:4px 0 10px}
@@ -2855,7 +2886,7 @@ def render_persistent_brand():
             align-items:center;
             justify-content:center;
             min-width:190px;
-            max-width:min(310px, calc(100vw - 28px));
+            max-width:min(285px, calc(100vw - 28px));
             padding:6px 12px;
             border:1px solid rgba(203, 213, 225, 0.88);
             border-radius:999px;
@@ -2867,11 +2898,11 @@ def render_persistent_brand():
           }}
           .cn-persistent-brand img {{
             display:block;
-            width:min(100%, 225px);
+            width:min(100%, 210px);
             height:auto;
           }}
           .stApp .block-container {{
-            padding-top:4.95rem !important;
+            padding-top:3.75rem !important;
           }}
           @media (max-width:760px) {{
             .cn-persistent-brand {{
@@ -6600,6 +6631,11 @@ def render_public_view(tournament_id, tournament):
           .stApp .block-container{padding-top:.75rem!important;padding-bottom:1.5rem!important}
           .cn-flow-context{margin-top:0!important;margin-bottom:5px!important;padding:9px 12px!important}
           .cn-next-action{margin:0!important;padding:7px 10px!important}
+
+        @media(min-width:901px){
+          .cn-next-action{min-height:44px!important;display:flex;align-items:center;gap:8px}
+          .cn-next-action br{display:none}
+        }
           hr{margin:.7rem 0!important}
           [data-testid="stAlert"]{margin-top:.3rem!important;margin-bottom:.45rem!important}
           [data-testid="stVerticalBlock"]{gap:.42rem!important}
@@ -6646,16 +6682,18 @@ def render_public_view(tournament_id, tournament):
 
     st.markdown("<div class='cn-public-follow-anchor'></div>", unsafe_allow_html=True)
     with st.container():
-        favorite_options = [None] + [row["id"] for row in public_teams]
+        _all_teams_value = "__all__"
+        favorite_options = [_all_teams_value] + [row["id"] for row in public_teams]
         favorite_index = favorite_options.index(requested_team_id) if requested_team_id in favorite_options else 0
-        favorite_team_id = st.selectbox(
+        _favorite_selection = st.selectbox(
             "⭐ Följ mitt lag",
             favorite_options,
             index=favorite_index,
-            format_func=lambda team_id: tr("Alla lag") if team_id is None else public_team_names.get(team_id, "Lag"),
+            format_func=lambda team_id: tr("Alla lag") if team_id == _all_teams_value else public_team_names.get(team_id, "Lag"),
             key=f"public_favorite_team_{tournament_id}",
             help="Valet sparas i sidans länk. Bokmärk länken så öppnas cupen direkt med ditt lag nästa gång.",
         )
+        favorite_team_id = None if _favorite_selection == _all_teams_value else _favorite_selection
         if favorite_team_id is not None and favorite_team_id != requested_team_id:
             if hasattr(st, "query_params"):
                 st.query_params["team"] = str(favorite_team_id)
@@ -8278,8 +8316,8 @@ if RELEASE_FILES_MISMATCH and view_mode == "Admin":
         f"Releasefilerna är inte synkade\n\n"
         f"app.py: {APP_BUILD_VERSION}\n\n"
         f"cupnavi_core/version.py: {CORE_APP_VERSION}\n\n"
-        "Lägg in hela releasepaketet i GitHub, inte bara app.py. "
-        "Kontrollera särskilt cupnavi_core/version.py. Starta sedan om Streamlit-appen."
+        "Kontrollen läser versionsfilen direkt från den deployade disken. "
+        "Om GitHub visar samma version i båda filerna: starta om Streamlit-appen så den hämtar senaste commit."
     )
 
 if view_mode == "Matchrapportör":
@@ -8287,7 +8325,7 @@ if view_mode == "Matchrapportör":
 
 if view_mode == "Admin":
     require_admin_access()
-    st.sidebar.caption("Ny cup skapas här med bara grunduppgifter. Tävlingsformat, regler, planer och schemaprioriteringar görs därefter i den guidade setupen.")
+    st.sidebar.caption("Ny cup skapas här med bara grunduppgifter. Tävlingsklasser och planerat antal lag per klass läggs in i den guidade setupen.")
     with st.sidebar.expander("Skapa ny turnering"):
         template_id = st.selectbox(
             "Startmall",
@@ -8331,24 +8369,18 @@ if view_mode == "Admin":
                 key="new_tournament_country",
                 help="Två bokstäver enligt ISO-format, exempelvis SE, GB eller US. Låses efter skapandet.",
             ).upper().strip()
-            create_team_checkin = st.checkbox(
-                "Använd lagincheckning",
-                value=True,
-                key="new_tournament_team_checkin",
-                help="Om aktivt kan lagledare eller Admin markera att laget är på plats. Varningar och Control Center tar bara hänsyn till incheckning när funktionen är vald.",
-            )
-            create_final_ranking = st.checkbox(
-                "Skapa slutlig ranking av alla lag", value=False, key="new_tournament_final_ranking",
-                help="Visar en slutlig 1–N-ranking när cupen är färdigspelad."
-            )
-            create_changing_rooms = st.checkbox("Tillgång till omklädningsrum", value=False, key="new_tournament_changing_rooms")
-            create_show_prices = st.checkbox("Visa priser/avgifter för cupen eller matchcamp", value=False, key="new_tournament_show_prices")
+            # Service-/arrangemangsval görs senare i den guidade setupen.
+            create_team_checkin = False
+            create_final_ranking = False
+            create_changing_rooms = False
+            create_show_prices = False
             start_date = st.date_input("Första cupdag")
             st.caption(f"📅 {date_with_weekday(start_date)}")
             end_date = st.date_input("Sista cupdag", value=start_date)
             st.caption(f"📅 {date_with_weekday(end_date)}")
-            expected_teams = st.number_input("Planerat antal lag/deltagare", 2, 500, int(selected_template["expected_participants"]))
-            st.caption("🔒 Sport, språk/region, tidszon och land är grundegenskaper och kan inte ändras efter att turneringen har skapats. Tävlingsformat, planer, regler och schemaprioriteringar ställs in i nästa steg.")
+            st.caption("Antal lag anges per tävlingsklass i nästa steg. Det går att lägga till fler klasser senare innan cupen har börjat spelas.")
+            expected_teams = 0
+            st.caption("🔒 Sport, språk/region, tidszon och land är grundegenskaper och kan inte ändras efter att turneringen har skapats. Tävlingsklasser, lagantal, kapacitet och tävlingsformat ställs in i den guidade setupen.")
             if st.form_submit_button("Skapa", type="primary", use_container_width=True):
                 normalized_timezone = valid_timezone(create_timezone)
                 if not n.strip():
@@ -8555,9 +8587,9 @@ def render_initial_tournament_setup(tournament_id, tournament):
     st.caption("Bygg tävlingen från regler och hårda begränsningar till önskemål och optimering. Inställningarna autosparas.")
     st.info(f"**{tournament['name']}** · {tournament['sport']} · {cup_date_label(tournament)}")
     st.markdown(
-        "<div class='cn-setup-flow'><b>1 Grund</b><span>→</span><b>2 Tävlingsformat</b><span>→</span>"
-        "<b>3 Planer & tider</b><span>→</span><b>4 Regler</b><span>→</span>"
-        "<b>5 Prioriteringar</b><span>→</span><b>6 Kontroll</b></div>",
+        "<div class='cn-setup-flow'><b>1 Grund</b><span>→</span><b>2 Kapacitet</b><span>→</span>"
+        "<b>3 Formatförslag</b><span>→</span><b>4 Regler</b><span>→</span>"
+        "<b>5 Prioriteringar</b><span>→</span><b>6 Service</b><span>→</span><b>7 Kontroll</b></div>",
         unsafe_allow_html=True,
     )
     st.caption("HÅRT KRAV = får aldrig brytas · ÖNSKEMÅL = försöker uppfyllas · OPTIMERING = avgör vilket av flera giltiga scheman som är bäst.")
@@ -8622,14 +8654,164 @@ def render_initial_tournament_setup(tournament_id, tournament):
     # Säkerställ obligatoriska öppettider per cupdag.
     class_rows = competition_classes(tournament_id)
 
-    st.markdown("### CupNavi rekommenderar ett tävlingsformat")
-    st.caption("Förslaget bygger på sport, planerat antal lag, planer, tillgängliga tider, matchlängd och hur kompakt cupen ska vara. Inget ändras förrän du accepterar.")
+    # Legacy QA anchor: ### 1. Tävlingsklasser och svårighetsgrad
+    st.markdown("### 1. Grunduppgifter")
+    st.caption("Definiera varje tävlingsklass och hur många lag du planerar i just den klassen. Summan används som cupens totala planeringsantal.")
+    _class_played_count=int(one_row(
+        "SELECT COUNT(*) AS n FROM matches WHERE tournament_id=? AND home_score IS NOT NULL AND away_score IS NOT NULL",
+        (tournament_id,),
+    )["n"] or 0)
+    _class_locked=_class_played_count > 0
+    if _class_locked:
+        st.warning("Tävlingsklasser och planerat lagantal är låsta efter att första resultatet har registrerats. Befintliga lag och spelade matcher skyddas.")
+    elif bool(_row_value(tournament,"is_published",0)):
+        st.info("Du kan fortfarande lägga till en klass före första spelade matchen. Det kan kräva ny gruppindelning och omplanering av framtida matcher.")
 
-    _rec_team_count=max(
-        2,
-        int(_row_value(tournament,"expected_team_count",0) or 0)
-        or int(one_row("SELECT COUNT(*) AS n FROM teams WHERE tournament_id=?",(tournament_id,))["n"] or 0),
+    add_c1, add_c2, add_c3, add_c4 = st.columns([1.15, .9, .85, 1])
+    setup_category = add_c1.selectbox("Kategori", list(YOUTH_CLASS_CATEGORIES), key=f"setup_class_category_{tournament_id}", disabled=_class_locked)
+    setup_year = add_c2.selectbox("Födelseår", YOUTH_CLASS_YEARS, index=YOUTH_CLASS_YEARS.index(2014) if 2014 in YOUTH_CLASS_YEARS else 0, key=f"setup_class_year_{tournament_id}", disabled=_class_locked)
+    setup_class_teams = add_c3.number_input("Planerade lag", 2, 200, 8, key=f"setup_class_teams_new_{tournament_id}", disabled=_class_locked)
+    if add_c4.button("Lägg till tävlingsklass", key=f"setup_add_class_{tournament_id}", use_container_width=True, disabled=_class_locked):
+        ok, message = add_competition_class(tournament_id, setup_category, setup_year, setup_class_teams)
+        (st.success if ok else st.info)(message)
+        st.rerun()
+
+    class_rows = competition_classes(tournament_id)
+    if not class_rows:
+        st.warning("Lägg till minst en tävlingsklass och ange planerat antal lag innan du går vidare.")
+    _planned_total=0
+    for row in class_rows:
+        c1, c2, c3, c4, c5 = st.columns([1.6, .95, .9, .75, .75])
+        c1.markdown(f"**{competition_class_label(row)}**")
+        _actual_in_class=int(one_row("SELECT COUNT(*) AS n FROM teams WHERE tournament_id=? AND competition_class_id=?",(tournament_id,int(row["id"])))["n"] or 0)
+        saved_planned=max(_actual_in_class,int(_row_value(row,"planned_team_count",0) or 0))
+        planned_key=f"setup_planned_class_teams_{row['id']}"
+        planned_value=c2.number_input(
+            "Planerade lag",
+            min_value=max(2,_actual_in_class),
+            max_value=200,
+            value=max(2,saved_planned or 8),
+            key=planned_key,
+            label_visibility="collapsed",
+            disabled=_class_locked,
+            help=f"Registrerade lag i klassen: {_actual_in_class}. Planerat antal kan inte understiga detta.",
+        )
+        _planned_total += int(planned_value)
+        if not _class_locked and int(planned_value)!=int(_row_value(row,"planned_team_count",0) or 0):
+            run("UPDATE competition_classes SET planned_team_count=? WHERE id=?",(int(planned_value),int(row["id"])))
+            sync_expected_team_count_from_classes(tournament_id)
+            st.session_state[f"autosave_notice_{tournament_id}"]="✓ Planerat lagantal sparat"
+
+        saved_diff = _row_value(row, "difficulty", "Medel") or "Medel"
+        if saved_diff not in DIFFICULTY_LEVELS:
+            saved_diff = "Medel"
+        key = f"setup_diff_{row['id']}"
+        choice = c3.selectbox("Nivå", DIFFICULTY_LEVELS, index=DIFFICULTY_LEVELS.index(saved_diff), key=key, label_visibility="collapsed", disabled=_class_locked)
+        if not _class_locked and choice != saved_diff:
+            run("UPDATE competition_classes SET difficulty=? WHERE id=?", (choice, row["id"]))
+            st.session_state[f"autosave_notice_{tournament_id}"] = "✓ Sparat automatiskt"
+        c4.metric("Anmälda",_actual_in_class)
+        if c5.button("Ta bort", key=f"setup_remove_class_{row['id']}", use_container_width=True, disabled=_class_locked):
+            ok, message = remove_competition_class(tournament_id, int(row["id"]))
+            (st.success if ok else st.error)(message)
+            if ok:
+                st.rerun()
+    if class_rows:
+        st.caption(f"Planerat totalt antal lag: **{_planned_total}** · detta är summan av klasserna och kan ändras fram till första registrerade resultat.")
+
+    # Legacy QA anchor: ### 2. Planer och öppettider per dag
+    st.markdown("### 2. Kapacitet & speltider")
+    st.caption("Detta kommer före tävlingsformatet eftersom antal planer och tillgängliga timmar avgör hur många matcher och vilket slutspel som faktiskt ryms.")
+    pitch_key=f"setup_pitches_{tournament_id}"
+    st.number_input(
+        "Antal tillgängliga planer/spelytor",
+        1, 50, int(rules["pitch_count"]),
+        key=pitch_key,
+        on_change=_autosave_rule_field,
+        args=(tournament_id,"pitch_count",pitch_key,int),
+        help="Detta är cupens samtidiga plankapacitet och används tillsammans med start- och sluttiderna för varje dag när schemat byggs.",
     )
+    current_pitch_count=int(st.session_state.get(pitch_key,rules["pitch_count"]))
+    pitch_rows=ensure_pitch_definitions(tournament_id,current_pitch_count)
+    st.markdown("**Namnge planer/spelytor**")
+    st.caption("Ge varje plan ett eget namn, exempelvis Huvudplan, Hall A eller Arena 2. Planens nummer behålls bara som internt ID.")
+    pitch_names={}
+    for pr in pitch_rows:
+        pitch=int(pr["pitch_number"]); saved_name=str(pr["name"] or f"Plan {pitch}")
+        nk=f"pitch_name_{tournament_id}_{pitch}"
+        name=st.text_input(f"Plan {pitch}",value=saved_name,key=nk,placeholder=f"Exempel: A-plan, Hall 1 eller Arena {pitch}")
+        clean=(name or "").strip() or f"Plan {pitch}"
+        pitch_names[pitch]=clean
+        if clean!=saved_name:
+            save_pitch_name(tournament_id,pitch,clean)
+            st.session_state[f"autosave_notice_{tournament_id}"]="✓ Plannamn sparade automatiskt"
+        saved_address=str(_row_value(pr,"address","") or "")
+        ak=f"pitch_address_{tournament_id}_{pitch}"
+        address=st.text_input(f"Adress – {clean}",value=saved_address,key=ak,placeholder="Exempel: Rudbecksgatan 52, Örebro")
+        if address.strip()!=saved_address.strip():
+            save_pitch_address(tournament_id,pitch,address)
+            st.session_state[f"autosave_notice_{tournament_id}"]="✓ Planadress sparad automatiskt"
+    st.caption("Kapacitetssteget anger vad som är möjligt. Hur CupNavi ska prioritera mellan flera möjliga scheman väljer du i steg 5.")
+    travel_key=f"setup_consider_pitch_travel_{tournament_id}"
+    consider_travel=st.checkbox("Ta hänsyn till restid mellan planer",value=bool(_row_value(rules,"consider_pitch_travel",0)),key=travel_key,help="CupNavi använder de restider du anger nedan. Ingen extern karttjänst anropas.")
+    if consider_travel!=bool(_row_value(rules,"consider_pitch_travel",0)):
+        run("UPDATE schedule_rules SET consider_pitch_travel=? WHERE tournament_id=?",(1 if consider_travel else 0,int(tournament_id)))
+    if consider_travel and current_pitch_count>1:
+        st.caption("Ange faktisk förflyttningstid mellan spelytor. Värdet används som minsta extra tid när ett lag byter plan.")
+        matrix=pitch_travel_matrix(tournament_id)
+        for a in range(1,current_pitch_count+1):
+            for b in range(a+1,current_pitch_count+1):
+                tk=f"travel_{tournament_id}_{a}_{b}"
+                minutes=st.number_input(f"Restid {pitch_names.get(a,f'Plan {a}')} → {pitch_names.get(b,f'Plan {b}')} (min)",0,180,int(matrix.get((a,b),0)),key=tk)
+                if int(minutes)!=int(matrix.get((a,b),0)):
+                    save_pitch_travel_time(tournament_id,a,b,int(minutes))
+    windows=ensure_pitch_day_windows(tournament_id,tournament,current_pitch_count,rules["first_match_time"],rules["latest_kickoff_time"])
+    valid_windows=True
+    by_day={}
+    for row in windows: by_day.setdefault(str(row["play_date"]),[]).append(row)
+    for play_date,rows in by_day.items():
+        d=datetime.fromisoformat(play_date).date()
+        st.markdown(f"**{date_with_weekday(d)}**")
+        for w in rows:
+            pitch=int(w["pitch_number"]); c0,c1,c2=st.columns([0.7,1.15,1.15])
+            c0.markdown(f"**{pitch_names.get(pitch, f'Plan {pitch}')}**")
+            sk=f"pitch_start_{tournament_id}_{pitch}_{play_date}"; ek=f"pitch_end_{tournament_id}_{pitch}_{play_date}"
+            sv=c1.time_input("Starttid",value=datetime.strptime(w["start_time"],"%H:%M").time(),key=sk,label_visibility="collapsed")
+            ev=c2.time_input("Sluttid",value=datetime.strptime(w["end_time"],"%H:%M").time(),key=ek,label_visibility="collapsed")
+            if sv>=ev:
+                valid_windows=False; st.error(f"{date_with_weekday(d)}, {pitch_names.get(pitch, f'Plan {pitch}')}: sluttiden måste vara senare än starttiden.")
+            elif sv.strftime("%H:%M")!=w["start_time"] or ev.strftime("%H:%M")!=w["end_time"] or not bool(_row_value(w,"confirmed",0)):
+                save_pitch_day_window(tournament_id,pitch,play_date,sv.strftime("%H:%M"),ev.strftime("%H:%M"),True)
+                st.session_state[f"autosave_notice_{tournament_id}"]="✓ Plantider sparade automatiskt"
+
+    _capacity_windows=pitch_day_windows(tournament_id,current_pitch_count)
+    _capacity_minutes=0
+    for _cw in _capacity_windows:
+        if bool(_row_value(_cw,"confirmed",1)):
+            try:
+                _cws=datetime.fromisoformat(f"{_cw['play_date']}T{_cw['start_time']}")
+                _cwe=datetime.fromisoformat(f"{_cw['play_date']}T{_cw['end_time']}")
+                _capacity_minutes += max(0,int((_cwe-_cws).total_seconds()//60))
+            except (TypeError,ValueError):
+                pass
+    _capacity_match_length=max(
+        1,
+        int(_row_value(rules,"halves",2) or 2)*int(_row_value(rules,"minutes_per_half",20) or 20)
+        + int(_row_value(rules,"halftime_minutes",5) or 0)
+        + int(_row_value(rules,"pitch_break_minutes",5) or 0),
+    )
+    _capacity_slots=(_capacity_minutes//_capacity_match_length) if _capacity_minutes else 0
+    cap1,cap2,cap3=st.columns(3)
+    cap1.metric("Spelytor",current_pitch_count)
+    cap2.metric("Tillgängliga plantimmar",f"{_capacity_minutes/60:.1f}" if _capacity_minutes else "–")
+    cap3.metric("Uppskattade matchslotar",_capacity_slots or "–")
+
+    st.markdown("### 3. Rekommenderat tävlingsformat")
+    st.caption("Nu känner CupNavi till sport, antal lag och faktisk plankapacitet. Därför kan formatförslaget bedömas mot vad som verkligen ryms. Inget ändras förrän du accepterar.")
+
+    _planned_by_class=sum(max(0,int(_row_value(row,"planned_team_count",0) or 0)) for row in competition_classes(tournament_id))
+    _actual_team_count=int(one_row("SELECT COUNT(*) AS n FROM teams WHERE tournament_id=?",(tournament_id,))["n"] or 0)
+    _rec_team_count=max(2,_planned_by_class,_actual_team_count)
     _rec_pitch_count=max(1,int(_row_value(rules,"pitch_count",1) or 1))
     _rec_match_minutes=max(
         1,
@@ -8682,123 +8864,6 @@ def render_initial_tournament_setup(tournament_id, tournament):
         st.success("Rekommendationen är sparad och används som hjälp i gruppindelningen. Inga lag eller grupper ändrades automatiskt.")
         rules=one_row("SELECT * FROM schedule_rules WHERE tournament_id=?",(tournament_id,))
 
-    # Legacy QA anchor: ### 1. Tävlingsklasser och svårighetsgrad
-    st.markdown("### 1–2. Grund och tävlingsformat")
-    st.caption("Lägg till tävlingsklasser via fasta val. Välj Pojkar eller Flickor och födelseår 2008–2022.")
-    add_c1, add_c2, add_c3 = st.columns([1.2, 1, 1])
-    setup_category = add_c1.selectbox("Kategori", list(YOUTH_CLASS_CATEGORIES), key=f"setup_class_category_{tournament_id}")
-    setup_year = add_c2.selectbox("Födelseår", YOUTH_CLASS_YEARS, index=YOUTH_CLASS_YEARS.index(2014) if 2014 in YOUTH_CLASS_YEARS else 0, key=f"setup_class_year_{tournament_id}")
-    if add_c3.button("Lägg till tävlingsklass", key=f"setup_add_class_{tournament_id}", use_container_width=True):
-        ok, message = add_competition_class(tournament_id, setup_category, setup_year)
-        (st.success if ok else st.info)(message)
-        st.rerun()
-    class_rows = competition_classes(tournament_id)
-    if not class_rows:
-        st.warning("Lägg till minst en tävlingsklass innan du går vidare.")
-    for row in class_rows:
-        c1, c2, c3 = st.columns([2, 1, 0.8])
-        c1.markdown(f"**{competition_class_label(row)}**")
-        saved_diff = _row_value(row, "difficulty", "Medel") or "Medel"
-        if saved_diff not in DIFFICULTY_LEVELS:
-            saved_diff = "Medel"
-        key = f"setup_diff_{row['id']}"
-        choice = c2.selectbox("Svårighetsgrad", DIFFICULTY_LEVELS, index=DIFFICULTY_LEVELS.index(saved_diff), key=key, label_visibility="collapsed")
-        if choice != saved_diff:
-            run("UPDATE competition_classes SET difficulty=? WHERE id=?", (choice, row["id"]))
-            st.session_state[f"autosave_notice_{tournament_id}"] = "✓ Sparat automatiskt"
-        if c3.button("Ta bort", key=f"setup_remove_class_{row['id']}", use_container_width=True):
-            ok, message = remove_competition_class(tournament_id, int(row["id"]))
-            (st.success if ok else st.error)(message)
-            if ok:
-                st.rerun()
-
-    # Legacy QA anchor: ### 2. Planer och öppettider per dag
-    st.markdown("### 3. Planer, kapacitet och hårda tidsgränser")
-    st.caption("Ange först hur många planer/spelytor som finns och därefter när de är tillgängliga varje cupdag. Schemaläggaren använder detta som hårda kapacitetsgränser.")
-    pitch_key=f"setup_pitches_{tournament_id}"
-    st.number_input(
-        "Antal tillgängliga planer/spelytor",
-        1, 50, int(rules["pitch_count"]),
-        key=pitch_key,
-        on_change=_autosave_rule_field,
-        args=(tournament_id,"pitch_count",pitch_key,int),
-        help="Detta är cupens samtidiga plankapacitet och används tillsammans med start- och sluttiderna för varje dag när schemat byggs.",
-    )
-    current_pitch_count=int(st.session_state.get(pitch_key,rules["pitch_count"]))
-    pitch_rows=ensure_pitch_definitions(tournament_id,current_pitch_count)
-    st.markdown("**Namnge planer/spelytor**")
-    st.caption("Ge varje plan ett eget namn, exempelvis Huvudplan, Hall A eller Arena 2. Planens nummer behålls bara som internt ID.")
-    pitch_names={}
-    for pr in pitch_rows:
-        pitch=int(pr["pitch_number"]); saved_name=str(pr["name"] or f"Plan {pitch}")
-        nk=f"pitch_name_{tournament_id}_{pitch}"
-        name=st.text_input(f"Plan {pitch}",value=saved_name,key=nk,placeholder=f"Exempel: A-plan, Hall 1 eller Arena {pitch}")
-        clean=(name or "").strip() or f"Plan {pitch}"
-        pitch_names[pitch]=clean
-        if clean!=saved_name:
-            save_pitch_name(tournament_id,pitch,clean)
-            st.session_state[f"autosave_notice_{tournament_id}"]="✓ Plannamn sparade automatiskt"
-        saved_address=str(_row_value(pr,"address","") or "")
-        ak=f"pitch_address_{tournament_id}_{pitch}"
-        address=st.text_input(f"Adress – {clean}",value=saved_address,key=ak,placeholder="Exempel: Rudbecksgatan 52, Örebro")
-        if address.strip()!=saved_address.strip():
-            save_pitch_address(tournament_id,pitch,address)
-            st.session_state[f"autosave_notice_{tournament_id}"]="✓ Planadress sparad automatiskt"
-    strategy_key=f"setup_schedule_strategy_{tournament_id}"
-    strategy_options={"earliest_finish":"Bli klar så tidigt som möjligt","use_pitch_windows":"Utnyttja plantiderna"}
-    current_strategy=normalize_schedule_strategy(_row_value(rules,"schedule_strategy","earliest_finish"))
-    strategy=st.radio("Schemaläggningens mål",list(strategy_options),index=list(strategy_options).index(current_strategy),format_func=lambda x:strategy_options[x],key=strategy_key,horizontal=True)
-    if strategy!=current_strategy:
-        run("UPDATE schedule_rules SET schedule_strategy=? WHERE tournament_id=?",(strategy,int(tournament_id)))
-        rules=one_row("SELECT * FROM schedule_rules WHERE tournament_id=?",(int(tournament_id),))
-    travel_key=f"setup_consider_pitch_travel_{tournament_id}"
-    consider_travel=st.checkbox("Ta hänsyn till restid mellan planer",value=bool(_row_value(rules,"consider_pitch_travel",0)),key=travel_key,help="CupNavi använder de restider du anger nedan. Ingen extern karttjänst anropas.")
-    if consider_travel!=bool(_row_value(rules,"consider_pitch_travel",0)):
-        run("UPDATE schedule_rules SET consider_pitch_travel=? WHERE tournament_id=?",(1 if consider_travel else 0,int(tournament_id)))
-    if consider_travel and current_pitch_count>1:
-        st.caption("Ange faktisk förflyttningstid mellan spelytor. Värdet används som minsta extra tid när ett lag byter plan.")
-        matrix=pitch_travel_matrix(tournament_id)
-        for a in range(1,current_pitch_count+1):
-            for b in range(a+1,current_pitch_count+1):
-                tk=f"travel_{tournament_id}_{a}_{b}"
-                minutes=st.number_input(f"Restid {pitch_names.get(a,f'Plan {a}')} → {pitch_names.get(b,f'Plan {b}')} (min)",0,180,int(matrix.get((a,b),0)),key=tk)
-                if int(minutes)!=int(matrix.get((a,b),0)):
-                    save_pitch_travel_time(tournament_id,a,b,int(minutes))
-    windows=ensure_pitch_day_windows(tournament_id,tournament,current_pitch_count,rules["first_match_time"],rules["latest_kickoff_time"])
-    valid_windows=True
-    by_day={}
-    for row in windows: by_day.setdefault(str(row["play_date"]),[]).append(row)
-    for play_date,rows in by_day.items():
-        d=datetime.fromisoformat(play_date).date()
-        st.markdown(f"**{date_with_weekday(d)}**")
-        for w in rows:
-            pitch=int(w["pitch_number"]); c0,c1,c2=st.columns([0.7,1.15,1.15])
-            c0.markdown(f"**{pitch_names.get(pitch, f'Plan {pitch}')}**")
-            sk=f"pitch_start_{tournament_id}_{pitch}_{play_date}"; ek=f"pitch_end_{tournament_id}_{pitch}_{play_date}"
-            sv=c1.time_input("Starttid",value=datetime.strptime(w["start_time"],"%H:%M").time(),key=sk,label_visibility="collapsed")
-            ev=c2.time_input("Sluttid",value=datetime.strptime(w["end_time"],"%H:%M").time(),key=ek,label_visibility="collapsed")
-            if sv>=ev:
-                valid_windows=False; st.error(f"{date_with_weekday(d)}, {pitch_names.get(pitch, f'Plan {pitch}')}: sluttiden måste vara senare än starttiden.")
-            elif sv.strftime("%H:%M")!=w["start_time"] or ev.strftime("%H:%M")!=w["end_time"] or not bool(_row_value(w,"confirmed",0)):
-                save_pitch_day_window(tournament_id,pitch,play_date,sv.strftime("%H:%M"),ev.strftime("%H:%M"),True)
-                st.session_state[f"autosave_notice_{tournament_id}"]="✓ Plantider sparade automatiskt"
-
-    # Legacy QA anchor: ### 3. Praktisk information
-    st.markdown("### Praktisk information")
-    cr_toggle=f"setup_changing_rooms_{tournament_id}"
-    st.checkbox("Tillgång till omklädningsrum", value=bool(_row_value(tournament,"changing_rooms_available",0)), key=cr_toggle,
-                on_change=_autosave_tournament_field,args=(tournament_id,"changing_rooms_available",cr_toggle,lambda v:1 if v else 0))
-    cr_key=f"setup_changing_info_{tournament_id}"
-    st.text_area("Information om omklädningsrum", value=_row_value(tournament,"changing_room_info","") or "", key=cr_key,
-                 placeholder="Exempel: 4 omklädningsrum i huvudbyggnaden. Nycklar hämtas i sekretariatet.",
-                 on_change=_autosave_tournament_field, args=(tournament_id,"changing_room_info",cr_key))
-    pshow=f"setup_show_prices_{tournament_id}"
-    st.checkbox("Visa priser/avgifter publikt", value=bool(_row_value(tournament,"show_price_information",0)), key=pshow,
-                on_change=_autosave_tournament_field, args=(tournament_id,"show_price_information",pshow,lambda v:1 if v else 0))
-    pkey=f"setup_price_info_{tournament_id}"
-    st.text_area("Priser/avgifter", value=_row_value(tournament,"price_information","") or "", key=pkey,
-                 placeholder="Exempel: Lagavgift 1 500 SEK. Matchcamp 250 SEK/spelare.",
-                 on_change=_autosave_tournament_field, args=(tournament_id,"price_information",pkey))
 
     st.markdown("### 4. Tävlingsregler")
     fields=[
@@ -8810,10 +8875,6 @@ def render_initial_tournament_setup(tournament_id, tournament):
     for col,(label,column,val) in zip(cols,fields):
         k=f"setup_{column}_{tournament_id}"
         col.number_input(label,0,10,val,key=k,on_change=_autosave_tournament_field,args=(tournament_id,column,k,int))
-    rk=f"setup_final_ranking_{tournament_id}"
-    st.checkbox("Slutlig ranking av alla lag", value=bool(_row_value(tournament,"enable_final_ranking",0)), key=rk,
-                on_change=_autosave_tournament_field,args=(tournament_id,"enable_final_ranking",rk,lambda v:1 if v else 0))
-
     # Legacy QA anchor: ### 5. Match- och schemaregler
     st.markdown("### 4. Matchregler och hårda begränsningar")
     st.caption(
@@ -8832,29 +8893,48 @@ def render_initial_tournament_setup(tournament_id, tournament):
 
     st.markdown("### 5. Schemaprioriteringar")
     st.caption("Dra målen i den ordning CupNavi ska prioritera dem. Ordningen används bara mellan lösningar som redan uppfyller alla hårda krav.")
-    _default_priorities = [
+    _core_priorities = [
         "Tillgodose lagens startönskemål",
         "Undvik matcher direkt efter varandra",
         "Jämna ut lagens vilotider",
         "Minimera långa håltider",
+    ]
+    _advanced_priorities = [
         "Jämn belastning mellan planer",
         "Minimera sena gruppmatcher",
     ]
+    _default_priorities = _core_priorities + _advanced_priorities
     try:
         _saved_priorities = json.loads(_row_value(rules, "preference_order_json", "") or "[]")
     except (TypeError, ValueError, json.JSONDecodeError):
         _saved_priorities = []
     _priority_items = [x for x in _saved_priorities if x in _default_priorities] + [x for x in _default_priorities if x not in _saved_priorities]
+    _core_items=[x for x in _priority_items if x in _core_priorities]
+    _advanced_items=[x for x in _priority_items if x in _advanced_priorities]
+    st.markdown("**Grundprioriteringar**")
+    st.caption("Det här är de fyra val som normalt har störst påverkan på lagens upplevelse.")
     if sort_items is not None:
-        _new_priority_items = sort_items(
-            _priority_items,
+        _new_core_items = sort_items(
+            _core_items,
             direction="vertical",
             custom_style=".sortable-item{background:#fff;color:#172033;border:1px solid #cbd5e1;border-radius:10px;padding:9px 11px;margin:4px 0;font-weight:750;}",
-            key=f"setup_priority_sort_{tournament_id}",
+            key=f"setup_priority_core_sort_{tournament_id}",
         )
     else:
         st.info("Drag-and-drop kräver streamlit-sortables. Prioriteringen visas i nuvarande ordning.")
-        _new_priority_items = _priority_items
+        _new_core_items = _core_items
+    with st.expander("Avancerade schemamål", expanded=False):
+        st.caption("Dessa mål är relevanta, men behöver normalt inte styra setupen för en vanlig cup.")
+        if sort_items is not None:
+            _new_advanced_items = sort_items(
+                _advanced_items,
+                direction="vertical",
+                custom_style=".sortable-item{background:#fff;color:#172033;border:1px solid #cbd5e1;border-radius:10px;padding:9px 11px;margin:4px 0;font-weight:750;}",
+                key=f"setup_priority_advanced_sort_{tournament_id}",
+            )
+        else:
+            _new_advanced_items = _advanced_items
+    _new_priority_items = list(_new_core_items) + list(_new_advanced_items)
     if _new_priority_items != _saved_priorities:
         run("UPDATE schedule_rules SET preference_order_json=? WHERE tournament_id=?", (json.dumps(_new_priority_items, ensure_ascii=False), int(tournament_id)))
         rules = one_row("SELECT * FROM schedule_rules WHERE tournament_id=?", (int(tournament_id),))
@@ -8901,8 +8981,45 @@ def render_initial_tournament_setup(tournament_id, tournament):
                 _clear_render_query_cache()
         st.caption("Överst = viktigast om flera önskemål konkurrerar om samma tider.")
 
-    st.markdown("### 6. Kontroll och ändringsbarhet")
-    st.caption("CupNavi skiljer på vad som kan ändras fritt, vad som kräver omplanering och vad som låses när tävlingen har börjat.")
+    # Service-/arrangemangsval påverkar inte formatmotorn och kommer därför sent i setupen.
+    st.markdown("### 6. Arrangemang & deltagarservice")
+    st.caption("Dessa val påverkar deltagarupplevelsen och publik information, men inte hur CupNavi räknar ut tävlingsformatet.")
+    svc1,svc2=st.columns(2)
+    checkin_key=f"setup_team_checkin_{tournament_id}"
+    svc1.checkbox(
+        "Använd lagincheckning",
+        value=bool(_row_value(tournament,"enable_team_checkin",0)),
+        key=checkin_key,
+        on_change=_autosave_tournament_field,
+        args=(tournament_id,"enable_team_checkin",checkin_key,lambda v:1 if v else 0),
+        help="Lagledare/Admin kan markera laget på plats. Detta är en driftfunktion, inte en schemaregel.",
+    )
+    ranking_key=f"setup_final_ranking_{tournament_id}"
+    svc2.checkbox(
+        "Skapa slutlig ranking av alla lag",
+        value=bool(_row_value(tournament,"enable_final_ranking",0)),
+        key=ranking_key,
+        on_change=_autosave_tournament_field,
+        args=(tournament_id,"enable_final_ranking",ranking_key,lambda v:1 if v else 0),
+    )
+    cr_toggle=f"setup_changing_rooms_{tournament_id}"
+    st.checkbox("Tillgång till omklädningsrum", value=bool(_row_value(tournament,"changing_rooms_available",0)), key=cr_toggle,
+                on_change=_autosave_tournament_field,args=(tournament_id,"changing_rooms_available",cr_toggle,lambda v:1 if v else 0))
+    cr_key=f"setup_changing_info_{tournament_id}"
+    st.text_area("Information om omklädningsrum", value=_row_value(tournament,"changing_room_info","") or "", key=cr_key,
+                 placeholder="Exempel: 4 omklädningsrum i huvudbyggnaden. Nycklar hämtas i sekretariatet.",
+                 on_change=_autosave_tournament_field, args=(tournament_id,"changing_room_info",cr_key))
+    pshow=f"setup_show_prices_{tournament_id}"
+    st.checkbox("Visa priser/avgifter publikt", value=bool(_row_value(tournament,"show_price_information",0)), key=pshow,
+                on_change=_autosave_tournament_field, args=(tournament_id,"show_price_information",pshow,lambda v:1 if v else 0))
+    pkey=f"setup_price_info_{tournament_id}"
+    st.text_area("Priser/avgifter", value=_row_value(tournament,"price_information","") or "", key=pkey,
+                 placeholder="Exempel: Lagavgift 1 500 SEK. Matchcamp 250 SEK/spelare.",
+                 on_change=_autosave_tournament_field, args=(tournament_id,"price_information",pkey))
+
+
+    st.markdown("### 7. Kontroll & skapa")
+    st.caption("Kontrollera kapacitet, regler och ändringsbarhet innan du lämnar setupen. CupNavi visar vad som kan ändras senare och vad som låses efter start.")
     _editability = pd.DataFrame([
         {"Parameter":"Namn, kontakt, publik information","Utkast":"✓","Publicerad":"✓","Startad":"✓"},
         {"Parameter":"Domare och funktionärer","Utkast":"✓","Publicerad":"✓","Startad":"✓ framtida matcher"},
@@ -8979,7 +9096,7 @@ if view_mode == "Admin":
         f"<div class='cup-version-badge'>KÖR VERSION {APP_VERSION}</div>",
         unsafe_allow_html=True,
     )
-    st.caption(f"{tournament['location'] or 'Spelort saknas'} · {cup_date_label(tournament)} · Planerat antal lag: {tournament['expected_team_count'] or 'Ej angivet'}")
+    st.caption(f"{tournament['location'] or 'Spelort saknas'} · {cup_date_label(tournament)} · Planerat antal lag: {tournament['expected_team_count'] or 'Ej angivet'} (summa tävlingsklasser)")
     if tournament_lifecycle == "completed":
         st.success("🏆 Cupen är avslutad och ligger kvar som publik historik. Adminläget är skrivskyddat tills cupen återöppnas.")
         st.caption(f"Permanent publik identifierare: {tournament['public_slug'] or tournament['id']}")
@@ -9199,7 +9316,7 @@ if _flow_index is not None:
     if _flow_prev:
         _nav_left.button(f"← {_flow_prev[1]}", key=f"v160_prev_{tid}_{admin_page}", use_container_width=True,
                          on_click=_set_admin_page, args=(_flow_prev[0],))
-    if _flow_next:
+    if _flow_next and _flow_next[0] != _recommended_page:
         _nav_right.button(f"{_flow_next[1]} →", key=f"v160_next_{tid}_{admin_page}", use_container_width=True,
                           on_click=_set_admin_page, args=(_flow_next[0],))
 
@@ -9964,37 +10081,72 @@ elif admin_page == "Adminöversikt":
         "after": "🏆 Efter cupen",
     }
     st.caption(f"Aktuellt arbetsläge: **{mode_labels.get(current_admin_mode, 'Planeringsläge')}**")
-    st.caption(f"Lagincheckning: **{'Aktiverad' if bool(_row_value(tournament, 'enable_team_checkin', 1)) else 'Avstängd'}** · valet gjordes när turneringen skapades.")
+    st.caption(
+        f"Lagincheckning: **{'Aktiverad' if bool(_row_value(tournament, 'enable_team_checkin', 0)) else 'Avstängd'}** · "
+        "kan ändras under Arrangemang & deltagarservice."
+    )
 
     # v139: uppgiftsbaserad Organizer-vy. Den kompletterar navigationen och visar
     # vad arrangören faktiskt behöver göra, inte bara vilka funktioner som finns.
     _v139_counts = _admin_workflow_counts(tid)
-    _v139_classes = one_row("SELECT COUNT(*) AS n FROM competition_classes WHERE tournament_id=?", (tid,))
+    _v139_class_rows = competition_classes(tid)
+    _v139_classes = len(_v139_class_rows)
     _v139_pitches = one_row("SELECT COUNT(*) AS n FROM pitches WHERE tournament_id=?", (tid,))
+    _v139_rules = one_row("SELECT * FROM schedule_rules WHERE tournament_id=?", (tid,))
+    _v139_rules_ready = bool(
+        _v139_rules
+        and int(_row_value(_v139_rules, "halves", 0) or 0) > 0
+        and int(_row_value(_v139_rules, "minutes_per_half", 0) or 0) > 0
+        and int(_row_value(_v139_rules, "pitch_count", 0) or 0) > 0
+        and int(_row_value(_v139_rules, "minimum_team_rest_minutes", 0) or 0) >= 0
+    )
+    _v139_planned_total = sum(max(0,int(_row_value(row,"planned_team_count",0) or 0)) for row in _v139_class_rows)
+    _v139_expected_total = max(_v139_planned_total, int(_v139_counts["teams_n"] or 0))
     _v139_steps = organizer_workflow(
-        competition_classes=int(_row_value(_v139_classes, "n", 0) or 0),
+        competition_classes=_v139_classes,
         teams=int(_v139_counts["teams_n"] or 0),
-        expected_teams=int(_row_value(tournament, "expected_team_count", 0) or 0),
+        expected_teams=_v139_expected_total,
         groups=int(_v139_counts["groups_n"] or 0),
         pitches=int(_row_value(_v139_pitches, "n", 0) or 0),
-        rules_ready=bool(_row_value(tournament, "setup_completed_at", None) or _row_value(tournament, "setup_completed", 0)),
+        rules_ready=_v139_rules_ready,
         matches=int(_v139_counts["matches_n"] or 0),
         schedule_dirty=bool(tournament["schedule_dirty"]),
         published=bool(tournament["is_published"]),
     )
     _v139_summary = workflow_summary(_v139_steps)
-    st.markdown(f"### Organizer · {_v139_summary['done']}/{_v139_summary['total']} steg klara")
+    st.markdown(f"### Förberedelser · {_v139_summary['done']}/{_v139_summary['total']} steg klara")
+
+    # Per-class progress replaces the old opaque global "0 av 16" presentation.
+    if _v139_class_rows:
+        _class_progress_parts=[]
+        for _class in _v139_class_rows:
+            _actual=int(one_row(
+                "SELECT COUNT(*) AS n FROM teams WHERE tournament_id=? AND competition_class_id=?",
+                (tid,int(_class["id"])),
+            )["n"] or 0)
+            _planned=max(_actual,int(_row_value(_class,"planned_team_count",0) or 0))
+            _class_progress_parts.append(f"{competition_class_label(_class)}: {_actual}/{_planned}" if _planned else f"{competition_class_label(_class)}: {_actual}")
+        st.caption("Lag per tävlingsklass · " + " · ".join(_class_progress_parts))
+
     _v139_cols = st.columns(4)
     for _v139_i, _v139_step in enumerate(_v139_steps):
         _v139_icon = "✓" if _v139_step.done else "•"
+        _step_detail = _v139_step.detail
+        if _v139_step.key == "teams" and _v139_class_rows:
+            _step_detail = f"{int(_v139_counts['teams_n'] or 0)} registrerade · {_v139_expected_total} planerade totalt"
+        elif _v139_step.key == "classes":
+            _step_detail = f"{_v139_classes} klass" if _v139_classes == 1 else f"{_v139_classes} klasser"
         with _v139_cols[_v139_i % 4]:
             st.markdown(f"**{_v139_icon} {_v139_step.label}**")
-            st.caption(_v139_step.detail)
+            st.caption(_step_detail)
             if not _v139_step.done:
-                st.button("Öppna", key=f"v139_step_{tid}_{_v139_step.key}", use_container_width=True,
-                          on_click=_set_admin_page, args=(_v139_step.target,))
-    if _v139_summary["next"]:
-        st.info(f"Nästa rekommenderade steg: **{_v139_summary['next'].label}**")
+                st.button(
+                    "Öppna",
+                    key=f"v139_step_{tid}_{_v139_step.key}",
+                    use_container_width=True,
+                    on_click=_set_admin_page,
+                    args=(_v139_step.target,),
+                )
 
     # v141 Control Center: operational status for the tournament.
     _cc_matches = [dict(r) for r in all_rows(
@@ -10386,7 +10538,10 @@ elif admin_page == "Adminöversikt":
         bc1.caption(f"📅 {date_with_weekday(edited_start)}")
         edited_end = bc2.date_input("Sista cupdag", value=saved_end)
         bc2.caption(f"📅 {date_with_weekday(edited_end)}")
-        edited_expected = bc3.number_input("Planerat antal lag", max(2, int(current_team_count_for_limit)), 500, max(int(tournament["expected_team_count"] or 8), int(current_team_count_for_limit)), help="Maxantalet kan inte sättas lägre än antalet lag som redan är registrerade.")
+        _class_planned_total=sum(max(0,int(_row_value(row,"planned_team_count",0) or 0)) for row in competition_classes(tid))
+        edited_expected=max(_class_planned_total,int(current_team_count_for_limit))
+        bc3.metric("Planerat antal lag",edited_expected)
+        bc3.caption("Beräknas från planerat antal i varje tävlingsklass. Ändra under Cupinställningar → guidad setup.")
 
         st.markdown("#### Arena och information till besökare")
         edited_address = st.text_input(

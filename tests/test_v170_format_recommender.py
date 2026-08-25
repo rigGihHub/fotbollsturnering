@@ -1,7 +1,7 @@
 from pathlib import Path
 ROOT=Path(__file__).resolve().parents[1]
 APP=(ROOT/"app.py").read_text(encoding="utf-8")
-R="2026.08.25-172-REQUESTS-SCORE-IMPACT"
+R="2026.08.25-177-ADMIN-OVERVIEW-CLASS-PROGRESS"
 
 def test_recommender_is_explainable_and_capacity_aware():
     assert "def recommend_tournament_format" in APP
@@ -10,7 +10,7 @@ def test_recommender_is_explainable_and_capacity_aware():
     assert "playoff_format_label" in APP
 
 def test_setup_recommendation_requires_explicit_acceptance():
-    assert "CupNavi rekommenderar ett tävlingsformat" in APP
+    assert "### 3. Rekommenderat tävlingsformat" in APP
     assert "Inget ändras förrän du accepterar" in APP
     assert "Använd rekommenderat format" in APP
 
