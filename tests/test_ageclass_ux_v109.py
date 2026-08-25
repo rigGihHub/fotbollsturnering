@@ -28,10 +28,10 @@ def test_public_version_badge_not_rendered_before_public_view():
 
 def test_share_button_is_fixed_beside_brand():
     text = app_text()
-    assert '[class*="st-key-cn_share_toggle_"] {' in text
+    assert ".cn-share-toggle-anchor + div {" in text
     assert 'left:calc(50% + 184px)' in text
     assert 'cn_share_button_' in text
-    assert 'cn_share_panel_' in text
+    assert 'cn-share-panel-anchor' in text
     assert 'popovertarget=' not in text
 
 

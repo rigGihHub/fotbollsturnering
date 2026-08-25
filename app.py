@@ -55,7 +55,7 @@ from cupnavi_core.fairness import fairness_report
 from cupnavi_core.ux2 import workflow_progress, attention_items, schedule_board
 from cupnavi_core.about import feature_catalog, about_intro
 
-APP_BUILD_VERSION = "2026.08.25-163-PUBLIC-RUNTIME-FIX"
+APP_BUILD_VERSION = "2026.08.25-164-PUBLIC-CONTAINER-COMPAT"
 APP_VERSION = APP_BUILD_VERSION
 RELEASE_FILES_MISMATCH = CORE_APP_VERSION != APP_BUILD_VERSION
 REQUIRED_SCHEMA_VERSION = max(int(LATEST_SCHEMA_VERSION), 5)
@@ -6086,24 +6086,24 @@ def render_public_view(tournament_id, tournament):
     # vilket undviker att markup kan visas som rå text för besökaren.
     st.markdown(
         """<style>
-        [class*="st-key-cn_share_toggle_"] {
+        .cn-share-toggle-anchor + div {
           position:fixed;top:14px;left:calc(50% + 184px);z-index:999998;width:auto!important;
         }
-        [class*="st-key-cn_share_toggle_"] button {
+        .cn-share-toggle-anchor + div button {
           min-height:42px!important;padding:8px 14px!important;border:1px solid #d7e0e8!important;
           border-radius:999px!important;background:rgba(255,255,255,.98)!important;color:#172033!important;
           font-weight:780!important;box-shadow:0 8px 22px rgba(15,23,42,.07)!important;
         }
-        [class*="st-key-cn_share_panel_"] {
+        .cn-share-panel-anchor + div {
           margin:-2px 0 14px!important;padding:2px 0 0!important;
         }
-        [class*="st-key-cn_share_panel_"] [data-testid="stVerticalBlockBorderWrapper"] {
+        .cn-share-panel-anchor + div [data-testid="stVerticalBlockBorderWrapper"] {
           border-color:#dbe4ea!important;border-radius:16px!important;background:#fff!important;
           box-shadow:0 10px 28px rgba(15,23,42,.08)!important;
         }
         @media(max-width:760px) {
-          [class*="st-key-cn_share_toggle_"] {top:10px;left:auto;right:8px;}
-          [class*="st-key-cn_share_toggle_"] button {min-height:38px!important;padding:7px 10px!important;}
+          .cn-share-toggle-anchor + div {top:10px;left:auto;right:8px;}
+          .cn-share-toggle-anchor + div button {min-height:38px!important;padding:7px 10px!important;}
         }
         </style>""",
         unsafe_allow_html=True,
@@ -6112,7 +6112,8 @@ def render_public_view(tournament_id, tournament):
     # rerunnar då bara den här lilla ytan i stället för hela Turneringsvyn.
     @st.fragment
     def render_public_share_fragment():
-        with st.container(key=f"cn_share_toggle_{int(tournament_id)}"):
+        st.markdown("<div class='cn-share-toggle-anchor'></div>", unsafe_allow_html=True)
+        with st.container():
             if st.button(
                 ("✕ " if st.session_state[share_visible_key] else "📤 ") + tr("Dela cupen"),
                 key=f"cn_share_button_{int(tournament_id)}",
@@ -6125,18 +6126,18 @@ def render_public_view(tournament_id, tournament):
             # inte spiller över på publikdelningen.
             st.markdown(
                 """<style>
-                [class*="st-key-cn_share_panel_"] [data-testid="stVerticalBlockBorderWrapper"] {
+                .cn-share-panel-anchor + div [data-testid="stVerticalBlockBorderWrapper"] {
                   border:1px solid #d9e3ea!important;border-radius:18px!important;background:#ffffff!important;
                   box-shadow:0 10px 30px rgba(15,23,42,.08)!important;padding:4px!important;
                 }
-                [class*="st-key-cn_share_panel_"] [data-testid="stLinkButton"] a,
-                [class*="st-key-cn_share_panel_"] [data-testid="stDownloadButton"] button,
-                [class*="st-key-cn_share_panel_"] button {
+                .cn-share-panel-anchor + div [data-testid="stLinkButton"] a,
+                .cn-share-panel-anchor + div [data-testid="stDownloadButton"] button,
+                .cn-share-panel-anchor + div button {
                   background:#f7faf8!important;color:#163126!important;border:1px solid #cbded3!important;
                   box-shadow:none!important;font-weight:700!important;
                 }
-                [class*="st-key-cn_share_panel_"] [data-testid="stLinkButton"] a:hover,
-                [class*="st-key-cn_share_panel_"] [data-testid="stDownloadButton"] button:hover {
+                .cn-share-panel-anchor + div [data-testid="stLinkButton"] a:hover,
+                .cn-share-panel-anchor + div [data-testid="stDownloadButton"] button:hover {
                   background:#eef8f1!important;border-color:#8fc6a1!important;color:#126b36!important;
                 }
                 .cn-share-url-box {
@@ -6147,7 +6148,8 @@ def render_public_view(tournament_id, tournament):
                 </style>""",
                 unsafe_allow_html=True,
             )
-            with st.container(border=True, key=f"cn_share_panel_{int(tournament_id)}"):
+            st.markdown("<div class='cn-share-panel-anchor'></div>", unsafe_allow_html=True)
+            with st.container(border=True):
                 panel_title_col, panel_close_col = st.columns([8, 1])
                 panel_title_col.markdown(f"### 📤 {tr('Dela cupen')}")
                 if panel_close_col.button("✕", key=f"cn_share_close_{int(tournament_id)}", help=tr("Stäng")):

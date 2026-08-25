@@ -9,7 +9,7 @@ def test_public_share_is_single_integrated_inline_panel():
     text = app_text()
     assert "cn_share_visible_" in text
     assert "st.button(" in text
-    assert "cn_share_panel_" in text
+    assert "cn-share-panel-anchor" in text
     assert "public_share_toggle_" not in text
     assert "public_share_open_" not in text
     assert "share=1#cn-share-section" not in text

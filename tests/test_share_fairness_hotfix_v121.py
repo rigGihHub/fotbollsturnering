@@ -8,10 +8,10 @@ def app_text():
 def test_share_uses_same_page_native_toggle_panel():
     text = app_text()
     start = text.index("# En enda delningsingång bredvid logotypen.")
-    block = text[start:text.index("with st.container(border=True):", start)]
+    block = text[start:text.index("\n    render_public_share_fragment()", start)]
     assert "cn_share_visible_" in block
     assert "cn_share_button_" in block
-    assert "cn_share_panel_" in block
+    assert "cn-share-panel-anchor" in block
     assert "if st.session_state[share_visible_key]:" in block
     assert "target='_blank'" not in block
     assert "popovertarget=" not in block

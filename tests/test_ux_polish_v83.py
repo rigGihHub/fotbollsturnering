@@ -18,7 +18,7 @@ def test_current_page_and_status_are_visible():
 def test_public_share_is_compact():
     text=app_text()
     assert "cn_share_visible_" in text
-    assert "cn_share_panel_" in text
+    assert "cn-share-panel-anchor" in text
     assert "popover='auto'" not in text
     assert "popovertarget=" not in text
     assert "share=1#cn-share-section" not in text

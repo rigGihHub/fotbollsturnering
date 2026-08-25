@@ -7,10 +7,10 @@ def app_text():
 
 def test_fixed_share_is_same_page_native_control():
     text = app_text()
-    assert '[class*="st-key-cn_share_toggle_"] {' in text
+    assert ".cn-share-toggle-anchor + div {" in text
     assert 'cn_share_visible_' in text
     assert 'cn_share_button_' in text
-    assert 'cn_share_panel_' in text
+    assert 'cn-share-panel-anchor' in text
     assert 'popovertarget=' not in text
     assert "popover='auto'" not in text
 

@@ -10,7 +10,7 @@ def test_integrated_share_contract_replaces_legacy_share_panel():
     start = text.index("def render_public_view(")
     block = text[start:text.index("def render_match_reporter_view(", start)]
     assert "cn_share_visible_" in block
-    assert "cn_share_panel_" in block
+    assert "cn-share-panel-anchor" in block
     assert "popover='auto'" not in block
     assert "popovertarget=" not in block
     assert "share_qr = qr_png_bytes(share_url)" in block

@@ -8,7 +8,7 @@ def app_text():
 def test_share_expands_in_place_without_navigation():
     text = app_text()
     assert "cn_share_visible_" in text
-    assert "cn_share_panel_" in text
+    assert "cn-share-panel-anchor" in text
     assert 'cn_share_button_' in text
     assert "popover='auto'" not in text
     assert "popovertarget=" not in text

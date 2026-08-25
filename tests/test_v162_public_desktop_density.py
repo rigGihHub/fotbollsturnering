@@ -4,7 +4,7 @@ import re
 ROOT=Path(__file__).resolve().parents[1]
 APP=(ROOT/"app.py").read_text(encoding="utf-8")
 VERSION=(ROOT/"cupnavi_core/version.py").read_text(encoding="utf-8")
-RELEASE="2026.08.25-163-PUBLIC-RUNTIME-FIX"
+RELEASE="2026.08.25-164-PUBLIC-CONTAINER-COMPAT"
 
 def test_release_version_is_hard_synced():
     assert RELEASE in APP
