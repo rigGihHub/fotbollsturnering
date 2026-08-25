@@ -11,7 +11,7 @@ def test_brand_shell_is_centered_and_integrated():
     assert "left:50%;" in text
     assert "transform:translateX(-50%);" in text
     assert 'class="cn-persistent-brand"' in text
-    assert "padding-top:4.85rem" in text
+    assert "padding-top:4.05rem" in text
 
 
 def test_logo_asset_present_for_v95():

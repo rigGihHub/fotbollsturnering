@@ -4,7 +4,7 @@ import re
 ROOT=Path(__file__).resolve().parents[1]
 APP=(ROOT/"app.py").read_text(encoding="utf-8")
 VERSION=(ROOT/"cupnavi_core/version.py").read_text(encoding="utf-8")
-RELEASE="2026.08.25-167-PUBLIC-COMPETITION-NAV"
+RELEASE="2026.08.25-170-FORMAT-RECOMMENDER"
 
 def test_release_version_is_hard_synced():
     assert RELEASE in APP
@@ -13,7 +13,7 @@ def test_release_version_is_hard_synced():
 
 def test_desktop_public_view_is_compacted_without_mobile_override():
     assert "@media(min-width:901px)" in APP
-    assert ".cup-hero{padding:16px 20px!important" in APP
+    assert ".cup-hero{padding:13px 18px!important" in APP
     assert ".public-match-card{margin:7px 0!important" in APP
     assert "@media(max-width:760px)" in APP
 
