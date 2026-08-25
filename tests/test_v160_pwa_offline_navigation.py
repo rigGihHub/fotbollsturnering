@@ -9,7 +9,7 @@ def test_service_worker_has_navigation_fallback_for_query_urls():
     assert 'caches.match("./index.html")' in SW
     assert 'caches.match("./")' in SW
 
-def test_mobile_e2e_waits_for_service_worker_control():
-    assert "navigator.serviceWorker.controller !== null" in E2E
+def test_mobile_e2e_waits_for_offline_cache_readiness():
+    assert "window.CUPNAVI_OFFLINE_READY" in E2E
     assert "context.set_offline(True)" in E2E
     assert 'page.locator("#nav").is_visible()' in E2E

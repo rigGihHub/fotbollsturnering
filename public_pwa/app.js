@@ -6,6 +6,47 @@ const sourceTeam=s=>String(s||"").startsWith("team:")?Number(String(s).split(":"
 const teamName=id=>state.cup?.teams.find(t=>Number(t.id)===Number(id))?.name||"TBD";
 const srcLabel=s=>{const id=sourceTeam(s);return id?teamName(id):String(s||"TBD").replaceAll(":"," ");};
 
+
+async function cachePublicUrls(urls){
+  if(!("serviceWorker" in navigator) || !Array.isArray(urls) || !urls.length){
+    return {ok:false,reason:"service-worker-unavailable"};
+  }
+  const registration=await navigator.serviceWorker.ready;
+  const worker=registration.active || registration.waiting || registration.installing;
+  if(!worker) return {ok:false,reason:"service-worker-not-active"};
+
+  return await new Promise(resolve=>{
+    const channel=new MessageChannel();
+    const timer=setTimeout(
+      ()=>resolve({ok:false,reason:"service-worker-cache-timeout"}),
+      10000
+    );
+    channel.port1.onmessage=event=>{
+      clearTimeout(timer);
+      resolve(event.data||{ok:false});
+    };
+    worker.postMessage(
+      {type:"CACHE_PUBLIC_URLS",urls:[...new Set(urls)]},
+      [channel.port2],
+    );
+  });
+}
+
+function publicOfflineUrls(key,teamId=null){
+  const encoded=encodeURIComponent(key);
+  const urls=[
+    `${API_BASE}/api/public/cups/${encoded}`,
+    `${API_BASE}/api/public/cups/${encoded}/standings`,
+    `${API_BASE}/api/public/cups/${encoded}/playoffs`,
+  ];
+  if(teamId){
+    urls.push(`${API_BASE}/api/public/cups/${encoded}/teams/${Number(teamId)}/summary`);
+  }
+  return urls;
+}
+
+window.CUPNAVI_OFFLINE_READY=Promise.resolve({ok:false,reason:"cup-not-loaded"});
+
 async function loadCup(key){
   const res=await fetch(`${API_BASE}/api/public/cups/${encodeURIComponent(key)}`);
   if(!res.ok) throw new Error("Cupen kunde inte hämtas.");
@@ -21,6 +62,13 @@ async function loadCup(key){
   select.innerHTML=`<option value="">Alla lag</option>`+state.cup.teams.map(t=>`<option value="${t.id}">${esc(t.name)}</option>`).join("");
   const saved=localStorage.getItem(`cupnavi:team:${key}`);
   if(saved){state.teamId=Number(saved);select.value=saved;}
+
+  // Make the current cup explicitly offline-ready. This works even on the
+  // very first visit, before the service worker controls the page.
+  window.CUPNAVI_OFFLINE_READY=cachePublicUrls(
+    publicOfflineUrls(key,state.teamId)
+  );
+  await window.CUPNAVI_OFFLINE_READY;
   render();
 }
 function relevant(matches){return state.teamId?matches.filter(m=>[sourceTeam(m.home_source),sourceTeam(m.away_source)].includes(state.teamId)):matches;}
@@ -119,7 +167,18 @@ async function render(){
   }
 }
 document.querySelector("#loadCup").onclick=async()=>{try{await loadCup(document.querySelector("#cupKey").value.trim())}catch(e){alert(e.message)}};
-document.querySelector("#teamSelect").onchange=e=>{state.teamId=e.target.value?Number(e.target.value):null;state.teamSummary=null;const key=localStorage.getItem("cupnavi:lastCup");if(state.teamId)localStorage.setItem(`cupnavi:team:${key}`,state.teamId);else localStorage.removeItem(`cupnavi:team:${key}`);render()};
+document.querySelector("#teamSelect").onchange=async e=>{
+  state.teamId=e.target.value?Number(e.target.value):null;
+  state.teamSummary=null;
+  const key=localStorage.getItem("cupnavi:lastCup");
+  if(state.teamId)localStorage.setItem(`cupnavi:team:${key}`,state.teamId);
+  else localStorage.removeItem(`cupnavi:team:${key}`);
+  if(key){
+    window.CUPNAVI_OFFLINE_READY=cachePublicUrls(publicOfflineUrls(key,state.teamId));
+    await window.CUPNAVI_OFFLINE_READY;
+  }
+  render();
+};
 document.querySelectorAll("nav button").forEach(b=>b.onclick=()=>{state.page=b.dataset.page;render()});
 if("serviceWorker" in navigator) navigator.serviceWorker.register("./service-worker.js");
 const initial=qs.get("cup")||localStorage.getItem("cupnavi:lastCup");

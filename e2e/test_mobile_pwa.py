@@ -73,18 +73,20 @@ def _run_device(browser, device, servers):
     page.wait_for_timeout(300)
     assert "Mitt lag" in page.locator("#view").inner_text()
 
-    # Offline app-shell should survive after one online load.
-    # Wait until the service worker actually controls this page; registration
-    # alone is not sufficient for an offline navigation test.
+    # Offline navigation is tested only after CupNavi confirms that the
+    # current cup payload has been copied into the service-worker cache.
     page.wait_for_function(
-        "() => navigator.serviceWorker && navigator.serviceWorker.controller !== null",
+        "() => window.CUPNAVI_OFFLINE_READY && typeof window.CUPNAVI_OFFLINE_READY.then === 'function'",
         timeout=10000,
     )
+    offline_ready=page.evaluate("() => window.CUPNAVI_OFFLINE_READY")
+    assert offline_ready.get("ok") is True, offline_ready
+
     context.set_offline(True)
     page.reload(wait_until="domcontentloaded")
-    page.wait_for_selector("body")
-    assert page.locator("body").is_visible()
+    page.wait_for_selector("#nav:not(.hidden)",timeout=10000)
     assert page.locator("#nav").is_visible()
+    assert "Parity Cup" in page.locator("#cupName").inner_text()
     context.close()
 
 def test_android_and_iphone_mobile_pwa(servers):
