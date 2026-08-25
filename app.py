@@ -55,7 +55,7 @@ from cupnavi_core.fairness import fairness_report
 from cupnavi_core.ux2 import workflow_progress, attention_items, schedule_board
 from cupnavi_core.about import feature_catalog, about_intro
 
-APP_BUILD_VERSION = "2026.08.25-159-MOBILE-PUBLISH-RESULT-SYNC"
+APP_BUILD_VERSION = "2026.08.25-160-UX-FLOW-REFINEMENT"
 APP_VERSION = APP_BUILD_VERSION
 RELEASE_FILES_MISMATCH = CORE_APP_VERSION != APP_BUILD_VERSION
 REQUIRED_SCHEMA_VERSION = max(int(LATEST_SCHEMA_VERSION), 5)
@@ -2506,10 +2506,21 @@ def inject_ux2_css():
         [data-testid="stButton"] button[kind="primary"]{box-shadow:0 4px 12px rgba(23,107,58,.14)}
         .cn-current-admin-page{position:sticky;top:78px;z-index:50;background:rgba(248,250,252,.94);backdrop-filter:blur(8px);border:1px solid var(--cn-border);box-shadow:0 5px 14px rgba(15,23,42,.05)}
         .cn-admin-nav-group-title{margin-top:18px!important;color:#64748b!important;font-size:12px!important;letter-spacing:.06em!important}
+        .cn-flow-context{background:#fff;border:1px solid var(--cn-border);border-radius:16px;padding:14px 16px;margin:8px 0 12px;box-shadow:0 4px 14px rgba(15,23,42,.045)}
+        .cn-flow-kicker{font-size:11px;font-weight:900;text-transform:uppercase;letter-spacing:.07em;color:#64748b;margin-bottom:3px}
+        .cn-flow-title{font-size:17px;font-weight:850;color:#132033;margin-bottom:3px}
+        .cn-flow-copy{font-size:13px;line-height:1.45;color:#64748b}
+        .cn-flow-status{display:flex;gap:7px;flex-wrap:wrap;margin-top:10px}
+        .cn-flow-pill{display:inline-flex;align-items:center;gap:5px;border:1px solid #dbe4ea;border-radius:999px;padding:5px 9px;background:#f8fafc;color:#475569;font-size:12px;font-weight:780}
+        .cn-flow-pill.good{background:#ecfdf5;border-color:#bbf7d0;color:#166534}
+        .cn-flow-pill.warn{background:#fff7ed;border-color:#fed7aa;color:#9a3412}
+        .cn-next-action{border-left:4px solid #176b3a;background:#f5fbf7;border-radius:12px;padding:11px 13px;margin:8px 0 12px}
+        .cn-next-action b{color:#14532d}.cn-next-action span{color:#475569;font-size:13px}
+
         @media(max-width:760px){
           .cn-mobile-bottom-nav{display:grid;grid-template-columns:repeat(4,1fr);position:fixed;left:8px;right:8px;bottom:8px;z-index:999996;background:rgba(255,255,255,.97);border:1px solid #dbe4ea;border-radius:18px;box-shadow:0 10px 28px rgba(15,23,42,.16);padding:6px;backdrop-filter:blur(12px)}
           .cn-mobile-bottom-nav a{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;min-height:52px;text-decoration:none!important;color:#475569!important;font-size:17px;border-radius:12px}.cn-mobile-bottom-nav a span{font-size:10px;font-weight:800}.cn-mobile-bottom-nav a.active{background:#eef8f1;color:#14532d!important}
-          .stApp .block-container{padding-bottom:5.8rem!important}.cn-schedule-grid{min-width:640px}.cn-current-admin-page{top:70px}
+          .stApp .block-container{padding-bottom:5.8rem!important}.cn-schedule-grid{min-width:640px}.cn-current-admin-page{top:70px} [data-testid="stButton"] button{min-height:46px !important}
         }
         </style>""", unsafe_allow_html=True)
     components.html("""<script>document.addEventListener('keydown',function(e){if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='k'){e.preventDefault();const f=window.parent.document.querySelector('input[aria-label*=\"Sök lag\"],input[placeholder*=\"ÖSK\"]');if(f){f.focus();f.scrollIntoView({block:'center'});}}});</script>""",height=0)
@@ -6564,8 +6575,9 @@ def render_public_view(tournament_id, tournament):
             filter_label,
         )
 
-    def _render_public_match_cards(matches, show_results=None, show_weather=False):
+    def _render_public_match_cards(matches, show_results=None, show_weather=False, events_by_match=None):
         """Ett gemensamt matchkort: spelade matcher visar resultat, kommande visar VS."""
+        events_by_match = events_by_match or {}
         referees = {
             row["id"]: row["name"]
             for row in all_rows(
@@ -6630,7 +6642,7 @@ def render_public_view(tournament_id, tournament):
                 match_events_html = public_match_events_html(
                     match_row["id"],
                     match_row=match_row,
-                    rows=public_events_by_match.get(match_row["id"], []),
+                    rows=events_by_match.get(match_row["id"], []),
                     team_names=public_team_names,
                 )
             else:
@@ -6855,7 +6867,12 @@ def render_public_view(tournament_id, tournament):
                 value=True,
                 key=f"public_matches_weather_{tournament_id}",
             )
-            _render_public_match_cards(match_list, show_results=None, show_weather=show_match_weather)
+            _render_public_match_cards(
+                match_list,
+                show_results=None,
+                show_weather=show_match_weather,
+                events_by_match=public_events_by_match,
+            )
 
             _elapsed_ms = (time.perf_counter() - _fragment_started) * 1000
             st.session_state[f"_public_perf_matches_{tournament_id}"] = {
@@ -7720,6 +7737,36 @@ if st.session_state.get("view_mode") not in mode_options:
 def _set_view_mode(mode):
     st.session_state["view_mode"] = mode
 
+
+# v160: cupens huvudflöde. Specialfunktioner finns kvar i gruppnavigationen.
+ADMIN_PRIMARY_FLOW = [
+    ("Adminöversikt", "Översikt"),
+    ("Lag", "Lag"),
+    ("Grupper", "Grupper"),
+    ("Skapa och publicera schema", "Schema"),
+    ("Matcher och resultat", "Resultat"),
+    ("Tabeller", "Tabell"),
+    ("Slutspel", "Slutspel"),
+]
+
+ADMIN_PAGE_COPY = {
+    "Adminöversikt": ("Cupens kontrollrum", "Se vad som är klart, vad som saknas och vad CupNavi rekommenderar härnäst."),
+    "Lag": ("Lägg in deltagarna", "Skapa eller importera lag. När lagen är klara går du vidare till gruppindelningen."),
+    "Grupper": ("Bygg tävlingsstrukturen", "Fördela lagen i grupper och kontrollera att gruppindelningen är komplett."),
+    "Skapa och publicera schema": ("Skapa ett hållbart schema", "Generera, granska och justera matcherna innan cupen publiceras."),
+    "Matcher och resultat": ("Följ cupen match för match", "Registrera resultat. I en publicerad cup syns sparade resultat automatiskt publikt."),
+    "Matchhändelser": ("Fyll på matchdetaljer", "Registrera mål, assist och kort efter att matchresultatet är sparat."),
+    "Tabeller": ("Kontrollera tävlingsläget", "Tabellerna räknas automatiskt från sparade resultat."),
+    "Slutspel": ("Följ vägen mot final", "Kontrollera slutspelsträdet och hur lagen går vidare."),
+    "Problem & lösningar": ("Lös det som blockerar cupen", "CupNavi visar problem och föreslår åtgärder i prioriterad ordning."),
+    "Domare": ("Bemanna matcherna", "Lägg till domare och kontrollera att matcherna kan genomföras utan krockar."),
+    "Trupper": ("Hantera spelarna", "Registrera spelare och trupper för de lag som behöver det."),
+    "Instruktioner": ("Guide genom CupNavi", "Följ cupen steg för steg om du vill ha extra vägledning."),
+}
+
+def _primary_flow_index(page):
+    return next((i for i,(name,_) in enumerate(ADMIN_PRIMARY_FLOW) if name == page), None)
+
 current_mode = st.session_state["view_mode"]
 st.caption(tr("Välj läge"))
 if public_app_mode:
@@ -8381,13 +8428,82 @@ for nav_index, (page_name, button_label) in enumerate(nav_items):
 
 admin_page = st.session_state[admin_page_key]
 current_page_label = dict(ADMIN_NAV).get(admin_page, admin_page)
+
+_flow_index = _primary_flow_index(admin_page)
+_page_title, _page_copy = ADMIN_PAGE_COPY.get(admin_page, (current_page_label, "Administrera den här delen av cupen."))
+_flow_step_text = (
+    f"{tr('Aktuell sida')} · Steg {_flow_index + 1} av {len(ADMIN_PRIMARY_FLOW)}"
+    if _flow_index is not None
+    else f"{tr('Aktuell sida')} · {tr('Administration')}"
+)
+_flow_counts = one_row(
+    """SELECT
+         (SELECT COUNT(*) FROM teams WHERE tournament_id=?) AS teams_n,
+         (SELECT COUNT(*) FROM groups WHERE tournament_id=?) AS groups_n,
+         (SELECT COUNT(*) FROM matches WHERE tournament_id=?) AS matches_n,
+         (SELECT COUNT(*) FROM matches WHERE tournament_id=? AND scheduled_start IS NOT NULL) AS scheduled_n,
+         (SELECT COUNT(*) FROM matches WHERE tournament_id=? AND home_score IS NOT NULL AND away_score IS NOT NULL) AS played_n""",
+    (tid,tid,tid,tid,tid),
+)
+_flow_total = int(_flow_counts["matches_n"] or 0)
+_flow_played = int(_flow_counts["played_n"] or 0)
+_flow_scheduled = int(_flow_counts["scheduled_n"] or 0)
+_publish_class = "good" if tournament["is_published"] else "warn"
+_publish_text = "Publicerad" if tournament["is_published"] else "Inte publicerad"
+_schedule_class = "warn" if tournament["schedule_dirty"] else ("good" if _flow_scheduled else "")
+_schedule_text = "Schema behöver uppdateras" if tournament["schedule_dirty"] else ("Schema klart" if _flow_scheduled else "Schema saknas")
+_result_class = "good" if _flow_total and _flow_played == _flow_total else ""
+_result_text = f"Resultat {_flow_played}/{_flow_total}" if _flow_total else "Inga matcher ännu"
+
 st.markdown(
-    f"<div class='cn-current-admin-page'>"
-    f"<span>{html.escape(tr('Aktuell sida'))}</span>"
-    f"<strong>{html.escape(current_page_label)}</strong>"
-    f"</div>",
+    f"<div class='cn-flow-context'>"
+    f"<div class='cn-flow-kicker'>{html.escape(_flow_step_text)}</div>"
+    f"<div class='cn-flow-title'>{html.escape(_page_title)}</div>"
+    f"<div class='cn-flow-copy'>{html.escape(_page_copy)}</div>"
+    f"<div class='cn-flow-status'>"
+    f"<span class='cn-flow-pill {_publish_class}'>● {html.escape(_publish_text)}</span>"
+    f"<span class='cn-flow-pill {_schedule_class}'>🗓 {html.escape(_schedule_text)}</span>"
+    f"<span class='cn-flow-pill {_result_class}'>✓ {html.escape(_result_text)}</span>"
+    f"</div></div>",
     unsafe_allow_html=True,
 )
+
+if int(_flow_counts["teams_n"] or 0) == 0:
+    _recommended_page, _recommended_label = "Lag", "Lägg till lag"
+elif int(_flow_counts["groups_n"] or 0) == 0:
+    _recommended_page, _recommended_label = "Grupper", "Skapa grupper"
+elif _flow_scheduled == 0 or bool(tournament["schedule_dirty"]):
+    _recommended_page, _recommended_label = "Skapa och publicera schema", "Skapa eller uppdatera schemat"
+elif _flow_total and _flow_played < _flow_total:
+    _recommended_page, _recommended_label = "Matcher och resultat", "Registrera och följ resultat"
+else:
+    _recommended_page, _recommended_label = "Tabeller", "Granska tabell och slutspel"
+
+if admin_page != _recommended_page:
+    st.markdown(
+        f"<div class='cn-next-action'><b>Nästa rekommenderade steg</b><br><span>{html.escape(_recommended_label)}</span></div>",
+        unsafe_allow_html=True,
+    )
+    st.button(
+        f"Fortsätt → {_recommended_label}",
+        key=f"v160_recommended_{tid}_{admin_page}",
+        type="primary",
+        use_container_width=True,
+        on_click=_set_admin_page,
+        args=(_recommended_page,),
+    )
+
+if _flow_index is not None:
+    _flow_prev = ADMIN_PRIMARY_FLOW[_flow_index-1] if _flow_index > 0 else None
+    _flow_next = ADMIN_PRIMARY_FLOW[_flow_index+1] if _flow_index < len(ADMIN_PRIMARY_FLOW)-1 else None
+    _nav_left, _nav_right = st.columns(2)
+    if _flow_prev:
+        _nav_left.button(f"← {_flow_prev[1]}", key=f"v160_prev_{tid}_{admin_page}", use_container_width=True,
+                         on_click=_set_admin_page, args=(_flow_prev[0],))
+    if _flow_next:
+        _nav_right.button(f"{_flow_next[1]} →", key=f"v160_next_{tid}_{admin_page}", use_container_width=True,
+                          on_click=_set_admin_page, args=(_flow_next[0],))
+
 st.divider()
 
 current_schedule_state = one_row(
@@ -11817,6 +11933,24 @@ if admin_page == "Skapa och publicera schema":
 if admin_page == "Matcher och resultat":
     st.header("Matcher och resultat")
     st.caption("Registrera och uppdatera matchresultat och domartillsättning.")
+    _result_progress = one_row(
+        """SELECT COUNT(*) AS total,
+                  SUM(CASE WHEN home_score IS NOT NULL AND away_score IS NOT NULL THEN 1 ELSE 0 END) AS played
+           FROM matches WHERE tournament_id=?""",
+        (tid,),
+    )
+    _rp_total = int(_result_progress["total"] or 0)
+    _rp_played = int(_result_progress["played"] or 0)
+    _rp_pct = int(round((_rp_played / _rp_total) * 100)) if _rp_total else 0
+    st.markdown(
+        f"<div class='cn-progress-hero'><div><span>Resultatstatus</span><strong>{_rp_played}/{_rp_total}</strong></div>"
+        f"<div class='cn-progress-track'><i style='width:{_rp_pct}%'></i></div></div>",
+        unsafe_allow_html=True,
+    )
+    if tournament["is_published"]:
+        st.success("✓ Cupen är publicerad. Sparade resultat visas automatiskt i turneringsvyn.")
+    else:
+        st.warning("Cupen är inte publicerad. Resultaten sparas, men besökare ser dem först när cupen publiceras.")
     refs = all_rows("SELECT * FROM referees WHERE tournament_id=? ORDER BY name", (tid,))
     st.subheader("Registrera resultat och domare")
     st.caption("Matcherna skapas automatiskt från gruppindelningen och den valda slutspelsmodellen.")
