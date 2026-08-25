@@ -55,7 +55,7 @@ from cupnavi_core.fairness import fairness_report
 from cupnavi_core.ux2 import workflow_progress, attention_items, schedule_board
 from cupnavi_core.about import feature_catalog, about_intro
 
-APP_BUILD_VERSION = "2026.08.25-164-PUBLIC-CONTAINER-COMPAT"
+APP_BUILD_VERSION = "2026.08.25-165-PUBLIC-PAGE-ORDER-FIX"
 APP_VERSION = APP_BUILD_VERSION
 RELEASE_FILES_MISMATCH = CORE_APP_VERSION != APP_BUILD_VERSION
 REQUIRED_SCHEMA_VERSION = max(int(LATEST_SCHEMA_VERSION), 5)
@@ -6064,13 +6064,6 @@ def render_public_view(tournament_id, tournament):
     if requested_team_id not in public_team_names:
         requested_team_id = None
 
-    screen_url = public_cup_url(tournament_id) + ("&" if "?" in public_cup_url(tournament_id) else "?") + "screen=1"
-    if public_page == "Info":
-        st.markdown(
-            f"<div style='text-align:right;margin:-4px 0 8px'><a class='cn-screen-link' href='{html.escape(screen_url, quote=True)}'>🖥 Informationsskärm</a></div>",
-            unsafe_allow_html=True,
-        )
-
     # En enda delningsingång bredvid logotypen. Streamlit-native komponenter
     # används här medvetet: rå HTML-knapp/popover renderades som text i vissa
     # Streamlit-miljöer. Samma knapp öppnar/stänger en panel i den ordinarie sidan.
@@ -6494,6 +6487,15 @@ def render_public_view(tournament_id, tournament):
             st.rerun()
 
     public_page = st.session_state[public_page_key]
+
+    # Page-specific UI must only be evaluated after public_page is resolved.
+    screen_url = public_cup_url(tournament_id) + ("&" if "?" in public_cup_url(tournament_id) else "?") + "screen=1"
+    if public_page == "Info":
+        st.markdown(
+            f"<div style='text-align:right;margin:-4px 0 8px'><a class='cn-screen-link' href='{html.escape(screen_url, quote=True)}'>🖥 Informationsskärm</a></div>",
+            unsafe_allow_html=True,
+        )
+
     cup_key = quote(str(_row_value(tournament, "public_slug", tournament_id) or tournament_id))
     st.markdown(
         f"""<nav class='cn-mobile-bottom-nav' aria-label='Cup navigation'>
