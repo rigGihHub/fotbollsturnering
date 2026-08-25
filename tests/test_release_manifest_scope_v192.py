@@ -31,3 +31,29 @@ def test_unrelated_top_level_file_does_not_change_render(tmp_path, monkeypatch):
         assert module.render() == baseline
     finally:
         extra.unlink(missing_ok=True)
+
+
+def test_manifest_diagnostics_identifies_changed_missing_and_extra_files():
+    module = _load_manifest_module()
+    a = "\n".join([
+        "# CupNavi release manifest",
+        "# version: demo",
+        "# sha256  path",
+        f"{'1'*64}  ./app.py",
+        f"{'2'*64}  ./obsolete.txt",
+        "",
+    ])
+    e = "\n".join([
+        "# CupNavi release manifest",
+        "# version: demo",
+        "# sha256  path",
+        f"{'3'*64}  ./app.py",
+        f"{'4'*64}  ./new.txt",
+        "",
+    ])
+    detail = module.manifest_diagnostics(a, e)
+    assert "CHANGED: app.py" in detail
+    assert "MISSING_FROM_MANIFEST: new.txt" in detail
+    assert "EXTRA_IN_MANIFEST: obsolete.txt" in detail
+    assert "manifest_sha256=" in detail
+    assert "current_sha256=" in detail
