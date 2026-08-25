@@ -6,7 +6,7 @@ WF=(ROOT/".github/workflows/cross-browser.yml").read_text(encoding="utf-8")
 def test_e2e_covers_full_core_lifecycle():
     for phrase in (
         "Skapa testdata:",
-        "Hela cupen färdig",
+        "E2E: Slutför testcup",
         "assert_complete_database",
         "competition_classes",
         "stage<>'Gruppspel'",

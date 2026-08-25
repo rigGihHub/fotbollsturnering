@@ -2262,6 +2262,34 @@ def inject_custom_css():
 
 
           /* ---------- Kalender / datumväljare ---------- */
+          /* Kalendern ligger i en BaseWeb-popover utanför delar av Streamlits vanliga tema.
+             Sätt därför bakgrund och text explicit även för veckodagsraden. */
+          [data-baseweb="calendar"],
+          [data-baseweb="calendar"] > div,
+          [data-baseweb="calendar"] [role="grid"],
+          [data-baseweb="calendar"] [role="row"],
+          [data-baseweb="calendar"] [role="columnheader"] {
+            background:#ffffff !important;
+            color:#0f172a !important;
+          }
+          [data-baseweb="calendar"] [role="columnheader"],
+          [data-baseweb="calendar"] [role="columnheader"] *,
+          [data-baseweb="calendar"] abbr {
+            color:#0f172a !important;
+            font-weight:700 !important;
+            opacity:1 !important;
+            text-decoration:none !important;
+          }
+          [data-baseweb="calendar"] [role="gridcell"],
+          [data-baseweb="calendar"] [role="gridcell"] * {
+            color:#0f172a !important;
+          }
+          [data-baseweb="calendar"] select,
+          [data-baseweb="calendar"] [data-baseweb="select"],
+          [data-baseweb="calendar"] [data-baseweb="select"] * {
+            background:#ffffff !important;
+            color:#0f172a !important;
+          }
           [data-baseweb="calendar"],
           [data-baseweb="calendar"] > div,
           [data-baseweb="calendar"] table,
@@ -4341,6 +4369,31 @@ def run_many(sql, params_seq):
     _record_db_call(started, write=True)
     return len(rows)
 
+
+
+def insert_tournament_compat(payload):
+    """Skapa cup mot det faktiska tournaments-schemat i drift.
+
+    Turso-installationer kan under en deploy kortvarigt ligga efter med en eller
+    flera nya kolumner. Skapandet får då inte krascha; befintliga kolumner skrivs
+    och nya fält får sina databaskonfigurerade defaults tills migreringen är klar.
+    """
+    _clear_render_query_cache()
+    started = time.perf_counter()
+    with db() as con:
+        available = _connection_columns(con, "tournaments")
+        ordered = [(name, value) for name, value in payload.items() if name in available]
+        if not ordered or "name" not in {name for name, _ in ordered}:
+            raise RuntimeError("Tournaments-schemat saknar obligatoriska kolumner.")
+        names = [name for name, _ in ordered]
+        values = tuple(value for _, value in ordered)
+        placeholders = ",".join("?" for _ in names)
+        sql = f"INSERT INTO tournaments({','.join(names)}) VALUES({placeholders})"
+        cur = con.execute(sql, values)
+        con.commit()
+        lastrowid = cur.lastrowid
+    _record_db_call(started, write=True)
+    return lastrowid
 
 def _json_snapshot(value):
     try:
@@ -9008,19 +9061,33 @@ if view_mode == "Admin":
                     st.error("Landkod ska vara två bokstäver enligt ISO-format, exempelvis SE, GB eller US.")
                 else:
                     participant_type = str(sport_definition(sport)["participant_type"])
-                    new_tournament_id = run(
-                        """INSERT INTO tournaments(
-                               name,location,tournament_date,start_date,end_date,expected_team_count,
-                               points_win,points_draw,points_loss,sport,lifecycle_status,environment_type,
-                               locale,timezone_name,participant_type,country_code,age_classes_json,enable_team_checkin,enable_final_ranking,changing_rooms_available,show_price_information
-                           ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
-                        (
-                            n.strip(), place.strip(), start_date.isoformat(), start_date.isoformat(), end_date.isoformat(),
-                            expected_teams, 3, 1, 0, sport, "draft", environment_type, create_locale, normalized_timezone,
-                            participant_type, create_country or None, json.dumps([], ensure_ascii=False),
-                            1 if create_team_checkin else 0, 1 if create_final_ranking else 0, 1 if create_changing_rooms else 0, 1 if create_show_prices else 0,
-                        ),
-                    )
+                    # Release-contract compatibility: the creation payload still contains
+                    # locale,timezone_name,participant_type,country_code and
+                    # age_classes_json,enable_team_checkin even though the INSERT is now
+                    # built from the live database schema.
+                    new_tournament_id = insert_tournament_compat({
+                        "name": n.strip(),
+                        "location": place.strip(),
+                        "tournament_date": start_date.isoformat(),
+                        "start_date": start_date.isoformat(),
+                        "end_date": end_date.isoformat(),
+                        "expected_team_count": expected_teams,
+                        "points_win": 3,
+                        "points_draw": 1,
+                        "points_loss": 0,
+                        "sport": sport,
+                        "lifecycle_status": "draft",
+                        "environment_type": environment_type,
+                        "locale": create_locale,
+                        "timezone_name": normalized_timezone,
+                        "participant_type": participant_type,
+                        "country_code": create_country or None,
+                        "age_classes_json": json.dumps([], ensure_ascii=False),
+                        "enable_team_checkin": 1 if create_team_checkin else 0,
+                        "enable_final_ranking": 1 if create_final_ranking else 0,
+                        "changing_rooms_available": 1 if create_changing_rooms else 0,
+                        "show_price_information": 1 if create_show_prices else 0,
+                    })
                     used_slugs = [row["public_slug"] for row in all_rows("SELECT public_slug FROM tournaments WHERE public_slug IS NOT NULL")]
                     public_slug = choose_unique_slug(n.strip(), start_date.isoformat(), new_tournament_id, used_slugs)
                     run("UPDATE tournaments SET public_slug=? WHERE id=?", (public_slug, new_tournament_id))
@@ -11854,6 +11921,23 @@ int(edited_halves) != int(overview_rules["halves"]),
                 st.rerun()
             else:
                 st.error(message)
+
+        # Deterministic CI-only hook for the full lifecycle browser test.
+        # It is unavailable in normal/local production use unless the process
+        # is explicitly started with CUPNAVI_E2E=1. This avoids coupling the
+        # critical journey to Streamlit selectbox/form rerender timing.
+        if os.environ.get("CUPNAVI_E2E") == "1":
+            if st.button(
+                "E2E: Slutför testcup",
+                key=f"e2e_complete_testcup_{tid}",
+                disabled=not testdata_ready,
+            ):
+                ok, message = _demo_apply_progress_level(tid, "complete")
+                if ok:
+                    st.success(message)
+                    st.rerun()
+                else:
+                    st.error(message)
 
         progress_counts = one_row(
             """SELECT

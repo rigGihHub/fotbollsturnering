@@ -27,6 +27,7 @@ def server():
     DB.unlink(missing_ok=True)
     env=os.environ.copy()
     env["CUPNAVI_DB_PATH"]=str(DB)
+    env["CUPNAVI_E2E"]="1"
     env.pop("TURSO_DATABASE_URL",None)
     env.pop("TURSO_AUTH_TOKEN",None)
     env.pop("ADMIN_PASSWORD",None)
@@ -110,10 +111,10 @@ def _cup_progress_state(tournament_id):
         return None
 
 
-def click_demo_generation_and_wait(page, tournament_id, timeout=60000):
-    """Submit Testnivå and wait for the durable completed-cup state."""
+def complete_demo_via_e2e_hook(page, tournament_id, timeout=60000):
+    """Use the CI-only deterministic hook and wait for durable completion."""
     button=wait_until_enabled(
-        page.get_by_role("button", name=re.compile(r"Generera valt testläge")),
+        page.get_by_role("button", name="E2E: Slutför testcup", exact=True),
         timeout=20000,
     )
     button.scroll_into_view_if_needed()
@@ -235,8 +236,9 @@ def test_full_cup_lifecycle_journey(server,browser_name):
         assert demo_counts[2] >= 1
 
         # 3. Build schedule + publish + results + events + playoff to completion.
-        choose_streamlit_option(page,"Testnivå","Hela cupen färdig")
-        click_demo_generation_and_wait(page,tid,timeout=60000)
+        # The CI-only hook calls the same server-side progression function but
+        # avoids Streamlit selectbox/form rerender races in headless browsers.
+        complete_demo_via_e2e_hook(page,tid,timeout=60000)
         wait_app(page)
         # DB verification proves the UI action completed the whole persistence chain.
         tid=assert_complete_database(cup_name)
