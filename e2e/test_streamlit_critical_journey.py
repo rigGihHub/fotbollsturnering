@@ -61,6 +61,38 @@ def click_if_enabled(locator):
     return False
 
 
+def wait_until_enabled(locator, timeout=20000):
+    deadline=time.time()+timeout/1000
+    last_error=None
+    while time.time()<deadline:
+        try:
+            if locator.count() and locator.first.is_visible() and locator.first.is_enabled():
+                return locator.first
+        except Exception as exc:
+            last_error=exc
+        time.sleep(.2)
+    detail=f" ({last_error})" if last_error else ""
+    raise AssertionError(f"Timed out waiting for enabled locator{detail}")
+
+
+def choose_streamlit_option(page, label, option, timeout=20000):
+    """Choose an option from Streamlit's React-Aria combobox.
+
+    Streamlit selectbox is not a native <select>, so Playwright select_option()
+    is intentionally not used here.
+    """
+    combo=wait_until_enabled(page.get_by_label(label,exact=True),timeout=timeout)
+    combo.click()
+    choice=page.get_by_role("option",name=option,exact=True)
+    choice.wait_for(state="visible",timeout=timeout)
+    choice.click()
+    page.wait_for_function(
+        "([label, expected]) => { const el=[...document.querySelectorAll('[aria-label]')].find(x => x.getAttribute('aria-label')===label && !x.disabled); return !!el && el.value===expected; }",
+        arg=[label,option],
+        timeout=timeout,
+    )
+
+
 def assert_complete_database(cup_name):
     con=sqlite3.connect(DB)
     con.row_factory=sqlite3.Row
@@ -108,10 +140,14 @@ def test_full_cup_lifecycle_journey(server,browser_name):
         wait_app(page)
         page.get_by_text("Skapa ny turnering",exact=True).click()
         cup_name=f"E2E Full {browser_name}"
-        page.get_by_label("Namn",exact=True).fill(cup_name)
-        page.get_by_label("Spelort",exact=True).fill("Örebro")
-        page.get_by_text("Testmiljö",exact=True).click()
-        page.get_by_role("button",name="Skapa",exact=True).click()
+        # Scope creation fields to the sidebar form. The regular Admin page also
+        # contains a "Spelort" field and Streamlit may keep both DOM subtrees
+        # mounted briefly during rerenders, especially in Firefox/WebKit.
+        create_form=page.locator('[data-testid="stSidebar"] [data-testid="stForm"]').first
+        create_form.get_by_label("Namn",exact=True).fill(cup_name)
+        create_form.get_by_label("Spelort",exact=True).fill("Örebro")
+        create_form.get_by_text("Testmiljö",exact=True).click()
+        create_form.get_by_role("button",name="Skapa",exact=True).click()
         wait_app(page)
 
         # Creation lands in the guided setup before the normal Admin header is
@@ -146,7 +182,7 @@ def test_full_cup_lifecycle_journey(server,browser_name):
         assert "Aktuellt testläge" in body
 
         # 3. Build schedule + publish + results + events + playoff to completion.
-        page.get_by_label("Testnivå",exact=True).select_option(label="Hela cupen färdig")
+        choose_streamlit_option(page,"Testnivå","Hela cupen färdig")
         generate=page.get_by_role("button",name=re.compile(r"Generera testläge: Hela cupen färdig"))
         assert generate.is_enabled()
         generate.click()

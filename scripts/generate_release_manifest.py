@@ -4,8 +4,25 @@ import hashlib
 
 ROOT=Path(__file__).resolve().parents[1]
 MANIFEST=ROOT/"RELEASE_MANIFEST.txt"
-EXCLUDED_PARTS={".git",".pytest_cache","__pycache__",".idea",".vscode"}
-EXCLUDED_NAMES={"RELEASE_MANIFEST.txt"}
+EXCLUDED_PARTS={".git",".pytest_cache","__pycache__",".idea",".vscode","backups",".venv","venv","dist","build"}
+EXCLUDED_NAMES={"RELEASE_MANIFEST.txt",".DS_Store"}
+EXCLUDED_SUFFIXES={".pyc",".db",".sqlite",".sqlite3",".bak",".tmp"}
+EXCLUDED_ENDINGS=(".db-shm",".db-wal")
+
+def is_release_file(path, rel):
+    if any(part in EXCLUDED_PARTS for part in rel.parts):
+        return False
+    if path.name in EXCLUDED_NAMES:
+        return False
+    if path.name == ".env" or path.name.startswith(".env."):
+        return False
+    if path.as_posix().endswith(".streamlit/secrets.toml"):
+        return False
+    if path.suffix.lower() in EXCLUDED_SUFFIXES:
+        return False
+    if path.name.lower().endswith(EXCLUDED_ENDINGS):
+        return False
+    return True
 
 def release_files():
     files=[]
@@ -13,9 +30,7 @@ def release_files():
         if not path.is_file():
             continue
         rel=path.relative_to(ROOT)
-        if any(part in EXCLUDED_PARTS for part in rel.parts):
-            continue
-        if path.name in EXCLUDED_NAMES or path.suffix==".pyc":
+        if not is_release_file(path, rel):
             continue
         files.append(rel)
     return sorted(files,key=lambda p:p.as_posix().casefold())

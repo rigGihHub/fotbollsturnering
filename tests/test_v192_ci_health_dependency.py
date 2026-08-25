@@ -18,3 +18,15 @@ def test_v192_release_sync_and_visible_version():
     assert f'APP_BUILD_VERSION = "{RELEASE}"' in app
     assert f'APP_VERSION = "{RELEASE}"' in core
     assert 'st.sidebar.caption("Version v.1.192")' in app
+
+
+def test_release_manifest_excludes_runtime_and_secret_files():
+    script=(ROOT/"scripts"/"generate_release_manifest.py").read_text(encoding="utf-8")
+    assert '".db"' in script
+    assert '".sqlite"' in script
+    assert '"backups"' in script
+    assert 'path.name == ".env"' in script
+    assert '.streamlit/secrets.toml' in script
+    manifest=(ROOT/"RELEASE_MANIFEST.txt").read_text(encoding="utf-8")
+    forbidden=("./turnering.db", ".db-shm", ".db-wal", "./.env", "/backups/")
+    assert not any(token in manifest for token in forbidden)
