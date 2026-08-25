@@ -11,7 +11,7 @@ def app_text():
 def test_v109_version_and_weather_default():
     text = app_text()
     # Regressionen ska verifiera väder-defaulten, inte frysa hela appen på v109.
-    assert 'APP_BUILD_VERSION = "2026.08.24-' in text
+    assert 'APP_BUILD_VERSION = "2026.08.25-' in text
     assert '"🌦️ " + tr("Visa väderprognos")' in text
     weather_block=text[text.index('"🌦️ " + tr("Visa väderprognos")'):text.index('"🌦️ " + tr("Visa väderprognos")')+220]
     assert "value=True" in weather_block

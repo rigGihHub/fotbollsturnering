@@ -55,7 +55,7 @@ from cupnavi_core.fairness import fairness_report
 from cupnavi_core.ux2 import workflow_progress, attention_items, schedule_board
 from cupnavi_core.about import feature_catalog, about_intro
 
-APP_BUILD_VERSION = "2026.08.24-157-MOBILE-PWA-E2E"
+APP_BUILD_VERSION = "2026.08.25-159-MOBILE-PUBLISH-RESULT-SYNC"
 APP_VERSION = APP_BUILD_VERSION
 RELEASE_FILES_MISMATCH = CORE_APP_VERSION != APP_BUILD_VERSION
 REQUIRED_SCHEMA_VERSION = max(int(LATEST_SCHEMA_VERSION), 5)
@@ -8452,6 +8452,8 @@ sidebar_warnings_approved = st.sidebar.checkbox(
     disabled=not bool(blocking_sidebar_warnings),
     key=f"sidebar_warning_approval_{tid}",
 )
+mobile_warnings_approved = bool(st.session_state.get(f"mobile_warning_approval_{tid}", False))
+all_warnings_approved = bool(sidebar_warnings_approved or mobile_warnings_approved)
 
 publish_blockers = []
 if not tournament["playoff_model_confirmed"]:
@@ -8466,12 +8468,34 @@ if sidebar_errors:
     publish_blockers.append(
         f"{len(sidebar_errors)} blockerande schemafel måste åtgärdas."
     )
-if blocking_sidebar_warnings and not sidebar_warnings_approved:
+if blocking_sidebar_warnings and not all_warnings_approved:
     publish_blockers.append(
         f"{len(blocking_sidebar_warnings)} schemavarningar måste granskas och godkännas."
     )
 
 sidebar_publish_blocked = bool(publish_blockers)
+
+
+def _publish_tournament_now():
+    """Publish every scheduled match atomically; used by desktop sidebar and mobile main view."""
+    with db() as con:
+        con.execute(
+            "UPDATE matches SET schedule_published=1 WHERE tournament_id=? AND scheduled_start IS NOT NULL",
+            (tid,),
+        )
+        con.execute(
+            "UPDATE tournaments SET is_published=1,lifecycle_status=CASE WHEN lifecycle_status='live' THEN 'live' ELSE 'published' END WHERE id=?",
+            (tid,),
+        )
+        con.commit()
+    _clear_render_query_cache()
+    st.session_state["_validation_dirty"] = True
+
+
+def _unpublish_tournament_now():
+    run("UPDATE tournaments SET is_published=0,lifecycle_status='draft' WHERE id=?", (tid,))
+    _clear_render_query_cache()
+
 
 if sidebar_publish_blocked:
     st.sidebar.error("Kan inte publicera ännu")
@@ -8509,13 +8533,7 @@ if st.sidebar.button(
     disabled=sidebar_publish_blocked,
     key=f"publish_from_any_admin_page_{tid}",
 ):
-    with db() as con:
-        con.execute(
-            "UPDATE matches SET schedule_published=1 WHERE tournament_id=? AND scheduled_start IS NOT NULL",
-            (tid,),
-        )
-        con.execute("UPDATE tournaments SET is_published=1,lifecycle_status=CASE WHEN lifecycle_status='live' THEN 'live' ELSE 'published' END WHERE id=?", (tid,))
-        con.commit()
+    _publish_tournament_now()
     st.rerun()
 
 if st.sidebar.button(
@@ -8524,8 +8542,48 @@ if st.sidebar.button(
     disabled=not tournament["is_published"],
     key=f"unpublish_from_any_admin_page_{tid}",
 ):
-    run("UPDATE tournaments SET is_published=0,lifecycle_status='draft' WHERE id=?", (tid,))
+    _unpublish_tournament_now()
     st.rerun()
+
+# v159: Publicering får inte vara beroende av sidebaren. På mobil ligger denna
+# kontroll direkt i huvudinnehållet och använder exakt samma validering.
+with st.container(border=True):
+    st.markdown("#### 📣 Publicering")
+    if tournament["is_published"]:
+        st.success("Turneringen är publicerad. Sparade resultat visas automatiskt i turneringsvyn.")
+    else:
+        st.caption("Turneringsvyn är fortfarande ett utkast tills du publicerar den.")
+
+    if blocking_sidebar_warnings:
+        st.checkbox(
+            "Jag har granskat schemavarningarna",
+            key=f"mobile_warning_approval_{tid}",
+        )
+
+    if sidebar_publish_blocked:
+        st.warning("Kan inte publicera ännu: " + " ".join(publish_blockers))
+
+    mobile_publish_col, mobile_unpublish_col = st.columns(2)
+    if mobile_publish_col.button(
+        "📣 Publicera / uppdatera publik vy",
+        type="primary",
+        use_container_width=True,
+        disabled=sidebar_publish_blocked,
+        key=f"mobile_publish_from_admin_{tid}",
+    ):
+        _publish_tournament_now()
+        st.session_state["mobile_publish_message"] = "✓ Turneringsvyn är publicerad och synkad."
+        st.rerun()
+    if mobile_unpublish_col.button(
+        "Avpublicera",
+        use_container_width=True,
+        disabled=not tournament["is_published"],
+        key=f"mobile_unpublish_from_admin_{tid}",
+    ):
+        _unpublish_tournament_now()
+        st.rerun()
+    if "mobile_publish_message" in st.session_state:
+        st.success(st.session_state.pop("mobile_publish_message"))
 
 # Cupens livscykel: publicerad -> pågår -> avslutad. Avslutad cup blir skrivskyddad
 # i admin men ligger kvar publikt tills admin uttryckligen flyttar den till papperskorgen.
@@ -10427,7 +10485,7 @@ if admin_page == "Problem & lösningar":
 
     # v142: transparent Schedule Score based on the actual saved schedule.
     _quality_rows = [dict(r) for r in all_rows(
-        "SELECT scheduled_start,home_team_id,away_team_id FROM matches WHERE tournament_id=?",
+        "SELECT scheduled_start,home_source,away_source FROM matches WHERE tournament_id=?",
         (tid,),
     )]
     _late_pref_rows = all_rows(
@@ -11746,6 +11804,11 @@ if admin_page == "Skapa och publicera schema":
                     home_score = None if pd.isna(row["Hemmamål"]) else int(row["Hemmamål"])
                     away_score = None if pd.isna(row["Bortamål"]) else int(row["Bortamål"])
                     con.execute("UPDATE matches SET home_score=?,away_score=? WHERE id=?", (home_score, away_score, int(row["match_id"])))
+                    if tournament["is_published"]:
+                        con.execute(
+                            "UPDATE matches SET schedule_published=1 WHERE id=? AND scheduled_start IS NOT NULL",
+                            (int(row["match_id"]),),
+                        )
                 con.commit()
             st.success("Resultaten sparades.")
         st.caption("Målskyttar, assist, varningar och utvisningar registreras under fliken Matchhändelser och visas därefter automatiskt här.")
@@ -11950,6 +12013,11 @@ if admin_page == "Matcher och resultat":
                            WHERE id=?""",
                         auto_updates,
                     )
+                    if tournament["is_published"]:
+                        con.executemany(
+                            "UPDATE matches SET schedule_published=1 WHERE id=? AND scheduled_start IS NOT NULL",
+                            [(int(update[-1]),) for update in auto_updates],
+                        )
                     con.commit()
                 _clear_render_query_cache()
                 for home_score, away_score, home_penalties, away_penalties, decided_winner_id, referee_id, changed_match_id in auto_updates:
@@ -11969,6 +12037,10 @@ if admin_page == "Matcher och resultat":
                 st.rerun()
 
             st.caption("✓ Resultat och ändringar sparas automatiskt – ingen Spara-knapp behövs.")
+            if not tournament["is_published"]:
+                st.info("Resultaten är sparade men cupen är inte publicerad ännu. Använd 📣 Publicera / uppdatera publik vy ovan för att visa dem i turneringsvyn.")
+            else:
+                st.caption("✓ Cupen är publicerad – sparade resultat slår igenom automatiskt i turneringsvyn.")
 
 
 if admin_page == "Matchhändelser":

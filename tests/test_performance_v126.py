@@ -14,6 +14,6 @@ def test_release_version_is_synced():
     text = Path("app.py").read_text(encoding="utf-8")
     version = Path("VERSION.txt").read_text(encoding="utf-8").strip()
     core = Path("cupnavi_core/version.py").read_text(encoding="utf-8")
-    assert version.startswith("2026.08.24-")
+    assert version.startswith("2026.08.25-")
     assert version in text
     assert version in core

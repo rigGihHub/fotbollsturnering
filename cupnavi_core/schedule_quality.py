@@ -19,6 +19,30 @@ def schedule_quality_score(*, unscheduled: int, short_rest: int, travel_conflict
     return {"score": score, "penalties": penalties,
             "grade": "Mycket bra" if score >= 90 else "Bra" if score >= 75 else "Behöver förbättras" if score >= 50 else "Kritisk"}
 
+def _source_team_id(value):
+    """Resolve direct team sources without touching the database.
+
+    Group/winner/loser placeholders intentionally return None because their team
+    is not stable until competition results resolve them.
+    """
+    text=str(value or "")
+    if not text.startswith("team:"):
+        return None
+    try:
+        return int(text.split(":",1)[1])
+    except (TypeError,ValueError):
+        return None
+
+def _match_team_ids(match):
+    # Legacy keys are accepted for backwards-compatible tests/imports.
+    home=match.get("home_team_id")
+    away=match.get("away_team_id")
+    if home is None:
+        home=_source_team_id(match.get("home_source"))
+    if away is None:
+        away=_source_team_id(match.get("away_source"))
+    return home,away
+
 def assess_schedule(matches, *, min_rest_minutes=0, late_preferences=None):
     late_preferences = late_preferences or {}
     unscheduled=0
@@ -32,18 +56,18 @@ def assess_schedule(matches, *, min_rest_minutes=0, late_preferences=None):
             continue
         try:
             start=datetime.fromisoformat(str(start_raw))
-        except ValueError:
+        except (TypeError,ValueError):
             unscheduled += 1
             continue
-        for key in ("home_team_id","away_team_id"):
-            team=m.get(key)
+
+        home_team,away_team=_match_team_ids(m)
+        for team in (home_team,away_team):
             if team is not None:
                 by_team[int(team)].append(start)
-        for key in ("home_team_id","away_team_id"):
-            team=m.get(key)
-            earliest=late_preferences.get(int(team)) if team is not None else None
-            if earliest and start.strftime("%H:%M") < str(earliest):
-                late_missed += 1
+                earliest=late_preferences.get(int(team))
+                if earliest and start.strftime("%H:%M") < str(earliest):
+                    late_missed += 1
+
     if min_rest_minutes > 0:
         for starts in by_team.values():
             starts.sort()
