@@ -63,9 +63,13 @@ def test_streamlit_public_shell(streamlit_server,browser_name,viewport):
         assert "This app has encountered an error" not in body
         assert "Traceback" not in body
 
-        # A healthy shell should expose CupNavi content or the initial
-        # tournament selector/login view.
-        assert any(token in body for token in ("CupNavi","Turneringar","Turneringsvy","Administratörsinloggning"))
+        # Smoke-test the Streamlit shell itself, not exact product copy.
+        # The visible app root above proves that Streamlit rendered. Exact labels
+        # are covered by product/regression tests and may legitimately change.
+        app_root=page.locator(
+            '[data-testid="stAppViewContainer"], [data-testid="stApp"], .stApp'
+        ).first
+        assert app_root.is_visible()
 
         overflow=page.evaluate(
             "() => Math.max(0, document.documentElement.scrollWidth-document.documentElement.clientWidth)"

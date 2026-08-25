@@ -3,7 +3,7 @@ ROOT=Path(__file__).resolve().parents[1]
 APP=(ROOT/"app.py").read_text(encoding="utf-8")
 CSS=(ROOT/"public_pwa/styles.css").read_text(encoding="utf-8")
 WF=(ROOT/".github/workflows/cross-browser.yml").read_text(encoding="utf-8")
-R="2026.08.25-183-BROWSER-SMOKE-FIX"
+R="2026.08.25-184-STREAMLIT-SMOKE-SEMANTICS"
 
 def test_webkit_backdrop_prefixes_exist():
     assert "-webkit-backdrop-filter:blur(8px)" in APP

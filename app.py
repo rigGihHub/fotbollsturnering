@@ -102,7 +102,7 @@ from cupnavi_core.fairness import fairness_report
 from cupnavi_core.ux2 import workflow_progress, attention_items, schedule_board
 from cupnavi_core.about import feature_catalog, about_intro
 
-APP_BUILD_VERSION = "2026.08.25-183-BROWSER-SMOKE-FIX"
+APP_BUILD_VERSION = "2026.08.25-184-STREAMLIT-SMOKE-SEMANTICS"
 APP_VERSION = APP_BUILD_VERSION
 
 def read_core_version_from_disk():
@@ -8379,7 +8379,7 @@ if st.session_state.get("view_mode") not in mode_options:
     st.session_state["view_mode"] = mode_options[0]
 if st.session_state.get("view_mode") != "Turneringsvy":
     st.sidebar.caption("Databas: Turso" if CLOUD_DATABASE_ENABLED else "Databas: Lokal SQLite")
-st.sidebar.caption("Version v.1.183")
+st.sidebar.caption("Version v.1.184")
 
 def _set_view_mode(mode):
     st.session_state["view_mode"] = mode
