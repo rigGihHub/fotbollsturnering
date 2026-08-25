@@ -8,7 +8,7 @@ def app_text():
 def test_share_is_isolated_in_streamlit_fragment():
     text = app_text()
     start = text.index("# En enda delningsingång bredvid logotypen.")
-    end = text.index("with st.container(border=True):", start)
+    end = text.index("\n    render_public_share_fragment()", start) + len("\n    render_public_share_fragment()")
     block = text[start:end]
     assert "@st.fragment" in block
     assert "def render_public_share_fragment" in block
@@ -20,7 +20,7 @@ def test_share_is_isolated_in_streamlit_fragment():
 def test_share_panel_has_light_scoped_styles_and_lazy_qr():
     text = app_text()
     start = text.index("# En enda delningsingång bredvid logotypen.")
-    end = text.index("with st.container(border=True):", start)
+    end = text.index("\n    render_public_share_fragment()", start) + len("\n    render_public_share_fragment()")
     block = text[start:end]
     assert "cn-share-url-box" in block
     assert "#f7faf8" in block

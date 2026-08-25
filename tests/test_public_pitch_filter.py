@@ -10,6 +10,8 @@ def test_pitch_filter_matches_pitch_number():
     text = Path("app.py").read_text(encoding="utf-8")
     assert 'int(match_row["pitch_number"] or 0) == selected_pitch' in text
 
-def test_next_match_label_handles_pitch_filter():
+def test_pitch_filter_keeps_next_match_overview_single_source():
     text = Path("app.py").read_text(encoding="utf-8")
-    assert "Nästa match på vald plan" in text
+    matcher=text[text.index('if public_page == "Matcher":'):text.index('if public_page == "Statistik":')]
+    assert 'class="cn-next-match"' not in matcher
+    assert "Cupen just nu" in matcher

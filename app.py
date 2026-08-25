@@ -55,7 +55,7 @@ from cupnavi_core.fairness import fairness_report
 from cupnavi_core.ux2 import workflow_progress, attention_items, schedule_board
 from cupnavi_core.about import feature_catalog, about_intro
 
-APP_BUILD_VERSION = "2026.08.25-161-LIVE-CENTER-REFINEMENT"
+APP_BUILD_VERSION = "2026.08.25-162-PUBLIC-DESKTOP-DENSITY"
 APP_VERSION = APP_BUILD_VERSION
 RELEASE_FILES_MISMATCH = CORE_APP_VERSION != APP_BUILD_VERSION
 REQUIRED_SCHEMA_VERSION = max(int(LATEST_SCHEMA_VERSION), 5)
@@ -6065,7 +6065,11 @@ def render_public_view(tournament_id, tournament):
         requested_team_id = None
 
     screen_url = public_cup_url(tournament_id) + ("&" if "?" in public_cup_url(tournament_id) else "?") + "screen=1"
-    st.markdown(f"<div style='text-align:right;margin:-4px 0 8px'><a class='cn-screen-link' href='{html.escape(screen_url, quote=True)}'>🖥 Informationsskärm</a></div>", unsafe_allow_html=True)
+    if public_page == "Info":
+        st.markdown(
+            f"<div style='text-align:right;margin:-4px 0 8px'><a class='cn-screen-link' href='{html.escape(screen_url, quote=True)}'>🖥 Informationsskärm</a></div>",
+            unsafe_allow_html=True,
+        )
 
     # En enda delningsingång bredvid logotypen. Streamlit-native komponenter
     # används här medvetet: rå HTML-knapp/popover renderades som text i vissa
@@ -6211,6 +6215,33 @@ def render_public_view(tournament_id, tournament):
         .cn-my-status{display:flex;gap:8px;flex-wrap:wrap;margin:8px 0}.cn-my-pill{border:1px solid #dbe5df;border-radius:999px;padding:6px 10px;background:#f8fbf9;font-size:.8rem;font-weight:750}
         .cn-venue-card{border:1px solid #e2e8f0;border-radius:14px;padding:11px 12px;margin:7px 0;background:#fff}
 
+        /* v162: publika desktopvyn använder bredden bättre och minskar dubblerad höjd. */
+        @media(min-width:901px){
+          .cup-hero{padding:16px 20px!important;margin:2px 0 10px!important;border-radius:14px!important}
+          .cup-hero .title{font-size:30px!important;margin:3px 0 5px!important}
+          .cup-hero .meta{font-size:13px!important}
+          .cn-live-strip{margin:8px 0 10px!important}
+          .cn-live-head{padding:10px 13px!important;margin-bottom:8px!important}
+          .cn-live-card{padding:10px 12px!important;border-radius:13px!important}
+          .cn-live-card-top{margin-bottom:6px!important}
+          .public-metric-grid{display:flex!important;gap:8px!important;margin:6px 0 10px!important}
+          .public-metric{min-height:auto!important;padding:8px 11px!important;border-radius:10px!important;display:flex!important;align-items:baseline!important;gap:8px!important;flex:0 0 auto!important}
+          .public-metric .label{font-size:12px!important;margin:0!important}
+          .public-metric .value{font-size:18px!important}
+          [class*="st-key-public_follow_"]{margin:2px 0 8px!important;padding:0!important}
+          [class*="st-key-public_follow_"] [data-testid="stSelectbox"]{margin-bottom:0!important}
+          [class*="st-key-public_follow_"] label{font-size:12px!important}
+          .public-match-card{margin:7px 0!important;padding:10px 12px!important;border-radius:12px!important}
+          .public-match-card .public-team-name{font-size:15px!important}
+          .public-match-card .match-score{font-size:18px!important}
+          .public-match-card .match-meta{font-size:12px!important}
+          .public-match-card .kit-label{font-size:10px!important}
+          .public-match-card .match-weather,.public-match-card .match-referee{font-size:11px!important;margin-top:6px!important}
+          .public-match-card .cn-match-events{margin-top:6px!important;padding-top:6px!important}
+          .public-match-card .cn-event-team{padding:5px!important}
+          .public-match-card .cn-event{font-size:11px!important;padding:3px 6px!important}
+        }
+
         @media(max-width:760px){
           .cn-follow-shell{padding:14px;margin-top:4px;border-radius:16px}
           .cn-follow-team{font-size:1.22rem}
@@ -6224,7 +6255,7 @@ def render_public_view(tournament_id, tournament):
         unsafe_allow_html=True,
     )
 
-    with st.container(border=True):
+    with st.container(key=f"public_follow_{tournament_id}"):
         favorite_options = [None] + [row["id"] for row in public_teams]
         favorite_index = favorite_options.index(requested_team_id) if requested_team_id in favorite_options else 0
         favorite_team_id = st.selectbox(
@@ -6611,12 +6642,17 @@ def render_public_view(tournament_id, tournament):
               .public-match-card span,
               .public-match-card b { color:#172033 !important; }
               .public-match-card .match-stage { color:#ffffff !important; }
-              .public-match-card .match-meta { color:#334155 !important; }
+              .public-match-card .match-meta { color:#475569 !important; }
               .public-match-card .kit-label,
               .public-match-card .match-referee,
-              .public-match-card .match-weather { color:#475569 !important; }
-              .public-match-card .match-score { color:#0f172a !important; }
-              .public-match-card .public-team-name { font-size:18px !important;line-height:1.25;font-weight:800; }
+              .public-match-card .match-weather { color:#64748b !important; }
+              .public-match-card .match-score { color:#0f172a !important;font-weight:900 !important; }
+              .public-match-card .public-team-name { font-size:18px !important;line-height:1.2;font-weight:850; }
+              .public-match-secondary{display:flex;justify-content:center;gap:12px;flex-wrap:wrap;margin-top:8px;font-size:12px;color:#64748b!important}
+              @media(max-width:760px){
+                .public-match-card .public-team-name{font-size:16px!important}
+                .public-match-secondary{display:block;text-align:center}
+              }
             </style>
             """,
             unsafe_allow_html=True,
@@ -6672,21 +6708,23 @@ def render_public_view(tournament_id, tournament):
 
             st.markdown(
                 f"""
-                <div class="public-match-card" style="border:1px solid #d1d5db;border-radius:14px;padding:16px;margin:12px 0;background:linear-gradient(135deg,#ffffff,#f3f6fb);color:#172033;box-shadow:0 4px 12px rgba(15,23,42,.08)">
-                  <div style="display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #e5e7eb;padding-bottom:9px">
-                    <div style="display:flex;gap:7px;align-items:center"><span class="match-stage" style="font-size:12px;font-weight:700;color:#fff;background:#166534;padding:4px 9px;border-radius:999px">{match_row['stage']}</span><span class="status-pill {status_class}">{status_text}</span></div>
-                    <span class="match-meta" style="font-size:13px;color:#334155">Match {number} · <b>{start}</b> · {html.escape(pitch_label(tournament_id,match_row['pitch_number']))}</span>
+                <div class="public-match-card" style="border:1px solid #d1d5db;border-radius:14px;padding:16px;margin:12px 0;background:#ffffff;color:#172033;box-shadow:0 3px 10px rgba(15,23,42,.06)">
+                  <div style="display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #edf2f7;padding-bottom:7px;gap:12px">
+                    <div style="display:flex;gap:6px;align-items:center"><span class="match-stage" style="font-size:11px;font-weight:800;color:#fff;background:#166534;padding:4px 8px;border-radius:999px">{match_row['stage']}</span><span class="status-pill {status_class}">{status_text}</span></div>
+                    <span class="match-meta">Match {number} · <b>{start}</b> · {html.escape(pitch_label(tournament_id,match_row['pitch_number']))}</span>
                   </div>
-                  <div style="display:grid;grid-template-columns:1fr auto 1fr;gap:15px;align-items:center;margin-top:8px;color:#0f172a">
-                    <div><span style="display:inline-block;width:22px;height:15px;background:{home_kit_bg};border:1px solid #444;border-radius:3px"></span>
-                    <b class="public-team-name">{html.escape(home_name)}</b><br><small class="kit-label">Hemmalagets hemmaställ</small></div>
-                    <div class="match-score" style="font-size:20px;font-weight:700">{center_text}</div>
-                    <div style="text-align:right"><b class="public-team-name">{html.escape(away_name)}</b> <span style="display:inline-block;width:22px;height:15px;background:{away_kit_bg};border:1px solid #444;border-radius:3px"></span>
-                    <br><small class="kit-label">{'Bortalagets bortaställ' if away_kit_used else 'Bortalagets hemmaställ'}</small></div>
+                  <div style="display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);gap:12px;align-items:center;margin-top:7px;color:#0f172a">
+                    <div><span style="display:inline-block;width:18px;height:13px;background:{home_kit_bg};border:1px solid #64748b;border-radius:3px"></span>
+                    <b class="public-team-name">{html.escape(home_name)}</b><br><small class="kit-label">Hemmalag</small></div>
+                    <div class="match-score" style="font-size:20px">{center_text}</div>
+                    <div style="text-align:right"><b class="public-team-name">{html.escape(away_name)}</b> <span style="display:inline-block;width:18px;height:13px;background:{away_kit_bg};border:1px solid #64748b;border-radius:3px"></span>
+                    <br><small class="kit-label">{'Bortaställ' if away_kit_used else 'Hemmaställ'}</small></div>
                   </div>
                   {match_events_html}
-                  {f'<div class="match-weather" style="font-size:12px;text-align:center;margin-top:10px">{html.escape(weather_text)}</div>' if show_weather else ''}
-                  <div class="match-referee" style="font-size:12px;text-align:center;margin-top:10px">Domare: {html.escape(referees.get(_row_value(match_row, 'referee_id'), 'Ej tillsatt'))}</div>
+                  <div class="public-match-secondary">
+                    {f'<span class="match-weather">{html.escape(weather_text)}</span>' if show_weather else ''}
+                    <span class="match-referee">Domare: {html.escape(referees.get(_row_value(match_row, 'referee_id'), 'Ej tillsatt'))}</span>
+                  </div>
                 </div>
                 """,
                 unsafe_allow_html=True,
@@ -6861,37 +6899,8 @@ def render_public_view(tournament_id, tournament):
                 except (TypeError, ValueError):
                     return None
 
-            upcoming_match = next(
-                (
-                    match_row for match_row in match_list
-                    if match_row["home_score"] is None
-                    and _safe_public_start(match_row) is not None
-                    and _safe_public_start(match_row) >= now
-                ),
-                None,
-            )
-            if upcoming_match:
-                next_home = _public_source_label(upcoming_match["home_source"])
-                next_away = _public_source_label(upcoming_match["away_source"])
-                if match_filter_mode == tr("Ett lag"):
-                    next_label = tr("Nästa match för valt lag")
-                elif match_filter_mode == tr("En grupp"):
-                    next_label = tr("Nästa match i vald grupp")
-                elif match_filter_mode == tr("En plan"):
-                    next_label = tr("Nästa match på vald plan")
-                else:
-                    next_label = tr("Nästa match")
-                st.markdown(
-                    f"""
-                    <div class="cn-next-match">
-                      <div class="eyebrow">{html.escape(next_label)}</div>
-                      <div class="teams">{html.escape(next_home)} – {html.escape(next_away)}</div>
-                      <div class="meta">{swedish_datetime(upcoming_match['scheduled_start'])} · {html.escape(tr("Plan"))} {upcoming_match['pitch_number']}</div>
-                    </div>
-                    """,
-                    unsafe_allow_html=True,
-                )
-
+            # v162: Cupen just nu ovan är den enda primära "nästa match"-ytan.
+            # Vi undviker ett andra stort hero-kort som duplicerar samma information.
             show_match_weather = st.toggle(
                 "🌦️ " + tr("Visa väderprognos"),
                 value=True,

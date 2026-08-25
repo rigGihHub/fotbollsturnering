@@ -12,8 +12,12 @@ def test_played_match_switch_is_url_backed_and_mobile_safe():
     assert 'base_match_list = played_matches' in APP
 
 def test_upcoming_match_parsing_is_defensive():
-    block=APP[APP.index("def _safe_public_start"):APP.index("if upcoming_match:", APP.index("def _safe_public_start"))]
+    start=APP.index("def _safe_public_start")
+    block=APP[start:start+900]
     assert "except (TypeError, ValueError)" in block
+    # v162 intentionally removed the duplicate large Next Match hero.
+    matcher=APP[APP.index('if public_page == "Matcher":'):APP.index('if public_page == "Statistik":')]
+    assert 'class="cn-next-match"' not in matcher
 
 def test_public_playoff_distinguishes_configuration_errors():
     assert "Slutspelet kan inte skapas med nuvarande upplägg" in APP
