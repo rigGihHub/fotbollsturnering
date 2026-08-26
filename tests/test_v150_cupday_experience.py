@@ -1,5 +1,7 @@
 from pathlib import Path
 APP=(Path(__file__).resolve().parents[1]/"app.py").read_text(encoding="utf-8")
+INFO=(Path(__file__).resolve().parents[1]/"cupnavi_core/public_info_view.py").read_text(encoding="utf-8")
+MATCH=(Path(__file__).resolve().parents[1]/"cupnavi_core/public_match_cards.py").read_text(encoding="utf-8")
 
 def test_min_cup_3_has_context_and_directions():
     assert "table_position_text" in APP
@@ -9,10 +11,10 @@ def test_min_cup_3_has_context_and_directions():
 def test_live_center():
     assert "Cupen just nu" in APP
     assert "_live_now" in APP and "_next_matches" in APP and "_recent_results" in APP
-    assert '"PÅGÅR"' in APP
+    assert '"PÅGÅR"' in MATCH
 
 def test_public_venue_area():
-    info=APP[APP.index("def render_public_info_section"):APP.index("def render_public_view")]
+    info=INFO
     assert "venue_points_public" in info
     assert "Hitta på cupområdet" in info
     assert "Vägbeskrivning ·" in info

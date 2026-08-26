@@ -14,8 +14,8 @@ def test_weather_for_match_tolerates_invalid_start():
     assert "str(scheduled_start)" in block
 
 def test_public_weather_render_is_guarded():
-    text = APP.read_text(encoding="utf-8")
+    text = (APP.read_text(encoding="utf-8") + (APP.parent/"cupnavi_core/public_match_cards.py").read_text(encoding="utf-8"))
     assert 'weather_text = "Väderprognosen kan inte visas för den här matchen."' in text
-    assert "_public_referee_label(match_row)" in text
+    assert "public_referee_label(match_row)" in text
     assert "r.name AS referee_name" in text
     assert "LEFT JOIN referees r ON r.id=m.referee_id" in text

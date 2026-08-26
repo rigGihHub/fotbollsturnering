@@ -15,10 +15,11 @@ def test_translation_layer_has_fallback():
 
 def test_public_navigation_is_translated():
     text = app_text()
-    assert 'tr("Schema & resultat")' in text
-    assert 'tr("Tabeller")' in text
-    assert 'tr("Slutspel")' in text
-    assert 'tr("Statistik")' in text
+    assert 'label = tr(desktop_label)' in text
+    from cupnavi_core.public_view_logic import public_navigation_specs
+    assert [item[2] for item in public_navigation_specs()[:4]] == [
+        "Schema & resultat","Tabeller","Slutspel","Statistik"
+    ]
 
 def test_admin_nav_labels_are_translated():
     text = app_text()

@@ -1,17 +1,18 @@
 from pathlib import Path
+from cupnavi_core.public_view_logic import public_navigation_specs, public_section_for_page
 ROOT=Path(__file__).resolve().parents[1]
 APP=(ROOT/"app.py").read_text(encoding="utf-8")
-R="2026.08.26-198-VISUAL-SYSTEM-CONSOLIDATION"
+R="2026.08.26-204-PUBLIC-MATCH-CARDS-DECOMPOSITION"
 
-def test_public_has_four_clear_competition_buttons():
-    for label in ("Spelschema & resultat","Tabeller gruppspel","Slutspel","Statistik"):
-        assert label in APP
-    assert "nav1, nav2, nav3, nav4, nav5 = st.columns(5)" in APP
+def test_public_has_clear_competition_navigation():
+    specs=public_navigation_specs()
+    assert [item[0] for item in specs] == ["Matcher","Tabeller","Slutspel","Statistik","Info"]
+    assert [item[2] for item in specs] == ["Schema & resultat","Tabeller","Slutspel","Statistik","Cupinfo"]
 
 def test_sections_have_distinct_urls():
-    assert '"tables": "Tabeller"' in APP
-    assert '"playoffs": "Slutspel"' in APP
-    assert '"stats": "Statistik"' in APP
+    assert public_section_for_page("Tabeller") == "tables"
+    assert public_section_for_page("Slutspel") == "playoffs"
+    assert public_section_for_page("Statistik") == "stats"
 
 def test_public_sections_render_directly_without_second_level_segmented_control():
     assert 'forced_section=tr("Tabeller")' in APP
@@ -19,14 +20,12 @@ def test_public_sections_render_directly_without_second_level_segmented_control(
     assert 'forced_section=tr("Topplistor")' in APP
 
 def test_mobile_bottom_nav_matches_competition_flow():
-    assert "section=tables" in APP
-    assert "section=playoffs" in APP
-    assert "<span>Schema</span>" in APP
-    assert "<span>Statistik</span>" in APP
+    specs=public_navigation_specs()
+    assert [item[3] for item in specs] == ["Schema","Tabeller","Slutspel","Statistik","Cupinfo"]
+    assert [item[1] for item in specs] == ["matches","tables","playoffs","stats","info"]
 
-def test_info_is_same_profile_cupinfo_button():
-    main=APP[APP.index("main_nav = ["):APP.index("_public_section_by_page",APP.index("main_nav = ["))]
-    assert '(nav5, "Info", "Cupinfo")' in main
+def test_info_uses_same_cupinfo_profile():
+    assert ("Info", "info", "Cupinfo", "Cupinfo") in public_navigation_specs()
 
 def test_release_sync():
     assert f'APP_BUILD_VERSION = "{R}"' in APP

@@ -12,7 +12,9 @@ def test_feedback_email_admin_input():
     assert "edited_feedback_email.strip()" in text
 
 def test_public_mailto_button():
-    text=Path("app.py").read_text(encoding="utf-8")
-    assert "Frågor eller feedback" in text
-    assert "href='mailto:" in text
-    assert "cn-email-button" in text
+    app=Path("app.py").read_text(encoding="utf-8")
+    info=Path("cupnavi_core/public_info_view.py").read_text(encoding="utf-8")
+    combined=app+info
+    assert "Frågor eller feedback" in combined
+    assert "href='mailto:" in info
+    assert "cn-email-button" in combined

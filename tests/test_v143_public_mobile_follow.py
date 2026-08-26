@@ -9,7 +9,7 @@ def test_follow_my_team_has_personal_dashboard():
     assert "Bokmärk sidan" in APP
 
 def test_followed_team_is_preserved_in_mobile_navigation():
-    assert '"&team="+str(requested_team_id)' in APP
+    assert 'team_query = "&team=" + str(requested_team_id) if requested_team_id else ""' in APP
     assert "public_force_team_filter_" in APP
 
 def test_favorite_match_datetime_is_defensive():

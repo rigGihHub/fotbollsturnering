@@ -30,3 +30,18 @@ def sort_schedule_rows(rows):
 
 def filter_group_rows(rows, group_id):
     return [row for row in rows if row.get("group_id") == group_id]
+
+
+def resolve_tournament_selector_seed(tournament_ids, *, current_selection=None, requested_cup_id=None, preferred_tournament_id=None):
+    """Seed tournament navigation without clobbering a valid user choice."""
+    ids = [int(value) for value in tournament_ids]
+    if not ids:
+        return None
+    for candidate in (current_selection, requested_cup_id, preferred_tournament_id):
+        try:
+            normalized = int(candidate)
+        except (TypeError, ValueError):
+            continue
+        if normalized in ids:
+            return normalized
+    return ids[0]

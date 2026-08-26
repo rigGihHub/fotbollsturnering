@@ -104,8 +104,17 @@ from cupnavi_core.qol import TOURNAMENT_TEMPLATES, template_definition, clone_to
 from cupnavi_core.fairness import fairness_report
 from cupnavi_core.ux2 import workflow_progress, attention_items, schedule_board
 from cupnavi_core.about import feature_catalog, about_intro
+from cupnavi_core.ui_logic import resolve_tournament_selector_seed
+from cupnavi_core.public_view_logic import (
+    public_navigation_specs,
+    public_section_for_page,
+    resolve_public_page,
+)
+from cupnavi_core.public_info_view import render_public_info_section as render_public_info_section_module
+from cupnavi_core.public_statistics_view import render_public_statistics_section as render_public_statistics_section_module
+from cupnavi_core.public_match_cards import render_public_match_cards as render_public_match_cards_module
 
-APP_BUILD_VERSION = "2026.08.26-198-VISUAL-SYSTEM-CONSOLIDATION"
+APP_BUILD_VERSION = "2026.08.26-204-PUBLIC-MATCH-CARDS-DECOMPOSITION"
 APP_VERSION = APP_BUILD_VERSION
 
 def read_core_version_from_disk():
@@ -6663,385 +6672,49 @@ def render_about_page():
 
 @st.fragment
 def render_public_statistics_section(tournament_id, tournament, published_matches, played_matches, forced_section=None):
-    """Render one public competition/statistics section without rebuilding the full public page."""
-    _fragment_started = time.perf_counter()
-    _db_calls_before = _PERF["db_calls"]
-    _db_ms_before = _PERF["db_ms"]
-    _has_toplists = any([
-        bool(_row_value(tournament, "enable_scorer_leaderboard", 1)),
-        bool(_row_value(tournament, "enable_assist_leaderboard", 1)),
-        bool(_row_value(tournament, "enable_card_statistics", 1)),
-    ])
-    _stats_options = [tr("Tabeller")] + ([tr("Topplistor")] if _has_toplists else []) + [tr("Slutspel")]
-    if forced_section:
-        stats_section = forced_section
-    else:
-        stats_section = st.segmented_control(
-            tr("Statistik"),
-            _stats_options,
-            default=tr("Tabeller"),
-            key=f"public_stats_section_{tournament_id}",
-        ) or tr("Tabeller")
+    """Thin application adapter for the extracted public statistics view."""
+    return render_public_statistics_section_module(
+        tournament_id,
+        tournament,
+        published_matches,
+        played_matches,
+        forced_section=forced_section,
+        perf=_PERF,
+        tr=tr,
+        row_value=_row_value,
+        all_rows=all_rows,
+        calculate_all_group_tables=calculate_all_group_tables,
+        render_empty_state=render_empty_state,
+        render_group_table=render_group_table,
+        final_ranking_rows=final_ranking_rows,
+        render_centered_table=render_centered_table,
+        playoff_preview=playoff_preview,
+        playoff_specs_for_tournament=playoff_specs_for_tournament,
+        brackets_for_display=brackets_for_display,
+        render_bracket_tree=render_bracket_tree,
+    )
 
-    if stats_section == tr("Tabeller"):
-        _public_tables = calculate_all_group_tables(tournament_id, tournament)
-        groups = _public_tables["groups"]
-        if not groups:
-            render_empty_state(
-                tr("Inga grupper ännu"),
-                tr("När arrangören har publicerat gruppindelningen visas tabellerna här."),
-                symbol="—",
-            )
-        for group in groups:
-            st.subheader(group["name"])
-            group_table = _public_tables["tables"].get(int(group["id"]), [])
-            render_group_table(group_table, tournament, group['id'])
-        if bool(_row_value(tournament, "enable_final_ranking", 0)):
-            st.subheader("Slutlig ranking")
-            ranking = final_ranking_rows(tournament_id, tournament)
-            all_done = bool(published_matches) and len(played_matches) == len(published_matches)
-            if all_done and ranking:
-                render_centered_table(pd.DataFrame(ranking))
-            else:
-                st.caption("Den slutliga rankingen visas när alla publicerade matcher är färdigspelade.")
-
-    if stats_section == tr("Topplistor") and not _has_toplists:
-        st.info("Ingen individuell statistik är aktiverad för den här turneringen.")
-
-    if stats_section == tr("Topplistor") and _has_toplists:
-        rows = all_rows(
-            """
-            SELECT CASE WHEN COALESCE(players.is_protected,0)=1 THEN 'Skyddad spelare' ELSE players.name END AS player_name,
-                   teams.name AS team_name,
-                   SUM(s.goals) AS goals,SUM(s.assists) AS assists,
-                   SUM(s.yellow_cards) AS yellow_cards,SUM(s.red_cards) AS red_cards
-            FROM player_match_stats s JOIN players ON players.id=s.player_id
-            JOIN teams ON teams.id=players.team_id JOIN matches ON matches.id=s.match_id
-            WHERE matches.tournament_id=? GROUP BY players.id,players.name,players.is_protected,teams.name
-            """,
-            (tournament_id,),
-        )
-        if bool(_row_value(tournament, "enable_scorer_leaderboard", 1)):
-            st.subheader(tr("Skytteliga"))
-            goal_rows = [r for r in sorted(rows, key=lambda r: (-r["goals"], -r["assists"], r["player_name"].lower())) if int(r["goals"] or 0) > 0]
-            if goal_rows:
-                render_centered_table(pd.DataFrame([{"Pl": i, "Spelare": r["player_name"], "Lag": r["team_name"], "Mål": r["goals"]} for i, r in enumerate(goal_rows, 1)]))
-            else:
-                st.info(tr("Inga målskyttar har registrerats."))
-        if bool(_row_value(tournament, "enable_assist_leaderboard", 1)):
-            st.subheader(tr("Assistliga"))
-            assist_rows = [r for r in sorted(rows, key=lambda r: (-r["assists"], -r["goals"], r["player_name"].lower())) if int(r["assists"] or 0) > 0]
-            if assist_rows:
-                render_centered_table(pd.DataFrame([{"Pl": i, "Spelare": r["player_name"], "Lag": r["team_name"], "Assist": r["assists"]} for i, r in enumerate(assist_rows, 1)]))
-            else:
-                st.info(tr("Inga assist har registrerats."))
-
-        if bool(_row_value(tournament, "enable_card_statistics", 1)):
-            st.subheader(tr("Kortstatistik"))
-            card_rows = [
-            r for r in sorted(
-                rows,
-                key=lambda r: (-(int(r["yellow_cards"] or 0) + int(r["red_cards"] or 0)), -int(r["red_cards"] or 0), r["player_name"].lower()),
-            )
-            if int(r["yellow_cards"] or 0) > 0 or int(r["red_cards"] or 0) > 0
-        ]
-            if card_rows:
-                render_centered_table(pd.DataFrame([
-                    {
-                        "Spelare": r["player_name"],
-                        "Lag": r["team_name"],
-                        "Gula": int(r["yellow_cards"] or 0),
-                        "Röda": int(r["red_cards"] or 0),
-                    }
-                    for r in card_rows
-                ]))
-            else:
-                st.info(tr("Inga kort har registrerats."))
-
-    if stats_section == tr("Slutspel"):
-        _forecast_bundle = calculate_all_group_tables(tournament_id, tournament)
-        forecast_groups = _forecast_bundle["groups"]
-        forecast_tables = {
-            group["name"]: _forecast_bundle["tables"].get(int(group["id"]), [])
-            for group in forecast_groups
-        }
-        forecast_lines = playoff_preview(forecast_tables, tournament["playoff_format"])
-        if forecast_lines:
-            with st.expander("🔮 Slutspelsprognos – om tabellerna slutar så här", expanded=False):
-                st.caption("Prognosen bygger på tabelläget just nu och uppdateras när resultat registreras.")
-                for line in forecast_lines:
-                    st.write(f"• {line}")
-        if tournament["playoff_format"] == "Inget slutspel":
-            st.info("Arrangören har valt att turneringen inte ska ha något slutspel.")
-            brackets = []
-        else:
-            playoff_specs, playoff_setup_error = playoff_specs_for_tournament(tournament_id, tournament)
-            brackets, duplicate_brackets = brackets_for_display(tournament_id)
-            if playoff_setup_error:
-                st.warning(f"Slutspelet kan inte skapas med nuvarande upplägg: {playoff_setup_error}")
-            elif not brackets and playoff_specs:
-                st.warning(
-                    "Slutspel är valt men slutspelsträdet har ännu inte skapats. "
-                    "Arrangören behöver generera eller regenerera hela schemat."
-                )
-            elif not brackets:
-                st.info("Inget slutspelsträd finns ännu.")
-            if duplicate_brackets:
-                st.warning("Äldre dubbletter av slutspel finns. Arrangören behöver regenerera schemat.")
-        for bracket in brackets:
-            st.subheader(bracket["name"])
-            render_bracket_tree(bracket["id"], public=True)
-
-
-
-    st.session_state[f"_public_perf_stats_{tournament_id}"] = {
-        "render_ms": round((time.perf_counter() - _fragment_started) * 1000, 1),
-        "db_calls": _PERF["db_calls"] - _db_calls_before,
-        "db_ms": round(_PERF["db_ms"] - _db_ms_before, 1),
-    }
 
 @st.fragment
+@st.fragment
 def render_public_info_section(tournament_id, tournament, published_matches):
-    """Render public information/feedback independently from matches/statistics."""
-    _fragment_started = time.perf_counter()
-    _db_calls_before = _PERF["db_calls"]
-    _db_ms_before = _PERF["db_ms"]
-    info_rules = one_row("SELECT * FROM schedule_rules WHERE tournament_id=?", (tournament_id,))
-    st.markdown(f"### 📘 {tr('Cupens regler')}")
-    rules_html = public_rules_html(tournament, info_rules)
-    if rules_html:
-        st.markdown(rules_html, unsafe_allow_html=True)
-
-    if tournament["public_information"]:
-        st.markdown(f"### ✍️ {tr('Information från arrangören')}")
-        public_text = html.escape(tournament["public_information"]).replace("\n", "<br>")
-        st.markdown(f"<div class='cn-custom-info-card'>{public_text}</div>", unsafe_allow_html=True)
-
-    venue_points_public = all_rows(
-        """SELECT * FROM venue_points WHERE tournament_id=? ORDER BY
-           CASE kind WHEN 'Plan' THEN 1 WHEN 'Parkering' THEN 2 WHEN 'Sekretariat' THEN 3
-                     WHEN 'Sjukvård' THEN 4 WHEN 'Toalett' THEN 5 WHEN 'Kiosk' THEN 6 ELSE 7 END,
-           label,id""",
-        (tournament_id,),
+    """Thin application adapter for the extracted Cupinfo view."""
+    return render_public_info_section_module(
+        tournament_id,
+        tournament,
+        published_matches,
+        perf=_PERF,
+        tr=tr,
+        row_value=_row_value,
+        one_row=one_row,
+        all_rows=all_rows,
+        public_rules_html=public_rules_html,
+        cup_summary=cup_summary,
+        sport_profile=sport_profile,
+        rate_allowed=_rate_allowed,
+        run=run,
     )
-    if venue_points_public:
-        st.markdown("### 🗺️ Hitta på cupområdet")
-        st.caption("Planer och praktiska platser från arrangören.")
-        for point in venue_points_public:
-            icon = {"Plan":"⚽","Parkering":"🅿️","Sekretariat":"ℹ️","Sjukvård":"➕","Toalett":"🚻","Kiosk":"☕"}.get(point["kind"],"📍")
-            st.markdown(
-                f"<div class='cn-venue-card'><strong>{icon} {html.escape(point['label'])}</strong>"
-                f"<br><span>{html.escape(point['detail'] or '')}</span></div>",
-                unsafe_allow_html=True,
-            )
-            if point["url"]:
-                st.link_button(f"Vägbeskrivning · {point['label']}", point["url"], use_container_width=True)
 
-    st.markdown(f"### 📍 {tr('Praktisk information')}")
-    practical_rows = []
-    if tournament["arena_address"]:
-        practical_rows.append(f"<div><b>📍 {html.escape(tr('Arena'))}:</b> {html.escape(tournament['arena_address'])}</div>")
-    if tournament["kiosk_information"]:
-        practical_rows.append(f"<div><b>☕ {html.escape(tr('Kiosk'))}:</b> {html.escape(tournament['kiosk_information'])}</div>")
-    if bool(_row_value(tournament, "changing_rooms_available", 0)):
-        room_info = (_row_value(tournament, "changing_room_info", "") or "").strip() or "Omklädningsrum finns tillgängliga."
-        practical_rows.append(f"<div><b>🚿 Omklädningsrum:</b> {html.escape(room_info)}</div>")
-    if bool(_row_value(tournament, "show_price_information", 0)) and (_row_value(tournament, "price_information", "") or "").strip():
-        practical_rows.append(f"<div><b>💳 Priser/avgifter:</b> {html.escape(_row_value(tournament, 'price_information', ''))}</div>")
-    if tournament["organizer_phone"]:
-        phone_display = html.escape(tournament["organizer_phone"])
-        phone_href = re.sub(r"[^0-9+]", "", tournament["organizer_phone"])
-        practical_rows.append(f"<div><b>📞 {html.escape(tr('Kontakt'))}:</b> <a href='tel:{html.escape(phone_href)}'>{phone_display}</a></div>")
-    if tournament["feedback_email"]:
-        email_display = html.escape(tournament["feedback_email"])
-        email_href = html.escape(tournament["feedback_email"], quote=True)
-        practical_rows.append(f"<div><b>✉️ E-post:</b> <a href='mailto:{email_href}'>{email_display}</a></div>")
-    if tournament["instagram_url"]:
-        instagram_raw = tournament["instagram_url"].strip()
-        if instagram_raw.startswith("@"):
-            instagram_handle = instagram_raw[1:]
-            instagram_href = f"https://www.instagram.com/{instagram_handle}/"
-            instagram_label = f"@{instagram_handle}"
-        elif instagram_raw.startswith("http://") or instagram_raw.startswith("https://"):
-            instagram_href = instagram_raw
-            instagram_handle = instagram_raw.rstrip("/").split("/")[-1]
-            instagram_label = f"@{instagram_handle}" if instagram_handle else "Instagram"
-        else:
-            instagram_handle = instagram_raw.strip("/")
-            instagram_href = f"https://www.instagram.com/{instagram_handle}/"
-            instagram_label = f"@{instagram_handle}"
-        practical_rows.append(
-            f"<div><b>📷 {html.escape(tr('Instagram'))}:</b> "
-            f"<a href='{html.escape(instagram_href, quote=True)}' target='_blank' rel='noopener noreferrer'>"
-            f"{html.escape(instagram_label)}</a></div>"
-        )
-
-    if practical_rows:
-        st.markdown("<div class='cn-practical-info-card'>" + "".join(practical_rows) + "</div>", unsafe_allow_html=True)
-    else:
-        st.info(tr("Ingen praktisk information har publicerats ännu."))
-
-    if bool(_row_value(tournament, "enable_medical_info", 0)) and (_row_value(tournament, "medical_info", "") or "").strip():
-        st.markdown("### 🩹 Medicinsk beredskap")
-        st.markdown(f"<div class='cn-custom-info-card'>{html.escape(_row_value(tournament, 'medical_info', '')).replace(chr(10), '<br>')}</div>", unsafe_allow_html=True)
-    if bool(_row_value(tournament, "enable_lost_found", 0)) and (_row_value(tournament, "lost_found_info", "") or "").strip():
-        st.markdown("### 🧳 Lost & found / hittegods")
-        st.markdown(f"<div class='cn-custom-info-card'>{html.escape(_row_value(tournament, 'lost_found_info', '')).replace(chr(10), '<br>')}</div>", unsafe_allow_html=True)
-    if bool(_row_value(tournament, "enable_accessibility_info", 0)) and (_row_value(tournament, "accessibility_info", "") or "").strip():
-        st.markdown("### ♿ Tillgänglighet")
-        st.markdown(f"<div class='cn-custom-info-card'>{html.escape(_row_value(tournament, 'accessibility_info', '')).replace(chr(10), '<br>')}</div>", unsafe_allow_html=True)
-
-    venue_rows = all_rows(
-        """SELECT * FROM venue_points WHERE tournament_id=? ORDER BY sort_order,id""",
-        (tournament_id,),
-    )
-    if venue_rows:
-        st.markdown("### 🗺️ Cupkarta")
-        venue_icon = {"Plan": "🏟️", "Kiosk": "☕", "Toalett": "🚻", "Parkering": "🚗", "Sjukvård": "🩹", "Sekretariat": "ℹ️"}
-        for point in venue_rows:
-            icon = venue_icon.get(point["kind"], "📍")
-            line = f"**{icon} {point['label']}**"
-            if point["detail"]:
-                line += f"  \n{point['detail']}"
-            st.markdown(line)
-            if point["url"]:
-                st.markdown(f"[Öppna karta/länk]({point['url']})")
-
-    all_public_matches = published_matches
-    if all_public_matches and all(m["home_score"] is not None and m["away_score"] is not None for m in all_public_matches):
-        top_scorer_row = one_row(
-            """SELECT CASE WHEN COALESCE(players.is_protected,0)=1 THEN 'Skyddad spelare' ELSE players.name END AS player_name,
-                      teams.name AS team_name,SUM(s.goals) AS goals
-               FROM player_match_stats s JOIN players ON players.id=s.player_id
-               JOIN teams ON teams.id=players.team_id JOIN matches ON matches.id=s.match_id
-               WHERE matches.tournament_id=? GROUP BY players.id,players.name,players.is_protected,teams.name
-               ORDER BY goals DESC,player_name LIMIT 1""",
-            (tournament_id,),
-        )
-        summary_teams = all_rows("SELECT * FROM teams WHERE tournament_id=? ORDER BY name", (tournament_id,))
-        summary = cup_summary(tournament, summary_teams, all_public_matches, top_scorer_row)
-        with st.expander("🏁 Cupsummering", expanded=False):
-            st.markdown(
-                f"**{html.escape(summary['name'])}** · {summary['sport']}  \n"
-                f"{summary['teams']} deltagare/lag · {summary['played_matches']} spelade matcher · "
-                f"{summary['total_score']} registrerade {sport_profile(summary['sport'])['score_label']}"
-            )
-            if summary.get("top_scorer") and summary.get("top_scorer_score", 0) > 0:
-                st.caption(f"Toppscorer: {summary['top_scorer']} ({summary['top_scorer_team']}) – {summary['top_scorer_score']}")
-
-    public_team_contacts = []
-    if bool(_row_value(tournament, "allow_team_public_contact", 0)):
-        public_team_contacts = all_rows(
-            """SELECT name,public_contact_name,public_contact_phone,public_contact_email
-               FROM teams WHERE tournament_id=? AND public_contact_enabled=1
-               AND (COALESCE(public_contact_name,'')<>'' OR COALESCE(public_contact_phone,'')<>'' OR COALESCE(public_contact_email,'')<>'')
-               ORDER BY name""",
-            (tournament_id,),
-        )
-    if public_team_contacts:
-        with st.expander("📞 Lagkontakter"):
-            for contact in public_team_contacts:
-                bits = [x for x in (contact["public_contact_name"], contact["public_contact_phone"], contact["public_contact_email"]) if x]
-                st.markdown(f"**{html.escape(contact['name'])}** · " + " · ".join(html.escape(str(x)) for x in bits))
-
-    public_functionaries = all_rows(
-        """SELECT * FROM functionaries
-           WHERE tournament_id=? AND active=1 AND public_contact=1
-           ORDER BY role,name""",
-        (tournament_id,),
-    )
-    if public_functionaries:
-        with st.expander("👥 " + tr("Funktionärer")):
-            for person in public_functionaries:
-                contact_bits = [bit for bit in (person["phone"], person["email"]) if bit]
-                pitch_text = f" · {tr('Plan')} {person['pitch_number']}" if person["pitch_number"] else ""
-                st.markdown(
-                    f"**{html.escape(person['role'])}: {html.escape(person['name'])}**"
-                    f"{pitch_text}"
-                    + (f" · {' · '.join(html.escape(x) for x in contact_bits)}" if contact_bits else "")
-                )
-
-    public_offers = all_rows(
-        """SELECT * FROM offers WHERE tournament_id=? AND active=1 ORDER BY sort_order,id""",
-        (tournament_id,),
-    )
-    if public_offers:
-        with st.expander("🎁 " + tr("Erbjudanden")):
-            for offer in public_offers:
-                business = f" · {offer['business_name']}" if offer["business_name"] else ""
-                st.markdown(f"**{html.escape(offer['title'])}**{html.escape(business)}")
-                if offer["description"]:
-                    st.write(offer["description"])
-                if offer["discount_code"]:
-                    st.caption(tr("Rabattkod"))
-                    st.code(offer["discount_code"], language=None)
-                if offer["valid_until"]:
-                    st.caption(f"{tr('Gäller t.o.m.')} {offer['valid_until']}")
-                if offer["url"]:
-                    st.markdown(
-                        f"<a href='{html.escape(offer['url'], quote=True)}' target='_blank' "
-                        f"rel='noopener noreferrer'><b>{html.escape(tr('Öppna erbjudandet'))} ↗</b></a>",
-                        unsafe_allow_html=True,
-                    )
-
-    public_sponsors = all_rows(
-        """SELECT * FROM sponsors WHERE tournament_id=? AND active=1 ORDER BY sort_order,id""",
-        (tournament_id,),
-    )
-    if public_sponsors:
-        with st.expander("🤝 " + tr("Partners")):
-            for sponsor in public_sponsors:
-                logo_html = (
-                    f"<img src='{sponsor['logo_data_uri']}' alt='' style='max-width:140px;max-height:70px;object-fit:contain;margin:4px 0 8px'>"
-                    if sponsor["logo_data_uri"] else ""
-                )
-                level_html = f"<div style='font-size:12px;font-weight:800;color:#166534'>{html.escape(sponsor['level'])}</div>" if sponsor["level"] else ""
-                website_html = (
-                    f"<div style='margin-top:7px'><a href='{html.escape(sponsor['website_url'], quote=True)}' target='_blank' rel='noopener noreferrer'>"
-                    f"{html.escape(tr('Besök partnern'))} ↗</a></div>"
-                    if sponsor["website_url"] else ""
-                )
-                description_html = f"<div style='margin-top:6px'>{html.escape(sponsor['description'])}</div>" if sponsor["description"] else ""
-                st.markdown(
-                    f"<div style='padding:10px 0'>{logo_html}{level_html}<b>{html.escape(sponsor['name'])}</b>{description_html}{website_html}</div>",
-                    unsafe_allow_html=True,
-                )
-
-    with st.expander("💬 " + tr("Rapportera problem eller lämna synpunkt")):
-        st.caption(tr("Feedbacken sparas till den här turneringen och kan läsas av administratören."))
-        with st.form(f"public_feedback_{tournament_id}", clear_on_submit=True):
-            feedback_area = st.selectbox(
-                tr("Vad gäller det?"),
-                [tr("Matcher"), tr("Tabeller"), tr("Topplistor"), tr("Slutspel"), tr("Info"), tr("Mobil/utseende"), tr("Annat")],
-            )
-            feedback_message = st.text_area(tr("Beskriv problemet eller synpunkten"), max_chars=2000)
-            feedback_contact = st.text_input(tr("Kontaktuppgift (frivilligt)"), max_chars=200)
-            if st.form_submit_button(tr("Skicka feedback")):
-                if not feedback_message.strip():
-                    st.error(tr("Skriv en kort beskrivning först."))
-                else:
-                    allowed, retry_after, _ = _rate_allowed(f"feedback:{int(tournament_id)}", 5, 600)
-                    if not allowed:
-                        st.error(
-                            f"För många meddelanden på kort tid. Försök igen om cirka "
-                            f"{max(1, retry_after // 60)} minut(er)."
-                        )
-                    else:
-                        run(
-                            "INSERT INTO feedback(tournament_id,created_at,area,message,contact) VALUES(?,?,?,?,?)",
-                            (tournament_id, datetime.now().isoformat(timespec="seconds"), feedback_area,
-                             feedback_message.strip(), feedback_contact.strip() or None),
-                        )
-                        st.success(tr("Tack. Feedbacken är sparad."))
-
-
-
-
-    st.session_state[f"_public_perf_info_{tournament_id}"] = {
-        "render_ms": round((time.perf_counter() - _fragment_started) * 1000, 1),
-        "db_calls": _PERF["db_calls"] - _db_calls_before,
-        "db_ms": round(_PERF["db_ms"] - _db_ms_before, 1),
-    }
 
 
 def render_public_view(tournament_id, tournament):
@@ -7566,36 +7239,18 @@ def render_public_view(tournament_id, tournament):
 
     public_page_key = f"public_page_v167_{tournament_id}"
     requested_section = str(st.query_params.get("section", "")) if hasattr(st, "query_params") else ""
-    requested_section_map = {
-        "matches": "Matcher",
-        "tables": "Tabeller",
-        "playoffs": "Slutspel",
-        "stats": "Statistik",
-        "info": "Info",
-    }
-    if requested_section in requested_section_map:
-        st.session_state[public_page_key] = requested_section_map[requested_section]
-    if public_page_key not in st.session_state:
-        st.session_state[public_page_key] = "Matcher"
+    public_page = resolve_public_page(
+        requested_section,
+        st.session_state.get(public_page_key),
+    )
+    st.session_state[public_page_key] = public_page
 
     st.markdown("<div class='cn-public-top-nav'></div>", unsafe_allow_html=True)
-    nav1, nav2, nav3, nav4, nav5 = st.columns(5)
-    main_nav = [
-        (nav1, "Matcher", tr("Schema & resultat")),
-        (nav2, "Tabeller", tr("Tabeller")),
-        (nav3, "Slutspel", tr("Slutspel")),
-        (nav4, "Statistik", tr("Statistik")),
-        (nav5, "Info", "Cupinfo"),
-    ]
-    _public_section_by_page = {
-        "Matcher": "matches",
-        "Tabeller": "tables",
-        "Slutspel": "playoffs",
-        "Statistik": "stats",
-        "Info": "info",
-    }
-    for nav_col, page_value, label in main_nav:
-        active = st.session_state[public_page_key] == page_value
+    nav_specs = public_navigation_specs()
+    nav_columns = st.columns(len(nav_specs))
+    for nav_col, (page_value, _section, desktop_label, _mobile_label) in zip(nav_columns, nav_specs):
+        label = tr(desktop_label) if desktop_label != "Cupinfo" else "Cupinfo"
+        active = public_page == page_value
         if nav_col.button(
             label,
             key=f"public_nav_v144_{tournament_id}_{page_value}",
@@ -7605,12 +7260,10 @@ def render_public_view(tournament_id, tournament):
             st.session_state[public_page_key] = page_value
             if hasattr(st, "query_params"):
                 st.query_params["cup"] = str(_row_value(tournament, "public_slug", tournament_id) or tournament_id)
-                st.query_params["section"] = _public_section_by_page[page_value]
+                st.query_params["section"] = public_section_for_page(page_value)
                 if requested_team_id:
                     st.query_params["team"] = str(requested_team_id)
             st.rerun()
-
-    public_page = st.session_state[public_page_key]
 
     # Page-specific UI must only be evaluated after public_page is resolved.
     screen_url = public_cup_url(tournament_id) + ("&" if "?" in public_cup_url(tournament_id) else "?") + "screen=1"
@@ -7621,14 +7274,19 @@ def render_public_view(tournament_id, tournament):
         )
 
     cup_key = quote(str(_row_value(tournament, "public_slug", tournament_id) or tournament_id))
+    team_query = "&team=" + str(requested_team_id) if requested_team_id else ""
+    mobile_links = []
+    for page_value, section, _desktop_label, mobile_label in public_navigation_specs():
+        active_class = "active" if public_page == page_value else ""
+        mobile_links.append(
+            f"<a class='{active_class}' href='?cup={cup_key}&section={section}{team_query}'><span>{html.escape(mobile_label)}</span></a>"
+        )
     st.markdown(
-        f"""<nav class='cn-mobile-bottom-nav' aria-label='Cup navigation'>
-          <a class='{"active" if public_page == "Matcher" else ""}' href='?cup={cup_key}&section=matches{"&team="+str(requested_team_id) if requested_team_id else ""}'><span>Schema</span></a>
-          <a class='{"active" if public_page == "Tabeller" else ""}' href='?cup={cup_key}&section=tables{"&team="+str(requested_team_id) if requested_team_id else ""}'><span>Tabeller</span></a>
-          <a class='{"active" if public_page == "Slutspel" else ""}' href='?cup={cup_key}&section=playoffs{"&team="+str(requested_team_id) if requested_team_id else ""}'><span>Slutspel</span></a>
-          <a class='{"active" if public_page == "Statistik" else ""}' href='?cup={cup_key}&section=stats{"&team="+str(requested_team_id) if requested_team_id else ""}'><span>Statistik</span></a>
-          <a class='{"active" if public_page == "Info" else ""}' href='?cup={cup_key}&section=info{"&team="+str(requested_team_id) if requested_team_id else ""}'><span>Cupinfo</span></a>
-        </nav>""", unsafe_allow_html=True)
+        "<nav class='cn-mobile-bottom-nav' aria-label='Cup navigation'>"
+        + "".join(mobile_links)
+        + "</nav>",
+        unsafe_allow_html=True,
+    )
 
     def _filter_public_matches(base_matches, key_prefix, heading):
         """Gemensamt filter för den sammanslagna matchsidan."""
@@ -7757,128 +7415,30 @@ def render_public_view(tournament_id, tournament):
         )
 
     def _render_public_match_cards(matches, show_results=None, show_weather=False, events_by_match=None):
-        """Ett gemensamt matchkort: spelade matcher visar resultat, kommande visar VS."""
-        events_by_match = events_by_match or {}
-        weather_forecast, weather_status = ({}, "")
-        if show_weather:
-            weather_now = datetime.now()
-            weather_horizon = weather_now + timedelta(days=16)
-            forecastable = False
-            for _weather_match in matches:
-                try:
-                    _weather_start = datetime.fromisoformat(str(_row_value(_weather_match, "scheduled_start", "")))
-                    if weather_now - timedelta(hours=3) <= _weather_start <= weather_horizon:
-                        forecastable = True
-                        break
-                except (TypeError, ValueError):
-                    continue
-            if forecastable:
-                weather_forecast, weather_status = fetch_weather_forecast(tournament["location"] or "")
-            else:
-                weather_status = ""
-
-        st.markdown(
-            """
-            <style>
-              .public-match-card,
-              .public-match-card div,
-              .public-match-card span,
-              .public-match-card b { color:#172033 !important; }
-              .public-match-card .match-stage { color:#ffffff !important; }
-              .public-match-card .match-meta { color:#475569 !important; }
-              .public-match-card .kit-label,
-              .public-match-card .match-referee,
-              .public-match-card .match-weather { color:#64748b !important; }
-              .public-match-card .match-score { color:#0f172a !important;font-weight:900 !important; }
-              .public-match-card .public-team-name { font-size:18px !important;line-height:1.2;font-weight:850; }
-              .public-match-secondary{display:flex;justify-content:center;gap:12px;flex-wrap:wrap;margin-top:8px;font-size:12px;color:#64748b!important}
-              @media(max-width:760px){
-                .public-match-card .public-team-name{font-size:16px!important}
-                .public-match-secondary{display:block;text-align:center}
-              }
-            </style>
-            """,
-            unsafe_allow_html=True,
+        return render_public_match_cards_module(
+            matches,
+            tournament=tournament,
+            show_results=show_results,
+            show_weather=show_weather,
+            events_by_match=events_by_match,
+            row_value=_row_value,
+            fetch_weather_forecast=fetch_weather_forecast,
+            public_team_by_id=public_team_by_id,
+            public_team_names=public_team_names,
+            public_source_team_id=_public_source_team_id,
+            public_source_label=_public_source_label,
+            swedish_datetime=swedish_datetime,
+            weather_for_match=weather_for_match,
+            weather_label=weather_label,
+            match_kit_colors=match_kit_colors,
+            kit_background_for_team=kit_background_for_team,
+            public_match_events_html=public_match_events_html,
+            public_pitch_label=_public_pitch_label,
+            public_referee_label=_public_referee_label,
+            render_empty_state=render_empty_state,
+            now=now,
         )
 
-        if not matches:
-            render_empty_state(
-                "Inga matcher i det här urvalet",
-                "Ändra filtret eller välj Alla matcher för att se hela spelschemat.",
-                symbol="—",
-            )
-            return
-
-        for number, match_row in enumerate(matches, 1):
-            home = public_team_by_id.get(_public_source_team_id(match_row["home_source"]))
-            away = public_team_by_id.get(_public_source_team_id(match_row["away_source"]))
-            home_name = home["name"] if home else _public_source_label(match_row["home_source"])
-            away_name = away["name"] if away else _public_source_label(match_row["away_source"])
-            start = swedish_datetime(match_row["scheduled_start"])
-            weather_text = ""
-            if show_weather:
-                try:
-                    match_weather = weather_for_match(weather_forecast, _row_value(match_row, "scheduled_start"))
-                    weather_text = weather_label(match_weather) if weather_forecast else weather_status
-                except Exception:
-                    weather_text = "Väderprognosen kan inte visas för den här matchen."
-
-            _, _, away_kit_used = match_kit_colors(home, away)
-            home_kit_bg = kit_background_for_team(home, "home") if home else "#94a3b8"
-            away_selected_kit = "away" if away_kit_used else "home"
-            away_kit_bg = kit_background_for_team(away, away_selected_kit) if away else "#94a3b8"
-
-            match_is_played = match_row["home_score"] is not None and match_row["away_score"] is not None
-            row_show_results = match_is_played if show_results is None else bool(show_results)
-
-            if row_show_results:
-                center_text = f"{match_row['home_score']}–{match_row['away_score']}"
-                if match_row["home_penalties"] is not None:
-                    center_text += f" ({match_row['home_penalties']}–{match_row['away_penalties']} str.)"
-                status_text, status_class = "SLUT", "status-finished"
-                match_events_html = public_match_events_html(
-                    match_row["id"],
-                    match_row=match_row,
-                    rows=events_by_match.get(match_row["id"], []),
-                    team_names=public_team_names,
-                )
-            else:
-                center_text = "VS"
-                match_events_html = ""
-                match_start_dt = datetime.fromisoformat(match_row["scheduled_start"])
-                if match_row["home_score"] is not None and match_row["away_score"] is not None:
-                    status_text, status_class = "SPELAD", "status-finished"
-                elif match_start_dt <= now <= match_start_dt + timedelta(hours=2):
-                    status_text, status_class = "PÅGÅR", "status-live"
-                else:
-                    status_text, status_class = "KOMMANDE", "status-upcoming"
-
-            st.markdown(
-                f"""
-                <div class="public-match-card" style="border:1px solid #d1d5db;border-radius:14px;padding:16px;margin:12px 0;background:#ffffff;color:#172033;box-shadow:0 3px 10px rgba(15,23,42,.06)">
-                  <div style="display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #edf2f7;padding-bottom:7px;gap:12px">
-                    <div style="display:flex;gap:6px;align-items:center"><span class="match-stage" style="font-size:11px;font-weight:800;color:#fff;background:#166534;padding:4px 8px;border-radius:999px">{match_row['stage']}</span><span class="status-pill {status_class}">{status_text}</span></div>
-                    <span class="match-meta">Match {number} · <b>{start}</b> · {html.escape(_public_pitch_label(match_row))}</span>
-                  </div>
-                  <div style="display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);gap:12px;align-items:center;margin-top:7px;color:#0f172a">
-                    <div><span style="display:inline-block;width:18px;height:13px;background:{home_kit_bg};border:1px solid #64748b;border-radius:3px"></span>
-                    <b class="public-team-name">{html.escape(home_name)}</b><br><small class="kit-label">Hemmalag</small></div>
-                    <div class="match-score" style="font-size:20px">{center_text}</div>
-                    <div style="text-align:right"><b class="public-team-name">{html.escape(away_name)}</b> <span style="display:inline-block;width:18px;height:13px;background:{away_kit_bg};border:1px solid #64748b;border-radius:3px"></span>
-                    <br><small class="kit-label">{'Bortaställ' if away_kit_used else 'Hemmaställ'}</small></div>
-                  </div>
-                  {match_events_html}
-                  <div class="public-match-secondary">
-                    {f'<span class="match-weather">{html.escape(weather_text)}</span>' if show_weather and weather_text else ''}
-                    <span class="match-referee">Domare: {html.escape(_public_referee_label(match_row) or 'Ej tillsatt')}</span>
-                  </div>
-                </div>
-                """,
-                unsafe_allow_html=True,
-            )
-
-        if show_weather:
-            st.caption("Väderprognos från Open-Meteo. Prognosen uppdateras automatiskt och kan förändras.")
 
     if public_page == "Matcher":
         @st.fragment
@@ -9000,7 +8560,7 @@ if _direct_public_cup and st.session_state.get("view_mode") is None:
     st.session_state["view_mode"] = "Turneringsvy"
 elif st.session_state.get("view_mode") not in mode_options:
     st.session_state["view_mode"] = mode_options[0]
-st.sidebar.caption("Version v.1.198")
+st.sidebar.caption("Version v.1.204")
 
 def _set_view_mode(mode):
     st.session_state["view_mode"] = mode
@@ -9378,13 +8938,15 @@ if cup_query_text and requested_cup_id is None:
 tournament_ids = [int(t["id"]) for t in tournaments]
 preferred_tournament_id = st.session_state.get("preferred_tournament_id")
 
-# Explicit URL always wins. Session preference is only a fallback.
-if requested_cup_id in tournament_ids:
-    default_tournament_index = tournament_ids.index(requested_cup_id)
-elif preferred_tournament_id in tournament_ids:
-    default_tournament_index = tournament_ids.index(preferred_tournament_id)
-else:
-    default_tournament_index = 0
+# Resolve the initial selector seed in pure, regression-tested UI logic.
+# URL wins only when the widget has no valid current selection; a deliberate
+# user selection must survive subsequent Streamlit reruns.
+selector_seed = resolve_tournament_selector_seed(
+    tournament_ids,
+    current_selection=st.session_state.get("active_tournament_selector"),
+    requested_cup_id=requested_cup_id,
+    preferred_tournament_id=preferred_tournament_id,
+)
 
 def _tournament_selector_label(tournament_id):
     row = next(t for t in tournaments if t["id"] == tournament_id)
@@ -9402,7 +8964,7 @@ def _tournament_selector_label(tournament_id):
 # every rerun: doing so made the "Aktiv turnering" selectbox snap back to the
 # URL/preferred cup immediately after the user selected another tournament.
 if st.session_state.get("active_tournament_selector") not in tournament_ids:
-    st.session_state["active_tournament_selector"] = tournament_ids[default_tournament_index]
+    st.session_state["active_tournament_selector"] = selector_seed
 
 tid = st.sidebar.selectbox(
     tr("Aktiv turnering"),

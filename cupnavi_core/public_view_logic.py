@@ -1,0 +1,36 @@
+"""Pure public-view navigation logic.
+
+No Streamlit/database imports by design. This keeps public URL routing and
+navigation behavior independently testable.
+"""
+
+PUBLIC_PAGE_SPECS = (
+    ("Matcher", "matches", "Schema & resultat", "Schema"),
+    ("Tabeller", "tables", "Tabeller", "Tabeller"),
+    ("Slutspel", "playoffs", "Slutspel", "Slutspel"),
+    ("Statistik", "stats", "Statistik", "Statistik"),
+    ("Info", "info", "Cupinfo", "Cupinfo"),
+)
+
+PUBLIC_SECTION_TO_PAGE = {section: page for page, section, _, _ in PUBLIC_PAGE_SPECS}
+PUBLIC_PAGE_TO_SECTION = {page: section for page, section, _, _ in PUBLIC_PAGE_SPECS}
+
+
+def resolve_public_page(requested_section="", current_page=None):
+    """Resolve active public page with URL > valid session > schedule fallback."""
+    requested = str(requested_section or "").strip().lower()
+    if requested in PUBLIC_SECTION_TO_PAGE:
+        return PUBLIC_SECTION_TO_PAGE[requested]
+    if current_page in PUBLIC_PAGE_TO_SECTION:
+        return current_page
+    return "Matcher"
+
+
+def public_section_for_page(page):
+    """Return canonical query-string section for a public page."""
+    return PUBLIC_PAGE_TO_SECTION.get(page, "matches")
+
+
+def public_navigation_specs():
+    """Return the immutable public navigation definitions."""
+    return PUBLIC_PAGE_SPECS

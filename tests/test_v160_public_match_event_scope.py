@@ -1,10 +1,9 @@
 from pathlib import Path
 APP=(Path(__file__).resolve().parents[1]/"app.py").read_text(encoding="utf-8")
+MATCH=(Path(__file__).resolve().parents[1]/"cupnavi_core/public_match_cards.py").read_text(encoding="utf-8")
 
 def test_public_match_cards_receive_event_map_explicitly():
-    start=APP.index("def _render_public_match_cards")
-    end=APP.index('if public_page == "Matcher":', start)
-    block=APP[start:end]
+    block=MATCH
     assert "events_by_match=None" in block
     assert "events_by_match = events_by_match or {}" in block
     assert 'rows=events_by_match.get(match_row["id"], [])' in block

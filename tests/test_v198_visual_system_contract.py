@@ -38,5 +38,5 @@ def test_core_components_are_normalized():
         assert token in APP
 
 def test_release_is_v198():
-    assert VERSION == "2026.08.26-198-VISUAL-SYSTEM-CONSOLIDATION"
-    assert "Version v.1.198" in APP
+    assert VERSION == "2026.08.26-204-PUBLIC-MATCH-CARDS-DECOMPOSITION"
+    assert "Version v.1.204" in APP

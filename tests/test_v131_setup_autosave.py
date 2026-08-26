@@ -3,6 +3,7 @@ from pathlib import Path
 APP = Path("app.py").read_text(encoding="utf-8")
 MIG = Path("cupnavi_core/migrations.py").read_text(encoding="utf-8")
 ABOUT = Path("cupnavi_core/about.py").read_text(encoding="utf-8")
+INFO = Path("cupnavi_core/public_info_view.py").read_text(encoding="utf-8")
 
 def test_v131_schema_and_version():
     assert 'APP_BUILD_VERSION = ' in APP
@@ -29,8 +30,8 @@ def test_daily_windows_are_required_and_used_by_scheduler():
 def test_changing_rooms_and_prices_can_be_public():
     assert 'Tillgång till omklädningsrum' in APP
     assert 'Visa priser/avgifter publikt' in APP
-    assert 'Priser/avgifter' in APP
-    assert 'Omklädningsrum:' in APP
+    assert 'Priser/avgifter' in APP + INFO
+    assert 'Omklädningsrum:' in INFO
 
 def test_regular_settings_autosave_without_save_button():
     start = APP.index('def render_initial_tournament_setup')

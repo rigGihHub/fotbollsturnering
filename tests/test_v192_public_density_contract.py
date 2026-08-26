@@ -1,5 +1,6 @@
 from pathlib import Path
 APP=(Path(__file__).resolve().parents[1]/"app.py").read_text(encoding="utf-8")
+MATCH=(Path(__file__).resolve().parents[1]/"cupnavi_core/public_match_cards.py").read_text(encoding="utf-8")
 
 def test_desktop_public_density_pass_exists():
     assert "PUBLIC DENSITY & HIERARCHY V192" in APP
@@ -14,5 +15,5 @@ def test_completed_match_cards_are_denser():
     assert "margin-top:4px!important" in APP
 
 def test_weather_placeholder_does_not_consume_card_height():
-    assert 'weather_status = ""' in APP
-    assert "if show_weather and weather_text else ''" in APP
+    assert 'weather_status = ""' in MATCH
+    assert "if show_weather and weather_text else ''" in MATCH

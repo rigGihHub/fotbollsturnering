@@ -25,4 +25,5 @@ def test_global_shell_is_multisport_neutral():
     assert 'st.set_page_config(page_title="CupNavi", page_icon="🏆", layout="wide")' in text
     assert "st.sidebar.title(f\"🏆 {tr(\'Turneringar\')}\")" in text
     assert 'st.title("🏆 CupNavi")' in text
-    assert '(nav1, "Matcher", tr("Schema & resultat"))' in text
+    from cupnavi_core.public_view_logic import public_navigation_specs
+    assert public_navigation_specs()[0][2] == "Schema & resultat"

@@ -41,7 +41,7 @@ def test_team_portal_requires_split_name_and_birth_year():
 
 
 def test_protected_player_name_is_hidden_in_public_stats():
-    text = app_text()
+    text = app_text() + Path("cupnavi_core/public_statistics_view.py").read_text(encoding="utf-8")
     assert "Skyddad spelare" in text
     assert "players.is_protected" in text
     assert "Skyddade kontaktuppgifter – får inte visas publikt" not in text

@@ -1,5 +1,7 @@
 from pathlib import Path
 APP=(Path(__file__).resolve().parents[1]/"app.py").read_text(encoding="utf-8")
+INFO=(Path(__file__).resolve().parents[1]/"cupnavi_core/public_info_view.py").read_text(encoding="utf-8")
+STATS=(Path(__file__).resolve().parents[1]/"cupnavi_core/public_statistics_view.py").read_text(encoding="utf-8")
 
 def test_matches_are_isolated_in_fragment():
     public=APP[APP.index("def render_public_view"):APP.index("def render_match_reporter_view")]
@@ -18,8 +20,9 @@ def test_match_filters_and_weather_live_inside_fragment():
     assert "_render_public_match_cards(" in frag
 
 def test_public_section_timings_are_recorded_per_session():
-    for key in ("_public_perf_matches_", "_public_perf_stats_", "_public_perf_info_"):
-        assert key in APP
+    assert "_public_perf_matches_" in APP
+    assert "_public_perf_stats_" in STATS
+    assert "_public_perf_info_" in INFO
     assert '"render_ms"' in APP
     assert '"db_calls"' in APP
     assert '"db_ms"' in APP

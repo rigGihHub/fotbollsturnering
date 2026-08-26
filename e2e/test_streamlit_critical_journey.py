@@ -56,6 +56,55 @@ def wait_app(page):
     page.wait_for_timeout(650)
 
 
+def assert_no_ui_error(page):
+    body=page.locator("body").inner_text()
+    assert "This app has encountered an error" not in body
+    assert "Traceback" not in body
+    assert "NameError:" not in body
+    assert "ValueError:" not in body
+
+
+def create_test_tournament_through_ui(page, cup_name):
+    """Create a persisted Testmiljö using the real Streamlit UI and return its id."""
+    page.get_by_text("Skapa ny turnering",exact=True).click()
+    create_form=page.locator('[data-testid="stSidebar"] [data-testid="stForm"]').first
+    create_form.get_by_label("Namn",exact=True).fill(cup_name)
+    create_form.get_by_label("Spelort",exact=True).fill("Örebro")
+    create_form.get_by_text("Testmiljö",exact=True).click()
+    create_form.get_by_role("button",name="Skapa",exact=True).click()
+    wait_app(page)
+
+    with sqlite3.connect(DB) as con:
+        row=con.execute(
+            "SELECT id,environment_type FROM tournaments WHERE name=? ORDER BY id DESC LIMIT 1",
+            (cup_name,),
+        ).fetchone()
+    assert row is not None
+    assert row[1] == "test"
+
+    continue_button=page.get_by_role("button",name="Fortsätt till Admin",exact=True)
+    if continue_button.count():
+        continue_button.wait_for(state="visible",timeout=20000)
+        assert continue_button.is_enabled()
+        continue_button.click()
+        wait_app(page)
+    assert_no_ui_error(page)
+    return int(row[0])
+
+
+def representative_public_tokens(tournament_id):
+    with sqlite3.connect(DB) as con:
+        team=con.execute(
+            "SELECT name FROM teams WHERE tournament_id=? ORDER BY id LIMIT 1",
+            (tournament_id,),
+        ).fetchone()
+        group=con.execute(
+            "SELECT name FROM groups WHERE tournament_id=? ORDER BY id LIMIT 1",
+            (tournament_id,),
+        ).fetchone()
+    return team[0] if team else None, group[0] if group else None
+
+
 def click_if_enabled(locator):
     if locator.count() and locator.first.is_visible() and locator.first.is_enabled():
         locator.first.click()
@@ -287,38 +336,8 @@ def test_full_cup_lifecycle_journey(server,browser_name):
         # 1. Admin → create a real persisted Testmiljö through the actual UI.
         page.get_by_role("button",name="Admin",exact=True).click()
         wait_app(page)
-        page.get_by_text("Skapa ny turnering",exact=True).click()
         cup_name=f"E2E Full {browser_name}"
-        # Scope creation fields to the sidebar form. The regular Admin page also
-        # contains a "Spelort" field and Streamlit may keep both DOM subtrees
-        # mounted briefly during rerenders, especially in Firefox/WebKit.
-        create_form=page.locator('[data-testid="stSidebar"] [data-testid="stForm"]').first
-        create_form.get_by_label("Namn",exact=True).fill(cup_name)
-        create_form.get_by_label("Spelort",exact=True).fill("Örebro")
-        create_form.get_by_text("Testmiljö",exact=True).click()
-        create_form.get_by_role("button",name="Skapa",exact=True).click()
-        wait_app(page)
-
-        # Creation lands in the guided setup before the normal Admin header is
-        # rendered. Verify the persisted environment first instead of assuming
-        # that the TESTMILJÖ banner is already visible on this intermediate page.
-        with sqlite3.connect(DB) as con:
-            created=con.execute(
-                "SELECT environment_type FROM tournaments WHERE name=? ORDER BY id DESC LIMIT 1",
-                (cup_name,),
-            ).fetchone()
-        assert created is not None
-        assert created[0] == "test"
-
-        # Finish the guided setup when its current defaults are valid. Once we
-        # reach the regular Admin view, the visible environment marker must agree
-        # with the persisted environment type.
-        continue_button=page.get_by_role("button",name="Fortsätt till Admin",exact=True)
-        if continue_button.count():
-            continue_button.wait_for(state="visible",timeout=20000)
-            assert continue_button.is_enabled(), "Guided setup unexpectedly blocks a newly created Testmiljö"
-            continue_button.click()
-            wait_app(page)
+        tid=create_test_tournament_through_ui(page,cup_name)
         assert "TESTMILJÖ" in page.locator("body").inner_text()
 
         # 2. Classes → teams → groups → players/referees through the app's Testmiljö tool.
@@ -330,12 +349,6 @@ def test_full_cup_lifecycle_journey(server,browser_name):
         # In CUPNAVI_E2E mode the server auto-completes immediately once persisted
         # demo data exists. Do not wait for the Testnivå widget: that control is part
         # of the normal interactive test workflow, not the deterministic CI contract.
-        with sqlite3.connect(DB) as con:
-            tid=con.execute(
-                "SELECT id FROM tournaments WHERE name=? ORDER BY id DESC LIMIT 1",
-                (cup_name,),
-            ).fetchone()[0]
-
         demo_deadline=time.time()+30
         demo_counts=None
         while time.time()<demo_deadline:
@@ -376,14 +389,24 @@ def test_full_cup_lifecycle_journey(server,browser_name):
         assert "This app has encountered an error" not in public_body
         assert "Traceback" not in public_body
 
-        for label in ("Schema & resultat","Tabeller","Slutspel","Statistik","Cupinfo"):
+        team_token,group_token=representative_public_tokens(tid)
+        section_contracts = [
+            ("Schema & resultat", team_token),
+            ("Tabeller", group_token),
+            ("Slutspel", "FINAL"),
+            ("Statistik", "Skytteliga"),
+            ("Cupinfo", "Cupens regler"),
+        ]
+        for label,expected_token in section_contracts:
             button=page.get_by_role("button",name=label,exact=True)
             button.wait_for(state="visible",timeout=15000)
             button.click()
             wait_app(page)
+            assert_no_ui_error(page)
             current=page.locator("body").inner_text()
-            assert "This app has encountered an error" not in current
-            assert "Traceback" not in current
+            assert expected_token and expected_token in current, (
+                f"{label} rendered without its expected domain content: {expected_token!r}"
+            )
 
         overflow=page.evaluate(
             "() => Math.max(0,document.documentElement.scrollWidth-document.documentElement.clientWidth)"
@@ -429,3 +452,39 @@ def test_full_cup_lifecycle_journey(server,browser_name):
         assert mobile_overflow <= 4
         mobile.close()
         browser.close()
+
+def test_active_tournament_switch_survives_browser_rerun(server):
+    """Regression guard for the v1.197 active-tournament state bug."""
+    with sync_playwright() as p:
+        browser=p.chromium.launch(headless=True)
+        ctx=browser.new_context(viewport={"width":1280,"height":900})
+        page=ctx.new_page()
+        page.goto(BASE,wait_until="domcontentloaded")
+        wait_app(page)
+        page.get_by_role("button",name="Admin",exact=True).click()
+        wait_app(page)
+
+        suffix=str(int(time.time()*1000))[-7:]
+        first=f"E2E Switch A {suffix}"
+        second=f"E2E Switch B {suffix}"
+        first_id=create_test_tournament_through_ui(page,first)
+        second_id=create_test_tournament_through_ui(page,second)
+        assert first_id != second_id
+
+        choose_streamlit_option(page,"Aktiv turnering",first)
+        wait_app(page)
+        assert page.get_by_label("Aktiv turnering",exact=True).input_value() == first
+        assert_no_ui_error(page)
+
+        # A real browser reload must restore the deliberate selection through the
+        # canonical cup query parameter, not snap back to the previously active cup.
+        page.reload(wait_until="domcontentloaded")
+        wait_app(page)
+        selector=page.get_by_label("Aktiv turnering",exact=True)
+        selector.wait_for(state="visible",timeout=20000)
+        assert selector.input_value() == first
+        assert_no_ui_error(page)
+
+        ctx.close()
+        browser.close()
+

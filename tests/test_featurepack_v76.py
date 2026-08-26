@@ -16,11 +16,12 @@ def test_qr_sharing_uses_direct_cup_query_parameter():
 
 def test_sponsor_management_and_public_partners_exist():
     text = app_text()
+    info = Path("cupnavi_core/public_info_view.py").read_text(encoding="utf-8")
     assert 'if admin_page == "Sponsorer":' in text
     assert "INSERT INTO sponsors(" in text
     assert "UPDATE sponsors SET" in text
     assert "DELETE FROM sponsors" in text
-    assert 'with st.expander("🤝 " + tr("Partners")):' in text
+    assert 'with st.expander("🤝 " + tr("Partners")):' in info
     assert "Cupens partners" in text
 
 

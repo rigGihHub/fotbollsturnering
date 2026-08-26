@@ -12,13 +12,11 @@ def public_block():
     return text[start:end]
 
 
-def test_four_large_public_competition_navigation_buttons_exist():
+def test_public_competition_navigation_exists_and_has_active_state():
+    from cupnavi_core.public_view_logic import public_navigation_specs
     block = public_block()
-    assert '(nav1, "Matcher", tr("Schema & resultat"))' in block
-    assert '(nav2, "Tabeller", tr("Tabeller"))' in block
-    assert '(nav3, "Slutspel", tr("Slutspel"))' in block
-    assert '(nav4, "Statistik", tr("Statistik"))' in block
-    assert '(nav5, "Info", "Cupinfo")' in block
+    assert len(public_navigation_specs()) == 5
+    assert [item[0] for item in public_navigation_specs()] == ["Matcher","Tabeller","Slutspel","Statistik","Info"]
     assert 'type="primary" if active else "secondary"' in block
 
 
@@ -26,7 +24,8 @@ def test_matches_merge_schedule_and_results_and_keep_filters():
     block = public_block()
     assert 'if public_page == "Matcher":' in block
     assert '[tr("Alla"), tr("Kommande"), tr("Spelade")]' in block
-    assert 'row_show_results = match_is_played if show_results is None' in block
+    match_cards = Path("cupnavi_core/public_match_cards.py").read_text(encoding="utf-8")
+    assert 'row_show_results = match_is_played if show_results is None' in match_cards
     for option in ['tr("Alla matcher")', 'tr("En grupp")', 'tr("Ett lag")', 'tr("En plan")']:
         assert option in block
 
@@ -55,10 +54,7 @@ def test_info_rules_derive_from_all_requested_saved_settings():
 
 
 def test_statistics_include_goal_assist_cards_and_playoffs():
-    text = app_text()
-    start = text.index("def render_public_statistics_section(")
-    end = text.index("def render_public_info_section(", start)
-    block = text[start:end]
+    block = Path("cupnavi_core/public_statistics_view.py").read_text(encoding="utf-8")
     assert 'st.subheader(tr("Skytteliga"))' in block
     assert 'st.subheader(tr("Assistliga"))' in block
     assert 'st.subheader(tr("Kortstatistik"))' in block
@@ -68,10 +64,7 @@ def test_statistics_include_goal_assist_cards_and_playoffs():
 
 
 def test_info_page_keeps_custom_and_practical_content():
-    text = app_text()
-    start = text.index("def render_public_info_section(")
-    end = text.index("def render_public_view(", start)
-    block = text[start:end]
+    block = Path("cupnavi_core/public_info_view.py").read_text(encoding="utf-8")
     assert 'if tournament["public_information"]:' in block
     assert 'Information från arrangören' in block
     assert 'tournament["arena_address"]' in block

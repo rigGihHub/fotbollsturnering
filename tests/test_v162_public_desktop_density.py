@@ -1,10 +1,10 @@
 from pathlib import Path
-import re
 
 ROOT=Path(__file__).resolve().parents[1]
 APP=(ROOT/"app.py").read_text(encoding="utf-8")
 VERSION=(ROOT/"cupnavi_core/version.py").read_text(encoding="utf-8")
-RELEASE="2026.08.26-198-VISUAL-SYSTEM-CONSOLIDATION"
+MATCH=(ROOT/"cupnavi_core/public_match_cards.py").read_text(encoding="utf-8")
+RELEASE="2026.08.26-204-PUBLIC-MATCH-CARDS-DECOMPOSITION"
 
 def test_release_version_is_hard_synced():
     assert RELEASE in APP
@@ -23,7 +23,7 @@ def test_duplicate_next_match_hero_is_removed():
     assert "Cupen just nu" in public
 
 def test_information_screen_is_demoted_to_info_page():
-    start=APP.index("public_page = st.session_state[public_page_key]")
+    start=APP.index("public_page = resolve_public_page(")
     end=APP.index("cup_key = quote(",start)
     block=APP[start:end]
     assert "screen_url = public_cup_url" in block
@@ -35,4 +35,4 @@ def test_follow_team_does_not_require_keyed_container_support():
 
 def test_match_secondary_information_is_visually_secondary():
     assert "public-match-secondary" in APP
-    assert "<small class=\"kit-label\">Hemmalag</small>" in APP
+    assert "<small class=\"kit-label\">Hemmalag</small>" in MATCH

@@ -1,6 +1,8 @@
 from pathlib import Path
 
 APP=(Path(__file__).resolve().parents[1]/"app.py").read_text(encoding="utf-8")
+INFO=(Path(__file__).resolve().parents[1]/"cupnavi_core/public_info_view.py").read_text(encoding="utf-8")
+STATS=(Path(__file__).resolve().parents[1]/"cupnavi_core/public_statistics_view.py").read_text(encoding="utf-8")
 
 def _block(start_name, end_name):
     start=APP.index(start_name)
@@ -25,21 +27,21 @@ def test_main_public_renderer_delegates_heavy_sections():
     assert 'FROM player_match_stats s JOIN players' not in public
 
 def test_statistics_queries_are_branch_local():
-    stats=_block("def render_public_statistics_section(", "def render_public_info_section(")
+    stats=STATS
     top=stats.index('if stats_section == tr("Topplistor") and _has_toplists:')
     query=stats.index("FROM player_match_stats s JOIN players")
     assert query > top
     assert 'if stats_section == tr("Slutspel"):' in stats
 
 def test_info_queries_are_isolated_from_matches_and_statistics():
-    info=_block("def render_public_info_section(", "def render_public_view(")
+    info=INFO
     assert "SELECT * FROM functionaries" in info
     assert "SELECT * FROM offers" in info
     assert "SELECT * FROM sponsors" in info
     assert "public_feedback_" in info
 
 def test_info_summary_teams_are_loaded_only_for_completed_summary():
-    info=_block("def render_public_info_section(", "def render_public_view(")
+    info=INFO
     condition=info.index("if all_public_matches and all(")
     teams_query=info.index('summary_teams = all_rows("SELECT * FROM teams')
     assert teams_query > condition

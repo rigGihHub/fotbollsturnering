@@ -12,7 +12,9 @@ def test_admin_can_enter_organizer_phone():
     assert 'edited_organizer_phone.strip()' in text
 
 def test_public_information_has_click_to_call():
-    text=Path("app.py").read_text(encoding="utf-8")
-    assert "Kontakta arrangören" in text
-    assert "cn-call-button" in text
-    assert "href='tel:" in text
+    app=Path("app.py").read_text(encoding="utf-8")
+    info=Path("cupnavi_core/public_info_view.py").read_text(encoding="utf-8")
+    combined=app+info
+    assert "Kontakta arrangören" in combined
+    assert "cn-call-button" in combined
+    assert "href='tel:" in info

@@ -1,0 +1,1 @@
+Full local Chromium E2E was attempted but did not complete within the execution limit of the ChatGPT runtime. E2E collection/import passes. GitHub Actions remains the source of truth for Chromium/Firefox/WebKit execution.

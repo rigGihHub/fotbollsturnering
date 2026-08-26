@@ -1,6 +1,7 @@
 from pathlib import Path
 
 APP=(Path(__file__).resolve().parents[1]/"app.py").read_text(encoding="utf-8")
+STATS=(Path(__file__).resolve().parents[1]/"cupnavi_core/public_statistics_view.py").read_text(encoding="utf-8")
 
 def test_render_local_derived_cache_exists_and_is_invalidated_with_query_cache():
     assert "_DERIVED_RENDER_CACHE = {}" in APP
@@ -26,7 +27,7 @@ def test_pitch_creation_and_travel_writes_are_batched():
     assert "run_many(" in travel
 
 def test_public_group_tables_use_batched_statistics_path():
-    stats=APP[APP.index("def render_public_statistics_section"):APP.index("def render_public_info_section")]
+    stats=STATS
     assert "calculate_all_group_tables(tournament_id, tournament)" in stats
     assert 'groups = all_rows("SELECT * FROM groups WHERE tournament_id=? ORDER BY name"' not in stats
 
