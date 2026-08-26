@@ -1,7 +1,7 @@
 from pathlib import Path
 ROOT=Path(__file__).resolve().parents[1]
 APP=(ROOT/"app.py").read_text(encoding="utf-8")
-R="2026.08.26-194-SIMPLIFICATION-CLEANUP"
+R="2026.08.26-198-VISUAL-SYSTEM-CONSOLIDATION"
 
 def test_no_production_reporter_123_fallback():
     assert 'reporter_password = setting("MATCH_REPORTER_PASSWORD") or "123"' not in APP
@@ -23,6 +23,6 @@ def test_admin_can_always_delete_real_cup():
     assert "Radera permanent" in APP
 
 def test_version():
-    assert "Version v.1.194" in APP
+    assert "Version v.1.198" in APP
     assert f'APP_BUILD_VERSION = "{R}"' in APP
     assert f'APP_VERSION = "{R}"' in (ROOT/"cupnavi_core/version.py").read_text(encoding="utf-8")

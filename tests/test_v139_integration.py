@@ -4,7 +4,7 @@ APP=(ROOT/"app.py").read_text(encoding="utf-8")
 
 def test_v139_version_sync():
     v=(ROOT/"VERSION.txt").read_text().strip()
-    assert v=="2026.08.26-194-SIMPLIFICATION-CLEANUP"
+    assert v=="2026.08.26-198-VISUAL-SYSTEM-CONSOLIDATION"
     assert v in APP
     assert v in (ROOT/"cupnavi_core/version.py").read_text()
 

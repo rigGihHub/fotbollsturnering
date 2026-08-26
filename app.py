@@ -105,7 +105,7 @@ from cupnavi_core.fairness import fairness_report
 from cupnavi_core.ux2 import workflow_progress, attention_items, schedule_board
 from cupnavi_core.about import feature_catalog, about_intro
 
-APP_BUILD_VERSION = "2026.08.26-194-SIMPLIFICATION-CLEANUP"
+APP_BUILD_VERSION = "2026.08.26-198-VISUAL-SYSTEM-CONSOLIDATION"
 APP_VERSION = APP_BUILD_VERSION
 
 def read_core_version_from_disk():
@@ -6326,15 +6326,22 @@ def render_bracket_tree(bracket_id, public=False):
         st.info("Slutspelsträdet saknar matcher.")
         return
 
-    card_width = 250
+    # A final-only bracket should be compact instead of reserving a full tree canvas.
+    stage_count = len(main_stages)
+    first_count = len(main_stages[0][1])
+    compact_final_only = stage_count == 1 and first_count == 1
+    card_width = 320 if compact_final_only else 250
     card_height = 108
     column_gap = 92
     column_width = card_width + column_gap
-    header_height = 48
-    first_count = len(main_stages[0][1])
-    play_height = max(330, first_count * 154)
-    canvas_width = len(main_stages) * column_width - column_gap + 40
-    canvas_height = header_height + play_height + 20
+    header_height = 44
+    if compact_final_only:
+        play_height = card_height + 44
+        canvas_width = min(520, card_width + 40)
+    else:
+        play_height = max(250, first_count * 154)
+        canvas_width = stage_count * column_width - column_gap + 40
+    canvas_height = header_height + play_height + 16
 
     stage_centers = []
     first_centers = [(index + 0.5) * play_height / first_count for index in range(first_count)]
@@ -6394,6 +6401,8 @@ def render_bracket_tree(bracket_id, public=False):
     cards = []
     for stage_index, (stage_name, stage_matches) in enumerate(main_stages):
         left = 20 + stage_index * column_width
+        if compact_final_only:
+            left = max(20, (canvas_width - card_width) / 2)
         trophy = " 🏆" if stage_name == "Final" else ""
         headers.append(f"<div class='classic-stage-title' style='left:{left}px;width:{card_width}px'>{stage_name}{trophy}</div>")
         for match_index, match_row in enumerate(stage_matches):
@@ -6435,8 +6444,8 @@ def render_bracket_tree(bracket_id, public=False):
     st.markdown(
         f"""
         <style>
-          .classic-bracket-scroll {{overflow-x:auto;padding:6px 3px 18px}}
-          .classic-bracket {{position:relative;min-width:{canvas_width}px;height:{canvas_height}px;background:linear-gradient(180deg,#f8fafc 0,#fff 100%);border:1px solid #e2e8f0;border-radius:14px}}
+          .classic-bracket-scroll {{overflow-x:auto;padding:4px 3px 12px}}
+          .classic-bracket {{position:relative;width:{canvas_width}px;min-width:{canvas_width}px;max-width:100%;height:{canvas_height}px;background:#fff;border:1px solid #e2e8f0;border-radius:14px}}
           .classic-stage-title {{position:absolute;top:12px;text-align:center;font-size:14px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:#334155}}
           .classic-match {{position:absolute;z-index:2;box-sizing:border-box;background:#fff;border:1px solid #cbd5e1;border-radius:8px;box-shadow:0 3px 10px rgba(15,23,42,.11);overflow:hidden}}
           .classic-match.final-match {{border:2px solid #d4a017;box-shadow:0 4px 14px rgba(180,120,0,.18)}}
@@ -7226,7 +7235,8 @@ def render_public_view(tournament_id, tournament):
     )
     st.markdown("<div class='cn-share-inline-anchor'></div>", unsafe_allow_html=True)
     with st.popover("Dela", help=tr("Dela cupen")):
-        st.markdown(f"**{tr('Dela cupen')}**")
+        st.markdown("<span class='cn-share-popover-marker'></span>", unsafe_allow_html=True)
+        st.markdown(f"### {tr('Dela cupen')}")
         st.caption(tr("Dela länken eller QR-koden till den här cupen."))
         st.code(share_url, language=None)
         share_col1, share_col2, share_col3 = st.columns(3)
@@ -7235,16 +7245,20 @@ def render_public_view(tournament_id, tournament):
         share_col3.link_button("SMS", sms_href, use_container_width=True)
         share_qr = qr_png_bytes(share_url)
         if share_qr:
+            st.markdown("#### QR-kod")
             qr_col1, qr_col2 = st.columns([1, 2], vertical_alignment="center")
-            qr_col1.image(share_qr, width=118)
-            qr_col2.download_button(
-                tr("Ladda ner QR-kod"),
-                data=share_qr,
-                file_name=f"cupnavi-{int(tournament_id)}-qr.png",
-                mime="image/png",
-                key=f"cn_share_qr_download_{int(tournament_id)}",
-                use_container_width=True,
-            )
+            qr_col1.image(share_qr, width=120)
+            with qr_col2:
+                st.caption("Skanna koden för att öppna den publika cupsidan.")
+                st.download_button(
+                    tr("Ladda ner QR-kod"),
+                    data=share_qr,
+                    file_name=f"cupnavi-{int(tournament_id)}-qr.png",
+                    mime="image/png",
+                    key=f"cn_share_qr_download_{int(tournament_id)}",
+                    use_container_width=True,
+                )
+        st.caption("Länken går till den publika cupsidan och kräver ingen inloggning.")
 
     # v143: mobil först – "Följ mitt lag" är en personlig cupyta, inte bara ett filter.
     st.markdown(
@@ -7284,10 +7298,7 @@ def render_public_view(tournament_id, tournament):
         .cn-share-toggle-anchor,.cn-share-panel-anchor{height:0;margin:0;padding:0}
         @media(min-width:901px){
           .cn-public-follow-anchor + div{margin-top:0!important;margin-bottom:2px!important}
-          .cn-share-toggle-anchor + div{margin:0!important}
-          .cn-live-strip{margin-top:2px!important;margin-bottom:8px!important}
-        }
-        @media(max-width:900px){.cn-live-grid{grid-template-columns:1fr}.cn-live-head{align-items:flex-start}.cn-live-status{display:none}}
+@media(max-width:900px){.cn-live-grid{grid-template-columns:1fr}.cn-live-head{align-items:flex-start}.cn-live-status{display:none}}
         .cn-my-status{display:flex;gap:8px;flex-wrap:wrap;margin:8px 0}.cn-my-pill{border:1px solid #dbe5df;border-radius:999px;padding:6px 10px;background:#f8fbf9;font-size:.8rem;font-weight:750}
         .cn-venue-card{border:1px solid #e2e8f0;border-radius:14px;padding:11px 12px;margin:7px 0;background:#fff}
 
@@ -8989,7 +9000,7 @@ if _direct_public_cup and st.session_state.get("view_mode") is None:
     st.session_state["view_mode"] = "Turneringsvy"
 elif st.session_state.get("view_mode") not in mode_options:
     st.session_state["view_mode"] = mode_options[0]
-st.sidebar.caption("Version v.1.194")
+st.sidebar.caption("Version v.1.198")
 
 def _set_view_mode(mode):
     st.session_state["view_mode"] = mode
@@ -9387,19 +9398,28 @@ def _tournament_selector_label(tournament_id):
         return f"🔴 {label} · {status_label(status, current_language())}"
     return label
 
-if requested_cup_id in tournament_ids:
-    st.session_state["active_tournament_selector"] = requested_cup_id
-elif preferred_tournament_id in tournament_ids:
-    st.session_state["active_tournament_selector"] = preferred_tournament_id
-elif st.session_state.get("active_tournament_selector") not in tournament_ids:
+# Seed the widget only when its state is missing/invalid. Do not overwrite it on
+# every rerun: doing so made the "Aktiv turnering" selectbox snap back to the
+# URL/preferred cup immediately after the user selected another tournament.
+if st.session_state.get("active_tournament_selector") not in tournament_ids:
     st.session_state["active_tournament_selector"] = tournament_ids[default_tournament_index]
+
 tid = st.sidebar.selectbox(
     tr("Aktiv turnering"),
     tournament_ids,
-    index=default_tournament_index,
     format_func=_tournament_selector_label,
     key="active_tournament_selector",
 )
+
+# A deliberate selector change becomes the session preference and the URL follows
+# it. This keeps Admin, public preview and refreshes on the same selected cup.
+if preferred_tournament_id != tid:
+    st.session_state["preferred_tournament_id"] = int(tid)
+if hasattr(st, "query_params") and str(st.query_params.get("cup", "")).strip():
+    selected_row = next(t for t in tournaments if int(t["id"]) == int(tid))
+    selected_slug = str(_row_value(selected_row, "public_slug", "") or "").strip()
+    st.query_params["cup"] = selected_slug or str(tid)
+
 tournament = next(t for t in tournaments if t["id"] == tid)
 # Competition classes are migrated/backfilled by init_db(). Do not perform remote
 # write-sync on every Streamlit rerun; explicit create/edit flows call sync as needed.
@@ -9674,6 +9694,104 @@ label[data-testid="stWidgetLabel"] {
   .cn-public-follow-anchor + div [data-testid="stCaptionContainer"]{
     margin-top:0!important;
     margin-bottom:1px!important;
+  }
+}
+
+/* SHARE POPOVER POLISH v1.195 */
+[data-testid="stPopoverBody"]:has(.cn-share-popover-marker),
+[data-baseweb="popover"]:has(.cn-share-popover-marker) > div {
+  background:#ffffff!important;
+  color:#16231c!important;
+  border:1px solid #d9e2dd!important;
+  border-radius:14px!important;
+  box-shadow:0 14px 36px rgba(16,24,20,.14)!important;
+  color-scheme:light!important;
+}
+[data-testid="stPopoverBody"]:has(.cn-share-popover-marker){
+  width:min(520px,calc(100vw - 24px))!important;
+  max-width:min(520px,calc(100vw - 24px))!important;
+  padding:16px!important;
+}
+[data-testid="stPopoverBody"]:has(.cn-share-popover-marker) [data-testid="stVerticalBlock"]{
+  gap:10px!important;
+}
+[data-testid="stPopoverBody"]:has(.cn-share-popover-marker) h3,
+[data-testid="stPopoverBody"]:has(.cn-share-popover-marker) h4,
+[data-testid="stPopoverBody"]:has(.cn-share-popover-marker) p,
+[data-testid="stPopoverBody"]:has(.cn-share-popover-marker) span,
+[data-testid="stPopoverBody"]:has(.cn-share-popover-marker) div{
+  color:#16231c!important;
+}
+[data-testid="stPopoverBody"]:has(.cn-share-popover-marker) h3{
+  margin:0!important;
+  font-size:1.08rem!important;
+}
+[data-testid="stPopoverBody"]:has(.cn-share-popover-marker) h4{
+  margin:4px 0 0!important;
+  font-size:.92rem!important;
+}
+[data-testid="stPopoverBody"]:has(.cn-share-popover-marker) [data-testid="stCaptionContainer"] p{
+  color:#5b6b62!important;
+  font-size:.79rem!important;
+}
+[data-testid="stPopoverBody"]:has(.cn-share-popover-marker) pre,
+[data-testid="stPopoverBody"]:has(.cn-share-popover-marker) code{
+  background:#f5f7f6!important;
+  color:#17324d!important;
+  border-color:#d9e2dd!important;
+  font-size:.78rem!important;
+}
+[data-testid="stPopoverBody"]:has(.cn-share-popover-marker) [data-testid="stCode"]{
+  background:#f5f7f6!important;
+  border:1px solid #d9e2dd!important;
+  border-radius:10px!important;
+  overflow:hidden!important;
+}
+[data-testid="stPopoverBody"]:has(.cn-share-popover-marker) [data-testid="stLinkButton"] a,
+[data-testid="stPopoverBody"]:has(.cn-share-popover-marker) [data-testid="stDownloadButton"] button{
+  background:#ffffff!important;
+  color:#174d2f!important;
+  border:1px solid #a9c6b5!important;
+  min-height:40px!important;
+  opacity:1!important;
+  font-weight:700!important;
+  box-shadow:none!important;
+}
+[data-testid="stPopoverBody"]:has(.cn-share-popover-marker) [data-testid="stLinkButton"] a *,
+[data-testid="stPopoverBody"]:has(.cn-share-popover-marker) [data-testid="stDownloadButton"] button *{
+  color:#174d2f!important;
+  opacity:1!important;
+}
+[data-testid="stPopoverBody"]:has(.cn-share-popover-marker) [data-testid="stLinkButton"] a:hover,
+[data-testid="stPopoverBody"]:has(.cn-share-popover-marker) [data-testid="stDownloadButton"] button:hover{
+  background:#edf7f0!important;
+  border-color:#67997a!important;
+  color:#0f5a31!important;
+}
+[data-testid="stPopoverBody"]:has(.cn-share-popover-marker) img{
+  background:#ffffff!important;
+  border:1px solid #d9e2dd!important;
+  border-radius:10px!important;
+  padding:6px!important;
+}
+[data-testid="stPopoverBody"]:has(.cn-share-popover-marker) [data-testid="stHorizontalBlock"]{
+  gap:10px!important;
+}
+@media(max-width:520px){
+  [data-testid="stPopoverBody"]:has(.cn-share-popover-marker){
+    width:calc(100vw - 16px)!important;
+    max-width:calc(100vw - 16px)!important;
+    padding:14px!important;
+  }
+  [data-testid="stPopoverBody"]:has(.cn-share-popover-marker) [data-testid="stHorizontalBlock"]{
+    gap:7px!important;
+  }
+  [data-testid="stPopoverBody"]:has(.cn-share-popover-marker) [data-testid="stLinkButton"] a,
+  [data-testid="stPopoverBody"]:has(.cn-share-popover-marker) [data-testid="stDownloadButton"] button{
+    min-height:44px!important;
+    font-size:.8rem!important;
+    padding-left:8px!important;
+    padding-right:8px!important;
   }
 }
 </style>
@@ -16251,3 +16369,442 @@ if view_mode == "Admin" and admin_page == "Adminöversikt":
                 f"{_avg_render:.0f} ms render · {_avg_db:.0f} ms DB."
             )
             render_centered_table(pd.DataFrame(_history))
+
+
+
+def inject_v198_visual_system():
+    st.markdown(
+        """<style>
+        /* ================================================================
+           CUPNAVI VISUAL SYSTEM v1.198
+           Final visual authority. Presentation only.
+           ================================================================ */
+
+        :root{
+          --cn98-primary:#176b3a;
+          --cn98-primary-hover:#12572f;
+          --cn98-primary-soft:#edf7f0;
+          --cn98-ink:#17221c;
+          --cn98-ink-2:#536159;
+          --cn98-ink-3:#768279;
+          --cn98-bg:#f5f7f6;
+          --cn98-surface:#ffffff;
+          --cn98-surface-2:#f9fbfa;
+          --cn98-border:#dbe3de;
+          --cn98-border-strong:#b9c7bf;
+          --cn98-focus:#72a887;
+          --cn98-success:#176b3a;
+          --cn98-warning:#8a5709;
+          --cn98-error:#b42318;
+          --cn98-info:#365f7c;
+
+          --cn98-r1:7px;
+          --cn98-r2:10px;
+          --cn98-r3:14px;
+          --cn98-shadow:0 1px 2px rgba(14,31,22,.04),0 5px 18px rgba(14,31,22,.045);
+
+          --cn98-s1:4px;
+          --cn98-s2:8px;
+          --cn98-s3:12px;
+          --cn98-s4:16px;
+          --cn98-s5:24px;
+          --cn98-s6:32px;
+          --cn98-s7:48px;
+
+          --cn98-control:40px;
+          --cn98-max:1240px;
+        }
+
+        html,body,.stApp{
+          background:var(--cn98-bg)!important;
+          color:var(--cn98-ink)!important;
+        }
+        .stApp .block-container{
+          max-width:var(--cn98-max)!important;
+          padding-left:clamp(12px,2.25vw,28px)!important;
+          padding-right:clamp(12px,2.25vw,28px)!important;
+          padding-bottom:40px!important;
+        }
+
+        /* TYPOGRAPHY — one restrained scale */
+        h1,h2,h3,h4,h5,h6{
+          font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif!important;
+          color:var(--cn98-ink)!important;
+          letter-spacing:-.015em!important;
+          text-wrap:balance;
+        }
+        h1{font-size:clamp(1.55rem,2vw,1.9rem)!important;line-height:1.12!important;font-weight:780!important}
+        h2{font-size:clamp(1.22rem,1.55vw,1.42rem)!important;line-height:1.2!important;font-weight:750!important}
+        h3{font-size:1.05rem!important;line-height:1.25!important;font-weight:720!important}
+        h4{font-size:.95rem!important;line-height:1.3!important;font-weight:700!important}
+        p,li,label,input,textarea,button{font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif!important}
+        p,li{line-height:1.48}
+        [data-testid="stCaptionContainer"],
+        [data-testid="stCaptionContainer"] p{
+          color:var(--cn98-ink-2)!important;
+          font-size:.81rem!important;
+          line-height:1.4!important;
+        }
+        [data-testid="stWidgetLabel"],
+        [data-testid="stWidgetLabel"] p{
+          color:var(--cn98-ink)!important;
+          font-size:.83rem!important;
+          font-weight:650!important;
+          opacity:1!important;
+        }
+
+        /* PAGE RHYTHM */
+        [data-testid="stVerticalBlock"]{gap:.62rem!important}
+        [data-testid="stHorizontalBlock"]{gap:.72rem!important}
+        hr{border-color:var(--cn98-border)!important;margin:20px 0!important}
+
+        /* BUTTONS */
+        [data-testid="stButton"] button,
+        [data-testid="stFormSubmitButton"] button,
+        [data-testid="stDownloadButton"] button,
+        [data-testid="stLinkButton"] a,
+        [data-testid="stPopover"] > button{
+          min-height:var(--cn98-control)!important;
+          border-radius:var(--cn98-r1)!important;
+          padding:7px 13px!important;
+          font-size:.83rem!important;
+          font-weight:680!important;
+          box-shadow:none!important;
+          transition:background-color .13s ease,border-color .13s ease,color .13s ease,transform .06s ease!important;
+        }
+        [data-testid="stButton"] button[kind="primary"],
+        [data-testid="stFormSubmitButton"] button[kind="primary"]{
+          background:var(--cn98-primary)!important;
+          border:1px solid var(--cn98-primary)!important;
+          color:#fff!important;
+        }
+        [data-testid="stButton"] button[kind="primary"] *,
+        [data-testid="stFormSubmitButton"] button[kind="primary"] *{color:#fff!important}
+        [data-testid="stButton"] button[kind="primary"]:hover,
+        [data-testid="stFormSubmitButton"] button[kind="primary"]:hover{
+          background:var(--cn98-primary-hover)!important;
+          border-color:var(--cn98-primary-hover)!important;
+        }
+        [data-testid="stButton"] button[kind="secondary"],
+        [data-testid="stDownloadButton"] button,
+        [data-testid="stLinkButton"] a,
+        [data-testid="stPopover"] > button{
+          background:var(--cn98-surface)!important;
+          border:1px solid var(--cn98-border-strong)!important;
+          color:#24342b!important;
+        }
+        [data-testid="stButton"] button[kind="secondary"]:hover,
+        [data-testid="stDownloadButton"] button:hover,
+        [data-testid="stLinkButton"] a:hover,
+        [data-testid="stPopover"] > button:hover{
+          background:#f0f4f2!important;
+          border-color:#8da096!important;
+        }
+        [data-testid="stButton"] button:active,
+        [data-testid="stFormSubmitButton"] button:active{transform:translateY(1px)!important}
+        button:disabled,[aria-disabled="true"]{opacity:.5!important;cursor:not-allowed!important}
+
+        /* FORMS */
+        [data-testid="stTextInput"] input,
+        [data-testid="stNumberInput"] input,
+        [data-testid="stTextArea"] textarea,
+        [data-testid="stDateInput"] input,
+        [data-baseweb="select"] > div{
+          min-height:var(--cn98-control)!important;
+          border-radius:var(--cn98-r1)!important;
+          border:1px solid var(--cn98-border-strong)!important;
+          background:var(--cn98-surface)!important;
+          color:var(--cn98-ink)!important;
+          box-shadow:none!important;
+        }
+        [data-testid="stTextInput"] input:hover,
+        [data-testid="stNumberInput"] input:hover,
+        [data-testid="stTextArea"] textarea:hover,
+        [data-testid="stDateInput"] input:hover,
+        [data-baseweb="select"] > div:hover{border-color:#879b90!important}
+        [data-testid="stTextInput"] input:focus,
+        [data-testid="stNumberInput"] input:focus,
+        [data-testid="stTextArea"] textarea:focus,
+        [data-testid="stDateInput"] input:focus,
+        [data-baseweb="select"] > div:focus-within{
+          border-color:var(--cn98-primary)!important;
+          box-shadow:0 0 0 3px rgba(23,107,58,.12)!important;
+          outline:none!important;
+        }
+        [data-testid="stForm"]{
+          border:1px solid var(--cn98-border)!important;
+          background:var(--cn98-surface)!important;
+          border-radius:var(--cn98-r2)!important;
+          box-shadow:none!important;
+        }
+
+        /* RADIO / CHECKBOX / TOGGLE */
+        [data-testid="stRadio"] label,
+        [data-testid="stCheckbox"] label{
+          color:var(--cn98-ink)!important;
+          font-size:.83rem!important;
+        }
+        [data-testid="stRadio"] > div{gap:6px!important;flex-wrap:wrap!important}
+        [data-testid="stRadio"] label{
+          padding:5px 9px!important;
+          border:1px solid var(--cn98-border)!important;
+          border-radius:999px!important;
+          background:var(--cn98-surface)!important;
+        }
+
+        /* CONTAINERS */
+        [data-testid="stVerticalBlockBorderWrapper"],
+        [data-testid="stExpander"],
+        [data-testid="stMetric"]{
+          background:var(--cn98-surface)!important;
+          border:1px solid var(--cn98-border)!important;
+          border-radius:var(--cn98-r2)!important;
+          box-shadow:none!important;
+        }
+        [data-testid="stMetric"]{padding:10px 12px!important}
+        [data-testid="stMetricLabel"]{color:var(--cn98-ink-2)!important}
+        [data-testid="stMetricValue"]{font-weight:760!important;letter-spacing:-.015em!important}
+        [data-testid="stExpander"] summary{
+          min-height:40px!important;
+          color:var(--cn98-ink)!important;
+          font-size:.84rem!important;
+          font-weight:680!important;
+        }
+
+        /* ALERTS */
+        [data-testid="stAlert"]{
+          border-radius:var(--cn98-r2)!important;
+          border-width:1px!important;
+          box-shadow:none!important;
+          padding:10px 12px!important;
+        }
+        [data-testid="stAlert"] p{font-size:.83rem!important;line-height:1.42!important}
+
+        /* NAVIGATION / TABS */
+        [data-testid="stTabs"] [role="tablist"]{
+          gap:2px!important;
+          border-bottom:1px solid var(--cn98-border)!important;
+        }
+        [data-testid="stTabs"] button[role="tab"]{
+          min-height:38px!important;
+          padding:6px 10px!important;
+          border-radius:var(--cn98-r1) var(--cn98-r1) 0 0!important;
+          color:var(--cn98-ink-2)!important;
+          font-size:.82rem!important;
+          font-weight:650!important;
+        }
+        [data-testid="stTabs"] button[role="tab"][aria-selected="true"]{
+          color:var(--cn98-primary)!important;
+          font-weight:730!important;
+        }
+        [data-testid="stButtonGroup"] button{
+          min-height:36px!important;
+          background:var(--cn98-surface)!important;
+          border-color:var(--cn98-border)!important;
+          color:var(--cn98-ink-2)!important;
+          font-size:.81rem!important;
+        }
+        [data-testid="stButtonGroup"] button[aria-pressed="true"],
+        [data-testid="stButtonGroup"] button[aria-checked="true"],
+        [data-testid="stButtonGroup"] [data-selected="true"]{
+          background:var(--cn98-primary-soft)!important;
+          color:#14552f!important;
+          border-color:#9dbdac!important;
+          font-weight:700!important;
+        }
+
+        /* SIDEBAR */
+        [data-testid="stSidebar"]{
+          background:#f0f4f1!important;
+          border-right:1px solid var(--cn98-border)!important;
+        }
+        [data-testid="stSidebar"] [data-testid="stVerticalBlock"]{gap:.42rem!important}
+        [data-testid="stSidebar"] [data-testid="stWidgetLabel"] p{
+          font-size:.75rem!important;
+          color:var(--cn98-ink-2)!important;
+          font-weight:700!important;
+        }
+
+        /* TABLES */
+        [data-testid="stDataFrame"],
+        .texttv-table-wrap{
+          border:1px solid var(--cn98-border)!important;
+          border-radius:var(--cn98-r2)!important;
+          background:var(--cn98-surface)!important;
+          overflow:auto!important;
+          box-shadow:none!important;
+        }
+        .texttv-table{
+          width:100%!important;
+          border-collapse:separate!important;
+          border-spacing:0!important;
+        }
+        .texttv-table th{
+          position:sticky!important;
+          top:0!important;
+          z-index:2!important;
+          background:#eef3f0!important;
+          color:var(--cn98-ink)!important;
+          font-size:.76rem!important;
+          font-weight:730!important;
+        }
+        .texttv-table td,.texttv-table th{
+          padding:8px 10px!important;
+          border:0!important;
+          border-bottom:1px solid #e7ece9!important;
+        }
+        .texttv-table tbody tr:last-child td{border-bottom:0!important}
+        .texttv-table tbody tr:hover td{background:#f8faf9!important}
+
+        /* PUBLIC EXPERIENCE */
+        .cup-hero{
+          background:#17324d!important;
+          background-image:none!important;
+          border:0!important;
+          border-radius:var(--cn98-r3)!important;
+          box-shadow:var(--cn98-shadow)!important;
+        }
+        .public-match-card,.cn-live-card,.public-metric{
+          border-color:var(--cn98-border)!important;
+          box-shadow:none!important;
+          border-radius:var(--cn98-r2)!important;
+        }
+        .public-match-card{background:var(--cn98-surface)!important}
+        .cn-public-top-nav + div [data-testid="stButton"] button{
+          min-height:38px!important;
+          font-size:.80rem!important;
+        }
+        .classic-bracket{
+          background:#fff!important;
+          border-color:var(--cn98-border)!important;
+          box-shadow:none!important;
+        }
+        .classic-match{
+          border-color:var(--cn98-border-strong)!important;
+          box-shadow:0 2px 8px rgba(18,34,25,.06)!important;
+        }
+
+        /* SHARE POPOVER — explicit light surface */
+        [data-baseweb="popover"]{
+          color:var(--cn98-ink)!important;
+        }
+        [data-baseweb="popover"] > div{
+          background:var(--cn98-surface)!important;
+          color:var(--cn98-ink)!important;
+          border:1px solid var(--cn98-border)!important;
+          border-radius:var(--cn98-r3)!important;
+          box-shadow:0 12px 34px rgba(15,23,42,.14)!important;
+        }
+        [data-baseweb="popover"] p,
+        [data-baseweb="popover"] span,
+        [data-baseweb="popover"] label{
+          color:var(--cn98-ink)!important;
+        }
+
+        /* EMPTY STATES */
+        .cn-empty-state{
+          background:var(--cn98-surface-2)!important;
+          border:1px dashed var(--cn98-border-strong)!important;
+          border-radius:var(--cn98-r2)!important;
+          padding:18px!important;
+          box-shadow:none!important;
+        }
+        .cn-empty-state p{color:var(--cn98-ink-2)!important}
+
+        /* ADMIN */
+        .cn-current-admin-page{
+          background:rgba(245,247,246,.98)!important;
+          border-color:var(--cn98-border)!important;
+          box-shadow:none!important;
+          backdrop-filter:none!important;
+          -webkit-backdrop-filter:none!important;
+        }
+        .cn-flow-context,.cn-status-card,.cn-step,.cn-recommend-card,.cn-progress-hero,.cn-attention-row{
+          border-color:var(--cn98-border)!important;
+          box-shadow:none!important;
+          border-radius:var(--cn98-r2)!important;
+        }
+
+        /* ACCESSIBILITY */
+        button:focus-visible,
+        a:focus-visible,
+        input:focus-visible,
+        textarea:focus-visible,
+        [role="combobox"]:focus-visible,
+        [role="tab"]:focus-visible,
+        [role="radio"]:focus-visible{
+          outline:3px solid rgba(23,107,58,.28)!important;
+          outline-offset:2px!important;
+        }
+
+        /* TABLET */
+        @media(max-width:1024px){
+          :root{--cn98-max:100%}
+          .stApp .block-container{
+            padding-left:16px!important;
+            padding-right:16px!important;
+          }
+        }
+
+        /* MOBILE */
+        @media(max-width:768px){
+          :root{--cn98-control:44px}
+          html,body,.stApp{max-width:100vw!important;overflow-x:hidden!important}
+          .stApp .block-container{
+            padding-left:10px!important;
+            padding-right:10px!important;
+            padding-bottom:88px!important;
+          }
+          [data-testid="stHorizontalBlock"]{gap:7px!important}
+          [data-testid="stButton"] button,
+          [data-testid="stFormSubmitButton"] button,
+          [data-testid="stDownloadButton"] button,
+          [data-testid="stLinkButton"] a,
+          [data-testid="stPopover"] > button{
+            min-height:44px!important;
+          }
+          [data-testid="stDataFrame"],.texttv-table-wrap{
+            max-width:100%!important;
+            overflow-x:auto!important;
+            -webkit-overflow-scrolling:touch;
+          }
+          .texttv-table td,.texttv-table th{
+            padding:7px 8px!important;
+            white-space:nowrap!important;
+          }
+          [data-baseweb="popover"] > div{
+            max-width:calc(100vw - 20px)!important;
+            max-height:calc(100vh - 24px)!important;
+            overflow:auto!important;
+          }
+        }
+
+        @media(max-width:390px){
+          .stApp .block-container{
+            padding-left:8px!important;
+            padding-right:8px!important;
+          }
+          [data-testid="stButton"] button,
+          [data-testid="stFormSubmitButton"] button{
+            padding-left:9px!important;
+            padding-right:9px!important;
+          }
+        }
+
+        @media(min-width:1440px){
+          :root{--cn98-max:1280px}
+        }
+
+        @media(prefers-reduced-motion:reduce){
+          *,*::before,*::after{
+            animation-duration:.01ms!important;
+            animation-iteration-count:1!important;
+            transition-duration:.01ms!important;
+            scroll-behavior:auto!important;
+          }
+        }
+        </style>""",
+        unsafe_allow_html=True,
+    )
+
+inject_v198_visual_system()
