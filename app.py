@@ -7354,7 +7354,7 @@ def render_public_view(tournament_id, tournament):
             index=favorite_index,
             format_func=lambda team_id: tr("Alla lag") if team_id == _all_teams_value else public_team_names.get(team_id, "Lag"),
             key=f"public_favorite_team_{tournament_id}",
-            help="Valet sparas i sidans länk. Bokmärk länken så öppnas cupen direkt med ditt lag nästa gång.",
+            help="Valet sparas i länken så cupen kan öppnas direkt med ditt lag.",
         )
         favorite_team_id = None if _favorite_selection == _all_teams_value else _favorite_selection
         if favorite_team_id is not None and favorite_team_id != requested_team_id:
@@ -7762,7 +7762,7 @@ def render_public_view(tournament_id, tournament):
             if forecastable:
                 weather_forecast, weather_status = fetch_weather_forecast(tournament["location"] or "")
             else:
-                weather_status = "Väderprognos visas när matchen är inom 16 dagar."
+                weather_status = ""
 
         st.markdown(
             """
@@ -7856,7 +7856,7 @@ def render_public_view(tournament_id, tournament):
                   </div>
                   {match_events_html}
                   <div class="public-match-secondary">
-                    {f'<span class="match-weather">{html.escape(weather_text)}</span>' if show_weather else ''}
+                    {f'<span class="match-weather">{html.escape(weather_text)}</span>' if show_weather and weather_text else ''}
                     <span class="match-referee">Domare: {html.escape(_public_referee_label(match_row) or 'Ej tillsatt')}</span>
                   </div>
                 </div>
@@ -9546,6 +9546,128 @@ label[data-testid="stWidgetLabel"] {
 }
 [data-testid="stExpander"]:has(.cn-public-filter-marker){
   border-color:#dbe4ea!important;background:#fff!important;border-radius:12px!important;
+}
+
+/* PUBLIC DENSITY & HIERARCHY V192 */
+@media(min-width:901px){
+  /* Reduce chrome above tournament content. */
+  .stApp .block-container{padding-top:.35rem!important}
+  .cn-mode-nav-safezone{height:8px!important}
+  .cn-mode-nav-safezone + div{
+    max-width:360px!important;
+    margin-left:auto!important;
+    margin-bottom:4px!important;
+  }
+  .cn-mode-nav-safezone + div [data-testid="stButton"] button{
+    min-height:34px!important;
+    font-size:.80rem!important;
+    padding:4px 10px!important;
+  }
+
+  /* Tournament hero stays primary, but with less vertical padding. */
+  .cup-hero{
+    padding:10px 16px!important;
+    margin:0 0 4px!important;
+    border-radius:13px!important;
+  }
+  .cup-hero .title{font-size:25px!important;margin:1px 0 2px!important}
+  .cup-hero .meta{font-size:12px!important}
+
+  /* Share action behaves like a header utility, not a standalone section. */
+  .cn-share-toggle-anchor + div{margin:-2px 0 2px!important}
+  .cn-share-toggle-anchor + div [data-testid="column"]:last-child{
+    flex:0 0 76px!important;width:76px!important;min-width:76px!important;
+  }
+  .cn-share-toggle-anchor + div button{
+    min-height:30px!important;
+    font-size:.76rem!important;
+    padding:3px 8px!important;
+    border-radius:8px!important;
+  }
+
+  /* Follow-team control should read as a compact preference row. */
+  .cn-public-follow-anchor + div{
+    margin-top:0!important;
+    margin-bottom:0!important;
+  }
+  .cn-public-follow-anchor + div [data-testid="stSelectbox"]{
+    margin-bottom:0!important;
+  }
+  .cn-public-follow-anchor + div [data-testid="stWidgetLabel"]{
+    margin-bottom:2px!important;
+  }
+  .cn-public-follow-anchor + div [data-testid="stWidgetLabel"] p{
+    font-size:.78rem!important;
+    line-height:1.15!important;
+  }
+  .cn-public-follow-anchor + div [data-baseweb="select"] > div{
+    min-height:36px!important;
+  }
+
+  /* Local tournament navigation remains visible but secondary. */
+  .cn-public-top-nav + div [data-testid="stButton"] button{
+    min-height:36px!important;
+    font-size:.80rem!important;
+  }
+
+  /* Compact the "now" strip. */
+  .cn-live-strip{margin:3px 0 5px!important}
+  .cn-live-head{padding:7px 10px!important;margin-bottom:6px!important;border-radius:12px!important}
+  .cn-live-title{font-size:.68rem!important}
+  .cn-live-subtitle{font-size:.74rem!important}
+  .cn-live-card{padding:8px 10px!important;border-radius:11px!important}
+  .cn-live-card-top{margin-bottom:4px!important}
+  .cn-live-time{font-size:.92rem!important}
+  .cn-live-date,.cn-live-pitch{font-size:.67rem!important}
+  .cn-live-teams{font-size:.84rem!important}
+
+  /* Summary metrics are utility chips, not cards. */
+  .public-metric-grid{margin:4px 0 6px!important}
+  .public-metric{padding:5px 8px!important;border-radius:8px!important}
+  .public-metric .label{font-size:10px!important}
+  .public-metric .value{font-size:15px!important}
+
+  /* Completed match cards: substantially denser on desktop. */
+  .public-match-card{
+    margin:5px 0!important;
+    padding:8px 10px!important;
+    border-radius:10px!important;
+    box-shadow:0 1px 4px rgba(15,23,42,.045)!important;
+  }
+  .public-match-card .public-team-name{
+    font-size:14px!important;
+    line-height:1.12!important;
+  }
+  .public-match-card .match-score{font-size:17px!important}
+  .public-match-card .match-meta{font-size:10.5px!important}
+  .public-match-card .kit-label{font-size:9px!important}
+  .public-match-card .match-stage{
+    font-size:9.5px!important;
+    padding:2px 6px!important;
+  }
+  .public-match-card .status-pill{
+    font-size:9px!important;
+    padding:2px 6px!important;
+  }
+  .public-match-card .cn-match-events{
+    margin-top:4px!important;
+    padding-top:4px!important;
+  }
+  .public-match-card .cn-event-team{padding:3px 5px!important}
+  .public-match-card .cn-event{
+    font-size:10px!important;
+    padding:2px 5px!important;
+  }
+  .public-match-secondary{
+    margin-top:4px!important;
+    gap:9px!important;
+    font-size:10px!important;
+  }
+
+  /* Compress generic vertical gaps in the public area only. */
+  .cn-public-follow-anchor ~ div [data-testid="stVerticalBlock"]{
+    gap:.28rem!important;
+  }
 }
 </style>
 """, unsafe_allow_html=True)
