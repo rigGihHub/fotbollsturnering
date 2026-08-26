@@ -8972,6 +8972,7 @@ if st.session_state.get("language") != selected_language:
 
 _install_streamlit_translation_hooks()
 public_app_mode = str(st.query_params.get("public_only", "")).lower() in {"1", "true", "yes"}
+_direct_public_cup = bool(str(st.query_params.get("cup", "")).strip()) if hasattr(st, "query_params") else False
 
 mode_options = (
     ["Turneringsvy", "Om"]
@@ -8980,7 +8981,11 @@ mode_options = (
           if CLOUD_DATABASE_ENABLED
           else ["Admin", "Lagportal", "Matchrapportör", "Turneringsvy", "Om"])
 )
-if st.session_state.get("view_mode") not in mode_options:
+if _direct_public_cup and st.session_state.get("view_mode") is None:
+    # A fresh direct cup link is public navigation even in local/CI mode, where
+    # Admin is otherwise the first default mode.
+    st.session_state["view_mode"] = "Turneringsvy"
+elif st.session_state.get("view_mode") not in mode_options:
     st.session_state["view_mode"] = mode_options[0]
 if st.session_state.get("view_mode") != "Turneringsvy":
     st.sidebar.caption("Databas: Turso" if CLOUD_DATABASE_ENABLED else "Databas: Lokal SQLite")
