@@ -9347,6 +9347,9 @@ if _a11y_css:
 st.markdown("""
 <style>
 /* CUPNAVI CALENDAR FINAL OVERRIDE */
+/* Streamlit/BaseWeb renders the datepicker in a portal. Keep the entire portal
+   explicitly light so neither browser color-scheme nor app theme can create
+   dark-on-dark weekday labels or black empty cells. */
 [data-baseweb="popover"],
 [data-baseweb="popover"] > div,
 [data-baseweb="calendar"],
@@ -9355,37 +9358,100 @@ st.markdown("""
   color:#172033 !important;
   color-scheme:light !important;
 }
-[data-baseweb="calendar"] abbr {
+
+/* Default every calendar descendant to readable dark text. */
+[data-baseweb="calendar"] *,
+[data-baseweb="popover"] [data-baseweb="calendar"] * {
   color:#172033 !important;
-  opacity:1 !important;
-  font-weight:700 !important;
+  text-shadow:none !important;
 }
+
+/* Header, weekday strip and grid all stay light. */
+[data-baseweb="calendar"] [role="banner"],
+[data-baseweb="calendar"] [role="columnheader"],
 [data-baseweb="calendar"] [role="grid"],
 [data-baseweb="calendar"] [role="row"],
 [data-baseweb="calendar"] [role="gridcell"],
+[data-baseweb="calendar"] [role="gridcell"] > div,
+[data-baseweb="calendar"] abbr {
+  background:#ffffff !important;
+  color:#172033 !important;
+  opacity:1 !important;
+}
+
+/* Weekday labels must remain visibly distinct. */
+[data-baseweb="calendar"] [role="columnheader"],
+[data-baseweb="calendar"] abbr {
+  font-weight:700 !important;
+  color:#334155 !important;
+}
+
+/* Month/year controls and arrows. */
+[data-baseweb="calendar"] button,
+[data-baseweb="calendar"] select,
+[data-baseweb="calendar"] [role="combobox"] {
+  background:#ffffff !important;
+  color:#172033 !important;
+  border-color:#cbd5e1 !important;
+  opacity:1 !important;
+}
+[data-baseweb="calendar"] svg,
+[data-baseweb="calendar"] button svg {
+  fill:#172033 !important;
+  color:#172033 !important;
+}
+
+/* Every day cell is light by default: no black spacer/overflow blocks. */
+[data-baseweb="calendar"] [role="gridcell"] button,
+[data-baseweb="calendar"] [role="gridcell"] [role="button"],
 [data-baseweb="calendar"] [role="gridcell"] > div {
   background:#ffffff !important;
   color:#172033 !important;
+  opacity:1 !important;
+  box-shadow:none !important;
 }
-[data-baseweb="calendar"] [role="gridcell"] button,
-[data-baseweb="calendar"] [role="gridcell"] [role="button"] {
-  background:#ffffff !important;
-  color:#172033 !important;
+
+/* Outside-month / disabled dates are muted, never black. */
+[data-baseweb="calendar"] [aria-disabled="true"],
+[data-baseweb="calendar"] [aria-disabled="true"] *,
+[data-baseweb="calendar"] [data-disabled="true"],
+[data-baseweb="calendar"] [data-disabled="true"] * {
+  background:#f8fafc !important;
+  color:#94a3b8 !important;
   opacity:1 !important;
 }
+
+/* Selected date keeps a clear CupNavi accent. */
 [data-baseweb="calendar"] [aria-selected="true"],
-[data-baseweb="calendar"] [aria-selected="true"] > div,
-[data-baseweb="calendar"] [aria-selected="true"] button {
-  background:#eef7f1 !important;
-  color:#14532d !important;
+[data-baseweb="calendar"] [aria-selected="true"] *,
+[data-baseweb="calendar"] [data-selected="true"],
+[data-baseweb="calendar"] [data-selected="true"] * {
+  background:#166534 !important;
+  color:#ffffff !important;
   font-weight:700 !important;
 }
-[data-baseweb="calendar"] [aria-disabled="true"],
-[data-baseweb="calendar"] [aria-disabled="true"] > div,
-[data-baseweb="calendar"] [aria-disabled="true"] button {
-  background:#f4f6f8 !important;
-  color:#7a8492 !important;
+
+/* Focus remains visible for keyboard users. */
+[data-baseweb="calendar"] :focus-visible {
+  outline:3px solid #86efac !important;
+  outline-offset:2px !important;
+}
+
+/* GLOBAL READABILITY PASS: secondary guidance must not disappear on the light
+   CupNavi surface. This intentionally avoids changing buttons or input values. */
+[data-testid="stCaptionContainer"],
+[data-testid="stCaptionContainer"] p,
+.stCaption,
+.stCaption p {
+  color:#64748b !important;
   opacity:1 !important;
+}
+[data-testid="stWidgetLabel"] p,
+[data-testid="stWidgetLabel"] label,
+label[data-testid="stWidgetLabel"] {
+  color:#334155 !important;
+  opacity:1 !important;
+  font-weight:600 !important;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -12073,19 +12139,9 @@ int(edited_halves) != int(overview_rules["halves"]),
         if not testdata_ready:
             st.info("Skapa testdata i steg 1 innan du väljer hur långt turneringen har pågått.")
 
-        # Deterministic CI progression. In E2E mode only, once persisted test data
-        # exists, complete the demo cup server-side exactly once. This removes all
-        # dependency on Streamlit button/selectbox event timing in headless CI.
-        if os.environ.get("CUPNAVI_E2E") == "1" and testdata_ready:
-            e2e_state_key = f"e2e_autocomplete_done_{tid}"
-            if not st.session_state.get(e2e_state_key, False):
-                st.session_state[e2e_state_key] = True
-                ok, message = _demo_apply_progress_level(tid, "complete")
-                if not ok:
-                    st.session_state[e2e_state_key] = False
-                    raise RuntimeError(f"E2E auto-completion failed: {message}")
-                st.rerun()
-
+        # Browser-E2E does not mutate tournament lifecycle from inside a
+        # Streamlit render. Downstream browser states are prepared by the test
+        # fixture itself so rerender timing can never change tournament data.
         # Submit selection + action atomically. A normal selectbox rerun can replace
         # the button DOM exactly when it is clicked, which made the real UI flaky.
         with st.form(f"demo_progress_form_{tid}", border=False):
@@ -12792,35 +12848,26 @@ if admin_page == "Lag":
     class_rows = sync_competition_classes(tid)
     current_classes = [competition_class_label(row) for row in class_rows]
     with st.container(border=True):
-        st.markdown("#### Tävlingsklasser i turneringen")
-        st.caption("En cup kan innehålla flera sportsligt separata tävlingar. Tävlingsklasser läggs till via fasta val: Pojkar eller Flickor samt födelseår 2008–2022. Fritext används inte.")
-        ac1, ac2, ac3 = st.columns([1.2, 1, 1])
-        admin_category = ac1.selectbox("Kategori", list(YOUTH_CLASS_CATEGORIES), key=f"manage_class_category_{tid}")
-        admin_year = ac2.selectbox("Födelseår", YOUTH_CLASS_YEARS, index=YOUTH_CLASS_YEARS.index(2014) if 2014 in YOUTH_CLASS_YEARS else 0, key=f"manage_class_year_{tid}")
-        if ac3.button("Lägg till tävlingsklass", key=f"manage_add_class_{tid}", use_container_width=True):
-            ok, message = add_competition_class(tid, admin_category, admin_year)
-            (st.success if ok else st.info)(message)
-            st.rerun()
-        class_rows = competition_classes(tid)
+        st.markdown("#### Tävlingsklasser")
+        st.caption(
+            "Tävlingsklasser definieras i Adminöversikten. Här väljer du bara vilken "
+            "klass varje lag tillhör."
+        )
         if class_rows:
-            st.markdown("##### Befintliga tävlingsklasser")
-            for class_row in class_rows:
-                dc1, dc2, dc3 = st.columns([2, 1, 0.8])
-                dc1.write(competition_class_label(class_row))
-                saved_difficulty = _row_value(class_row, "difficulty", "Medel") or "Medel"
-                if saved_difficulty not in DIFFICULTY_LEVELS:
-                    saved_difficulty = "Medel"
-                difficulty = dc2.selectbox("Nivå", DIFFICULTY_LEVELS, index=DIFFICULTY_LEVELS.index(saved_difficulty), key=f"class_difficulty_{class_row['id']}", label_visibility="collapsed")
-                if difficulty != saved_difficulty:
-                    run("UPDATE competition_classes SET difficulty=? WHERE id=?", (difficulty, class_row["id"]))
-                    st.success(f"✓ {competition_class_label(class_row)} sparad som {difficulty}.")
-                if dc3.button("Ta bort", key=f"remove_class_{class_row['id']}", use_container_width=True):
-                    ok, message = remove_competition_class(tid, int(class_row["id"]))
-                    (st.success if ok else st.error)(message)
-                    if ok:
-                        st.rerun()
+            _class_summary = " · ".join(
+                f"**{competition_class_label(row)}** ({_row_value(row, 'difficulty', 'Medel') or 'Medel'})"
+                for row in class_rows
+            )
+            st.markdown(_class_summary)
         else:
-            st.info("Inga tävlingsklasser har lagts till ännu.")
+            st.warning("Ingen tävlingsklass finns ännu. Lägg till minst en klass i Adminöversikten.")
+        if st.button(
+            "Hantera tävlingsklasser i Adminöversikt",
+            key=f"go_manage_classes_{tid}",
+            use_container_width=True,
+        ):
+            st.session_state[admin_page_key] = "Adminöversikt"
+            st.rerun()
     max_teams = int(tournament["expected_team_count"] or 0)
     registered_team_count = one_row("SELECT COUNT(*) AS n FROM teams WHERE tournament_id=?", (tid,))["n"]
     team_limit_reached = bool(max_teams and registered_team_count >= max_teams)
