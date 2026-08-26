@@ -105,7 +105,7 @@ from cupnavi_core.fairness import fairness_report
 from cupnavi_core.ux2 import workflow_progress, attention_items, schedule_board
 from cupnavi_core.about import feature_catalog, about_intro
 
-APP_BUILD_VERSION = "2026.08.25-192-CI-HEALTH-DEPENDENCY"
+APP_BUILD_VERSION = "2026.08.26-193-FULL-UI-UX-REDESIGN"
 APP_VERSION = APP_BUILD_VERSION
 
 def read_core_version_from_disk():
@@ -3149,6 +3149,75 @@ def inject_v191_design_system():
 
 
 inject_v191_design_system()
+
+
+def inject_v193_product_design_system():
+    """Cohesive presentation-only product design layer for v1.193."""
+    st.markdown(
+        """<style>
+        /* CUPNAVI PRODUCT DESIGN SYSTEM v1.193 */
+        :root{
+          --cn-color-primary:#176b3a;--cn-color-primary-hover:#12572f;--cn-color-primary-pressed:#0d4727;
+          --cn-color-primary-soft:#edf7f0;--cn-color-secondary:#334155;--cn-color-accent:#0f766e;
+          --cn-color-bg:#f5f7f6;--cn-color-surface:#fff;--cn-color-surface-subtle:#f8faf9;
+          --cn-color-border:#d9e2dd;--cn-color-border-strong:#b9c8c0;
+          --cn-color-text:#16231c;--cn-color-text-secondary:#5b6b62;--cn-color-text-tertiary:#738078;
+          --cn-color-success:#176b3a;--cn-color-warning:#8a5308;--cn-color-error:#b42318;--cn-color-info:#315b7d;
+          --cn-space-1:4px;--cn-space-2:8px;--cn-space-3:12px;--cn-space-4:16px;--cn-space-5:24px;--cn-space-6:32px;--cn-space-7:48px;--cn-space-8:64px;
+          --cn-radius-xs:6px;--cn-radius-sm:8px;--cn-radius-md:12px;--cn-radius-lg:16px;
+          --cn-shadow-xs:0 1px 2px rgba(16,24,20,.035);--cn-shadow-sm:0 3px 12px rgba(16,24,20,.055);
+          --cn-control-h:40px;--cn-content-max:1240px;
+        }
+        html,body,.stApp{background:var(--cn-color-bg)!important;color:var(--cn-color-text)!important}
+        html,body,.stApp,button,input,textarea,select{font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif!important}
+        .stApp .block-container{max-width:var(--cn-content-max)!important;padding-left:clamp(14px,2.4vw,30px)!important;padding-right:clamp(14px,2.4vw,30px)!important;padding-bottom:32px!important}
+        h1,h2,h3,h4,h5,h6{color:var(--cn-color-text)!important;text-wrap:balance}
+        h1{font-size:clamp(1.55rem,2vw,1.95rem)!important;line-height:1.12!important;letter-spacing:-.025em!important;font-weight:780!important;margin:0 0 12px!important}
+        h2{font-size:clamp(1.25rem,1.6vw,1.48rem)!important;line-height:1.2!important;letter-spacing:-.018em!important;font-weight:750!important;margin:24px 0 12px!important}
+        h3{font-size:1.08rem!important;line-height:1.28!important;font-weight:720!important;margin:16px 0 8px!important}
+        h4{font-size:.98rem!important;font-weight:700!important} p,li{line-height:1.48}
+        [data-testid="stCaptionContainer"],[data-testid="stCaptionContainer"] p{color:var(--cn-color-text-secondary)!important;font-size:.82rem!important;line-height:1.42!important}
+        [data-testid="stMarkdownContainer"] a{color:#145a34;text-underline-offset:2px}
+        [data-testid="stVerticalBlock"]{gap:.65rem}[data-testid="stHorizontalBlock"]{gap:.75rem}hr{border-color:var(--cn-color-border)!important;margin:24px 0!important}
+        [data-testid="stSidebar"]{background:#f0f4f1!important;border-right:1px solid var(--cn-color-border)!important}
+        [data-testid="stSidebar"] [data-testid="stVerticalBlock"]{gap:.42rem!important}
+        [data-testid="stSidebar"] [data-testid="stWidgetLabel"] p{font-size:.76rem!important;color:var(--cn-color-text-secondary)!important;font-weight:700!important}
+        [data-testid="stWidgetLabel"],[data-testid="stWidgetLabel"] p,label[data-testid="stWidgetLabel"]{color:var(--cn-color-text)!important;font-size:.84rem!important;font-weight:650!important;line-height:1.28!important;opacity:1!important}
+        [data-testid="stTextInput"] input,[data-testid="stNumberInput"] input,[data-testid="stTextArea"] textarea,[data-testid="stDateInput"] input,[data-baseweb="select"]>div{min-height:var(--cn-control-h)!important;border:1px solid var(--cn-color-border-strong)!important;border-radius:var(--cn-radius-sm)!important;background:var(--cn-color-surface)!important;color:var(--cn-color-text)!important;box-shadow:none!important}
+        [data-testid="stTextInput"] input:focus,[data-testid="stNumberInput"] input:focus,[data-testid="stTextArea"] textarea:focus,[data-testid="stDateInput"] input:focus,[data-baseweb="select"]>div:focus-within{border-color:var(--cn-color-primary)!important;box-shadow:0 0 0 3px rgba(23,107,58,.12)!important;outline:none!important}
+        [data-testid="stForm"]{background:var(--cn-color-surface)!important;border-color:var(--cn-color-border)!important;border-radius:var(--cn-radius-md)!important}
+        [data-testid="stRadio"]>div{gap:6px!important;flex-wrap:wrap!important}[data-testid="stRadio"] label{padding:6px 10px!important;border:1px solid var(--cn-color-border)!important;border-radius:var(--cn-radius-sm)!important;background:#fff!important;color:var(--cn-color-text)!important;font-size:.84rem!important}
+        [data-testid="stButton"] button,[data-testid="stFormSubmitButton"] button,[data-testid="stDownloadButton"] button,[data-testid="stLinkButton"] a,[data-testid="stPopover"] button{min-height:var(--cn-control-h)!important;padding:7px 13px!important;border-radius:var(--cn-radius-sm)!important;box-shadow:none!important;font-weight:670!important;font-size:.84rem!important;line-height:1.15!important;transition:background-color .12s ease,border-color .12s ease,color .12s ease,transform .06s ease!important}
+        [data-testid="stButton"] button[kind="primary"],[data-testid="stFormSubmitButton"] button[kind="primary"]{background:var(--cn-color-primary)!important;border:1px solid var(--cn-color-primary)!important;color:#fff!important}
+        [data-testid="stButton"] button[kind="primary"] *,[data-testid="stFormSubmitButton"] button[kind="primary"] *{color:#fff!important}
+        [data-testid="stButton"] button[kind="primary"]:hover,[data-testid="stFormSubmitButton"] button[kind="primary"]:hover{background:var(--cn-color-primary-hover)!important;border-color:var(--cn-color-primary-hover)!important}
+        [data-testid="stButton"] button[kind="secondary"],[data-testid="stFormSubmitButton"] button[kind="secondary"],[data-testid="stDownloadButton"] button,[data-testid="stLinkButton"] a,[data-testid="stPopover"] button{background:#fff!important;border:1px solid var(--cn-color-border-strong)!important;color:var(--cn-color-secondary)!important}
+        [data-testid="stButton"] button[kind="secondary"]:hover,[data-testid="stDownloadButton"] button:hover,[data-testid="stLinkButton"] a:hover,[data-testid="stPopover"] button:hover{background:#f0f4f2!important;border-color:#8fa49a!important;color:#183126!important}
+        button:disabled,[aria-disabled="true"]{opacity:.48!important;cursor:not-allowed!important;filter:saturate(.65)}
+        button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible,[role="combobox"]:focus-visible,[role="tab"]:focus-visible,[role="radio"]:focus-visible{outline:3px solid rgba(23,107,58,.28)!important;outline-offset:2px!important}
+        [data-testid="stVerticalBlockBorderWrapper"],[data-testid="stExpander"],[data-testid="stMetric"]{background:#fff!important;border:1px solid var(--cn-color-border)!important;border-radius:var(--cn-radius-md)!important;box-shadow:none!important}
+        [data-testid="stExpander"] summary{min-height:42px!important;font-size:.86rem!important;font-weight:680!important;color:var(--cn-color-text)!important}
+        [data-testid="stMetric"]{padding:11px 13px!important}[data-testid="stMetricLabel"]{color:var(--cn-color-text-secondary)!important}[data-testid="stMetricValue"]{font-weight:770!important;letter-spacing:-.02em!important}
+        .cn-status-card,.cn-step,.cn-recommend-card,.cn-progress-hero,.cn-attention-row,.cn-flow-context,.cn-follow-shell,.cn-next-card,.cn-venue-card,.cn-live-card,.public-match-card{box-shadow:none!important;border-color:var(--cn-color-border)!important;border-radius:var(--cn-radius-md)!important}
+        [data-testid="stAlert"]{border-radius:var(--cn-radius-md)!important;border-width:1px!important;box-shadow:none!important;padding:10px 12px!important;margin:.25rem 0 .5rem!important}[data-testid="stAlert"] p{font-size:.84rem!important;line-height:1.4!important}
+        [data-testid="stTabs"] [role="tablist"]{gap:3px!important;border-bottom:1px solid var(--cn-color-border)!important}[data-testid="stTabs"] button[role="tab"]{min-height:38px!important;padding:6px 10px!important;border-radius:8px 8px 0 0!important;color:var(--cn-color-text-secondary)!important;font-size:.83rem!important;font-weight:650!important}[data-testid="stTabs"] button[role="tab"][aria-selected="true"]{color:var(--cn-color-primary)!important;font-weight:720!important}
+        [data-testid="stButtonGroup"] button{min-height:36px!important;background:#fff!important;border-color:var(--cn-color-border)!important;color:var(--cn-color-secondary)!important;font-size:.82rem!important}[data-testid="stButtonGroup"] button[aria-pressed="true"],[data-testid="stButtonGroup"] button[aria-checked="true"],[data-testid="stButtonGroup"] [data-selected="true"]{background:var(--cn-color-primary-soft)!important;color:#14552f!important;border-color:#98bca7!important;font-weight:700!important}
+        [data-testid="stDataFrame"],.texttv-table-wrap{border:1px solid var(--cn-color-border)!important;border-radius:var(--cn-radius-md)!important;background:#fff!important;box-shadow:none!important;overflow:auto!important}[data-testid="stDataFrame"] [role="columnheader"]{background:#edf2ef!important;color:var(--cn-color-text)!important;font-size:.78rem!important;font-weight:720!important}[data-testid="stDataFrame"] [role="gridcell"]{color:var(--cn-color-text)!important;font-size:.82rem!important}
+        .texttv-table{width:100%!important;border-collapse:separate!important;border-spacing:0!important}.texttv-table th{position:sticky!important;top:0!important;z-index:2!important;background:#edf2ef!important;color:var(--cn-color-text)!important;font-size:.77rem!important;font-weight:720!important}.texttv-table td,.texttv-table th{padding:8px 10px!important;border-bottom:1px solid #e5ebe7!important}.texttv-table tbody tr:hover td{background:#f8faf9!important}
+        .cn-empty-state{background:var(--cn-color-surface-subtle)!important;border:1px dashed var(--cn-color-border-strong)!important;border-radius:var(--cn-radius-md)!important;padding:20px!important;box-shadow:none!important}.cn-empty-state .icon{background:var(--cn-color-primary-soft)!important;border-radius:var(--cn-radius-sm)!important}.cn-empty-state p{color:var(--cn-color-text-secondary)!important}
+        .cup-hero,.cn-next-match,.cn-live-head,.cn-live-card.is-live{background-image:none!important}.cup-hero{background:#17324d!important;box-shadow:none!important}
+        .cn-current-admin-page{background:rgba(245,247,246,.96)!important;border-color:var(--cn-color-border)!important;box-shadow:none!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important}.cn-admin-nav-group-title,.cn-admin-section-label,.cn-flow-kicker{color:var(--cn-color-text-secondary)!important;font-size:.72rem!important;font-weight:730!important;letter-spacing:.055em!important;text-transform:uppercase!important}.cn-flow-context{padding:10px 12px!important;margin:4px 0 8px!important;background:#fff!important}
+        .cn-public-top-nav + div [data-testid="stButton"] button{min-height:38px!important;font-size:.81rem!important}.public-metric{box-shadow:none!important;border-color:var(--cn-color-border)!important}.public-match-card{background:#fff!important}
+        @media(max-width:1024px){:root{--cn-content-max:100%}.stApp .block-container{padding-left:16px!important;padding-right:16px!important}}
+        @media(max-width:768px){:root{--cn-control-h:44px}html,body,.stApp{max-width:100vw!important;overflow-x:hidden!important}.stApp .block-container{padding-left:10px!important;padding-right:10px!important;padding-bottom:88px!important}[data-testid="stHorizontalBlock"]{gap:8px!important}[data-testid="stButton"] button,[data-testid="stFormSubmitButton"] button,[data-testid="stDownloadButton"] button,[data-testid="stLinkButton"] a{min-height:44px!important}h1{font-size:1.46rem!important}h2{font-size:1.22rem!important}h3{font-size:1.02rem!important}[data-testid="stDataFrame"],.texttv-table-wrap{max-width:100%!important;overflow-x:auto!important;-webkit-overflow-scrolling:touch}[data-testid="stPopoverBody"]{max-width:calc(100vw - 20px)!important;max-height:calc(100vh - 24px)!important;overflow:auto!important}}
+        @media(max-width:390px){.stApp .block-container{padding-left:8px!important;padding-right:8px!important}[data-testid="stHorizontalBlock"]{gap:6px!important}[data-testid="stButton"] button,[data-testid="stFormSubmitButton"] button{padding-left:9px!important;padding-right:9px!important;font-size:.81rem!important}}
+        @media(min-width:1440px){:root{--cn-content-max:1280px}}
+        @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important;scroll-behavior:auto!important}}
+        </style>""",
+        unsafe_allow_html=True,
+    )
+
+inject_v193_product_design_system()
 
 # Global CupNavi-identitet. Logotypen ligger lokalt i releasen så den inte kräver
 # nätverksanrop. Den renderas som en liten integrerad brand-rad i appskalet och
@@ -7118,131 +7187,70 @@ def render_public_view(tournament_id, tournament):
     if requested_team_id not in public_team_names:
         requested_team_id = None
 
-    # En enda delningsingång bredvid logotypen. Streamlit-native komponenter
-    # används här medvetet: rå HTML-knapp/popover renderades som text i vissa
-    # Streamlit-miljöer. Samma knapp öppnar/stänger en panel i den ordinarie sidan.
+    # Kompakt delning direkt kopplad till cupheadern. Popovern ersätter den gamla
+    # fragment/container-raden som reserverade vertikal höjd även när panelen var stängd.
     share_url = public_cup_url(tournament_id)
     share_text = f"{tr('Följ cupen')}: {tournament['name']} – {share_url}"
     whatsapp_href = "https://wa.me/?text=" + quote(share_text)
     email_href = "mailto:?subject=" + quote(f"CupNavi – {tournament['name']}") + "&body=" + quote(share_text)
     sms_href = "sms:?&body=" + quote(share_text)
-    share_visible_key = f"cn_share_visible_{int(tournament_id)}"
-    st.session_state.setdefault(share_visible_key, False)
 
-    # Bara CSS renderas som HTML. Själva knappen och panelen är Streamlit-komponenter,
-    # vilket undviker att markup kan visas som rå text för besökaren.
     st.markdown(
         """<style>
-        .cn-share-toggle-anchor + div {
-          position:relative!important;z-index:20!important;margin:4px 0 8px!important;
+        .cn-share-inline-anchor{height:0;margin:0;padding:0}
+        .cn-share-inline-anchor + div{
+          position:relative!important;
+          z-index:30!important;
+          width:max-content!important;
+          margin:-40px 12px 6px auto!important;
         }
-        .cn-share-toggle-anchor + div [data-testid="stHorizontalBlock"] {
-          justify-content:flex-end!important;align-items:center!important;
+        .cn-share-inline-anchor + div button{
+          min-height:30px!important;
+          padding:3px 9px!important;
+          border-radius:8px!important;
+          border:1px solid rgba(255,255,255,.42)!important;
+          background:rgba(255,255,255,.14)!important;
+          color:#ffffff!important;
+          font-size:.76rem!important;
+          font-weight:800!important;
+          box-shadow:none!important;
         }
-        .cn-share-toggle-anchor + div [data-testid="column"]:first-child {
-          flex:1 1 auto!important;
+        .cn-share-inline-anchor + div button:hover{
+          background:rgba(255,255,255,.24)!important;
+          border-color:rgba(255,255,255,.72)!important;
         }
-        .cn-share-toggle-anchor + div [data-testid="column"]:last-child {
-          flex:0 0 96px!important;width:96px!important;min-width:96px!important;
-        }
-        .cn-share-toggle-anchor + div button {
-          min-height:34px!important;padding:5px 10px!important;
-          border:1px solid #cbd5e1!important;border-radius:10px!important;
-          background:#ffffff!important;color:#334155!important;
-          font-weight:700!important;font-size:.82rem!important;box-shadow:none!important;
-        }
-        .cn-share-toggle-anchor + div button:hover {
-          background:#f8fafc!important;border-color:#94a3b8!important;color:#0f172a!important;
-        }
-        .cn-share-panel-anchor + div {
-          margin:0 0 14px!important;padding:2px 0 0!important;
-        }
-        .cn-share-panel-anchor + div [data-testid="stVerticalBlockBorderWrapper"] {
-          border-color:#dbe4ea!important;border-radius:16px!important;background:#fff!important;
-          box-shadow:0 10px 28px rgba(15,23,42,.08)!important;
-        }
-        @media(max-width:760px) {
-          .cn-share-toggle-anchor + div {margin:2px 0 8px!important;}
-          .cn-share-toggle-anchor + div button {min-height:34px!important;padding:5px 9px!important;}
+        @media(max-width:760px){
+          .cn-share-inline-anchor + div{
+            margin:-38px 8px 5px auto!important;
+          }
+          .cn-share-inline-anchor + div button{
+            min-height:32px!important;
+          }
         }
         </style>""",
         unsafe_allow_html=True,
     )
-    # Isolera delningen som ett Streamlit-fragment. Ett klick på Dela cupen
-    # rerunnar då bara den här lilla ytan i stället för hela Turneringsvyn.
-    @st.fragment
-    def render_public_share_fragment():
-        st.markdown("<div class='cn-share-toggle-anchor'></div>", unsafe_allow_html=True)
-        with st.container():
-            _share_spacer, _share_action = st.columns([8, 1])
-            with _share_action:
-                if st.button(
-                    ("✕" if st.session_state[share_visible_key] else "Dela"),
-                    key=f"cn_share_button_{int(tournament_id)}",
-                    use_container_width=True,
-                    help=tr("Dela cupen"),
-                ):
-                    st.session_state[share_visible_key] = not st.session_state[share_visible_key]
-
-        if st.session_state[share_visible_key]:
-            # Panelen har ett eget ljust designsystem så globala mörka knappregler
-            # inte spiller över på publikdelningen.
-            st.markdown(
-                """<style>
-                .cn-share-panel-anchor + div [data-testid="stVerticalBlockBorderWrapper"] {
-                  border:1px solid #d9e3ea!important;border-radius:18px!important;background:#ffffff!important;
-                  box-shadow:0 10px 30px rgba(15,23,42,.08)!important;padding:4px!important;
-                }
-                .cn-share-panel-anchor + div [data-testid="stLinkButton"] a,
-                .cn-share-panel-anchor + div [data-testid="stDownloadButton"] button,
-                .cn-share-panel-anchor + div button {
-                  background:#f7faf8!important;color:#163126!important;border:1px solid #cbded3!important;
-                  box-shadow:none!important;font-weight:700!important;
-                }
-                .cn-share-panel-anchor + div [data-testid="stLinkButton"] a:hover,
-                .cn-share-panel-anchor + div [data-testid="stDownloadButton"] button:hover {
-                  background:#eef8f1!important;border-color:#8fc6a1!important;color:#126b36!important;
-                }
-                .cn-share-url-box {
-                  padding:12px 14px;border:1px solid #d9e3ea;border-radius:12px;background:#f8fafb;
-                  color:#24313d;font:600 14px/1.4 ui-monospace,SFMono-Regular,Menlo,monospace;
-                  overflow-wrap:anywhere;margin:4px 0 12px;
-                }
-                </style>""",
-                unsafe_allow_html=True,
+    st.markdown("<div class='cn-share-inline-anchor'></div>", unsafe_allow_html=True)
+    with st.popover("Dela", help=tr("Dela cupen")):
+        st.markdown(f"**{tr('Dela cupen')}**")
+        st.caption(tr("Dela länken eller QR-koden till den här cupen."))
+        st.code(share_url, language=None)
+        share_col1, share_col2, share_col3 = st.columns(3)
+        share_col1.link_button("WhatsApp", whatsapp_href, use_container_width=True)
+        share_col2.link_button(tr("E-post"), email_href, use_container_width=True)
+        share_col3.link_button("SMS", sms_href, use_container_width=True)
+        share_qr = qr_png_bytes(share_url)
+        if share_qr:
+            qr_col1, qr_col2 = st.columns([1, 2], vertical_alignment="center")
+            qr_col1.image(share_qr, width=118)
+            qr_col2.download_button(
+                tr("Ladda ner QR-kod"),
+                data=share_qr,
+                file_name=f"cupnavi-{int(tournament_id)}-qr.png",
+                mime="image/png",
+                key=f"cn_share_qr_download_{int(tournament_id)}",
+                use_container_width=True,
             )
-            st.markdown("<div class='cn-share-panel-anchor'></div>", unsafe_allow_html=True)
-            with st.container(border=True):
-                panel_title_col, panel_close_col = st.columns([8, 1])
-                panel_title_col.markdown(f"### 📤 {tr('Dela cupen')}")
-                if panel_close_col.button("✕", key=f"cn_share_close_{int(tournament_id)}", help=tr("Stäng")):
-                    st.session_state[share_visible_key] = False
-                st.caption(tr("Dela länken eller QR-koden till den här cupen."))
-                st.markdown(
-                    f"<div class='cn-share-url-box'>{html.escape(share_url)}</div>",
-                    unsafe_allow_html=True,
-                )
-                share_col1, share_col2, share_col3 = st.columns(3)
-                share_col1.link_button("WhatsApp", whatsapp_href, use_container_width=True)
-                share_col2.link_button(tr("E-post"), email_href, use_container_width=True)
-                share_col3.link_button("SMS", sms_href, use_container_width=True)
-
-                # QR genereras först när delningsytan faktiskt är öppen. Eftersom
-                # detta ligger i fragmentet blockeras inte resten av cupsidan.
-                share_qr = qr_png_bytes(share_url)
-                if share_qr:
-                    qr_col1, qr_col2 = st.columns([1, 2], vertical_alignment="center")
-                    qr_col1.image(share_qr, width=132)
-                    qr_col2.download_button(
-                        tr("Ladda ner QR-kod"),
-                        data=share_qr,
-                        file_name=f"cupnavi-{int(tournament_id)}-qr.png",
-                        mime="image/png",
-                        key=f"cn_share_qr_download_{int(tournament_id)}",
-                        use_container_width=True,
-                    )
-
-    render_public_share_fragment()
 
     # v143: mobil först – "Följ mitt lag" är en personlig cupyta, inte bara ett filter.
     st.markdown(
@@ -8989,7 +8997,7 @@ elif st.session_state.get("view_mode") not in mode_options:
     st.session_state["view_mode"] = mode_options[0]
 if st.session_state.get("view_mode") != "Turneringsvy":
     st.sidebar.caption("Databas: Turso" if CLOUD_DATABASE_ENABLED else "Databas: Lokal SQLite")
-st.sidebar.caption("Version v.1.192")
+st.sidebar.caption("Version v.1.193")
 
 def _set_view_mode(mode):
     st.session_state["view_mode"] = mode
@@ -9573,18 +9581,6 @@ label[data-testid="stWidgetLabel"] {
   .cup-hero .title{font-size:25px!important;margin:1px 0 2px!important}
   .cup-hero .meta{font-size:12px!important}
 
-  /* Share action behaves like a header utility, not a standalone section. */
-  .cn-share-toggle-anchor + div{margin:-2px 0 2px!important}
-  .cn-share-toggle-anchor + div [data-testid="column"]:last-child{
-    flex:0 0 76px!important;width:76px!important;min-width:76px!important;
-  }
-  .cn-share-toggle-anchor + div button{
-    min-height:30px!important;
-    font-size:.76rem!important;
-    padding:3px 8px!important;
-    border-radius:8px!important;
-  }
-
   /* Follow-team control should read as a compact preference row. */
   .cn-public-follow-anchor + div{
     margin-top:0!important;
@@ -9667,6 +9663,25 @@ label[data-testid="stWidgetLabel"] {
   /* Compress generic vertical gaps in the public area only. */
   .cn-public-follow-anchor ~ div [data-testid="stVerticalBlock"]{
     gap:.28rem!important;
+  }
+}
+
+/* PUBLIC HEADER STRUCTURE FIX V192 */
+@media(min-width:901px){
+  .cn-public-follow-anchor + div{
+    margin-top:-2px!important;
+    margin-bottom:0!important;
+  }
+  .cn-public-follow-anchor + div [data-testid="stSelectbox"]{
+    margin-top:0!important;
+    margin-bottom:0!important;
+  }
+  .cn-public-follow-anchor + div [data-testid="stWidgetLabel"]{
+    margin-bottom:1px!important;
+  }
+  .cn-public-follow-anchor + div [data-testid="stCaptionContainer"]{
+    margin-top:0!important;
+    margin-bottom:1px!important;
   }
 }
 </style>

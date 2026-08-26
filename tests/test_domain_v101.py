@@ -11,7 +11,7 @@ def test_official_domain_is_cup_navi_com():
 
 
 def test_v101_version_files_match():
-    assert APP_VERSION.startswith("2026.08.25-")
+    assert APP_VERSION.startswith("2026.08.26-")
     assert Path("VERSION.txt").read_text(encoding="utf-8").strip() == APP_VERSION
     text = Path("app.py").read_text(encoding="utf-8")
     assert f'APP_BUILD_VERSION = "{APP_VERSION}"' in text
