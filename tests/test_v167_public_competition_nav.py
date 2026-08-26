@@ -1,7 +1,7 @@
 from pathlib import Path
 ROOT=Path(__file__).resolve().parents[1]
 APP=(ROOT/"app.py").read_text(encoding="utf-8")
-R="2026.08.26-193-FULL-UI-UX-REDESIGN"
+R="2026.08.26-194-SIMPLIFICATION-CLEANUP"
 
 def test_public_has_four_clear_competition_buttons():
     for label in ("Spelschema & resultat","Tabeller gruppspel","Slutspel","Statistik"):

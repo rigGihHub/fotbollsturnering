@@ -105,7 +105,7 @@ from cupnavi_core.fairness import fairness_report
 from cupnavi_core.ux2 import workflow_progress, attention_items, schedule_board
 from cupnavi_core.about import feature_catalog, about_intro
 
-APP_BUILD_VERSION = "2026.08.26-193-FULL-UI-UX-REDESIGN"
+APP_BUILD_VERSION = "2026.08.26-194-SIMPLIFICATION-CLEANUP"
 APP_VERSION = APP_BUILD_VERSION
 
 def read_core_version_from_disk():
@@ -2899,12 +2899,6 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-
-def render_empty_state(title, body, icon="＋"):
-    st.markdown(
-        f"<div class='cn-empty-state'><div class='icon'>{html.escape(icon)}</div><div><b>{html.escape(title)}</b><p>{html.escape(body)}</p></div></div>",
-        unsafe_allow_html=True,
-    )
 
 def inject_ux2_css():
     st.markdown(
@@ -7557,7 +7551,7 @@ def render_public_view(tournament_id, tournament):
                         st.caption(note["created_at"].replace("T", " "))
             st.caption("Bokmärk sidan – lagvalet ligger i länken och följer med nästa gång.")
         else:
-            st.caption("Välj ett lag för att få nästa match, senaste resultat och lagets matcher samlade på ett ställe.")
+            pass
 
     public_page_key = f"public_page_v167_{tournament_id}"
     requested_section = str(st.query_params.get("section", "")) if hasattr(st, "query_params") else ""
@@ -8995,9 +8989,7 @@ if _direct_public_cup and st.session_state.get("view_mode") is None:
     st.session_state["view_mode"] = "Turneringsvy"
 elif st.session_state.get("view_mode") not in mode_options:
     st.session_state["view_mode"] = mode_options[0]
-if st.session_state.get("view_mode") != "Turneringsvy":
-    st.sidebar.caption("Databas: Turso" if CLOUD_DATABASE_ENABLED else "Databas: Lokal SQLite")
-st.sidebar.caption("Version v.1.193")
+st.sidebar.caption("Version v.1.194")
 
 def _set_view_mode(mode):
     st.session_state["view_mode"] = mode
@@ -10275,15 +10267,6 @@ st.markdown(
 def _set_admin_page(page):
     st.session_state[admin_page_key] = page
 
-def _set_view_mode(mode):
-    st.session_state["view_mode"] = mode
-    # Turneringsvyn ska vara så ren som möjligt. Admin öppnar den utökade
-    # rollnavigationen och den ligger kvar tills användaren återgår publikt.
-    if mode == "Admin":
-        st.session_state["role_nav_expanded"] = True
-    elif mode == "Turneringsvy":
-        st.session_state["role_nav_expanded"] = False
-
 # Två nivåer i adminnavigationen: fem tydliga huvudområden och bara relevanta
 # underknappar för valt område. Det minskar knappmängden utan att gömma funktioner.
 def _admin_group_for_page(page):
@@ -10335,22 +10318,55 @@ st.markdown(
     f"<div class='cn-admin-nav-group-title'>{html.escape(tr(selected_group))}</div>",
     unsafe_allow_html=True,
 )
-nav_cols = st.columns(min(3, len(nav_items)))
-for nav_index, (page_name, button_label) in enumerate(nav_items):
-    nav_col = nav_cols[nav_index % len(nav_cols)]
-    is_active = st.session_state[admin_page_key] == page_name
+
+# Primära sidor visas direkt. Situationsbundna verktyg finns kvar under Fler verktyg.
+# Detta minskar samtidig knappmängd utan att göra någon funktion oåtkomlig.
+_ADMIN_PRIMARY_PAGES_BY_GROUP = {
+    "Översikt": {"Adminöversikt", "Cupinställningar"},
+    "Deltagare": {"Lag", "Grupper"},
+    "Matcher": {"Skapa och publicera schema", "Matcher och resultat", "Tabeller", "Slutspel"},
+    "Organisation": {"Domare"},
+    "Kommunikation": {"Sponsorer"},
+}
+
+def _admin_nav_item_is_active(page_name):
     if page_name == "Sponsorer":
-        is_active = st.session_state[admin_page_key] in ("Sponsorer", "Erbjudanden")
-    elif page_name == "Tabeller":
-        is_active = st.session_state[admin_page_key] in ("Tabeller", "Skytteligor")
-    nav_col.button(
-        button_label,
-        key=f"admin_nav_v120_{tid}_{selected_group}_{page_name}",
-        type="primary" if is_active else "secondary",
-        use_container_width=True,
-        on_click=_set_admin_page,
-        args=(page_name,),
-    )
+        return st.session_state[admin_page_key] in ("Sponsorer", "Erbjudanden")
+    if page_name == "Tabeller":
+        return st.session_state[admin_page_key] in ("Tabeller", "Skytteligor")
+    return st.session_state[admin_page_key] == page_name
+
+_primary_names = _ADMIN_PRIMARY_PAGES_BY_GROUP.get(selected_group, set())
+_primary_nav_items = [item for item in nav_items if item[0] in _primary_names]
+_more_nav_items = [item for item in nav_items if item[0] not in _primary_names]
+
+if _primary_nav_items:
+    nav_cols = st.columns(min(3, len(_primary_nav_items)))
+    for nav_index, (page_name, button_label) in enumerate(_primary_nav_items):
+        nav_col = nav_cols[nav_index % len(nav_cols)]
+        nav_col.button(
+            button_label,
+            key=f"admin_nav_v194_primary_{tid}_{selected_group}_{page_name}",
+            type="primary" if _admin_nav_item_is_active(page_name) else "secondary",
+            use_container_width=True,
+            on_click=_set_admin_page,
+            args=(page_name,),
+        )
+
+if _more_nav_items:
+    _advanced_active = any(_admin_nav_item_is_active(page_name) for page_name, _ in _more_nav_items)
+    with st.expander("Fler verktyg", expanded=_advanced_active):
+        _more_cols = st.columns(min(3, len(_more_nav_items)))
+        for nav_index, (page_name, button_label) in enumerate(_more_nav_items):
+            _more_col = _more_cols[nav_index % len(_more_cols)]
+            _more_col.button(
+                button_label,
+                key=f"admin_nav_v194_more_{tid}_{selected_group}_{page_name}",
+                type="primary" if _admin_nav_item_is_active(page_name) else "secondary",
+                use_container_width=True,
+                on_click=_set_admin_page,
+                args=(page_name,),
+            )
 
 admin_page = st.session_state[admin_page_key]
 current_page_label = dict(ADMIN_NAV).get(admin_page, admin_page)
@@ -10419,17 +10435,6 @@ if admin_page != _recommended_page:
         on_click=_set_admin_page,
         args=(_recommended_page,),
     )
-
-if _flow_index is not None:
-    _flow_prev = ADMIN_PRIMARY_FLOW[_flow_index-1] if _flow_index > 0 else None
-    _flow_next = ADMIN_PRIMARY_FLOW[_flow_index+1] if _flow_index < len(ADMIN_PRIMARY_FLOW)-1 else None
-    _nav_left, _nav_right = st.columns(2)
-    if _flow_prev:
-        _nav_left.button(f"← {_flow_prev[1]}", key=f"v160_prev_{tid}_{admin_page}", use_container_width=True,
-                         on_click=_set_admin_page, args=(_flow_prev[0],))
-    if _flow_next and _flow_next[0] != _recommended_page:
-        _nav_right.button(f"{_flow_next[1]} →", key=f"v160_next_{tid}_{admin_page}", use_container_width=True,
-                          on_click=_set_admin_page, args=(_flow_next[0],))
 
 st.divider()
 

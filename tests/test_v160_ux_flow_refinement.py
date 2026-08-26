@@ -19,7 +19,8 @@ def test_recommended_next_step_is_state_driven():
     assert '_recommended_page, _recommended_label = "Matcher och resultat"' in APP
 
 def test_primary_flow_has_previous_next_navigation():
-    assert "v160_prev_" in APP and "v160_next_" in APP
+    assert "v160_prev_" not in APP and "v160_next_" not in APP
+    assert "Nästa rekommenderade steg" in APP
 
 def test_results_page_has_progress_and_public_state():
     block=APP[APP.index('if admin_page == "Matcher och resultat":'):APP.index('if admin_page == "Matchhändelser":')]

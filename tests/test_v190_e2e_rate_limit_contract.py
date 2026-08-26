@@ -3,7 +3,7 @@ ROOT=Path(__file__).resolve().parents[1]
 APP=(ROOT/"app.py").read_text(encoding="utf-8")
 MIG=(ROOT/"cupnavi_core/migrations.py").read_text(encoding="utf-8")
 WF=(ROOT/".github/workflows/cross-browser.yml").read_text(encoding="utf-8")
-R="2026.08.26-193-FULL-UI-UX-REDESIGN"
+R="2026.08.26-194-SIMPLIFICATION-CLEANUP"
 
 def test_server_side_rate_limits_cover_login_and_feedback():
     assert '_rate_allowed("admin-login", 8, 600)' in APP
@@ -28,6 +28,6 @@ def test_testable_database_path_keeps_default():
     assert 'os.getenv("CUPNAVI_DB_PATH") or Path(__file__).with_name("turnering.db")' in APP
 
 def test_version():
-    assert "Version v.1.193" in APP
+    assert "Version v.1.194" in APP
     assert f'APP_BUILD_VERSION = "{R}"' in APP
     assert f'APP_VERSION = "{R}"' in (ROOT/"cupnavi_core/version.py").read_text(encoding="utf-8")

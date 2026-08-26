@@ -17,4 +17,4 @@ def test_calendar_weekday_headers_have_explicit_contrast():
 
 
 def test_visible_version_remains_192_hotfix():
-    assert "Version v.1.193" in APP
+    assert "Version v.1.194" in APP

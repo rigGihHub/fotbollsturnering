@@ -1,10 +1,11 @@
 from pathlib import Path
 ROOT=Path(__file__).resolve().parents[1]
 APP=(ROOT/"app.py").read_text(encoding="utf-8")
-R="2026.08.26-193-FULL-UI-UX-REDESIGN"
+R="2026.08.26-194-SIMPLIFICATION-CLEANUP"
 
 def test_duplicate_next_button_is_suppressed():
-    assert "_flow_next and _flow_next[0] != _recommended_page" in APP
+    assert "v160_next_" not in APP
+    assert "Nästa rekommenderade steg" in APP
 
 def test_admin_overview_is_class_aware():
     assert "Lag per tävlingsklass" in APP
