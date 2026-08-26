@@ -2927,9 +2927,14 @@ def inject_ux2_css():
 
         .cn-mode-nav-safezone{height:0;margin:0;padding:0}
         @media(min-width:901px){
-          .cn-mode-nav-safezone{height:72px!important;display:block!important}
-          .cn-mode-nav-safezone + div{position:relative;z-index:20}
-          .cn-mode-nav-safezone + div [data-testid="stButton"] button{min-height:42px}
+          .cn-mode-nav-safezone{height:24px!important;display:block!important}
+          .cn-mode-nav-safezone + div{
+            position:relative;z-index:20;
+            max-width:430px!important;margin-left:auto!important;
+          }
+          .cn-mode-nav-safezone + div [data-testid="stButton"] button{
+            min-height:38px!important;font-size:.86rem!important;
+          }
         }
         @media(max-width:900px){
           .cn-mode-nav-safezone{height:0!important}
@@ -7129,17 +7134,25 @@ def render_public_view(tournament_id, tournament):
     st.markdown(
         """<style>
         .cn-share-toggle-anchor + div {
-          position:relative!important;z-index:30!important;width:max-content!important;
-          margin:-58px 16px 20px auto!important;
+          position:relative!important;z-index:20!important;margin:4px 0 8px!important;
+        }
+        .cn-share-toggle-anchor + div [data-testid="stHorizontalBlock"] {
+          justify-content:flex-end!important;align-items:center!important;
+        }
+        .cn-share-toggle-anchor + div [data-testid="column"]:first-child {
+          flex:1 1 auto!important;
+        }
+        .cn-share-toggle-anchor + div [data-testid="column"]:last-child {
+          flex:0 0 96px!important;width:96px!important;min-width:96px!important;
         }
         .cn-share-toggle-anchor + div button {
-          min-height:36px!important;padding:6px 11px!important;
-          border:1px solid rgba(255,255,255,.40)!important;border-radius:999px!important;
-          background:rgba(255,255,255,.12)!important;color:#fff!important;
-          font-weight:800!important;box-shadow:none!important;-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);
+          min-height:34px!important;padding:5px 10px!important;
+          border:1px solid #cbd5e1!important;border-radius:10px!important;
+          background:#ffffff!important;color:#334155!important;
+          font-weight:700!important;font-size:.82rem!important;box-shadow:none!important;
         }
         .cn-share-toggle-anchor + div button:hover {
-          background:rgba(255,255,255,.22)!important;border-color:rgba(255,255,255,.65)!important;
+          background:#f8fafc!important;border-color:#94a3b8!important;color:#0f172a!important;
         }
         .cn-share-panel-anchor + div {
           margin:0 0 14px!important;padding:2px 0 0!important;
@@ -7149,8 +7162,8 @@ def render_public_view(tournament_id, tournament):
           box-shadow:0 10px 28px rgba(15,23,42,.08)!important;
         }
         @media(max-width:760px) {
-          .cn-share-toggle-anchor + div {margin:-52px 10px 18px auto!important;}
-          .cn-share-toggle-anchor + div button {min-height:34px!important;padding:6px 9px!important;}
+          .cn-share-toggle-anchor + div {margin:2px 0 8px!important;}
+          .cn-share-toggle-anchor + div button {min-height:34px!important;padding:5px 9px!important;}
         }
         </style>""",
         unsafe_allow_html=True,
@@ -7161,12 +7174,15 @@ def render_public_view(tournament_id, tournament):
     def render_public_share_fragment():
         st.markdown("<div class='cn-share-toggle-anchor'></div>", unsafe_allow_html=True)
         with st.container():
-            if st.button(
-                ("✕ " if st.session_state[share_visible_key] else "📤 ") + tr("Dela cupen"),
-                key=f"cn_share_button_{int(tournament_id)}",
-                use_container_width=False,
-            ):
-                st.session_state[share_visible_key] = not st.session_state[share_visible_key]
+            _share_spacer, _share_action = st.columns([8, 1])
+            with _share_action:
+                if st.button(
+                    ("✕" if st.session_state[share_visible_key] else "Dela"),
+                    key=f"cn_share_button_{int(tournament_id)}",
+                    use_container_width=True,
+                    help=tr("Dela cupen"),
+                ):
+                    st.session_state[share_visible_key] = not st.session_state[share_visible_key]
 
         if st.session_state[share_visible_key]:
             # Panelen har ett eget ljust designsystem så globala mörka knappregler
@@ -7603,17 +7619,10 @@ def render_public_view(tournament_id, tournament):
 
     def _filter_public_matches(base_matches, key_prefix, heading):
         """Gemensamt filter för den sammanslagna matchsidan."""
-        st.markdown(f"#### {heading}")
-        filter_mode = st.radio(
-            tr("Vad vill du visa?"),
-            [tr("Alla matcher"), "Tävlingsklass", tr("En grupp"), tr("Ett lag"), tr("En plan")],
-            horizontal=True,
-            key=f"{key_prefix}_mode_{tournament_id}",
-            label_visibility="collapsed",
-        )
         filtered = list(base_matches)
         filter_label = "Alla matcher"
         forced_team_id = st.session_state.pop(f"public_force_team_filter_{tournament_id}", None)
+
         if forced_team_id:
             filtered = [
                 match_row for match_row in base_matches
@@ -7623,89 +7632,103 @@ def render_public_view(tournament_id, tournament):
                 )
             ]
             filter_label = public_team_names.get(forced_team_id, "Mitt lag")
-            st.info(f"Visar matcher för **{filter_label}**. Du kan byta filter nedan.")
+            st.info(f"Visar matcher för **{filter_label}**.")
 
-        if filter_mode == "Tävlingsklass":
-            age_options = sorted({str(_row_value(team, "age_class", "") or "").strip() for team in public_teams if str(_row_value(team, "age_class", "") or "").strip()})
-            if age_options:
-                selected_age = st.selectbox("Välj tävlingsklass", age_options, key=f"{key_prefix}_age_{tournament_id}")
-                filter_label = selected_age
-                allowed_team_ids = {int(team["id"]) for team in public_teams if _row_value(team, "age_class", None) == selected_age}
-                filtered = [
-                    match_row for match_row in base_matches
-                    if (_public_source_team_id(match_row["home_source"]) in allowed_team_ids
-                        or _public_source_team_id(match_row["away_source"]) in allowed_team_ids)
-                ]
-            else:
-                filtered = []
-                st.info("Det finns inga tävlingsklasser att filtrera på.")
+        with st.expander("Fler filter", expanded=False):
+            st.markdown("<span class='cn-public-filter-marker'></span>", unsafe_allow_html=True)
+            st.caption("Avgränsa matchlistan efter tävlingsklass, grupp, lag eller plan.")
+            filter_mode = st.radio(
+                tr("Vad vill du visa?"),
+                [tr("Alla matcher"), "Tävlingsklass", tr("En grupp"), tr("Ett lag"), tr("En plan")],
+                horizontal=True,
+                key=f"{key_prefix}_mode_{tournament_id}",
+                label_visibility="collapsed",
+            )
 
-        elif filter_mode == tr("En grupp"):
-            if _load_public_groups():
-                selected_group = st.selectbox(
-                    tr("Välj grupp"),
-                    [row["id"] for row in _load_public_groups()],
-                    format_func=lambda group_id: next(
-                        row["name"] for row in _load_public_groups() if row["id"] == group_id
-                    ),
-                    key=f"{key_prefix}_group_{tournament_id}",
-                )
-                filter_label = next(
-                    row["name"] for row in _load_public_groups() if row["id"] == selected_group
-                )
-                filtered = [
-                    match_row for match_row in base_matches
-                    if match_row["group_id"] == selected_group
-                ]
-            else:
-                filtered = []
-                st.info("Det finns inga grupper att filtrera på.")
+            if forced_team_id and filter_mode == tr("Alla matcher"):
+                pass
+            elif filter_mode == "Tävlingsklass":
+                age_options = sorted({
+                    str(_row_value(team, "age_class", "") or "").strip()
+                    for team in public_teams
+                    if str(_row_value(team, "age_class", "") or "").strip()
+                })
+                if age_options:
+                    selected_age = st.selectbox("Välj tävlingsklass", age_options, key=f"{key_prefix}_age_{tournament_id}")
+                    filter_label = selected_age
+                    allowed_team_ids = {
+                        int(team["id"]) for team in public_teams
+                        if _row_value(team, "age_class", None) == selected_age
+                    }
+                    filtered = [
+                        match_row for match_row in base_matches
+                        if (
+                            _public_source_team_id(match_row["home_source"]) in allowed_team_ids
+                            or _public_source_team_id(match_row["away_source"]) in allowed_team_ids
+                        )
+                    ]
+                else:
+                    filtered = []
+                    st.info("Det finns inga tävlingsklasser att filtrera på.")
 
-        elif filter_mode == tr("Ett lag"):
-            if public_teams:
-                selected_team = st.selectbox(
-                    tr("Välj lag"),
-                    [row["id"] for row in public_teams],
-                    format_func=lambda team_id: next(
-                        row["name"] for row in public_teams if row["id"] == team_id
-                    ),
-                    key=f"{key_prefix}_team_{tournament_id}",
-                )
-                filter_label = next(
-                    row["name"] for row in public_teams if row["id"] == selected_team
-                )
-                filtered = [
-                    match_row for match_row in base_matches
-                    if (
-                        _public_source_team_id(match_row["home_source"]) == selected_team
-                        or _public_source_team_id(match_row["away_source"]) == selected_team
+            elif filter_mode == tr("En grupp"):
+                groups = _load_public_groups()
+                if groups:
+                    selected_group = st.selectbox(
+                        tr("Välj grupp"),
+                        [row["id"] for row in groups],
+                        format_func=lambda group_id: next(row["name"] for row in groups if row["id"] == group_id),
+                        key=f"{key_prefix}_group_{tournament_id}",
                     )
-                ]
-            else:
-                filtered = []
-                st.info("Det finns inga lag att filtrera på.")
+                    filter_label = next(row["name"] for row in groups if row["id"] == selected_group)
+                    filtered = [match_row for match_row in base_matches if match_row["group_id"] == selected_group]
+                else:
+                    filtered = []
+                    st.info("Det finns inga grupper att filtrera på.")
 
-        elif filter_mode == tr("En plan"):
-            pitch_options = sorted({
-                int(match_row["pitch_number"])
-                for match_row in base_matches
-                if match_row["pitch_number"] is not None
-            })
-            if pitch_options:
-                selected_pitch = st.selectbox(
-                    tr("Välj plan"),
-                    pitch_options,
-                    format_func=lambda pitch_no: f"Plan {pitch_no}",
-                    key=f"{key_prefix}_pitch_{tournament_id}",
-                )
-                filter_label = f"Plan {selected_pitch}"
-                filtered = [
-                    match_row for match_row in base_matches
-                    if int(match_row["pitch_number"] or 0) == selected_pitch
-                ]
-            else:
-                filtered = []
-                st.info("Det finns inga planer att filtrera på.")
+            elif filter_mode == tr("Ett lag"):
+                if public_teams:
+                    selected_team = st.selectbox(
+                        tr("Välj lag"),
+                        [row["id"] for row in public_teams],
+                        format_func=lambda team_id: next(row["name"] for row in public_teams if row["id"] == team_id),
+                        key=f"{key_prefix}_team_{tournament_id}",
+                    )
+                    filter_label = next(row["name"] for row in public_teams if row["id"] == selected_team)
+                    filtered = [
+                        match_row for match_row in base_matches
+                        if (
+                            _public_source_team_id(match_row["home_source"]) == selected_team
+                            or _public_source_team_id(match_row["away_source"]) == selected_team
+                        )
+                    ]
+                else:
+                    filtered = []
+                    st.info("Det finns inga lag att filtrera på.")
+
+            elif filter_mode == tr("En plan"):
+                pitch_options = sorted({
+                    int(match_row["pitch_number"])
+                    for match_row in base_matches
+                    if match_row["pitch_number"] is not None
+                })
+                if pitch_options:
+                    selected_pitch = st.selectbox(
+                        tr("Välj plan"), pitch_options,
+                        format_func=lambda pitch_no: f"Plan {pitch_no}",
+                        key=f"{key_prefix}_pitch_{tournament_id}",
+                    )
+                    filter_label = f"Plan {selected_pitch}"
+                    filtered = [
+                        match_row for match_row in base_matches
+                        if int(match_row["pitch_number"] or 0) == selected_pitch
+                    ]
+                else:
+                    filtered = []
+                    st.info("Det finns inga planer att filtrera på.")
+            elif not forced_team_id:
+                filtered = list(base_matches)
+                filter_label = "Alla matcher"
 
         return (
             sorted(
@@ -8971,6 +8994,14 @@ def _set_view_mode(mode):
         st.session_state["role_nav_expanded"] = True
     elif mode == "Turneringsvy":
         st.session_state["role_nav_expanded"] = False
+        # En aktiv cup måste följa med explicit till den publika vyn. URL-parametern
+        # är den deterministiska sanningskällan och fungerar även i en ny browser/session.
+        _active_cup = (
+            st.session_state.get("active_tournament_selector")
+            or st.session_state.get("preferred_tournament_id")
+        )
+        if _active_cup and hasattr(st, "query_params"):
+            st.query_params["cup"] = str(_active_cup)
 
 
 # v160: cupens huvudflöde. Specialfunktioner finns kvar i gruppnavigationen.
@@ -9250,6 +9281,13 @@ if view_mode == "Admin":
                     st.success("Ny upplaga skapad som utkast.")
                     st.rerun()
 
+# Explicit cup= must be resolved before generic public discovery. This makes
+# direct links deterministic and prevents session state from selecting another cup.
+cup_query = st.query_params.get("cup") if hasattr(st, "query_params") else None
+cup_query_text = str(cup_query).strip() if cup_query else ""
+requested_cup_id = None
+_requested_public_row = None
+
 if view_mode in ("Admin", "Matchrapportör", "Lagportal"):
     _tournament_access_sql = "SELECT * FROM tournaments WHERE COALESCE(lifecycle_status,'draft')!='trashed'"
     _tournament_access_params = ()
@@ -9262,11 +9300,39 @@ if view_mode in ("Admin", "Matchrapportör", "Lagportal"):
         _tournament_access_params,
     )
 else:
-    tournaments = all_rows(
-        "SELECT * FROM tournaments WHERE is_published=1 AND COALESCE(lifecycle_status,'published') IN ('published','live','completed') "
-        "ORDER BY CASE COALESCE(lifecycle_status,'published') WHEN 'live' THEN 0 WHEN 'published' THEN 1 WHEN 'completed' THEN 2 ELSE 3 END, "
-        "COALESCE(start_date,tournament_date) DESC,name"
-    )
+    if cup_query_text:
+        try:
+            requested_cup_id = int(cup_query_text)
+            _requested_numeric_id = requested_cup_id
+        except (TypeError, ValueError):
+            _requested_numeric_id = None
+
+        if _requested_numeric_id is not None:
+            _requested_public_row = one_row(
+                """SELECT * FROM tournaments
+                   WHERE id=? AND is_published=1
+                     AND COALESCE(lifecycle_status,'published') IN ('published','live','completed')
+                     AND COALESCE(lifecycle_status,'published')!='trashed'""",
+                (_requested_numeric_id,),
+            )
+        else:
+            _requested_public_row = one_row(
+                """SELECT * FROM tournaments
+                   WHERE public_slug=? AND is_published=1
+                     AND COALESCE(lifecycle_status,'published') IN ('published','live','completed')
+                     AND COALESCE(lifecycle_status,'published')!='trashed'""",
+                (cup_query_text,),
+            )
+
+    if _requested_public_row is not None:
+        tournaments = [_requested_public_row]
+        requested_cup_id = int(_requested_public_row["id"])
+    else:
+        tournaments = all_rows(
+            "SELECT * FROM tournaments WHERE is_published=1 AND COALESCE(lifecycle_status,'published') IN ('published','live','completed') "
+            "ORDER BY CASE COALESCE(lifecycle_status,'published') WHEN 'live' THEN 0 WHEN 'published' THEN 1 WHEN 'completed' THEN 2 ELSE 3 END, "
+            "COALESCE(start_date,tournament_date) DESC,name"
+        )
 
 if not tournaments:
     st.title("🏆 CupNavi")
@@ -9280,22 +9346,27 @@ if not tournaments:
         st.info("Ingen turnering är publicerad ännu.")
     st.stop()
 
-cup_query = st.query_params.get("cup") if hasattr(st, "query_params") else None
-requested_cup_id = None
-if cup_query:
-    cup_query_text = str(cup_query)
+# Resolve cup= against the actual accessible rows also for Admin/role views.
+if cup_query_text and requested_cup_id is None:
     try:
-        requested_cup_id = int(cup_query_text)
+        _candidate_id = int(cup_query_text)
+        if any(int(row["id"]) == _candidate_id for row in tournaments):
+            requested_cup_id = _candidate_id
     except (TypeError, ValueError):
-        slug_match = next((row for row in tournaments if row["public_slug"] == cup_query_text), None)
-        requested_cup_id = slug_match["id"] if slug_match else None
+        slug_match = next(
+            (row for row in tournaments if str(_row_value(row, "public_slug", "") or "") == cup_query_text),
+            None,
+        )
+        requested_cup_id = int(slug_match["id"]) if slug_match else None
 
-tournament_ids = [t["id"] for t in tournaments]
+tournament_ids = [int(t["id"]) for t in tournaments]
 preferred_tournament_id = st.session_state.get("preferred_tournament_id")
-if preferred_tournament_id in tournament_ids:
-    default_tournament_index = tournament_ids.index(preferred_tournament_id)
-elif requested_cup_id in tournament_ids:
+
+# Explicit URL always wins. Session preference is only a fallback.
+if requested_cup_id in tournament_ids:
     default_tournament_index = tournament_ids.index(requested_cup_id)
+elif preferred_tournament_id in tournament_ids:
+    default_tournament_index = tournament_ids.index(preferred_tournament_id)
 else:
     default_tournament_index = 0
 
@@ -9311,7 +9382,9 @@ def _tournament_selector_label(tournament_id):
         return f"🔴 {label} · {status_label(status, current_language())}"
     return label
 
-if preferred_tournament_id in tournament_ids:
+if requested_cup_id in tournament_ids:
+    st.session_state["active_tournament_selector"] = requested_cup_id
+elif preferred_tournament_id in tournament_ids:
     st.session_state["active_tournament_selector"] = preferred_tournament_id
 elif st.session_state.get("active_tournament_selector") not in tournament_ids:
     st.session_state["active_tournament_selector"] = tournament_ids[default_tournament_index]
@@ -9452,6 +9525,22 @@ label[data-testid="stWidgetLabel"] {
   color:#334155 !important;
   opacity:1 !important;
   font-weight:600 !important;
+}
+
+/* PUBLIC VIEW POLISH V192 */
+.cn-public-top-nav + div [data-testid="stHorizontalBlock"]{gap:8px!important}
+.cn-public-top-nav + div [data-testid="stButton"] button{
+  min-height:40px!important;border-radius:10px!important;
+  font-size:.84rem!important;font-weight:700!important;box-shadow:none!important;
+}
+.cn-public-top-nav + div [data-testid="stButton"] button[kind="primary"]{
+  background:#176b3a!important;color:#fff!important;border-color:#176b3a!important;
+}
+.cn-public-top-nav + div [data-testid="stButton"] button[kind="secondary"]{
+  background:#fff!important;color:#334155!important;border-color:#d6dee6!important;
+}
+[data-testid="stExpander"]:has(.cn-public-filter-marker){
+  border-color:#dbe4ea!important;background:#fff!important;border-radius:12px!important;
 }
 </style>
 """, unsafe_allow_html=True)

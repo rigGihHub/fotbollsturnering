@@ -361,11 +361,15 @@ def test_full_cup_lifecycle_journey(server,browser_name):
         # this browser journey verifies UI integration and public rendering.
         seed_completed_cup_fixture(tid)
         tid=assert_complete_database(cup_name)
-        page.reload(wait_until="domcontentloaded")
-        wait_app(page)
 
-        # 4. Public tournament view: schedule/result → table → playoff → statistics → info.
-        page.get_by_role("button",name="Turneringsvy",exact=True).click()
+        # 4. Public tournament view: use an explicit cup URL in a fresh browser
+        # context. This verifies the real share/direct-link contract rather than
+        # inheriting stale Admin session state after an out-of-process DB fixture.
+        ctx.close()
+        public_ctx=browser.new_context(viewport={"width":1280,"height":900})
+        page=public_ctx.new_page()
+        page.goto(f"{BASE}?cup={tid}&section=matches",wait_until="domcontentloaded")
+        page.get_by_text(cup_name,exact=True).wait_for(state="visible",timeout=30000)
         wait_app(page)
         public_body=page.locator("body").inner_text()
         assert cup_name in public_body
@@ -398,7 +402,7 @@ def test_full_cup_lifecycle_journey(server,browser_name):
         reporter_body=page.locator("body").inner_text()
         assert "endast testmiljöer" in reporter_body
         assert cup_name in reporter_body
-        ctx.close()
+        public_ctx.close()
 
         # 6. Mobile public verification on the same completed cup.
         mobile=browser.new_context(
@@ -411,6 +415,7 @@ def test_full_cup_lifecycle_journey(server,browser_name):
             f"{BASE}?public_only=1&cup={tid}&section=matches",
             wait_until="domcontentloaded",
         )
+        mobile_page.get_by_text(cup_name,exact=True).wait_for(state="visible",timeout=30000)
         wait_app(mobile_page)
         mobile_body=mobile_page.locator("body").inner_text()
         assert cup_name in mobile_body

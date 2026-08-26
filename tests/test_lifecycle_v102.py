@@ -80,4 +80,5 @@ def test_public_links_prefer_permanent_slug_but_keep_numeric_compatibility():
     text = app_text()
     assert "SELECT public_slug FROM tournaments WHERE id=?" in text
     assert "requested_cup_id = int(cup_query_text)" in text
-    assert 'row["public_slug"] == cup_query_text' in text
+    assert "WHERE public_slug=? AND is_published=1" in text
+    assert "Explicit cup= must be resolved before generic public discovery" in text
