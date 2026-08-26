@@ -7834,7 +7834,7 @@ def render_public_view(tournament_id, tournament):
                   {match_events_html}
                   <div class="public-match-secondary">
                     {f'<span class="match-weather">{html.escape(weather_text)}</span>' if show_weather else ''}
-                    <span class="match-referee">Domare: {html.escape(referees.get(_row_value(match_row, 'referee_id'), 'Ej tillsatt'))}</span>
+                    <span class="match-referee">Domare: {html.escape(_public_referee_label(match_row) or 'Ej tillsatt')}</span>
                   </div>
                 </div>
                 """,
@@ -10577,18 +10577,28 @@ def _demo_apply_safe_schedule_capacity(tournament_id, tournament_row):
 
     run(
         """UPDATE schedule_rules
-           SET pitch_count=CASE WHEN pitch_count < 4 THEN 4 ELSE pitch_count END,
-               first_match_time='08:00',
-               latest_kickoff_time='22:00',
-               pitch_break_minutes=5,
+           SET pitch_count=CASE WHEN pitch_count < 8 THEN 8 ELSE pitch_count END,
+               first_match_time='07:00',
+               latest_kickoff_time='23:00',
+               pitch_break_minutes=0,
                avoid_consecutive_matches=0,
-               consecutive_match_break_minutes=0
+               consecutive_match_break_minutes=0,
+               referee_mode='Manuell'
            WHERE tournament_id=?""",
         (tournament_id,),
     )
-    # Gamla per-plan-fönster kan annars behålla snävare tider än schedule_rules.
+    # Viktigt: pitch_day_windows ärver tider från tournament_day_windows. Tidigare
+    # raderades bara planfönstren, vilket gjorde att de direkt återskapades från
+    # gamla 09:00–18:00-fönster och den "säkra" kapaciteten aldrig fick effekt.
     run("DELETE FROM pitch_day_windows WHERE tournament_id=?", (tournament_id,))
+    run("DELETE FROM tournament_day_windows WHERE tournament_id=?", (tournament_id,))
     rules_row = one_row("SELECT * FROM schedule_rules WHERE tournament_id=?", (tournament_id,))
+    ensure_tournament_day_windows(
+        tournament_id,
+        tournament_row,
+        rules_row["first_match_time"],
+        rules_row["latest_kickoff_time"],
+    )
     ensure_pitch_day_windows(
         tournament_id,
         tournament_row,
