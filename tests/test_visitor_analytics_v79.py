@@ -6,8 +6,11 @@ def app_text():
 def test_public_view_tracks_visits_only_in_public_renderer():
     text = app_text()
     start = text.index("def render_public_view(")
-    block = text[start:start+500]
+    end = text.index("def render_match_reporter_view", start)
+    block = text[start:end]
     assert "track_public_visit(tournament_id)" in block
+    # Analytics ska ligga efter publiksektionerna så den inte blockerar primärt innehåll.
+    assert block.rfind("track_public_visit(tournament_id)") > block.rfind("render_public_info_section")
 
 def test_visitor_analytics_does_not_store_ip_address():
     text = app_text()

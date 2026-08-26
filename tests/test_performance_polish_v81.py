@@ -26,7 +26,9 @@ def test_analytics_skips_database_between_samples():
     end = text.index("def qr_png_bytes", start)
     block = text[start:end]
     assert "if not count_view:" in block
-    assert block.index("if not count_view:") < block.index("existing = one_row(")
+    # v1.192+: analytics uses one atomic UPSERT; throttling must happen before any write.
+    assert "ON CONFLICT(tournament_id,session_token) DO UPDATE" in block
+    assert block.index("if not count_view:") < block.index("run(")
 
 def test_public_view_batches_team_and_event_data():
     text = app_text()

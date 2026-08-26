@@ -199,15 +199,52 @@ def public_brackets(tournament_id):
     return brackets
 
 def public_snapshot(public_key):
-    tournament=public_tournament(public_key)
-    if not tournament:
-        return None
-    tid=int(tournament["id"])
-    return {
-        "tournament":tournament,
-        "teams":public_teams(tid),
-        "groups":public_groups(tid),
-        "matches":public_matches(tid),
-        "brackets":public_brackets(tid),
-        "venue_points":public_venue_points(tid),
-    }
+    """Hydrate the public PWA snapshot with one database connection.
+
+    This is intentionally uncached so live scores stay fresh; the optimization is
+    connection reuse, not stale data.
+    """
+    with connect() as con:
+        def many(sql, params=()):
+            return _dict_rows(con.execute(sql, params))
+        def first(sql, params=()):
+            rows=many(sql, params)
+            return rows[0] if rows else None
+
+        row=first("SELECT * FROM tournaments WHERE public_slug=? AND is_published=1", (str(public_key),))
+        if not row:
+            try:
+                row=first("SELECT * FROM tournaments WHERE id=? AND is_published=1", (int(public_key),))
+            except (TypeError,ValueError):
+                row=None
+        tournament=_public_tournament_projection(row)
+        if not tournament:
+            return None
+        tid=int(tournament["id"])
+        teams=many("SELECT id,name,group_id,age_class,primary_color,secondary_color FROM teams WHERE tournament_id=? ORDER BY name", (tid,))
+        groups=many("SELECT id,name,age_class FROM groups WHERE tournament_id=? ORDER BY name", (tid,))
+        matches=many("""SELECT id,stage,group_id,bracket_id,round_no,match_no,home_source,away_source,
+                              scheduled_start,pitch_number,home_score,away_score,home_penalties,away_penalties,
+                              decided_winner_id,schedule_published
+                       FROM matches WHERE tournament_id=? AND schedule_published=1 AND scheduled_start IS NOT NULL
+                       ORDER BY scheduled_start,pitch_number,id""", (tid,))
+        venue_points=many("SELECT id,kind,label,detail,url FROM venue_points WHERE tournament_id=? ORDER BY label,id", (tid,))
+        brackets=many("SELECT id,name,size,bronze_match FROM brackets WHERE tournament_id=? ORDER BY id", (tid,))
+        if brackets:
+            bracket_matches=many("""SELECT id,bracket_id,stage,round_no,match_no,home_source,away_source,scheduled_start,pitch_number,
+                                          home_score,away_score,home_penalties,away_penalties,decided_winner_id,schedule_published
+                                   FROM matches WHERE tournament_id=? AND bracket_id IS NOT NULL AND schedule_published=1
+                                   ORDER BY bracket_id,round_no,match_no,id""", (tid,))
+            by_bracket={}
+            for match in bracket_matches:
+                by_bracket.setdefault(int(match["bracket_id"]),[]).append(match)
+            for bracket in brackets:
+                bracket["matches"]=by_bracket.get(int(bracket["id"]),[])
+        return {
+            "tournament":tournament,
+            "teams":teams,
+            "groups":groups,
+            "matches":matches,
+            "brackets":brackets,
+            "venue_points":venue_points,
+        }

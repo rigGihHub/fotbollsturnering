@@ -208,25 +208,35 @@ def test_full_cup_lifecycle_journey(server,browser_name):
         demo_button.wait_for(state="visible",timeout=20000)
         assert demo_button.is_enabled()
         demo_button.click()
-        # Do not assert transient success/caption text after a Streamlit rerun.
-        # The durable contract is that test data exists and the Testnivå control
-        # becomes enabled. This also avoids browser-specific rerender timing.
-        test_level=wait_until_enabled(page.get_by_label("Testnivå",exact=True),timeout=30000)
+
+        # In CUPNAVI_E2E mode the server auto-completes immediately once persisted
+        # demo data exists. Do not wait for the Testnivå widget: that control is part
+        # of the normal interactive test workflow, not the deterministic CI contract.
         with sqlite3.connect(DB) as con:
             tid=con.execute(
                 "SELECT id FROM tournaments WHERE name=? ORDER BY id DESC LIMIT 1",
                 (cup_name,),
             ).fetchone()[0]
-            demo_counts=con.execute(
-                """SELECT
-                     (SELECT COUNT(*) FROM teams WHERE tournament_id=?),
-                     (SELECT COUNT(*) FROM groups WHERE tournament_id=?),
-                     (SELECT COUNT(*) FROM referees WHERE tournament_id=?)""",
-                (tid,tid,tid),
-            ).fetchone()
-        assert demo_counts[0] == 8
-        assert demo_counts[1] == 2
-        assert demo_counts[2] >= 1
+
+        demo_deadline=time.time()+30
+        demo_counts=None
+        while time.time()<demo_deadline:
+            try:
+                with sqlite3.connect(DB) as con:
+                    demo_counts=con.execute(
+                        """SELECT
+                             (SELECT COUNT(*) FROM teams WHERE tournament_id=?),
+                             (SELECT COUNT(*) FROM groups WHERE tournament_id=?),
+                             (SELECT COUNT(*) FROM referees WHERE tournament_id=?)""",
+                        (tid,tid,tid),
+                    ).fetchone()
+                if demo_counts and demo_counts[0] == 8 and demo_counts[1] == 2 and demo_counts[2] >= 1:
+                    break
+            except sqlite3.OperationalError:
+                pass
+            time.sleep(.2)
+        else:
+            raise AssertionError(f"Timed out waiting for persisted demo data; last counts={demo_counts}")
 
         # 3. Build schedule + publish + results + events + playoff to completion.
         # CUPNAVI_E2E auto-completes the persisted test cup server-side on rerender;

@@ -38,6 +38,9 @@ jobs:
       - name: Run tests
         run: pytest
 
+      - name: Public performance contract
+        run: python scripts/check_performance_contract.py
+
       - name: Migration smoke test
         run: pytest tests/test_migrations.py -q
 

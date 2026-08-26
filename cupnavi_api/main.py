@@ -1,13 +1,13 @@
 """Standalone read-only public API for the future CupNavi PWA."""
 from __future__ import annotations
-from fastapi import FastAPI, HTTPException, Query, Response
-import os
+from fastapi import FastAPI, HTTPException, Query, Response, Request
+import os, time
 from fastapi.middleware.cors import CORSMiddleware
 from cupnavi_core.version import APP_VERSION
 from cupnavi_core.public_competition import calculate_group_table, team_competition_summary
 from .repository import (
     public_tournament, public_teams, public_groups, public_matches, public_venue_points,
-    public_notifications, public_brackets, backend_name, standings_inputs, database_probe
+    public_notifications, public_brackets, public_snapshot, backend_name, standings_inputs, database_probe
 )
 
 app=FastAPI(title="CupNavi Public API",version=APP_VERSION,docs_url="/docs",redoc_url=None)
@@ -22,6 +22,15 @@ app.add_middleware(
     allow_methods=["GET"],
     allow_headers=["*"],
 )
+
+@app.middleware("http")
+async def add_server_timing(request:Request, call_next):
+    started=time.perf_counter()
+    response=await call_next(request)
+    elapsed_ms=(time.perf_counter()-started)*1000
+    response.headers["Server-Timing"]=f"app;dur={elapsed_ms:.1f}"
+    response.headers["X-CupNavi-Process-Ms"]=f"{elapsed_ms:.1f}"
+    return response
 
 @app.get("/health")
 def health(response:Response):
@@ -39,17 +48,10 @@ def health(response:Response):
 
 @app.get("/api/public/cups/{public_key}")
 def cup(public_key:str):
-    tournament=public_tournament(public_key)
-    if not tournament:
+    snapshot=public_snapshot(public_key)
+    if not snapshot:
         raise HTTPException(status_code=404,detail="Cup not found or not published")
-    tid=int(tournament["id"])
-    return {
-        "tournament":tournament,
-        "teams":public_teams(tid),
-        "groups":public_groups(tid),
-        "matches":public_matches(tid),
-        "venue_points":public_venue_points(tid),
-    }
+    return snapshot
 
 def _standings_payload(tournament):
     result=[]

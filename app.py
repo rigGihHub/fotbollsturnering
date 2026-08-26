@@ -8,6 +8,8 @@ import random
 import re
 import io
 import time
+
+_APP_RENDER_STARTED = time.perf_counter()
 import hashlib
 import sys
 import importlib
@@ -1227,28 +1229,22 @@ def track_public_visit(tournament_id):
     browser = _visitor_browser(user_agent)
     source = _visitor_source(referrer)
 
-    existing = one_row(
-        """SELECT id,view_count FROM visitor_sessions
-           WHERE tournament_id=? AND session_token=?""",
-        (tournament_id, token),
+    # Ett enda atomiskt UPSERT i stället för SELECT + INSERT/UPDATE. Det sparar
+    # ett helt remote DB-varv på första publika sidladdningen och vid 5-minutersräkning.
+    run(
+        """INSERT INTO visitor_sessions(
+               tournament_id,session_token,first_seen,last_seen,view_count,
+               device_type,browser,source
+           ) VALUES(?,?,?,?,1,?,?,?)
+           ON CONFLICT(tournament_id,session_token) DO UPDATE SET
+               last_seen=excluded.last_seen,
+               view_count=visitor_sessions.view_count+1,
+               device_type=excluded.device_type,
+               browser=excluded.browser,
+               source=excluded.source""",
+        (tournament_id, token, now_iso, now_iso, device_type, browser, source),
     )
-    if existing:
-        run(
-            """UPDATE visitor_sessions
-               SET last_seen=?,view_count=view_count+1,device_type=?,browser=?,source=?
-               WHERE id=?""",
-            (now_iso, device_type, browser, source, existing["id"]),
-        )
-        st.session_state[throttle_key] = now_dt
-    else:
-        run(
-            """INSERT INTO visitor_sessions(
-                   tournament_id,session_token,first_seen,last_seen,view_count,
-                   device_type,browser,source
-               ) VALUES(?,?,?,?,1,?,?,?)""",
-            (tournament_id, token, now_iso, now_iso, device_type, browser, source),
-        )
-        st.session_state[throttle_key] = now_dt
+    st.session_state[throttle_key] = now_dt
 
 
 @st.cache_data(show_spinner=False)
@@ -4356,6 +4352,39 @@ def run(sql, params=()):
     return lastrowid
 
 
+
+
+def public_core_snapshot(tournament_id):
+    """Load the public page's core rows through one DB connection.
+
+    Results stay fresh on every Streamlit rerun; this only removes repeated
+    connection establishment/teardown for matches + teams.
+    """
+    cache_key=("public-core-snapshot", int(tournament_id))
+    if cache_key in _DERIVED_RENDER_CACHE:
+        _PERF["derived_hits"] += 1
+        return _DERIVED_RENDER_CACHE[cache_key]
+    started=time.perf_counter()
+    with db() as con:
+        matches=_rows_from_cursor(con.execute(
+            """SELECT m.*, r.name AS referee_name,
+                      COALESCE(p.name, 'Plan ' || CAST(m.pitch_number AS TEXT)) AS pitch_name
+               FROM matches m
+               LEFT JOIN referees r ON r.id=m.referee_id
+               LEFT JOIN pitches p ON p.tournament_id=m.tournament_id AND p.pitch_number=m.pitch_number
+               WHERE m.tournament_id=? AND m.scheduled_start IS NOT NULL AND m.schedule_published=1
+               ORDER BY m.scheduled_start,m.pitch_number,m.id""",
+            (int(tournament_id),),
+        ))
+        teams=_rows_from_cursor(con.execute(
+            "SELECT * FROM teams WHERE tournament_id=? ORDER BY name",
+            (int(tournament_id),),
+        ))
+    _record_db_call(started)
+    value={"matches":matches,"teams":teams}
+    _DERIVED_RENDER_CACHE[cache_key]=value
+    return value
+
 def run_many(sql, params_seq):
     """Batcha flera likadana skrivningar i en enda DB-anslutning/commit."""
     rows = list(params_seq)
@@ -4921,22 +4950,28 @@ WEATHER_CODES = {
 }
 
 
-@st.cache_data(ttl=1800, show_spinner=False)
+@st.cache_data(ttl=86400, show_spinner=False)
+def _weather_geocode(place):
+    """Geokodning ändras sällan; håll den separat från den kortare prognoscachen."""
+    geocode_url = "https://geocoding-api.open-meteo.com/v1/search?" + urlencode({
+        "name": place.strip(), "count": 1, "language": "sv", "format": "json",
+    })
+    request = Request(geocode_url, headers={"User-Agent": "CupNavi/1.0"})
+    with urlopen(request, timeout=4) as response:
+        geocode = json.load(response)
+    results = geocode.get("results") or []
+    return results[0] if results else None
+
+
+@st.cache_data(ttl=1800, refresh_mode="background", show_spinner=False)
 def fetch_weather_forecast(place):
-    """Hämta aktuell timprognos utan API-nyckel. Fel får aldrig stoppa Turneringsvyn."""
+    """Hämta timprognos; utgången cache uppdateras i bakgrunden utan att blockera sidan."""
     if not place or not place.strip():
         return {}, "Spelort saknas"
     try:
-        geocode_url = "https://geocoding-api.open-meteo.com/v1/search?" + urlencode({
-            "name": place.strip(), "count": 1, "language": "sv", "format": "json",
-        })
-        request = Request(geocode_url, headers={"User-Agent": "Fotbollsturnering/1.0"})
-        with urlopen(request, timeout=6) as response:
-            geocode = json.load(response)
-        results = geocode.get("results") or []
-        if not results:
+        location = _weather_geocode(place)
+        if not location:
             return {}, f"Kunde inte hitta spelorten {place}."
-        location = results[0]
         forecast_url = "https://api.open-meteo.com/v1/forecast?" + urlencode({
             "latitude": location["latitude"],
             "longitude": location["longitude"],
@@ -6933,7 +6968,7 @@ def render_public_info_section(tournament_id, tournament, published_matches):
 
 
 def render_public_view(tournament_id, tournament):
-    track_public_visit(tournament_id)
+    # Besöksstatistik registreras sist så den inte ligger före sidans innehåll.
     if hasattr(st, "query_params"):
         _confirm_token = str(st.query_params.get("notify_confirm", "") or "").strip()
         _unsubscribe_token = str(st.query_params.get("notify_unsubscribe", "") or "").strip()
@@ -6945,15 +6980,19 @@ def render_public_view(tournament_id, tournament):
             st.success("E-postnotiser är avslutade.") if unsubscribe_notification_subscription(_unsubscribe_token) else st.warning("Avregistreringslänken är ogiltig eller redan använd.")
             try: del st.query_params["notify_unsubscribe"]
             except KeyError: pass
-    published_matches = all_rows(
-        "SELECT * FROM matches WHERE tournament_id=? AND scheduled_start IS NOT NULL AND schedule_published=1 ORDER BY scheduled_start,pitch_number,id",
-        (tournament_id,),
-    )
+    _public_core = public_core_snapshot(tournament_id)
+    published_matches = _public_core["matches"]
     played_matches = [m for m in published_matches if m["home_score"] is not None and m["away_score"] is not None]
-    public_teams = all_rows("SELECT * FROM teams WHERE tournament_id=? ORDER BY name", (tournament_id,))
+    public_teams = _public_core["teams"]
     public_team_by_id = {row["id"]: row for row in public_teams}
     public_team_names = {row["id"]: row["name"] for row in public_teams}
     now = datetime.now()
+
+    def _public_pitch_label(match_row):
+        return str(_row_value(match_row, "pitch_name", None) or pitch_label(tournament_id, match_row["pitch_number"]))
+
+    def _public_referee_label(match_row):
+        return str(_row_value(match_row, "referee_name", "") or "")
 
     # v147: grupper laddas först när skärm, gruppfilter eller statistik behöver dem.
     # Matcher-sidan gör alltså ingen gruppfråga bara för att rendera grundvyn.
@@ -7014,7 +7053,7 @@ def render_public_view(tournament_id, tournament):
                 if kind=='recent':
                     info=f"<span class='cn-screen-score'>{int(m['home_score'])}–{int(m['away_score'])}</span>"
                 else:
-                    info=f"<span class='cn-screen-time'>{start.strftime('%H:%M')}</span> · {html.escape(pitch_label(tournament_id,m['pitch_number']))}"
+                    info=f"<span class='cn-screen-time'>{start.strftime('%H:%M')}</span> · {html.escape(_public_pitch_label(m))}"
                 out.append(f"<div class='cn-screen-match'><div><b>{html.escape(label)}</b></div><div>{info}</div></div>")
             return ''.join(out)
         st.markdown(f"<div class='cn-screen-grid'><div class='cn-screen-card'><h3>🔴 Pågår / nu</h3>{_screen_matches(live_rows,'live')}</div><div class='cn-screen-card'><h3>⏭ Kommande</h3>{_screen_matches(upcoming_rows,'upcoming')}</div><div class='cn-screen-card'><h3>✅ Senaste resultat</h3>{_screen_matches(recent_rows,'recent')}</div></div>", unsafe_allow_html=True)
@@ -7385,7 +7424,7 @@ def render_public_view(tournament_id, tournament):
                 hero_html += (
                     f"<div class='cn-next-card'><div class='cn-next-meta'>Nästa match · "
                     f"{html.escape(swedish_datetime(favorite_next['scheduled_start']))} · "
-                    f"{html.escape(pitch_label(tournament_id,favorite_next['pitch_number']))}"
+                    f"{html.escape(_public_pitch_label(favorite_next))}"
                     f"{html.escape(relative_text)}</div>"
                     f"<div class='cn-next-teams'><div>{html.escape(_public_source_label(favorite_next['home_source']))}</div>"
                     f"<div class='cn-next-vs'>VS</div>"
@@ -7684,16 +7723,23 @@ def render_public_view(tournament_id, tournament):
     def _render_public_match_cards(matches, show_results=None, show_weather=False, events_by_match=None):
         """Ett gemensamt matchkort: spelade matcher visar resultat, kommande visar VS."""
         events_by_match = events_by_match or {}
-        referees = {
-            row["id"]: row["name"]
-            for row in all_rows(
-                "SELECT * FROM referees WHERE tournament_id=?",
-                (tournament_id,),
-            )
-        }
         weather_forecast, weather_status = ({}, "")
         if show_weather:
-            weather_forecast, weather_status = fetch_weather_forecast(tournament["location"] or "")
+            weather_now = datetime.now()
+            weather_horizon = weather_now + timedelta(days=16)
+            forecastable = False
+            for _weather_match in matches:
+                try:
+                    _weather_start = datetime.fromisoformat(str(_row_value(_weather_match, "scheduled_start", "")))
+                    if weather_now - timedelta(hours=3) <= _weather_start <= weather_horizon:
+                        forecastable = True
+                        break
+                except (TypeError, ValueError):
+                    continue
+            if forecastable:
+                weather_forecast, weather_status = fetch_weather_forecast(tournament["location"] or "")
+            else:
+                weather_status = "Väderprognos visas när matchen är inom 16 dagar."
 
         st.markdown(
             """
@@ -7776,7 +7822,7 @@ def render_public_view(tournament_id, tournament):
                 <div class="public-match-card" style="border:1px solid #d1d5db;border-radius:14px;padding:16px;margin:12px 0;background:#ffffff;color:#172033;box-shadow:0 3px 10px rgba(15,23,42,.06)">
                   <div style="display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #edf2f7;padding-bottom:7px;gap:12px">
                     <div style="display:flex;gap:6px;align-items:center"><span class="match-stage" style="font-size:11px;font-weight:800;color:#fff;background:#166534;padding:4px 8px;border-radius:999px">{match_row['stage']}</span><span class="status-pill {status_class}">{status_text}</span></div>
-                    <span class="match-meta">Match {number} · <b>{start}</b> · {html.escape(pitch_label(tournament_id,match_row['pitch_number']))}</span>
+                    <span class="match-meta">Match {number} · <b>{start}</b> · {html.escape(_public_pitch_label(match_row))}</span>
                   </div>
                   <div style="display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);gap:12px;align-items:center;margin-top:7px;color:#0f172a">
                     <div><span style="display:inline-block;width:18px;height:13px;background:{home_kit_bg};border:1px solid #64748b;border-radius:3px"></span>
@@ -7848,7 +7894,7 @@ def render_public_view(tournament_id, tournament):
                         _time_text, _date_text = "–", ""
                     _home = html.escape(_public_source_label(_m["home_source"]))
                     _away = html.escape(_public_source_label(_m["away_source"]))
-                    _pitch = html.escape(pitch_label(tournament_id, _m["pitch_number"]))
+                    _pitch = html.escape(_public_pitch_label(_m))
                     _card_class = "cn-live-card is-live" if _is_live_mode else "cn-live-card"
                     _live_cards.append(
                         f"<div class='{_card_class}'>"
@@ -8007,6 +8053,10 @@ def render_public_view(tournament_id, tournament):
 
     if public_page == "Info":
         render_public_info_section(tournament_id, tournament, published_matches)
+
+    # Icke-kritisk analytics sist: ett långsamt Turso-write ska inte fördröja
+    # hero/navigation/matchinnehåll på den publika sidan.
+    track_public_visit(tournament_id)
 
 
 def render_match_reporter_view(tournament_id, tournament):
@@ -8915,6 +8965,12 @@ st.sidebar.caption("Version v.1.192")
 
 def _set_view_mode(mode):
     st.session_state["view_mode"] = mode
+    # Turneringsvyn ska vara så ren som möjligt. Admin öppnar den utökade
+    # rollnavigationen och den ligger kvar tills användaren återgår publikt.
+    if mode == "Admin":
+        st.session_state["role_nav_expanded"] = True
+    elif mode == "Turneringsvy":
+        st.session_state["role_nav_expanded"] = False
 
 
 # v160: cupens huvudflöde. Specialfunktioner finns kvar i gruppnavigationen.
@@ -8951,16 +9007,29 @@ def _primary_flow_index(page):
 current_mode = st.session_state["view_mode"]
 st.markdown("<div class='cn-mode-nav-safezone'></div>", unsafe_allow_html=True)
 if public_app_mode:
+    # Public-only-läget behåller sin separata, begränsade navigation.
     mode_col1, mode_col2 = st.columns(2)
     mode_col1.button(tr("Turneringsvy"), key="view_mode_public_button", type="primary" if current_mode == "Turneringsvy" else "secondary", use_container_width=True, on_click=_set_view_mode, args=("Turneringsvy",))
     mode_col2.button(tr("Om"), key="view_mode_about_button", type="primary" if current_mode == "Om" else "secondary", use_container_width=True, on_click=_set_view_mode, args=("Om",))
 else:
-    mode_col1, mode_col2, mode_col3, mode_col4, mode_col5 = st.columns(5)
-    mode_col1.button(tr("Turneringsvy"), key="view_mode_public_button", type="primary" if current_mode == "Turneringsvy" else "secondary", use_container_width=True, on_click=_set_view_mode, args=("Turneringsvy",))
-    mode_col2.button("Lagportal", key="view_mode_team_portal_button", type="primary" if current_mode == "Lagportal" else "secondary", use_container_width=True, on_click=_set_view_mode, args=("Lagportal",))
-    mode_col3.button(tr("Matchrapportör"), key="view_mode_reporter_button", type="primary" if current_mode == "Matchrapportör" else "secondary", use_container_width=True, on_click=_set_view_mode, args=("Matchrapportör",))
-    mode_col4.button(tr("Admin"), key="view_mode_admin_button", type="primary" if current_mode == "Admin" else "secondary", use_container_width=True, on_click=_set_view_mode, args=("Admin",))
-    mode_col5.button(tr("Om"), key="view_mode_about_button", type="primary" if current_mode == "Om" else "secondary", use_container_width=True, on_click=_set_view_mode, args=("Om",))
+    role_nav_expanded = bool(
+        st.session_state.get("role_nav_expanded", current_mode != "Turneringsvy")
+    )
+    if current_mode == "Turneringsvy" and not role_nav_expanded:
+        # Publik Turneringsvy: endast de två vägar som behövs ska konkurrera om
+        # uppmärksamheten. Admin kräver fortfarande vanlig admininloggning.
+        mode_col1, mode_col2 = st.columns(2)
+        mode_col1.button(tr("Turneringsvy"), key="view_mode_public_button", type="primary", use_container_width=True, on_click=_set_view_mode, args=("Turneringsvy",))
+        mode_col2.button(tr("Admin"), key="view_mode_admin_button", type="secondary", use_container_width=True, on_click=_set_view_mode, args=("Admin",))
+    else:
+        # Efter att Admin öppnats visas rollväxlarna och ligger kvar tills
+        # användaren går tillbaka till Turneringsvy.
+        mode_col1, mode_col2, mode_col3, mode_col4, mode_col5 = st.columns(5)
+        mode_col1.button(tr("Turneringsvy"), key="view_mode_public_button", type="primary" if current_mode == "Turneringsvy" else "secondary", use_container_width=True, on_click=_set_view_mode, args=("Turneringsvy",))
+        mode_col2.button("Lagportal", key="view_mode_team_portal_button", type="primary" if current_mode == "Lagportal" else "secondary", use_container_width=True, on_click=_set_view_mode, args=("Lagportal",))
+        mode_col3.button(tr("Matchrapportör"), key="view_mode_reporter_button", type="primary" if current_mode == "Matchrapportör" else "secondary", use_container_width=True, on_click=_set_view_mode, args=("Matchrapportör",))
+        mode_col4.button(tr("Admin"), key="view_mode_admin_button", type="primary" if current_mode == "Admin" else "secondary", use_container_width=True, on_click=_set_view_mode, args=("Admin",))
+        mode_col5.button(tr("Om"), key="view_mode_about_button", type="primary" if current_mode == "Om" else "secondary", use_container_width=True, on_click=_set_view_mode, args=("Om",))
 view_mode = st.session_state["view_mode"]
 if not public_app_mode:
     st.sidebar.caption(f"{tr('Visningsläge')}: {tr(view_mode)}")
@@ -9911,6 +9980,12 @@ def _set_admin_page(page):
 
 def _set_view_mode(mode):
     st.session_state["view_mode"] = mode
+    # Turneringsvyn ska vara så ren som möjligt. Admin öppnar den utökade
+    # rollnavigationen och den ligger kvar tills användaren återgår publikt.
+    if mode == "Admin":
+        st.session_state["role_nav_expanded"] = True
+    elif mode == "Turneringsvy":
+        st.session_state["role_nav_expanded"] = False
 
 # Två nivåer i adminnavigationen: fem tydliga huvudområden och bara relevanta
 # underknappar för valt område. Det minskar knappmängden utan att gömma funktioner.
@@ -10491,18 +10566,69 @@ def _demo_reset_results(tournament_id):
     _clear_render_query_cache()
 
 
+def _demo_apply_safe_schedule_capacity(tournament_id, tournament_row):
+    """Ge en Testmiljö reproducerbar kapacitet när democupen annars inte får plats.
+
+    Detta används alltid i CUPNAVI_E2E och som fallback i vanliga Testmiljöer.
+    Riktiga cuper påverkas aldrig.
+    """
+    if not is_test_environment(tournament_row):
+        return one_row("SELECT * FROM schedule_rules WHERE tournament_id=?", (tournament_id,))
+
+    run(
+        """UPDATE schedule_rules
+           SET pitch_count=CASE WHEN pitch_count < 4 THEN 4 ELSE pitch_count END,
+               first_match_time='08:00',
+               latest_kickoff_time='22:00',
+               pitch_break_minutes=5,
+               avoid_consecutive_matches=0,
+               consecutive_match_break_minutes=0
+           WHERE tournament_id=?""",
+        (tournament_id,),
+    )
+    # Gamla per-plan-fönster kan annars behålla snävare tider än schedule_rules.
+    run("DELETE FROM pitch_day_windows WHERE tournament_id=?", (tournament_id,))
+    rules_row = one_row("SELECT * FROM schedule_rules WHERE tournament_id=?", (tournament_id,))
+    ensure_pitch_day_windows(
+        tournament_id,
+        tournament_row,
+        int(rules_row["pitch_count"]),
+        rules_row["first_match_time"],
+        rules_row["latest_kickoff_time"],
+    )
+    return one_row("SELECT * FROM schedule_rules WHERE tournament_id=?", (tournament_id,))
+
+
 def _demo_prepare_schedule(tournament_id):
-    """Säkerställ gruppmöten, slutspel och schema för testlägena."""
+    """Säkerställ gruppmöten, slutspel och ett faktiskt genomförbart demoschema."""
     tournament_row = one_row("SELECT * FROM tournaments WHERE id=?", (tournament_id,))
     rules_row = one_row("SELECT * FROM schedule_rules WHERE tournament_id=?", (tournament_id,))
     if rules_row is None:
         run("INSERT INTO schedule_rules(tournament_id) VALUES(?)", (tournament_id,))
         rules_row = one_row("SELECT * FROM schedule_rules WHERE tournament_id=?", (tournament_id,))
+
+    # CI måste vara helt deterministiskt. En nyskapad endagscup kan annars skapa
+    # gruppmatcherna men fastna före resultat/publicering om plantiderna är för snäva.
+    if os.environ.get("CUPNAVI_E2E") == "1" and is_test_environment(tournament_row):
+        rules_row = _demo_apply_safe_schedule_capacity(tournament_id, tournament_row)
+
     create_all_group_matches(tournament_id)
     playoff_ok, playoff_error = ensure_playoffs_for_schedule(tournament_id, tournament_row)
     if not playoff_ok:
         return False, playoff_error
+
     count, unresolved, warning = generate_schedule(tournament_id, tournament_row, rules_row)
+
+    # Vanliga Testmiljöer ska också vara lätta att experimentera i. Om användarens
+    # plantider inte räcker får demomotorn en enda säker fallback i stället för att
+    # lämna cupen halvbyggd med matcher men utan resultat.
+    if unresolved and is_test_environment(tournament_row):
+        rules_row = _demo_apply_safe_schedule_capacity(tournament_id, tournament_row)
+        count, unresolved, retry_warning = generate_schedule(
+            tournament_id, tournament_row, rules_row
+        )
+        warning = retry_warning or warning
+
     if unresolved:
         return False, warning or f"{unresolved} matcher kunde inte schemaläggas."
     return True, warning
@@ -15778,3 +15904,57 @@ if admin_page == "Slutspel":
                 render_centered_table(pd.DataFrame(overview_rows))
             render_bracket_tree(bracket["id"], public=False)
 
+
+
+# --- CupNavi performance diagnostics (Admin only) -----------------------------
+# Rendered last so the measurements represent almost the whole Streamlit rerun.
+if view_mode == "Admin" and admin_page == "Adminöversikt":
+    _render_ms = round((time.perf_counter() - _APP_RENDER_STARTED) * 1000, 1)
+    _db_ms = round(float(_PERF.get("db_ms", 0.0)), 1)
+    _db_calls = int(_PERF.get("db_calls", 0) or 0)
+    _writes = int(_PERF.get("writes", 0) or 0)
+    _cache_hits = int(_PERF.get("cache_hits", 0) or 0)
+    _derived_hits = int(_PERF.get("derived_hits", 0) or 0)
+    _db_share = round((_db_ms / _render_ms) * 100, 1) if _render_ms > 0 else 0.0
+
+    _perf_history = list(st.session_state.get("_cupnavi_perf_history", []))
+    _perf_history.append(
+        {
+            "Render ms": _render_ms,
+            "DB ms": _db_ms,
+            "DB-anrop": _db_calls,
+            "Writes": _writes,
+            "Query-cache": _cache_hits,
+            "Derived-cache": _derived_hits,
+            "DB-andel %": _db_share,
+        }
+    )
+    st.session_state["_cupnavi_perf_history"] = _perf_history[-12:]
+
+    with st.expander("Prestandadiagnostik", expanded=False):
+        st.caption(
+            "Mäter den aktuella Admin-rerenderingen i den här sessionen. "
+            "Värdena skickas inte till någon extern analystjänst."
+        )
+        _perf_cols = st.columns(4)
+        _perf_cols[0].metric("Render", f"{_render_ms:.0f} ms")
+        _perf_cols[1].metric("Databas", f"{_db_ms:.0f} ms")
+        _perf_cols[2].metric("DB-anrop", _db_calls)
+        _perf_cols[3].metric("DB-andel", f"{_db_share:.0f} %")
+
+        if _render_ms >= 2500:
+            st.warning("Renderingen är långsam (>2,5 s). DB- och nätverksanrop bör granskas.")
+        elif _render_ms >= 1200:
+            st.info("Renderingen är märkbar (1,2–2,5 s). Det finns sannolikt mer att optimera.")
+        else:
+            st.success("Renderingen ligger under 1,2 s i den här körningen.")
+
+        _history = st.session_state["_cupnavi_perf_history"]
+        if len(_history) >= 2:
+            _avg_render = sum(row["Render ms"] for row in _history) / len(_history)
+            _avg_db = sum(row["DB ms"] for row in _history) / len(_history)
+            st.caption(
+                f"Snitt senaste {len(_history)} laddningarna: "
+                f"{_avg_render:.0f} ms render · {_avg_db:.0f} ms DB."
+            )
+            render_centered_table(pd.DataFrame(_history))
