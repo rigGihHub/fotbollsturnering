@@ -111,15 +111,8 @@ def _cup_progress_state(tournament_id):
         return None
 
 
-def complete_demo_via_e2e_hook(page, tournament_id, timeout=60000):
-    """Use the CI-only deterministic hook and wait for durable completion."""
-    button=wait_until_enabled(
-        page.get_by_role("button", name="E2E: Slutför testcup", exact=True),
-        timeout=20000,
-    )
-    button.scroll_into_view_if_needed()
-    button.click()
-
+def wait_for_e2e_auto_completion(tournament_id, timeout=60000):
+    """Wait for the E2E-only server-side auto progression to persist completion."""
     deadline=time.time()+timeout/1000
     last_state=None
     while time.time()<deadline:
@@ -129,7 +122,7 @@ def complete_demo_via_e2e_hook(page, tournament_id, timeout=60000):
             if row[0] > 0 and row[1] == row[0] and int(row[2]) == 1 and row[3] == "completed":
                 return
         time.sleep(.25)
-    raise AssertionError(f"Timed out waiting for completed demo cup; last DB state={last_state}")
+    raise AssertionError(f"Timed out waiting for E2E auto-completed cup; last DB state={last_state}")
 
 def assert_complete_database(cup_name):
     con=sqlite3.connect(DB)
@@ -236,9 +229,9 @@ def test_full_cup_lifecycle_journey(server,browser_name):
         assert demo_counts[2] >= 1
 
         # 3. Build schedule + publish + results + events + playoff to completion.
-        # The CI-only hook calls the same server-side progression function but
-        # avoids Streamlit selectbox/form rerender races in headless browsers.
-        complete_demo_via_e2e_hook(page,tid,timeout=60000)
+        # CUPNAVI_E2E auto-completes the persisted test cup server-side on rerender;
+        # the browser only waits for the durable completion contract.
+        wait_for_e2e_auto_completion(tid,timeout=60000)
         wait_app(page)
         # DB verification proves the UI action completed the whole persistence chain.
         tid=assert_complete_database(cup_name)

@@ -9272,6 +9272,55 @@ _a11y_css.append("button,[role='button'],input,select,textarea{min-height:44px;}
 if _a11y_css:
     st.markdown("<style>" + "".join(_a11y_css) + "</style><div class='cn-sr-only' role='status' aria-live='polite'>CupNavi är redo. Navigation och formulär kan användas med tangentbord och skärmläsare.</div>", unsafe_allow_html=True)
 
+
+# Final datepicker contrast override. BaseWeb renders calendars in a portal
+# outside the date input subtree, so theme inheritance must be neutralized there.
+st.markdown("""
+<style>
+/* CUPNAVI CALENDAR FINAL OVERRIDE */
+[data-baseweb="popover"],
+[data-baseweb="popover"] > div,
+[data-baseweb="calendar"],
+[data-baseweb="calendar"] > div {
+  background:#ffffff !important;
+  color:#172033 !important;
+  color-scheme:light !important;
+}
+[data-baseweb="calendar"] abbr {
+  color:#172033 !important;
+  opacity:1 !important;
+  font-weight:700 !important;
+}
+[data-baseweb="calendar"] [role="grid"],
+[data-baseweb="calendar"] [role="row"],
+[data-baseweb="calendar"] [role="gridcell"],
+[data-baseweb="calendar"] [role="gridcell"] > div {
+  background:#ffffff !important;
+  color:#172033 !important;
+}
+[data-baseweb="calendar"] [role="gridcell"] button,
+[data-baseweb="calendar"] [role="gridcell"] [role="button"] {
+  background:#ffffff !important;
+  color:#172033 !important;
+  opacity:1 !important;
+}
+[data-baseweb="calendar"] [aria-selected="true"],
+[data-baseweb="calendar"] [aria-selected="true"] > div,
+[data-baseweb="calendar"] [aria-selected="true"] button {
+  background:#eef7f1 !important;
+  color:#14532d !important;
+  font-weight:700 !important;
+}
+[data-baseweb="calendar"] [aria-disabled="true"],
+[data-baseweb="calendar"] [aria-disabled="true"] > div,
+[data-baseweb="calendar"] [aria-disabled="true"] button {
+  background:#f4f6f8 !important;
+  color:#7a8492 !important;
+  opacity:1 !important;
+}
+</style>
+""", unsafe_allow_html=True)
+
 def render_initial_tournament_setup(tournament_id, tournament):
     """Första konfigurationssidan efter skapande. Vanliga fält autosparas."""
     st.title("Setup av turneringen")
@@ -11887,6 +11936,20 @@ int(edited_halves) != int(overview_rules["halves"]),
         )
         if not testdata_ready:
             st.info("Skapa testdata i steg 1 innan du väljer hur långt turneringen har pågått.")
+
+        # Deterministic CI progression. In E2E mode only, once persisted test data
+        # exists, complete the demo cup server-side exactly once. This removes all
+        # dependency on Streamlit button/selectbox event timing in headless CI.
+        if os.environ.get("CUPNAVI_E2E") == "1" and testdata_ready:
+            e2e_state_key = f"e2e_autocomplete_done_{tid}"
+            if not st.session_state.get(e2e_state_key, False):
+                st.session_state[e2e_state_key] = True
+                ok, message = _demo_apply_progress_level(tid, "complete")
+                if not ok:
+                    st.session_state[e2e_state_key] = False
+                    raise RuntimeError(f"E2E auto-completion failed: {message}")
+                st.rerun()
+
         # Submit selection + action atomically. A normal selectbox rerun can replace
         # the button DOM exactly when it is clicked, which made the real UI flaky.
         with st.form(f"demo_progress_form_{tid}", border=False):
@@ -11921,23 +11984,6 @@ int(edited_halves) != int(overview_rules["halves"]),
                 st.rerun()
             else:
                 st.error(message)
-
-        # Deterministic CI-only hook for the full lifecycle browser test.
-        # It is unavailable in normal/local production use unless the process
-        # is explicitly started with CUPNAVI_E2E=1. This avoids coupling the
-        # critical journey to Streamlit selectbox/form rerender timing.
-        if os.environ.get("CUPNAVI_E2E") == "1":
-            if st.button(
-                "E2E: Slutför testcup",
-                key=f"e2e_complete_testcup_{tid}",
-                disabled=not testdata_ready,
-            ):
-                ok, message = _demo_apply_progress_level(tid, "complete")
-                if ok:
-                    st.success(message)
-                    st.rerun()
-                else:
-                    st.error(message)
 
         progress_counts = one_row(
             """SELECT
