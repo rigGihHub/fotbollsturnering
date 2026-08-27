@@ -1,7 +1,7 @@
 from pathlib import Path
 ROOT=Path(__file__).resolve().parents[1]
 APP=(ROOT/"app.py").read_text(encoding="utf-8")
-R="2026.08.26-204-PUBLIC-MATCH-CARDS-DECOMPOSITION"
+R="2026.08.27-208-PUBLIC-MATCH-PERFORMANCE-REVIEW"
 def test_environment_persisted():
     assert '"environment_type": "TEXT NOT NULL DEFAULT \'production\'"' in APP
     assert "environment_type = st.radio(" in APP
@@ -18,5 +18,5 @@ def test_clone_to_test():
 def test_test_badge():
     assert "🧪 TESTMILJÖ" in APP
 def test_version():
-    assert "Version v.1.204" in APP
+    assert "Version v.1.208" in APP
     assert f'APP_BUILD_VERSION = "{R}"' in APP

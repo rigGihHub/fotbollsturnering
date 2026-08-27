@@ -1,3 +1,4 @@
+import re
 from pathlib import Path
 
 
@@ -14,6 +15,6 @@ def test_release_version_is_synced():
     text = Path("app.py").read_text(encoding="utf-8")
     version = Path("VERSION.txt").read_text(encoding="utf-8").strip()
     core = Path("cupnavi_core/version.py").read_text(encoding="utf-8")
-    assert version.startswith("2026.08.26-")
+    assert re.match(r"^20\d{2}\.\d{2}\.\d{2}-", version)
     assert version in text
     assert version in core

@@ -113,8 +113,11 @@ from cupnavi_core.public_view_logic import (
 from cupnavi_core.public_info_view import render_public_info_section as render_public_info_section_module
 from cupnavi_core.public_statistics_view import render_public_statistics_section as render_public_statistics_section_module
 from cupnavi_core.public_match_cards import render_public_match_cards as render_public_match_cards_module
+from cupnavi_core.public_match_filter_logic import filter_matches, sort_public_matches
+from cupnavi_core.public_match_feed_logic import classify_public_match_feed, public_match_feed_summary
+from cupnavi_core.public_match_filters_view import render_public_match_filters as render_public_match_filters_module
 
-APP_BUILD_VERSION = "2026.08.26-204-PUBLIC-MATCH-CARDS-DECOMPOSITION"
+APP_BUILD_VERSION = "2026.08.27-208-PUBLIC-MATCH-PERFORMANCE-REVIEW"
 APP_VERSION = APP_BUILD_VERSION
 
 def read_core_version_from_disk():
@@ -7289,130 +7292,21 @@ def render_public_view(tournament_id, tournament):
     )
 
     def _filter_public_matches(base_matches, key_prefix, heading):
-        """Gemensamt filter för den sammanslagna matchsidan."""
-        filtered = list(base_matches)
-        filter_label = "Alla matcher"
-        forced_team_id = st.session_state.pop(f"public_force_team_filter_{tournament_id}", None)
-
-        if forced_team_id:
-            filtered = [
-                match_row for match_row in base_matches
-                if forced_team_id in (
-                    _public_source_team_id(match_row["home_source"]),
-                    _public_source_team_id(match_row["away_source"]),
-                )
-            ]
-            filter_label = public_team_names.get(forced_team_id, "Mitt lag")
-            st.info(f"Visar matcher för **{filter_label}**.")
-
-        with st.expander("Fler filter", expanded=False):
-            st.markdown("<span class='cn-public-filter-marker'></span>", unsafe_allow_html=True)
-            st.caption("Avgränsa matchlistan efter tävlingsklass, grupp, lag eller plan.")
-            filter_mode = st.radio(
-                tr("Vad vill du visa?"),
-                [tr("Alla matcher"), "Tävlingsklass", tr("En grupp"), tr("Ett lag"), tr("En plan")],
-                horizontal=True,
-                key=f"{key_prefix}_mode_{tournament_id}",
-                label_visibility="collapsed",
-            )
-
-            if forced_team_id and filter_mode == tr("Alla matcher"):
-                pass
-            elif filter_mode == "Tävlingsklass":
-                age_options = sorted({
-                    str(_row_value(team, "age_class", "") or "").strip()
-                    for team in public_teams
-                    if str(_row_value(team, "age_class", "") or "").strip()
-                })
-                if age_options:
-                    selected_age = st.selectbox("Välj tävlingsklass", age_options, key=f"{key_prefix}_age_{tournament_id}")
-                    filter_label = selected_age
-                    allowed_team_ids = {
-                        int(team["id"]) for team in public_teams
-                        if _row_value(team, "age_class", None) == selected_age
-                    }
-                    filtered = [
-                        match_row for match_row in base_matches
-                        if (
-                            _public_source_team_id(match_row["home_source"]) in allowed_team_ids
-                            or _public_source_team_id(match_row["away_source"]) in allowed_team_ids
-                        )
-                    ]
-                else:
-                    filtered = []
-                    st.info("Det finns inga tävlingsklasser att filtrera på.")
-
-            elif filter_mode == tr("En grupp"):
-                groups = _load_public_groups()
-                if groups:
-                    selected_group = st.selectbox(
-                        tr("Välj grupp"),
-                        [row["id"] for row in groups],
-                        format_func=lambda group_id: next(row["name"] for row in groups if row["id"] == group_id),
-                        key=f"{key_prefix}_group_{tournament_id}",
-                    )
-                    filter_label = next(row["name"] for row in groups if row["id"] == selected_group)
-                    filtered = [match_row for match_row in base_matches if match_row["group_id"] == selected_group]
-                else:
-                    filtered = []
-                    st.info("Det finns inga grupper att filtrera på.")
-
-            elif filter_mode == tr("Ett lag"):
-                if public_teams:
-                    selected_team = st.selectbox(
-                        tr("Välj lag"),
-                        [row["id"] for row in public_teams],
-                        format_func=lambda team_id: next(row["name"] for row in public_teams if row["id"] == team_id),
-                        key=f"{key_prefix}_team_{tournament_id}",
-                    )
-                    filter_label = next(row["name"] for row in public_teams if row["id"] == selected_team)
-                    filtered = [
-                        match_row for match_row in base_matches
-                        if (
-                            _public_source_team_id(match_row["home_source"]) == selected_team
-                            or _public_source_team_id(match_row["away_source"]) == selected_team
-                        )
-                    ]
-                else:
-                    filtered = []
-                    st.info("Det finns inga lag att filtrera på.")
-
-            elif filter_mode == tr("En plan"):
-                pitch_options = sorted({
-                    int(match_row["pitch_number"])
-                    for match_row in base_matches
-                    if match_row["pitch_number"] is not None
-                })
-                if pitch_options:
-                    selected_pitch = st.selectbox(
-                        tr("Välj plan"), pitch_options,
-                        format_func=lambda pitch_no: f"Plan {pitch_no}",
-                        key=f"{key_prefix}_pitch_{tournament_id}",
-                    )
-                    filter_label = f"Plan {selected_pitch}"
-                    filtered = [
-                        match_row for match_row in base_matches
-                        if int(match_row["pitch_number"] or 0) == selected_pitch
-                    ]
-                else:
-                    filtered = []
-                    st.info("Det finns inga planer att filtrera på.")
-            elif not forced_team_id:
-                filtered = list(base_matches)
-                filter_label = "Alla matcher"
-
-        return (
-            sorted(
-                filtered,
-                key=lambda match_row: (
-                    match_row["scheduled_start"] or "",
-                    match_row["pitch_number"] or 0,
-                    match_row["id"],
-                ),
-            ),
-            filter_mode,
-            filter_label,
+        return render_public_match_filters_module(
+            base_matches,
+            key_prefix,
+            heading,
+            tournament_id=tournament_id,
+            tr=tr,
+            public_teams=public_teams,
+            public_team_names=public_team_names,
+            load_public_groups=_load_public_groups,
+            source_team_id=_public_source_team_id,
+            row_value=_row_value,
+            filter_matches=filter_matches,
+            sort_public_matches=sort_public_matches,
         )
+
 
     def _render_public_match_cards(matches, show_results=None, show_weather=False, events_by_match=None):
         return render_public_match_cards_module(
@@ -7454,32 +7348,18 @@ def render_public_view(tournament_id, tournament):
             )
             public_events_by_match = {}
 
-            _live_now, _next_matches, _recent_results = [], [], []
-            for _m in published_matches:
-                try:
-                    _start = datetime.fromisoformat(str(_row_value(_m, "scheduled_start", "")))
-                except (TypeError, ValueError):
-                    _start = None
-                _played = _row_value(_m, "home_score", None) is not None and _row_value(_m, "away_score", None) is not None
-                if _played:
-                    _recent_results.append(_m)
-                elif _start:
-                    if _start <= now <= _start + timedelta(minutes=match_duration_minutes(tournament)):
-                        _live_now.append(_m)
-                    elif _start > now:
-                        _next_matches.append(_m)
-            _next_matches = sorted(_next_matches, key=lambda m: str(_row_value(m, "scheduled_start", "")))[:4]
-            _recent_results = sorted(_recent_results, key=lambda m: str(_row_value(m, "scheduled_start", "")), reverse=True)[:4]
-            if _live_now or _next_matches:
-                _live_items = _live_now[:3] if _live_now else _next_matches[:3]
-                _is_live_mode = bool(_live_now)
-                _head_title = "Pågår just nu" if _is_live_mode else "Cupen just nu"
-                _head_subtitle = (
-                    "Matcher som pågår enligt aktuellt schema."
-                    if _is_live_mode else
-                    "Nästa matcher i turneringen."
-                )
-                _head_status = f"{len(_live_now)} pågår" if _is_live_mode else f"{len(_next_matches)} kommande"
+            _live_now, _next_matches, _recent_results = classify_public_match_feed(
+                published_matches,
+                now=now,
+                match_duration_minutes=match_duration_minutes(tournament),
+            )
+            _feed_summary = public_match_feed_summary(_live_now, _next_matches)
+            if _feed_summary["items"]:
+                _live_items = _feed_summary["items"]
+                _is_live_mode = _feed_summary["is_live"]
+                _head_title = _feed_summary["title"]
+                _head_subtitle = _feed_summary["subtitle"]
+                _head_status = _feed_summary["status"]
                 _live_cards = []
                 for _m in _live_items:
                     try:
@@ -7519,23 +7399,6 @@ def render_public_view(tournament_id, tournament):
                 </div>""",
                 unsafe_allow_html=True,
             )
-
-            public_event_rows = all_rows(
-                """
-                SELECT s.match_id, p.name AS player_name, COALESCE(p.is_protected,0) AS is_protected,
-                       t.id AS team_id, t.name AS team_name, s.goals, s.red_cards
-                FROM player_match_stats s
-                JOIN players p ON p.id=s.player_id
-                JOIN teams t ON t.id=p.team_id
-                JOIN matches m ON m.id=s.match_id
-                WHERE m.tournament_id=? AND (s.goals > 0 OR s.red_cards > 0)
-                ORDER BY s.match_id,p.name
-                """,
-                (tournament_id,),
-            )
-            public_events_by_match = {}
-            for event_row in public_event_rows:
-                public_events_by_match.setdefault(event_row["match_id"], []).append(event_row)
 
             requested_match_view = str(st.query_params.get("matches", "all")) if hasattr(st, "query_params") else "all"
             requested_match_view = requested_match_view if requested_match_view in {"all", "upcoming", "played"} else "all"
@@ -7596,6 +7459,37 @@ def render_public_view(tournament_id, tournament):
                 tr("Filtrera matcher"),
             )
             st.caption(f"{tr('Visar')} {len(match_list)} {tr('matcher').lower()} · {match_filter_label}")
+
+            # Load match events only for visible played matches. The previous
+            # implementation fetched all scoring/red-card rows for the entire
+            # tournament even when the user viewed only upcoming fixtures.
+            visible_played_match_ids = [
+                int(_row_value(match_row, "id", 0) or 0)
+                for match_row in match_list
+                if (
+                    _row_value(match_row, "home_score", None) is not None
+                    and _row_value(match_row, "away_score", None) is not None
+                    and int(_row_value(match_row, "id", 0) or 0) > 0
+                )
+            ]
+            public_events_by_match = {}
+            if visible_played_match_ids:
+                event_placeholders = ",".join("?" for _ in visible_played_match_ids)
+                public_event_rows = all_rows(
+                    f"""
+                    SELECT s.match_id, p.name AS player_name, COALESCE(p.is_protected,0) AS is_protected,
+                           t.id AS team_id, t.name AS team_name, s.goals, s.red_cards
+                    FROM player_match_stats s
+                    JOIN players p ON p.id=s.player_id
+                    JOIN teams t ON t.id=p.team_id
+                    WHERE s.match_id IN ({event_placeholders})
+                      AND (s.goals > 0 OR s.red_cards > 0)
+                    ORDER BY s.match_id,p.name
+                    """,
+                    tuple(visible_played_match_ids),
+                )
+                for event_row in public_event_rows:
+                    public_events_by_match.setdefault(event_row["match_id"], []).append(event_row)
 
             def _safe_public_start(match_row):
                 value = _row_value(match_row, "scheduled_start", None)
@@ -8560,7 +8454,7 @@ if _direct_public_cup and st.session_state.get("view_mode") is None:
     st.session_state["view_mode"] = "Turneringsvy"
 elif st.session_state.get("view_mode") not in mode_options:
     st.session_state["view_mode"] = mode_options[0]
-st.sidebar.caption("Version v.1.204")
+st.sidebar.caption("Version v.1.208")
 
 def _set_view_mode(mode):
     st.session_state["view_mode"] = mode
@@ -11461,24 +11355,35 @@ elif admin_page == "Adminöversikt":
         edited_medical = feature_col2.checkbox("Medicinsk beredskap på infosidan", value=bool(_row_value(tournament, "enable_medical_info", 0)))
         edited_lost_found = feature_col2.checkbox("Lost & found / hittegods på infosidan", value=bool(_row_value(tournament, "enable_lost_found", 0)))
         edited_accessibility_info = feature_col2.checkbox("Tillgänglighetsinfo på infosidan", value=bool(_row_value(tournament, "enable_accessibility_info", 0)))
-        edited_medical_info = st.text_area(
-            "Medicinsk beredskap",
-            value=_row_value(tournament, "medical_info", "") or "",
-            placeholder="Exempel: Sjukvårdare finns vid sekretariatet. Hjärtstartare finns i entréhallen.",
-            help="Du kan skriva och spara texten oavsett om den visas publikt. Kryssrutan ovan styr endast om informationen visas på infosidan.",
-        )
-        edited_lost_found_info = st.text_area(
-            "Lost & found / hittegods",
-            value=_row_value(tournament, "lost_found_info", "") or "",
-            placeholder="Exempel: Hittegods lämnas och hämtas i sekretariatet.",
-            help="Du kan skriva och spara texten oavsett om den visas publikt. Kryssrutan ovan styr endast om informationen visas på infosidan.",
-        )
-        edited_accessibility_text = st.text_area(
-            "Tillgänglighet för besökare",
-            value=_row_value(tournament, "accessibility_info", "") or "",
-            placeholder="Exempel: Tillgänglig entré, RWC och reserverade parkeringsplatser finns vid huvudentrén.",
-            help="Du kan skriva och spara texten oavsett om den visas publikt. Kryssrutan ovan styr endast om informationen visas på infosidan.",
-        )
+        # Progressive disclosure: only show the detail field when its public
+        # feature is enabled. When disabled we retain the saved value so toggling
+        # the feature off never destroys previously entered information.
+        if edited_medical:
+            edited_medical_info = st.text_area(
+                "Medicinsk beredskap",
+                value=_row_value(tournament, "medical_info", "") or "",
+                placeholder="Exempel: Sjukvårdare finns vid sekretariatet. Hjärtstartare finns i entréhallen.",
+            )
+        else:
+            edited_medical_info = _row_value(tournament, "medical_info", "") or ""
+
+        if edited_lost_found:
+            edited_lost_found_info = st.text_area(
+                "Lost & found / hittegods",
+                value=_row_value(tournament, "lost_found_info", "") or "",
+                placeholder="Exempel: Hittegods lämnas och hämtas i sekretariatet.",
+            )
+        else:
+            edited_lost_found_info = _row_value(tournament, "lost_found_info", "") or ""
+
+        if edited_accessibility_info:
+            edited_accessibility_text = st.text_area(
+                "Tillgänglighet för besökare",
+                value=_row_value(tournament, "accessibility_info", "") or "",
+                placeholder="Exempel: Tillgänglig entré, RWC och reserverade parkeringsplatser finns vid huvudentrén.",
+            )
+        else:
+            edited_accessibility_text = _row_value(tournament, "accessibility_info", "") or ""
 
         st.markdown("#### Poängregler och tabell")
         bp1, bp2, bp3 = st.columns(3)

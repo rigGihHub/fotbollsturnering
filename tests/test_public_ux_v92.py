@@ -26,8 +26,9 @@ def test_matches_merge_schedule_and_results_and_keep_filters():
     assert '[tr("Alla"), tr("Kommande"), tr("Spelade")]' in block
     match_cards = Path("cupnavi_core/public_match_cards.py").read_text(encoding="utf-8")
     assert 'row_show_results = match_is_played if show_results is None' in match_cards
+    filter_view = Path("cupnavi_core/public_match_filters_view.py").read_text(encoding="utf-8")
     for option in ['tr("Alla matcher")', 'tr("En grupp")', 'tr("Ett lag")', 'tr("En plan")']:
-        assert option in block
+        assert option in filter_view
 
 
 def test_info_rules_derive_from_all_requested_saved_settings():

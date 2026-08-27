@@ -16,14 +16,17 @@ def test_next_step_uses_real_newlines_not_literal_escape_text():
     assert 'st.info(f"**{next_step_title}**\\\\n\\\\n{next_step_text}")' not in APP
 
 
-def test_optional_info_textareas_remain_editable():
-    start = APP.index('edited_medical_info = st.text_area')
+def test_optional_info_textareas_are_progressively_disclosed():
+    start = APP.index('if edited_medical:')
     end = APP.index('st.markdown("#### Poängregler och tabell")', start)
     block = APP[start:end]
-    assert 'disabled=not edited_medical' not in block
-    assert 'disabled=not edited_lost_found' not in block
-    assert 'disabled=not edited_accessibility_info' not in block
-    assert 'Kryssrutan ovan styr endast om informationen visas på infosidan.' in block
+    assert 'if edited_medical:' in block
+    assert 'if edited_lost_found:' in block
+    assert 'if edited_accessibility_info:' in block
+    # Saved values are preserved while hidden.
+    assert 'edited_medical_info = _row_value(tournament, "medical_info", "") or ""' in block
+    assert 'edited_lost_found_info = _row_value(tournament, "lost_found_info", "") or ""' in block
+    assert 'edited_accessibility_text = _row_value(tournament, "accessibility_info", "") or ""' in block
 
 
 def test_link_buttons_follow_light_design_system():

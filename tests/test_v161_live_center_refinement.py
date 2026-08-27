@@ -1,12 +1,13 @@
 from pathlib import Path
 
 APP=(Path(__file__).resolve().parents[1]/"app.py").read_text(encoding="utf-8")
+FEED=(Path(__file__).resolve().parents[1]/"cupnavi_core/public_match_feed_logic.py").read_text(encoding="utf-8")
 
 def test_live_center_uses_visual_cards():
     assert "cn-live-grid" in APP
     assert "cn-live-card" in APP
     assert "cn-live-head" in APP
-    assert "Nästa matcher i turneringen." in APP
+    assert "Nästa matcher i turneringen." in FEED
 
 def test_live_center_is_responsive():
     assert "@media(max-width:900px){.cn-live-grid{grid-template-columns:1fr}" in APP

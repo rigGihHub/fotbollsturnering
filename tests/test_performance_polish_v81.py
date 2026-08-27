@@ -37,5 +37,8 @@ def test_public_view_batches_team_and_event_data():
     block = text[start:end]
     assert "public_team_by_id" in block
     assert "public_events_by_match" in block
-    assert "JOIN matches m ON m.id=s.match_id" in block
+    # v1.208 scopes event loading to the visible played matches instead of
+    # joining back through every tournament match.
+    assert "visible_played_match_ids" in block
+    assert "WHERE s.match_id IN ({event_placeholders})" in block
     assert 'if public_page == "Matcher":' in block

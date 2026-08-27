@@ -1,3 +1,4 @@
+import re
 from pathlib import Path
 
 from cupnavi_core.config import OFFICIAL_PUBLIC_BASE_URL, PUBLIC_BASE_URL, LEGACY_STREAMLIT_BASE_URL
@@ -11,7 +12,7 @@ def test_official_domain_is_cup_navi_com():
 
 
 def test_v101_version_files_match():
-    assert APP_VERSION.startswith("2026.08.26-")
+    assert re.match(r"^20\d{2}\.\d{2}\.\d{2}-", APP_VERSION)
     assert Path("VERSION.txt").read_text(encoding="utf-8").strip() == APP_VERSION
     text = Path("app.py").read_text(encoding="utf-8")
     assert f'APP_BUILD_VERSION = "{APP_VERSION}"' in text
