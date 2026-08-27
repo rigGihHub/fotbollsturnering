@@ -125,6 +125,78 @@ def _ensure_create_tournament_expander_open(page):
     return create_form
 
 
+def _persisted_tournament_row(cup_name):
+    try:
+        with sqlite3.connect(DB) as con:
+            return con.execute(
+                "SELECT id,environment_type FROM tournaments WHERE name=? ORDER BY id DESC LIMIT 1",
+                (cup_name,),
+            ).fetchone()
+    except sqlite3.OperationalError:
+        return None
+
+
+def _submit_create_tournament_form(page, cup_name, attempts=2):
+    """Submit Streamlit's create form and prove that the click was accepted.
+
+    `Locator.click(force=True)` can report success even when Streamlit's rerendering
+    layer swallows the React button event. Trigger the real DOM click instead, then
+    wait for either persistence or the post-create UI. Retry only when neither signal
+    appears.
+    """
+    last_body=""
+    for attempt in range(attempts):
+        create_form=_ensure_create_tournament_expander_open(page)
+        name_input=create_form.get_by_label("Namn",exact=True)
+        place_input=create_form.get_by_label("Spelort",exact=True)
+
+        # A rerun may have replaced the form after the caller originally filled it.
+        if name_input.input_value() != cup_name:
+            name_input.fill(cup_name)
+        if place_input.input_value() != "Örebro":
+            place_input.fill("Örebro")
+
+        test_environment=create_form.get_by_role("radio",name="Testmiljö",exact=True)
+        test_environment.wait_for(state="attached",timeout=10000)
+        assert test_environment.is_checked(), "CUPNAVI_E2E must preselect Testmiljö"
+
+        submit=create_form.get_by_role("button",name="Skapa",exact=True)
+        submit.wait_for(state="visible",timeout=10000)
+        assert submit.is_enabled()
+        page.wait_for_timeout(250)
+
+        # DOM click avoids pointer-interception/animation races while still invoking
+        # Streamlit/React's actual onClick handler. Reacquire the button every attempt.
+        submit.evaluate("el => el.click()")
+
+        deadline=time.time()+4
+        while time.time() < deadline:
+            row=_persisted_tournament_row(cup_name)
+            if row is not None:
+                return row
+            try:
+                if page.get_by_role("button",name="Fortsätt till Admin",exact=True).count():
+                    # The UI accepted the submit; allow the DB commit a little longer.
+                    return wait_for_persisted_tournament(cup_name,timeout_ms=12000)
+                last_body=page.locator("body").inner_text()
+                if "This app has encountered an error" in last_body or "Traceback" in last_body:
+                    raise AssertionError(f"Create tournament UI failed: {last_body[-2500:]}")
+            except AssertionError:
+                raise
+            except Exception:
+                pass
+            page.wait_for_timeout(150)
+
+        # No persistence and no post-create UI: this was a swallowed submit event.
+        # Reopen/reacquire the form and retry once rather than extending a useless DB wait.
+        if attempt + 1 < attempts:
+            page.wait_for_timeout(350)
+
+    raise AssertionError(
+        f"Create tournament submit was not accepted for {cup_name!r}; body={last_body[-1800:]}"
+    )
+
+
 def wait_for_persisted_tournament(cup_name, timeout_ms=20000):
     """Wait for Streamlit form submission to become visible in SQLite.
 
@@ -155,19 +227,12 @@ def create_test_tournament_through_ui(page, cup_name):
     create_form=_ensure_create_tournament_expander_open(page)
     create_form.get_by_label("Namn",exact=True).fill(cup_name)
     create_form.get_by_label("Spelort",exact=True).fill("Örebro")
-    # CUPNAVI_E2E makes Testmiljö the deterministic initial value. Do not
-    # drive Streamlit's hidden React-Aria radio internals from Playwright; the
-    # critical contract is that the real form persists a Testmiljö.
     test_environment=create_form.get_by_role("radio",name="Testmiljö",exact=True)
     test_environment.wait_for(state="attached",timeout=10000)
     assert test_environment.is_checked(), "CUPNAVI_E2E must preselect Testmiljö"
-    submit=create_form.get_by_role("button",name="Skapa",exact=True)
-    submit.wait_for(state="visible",timeout=10000)
-    assert submit.is_enabled()
-    submit.click(force=True)
-    wait_app(page)
 
-    row=wait_for_persisted_tournament(cup_name)
+    row=_submit_create_tournament_form(page,cup_name)
+    wait_app(page)
     assert row[1] == "test"
 
     continue_button=page.get_by_role("button",name="Fortsätt till Admin",exact=True)

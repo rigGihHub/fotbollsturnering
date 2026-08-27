@@ -1,7 +1,7 @@
 from pathlib import Path
 ROOT=Path(__file__).resolve().parents[1]
 APP=(ROOT/"app.py").read_text(encoding="utf-8")
-R="2026.08.27-232-E2E-PERSISTENCE-FRESH-READ"
+R="2026.08.27-233-E2E-SUBMIT-HARDENING"
 
 def test_duplicate_next_button_is_suppressed():
     assert "v160_next_" not in APP

@@ -44,8 +44,12 @@ def test_create_helper_polls_database_instead_of_immediate_read():
     start=E2E.index('def create_test_tournament_through_ui')
     end=E2E.index('\ndef ',start+5)
     block=E2E[start:end]
-    assert 'row=wait_for_persisted_tournament(cup_name)' in block
-    assert 'assert row is not None' not in block
+    assert 'row=_submit_create_tournament_form(page,cup_name)' in block
+    submit_start=E2E.index('def _submit_create_tournament_form')
+    submit_end=E2E.index('def wait_for_persisted_tournament',submit_start)
+    submit_block=E2E[submit_start:submit_end]
+    assert '_persisted_tournament_row(cup_name)' in submit_block
+    assert 'wait_for_persisted_tournament(cup_name,timeout_ms=12000)' in submit_block
 
 
 def test_public_wait_reloads_transient_empty_public_render():

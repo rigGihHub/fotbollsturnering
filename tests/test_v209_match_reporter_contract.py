@@ -19,5 +19,5 @@ def test_persistence_and_locking_remain_in_app_boundary():
     assert "update_match_result_if_unchanged(" not in LOGIC
 
 def test_release_is_v209():
-    assert VERSION=="2026.08.27-232-E2E-PERSISTENCE-FRESH-READ"
-    assert "Version v.1.232" in APP
+    assert VERSION=="2026.08.27-233-E2E-SUBMIT-HARDENING"
+    assert "Version v.1.233" in APP

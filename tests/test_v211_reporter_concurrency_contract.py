@@ -17,5 +17,5 @@ def test_conditional_update_remains_in_app_persistence_boundary():
     assert "def update_match_result_if_unchanged(" not in LOGIC
 
 def test_release_is_v211():
-    assert VERSION=="2026.08.27-232-E2E-PERSISTENCE-FRESH-READ"
-    assert "Version v.1.232" in APP
+    assert VERSION=="2026.08.27-233-E2E-SUBMIT-HARDENING"
+    assert "Version v.1.233" in APP

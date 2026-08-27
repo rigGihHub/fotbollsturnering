@@ -120,7 +120,7 @@ from cupnavi_core.public_match_feed_logic import classify_public_match_feed, pub
 from cupnavi_core.public_match_filters_view import render_public_match_filters as render_public_match_filters_module
 from cupnavi_core.match_reporter_logic import build_bulk_result_rows, prepare_bulk_result_update, result_snapshot, select_playable_matches
 
-APP_BUILD_VERSION = "2026.08.27-232-E2E-PERSISTENCE-FRESH-READ"
+APP_BUILD_VERSION = "2026.08.27-233-E2E-SUBMIT-HARDENING"
 APP_VERSION = APP_BUILD_VERSION
 
 def read_core_version_from_disk():
@@ -9714,7 +9714,7 @@ if _direct_public_cup and st.session_state.get("view_mode") is None:
     st.session_state["view_mode"] = "Turneringsvy"
 elif st.session_state.get("view_mode") not in mode_options:
     st.session_state["view_mode"] = mode_options[0]
-st.sidebar.caption("Version v.1.232")
+st.sidebar.caption("Version v.1.233")
 
 def _set_view_mode(mode):
     st.session_state["view_mode"] = mode

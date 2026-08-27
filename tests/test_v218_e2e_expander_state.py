@@ -27,9 +27,10 @@ def test_expander_state_is_checked_before_clicking_summary():
 
 def test_submit_is_scoped_to_visible_verified_form():
     helper=E2E[
-        E2E.index("def create_test_tournament_through_ui"):
-        E2E.index("def representative_public_tokens")
+        E2E.index("def _submit_create_tournament_form"):
+        E2E.index("def wait_for_persisted_tournament")
     ]
     assert 'create_form.get_by_role("button",name="Skapa",exact=True)' in helper
     assert 'submit.wait_for(state="visible",timeout=10000)' in helper
-    assert "submit.click(force=True)" in helper
+    assert 'submit.evaluate("el => el.click()")' in helper
+    assert "submit.click(force=True)" not in helper
