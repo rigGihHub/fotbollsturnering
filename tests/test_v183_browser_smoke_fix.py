@@ -2,7 +2,7 @@ from pathlib import Path
 ROOT=Path(__file__).resolve().parents[1]
 SMOKE=(ROOT/"e2e/test_streamlit_browser_smoke.py").read_text(encoding="utf-8")
 APP=(ROOT/"app.py").read_text(encoding="utf-8")
-R="2026.08.27-216-CROSS-BROWSER-RADIO-E2E-FIX"
+R="2026.08.27-217-E2E-CREATION-DIRECT-LINK-HARDENING"
 
 def test_smoke_test_does_not_wait_for_visible_body():
     assert 'page.wait_for_selector("body",state="attached"' in SMOKE
@@ -13,7 +13,7 @@ def test_smoke_waits_for_streamlit_app_root():
     assert 'state="visible"' in SMOKE
 
 def test_sidebar_version_updated():
-    assert 'Version v.1.216' in APP
+    assert 'Version v.1.217' in APP
 
 def test_release_sync():
     assert f'APP_BUILD_VERSION = "{R}"' in APP

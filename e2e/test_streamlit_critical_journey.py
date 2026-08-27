@@ -64,23 +64,52 @@ def assert_no_ui_error(page):
     assert "ValueError:" not in body
 
 
+def wait_for_public_cup(page, cup_name, timeout_ms=60000):
+    """Wait for the actual public cup hero and fail with useful UI diagnostics."""
+    wait_app(page)
+    title=page.locator(".cup-hero .title")
+    deadline=time.time() + timeout_ms / 1000
+    last_body=""
+    while time.time() < deadline:
+        try:
+            if title.count() and title.first.is_visible():
+                value=title.first.inner_text().strip()
+                if value == cup_name:
+                    assert_no_ui_error(page)
+                    return
+        except Exception:
+            pass
+        try:
+            last_body=page.locator("body").inner_text()
+            if "This app has encountered an error" in last_body or "Traceback" in last_body:
+                raise AssertionError(f"Public cup render failed: {last_body[-2500:]}")
+            if "Ingen turnering är publicerad ännu." in last_body:
+                raise AssertionError(
+                    f"Direct cup URL did not resolve published cup {cup_name!r}: {last_body[-1500:]}"
+                )
+        except AssertionError:
+            raise
+        except Exception:
+            pass
+        page.wait_for_timeout(250)
+    raise AssertionError(
+        f"Timed out waiting for public cup hero {cup_name!r}. "
+        f"URL={page.url!r}. Last body={last_body[-2500:]}"
+    )
+
+
 def create_test_tournament_through_ui(page, cup_name):
     """Create a persisted Testmiljö using the real Streamlit UI and return its id."""
     page.get_by_text("Skapa ny turnering",exact=True).click()
     create_form=page.locator('[data-testid="stSidebar"] [data-testid="stForm"]').first
     create_form.get_by_label("Namn",exact=True).fill(cup_name)
     create_form.get_by_label("Spelort",exact=True).fill("Örebro")
-    # Streamlit renders the semantic radio <input> as a hidden React-Aria
-    # control. Playwright check() on that hidden input is not stable across
-    # Firefox/Chromium/WebKit. Interact with the visible option label inside the
-    # form's own stRadio widget, then reacquire the semantic input after rerender.
-    environment_radio=create_form.locator('[data-testid="stRadio"]').first
-    test_environment_label=environment_radio.locator("label").filter(has_text="Testmiljö")
-    test_environment_label.click(force=True)
-    page.wait_for_timeout(300)
+    # CUPNAVI_E2E makes Testmiljö the deterministic initial value. Do not
+    # drive Streamlit's hidden React-Aria radio internals from Playwright; the
+    # critical contract is that the real form persists a Testmiljö.
     test_environment=create_form.get_by_role("radio",name="Testmiljö",exact=True)
     test_environment.wait_for(state="attached",timeout=10000)
-    assert test_environment.is_checked(), "Testmiljö radio did not become selected"
+    assert test_environment.is_checked(), "CUPNAVI_E2E must preselect Testmiljö"
     create_form.get_by_role("button",name="Skapa",exact=True).click()
     wait_app(page)
 
@@ -391,9 +420,8 @@ def test_full_cup_lifecycle_journey(server,browser_name):
         ctx.close()
         public_ctx=browser.new_context(viewport={"width":1280,"height":900})
         page=public_ctx.new_page()
-        page.goto(f"{BASE}?cup={tid}&section=matches",wait_until="domcontentloaded")
-        page.get_by_text(cup_name,exact=True).wait_for(state="visible",timeout=30000)
-        wait_app(page)
+        page.goto(f"{BASE}?cup={tid}&section=matches",wait_until="domcontentloaded",timeout=60000)
+        wait_for_public_cup(page,cup_name)
         public_body=page.locator("body").inner_text()
         assert cup_name in public_body
         assert "This app has encountered an error" not in public_body

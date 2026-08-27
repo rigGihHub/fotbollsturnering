@@ -16,5 +16,5 @@ def test_optional_service_fields_use_progressive_disclosure():
     assert "if show_prices_enabled:" in APP
 
 def test_release_is_v214():
-    assert VERSION=="2026.08.27-216-CROSS-BROWSER-RADIO-E2E-FIX"
-    assert "Version v.1.216" in APP
+    assert VERSION=="2026.08.27-217-E2E-CREATION-DIRECT-LINK-HARDENING"
+    assert "Version v.1.217" in APP

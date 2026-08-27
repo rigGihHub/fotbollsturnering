@@ -19,5 +19,5 @@ def test_persistence_and_locking_remain_in_app_boundary():
     assert "update_match_result_if_unchanged(" not in LOGIC
 
 def test_release_is_v209():
-    assert VERSION=="2026.08.27-216-CROSS-BROWSER-RADIO-E2E-FIX"
-    assert "Version v.1.216" in APP
+    assert VERSION=="2026.08.27-217-E2E-CREATION-DIRECT-LINK-HARDENING"
+    assert "Version v.1.217" in APP

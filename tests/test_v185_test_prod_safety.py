@@ -1,7 +1,7 @@
 from pathlib import Path
 ROOT=Path(__file__).resolve().parents[1]
 APP=(ROOT/"app.py").read_text(encoding="utf-8")
-R="2026.08.27-216-CROSS-BROWSER-RADIO-E2E-FIX"
+R="2026.08.27-217-E2E-CREATION-DIRECT-LINK-HARDENING"
 def test_environment_persisted():
     assert '"environment_type": "TEXT NOT NULL DEFAULT \'production\'"' in APP
     assert "environment_type = st.radio(" in APP
@@ -18,5 +18,5 @@ def test_clone_to_test():
 def test_test_badge():
     assert "🧪 TESTMILJÖ" in APP
 def test_version():
-    assert "Version v.1.216" in APP
+    assert "Version v.1.217" in APP
     assert f'APP_BUILD_VERSION = "{R}"' in APP

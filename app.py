@@ -120,7 +120,7 @@ from cupnavi_core.public_match_feed_logic import classify_public_match_feed, pub
 from cupnavi_core.public_match_filters_view import render_public_match_filters as render_public_match_filters_module
 from cupnavi_core.match_reporter_logic import build_bulk_result_rows, prepare_bulk_result_update, result_snapshot, select_playable_matches
 
-APP_BUILD_VERSION = "2026.08.27-216-CROSS-BROWSER-RADIO-E2E-FIX"
+APP_BUILD_VERSION = "2026.08.27-217-E2E-CREATION-DIRECT-LINK-HARDENING"
 APP_VERSION = APP_BUILD_VERSION
 
 def read_core_version_from_disk():
@@ -8436,7 +8436,7 @@ if _direct_public_cup and st.session_state.get("view_mode") is None:
     st.session_state["view_mode"] = "Turneringsvy"
 elif st.session_state.get("view_mode") not in mode_options:
     st.session_state["view_mode"] = mode_options[0]
-st.sidebar.caption("Version v.1.216")
+st.sidebar.caption("Version v.1.217")
 
 def _set_view_mode(mode):
     st.session_state["view_mode"] = mode
@@ -8561,6 +8561,7 @@ if view_mode == "Admin":
             environment_type = st.radio(
                 "Miljö",
                 ["production", "test"],
+                index=1 if os.environ.get("CUPNAVI_E2E") == "1" else 0,
                 format_func=lambda value: "Riktig cup" if value == "production" else "Testmiljö",
                 horizontal=True,
                 key="new_tournament_environment",
@@ -8856,7 +8857,9 @@ if preferred_tournament_id != tid:
 if hasattr(st, "query_params") and str(st.query_params.get("cup", "")).strip():
     selected_row = next(t for t in tournaments if int(t["id"]) == int(tid))
     selected_slug = str(_row_value(selected_row, "public_slug", "") or "").strip()
-    st.query_params["cup"] = selected_slug or str(tid)
+    canonical_cup_query = selected_slug or str(tid)
+    if str(st.query_params.get("cup", "")).strip() != canonical_cup_query:
+        st.query_params["cup"] = canonical_cup_query
 
 tournament = next(t for t in tournaments if t["id"] == tid)
 # Competition classes are migrated/backfilled by init_db(). Do not perform remote

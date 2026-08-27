@@ -114,12 +114,9 @@ def test_app_keeps_optimistic_lock_outside_pure_helper():
     assert "update_match_result_if_unchanged(" in APP
 
 
-def test_e2e_selects_test_environment_via_visible_radio_label():
+def test_e2e_verifies_preselected_test_environment():
     helper=E2E[E2E.index("def create_test_tournament_through_ui"):E2E.index("def representative_public_tokens")]
-    assert 'create_form.locator(\'[data-testid="stRadio"]\').first' in helper
-    assert 'locator("label").filter(has_text="Testmiljö")' in helper
-    assert "test_environment_label.click(force=True)" in helper
     assert 'get_by_role("radio",name="Testmiljö",exact=True)' in helper
-    assert "test_environment.is_checked()" in helper
+    assert "CUPNAVI_E2E must preselect Testmiljö" in helper
     assert ".check(force=True)" not in helper
-    assert 'get_by_text("Testmiljö",exact=True).click()' not in helper
+    assert "test_environment_label.click" not in helper

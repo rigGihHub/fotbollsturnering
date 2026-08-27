@@ -4,7 +4,7 @@ ROOT=Path(__file__).resolve().parents[1]
 APP=(ROOT/"app.py").read_text(encoding="utf-8")
 VERSION=(ROOT/"cupnavi_core/version.py").read_text(encoding="utf-8")
 MATCH=(ROOT/"cupnavi_core/public_match_cards.py").read_text(encoding="utf-8")
-RELEASE="2026.08.27-216-CROSS-BROWSER-RADIO-E2E-FIX"
+RELEASE="2026.08.27-217-E2E-CREATION-DIRECT-LINK-HARDENING"
 
 def test_release_version_is_hard_synced():
     assert RELEASE in APP
