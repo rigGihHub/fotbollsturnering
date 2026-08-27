@@ -1,7 +1,7 @@
 from pathlib import Path
 ROOT=Path(__file__).resolve().parents[1]
 APP=(ROOT/"app.py").read_text(encoding="utf-8")
-R="2026.08.27-215-INITIAL-SETUP-HARDENING-PHASE2"
+R="2026.08.27-216-CROSS-BROWSER-RADIO-E2E-FIX"
 
 def test_central_environment_history_helpers_exist():
     assert "def is_test_environment" in APP
@@ -28,6 +28,6 @@ def test_test_environment_is_exempt():
     assert "return (not is_test_environment(tournament_row)) and played_match_count(tournament_id) > 0" in APP
 
 def test_version():
-    assert "Version v.1.215" in APP
+    assert "Version v.1.216" in APP
     assert f'APP_BUILD_VERSION = "{R}"' in APP
     assert f'APP_VERSION = "{R}"' in (ROOT/"cupnavi_core/version.py").read_text(encoding="utf-8")

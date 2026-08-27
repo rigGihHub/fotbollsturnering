@@ -70,12 +70,17 @@ def create_test_tournament_through_ui(page, cup_name):
     create_form=page.locator('[data-testid="stSidebar"] [data-testid="stForm"]').first
     create_form.get_by_label("Namn",exact=True).fill(cup_name)
     create_form.get_by_label("Spelort",exact=True).fill("Örebro")
-    # Target the actual radio control rather than its text node. Streamlit may
-    # rerender/open adjacent details while the form is visible, which can
-    # intercept a normal text click in Chromium/WebKit.
+    # Streamlit renders the semantic radio <input> as a hidden React-Aria
+    # control. Playwright check() on that hidden input is not stable across
+    # Firefox/Chromium/WebKit. Interact with the visible option label inside the
+    # form's own stRadio widget, then reacquire the semantic input after rerender.
+    environment_radio=create_form.locator('[data-testid="stRadio"]').first
+    test_environment_label=environment_radio.locator("label").filter(has_text="Testmiljö")
+    test_environment_label.click(force=True)
+    page.wait_for_timeout(300)
     test_environment=create_form.get_by_role("radio",name="Testmiljö",exact=True)
-    test_environment.check(force=True)
-    assert test_environment.is_checked()
+    test_environment.wait_for(state="attached",timeout=10000)
+    assert test_environment.is_checked(), "Testmiljö radio did not become selected"
     create_form.get_by_role("button",name="Skapa",exact=True).click()
     wait_app(page)
 

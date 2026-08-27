@@ -29,5 +29,5 @@ def test_business_helpers_are_injected_not_reimplemented():
     assert "sport_profile=sport_profile" in APP
 
 def test_release_is_v202():
-    assert VERSION=="2026.08.27-215-INITIAL-SETUP-HARDENING-PHASE2"
-    assert "Version v.1.215" in APP
+    assert VERSION=="2026.08.27-216-CROSS-BROWSER-RADIO-E2E-FIX"
+    assert "Version v.1.216" in APP

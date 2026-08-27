@@ -5,7 +5,7 @@ APP=(ROOT/"app.py").read_text(encoding="utf-8")
 PWA=(ROOT/"public_pwa/styles.css").read_text(encoding="utf-8")
 STATS=(ROOT/"cupnavi_core/public_statistics_view.py").read_text(encoding="utf-8")
 MATCH=(ROOT/"cupnavi_core/public_match_cards.py").read_text(encoding="utf-8")
-R="2026.08.27-215-INITIAL-SETUP-HARDENING-PHASE2"
+R="2026.08.27-216-CROSS-BROWSER-RADIO-E2E-FIX"
 
 def test_design_system_has_functional_tokens():
     for token in (
@@ -43,6 +43,6 @@ def test_pwa_uses_same_restrained_tokens():
     assert "@media(prefers-reduced-motion:reduce)" in PWA
 
 def test_version():
-    assert "Version v.1.215" in APP
+    assert "Version v.1.216" in APP
     assert f'APP_BUILD_VERSION = "{R}"' in APP
     assert f'APP_VERSION = "{R}"' in (ROOT/"cupnavi_core/version.py").read_text(encoding="utf-8")
