@@ -120,7 +120,7 @@ from cupnavi_core.public_match_feed_logic import classify_public_match_feed, pub
 from cupnavi_core.public_match_filters_view import render_public_match_filters as render_public_match_filters_module
 from cupnavi_core.match_reporter_logic import build_bulk_result_rows, prepare_bulk_result_update, result_snapshot, select_playable_matches
 
-APP_BUILD_VERSION = "2026.08.27-230-ADMIN-RELIABILITY-PHASE2"
+APP_BUILD_VERSION = "2026.08.27-231-ADMIN-PHASE3-E2E-PLAYOFF"
 APP_VERSION = APP_BUILD_VERSION
 
 def read_core_version_from_disk():
@@ -9000,6 +9000,221 @@ def _undo_audit_entry_if_current(audit_id, tournament_id):
     }
 
 
+def _offer_snapshot(row):
+    return {
+        "title": _row_value(row,"title","") or "",
+        "business_name": _row_value(row,"business_name",None),
+        "description": _row_value(row,"description",None),
+        "discount_code": _row_value(row,"discount_code",None),
+        "valid_until": _row_value(row,"valid_until",None),
+        "url": _row_value(row,"url",None),
+        "active": int(_row_value(row,"active",0) or 0),
+        "sort_order": int(_row_value(row,"sort_order",0) or 0),
+    }
+
+
+def _admin_update_offer_if_unchanged(offer_id,tournament_id,expected,*,title,business_name,description,discount_code,valid_until,url,active,sort_order):
+    with db() as con:
+        cursor=con.execute(
+            """UPDATE offers SET title=?,business_name=?,description=?,discount_code=?,
+                   valid_until=?,url=?,active=?,sort_order=?
+               WHERE id=? AND tournament_id=?
+                 AND COALESCE(title,'')=?
+                 AND business_name IS ? AND description IS ? AND discount_code IS ?
+                 AND valid_until IS ? AND url IS ?
+                 AND COALESCE(active,0)=? AND COALESCE(sort_order,0)=?""",
+            (
+                title,business_name,description,discount_code,valid_until,url,int(bool(active)),int(sort_order),
+                int(offer_id),int(tournament_id),
+                expected.get("title",""),expected.get("business_name"),expected.get("description"),
+                expected.get("discount_code"),expected.get("valid_until"),expected.get("url"),
+                int(expected.get("active",0) or 0),int(expected.get("sort_order",0) or 0),
+            ),
+        )
+        rowcount=getattr(cursor,"rowcount",None)
+        con.commit()
+        saved=(rowcount == 1) if rowcount is not None and rowcount >= 0 else False
+    if saved:
+        _clear_render_query_cache()
+        return True,None
+    return False,"conflict"
+
+
+def _admin_delete_offer_if_unchanged(offer_id,tournament_id,expected):
+    with db() as con:
+        cursor=con.execute(
+            """DELETE FROM offers
+               WHERE id=? AND tournament_id=?
+                 AND COALESCE(title,'')=?
+                 AND business_name IS ? AND description IS ? AND discount_code IS ?
+                 AND valid_until IS ? AND url IS ?
+                 AND COALESCE(active,0)=? AND COALESCE(sort_order,0)=?""",
+            (
+                int(offer_id),int(tournament_id),expected.get("title",""),
+                expected.get("business_name"),expected.get("description"),expected.get("discount_code"),
+                expected.get("valid_until"),expected.get("url"),
+                int(expected.get("active",0) or 0),int(expected.get("sort_order",0) or 0),
+            ),
+        )
+        rowcount=getattr(cursor,"rowcount",None)
+        con.commit()
+        deleted=(rowcount == 1) if rowcount is not None and rowcount >= 0 else False
+    if deleted:
+        _clear_render_query_cache()
+        return True,None
+    return False,"conflict"
+
+
+def _functionary_shift_snapshot(row):
+    return {
+        "functionary_id": int(_row_value(row,"functionary_id",0) or 0),
+        "shift_start": _row_value(row,"shift_start","") or "",
+        "shift_end": _row_value(row,"shift_end","") or "",
+        "assignment": _row_value(row,"assignment",None),
+        "location": _row_value(row,"location",None),
+    }
+
+
+def _admin_delete_functionary_shift_if_unchanged(shift_id,tournament_id,expected):
+    with db() as con:
+        cursor=con.execute(
+            """DELETE FROM functionary_shifts
+               WHERE id=? AND tournament_id=? AND functionary_id=?
+                 AND shift_start=? AND shift_end=?
+                 AND assignment IS ? AND location IS ?""",
+            (
+                int(shift_id),int(tournament_id),int(expected.get("functionary_id",0)),
+                expected.get("shift_start",""),expected.get("shift_end",""),
+                expected.get("assignment"),expected.get("location"),
+            ),
+        )
+        rowcount=getattr(cursor,"rowcount",None)
+        con.commit()
+        deleted=(rowcount == 1) if rowcount is not None and rowcount >= 0 else False
+    if deleted:
+        _clear_render_query_cache()
+        return True,None
+    return False,"conflict"
+
+
+def _credential_snapshot(row):
+    if row is None:
+        return None
+    return {
+        "id": int(_row_value(row,"id",0) or 0),
+        "admin_code": _row_value(row,"admin_code",None),
+        "created_at": _row_value(row,"created_at",None),
+        "rotated_at": _row_value(row,"rotated_at",None),
+    }
+
+
+def _rotate_participant_code_if_unchanged(tournament_id,team_id,expected):
+    """Rotate portal code only if credential state still matches rendered state."""
+    plain_code=generate_access_code()
+    salt,code_hash=new_code_hash(plain_code)
+    now_iso=datetime.now().isoformat(timespec="microseconds")
+    with db() as con:
+        if expected is None:
+            cursor=con.execute(
+                """INSERT OR IGNORE INTO participant_access_credentials(
+                       tournament_id,team_id,code_salt,code_hash,created_at,rotated_at,admin_code)
+                   VALUES(?,?,?,?,?,NULL,?)""",
+                (int(tournament_id),int(team_id),salt,code_hash,now_iso,plain_code),
+            )
+            rowcount=getattr(cursor,"rowcount",None)
+            if rowcount is not None and rowcount >= 0:
+                changed=rowcount == 1
+            else:
+                verify=con.execute(
+                    """SELECT created_at,admin_code FROM participant_access_credentials
+                       WHERE tournament_id=? AND team_id=?""",
+                    (int(tournament_id),int(team_id)),
+                ).fetchone()
+                changed=bool(verify) and _row_value(verify,"created_at",None)==now_iso and _row_value(verify,"admin_code",None)==plain_code
+        else:
+            cursor=con.execute(
+                """UPDATE participant_access_credentials
+                   SET code_salt=?,code_hash=?,rotated_at=?,admin_code=?
+                   WHERE id=? AND tournament_id=? AND team_id=?
+                     AND admin_code IS ? AND created_at IS ? AND rotated_at IS ?""",
+                (
+                    salt,code_hash,now_iso,plain_code,
+                    int(expected.get("id",0)),int(tournament_id),int(team_id),
+                    expected.get("admin_code"),expected.get("created_at"),expected.get("rotated_at"),
+                ),
+            )
+            rowcount=getattr(cursor,"rowcount",None)
+            if rowcount is not None and rowcount >= 0:
+                changed=rowcount == 1
+            else:
+                verify=con.execute(
+                    """SELECT rotated_at,admin_code FROM participant_access_credentials
+                       WHERE id=? AND tournament_id=? AND team_id=?""",
+                    (int(expected.get("id",0)),int(tournament_id),int(team_id)),
+                ).fetchone()
+                changed=bool(verify) and _row_value(verify,"rotated_at",None)==now_iso and _row_value(verify,"admin_code",None)==plain_code
+        if changed:
+            con.commit()
+        else:
+            con.rollback()
+    if changed:
+        _clear_render_query_cache()
+        return True,None,plain_code
+    return False,"conflict",None
+
+
+def _trash_tournament_if_current(tournament_id,expected_lifecycle,expected_is_published):
+    with db() as con:
+        cursor=con.execute(
+            """UPDATE tournaments SET lifecycle_status='trashed',trashed_at=?,is_published=0
+               WHERE id=? AND COALESCE(lifecycle_status,'draft')=?
+                 AND COALESCE(is_published,0)=?""",
+            (
+                datetime.now().isoformat(timespec="seconds"),int(tournament_id),
+                str(expected_lifecycle or "draft"),int(bool(expected_is_published)),
+            ),
+        )
+        rowcount=getattr(cursor,"rowcount",None)
+        con.commit()
+        changed=(rowcount == 1) if rowcount is not None and rowcount >= 0 else False
+    if changed:
+        _clear_render_query_cache()
+        return True,None
+    return False,"conflict"
+
+
+def _restore_trashed_tournament_if_current(tournament_id,expected_trashed_at):
+    with db() as con:
+        cursor=con.execute(
+            """UPDATE tournaments SET lifecycle_status='draft',trashed_at=NULL,is_published=0
+               WHERE id=? AND lifecycle_status='trashed' AND trashed_at IS ?""",
+            (int(tournament_id),expected_trashed_at),
+        )
+        rowcount=getattr(cursor,"rowcount",None)
+        con.commit()
+        changed=(rowcount == 1) if rowcount is not None and rowcount >= 0 else False
+    if changed:
+        _clear_render_query_cache()
+        return True,None
+    return False,"conflict"
+
+
+def _delete_trashed_tournament_if_current(tournament_id,expected_name,expected_trashed_at):
+    with db() as con:
+        cursor=con.execute(
+            """DELETE FROM tournaments
+               WHERE id=? AND name=? AND lifecycle_status='trashed' AND trashed_at IS ?""",
+            (int(tournament_id),expected_name,expected_trashed_at),
+        )
+        rowcount=getattr(cursor,"rowcount",None)
+        con.commit()
+        deleted=(rowcount == 1) if rowcount is not None and rowcount >= 0 else False
+    if deleted:
+        _clear_render_query_cache()
+        return True,None
+    return False,"conflict"
+
+
 def render_team_portal(tournament_id, tournament):
     """Begränsad portal för ett enda lag/deltagare i en enda cup."""
     role_label = _participant_role_label(tournament)
@@ -9499,7 +9714,7 @@ if _direct_public_cup and st.session_state.get("view_mode") is None:
     st.session_state["view_mode"] = "Turneringsvy"
 elif st.session_state.get("view_mode") not in mode_options:
     st.session_state["view_mode"] = mode_options[0]
-st.sidebar.caption("Version v.1.230")
+st.sidebar.caption("Version v.1.231")
 
 def _set_view_mode(mode):
     st.session_state["view_mode"] = mode
@@ -12698,11 +12913,13 @@ int(edited_halves) != int(overview_rules["halves"]),
             key=f"trash_tournament_button_{tid}",
             use_container_width=True,
         ):
-            run(
-                "UPDATE tournaments SET lifecycle_status='trashed',trashed_at=?,is_published=0 WHERE id=?",
-                (datetime.now().isoformat(timespec="seconds"), tid),
+            changed, trash_reason = _trash_tournament_if_current(
+                tid,
+                tournament_lifecycle,
+                bool(tournament["is_published"]),
             )
-            _clear_render_query_cache()
+            if not changed:
+                st.warning("Cupens status ändrades av en annan administratör och flytten genomfördes inte.")
             st.rerun()
 
     trashed_tournaments = all_rows(
@@ -12726,11 +12943,12 @@ int(edited_halves) != int(overview_rules["halves"]),
             st.caption(f"Flyttad till papperskorgen: {trashed_at.replace('T',' ')}")
             restore_col, permanent_col = st.columns(2)
             if restore_col.button("↩️ Återställ cup", use_container_width=True, key=f"restore_trashed_{bin_id}"):
-                run(
-                    "UPDATE tournaments SET lifecycle_status='draft',trashed_at=NULL,is_published=0 WHERE id=?",
-                    (bin_id,),
+                changed, restore_reason = _restore_trashed_tournament_if_current(
+                    bin_id,
+                    trash_row_by_id[bin_id]["trashed_at"],
                 )
-                _clear_render_query_cache()
+                if not changed:
+                    st.warning("Cupen ändrades av en annan administratör och kunde inte återställas från den här äldre vyn.")
                 st.rerun()
             permanent_col.error("Permanent radering går inte att ångra.")
             typed_name = permanent_col.text_input(
@@ -12744,12 +12962,16 @@ int(edited_halves) != int(overview_rules["halves"]),
                 use_container_width=True,
                 key=f"permanent_delete_{bin_id}",
             ):
-                with db() as con:
-                    con.execute("DELETE FROM tournaments WHERE id=?", (bin_id,))
-                    con.commit()
-                st.session_state.pop(f"admin_page_{bin_id}", None)
-                st.session_state.pop(f"_schedule_validation_{bin_id}", None)
-                _clear_render_query_cache()
+                deleted, delete_reason = _delete_trashed_tournament_if_current(
+                    bin_id,
+                    bin_name,
+                    trash_row_by_id[bin_id]["trashed_at"],
+                )
+                if deleted:
+                    st.session_state.pop(f"admin_page_{bin_id}", None)
+                    st.session_state.pop(f"_schedule_validation_{bin_id}", None)
+                else:
+                    st.warning("Cupen ändrades eller återställdes av en annan administratör och raderades därför inte.")
                 st.rerun()
 
 
@@ -13998,19 +14220,28 @@ if admin_page == "Lag":
             format_func=lambda selected_id: next(row["name"] for row in teams if row["id"] == selected_id),
             key=f"portal_access_team_{tid}",
         )
-        credential = one_row("SELECT id,admin_code FROM participant_access_credentials WHERE tournament_id=? AND team_id=?", (tid, access_team_id))
+        credential = one_row(
+            "SELECT id,admin_code,created_at,rotated_at FROM participant_access_credentials WHERE tournament_id=? AND team_id=?",
+            (tid, access_team_id),
+        )
+        portal_code_notice_key=f"portal_code_notice_{tid}_{access_team_id}"
+        if portal_code_notice_key in st.session_state:
+            notice_type, notice_text = st.session_state.pop(portal_code_notice_key)
+            getattr(st, notice_type)(notice_text)
         if st.button("Skapa ny kod" if not credential else "Återställ och skapa ny kod", key=f"generate_portal_code_{tid}_{access_team_id}", type="primary"):
-            plain_code = generate_access_code()
-            salt, code_hash = new_code_hash(plain_code)
-            now_iso = datetime.now().isoformat(timespec="seconds")
-            run(
-                """INSERT INTO participant_access_credentials(tournament_id,team_id,code_salt,code_hash,created_at,rotated_at,admin_code)
-                   VALUES(?,?,?,?,?,NULL,?)
-                   ON CONFLICT(tournament_id,team_id) DO UPDATE SET code_salt=excluded.code_salt,code_hash=excluded.code_hash,rotated_at=excluded.created_at,admin_code=excluded.admin_code""",
-                (tid, access_team_id, salt, code_hash, now_iso, plain_code),
+            changed, rotate_reason, plain_code = _rotate_participant_code_if_unchanged(
+                tid,
+                access_team_id,
+                _credential_snapshot(credential),
             )
-            record_audit(tid, "participant_code_rotated", "team", "Ny portal-kod skapad", entity_id=access_team_id, actor="Admin")
-            st.success(f"Ny lagkod: **{plain_code}**")
+            if changed:
+                record_audit(tid, "participant_code_rotated", "team", "Ny portal-kod skapad", entity_id=access_team_id, actor="Admin")
+                st.session_state[portal_code_notice_key]=("success",f"Ny lagkod: **{plain_code}**")
+            else:
+                st.session_state[portal_code_notice_key]=(
+                    "warning",
+                    "Lagkoden ändrades av en annan administratör. Ingen äldre kodrotation skrevs över.",
+                )
             st.rerun()
 
         st.divider()
@@ -14523,10 +14754,16 @@ if admin_page == "Domare":
         phone = c2.text_input("Telefon")
         email = c3.text_input("E-post")
         if st.form_submit_button("Lägg till domare", type="primary"):
-            if rname.strip():
-                run("INSERT INTO referees(tournament_id,name,phone,email) VALUES(?,?,?,?)", (tid, rname.strip(), phone.strip(), email.strip()))
+            if not rname.strip():
+                st.error("Ange domarens namn.")
+            elif email.strip() and ("@" not in email or "." not in email.rsplit("@",1)[-1]):
+                st.error("Ange en giltig e-postadress eller lämna fältet tomt.")
+            else:
+                run(
+                    "INSERT INTO referees(tournament_id,name,phone,email) VALUES(?,?,?,?)",
+                    (tid, rname.strip(), phone.strip(), email.strip()),
+                )
                 st.rerun()
-            st.error("Ange domarens namn.")
     refs = all_rows("SELECT * FROM referees WHERE tournament_id=? ORDER BY name", (tid,))
     render_centered_table(pd.DataFrame([{"Namn": r["name"], "Telefon": r["phone"], "E-post": r["email"]} for r in refs]))
 
@@ -15999,7 +16236,18 @@ if admin_page == "Funktionärer":
             } for r in shift_rows]))
             shift_delete = st.selectbox("Ta bort arbetspass", [0] + [r["id"] for r in shift_rows], format_func=lambda x: "Välj arbetspass" if x == 0 else next(f"{r['name']} · {r['shift_start'].replace('T',' ')}" for r in shift_rows if r['id']==x), key=f"delete_shift_select_{tid}")
             if st.button("Ta bort valt arbetspass", disabled=not shift_delete, key=f"delete_shift_{tid}"):
-                run("DELETE FROM functionary_shifts WHERE id=? AND tournament_id=?", (shift_delete, tid))
+                selected_shift = next((r for r in shift_rows if int(r["id"]) == int(shift_delete)), None)
+                deleted, delete_reason = (
+                    _admin_delete_functionary_shift_if_unchanged(
+                        shift_delete,
+                        tid,
+                        _functionary_shift_snapshot(selected_shift),
+                    )
+                    if selected_shift is not None
+                    else (False, "conflict")
+                )
+                if not deleted:
+                    st.warning("Arbetspasset ändrades av en annan administratör och raderades därför inte.")
                 st.rerun()
 
 
@@ -16095,17 +16343,23 @@ if admin_page == "Erbjudanden":
                         elif edit_url.strip() and not re.match(r"^https?://", edit_url.strip(), re.I):
                             st.error("Länken måste börja med http:// eller https://.")
                         else:
-                            run(
-                                """UPDATE offers SET title=?,business_name=?,description=?,discount_code=?,
-                                   valid_until=?,url=?,active=?,sort_order=? WHERE id=? AND tournament_id=?""",
-                                (
-                                    edit_title.strip(), edit_business.strip() or None,
-                                    edit_description.strip() or None, edit_code.strip() or None,
-                                    edit_valid.strip() or None, edit_url.strip() or None,
-                                    1 if edit_active else 0, int(edit_order), offer["id"], tid,
-                                ),
+                            saved, save_reason = _admin_update_offer_if_unchanged(
+                                offer["id"],
+                                tid,
+                                _offer_snapshot(offer),
+                                title=edit_title.strip(),
+                                business_name=edit_business.strip() or None,
+                                description=edit_description.strip() or None,
+                                discount_code=edit_code.strip() or None,
+                                valid_until=edit_valid.strip() or None,
+                                url=edit_url.strip() or None,
+                                active=edit_active,
+                                sort_order=int(edit_order),
                             )
-                            st.success("✓ Ändringarna är sparade.")
+                            if saved:
+                                st.success("✓ Ändringarna är sparade.")
+                            else:
+                                st.warning("Erbjudandet ändrades av en annan administratör och dina äldre uppgifter skrevs inte över.")
                             st.rerun()
 
                 if st.button("Ta bort erbjudande", key=f"delete_offer_{offer['id']}", type="secondary"):
@@ -16115,8 +16369,14 @@ if admin_page == "Erbjudanden":
                     st.warning(f"Ta bort erbjudandet “{offer['title']}”?")
                     dc1, dc2 = st.columns(2)
                     if dc1.button("Ja, ta bort", key=f"confirm_offer_delete_{offer['id']}", type="primary"):
-                        run("DELETE FROM offers WHERE id=? AND tournament_id=?", (offer["id"], tid))
+                        deleted, delete_reason = _admin_delete_offer_if_unchanged(
+                            offer["id"],
+                            tid,
+                            _offer_snapshot(offer),
+                        )
                         st.session_state.pop(f"confirm_delete_offer_{offer['id']}", None)
+                        if not deleted:
+                            st.warning("Erbjudandet ändrades av en annan administratör och raderades därför inte.")
                         st.rerun()
                     if dc2.button("Avbryt", key=f"cancel_offer_delete_{offer['id']}"):
                         st.session_state.pop(f"confirm_delete_offer_{offer['id']}", None)

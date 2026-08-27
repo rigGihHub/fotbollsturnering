@@ -1,7 +1,7 @@
 from pathlib import Path
 ROOT=Path(__file__).resolve().parents[1]
 APP=(ROOT/"app.py").read_text(encoding="utf-8")
-R="2026.08.27-230-ADMIN-RELIABILITY-PHASE2"
+R="2026.08.27-231-ADMIN-PHASE3-E2E-PLAYOFF"
 
 def test_public_status_is_integrated_into_hero():
     assert "cn-hero-status" in APP

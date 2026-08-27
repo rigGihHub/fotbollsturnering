@@ -349,7 +349,11 @@ def seed_completed_cup_fixture(tournament_id):
 
         con.execute(
             """UPDATE tournaments
-               SET is_published=1,lifecycle_status='completed',completed_at=?
+               SET is_published=1,
+                   lifecycle_status='completed',
+                   completed_at=?,
+                   playoff_format='A- och B-slutspel',
+                   playoff_model_confirmed=1
                WHERE id=?""",
             (datetime.now().isoformat(timespec="seconds"),tournament_id),
         )
