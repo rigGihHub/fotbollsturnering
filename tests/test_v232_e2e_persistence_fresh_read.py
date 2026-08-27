@@ -61,7 +61,10 @@ def test_public_wait_reloads_transient_empty_public_render():
     assert 'if value == cup_name:' in block
 
 
-def test_e2e_mode_clears_render_local_cache_before_tournament_resolution():
-    guard='if os.environ.get("CUPNAVI_E2E") == "1":\n    _clear_render_query_cache()'
-    assert guard in APP
-    assert APP.index(guard) < APP.index('view_mode = st.session_state["view_mode"]')
+def test_e2e_mode_forces_fresh_selects_instead_of_reusing_render_cache():
+    start=APP.index('def _cacheable_query')
+    end=APP.index('def _query_cache_key',start)
+    block=APP[start:end]
+    assert 'if os.environ.get("CUPNAVI_E2E") == "1":' in block
+    assert 'return False' in block
+    assert 'startswith(("SELECT", "PRAGMA"))' in block

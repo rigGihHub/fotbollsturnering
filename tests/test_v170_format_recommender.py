@@ -1,7 +1,7 @@
 from pathlib import Path
 ROOT=Path(__file__).resolve().parents[1]
 APP=(ROOT/"app.py").read_text(encoding="utf-8")
-R="2026.08.27-233-E2E-SUBMIT-HARDENING"
+R="2026.08.27-234-E2E-FRESH-DB-STATE"
 
 def test_recommender_is_explainable_and_capacity_aware():
     assert "def recommend_tournament_format" in APP

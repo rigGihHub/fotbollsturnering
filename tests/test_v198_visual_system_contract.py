@@ -38,5 +38,5 @@ def test_core_components_are_normalized():
         assert token in APP
 
 def test_release_is_v198():
-    assert VERSION == "2026.08.27-233-E2E-SUBMIT-HARDENING"
-    assert "Version v.1.233" in APP
+    assert VERSION == "2026.08.27-234-E2E-FRESH-DB-STATE"
+    assert "Version v.1.234" in APP
