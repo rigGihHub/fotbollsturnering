@@ -74,6 +74,8 @@ from cupnavi_core.observability import safe_error_record, persist_error
 from cupnavi_core.schedule_quality import assess_schedule
 from cupnavi_core.public_competition import calculate_group_table
 from cupnavi_core.rules import validate_match_event_totals
+from cupnavi_core.match_event_logic import prepare_changed_event_rows
+from cupnavi_core.initial_setup_logic import available_pitch_minutes, estimated_capacity_slots, estimated_match_length_minutes, normalized_priority_order, priority_order_changed
 from cupnavi_core.home_away import orientation_balance_score
 from cupnavi_core.pdf_export import build_schedule_pdf
 from cupnavi_core.migrations import apply_migrations, LATEST_SCHEMA_VERSION, ensure_competition_class_schema_compat, ensure_v16_setup_schema_compat, ensure_v18_pitch_names_schema_compat, ensure_v19_schema_compat, ensure_v20_schema_compat, ensure_v21_schema_compat
@@ -116,8 +118,9 @@ from cupnavi_core.public_match_cards import render_public_match_cards as render_
 from cupnavi_core.public_match_filter_logic import filter_matches, sort_public_matches
 from cupnavi_core.public_match_feed_logic import classify_public_match_feed, public_match_feed_summary
 from cupnavi_core.public_match_filters_view import render_public_match_filters as render_public_match_filters_module
+from cupnavi_core.match_reporter_logic import build_bulk_result_rows, prepare_bulk_result_update, result_snapshot, select_playable_matches
 
-APP_BUILD_VERSION = "2026.08.27-208-PUBLIC-MATCH-PERFORMANCE-REVIEW"
+APP_BUILD_VERSION = "2026.08.27-215-INITIAL-SETUP-HARDENING-PHASE2"
 APP_VERSION = APP_BUILD_VERSION
 
 def read_core_version_from_disk():
@@ -3562,6 +3565,72 @@ def update_match_result_if_unchanged(
         verify["away_penalties"], verify["decided_winner_id"], verify["referee_id"],
     ]
     return values == [home_score, away_score, home_penalties, away_penalties, decided_winner_id, referee_id]
+
+
+def update_player_match_stats_if_unchanged(
+    con,
+    match_id,
+    player_id,
+    expected,
+    *,
+    goals,
+    assists,
+    yellow_cards,
+    red_cards,
+):
+    """Optimistic lock for one player's match-event counters.
+
+    INSERT handles a first-time stat row. On conflict, UPDATE is allowed only
+    when the stored counters still equal the snapshot originally loaded by the
+    editor. A stale browser session therefore cannot silently overwrite newer
+    goals/assists/cards.
+    """
+    sql = """
+        INSERT INTO player_match_stats(
+            match_id,player_id,goals,assists,yellow_cards,red_cards
+        ) VALUES(?,?,?,?,?,?)
+        ON CONFLICT(match_id,player_id) DO UPDATE SET
+            goals=excluded.goals,
+            assists=excluded.assists,
+            yellow_cards=excluded.yellow_cards,
+            red_cards=excluded.red_cards
+        WHERE player_match_stats.goals IS ?
+          AND player_match_stats.assists IS ?
+          AND player_match_stats.yellow_cards IS ?
+          AND player_match_stats.red_cards IS ?
+    """
+    params = (
+        int(match_id),
+        int(player_id),
+        int(goals),
+        int(assists),
+        int(yellow_cards),
+        int(red_cards),
+        int(expected.get("goals", 0) or 0),
+        int(expected.get("assists", 0) or 0),
+        int(expected.get("yellow_cards", 0) or 0),
+        int(expected.get("red_cards", 0) or 0),
+    )
+    cursor = con.execute(sql, params)
+    rowcount = getattr(cursor, "rowcount", None)
+    if rowcount is not None and rowcount >= 0:
+        return rowcount == 1
+
+    verify = con.execute(
+        """SELECT goals,assists,yellow_cards,red_cards
+           FROM player_match_stats WHERE match_id=? AND player_id=?""",
+        (int(match_id), int(player_id)),
+    ).fetchone()
+    if verify is None:
+        return False
+    if isinstance(verify, sqlite3.Row):
+        values = [
+            verify["goals"], verify["assists"],
+            verify["yellow_cards"], verify["red_cards"],
+        ]
+    else:
+        values = list(verify)
+    return values == [int(goals), int(assists), int(yellow_cards), int(red_cards)]
 
 
 def _rows_from_cursor(cursor):
@@ -7568,10 +7637,10 @@ def render_match_reporter_view(tournament_id, tournament):
                ORDER BY scheduled_start,pitch_number,id""",
             (tournament_id,),
         )
-        playable_matches = [
-            match_row for match_row in matches
-            if resolve_source(match_row["home_source"]) and resolve_source(match_row["away_source"])
-        ]
+        playable_matches = select_playable_matches(
+            matches,
+            resolve_source=resolve_source,
+        )
 
         if "reporter_result_message" in st.session_state:
             st.success(st.session_state.pop("reporter_result_message"), icon="✅")
@@ -7618,14 +7687,7 @@ def render_match_reporter_view(tournament_id, tournament):
                 "✅ Spara slutresultat", key=f"qs_save_{quick_match_id}", type="primary", use_container_width=True,
                 disabled=playoff_tie_needs_detail,
             ):
-                before = {
-                    "home_score": quick_match["home_score"],
-                    "away_score": quick_match["away_score"],
-                    "home_penalties": quick_match["home_penalties"],
-                    "away_penalties": quick_match["away_penalties"],
-                    "decided_winner_id": quick_match["decided_winner_id"],
-                    "referee_id": quick_match["referee_id"],
-                }
+                before = result_snapshot(quick_match)
                 with db() as con:
                     _quick_saved = update_match_result_if_unchanged(
                         con,
@@ -7670,24 +7732,12 @@ def render_match_reporter_view(tournament_id, tournament):
             team_id_by_name = {row["name"]: row["id"] for row in team_rows}
             decision_options = ["–"] + [row["name"] for row in team_rows]
 
-            result_rows = []
-            for match_row in playable_matches:
-                result_rows.append({
-                    "match_id": match_row["id"],
-                    "Match": swedish_datetime(match_row["scheduled_start"]),
-                    "Plan": match_row["pitch_number"],
-                    "Fas": match_row["stage"],
-                    "Hemmalag": source_label(match_row["home_source"]),
-                    "Hemmamål": match_row["home_score"],
-                    "Bortamål": match_row["away_score"],
-                    "Bortalag": source_label(match_row["away_source"]),
-                    "Hemmastraffar": match_row["home_penalties"] if match_row["stage"] != "Gruppspel" else None,
-                    "Bortastraffar": match_row["away_penalties"] if match_row["stage"] != "Gruppspel" else None,
-                    "Avgörande vinnare": (
-                        team_name_by_id.get(match_row["decided_winner_id"], "–")
-                        if match_row["stage"] != "Gruppspel" else "–"
-                    ),
-                })
+            result_rows = build_bulk_result_rows(
+                playable_matches,
+                source_label=source_label,
+                swedish_datetime=swedish_datetime,
+                team_name_by_id=team_name_by_id,
+            )
 
             edited_results = st.data_editor(
                 pd.DataFrame(result_rows),
@@ -7721,85 +7771,17 @@ def render_match_reporter_view(tournament_id, tournament):
             for _, row in edited_results.iterrows():
                 match_id = int(row["match_id"])
                 original = original_by_id[match_id]
-                home_score = None if pd.isna(row["Hemmamål"]) else int(row["Hemmamål"])
-                away_score = None if pd.isna(row["Bortamål"]) else int(row["Bortamål"])
-                home_penalties = None if pd.isna(row["Hemmastraffar"]) else int(row["Hemmastraffar"])
-                away_penalties = None if pd.isna(row["Bortastraffar"]) else int(row["Bortastraffar"])
-                selected_decided = team_id_by_name.get(row["Avgörande vinnare"])
-
-                changed = any([
-                    home_score != original["home_score"],
-                    away_score != original["away_score"],
-                    home_penalties != original["home_penalties"],
-                    away_penalties != original["away_penalties"],
-                    (
-                        row["Fas"] != "Gruppspel"
-                        and row["Avgörande vinnare"] != "–"
-                        and selected_decided != original["decided_winner_id"]
-                    ),
-                ])
-                if not changed:
-                    continue
-
-                if (home_score is None) != (away_score is None):
-                    info_messages.append(
-                        f"{row['Hemmalag']}–{row['Bortalag']}: fyll i båda målresultaten."
-                    )
-                    continue
-
-                decided_winner_id = None
-                if row["Fas"] == "Gruppspel":
-                    home_penalties = None
-                    away_penalties = None
-                elif home_score is not None and home_score == away_score:
-                    home_team_id = team_id_by_name.get(row["Hemmalag"])
-                    away_team_id = team_id_by_name.get(row["Bortalag"])
-
-                    if tournament["playoff_tie_rule"] == "Lottning":
-                        home_penalties = None
-                        away_penalties = None
-                        if selected_decided in (home_team_id, away_team_id):
-                            decided_winner_id = selected_decided
-                        else:
-                            info_messages.append(
-                                f"{row['Hemmalag']}–{row['Bortalag']}: välj vinnare av lottningen."
-                            )
-                    else:
-                        if home_penalties is not None or away_penalties is not None:
-                            if (
-                                home_penalties is None
-                                or away_penalties is None
-                                or home_penalties == away_penalties
-                            ):
-                                error_messages.append(
-                                    f"{row['Hemmalag']}–{row['Bortalag']}: ange ett komplett avgörande straffresultat."
-                                )
-                                continue
-                        else:
-                            info_messages.append(
-                                f"{row['Hemmalag']}–{row['Bortalag']}: ange straffresultat för att avgöra matchen."
-                            )
-                else:
-                    home_penalties = None
-                    away_penalties = None
-
-                updates.append({
-                    "match_id": match_id,
-                    "home_score": home_score,
-                    "away_score": away_score,
-                    "home_penalties": home_penalties,
-                    "away_penalties": away_penalties,
-                    "decided_winner_id": decided_winner_id,
-                    "referee_id": original["referee_id"],
-                    "expected": {
-                        "home_score": original["home_score"],
-                        "away_score": original["away_score"],
-                        "home_penalties": original["home_penalties"],
-                        "away_penalties": original["away_penalties"],
-                        "decided_winner_id": original["decided_winner_id"],
-                        "referee_id": original["referee_id"],
-                    },
-                })
+                prepared = prepare_bulk_result_update(
+                    row,
+                    original,
+                    team_id_by_name=team_id_by_name,
+                    playoff_tie_rule=tournament["playoff_tie_rule"],
+                    is_na=pd.isna,
+                )
+                info_messages.extend(prepared["info"])
+                error_messages.extend(prepared["errors"])
+                if prepared["update"] is not None:
+                    updates.append(prepared["update"])
 
             for message in error_messages:
                 st.error(message)
@@ -7860,10 +7842,10 @@ def render_match_reporter_view(tournament_id, tournament):
                ORDER BY scheduled_start DESC,id DESC""",
             (tournament_id,),
         )
-        playable_matches = [
-            match_row for match_row in played_matches
-            if resolve_source(match_row["home_source"]) and resolve_source(match_row["away_source"])
-        ]
+        playable_matches = select_playable_matches(
+            played_matches,
+            resolve_source=resolve_source,
+        )
 
         if not playable_matches:
             st.info("Rapportera först ett matchresultat. Därefter kan matchhändelser registreras.")
@@ -7960,45 +7942,45 @@ def render_match_reporter_view(tournament_id, tournament):
                 autosave_key = f"reporter_event_saved_{match_id}_{selected_team_id}"
                 if autosave_key in st.session_state:
                     st.success(st.session_state.pop(autosave_key), icon="✅")
+                reporter_event_conflict_key = f"reporter_event_conflict_{match_id}_{selected_team_id}"
+                if reporter_event_conflict_key in st.session_state:
+                    st.warning(st.session_state.pop(reporter_event_conflict_key), icon="⚠️")
 
                 if not validation["errors"]:
-                    changed_rows = []
-                    for _, edited_row in edited.iterrows():
-                        player_id = int(edited_row["player_id"])
-                        new_values = (
-                            int(edited_row["Mål"] or 0),
-                            int(edited_row["Assist"] or 0),
-                            int(edited_row["Varningar"] or 0),
-                            int(edited_row["Utvisningar"] or 0),
-                        )
-                        previous = existing.get(player_id)
-                        old_values = (
-                            int(previous["goals"] or 0),
-                            int(previous["assists"] or 0),
-                            int(previous["yellow_cards"] or 0),
-                            int(previous["red_cards"] or 0),
-                        ) if previous else (0, 0, 0, 0)
-
-                        if new_values != old_values:
-                            changed_rows.append((player_id, *new_values))
+                    changed_rows = prepare_changed_event_rows(
+                        (edited_row for _, edited_row in edited.iterrows()),
+                        existing,
+                        match_id=match_id,
+                        is_na=pd.isna,
+                    )
 
                     if changed_rows:
+                        saved_rows = []
+                        conflicted_rows = []
                         with db() as con:
-                            for player_id, goals, assists, yellows, reds in changed_rows:
-                                con.execute(
-                                    """INSERT INTO player_match_stats(
-                                           match_id,player_id,goals,assists,yellow_cards,red_cards
-                                       ) VALUES(?,?,?,?,?,?)
-                                       ON CONFLICT(match_id,player_id) DO UPDATE SET
-                                           goals=excluded.goals,
-                                           assists=excluded.assists,
-                                           yellow_cards=excluded.yellow_cards,
-                                           red_cards=excluded.red_cards""",
-                                    (match_id, player_id, goals, assists, yellows, reds),
+                            for event_update in changed_rows:
+                                saved = update_player_match_stats_if_unchanged(
+                                    con,
+                                    event_update["match_id"],
+                                    event_update["player_id"],
+                                    event_update["expected"],
+                                    goals=event_update["goals"],
+                                    assists=event_update["assists"],
+                                    yellow_cards=event_update["yellow_cards"],
+                                    red_cards=event_update["red_cards"],
                                 )
+                                (saved_rows if saved else conflicted_rows).append(event_update)
                             con.commit()
                         _clear_render_query_cache()
-                        st.session_state[autosave_key] = "Sparat automatiskt"
+                        if conflicted_rows:
+                            st.session_state[
+                                f"reporter_event_conflict_{match_id}_{selected_team_id}"
+                            ] = (
+                                f"{len(conflicted_rows)} spelarrad(er) hade ändrats av en annan "
+                                "rapportör och skrevs inte över. Senaste värden laddas om."
+                            )
+                        if saved_rows:
+                            st.session_state[autosave_key] = "Sparat automatiskt"
                         st.rerun()
 
                 st.caption(
@@ -8454,7 +8436,7 @@ if _direct_public_cup and st.session_state.get("view_mode") is None:
     st.session_state["view_mode"] = "Turneringsvy"
 elif st.session_state.get("view_mode") not in mode_options:
     st.session_state["view_mode"] = mode_options[0]
-st.sidebar.caption("Version v.1.208")
+st.sidebar.caption("Version v.1.215")
 
 def _set_view_mode(mode):
     st.session_state["view_mode"] = mode
@@ -9457,22 +9439,11 @@ def render_initial_tournament_setup(tournament_id, tournament):
                 st.session_state[f"autosave_notice_{tournament_id}"]="✓ Plantider sparade automatiskt"
 
     _capacity_windows=pitch_day_windows(tournament_id,current_pitch_count)
-    _capacity_minutes=0
-    for _cw in _capacity_windows:
-        if bool(_row_value(_cw,"confirmed",1)):
-            try:
-                _cws=datetime.fromisoformat(f"{_cw['play_date']}T{_cw['start_time']}")
-                _cwe=datetime.fromisoformat(f"{_cw['play_date']}T{_cw['end_time']}")
-                _capacity_minutes += max(0,int((_cwe-_cws).total_seconds()//60))
-            except (TypeError,ValueError):
-                pass
-    _capacity_match_length=max(
-        1,
-        int(_row_value(rules,"halves",2) or 2)*int(_row_value(rules,"minutes_per_half",20) or 20)
-        + int(_row_value(rules,"halftime_minutes",5) or 0)
-        + int(_row_value(rules,"pitch_break_minutes",5) or 0),
+    _capacity_minutes,_capacity_slots=estimated_capacity_slots(
+        _capacity_windows,
+        rules,
+        row_value=_row_value,
     )
-    _capacity_slots=(_capacity_minutes//_capacity_match_length) if _capacity_minutes else 0
     cap1,cap2,cap3=st.columns(3)
     cap1.metric("Spelytor",current_pitch_count)
     cap2.metric("Tillgängliga plantimmar",f"{_capacity_minutes/60:.1f}" if _capacity_minutes else "–")
@@ -9485,23 +9456,9 @@ def render_initial_tournament_setup(tournament_id, tournament):
     _actual_team_count=int(one_row("SELECT COUNT(*) AS n FROM teams WHERE tournament_id=?",(tournament_id,))["n"] or 0)
     _rec_team_count=max(2,_planned_by_class,_actual_team_count)
     _rec_pitch_count=max(1,int(_row_value(rules,"pitch_count",1) or 1))
-    _rec_match_minutes=max(
-        1,
-        int(_row_value(rules,"halves",2) or 2)*int(_row_value(rules,"minutes_per_half",20) or 20)
-        + int(_row_value(rules,"halftime_minutes",5) or 0)
-        + int(_row_value(rules,"pitch_break_minutes",5) or 0),
-    )
+    _rec_match_minutes=estimated_match_length_minutes(rules,row_value=_row_value)
     _rec_windows=pitch_day_windows(tournament_id,_rec_pitch_count)
-    _rec_available_minutes=0
-    for _window in _rec_windows:
-        if not bool(_row_value(_window,"confirmed",1)):
-            continue
-        try:
-            _ws=datetime.fromisoformat(f"{_window['play_date']}T{_window['start_time']}")
-            _we=datetime.fromisoformat(f"{_window['play_date']}T{_window['end_time']}")
-            _rec_available_minutes += max(0,int((_we-_ws).total_seconds()//60))
-        except (TypeError,ValueError):
-            pass
+    _rec_available_minutes=available_pitch_minutes(_rec_windows,row_value=_row_value)
     if not _rec_available_minutes:
         _rec_available_minutes=480
 
@@ -9580,7 +9537,7 @@ def render_initial_tournament_setup(tournament_id, tournament):
         _saved_priorities = json.loads(_row_value(rules, "preference_order_json", "") or "[]")
     except (TypeError, ValueError, json.JSONDecodeError):
         _saved_priorities = []
-    _priority_items = [x for x in _saved_priorities if x in _default_priorities] + [x for x in _default_priorities if x not in _saved_priorities]
+    _priority_items = normalized_priority_order(_saved_priorities, _default_priorities)
     _core_items=[x for x in _priority_items if x in _core_priorities]
     _advanced_items=[x for x in _priority_items if x in _advanced_priorities]
     st.markdown("**Grundprioriteringar**")
@@ -9607,8 +9564,11 @@ def render_initial_tournament_setup(tournament_id, tournament):
         else:
             _new_advanced_items = _advanced_items
     _new_priority_items = list(_new_core_items) + list(_new_advanced_items)
-    if _new_priority_items != _saved_priorities:
-        run("UPDATE schedule_rules SET preference_order_json=? WHERE tournament_id=?", (json.dumps(_new_priority_items, ensure_ascii=False), int(tournament_id)))
+    if priority_order_changed(_new_priority_items, _saved_priorities):
+        run(
+            "UPDATE schedule_rules SET preference_order_json=? WHERE tournament_id=?",
+            (json.dumps(_new_priority_items, ensure_ascii=False), int(tournament_id)),
+        )
         rules = one_row("SELECT * FROM schedule_rules WHERE tournament_id=?", (int(tournament_id),))
 
     _compact_key=f"setup_compactness_{tournament_id}"
@@ -9645,12 +9605,20 @@ def render_initial_tournament_setup(tournament_id, tournament):
                 key=f"setup_request_sort_{tournament_id}",
             )
             if _sorted_requests:
-                _label_to_id={label:int(row["id"]) for label,row in zip(_request_labels,_request_teams)}
-                with db() as con:
-                    for pos,label in enumerate(_sorted_requests, start=1):
-                        con.execute("UPDATE teams SET request_priority=? WHERE id=?", (pos,_label_to_id[label]))
-                    con.commit()
-                _clear_render_query_cache()
+                _label_to_row={label:row for label,row in zip(_request_labels,_request_teams)}
+                _request_priority_updates=[]
+                for pos,label in enumerate(_sorted_requests, start=1):
+                    row=_label_to_row[label]
+                    if int(_row_value(row,"request_priority",0) or 0) != pos:
+                        _request_priority_updates.append((pos,int(row["id"])))
+                if _request_priority_updates:
+                    with db() as con:
+                        con.executemany(
+                            "UPDATE teams SET request_priority=? WHERE id=?",
+                            _request_priority_updates,
+                        )
+                        con.commit()
+                    _clear_render_query_cache()
         st.caption("Överst = viktigast om flera önskemål konkurrerar om samma tider.")
 
     # Service-/arrangemangsval påverkar inte formatmotorn och kommer därför sent i setupen.
@@ -9675,19 +9643,42 @@ def render_initial_tournament_setup(tournament_id, tournament):
         args=(tournament_id,"enable_final_ranking",ranking_key,lambda v:1 if v else 0),
     )
     cr_toggle=f"setup_changing_rooms_{tournament_id}"
-    st.checkbox("Tillgång till omklädningsrum", value=bool(_row_value(tournament,"changing_rooms_available",0)), key=cr_toggle,
-                on_change=_autosave_tournament_field,args=(tournament_id,"changing_rooms_available",cr_toggle,lambda v:1 if v else 0))
-    cr_key=f"setup_changing_info_{tournament_id}"
-    st.text_area("Information om omklädningsrum", value=_row_value(tournament,"changing_room_info","") or "", key=cr_key,
-                 placeholder="Exempel: 4 omklädningsrum i huvudbyggnaden. Nycklar hämtas i sekretariatet.",
-                 on_change=_autosave_tournament_field, args=(tournament_id,"changing_room_info",cr_key))
+    changing_rooms_enabled=st.checkbox(
+        "Tillgång till omklädningsrum",
+        value=bool(_row_value(tournament,"changing_rooms_available",0)),
+        key=cr_toggle,
+        on_change=_autosave_tournament_field,
+        args=(tournament_id,"changing_rooms_available",cr_toggle,lambda v:1 if v else 0),
+    )
+    if changing_rooms_enabled:
+        cr_key=f"setup_changing_info_{tournament_id}"
+        st.text_area(
+            "Information om omklädningsrum",
+            value=_row_value(tournament,"changing_room_info","") or "",
+            key=cr_key,
+            placeholder="Exempel: 4 omklädningsrum i huvudbyggnaden. Nycklar hämtas i sekretariatet.",
+            on_change=_autosave_tournament_field,
+            args=(tournament_id,"changing_room_info",cr_key),
+        )
+
     pshow=f"setup_show_prices_{tournament_id}"
-    st.checkbox("Visa priser/avgifter publikt", value=bool(_row_value(tournament,"show_price_information",0)), key=pshow,
-                on_change=_autosave_tournament_field, args=(tournament_id,"show_price_information",pshow,lambda v:1 if v else 0))
-    pkey=f"setup_price_info_{tournament_id}"
-    st.text_area("Priser/avgifter", value=_row_value(tournament,"price_information","") or "", key=pkey,
-                 placeholder="Exempel: Lagavgift 1 500 SEK. Matchcamp 250 SEK/spelare.",
-                 on_change=_autosave_tournament_field, args=(tournament_id,"price_information",pkey))
+    show_prices_enabled=st.checkbox(
+        "Visa priser/avgifter publikt",
+        value=bool(_row_value(tournament,"show_price_information",0)),
+        key=pshow,
+        on_change=_autosave_tournament_field,
+        args=(tournament_id,"show_price_information",pshow,lambda v:1 if v else 0),
+    )
+    if show_prices_enabled:
+        pkey=f"setup_price_info_{tournament_id}"
+        st.text_area(
+            "Priser/avgifter",
+            value=_row_value(tournament,"price_information","") or "",
+            key=pkey,
+            placeholder="Exempel: Lagavgift 1 500 SEK. Matchcamp 250 SEK/spelare.",
+            on_change=_autosave_tournament_field,
+            args=(tournament_id,"price_information",pkey),
+        )
 
 
     st.markdown("### 7. Kontroll & skapa")
@@ -14371,48 +14362,46 @@ if admin_page == "Matchhändelser":
             autosave_message_key = f"event_autosave_message_{stat_match_id}_{selected_team_id}"
             if autosave_message_key in st.session_state:
                 st.success(st.session_state.pop(autosave_message_key), icon="✅")
+            event_conflict_key = f"event_autosave_conflict_{stat_match_id}_{selected_team_id}"
+            if event_conflict_key in st.session_state:
+                st.warning(st.session_state.pop(event_conflict_key), icon="⚠️")
 
             # Händelser sparas automatiskt när ändringen är giltig.
             # Endast faktiskt ändrade spelarrader skrivs till databasen.
-            changed_event_rows = []
-            for _, row in edited.iterrows():
-                player_id = int(row["player_id"])
-                previous = existing.get(player_id)
-
-                goals = int(row["Mål"] or 0)
-                assists = int(row["Assist"] or 0)
-                yellow_cards = int(row["Varningar"] or 0)
-                red_cards = int(row["Utvisningar"] or 0)
-
-                previous_values = (
-                    int(previous["goals"] or 0) if previous else 0,
-                    int(previous["assists"] or 0) if previous else 0,
-                    int(previous["yellow_cards"] or 0) if previous else 0,
-                    int(previous["red_cards"] or 0) if previous else 0,
-                )
-                new_values = (goals, assists, yellow_cards, red_cards)
-
-                if new_values != previous_values:
-                    changed_event_rows.append(
-                        (stat_match_id, player_id, goals, assists, yellow_cards, red_cards)
-                    )
+            changed_event_rows = prepare_changed_event_rows(
+                (row for _, row in edited.iterrows()),
+                existing,
+                match_id=stat_match_id,
+                is_na=pd.isna,
+            )
 
             if changed_event_rows and event_validation["ok"]:
+                saved_event_rows = []
+                conflicted_event_rows = []
                 with db() as con:
-                    for match_id, player_id, goals, assists, yellow_cards, red_cards in changed_event_rows:
-                        con.execute(
-                            """
-                            INSERT INTO player_match_stats(match_id,player_id,goals,assists,yellow_cards,red_cards)
-                            VALUES(?,?,?,?,?,?)
-                            ON CONFLICT(match_id,player_id)
-                            DO UPDATE SET goals=excluded.goals, assists=excluded.assists,
-                                yellow_cards=excluded.yellow_cards, red_cards=excluded.red_cards
-                            """,
-                            (match_id, player_id, goals, assists, yellow_cards, red_cards),
+                    for event_update in changed_event_rows:
+                        saved = update_player_match_stats_if_unchanged(
+                            con,
+                            event_update["match_id"],
+                            event_update["player_id"],
+                            event_update["expected"],
+                            goals=event_update["goals"],
+                            assists=event_update["assists"],
+                            yellow_cards=event_update["yellow_cards"],
+                            red_cards=event_update["red_cards"],
                         )
+                        (saved_event_rows if saved else conflicted_event_rows).append(event_update)
                     con.commit()
 
-                st.session_state[autosave_message_key] = "✓ Sparat automatiskt"
+                if saved_event_rows:
+                    st.session_state[autosave_message_key] = "✓ Sparat automatiskt"
+                if conflicted_event_rows:
+                    st.session_state[
+                        f"event_autosave_conflict_{stat_match_id}_{selected_team_id}"
+                    ] = (
+                        f"{len(conflicted_event_rows)} spelarrad(er) hade ändrats av en annan "
+                        "användare och skrevs inte över. Senaste värden laddas om."
+                    )
                 st.rerun()
 
             if changed_event_rows and not event_validation["ok"]:

@@ -23,11 +23,31 @@ def sport_profile(name: str | None) -> Mapping[str, object]:
     return legacy_profile(name)
 
 
+def _rule_value(rules, key: str, default=None):
+    """Read a rule from Mapping-like rows, including sqlite3.Row.
+
+    sqlite3.Row supports ``row[key]`` but does not implement ``dict.get``.
+    Keeping this adapter here prevents UI/database representation details from
+    leaking into the duration calculation.
+    """
+    if rules is None:
+        return default
+    getter = getattr(rules, "get", None)
+    if callable(getter):
+        try:
+            return getter(key, default)
+        except TypeError:
+            pass
+    try:
+        return rules[key]
+    except (KeyError, IndexError, TypeError):
+        return default
+
+
 def match_duration_minutes(rules: Mapping[str, object] | None) -> int:
-    rules = rules or {}
-    periods = max(1, int(rules.get("halves") or 2))
-    per_period = max(1, int(rules.get("minutes_per_half") or 20))
-    break_minutes = max(0, int(rules.get("halftime_minutes") or 0))
+    periods = max(1, int(_rule_value(rules, "halves", 2) or 2))
+    per_period = max(1, int(_rule_value(rules, "minutes_per_half", 20) or 20))
+    break_minutes = max(0, int(_rule_value(rules, "halftime_minutes", 0) or 0))
     return periods * per_period + max(0, periods - 1) * break_minutes
 
 

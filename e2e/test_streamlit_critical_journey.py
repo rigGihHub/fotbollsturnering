@@ -70,7 +70,12 @@ def create_test_tournament_through_ui(page, cup_name):
     create_form=page.locator('[data-testid="stSidebar"] [data-testid="stForm"]').first
     create_form.get_by_label("Namn",exact=True).fill(cup_name)
     create_form.get_by_label("Spelort",exact=True).fill("Örebro")
-    create_form.get_by_text("Testmiljö",exact=True).click()
+    # Target the actual radio control rather than its text node. Streamlit may
+    # rerender/open adjacent details while the form is visible, which can
+    # intercept a normal text click in Chromium/WebKit.
+    test_environment=create_form.get_by_role("radio",name="Testmiljö",exact=True)
+    test_environment.check(force=True)
+    assert test_environment.is_checked()
     create_form.get_by_role("button",name="Skapa",exact=True).click()
     wait_app(page)
 

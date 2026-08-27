@@ -6,9 +6,10 @@ def test_event_save_button_is_removed():
     assert "Händelser sparas automatiskt" in text
 
 def test_event_autosave_only_writes_changed_rows():
-    text = Path("app.py").read_text(encoding="utf-8")
-    assert "changed_event_rows" in text
-    assert "new_values != previous_values" in text
+    app = Path("app.py").read_text(encoding="utf-8")
+    logic = Path("cupnavi_core/match_event_logic.py").read_text(encoding="utf-8")
+    assert "prepare_changed_event_rows(" in app
+    assert "new_values != previous_values" in logic
 
 def test_invalid_event_totals_do_not_autosave():
     text = Path("app.py").read_text(encoding="utf-8")
