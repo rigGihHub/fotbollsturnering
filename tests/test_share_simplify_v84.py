@@ -1,30 +1,31 @@
+
 from pathlib import Path
 
-def app_text():
-    return Path("app.py").read_text(encoding="utf-8")
+APP=Path("app.py").read_text(encoding="utf-8")
 
-def test_share_panel_has_one_primary_share_button():
-    text = app_text()
-    start = text.index("def share_panel_html(")
-    end = text.index("def render_share_panel(", start)
-    block = text[start:end]
-    assert block.count('id="nativeShare"') == 1
-    assert "navigator.share" in block
 
-def test_direct_channel_buttons_are_removed():
-    text = app_text()
-    start = text.index("def share_panel_html(")
-    end = text.index("def render_share_panel(", start)
-    block = text[start:end]
-    assert "wa.me" not in block
-    assert "mailto:" not in block
-    assert "sms:?body=" not in block
-    assert "fb-messenger://" not in block
+def _public_share_block():
+    start=APP.index("# Kompakt delning direkt kopplad till cupheadern")
+    end=APP.index("# v143: mobil först",start)
+    return APP[start:end]
 
-def test_share_fallback_copies_current_cup_link():
-    text = app_text()
-    start = text.index("def share_panel_html(")
-    end = text.index("def render_share_panel(", start)
-    block = text[start:end]
-    assert "navigator.clipboard.writeText(shareData.url)" in block
+
+def test_share_uses_one_integrated_popover():
+    block=_public_share_block()
+    assert 'with st.popover("Dela"' in block
     assert "share_url = public_cup_url(tournament_id)" in block
+    assert "share_qr = qr_png_bytes(share_url)" in block
+
+
+def test_current_share_channels_are_explicit_and_scoped_to_current_cup():
+    block=_public_share_block()
+    assert "https://wa.me/?text=" in block
+    assert "mailto:?subject=" in block
+    assert "sms:?&body=" in block
+    assert "share_url = public_cup_url(tournament_id)" in block
+
+
+def test_dead_legacy_share_html_is_removed():
+    assert "def share_panel_html(" not in APP
+    assert "def render_share_panel(" not in APP
+    assert "navigator.share" not in APP

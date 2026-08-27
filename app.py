@@ -120,7 +120,7 @@ from cupnavi_core.public_match_feed_logic import classify_public_match_feed, pub
 from cupnavi_core.public_match_filters_view import render_public_match_filters as render_public_match_filters_module
 from cupnavi_core.match_reporter_logic import build_bulk_result_rows, prepare_bulk_result_update, result_snapshot, select_playable_matches
 
-APP_BUILD_VERSION = "2026.08.27-217-E2E-CREATION-DIRECT-LINK-HARDENING"
+APP_BUILD_VERSION = "2026.08.27-230-ADMIN-RELIABILITY-PHASE2"
 APP_VERSION = APP_BUILD_VERSION
 
 def read_core_version_from_disk():
@@ -906,269 +906,6 @@ def weekday_short(value):
 
 def date_with_weekday(value):
     return f"{weekday_short(value)} {value.isoformat()}" if value else ""
-
-
-def share_panel_html(tournament_id, tournament_name):
-    """Enkel delning via operativsystemets delningsmeny."""
-    share_url = public_cup_url(tournament_id)
-    english = current_language() == "en"
-
-    message = (
-        f"Follow {tournament_name} in CupNavi: {share_url}"
-        if english
-        else f"Följ {tournament_name} i CupNavi: {share_url}"
-    )
-    title = "Share tournament" if english else "Dela cupen"
-    button_label = "Share tournament" if english else "Dela cupen"
-    help_text = (
-        "Choose Messenger, WhatsApp, SMS, email or another app in your device's share menu."
-        if english else
-        "Välj Messenger, WhatsApp, SMS, e-post eller en annan app i enhetens delningsmeny."
-    )
-    copied_text = (
-        "The link was copied because your browser does not support the share menu."
-        if english else
-        "Länken kopierades eftersom webbläsaren inte stöder delningsmenyn."
-    )
-    manual_text = (
-        "Copy the link below and share it in the app you want."
-        if english else
-        "Kopiera länken nedan och dela den i den app du vill använda."
-    )
-
-    return f"""
-    <style>
-      body {{ margin:0; font-family:Arial,sans-serif; color:#172033; }}
-      .share-card {{
-        border:1px solid #d7dee5;
-        border-radius:14px;
-        background:#fff;
-        padding:14px 16px;
-      }}
-      .share-title {{
-        font-size:16px;
-        font-weight:800;
-      }}
-      .share-help {{
-        font-size:13px;
-        color:#64748b;
-        margin-top:4px;
-      }}
-      .share-button {{
-        width:100%;
-        min-height:46px;
-        margin-top:12px;
-        border:1px solid #bfdbfe;
-        border-radius:10px;
-        background:#eef4ff;
-        color:#1d4ed8;
-        font-size:15px;
-        font-weight:800;
-        cursor:pointer;
-      }}
-      .share-button:focus-visible {{
-        outline:3px solid rgba(37,99,235,.35);
-        outline-offset:2px;
-      }}
-      .share-status {{
-        font-size:12px;
-        color:#64748b;
-        margin-top:9px;
-      }}
-      .share-url {{
-        font-size:11px;
-        color:#94a3b8;
-        margin-top:7px;
-        overflow-wrap:anywhere;
-      }}
-    </style>
-
-    <div class="share-card">
-      <div class="share-title">📤 {html.escape(title)}</div>
-      <div class="share-help">{html.escape(help_text)}</div>
-      <button id="nativeShare" class="share-button">📤 {html.escape(button_label)}</button>
-      <div id="shareStatus" class="share-status"></div>
-      <div class="share-url">{html.escape(share_url)}</div>
-    </div>
-
-    <script>
-      const button = document.getElementById("nativeShare");
-      const status = document.getElementById("shareStatus");
-
-      const shareData = {{
-        title: {json.dumps("CupNavi – " + tournament_name)},
-        text: {json.dumps(message)},
-        url: {json.dumps(share_url)}
-      }};
-
-      button.addEventListener("click", async () => {{
-        if (navigator.share) {{
-          try {{
-            await navigator.share(shareData);
-          }} catch (err) {{
-            if (err && err.name !== "AbortError") {{
-              status.textContent = {json.dumps(manual_text)};
-            }}
-          }}
-        }} else {{
-          try {{
-            await navigator.clipboard.writeText(shareData.url);
-            status.textContent = {json.dumps(copied_text)};
-          }} catch (err) {{
-            status.textContent = {json.dumps(manual_text)};
-          }}
-        }}
-      }});
-    </script>
-    """
-
-
-
-def render_share_panel(tournament_id, tournament_name):
-    components.html(share_panel_html(tournament_id, tournament_name), height=180, scrolling=False)
-
-
-def qr_share_panel_html(tournament_id, tournament_name):
-    """Visa QR-kod och dela själva PNG-filen via Web Share där det stöds."""
-    qr_bytes = qr_png_bytes(public_cup_url(tournament_id))
-    if not qr_bytes:
-        return None
-
-    english = current_language() == "en"
-    encoded_png = base64.b64encode(qr_bytes).decode("ascii")
-    title = "QR code" if english else "QR-kod"
-    share_label = "Share QR code" if english else "Dela QR-kod"
-    download_label = "Download QR code" if english else "Ladda ner QR-kod"
-    help_text = (
-        "Share the QR image itself, or download it for printing."
-        if english else
-        "Dela själva QR-bilden eller ladda ner den för utskrift."
-    )
-    fallback_text = (
-        "Your browser cannot share image files directly. The QR code has been downloaded instead."
-        if english else
-        "Din webbläsare kan inte dela bildfiler direkt. QR-koden laddas ner i stället."
-    )
-    filename = f"cupnavi_qr_{int(tournament_id)}.png"
-
-    return f"""
-    <style>
-      body {{ margin:0; font-family:Arial,sans-serif; color:#172033; }}
-      .qr-card {{
-        display:grid;
-        grid-template-columns:180px 1fr;
-        gap:18px;
-        align-items:center;
-        border:1px solid #d7dee5;
-        border-radius:14px;
-        background:#fff;
-        padding:14px 16px;
-      }}
-      .qr-image {{
-        width:170px;
-        height:170px;
-        object-fit:contain;
-        border:1px solid #e2e8f0;
-        border-radius:10px;
-        background:#fff;
-      }}
-      .qr-title {{font-size:16px;font-weight:800}}
-      .qr-help {{font-size:13px;color:#64748b;margin-top:4px}}
-      .qr-actions {{
-        display:flex;
-        gap:8px;
-        flex-wrap:wrap;
-        margin-top:12px;
-      }}
-      .qr-button {{
-        flex:1 1 180px;
-        min-height:44px;
-        border-radius:10px;
-        border:1px solid #cbd5e1;
-        font-size:14px;
-        font-weight:800;
-        cursor:pointer;
-        text-decoration:none;
-        display:flex;
-        align-items:center;
-        justify-content:center;
-        box-sizing:border-box;
-      }}
-      .share {{background:#eef4ff;color:#1d4ed8;border-color:#bfdbfe}}
-      .download {{background:#f8fafc;color:#334155}}
-      .qr-status {{font-size:12px;color:#64748b;margin-top:9px}}
-      @media(max-width:520px) {{
-        .qr-card {{grid-template-columns:1fr;text-align:center}}
-        .qr-image {{margin:0 auto}}
-      }}
-    </style>
-
-    <div class="qr-card">
-      <img class="qr-image" src="data:image/png;base64,{encoded_png}" alt="{html.escape(title)}">
-      <div>
-        <div class="qr-title">▣ {html.escape(title)}</div>
-        <div class="qr-help">{html.escape(help_text)}</div>
-        <div class="qr-actions">
-          <button id="shareQr" class="qr-button share">📤 {html.escape(share_label)}</button>
-          <a class="qr-button download"
-             href="data:image/png;base64,{encoded_png}"
-             download="{html.escape(filename, quote=True)}">⬇️ {html.escape(download_label)}</a>
-        </div>
-        <div id="qrStatus" class="qr-status"></div>
-      </div>
-    </div>
-
-    <script>
-      const shareButton = document.getElementById("shareQr");
-      const status = document.getElementById("qrStatus");
-      const base64Data = {json.dumps(encoded_png)};
-      const filename = {json.dumps(filename)};
-      const mimeType = "image/png";
-
-      function base64ToBlob(base64, type) {{
-        const binary = atob(base64);
-        const bytes = new Uint8Array(binary.length);
-        for (let i = 0; i < binary.length; i++) {{
-          bytes[i] = binary.charCodeAt(i);
-        }}
-        return new Blob([bytes], {{type}});
-      }}
-
-      shareButton.addEventListener("click", async () => {{
-        const blob = base64ToBlob(base64Data, mimeType);
-        const file = new File([blob], filename, {{type: mimeType}});
-
-        if (navigator.share && navigator.canShare && navigator.canShare({{files:[file]}})) {{
-          try {{
-            await navigator.share({{
-              title: {json.dumps("CupNavi – " + tournament_name)},
-              text: {json.dumps("QR code for " + tournament_name)},
-              files: [file]
-            }});
-            return;
-          }} catch (err) {{
-            if (err && err.name === "AbortError") return;
-          }}
-        }}
-
-        const link = document.createElement("a");
-        link.href = URL.createObjectURL(blob);
-        link.download = filename;
-        document.body.appendChild(link);
-        link.click();
-        link.remove();
-        setTimeout(() => URL.revokeObjectURL(link.href), 1000);
-        status.textContent = {json.dumps(fallback_text)};
-      }});
-    </script>
-    """
-
-
-def render_qr_share_panel(tournament_id, tournament_name):
-    qr_html = qr_share_panel_html(tournament_id, tournament_name)
-    if qr_html:
-        components.html(qr_html, height=240, scrolling=False)
-
 
 
 def _visitor_header(name):
@@ -3886,6 +3623,13 @@ def ensure_v108_team_messages_schema_compat(con):
         CREATE INDEX IF NOT EXISTS idx_team_messages_sender_team ON team_messages(tournament_id, sender_type, sender_team_id, created_at);
         """,
     )
+    message_cols = _connection_columns(con, "team_messages")
+    if "request_token" not in message_cols:
+        con.execute("ALTER TABLE team_messages ADD COLUMN request_token TEXT")
+    con.execute(
+        "CREATE UNIQUE INDEX IF NOT EXISTS idx_team_messages_request_token "
+        "ON team_messages(tournament_id,request_token)"
+    )
     con.execute(
         "INSERT OR IGNORE INTO cupnavi_schema_migrations(version,name,applied_at) VALUES(10,?,?)",
         ("team_messaging_v108", datetime.now().isoformat(timespec="seconds")),
@@ -3904,35 +3648,157 @@ def _message_party_label(row, team_names):
     return sender, recipient
 
 
-def _send_team_message(tournament_id, sender_type, subject, message, *, sender_team_id=None, recipient_type="organizer", recipient_team_id=None):
-    subject = str(subject or "").strip()
-    message = str(message or "").strip()
+def _send_team_message(
+    tournament_id,
+    sender_type,
+    subject,
+    message,
+    *,
+    sender_team_id=None,
+    recipient_type="organizer",
+    recipient_team_id=None,
+    request_token=None,
+):
+    """Persist one internal message with server-side ownership checks.
+
+    ``request_token`` makes a repeated submit idempotent: the same form action
+    returns the original message id and does not send a second email.
+    """
+    tournament_id=int(tournament_id)
+    subject=str(subject or "").strip()
+    message=str(message or "").strip()
+    sender_type=str(sender_type or "").strip()
+    recipient_type=str(recipient_type or "").strip()
+    request_token=str(request_token or "").strip() or None
+
+    if sender_type not in {"team","organizer"}:
+        raise ValueError("Ogiltig avsändare.")
+    if recipient_type not in {"team","organizer"}:
+        raise ValueError("Ogiltig mottagare.")
     if not subject or not message:
         raise ValueError("Ämne och meddelande krävs.")
-    if sender_type == "team" and not sender_team_id:
-        raise ValueError("Avsändande lag saknas.")
-    if recipient_type == "team" and not recipient_team_id:
-        raise ValueError("Mottagande lag saknas.")
-    message_id = run(
-        """INSERT INTO team_messages(tournament_id,sender_type,sender_team_id,recipient_type,recipient_team_id,created_at,subject,message,email_status)
-           VALUES(?,?,?,?,?,?,?,?,?)""",
-        (tournament_id, sender_type, sender_team_id, recipient_type, recipient_team_id, datetime.now().isoformat(timespec="seconds"), subject, message, "pending" if recipient_type == "team" else "not_applicable"),
-    )
-    # Persist first; email is best-effort and must never lose the in-app message.
-    if recipient_type == "team" and recipient_team_id:
-        recipient = one_row("SELECT name,responsible_name,responsible_email FROM teams WHERE id=? AND tournament_id=?", (int(recipient_team_id), int(tournament_id)))
-        email = str(_row_value(recipient, "responsible_email", "") or "").strip() if recipient else ""
+    if len(subject) > 200:
+        raise ValueError("Ämnet får vara högst 200 tecken.")
+    if len(message) > 3000:
+        raise ValueError("Meddelandet får vara högst 3000 tecken.")
+
+    sender_team_id=int(sender_team_id) if sender_team_id is not None else None
+    recipient_team_id=int(recipient_team_id) if recipient_team_id is not None else None
+
+    if sender_type == "team":
+        if sender_team_id is None:
+            raise ValueError("Avsändande lag saknas.")
+        sender_team=one_row(
+            "SELECT id FROM teams WHERE id=? AND tournament_id=?",
+            (sender_team_id,tournament_id),
+        )
+        if sender_team is None:
+            raise ValueError("Avsändande lag tillhör inte turneringen.")
+    elif sender_team_id is not None:
+        raise ValueError("Arrangörsmeddelanden får inte ha avsändande lag.")
+
+    recipient=None
+    if recipient_type == "team":
+        if recipient_team_id is None:
+            raise ValueError("Mottagande lag saknas.")
+        recipient=one_row(
+            "SELECT id,name,responsible_name,responsible_email FROM teams WHERE id=? AND tournament_id=?",
+            (recipient_team_id,tournament_id),
+        )
+        if recipient is None:
+            raise ValueError("Mottagande lag tillhör inte turneringen.")
+        if sender_type == "team" and sender_team_id == recipient_team_id:
+            raise ValueError("Ett lag kan inte skicka meddelande till sig självt.")
+    elif recipient_team_id is not None:
+        raise ValueError("Arrangören har inget mottagande lag-id.")
+
+    created_at=datetime.now().isoformat(timespec="microseconds")
+    email_status="pending" if recipient_type == "team" else "not_applicable"
+    inserted=True
+
+    with db() as con:
+        if request_token:
+            cursor=con.execute(
+                """INSERT OR IGNORE INTO team_messages(
+                       tournament_id,sender_type,sender_team_id,recipient_type,recipient_team_id,
+                       created_at,subject,message,email_status,request_token)
+                   VALUES(?,?,?,?,?,?,?,?,?,?)""",
+                (
+                    tournament_id,sender_type,sender_team_id,recipient_type,recipient_team_id,
+                    created_at,subject,message,email_status,request_token,
+                ),
+            )
+            rowcount=getattr(cursor,"rowcount",None)
+            row=con.execute(
+                "SELECT id,sender_type,sender_team_id,recipient_type,recipient_team_id,subject,message,created_at "
+                "FROM team_messages WHERE tournament_id=? AND request_token=?",
+                (tournament_id,request_token),
+            ).fetchone()
+            if row is None:
+                raise RuntimeError("Meddelandet kunde inte sparas.")
+            message_id=int(row["id"] if isinstance(row,sqlite3.Row) else row[0])
+            stored_created_at=(
+                row["created_at"] if isinstance(row,sqlite3.Row) else row[7]
+            )
+            inserted=(
+                rowcount == 1
+                if rowcount is not None and rowcount >= 0
+                else str(stored_created_at) == created_at
+            )
+
+            # A token may only ever represent the same logical form action.
+            def _msg_value(key,index):
+                return row[key] if isinstance(row,sqlite3.Row) else row[index]
+            same_payload=(
+                str(_msg_value("sender_type",1)) == sender_type
+                and _msg_value("sender_team_id",2) == sender_team_id
+                and str(_msg_value("recipient_type",3)) == recipient_type
+                and _msg_value("recipient_team_id",4) == recipient_team_id
+                and str(_msg_value("subject",5)) == subject
+                and str(_msg_value("message",6)) == message
+            )
+            if not same_payload:
+                con.rollback()
+                raise ValueError("Meddelandeförfrågan är inte längre giltig. Försök igen.")
+            con.commit()
+        else:
+            cursor=con.execute(
+                """INSERT INTO team_messages(
+                       tournament_id,sender_type,sender_team_id,recipient_type,recipient_team_id,
+                       created_at,subject,message,email_status,request_token)
+                   VALUES(?,?,?,?,?,?,?,?,?,NULL)""",
+                (
+                    tournament_id,sender_type,sender_team_id,recipient_type,recipient_team_id,
+                    created_at,subject,message,email_status,
+                ),
+            )
+            message_id=int(getattr(cursor,"lastrowid",0) or 0)
+            con.commit()
+
+    _clear_render_query_cache()
+
+    # Email is best-effort and only runs for the first insert. Replayed request
+    # tokens therefore cannot send duplicate notification email.
+    if inserted and recipient_type == "team" and recipient_team_id:
+        email=str(_row_value(recipient,"responsible_email","") or "").strip() if recipient else ""
         if email:
-            ok, error = send_notification_email(
+            ok,error=send_notification_email(
                 email,
                 f"Nytt meddelande i CupNavi: {subject}",
-                f"Hej {(_row_value(recipient, 'responsible_name', '') or '').strip() or 'lagansvarig'},\n\n{recipient['name']} har fått ett nytt meddelande i CupNavi. Logga in i lagportalen för att läsa det.\n\nÄmne: {subject}",
+                f"Hej {(_row_value(recipient,'responsible_name','') or '').strip() or 'lagansvarig'},\n\n"
+                f"{recipient['name']} har fått ett nytt meddelande i CupNavi. "
+                f"Logga in i lagportalen för att läsa det.\n\nÄmne: {subject}",
             )
-            run("UPDATE team_messages SET email_status=?,email_error=? WHERE id=?", ("sent" if ok else "failed", error, int(message_id)))
+            run(
+                "UPDATE team_messages SET email_status=?,email_error=? WHERE id=?",
+                ("sent" if ok else "failed",error,int(message_id)),
+            )
         else:
-            run("UPDATE team_messages SET email_status='skipped',email_error='responsible_email_missing' WHERE id=?", (int(message_id),))
+            run(
+                "UPDATE team_messages SET email_status='skipped',email_error='responsible_email_missing' WHERE id=?",
+                (int(message_id),),
+            )
     return message_id
-
 
 def _player_display_name(player_row, public=False):
     """Gemensam namnvisning med stöd för skyddade spelare och legacy-fältet name."""
@@ -6398,6 +6264,15 @@ def validate_schedule(tournament_id, tournament, rules):
 
 def render_bracket_tree(bracket_id, public=False):
     bracket_matches = all_rows("SELECT * FROM matches WHERE bracket_id=? ORDER BY round_no,match_no", (bracket_id,))
+    bracket_team_by_id = {}
+    if bracket_matches:
+        bracket_tournament_id = int(_row_value(bracket_matches[0], "tournament_id", 0) or 0)
+        if bracket_tournament_id:
+            bracket_team_rows = all_rows(
+                "SELECT * FROM teams WHERE tournament_id=? ORDER BY id",
+                (bracket_tournament_id,),
+            )
+            bracket_team_by_id = {int(row["id"]): row for row in bracket_team_rows}
     main_stages = []
     for stage_name in ["Kvartsfinal", "Semifinal", "Final"]:
         stage_matches = [m for m in bracket_matches if m["stage"] == stage_name]
@@ -6439,10 +6314,10 @@ def render_bracket_tree(bracket_id, public=False):
     def match_card(match_row, left, center, extra_class=""):
         home_id = resolve_source(match_row["home_source"])
         away_id = resolve_source(match_row["away_source"])
-        home = team(home_id)
-        away = team(away_id)
-        home_name = html.escape(source_label(match_row["home_source"]))
-        away_name = html.escape(source_label(match_row["away_source"]))
+        home = bracket_team_by_id.get(int(home_id)) if home_id else None
+        away = bracket_team_by_id.get(int(away_id)) if away_id else None
+        home_name = html.escape(home["name"] if home is not None else source_label(match_row["home_source"]))
+        away_name = html.escape(away["name"] if away is not None else source_label(match_row["away_source"]))
         home_color = home["primary_color"] if home else "#94a3b8"
         away_color = away["secondary_color"] if away else "#94a3b8"
         home_score = "–" if match_row["home_score"] is None else str(match_row["home_score"])
@@ -6879,12 +6754,13 @@ def render_public_view(tournament_id, tournament):
                 out.append(f"<div class='cn-screen-match'><div><b>{html.escape(label)}</b></div><div>{info}</div></div>")
             return ''.join(out)
         st.markdown(f"<div class='cn-screen-grid'><div class='cn-screen-card'><h3>🔴 Pågår / nu</h3>{_screen_matches(live_rows,'live')}</div><div class='cn-screen-card'><h3>⏭ Kommande</h3>{_screen_matches(upcoming_rows,'upcoming')}</div><div class='cn-screen-card'><h3>✅ Senaste resultat</h3>{_screen_matches(recent_rows,'recent')}</div></div>", unsafe_allow_html=True)
-        screen_groups = _load_public_groups()[:4]
+        _screen_table_bundle = calculate_all_group_tables(tournament_id, tournament)
+        screen_groups = _screen_table_bundle["groups"][:4]
         if screen_groups:
             st.markdown("### Tabeller")
             cols=st.columns(min(2,len(screen_groups)))
             for idx,g in enumerate(screen_groups):
-                table=calculate_table(g['id'], tournament)
+                table=_screen_table_bundle["tables"].get(int(g["id"]), [])
                 rows=[data for _team_id,data in table]
                 with cols[idx % len(cols)]:
                     st.markdown(f"**{html.escape(g['name'])}**")
@@ -7040,7 +6916,6 @@ def render_public_view(tournament_id, tournament):
 
                 .cn-public-main-nav-note{font-size:12px;color:#64748b;margin:2px 0 6px}
 .cn-public-follow-anchor{height:0;margin:0;padding:0}
-        .cn-share-toggle-anchor,.cn-share-panel-anchor{height:0;margin:0;padding:0}
         @media(min-width:901px){
           .cn-public-follow-anchor + div{margin-top:0!important;margin-bottom:2px!important}
 @media(max-width:900px){.cn-live-grid{grid-template-columns:1fr}.cn-live-head{align-items:flex-start}.cn-live-status{display:none}}
@@ -8076,17 +7951,1053 @@ def _portal_match_label(match_row):
     return f"{when} · {pitch} · {source_label(match_row['home_source'])} – {source_label(match_row['away_source'])}"
 
 
-def _save_match_roster(match_id, team_id, player_ids, actor="Deltagaransvarig"):
+def _save_match_roster_if_unchanged(
+    match_id,
+    team_id,
+    player_ids,
+    expected_player_ids,
+    actor="Deltagaransvarig",
+):
+    """Save one match roster without silently overwriting a newer browser session.
+
+    The save is transactional and also validates that every submitted player
+    still belongs to the team. The caller supplies the roster snapshot that was
+    originally rendered; if another user changed the roster meanwhile, this
+    write is rejected instead of replacing their newer selection.
+    """
+    match_id = int(match_id)
+    team_id = int(team_id)
+    requested_ids = sorted({int(player_id) for player_id in player_ids})
+    expected_ids = sorted({int(player_id) for player_id in expected_player_ids})
     selected_at = datetime.now().isoformat(timespec="seconds")
-    with db() as con:
-        con.execute("DELETE FROM match_rosters WHERE match_id=? AND team_id=?", (match_id, team_id))
-        for player_id in player_ids:
+
+    con = db()
+    try:
+        # Acquire the transaction before reading the current roster. SQLite uses
+        # IMMEDIATE to serialize competing writers; Turso/libSQL supports normal
+        # explicit transactions.
+        con.execute("BEGIN" if CLOUD_DATABASE_ENABLED else "BEGIN IMMEDIATE")
+
+        current_rows = con.execute(
+            "SELECT player_id FROM match_rosters WHERE match_id=? AND team_id=? ORDER BY player_id",
+            (match_id, team_id),
+        ).fetchall()
+        current_ids = sorted(int(row["player_id"] if isinstance(row, sqlite3.Row) else row[0]) for row in current_rows)
+        if current_ids != expected_ids:
+            con.rollback()
+            return False, "conflict"
+
+        if requested_ids:
+            placeholders = ",".join("?" for _ in requested_ids)
+            valid_rows = con.execute(
+                f"SELECT id FROM players WHERE team_id=? AND id IN ({placeholders})",
+                (team_id, *requested_ids),
+            ).fetchall()
+            valid_ids = {
+                int(row["id"] if isinstance(row, sqlite3.Row) else row[0])
+                for row in valid_rows
+            }
+            if valid_ids != set(requested_ids):
+                con.rollback()
+                return False, "invalid_players"
+
+        con.execute(
+            "DELETE FROM match_rosters WHERE match_id=? AND team_id=?",
+            (match_id, team_id),
+        )
+        for player_id in requested_ids:
             con.execute(
                 "INSERT INTO match_rosters(match_id,team_id,player_id,selected_at,selected_by) VALUES(?,?,?,?,?)",
-                (match_id, team_id, int(player_id), selected_at, actor),
+                (match_id, team_id, player_id, selected_at, actor),
             )
         con.commit()
+    except Exception:
+        try:
+            con.rollback()
+        except Exception:
+            pass
+        raise
+    finally:
+        try:
+            con.close()
+        except Exception:
+            pass
+
     _clear_render_query_cache()
+    return True, None
+
+
+def _player_snapshot(player):
+    """Fields protected when a team leader edits or deletes a player."""
+    return {
+        "name": _row_value(player, "name", None),
+        "first_name": _row_value(player, "first_name", None),
+        "last_name": _row_value(player, "last_name", None),
+        "player_number": _row_value(player, "player_number", None),
+        "birth_year": _row_value(player, "birth_year", None),
+        "position": _row_value(player, "position", None),
+        "is_protected": int(_row_value(player, "is_protected", 0) or 0),
+    }
+
+
+def _add_team_player_if_capacity(
+    team_id,
+    max_roster,
+    *,
+    player_number,
+    name,
+    first_name,
+    last_name,
+    birth_year,
+    position,
+    is_protected,
+):
+    """Atomically enforce the team roster limit in the INSERT itself."""
+    team_id=int(team_id)
+    max_roster=max(0,int(max_roster or 0))
+    with db() as con:
+        cursor=con.execute(
+            """INSERT INTO players(
+                   team_id,player_number,name,first_name,last_name,birth_year,position,is_protected
+               )
+               SELECT ?,?,?,?,?,?,?,?
+               WHERE ?=0 OR (
+                   SELECT COUNT(*) FROM players WHERE team_id=?
+               ) < ?""",
+            (
+                team_id, int(player_number), name, first_name, last_name,
+                int(birth_year), position, int(bool(is_protected)),
+                max_roster, team_id, max_roster,
+            ),
+        )
+        rowcount=getattr(cursor,"rowcount",None)
+        con.commit()
+
+        if rowcount is not None and rowcount >= 0:
+            inserted=rowcount == 1
+        else:
+            count_row=con.execute(
+                "SELECT COUNT(*) AS n FROM players WHERE team_id=?",
+                (team_id,),
+            ).fetchone()
+            current_count=int(
+                count_row["n"] if isinstance(count_row,sqlite3.Row) else count_row[0]
+            )
+            # When the adapter lacks rowcount, a full roster means the guarded
+            # INSERT did not happen. Otherwise verify the submitted record.
+            if max_roster and current_count >= max_roster:
+                verify=con.execute(
+                    """SELECT id FROM players
+                       WHERE team_id=? AND name=? AND player_number IS ?
+                       ORDER BY id DESC LIMIT 1""",
+                    (team_id,name,int(player_number)),
+                ).fetchone()
+                inserted=verify is not None
+            else:
+                verify=con.execute(
+                    """SELECT id FROM players
+                       WHERE team_id=? AND name=? AND first_name IS ? AND last_name IS ?
+                         AND player_number IS ? AND birth_year IS ? AND position IS ?
+                         AND COALESCE(is_protected,0)=?
+                       ORDER BY id DESC LIMIT 1""",
+                    (
+                        team_id,name,first_name,last_name,int(player_number),
+                        int(birth_year),position,int(bool(is_protected)),
+                    ),
+                ).fetchone()
+                inserted=verify is not None
+
+    if inserted:
+        _clear_render_query_cache()
+        return True, None
+    return False, "roster_full"
+
+
+def _update_team_player_if_unchanged(
+    player_id,
+    team_id,
+    expected,
+    *,
+    player_number,
+    name,
+    first_name,
+    last_name,
+    birth_year,
+    position,
+    is_protected,
+):
+    """Optimistic update for a team-portal player row."""
+    with db() as con:
+        cursor=con.execute(
+            """UPDATE players
+               SET name=?,first_name=?,last_name=?,player_number=?,
+                   birth_year=?,position=?,is_protected=?
+               WHERE id=? AND team_id=?
+                 AND name IS ? AND first_name IS ? AND last_name IS ?
+                 AND player_number IS ? AND birth_year IS ? AND position IS ?
+                 AND COALESCE(is_protected,0)=?""",
+            (
+                name,first_name,last_name,int(player_number),
+                int(birth_year),position,int(bool(is_protected)),
+                int(player_id),int(team_id),
+                expected.get("name"),expected.get("first_name"),expected.get("last_name"),
+                expected.get("player_number"),expected.get("birth_year"),expected.get("position"),
+                int(expected.get("is_protected",0) or 0),
+            ),
+        )
+        rowcount=getattr(cursor,"rowcount",None)
+        con.commit()
+        if rowcount is not None and rowcount >= 0:
+            saved=rowcount == 1
+        else:
+            verify=con.execute(
+                """SELECT name,first_name,last_name,player_number,birth_year,position,
+                          COALESCE(is_protected,0) AS is_protected
+                   FROM players WHERE id=? AND team_id=?""",
+                (int(player_id),int(team_id)),
+            ).fetchone()
+            saved=bool(verify) and _player_snapshot(verify)=={
+                "name":name,
+                "first_name":first_name,
+                "last_name":last_name,
+                "player_number":int(player_number),
+                "birth_year":int(birth_year),
+                "position":position,
+                "is_protected":int(bool(is_protected)),
+            }
+
+    if saved:
+        _clear_render_query_cache()
+        return True, None
+    return False, "conflict"
+
+
+def _delete_team_player_if_unchanged(player_id, team_id, expected):
+    """Delete only the player version that the team leader actually saw."""
+    with db() as con:
+        cursor=con.execute(
+            """DELETE FROM players
+               WHERE id=? AND team_id=?
+                 AND name IS ? AND first_name IS ? AND last_name IS ?
+                 AND player_number IS ? AND birth_year IS ? AND position IS ?
+                 AND COALESCE(is_protected,0)=?""",
+            (
+                int(player_id),int(team_id),
+                expected.get("name"),expected.get("first_name"),expected.get("last_name"),
+                expected.get("player_number"),expected.get("birth_year"),expected.get("position"),
+                int(expected.get("is_protected",0) or 0),
+            ),
+        )
+        rowcount=getattr(cursor,"rowcount",None)
+        con.commit()
+        if rowcount is not None and rowcount >= 0:
+            deleted=rowcount == 1
+        else:
+            verify=con.execute(
+                "SELECT id FROM players WHERE id=? AND team_id=?",
+                (int(player_id),int(team_id)),
+            ).fetchone()
+            deleted=verify is None
+
+    if deleted:
+        _clear_render_query_cache()
+        return True, None
+    return False, "conflict"
+
+
+def _team_contact_snapshot(team_row):
+    return {
+        "responsible_name": _team_value(team_row, "responsible_name", "") or "",
+        "responsible_phone": _team_value(team_row, "responsible_phone", "") or "",
+        "responsible_email": _team_value(team_row, "responsible_email", "") or "",
+        "public_contact_name": _team_value(team_row, "public_contact_name", "") or "",
+        "public_contact_phone": _team_value(team_row, "public_contact_phone", "") or "",
+        "public_contact_email": _team_value(team_row, "public_contact_email", "") or "",
+        "public_contact_enabled": int(_team_value(team_row, "public_contact_enabled", 0) or 0),
+    }
+
+
+def _save_team_contact_if_unchanged(
+    team_id,
+    expected,
+    *,
+    contact_name,
+    contact_phone,
+    contact_email,
+    public_enabled,
+):
+    """Optimistic lock for Lagportal contact information."""
+    contact_name=str(contact_name or "").strip()
+    contact_phone=str(contact_phone or "").strip()
+    contact_email=str(contact_email or "").strip()
+    if contact_email and ("@" not in contact_email or "." not in contact_email.rsplit("@",1)[-1]):
+        return False, "invalid_email"
+
+    with db() as con:
+        cursor=con.execute(
+            """UPDATE teams SET
+                   responsible_name=?,responsible_phone=?,responsible_email=?,
+                   public_contact_name=?,public_contact_phone=?,public_contact_email=?,
+                   public_contact_enabled=?
+               WHERE id=?
+                 AND COALESCE(responsible_name,'')=?
+                 AND COALESCE(responsible_phone,'')=?
+                 AND COALESCE(responsible_email,'')=?
+                 AND COALESCE(public_contact_name,'')=?
+                 AND COALESCE(public_contact_phone,'')=?
+                 AND COALESCE(public_contact_email,'')=?
+                 AND COALESCE(public_contact_enabled,0)=?""",
+            (
+                contact_name,contact_phone,contact_email,
+                contact_name,contact_phone,contact_email,int(bool(public_enabled)),
+                int(team_id),
+                expected.get("responsible_name",""),
+                expected.get("responsible_phone",""),
+                expected.get("responsible_email",""),
+                expected.get("public_contact_name",""),
+                expected.get("public_contact_phone",""),
+                expected.get("public_contact_email",""),
+                int(expected.get("public_contact_enabled",0) or 0),
+            ),
+        )
+        rowcount=getattr(cursor,"rowcount",None)
+        con.commit()
+        if rowcount is not None and rowcount >= 0:
+            saved=rowcount == 1
+        else:
+            verify=con.execute(
+                """SELECT responsible_name,responsible_phone,responsible_email,
+                          public_contact_name,public_contact_phone,public_contact_email,
+                          COALESCE(public_contact_enabled,0) AS public_contact_enabled
+                   FROM teams WHERE id=?""",
+                (int(team_id),),
+            ).fetchone()
+            saved=bool(verify) and _team_contact_snapshot(verify)=={
+                "responsible_name":contact_name,
+                "responsible_phone":contact_phone,
+                "responsible_email":contact_email,
+                "public_contact_name":contact_name,
+                "public_contact_phone":contact_phone,
+                "public_contact_email":contact_email,
+                "public_contact_enabled":int(bool(public_enabled)),
+            }
+
+    if saved:
+        _clear_render_query_cache()
+        return True, None
+    return False, "conflict"
+
+
+def _mark_team_messages_read(message_ids, *, tournament_id, recipient_type, recipient_team_id=None):
+    """Mark only messages owned by the current inbox as read.
+
+    The ownership predicate prevents a stale/forged id list from changing
+    messages belonging to another team or another tournament.
+    """
+    ids=sorted({int(message_id) for message_id in message_ids})
+    if not ids:
+        return 0
+
+    placeholders=",".join("?" for _ in ids)
+    now=datetime.now().isoformat(timespec="seconds")
+    if recipient_type == "team":
+        sql=f"""UPDATE team_messages
+                SET read_at=?
+                WHERE id IN ({placeholders})
+                  AND tournament_id=?
+                  AND recipient_type='team'
+                  AND recipient_team_id=?
+                  AND read_at IS NULL"""
+        params=(now,*ids,int(tournament_id),int(recipient_team_id))
+    else:
+        sql=f"""UPDATE team_messages
+                SET read_at=?
+                WHERE id IN ({placeholders})
+                  AND tournament_id=?
+                  AND recipient_type='organizer'
+                  AND read_at IS NULL"""
+        params=(now,*ids,int(tournament_id))
+
+    with db() as con:
+        cursor=con.execute(sql,params)
+        con.commit()
+        rowcount=getattr(cursor,"rowcount",None)
+    _clear_render_query_cache()
+    return max(0,int(rowcount or 0)) if rowcount is not None and rowcount >= 0 else len(ids)
+
+
+def _team_checkin_snapshot(team_row):
+    return {
+        "checked_in": int(_row_value(team_row,"checked_in",0) or 0),
+        "checked_in_at": _row_value(team_row,"checked_in_at",None),
+        "checked_in_by": _row_value(team_row,"checked_in_by",None),
+    }
+
+
+def _set_team_checkin_if_unchanged(team_id, expected, *, checked_in, checked_in_by=None):
+    """Optimistic check-in transition for the team portal."""
+    checked_in=int(bool(checked_in))
+    checked_at=datetime.now().isoformat(timespec="seconds") if checked_in else None
+    checked_by=(str(checked_in_by or "").strip() or None) if checked_in else None
+    with db() as con:
+        cursor=con.execute(
+            """UPDATE teams
+               SET checked_in=?,checked_in_at=?,checked_in_by=?
+               WHERE id=?
+                 AND COALESCE(checked_in,0)=?
+                 AND checked_in_at IS ?
+                 AND checked_in_by IS ?""",
+            (
+                checked_in,checked_at,checked_by,int(team_id),
+                int(expected.get("checked_in",0) or 0),
+                expected.get("checked_in_at"),
+                expected.get("checked_in_by"),
+            ),
+        )
+        rowcount=getattr(cursor,"rowcount",None)
+        con.commit()
+        saved=(rowcount == 1) if rowcount is not None and rowcount >= 0 else False
+    if saved:
+        _clear_render_query_cache()
+        return True,None
+    return False,"conflict"
+
+
+def _team_kit_snapshot(team_row):
+    return {
+        "kit_confirmed_at": _row_value(team_row,"kit_confirmed_at",None),
+        "primary_color": _team_value(team_row,"primary_color","") or "",
+        "secondary_color": _team_value(team_row,"secondary_color","") or "",
+        "home_pattern": _team_value(team_row,"home_pattern","Helfärgad") or "Helfärgad",
+        "home_color_2": _team_value(team_row,"home_color_2","#FFFFFF") or "#FFFFFF",
+        "away_pattern": _team_value(team_row,"away_pattern","Helfärgad") or "Helfärgad",
+        "away_color_2": _team_value(team_row,"away_color_2","#111827") or "#111827",
+    }
+
+
+def _confirm_team_kit_if_unchanged(team_id, expected):
+    """Confirm exactly the kit version that was rendered to the team leader."""
+    confirmed_at=datetime.now().isoformat(timespec="seconds")
+    with db() as con:
+        cursor=con.execute(
+            """UPDATE teams SET kit_confirmed_at=?
+               WHERE id=?
+                 AND kit_confirmed_at IS ?
+                 AND COALESCE(primary_color,'')=?
+                 AND COALESCE(secondary_color,'')=?
+                 AND COALESCE(home_pattern,'Helfärgad')=?
+                 AND COALESCE(home_color_2,'#FFFFFF')=?
+                 AND COALESCE(away_pattern,'Helfärgad')=?
+                 AND COALESCE(away_color_2,'#111827')=?""",
+            (
+                confirmed_at,int(team_id),
+                expected.get("kit_confirmed_at"),
+                expected.get("primary_color",""),
+                expected.get("secondary_color",""),
+                expected.get("home_pattern","Helfärgad"),
+                expected.get("home_color_2","#FFFFFF"),
+                expected.get("away_pattern","Helfärgad"),
+                expected.get("away_color_2","#111827"),
+            ),
+        )
+        rowcount=getattr(cursor,"rowcount",None)
+        con.commit()
+        saved=(rowcount == 1) if rowcount is not None and rowcount >= 0 else False
+    if saved:
+        _clear_render_query_cache()
+        return True,None
+    return False,"conflict"
+
+
+def _admin_team_snapshot(team_row):
+    """Fields protected when Admin edits/deletes a team."""
+    return {
+        "name": _team_value(team_row, "name", "") or "",
+        "primary_color": _team_value(team_row, "primary_color", "") or "",
+        "secondary_color": _team_value(team_row, "secondary_color", "") or "",
+        "home_pattern": _team_value(team_row, "home_pattern", "Helfärgad") or "Helfärgad",
+        "home_color_2": _team_value(team_row, "home_color_2", "#FFFFFF") or "#FFFFFF",
+        "away_pattern": _team_value(team_row, "away_pattern", "Helfärgad") or "Helfärgad",
+        "away_color_2": _team_value(team_row, "away_color_2", "#111827") or "#111827",
+        "distance_km": int(_team_value(team_row, "distance_km", 0) or 0),
+        "late_first_match": int(_team_value(team_row, "late_first_match", 0) or 0),
+        "earliest_first_time": _team_value(team_row, "earliest_first_time", None),
+        "travel_note": _team_value(team_row, "travel_note", "") or "",
+        "avoid_late_group_match": int(_team_value(team_row, "avoid_late_group_match", 0) or 0),
+        "responsible_name": _team_value(team_row, "responsible_name", "") or "",
+        "responsible_phone": _team_value(team_row, "responsible_phone", "") or "",
+        "responsible_email": _team_value(team_row, "responsible_email", "") or "",
+        "age_class": _team_value(team_row, "age_class", None),
+        "competition_class_id": _team_value(team_row, "competition_class_id", None),
+        "group_id": _team_value(team_row, "group_id", None),
+    }
+
+
+def _admin_update_team_if_unchanged(
+    team_id,
+    tournament_id,
+    expected,
+    *,
+    name,
+    primary_color,
+    secondary_color,
+    home_pattern,
+    home_color_2,
+    away_pattern,
+    away_color_2,
+    distance_km,
+    late_first_match,
+    earliest_first_time,
+    travel_note,
+    avoid_late_group_match,
+    responsible_name,
+    responsible_phone,
+    responsible_email,
+    age_class,
+    competition_class_id,
+):
+    """Optimistic Admin team update; stale forms cannot overwrite newer edits."""
+    if responsible_email and ("@" not in responsible_email or "." not in responsible_email.rsplit("@",1)[-1]):
+        return False, "invalid_email"
+
+    with db() as con:
+        cursor=con.execute(
+            """UPDATE teams SET
+                 name=?,primary_color=?,secondary_color=?,home_pattern=?,home_color_2=?,
+                 away_pattern=?,away_color_2=?,distance_km=?,late_first_match=?,
+                 earliest_first_time=?,travel_note=?,avoid_late_group_match=?,
+                 kit_confirmed_at=NULL,responsible_name=?,responsible_phone=?,responsible_email=?,
+                 age_class=?,competition_class_id=?,
+                 group_id=CASE WHEN COALESCE(competition_class_id,-1)!=COALESCE(?,-1) THEN NULL ELSE group_id END
+               WHERE id=? AND tournament_id=?
+                 AND COALESCE(name,'')=?
+                 AND COALESCE(primary_color,'')=?
+                 AND COALESCE(secondary_color,'')=?
+                 AND COALESCE(home_pattern,'Helfärgad')=?
+                 AND COALESCE(home_color_2,'#FFFFFF')=?
+                 AND COALESCE(away_pattern,'Helfärgad')=?
+                 AND COALESCE(away_color_2,'#111827')=?
+                 AND COALESCE(distance_km,0)=?
+                 AND COALESCE(late_first_match,0)=?
+                 AND earliest_first_time IS ?
+                 AND COALESCE(travel_note,'')=?
+                 AND COALESCE(avoid_late_group_match,0)=?
+                 AND COALESCE(responsible_name,'')=?
+                 AND COALESCE(responsible_phone,'')=?
+                 AND COALESCE(responsible_email,'')=?
+                 AND age_class IS ?
+                 AND competition_class_id IS ?
+                 AND group_id IS ?""",
+            (
+                name,primary_color,secondary_color,home_pattern,home_color_2,
+                away_pattern,away_color_2,int(distance_km),int(bool(late_first_match)),
+                earliest_first_time,travel_note,int(bool(avoid_late_group_match)),
+                responsible_name,responsible_phone,responsible_email,age_class,competition_class_id,
+                competition_class_id,int(team_id),int(tournament_id),
+                expected.get("name",""),expected.get("primary_color",""),expected.get("secondary_color",""),
+                expected.get("home_pattern","Helfärgad"),expected.get("home_color_2","#FFFFFF"),
+                expected.get("away_pattern","Helfärgad"),expected.get("away_color_2","#111827"),
+                int(expected.get("distance_km",0) or 0),int(expected.get("late_first_match",0) or 0),
+                expected.get("earliest_first_time"),expected.get("travel_note",""),
+                int(expected.get("avoid_late_group_match",0) or 0),
+                expected.get("responsible_name",""),expected.get("responsible_phone",""),
+                expected.get("responsible_email",""),expected.get("age_class"),
+                expected.get("competition_class_id"),expected.get("group_id"),
+            ),
+        )
+        rowcount=getattr(cursor,"rowcount",None)
+        con.commit()
+        saved=(rowcount == 1) if rowcount is not None and rowcount >= 0 else False
+
+    if saved:
+        _clear_render_query_cache()
+        return True,None
+    return False,"conflict"
+
+
+def _admin_delete_team_if_unchanged(team_id, tournament_id, expected):
+    """Delete a team only if the row still matches the Admin's rendered version."""
+    team_id=int(team_id)
+    tournament_id=int(tournament_id)
+    token=f"team:{team_id}"
+
+    with db() as con:
+        current=con.execute(
+            "SELECT * FROM teams WHERE id=? AND tournament_id=?",
+            (team_id,tournament_id),
+        ).fetchone()
+        if current is None or _admin_team_snapshot(current) != expected:
+            return False,"conflict"
+
+        bracket_rows=con.execute(
+            """SELECT DISTINCT bracket_id FROM matches
+               WHERE tournament_id=? AND bracket_id IS NOT NULL
+                 AND (home_source=? OR away_source=?)""",
+            (tournament_id,token,token),
+        ).fetchall()
+        bracket_ids={
+            int(row["bracket_id"] if isinstance(row,sqlite3.Row) else row[0])
+            for row in bracket_rows
+        }
+        group_id=expected.get("group_id")
+        if group_id is not None:
+            rows=con.execute(
+                """SELECT DISTINCT bracket_id FROM matches
+                   WHERE tournament_id=? AND bracket_id IS NOT NULL
+                     AND (home_source LIKE ? OR away_source LIKE ?)""",
+                (tournament_id,f"group:{group_id}:%",f"group:{group_id}:%"),
+            ).fetchall()
+            bracket_ids.update(
+                int(row["bracket_id"] if isinstance(row,sqlite3.Row) else row[0])
+                for row in rows
+            )
+
+        con.execute(
+            "DELETE FROM matches WHERE tournament_id=? AND (home_source=? OR away_source=?)",
+            (tournament_id,token,token),
+        )
+        for bracket_id in bracket_ids:
+            con.execute(
+                "DELETE FROM brackets WHERE id=? AND tournament_id=?",
+                (bracket_id,tournament_id),
+            )
+        cursor=con.execute(
+            "DELETE FROM teams WHERE id=? AND tournament_id=?",
+            (team_id,tournament_id),
+        )
+        rowcount=getattr(cursor,"rowcount",None)
+        con.commit()
+        deleted=(rowcount == 1) if rowcount is not None and rowcount >= 0 else True
+
+    if deleted:
+        _clear_render_query_cache()
+        return True,None
+    return False,"conflict"
+
+
+def _admin_group_snapshot(group_row):
+    return {
+        "name": _row_value(group_row,"name","") or "",
+        "age_class": _row_value(group_row,"age_class",None),
+        "competition_class_id": _row_value(group_row,"competition_class_id",None),
+    }
+
+
+def _admin_update_group_if_unchanged(
+    group_id,
+    tournament_id,
+    expected,
+    *,
+    name,
+    age_class,
+    competition_class_id,
+):
+    with db() as con:
+        cursor=con.execute(
+            """UPDATE groups SET name=?,age_class=?,competition_class_id=?
+               WHERE id=? AND tournament_id=?
+                 AND COALESCE(name,'')=?
+                 AND age_class IS ?
+                 AND competition_class_id IS ?""",
+            (
+                name,age_class,competition_class_id,
+                int(group_id),int(tournament_id),
+                expected.get("name",""),expected.get("age_class"),
+                expected.get("competition_class_id"),
+            ),
+        )
+        rowcount=getattr(cursor,"rowcount",None)
+        con.commit()
+        saved=(rowcount == 1) if rowcount is not None and rowcount >= 0 else False
+    if saved:
+        _clear_render_query_cache()
+        return True,None
+    return False,"conflict"
+
+
+def _admin_delete_group_if_unchanged(group_id, tournament_id, expected):
+    group_id=int(group_id)
+    tournament_id=int(tournament_id)
+    with db() as con:
+        current=con.execute(
+            "SELECT * FROM groups WHERE id=? AND tournament_id=?",
+            (group_id,tournament_id),
+        ).fetchone()
+        if current is None or _admin_group_snapshot(current) != expected:
+            return False,"conflict"
+
+        rows=con.execute(
+            """SELECT DISTINCT bracket_id FROM matches
+               WHERE tournament_id=? AND bracket_id IS NOT NULL
+                 AND (home_source LIKE ? OR away_source LIKE ?)""",
+            (tournament_id,f"group:{group_id}:%",f"group:{group_id}:%"),
+        ).fetchall()
+        bracket_ids=[
+            int(row["bracket_id"] if isinstance(row,sqlite3.Row) else row[0])
+            for row in rows
+        ]
+        con.execute(
+            "UPDATE teams SET group_id=NULL WHERE tournament_id=? AND group_id=?",
+            (tournament_id,group_id),
+        )
+        for bracket_id in bracket_ids:
+            con.execute(
+                "DELETE FROM brackets WHERE id=? AND tournament_id=?",
+                (bracket_id,tournament_id),
+            )
+        cursor=con.execute(
+            "DELETE FROM groups WHERE id=? AND tournament_id=?",
+            (group_id,tournament_id),
+        )
+        rowcount=getattr(cursor,"rowcount",None)
+        con.commit()
+        deleted=(rowcount == 1) if rowcount is not None and rowcount >= 0 else True
+    if deleted:
+        _clear_render_query_cache()
+        return True,None
+    return False,"conflict"
+
+
+def _set_schedule_request_status_if_current(
+    request_id,
+    tournament_id,
+    expected_status,
+    new_status,
+):
+    """Atomic request-state transition; stale Admin buttons do nothing."""
+    if new_status not in {"Godkänd","Nekad"}:
+        raise ValueError("Ogiltig önskemålsstatus.")
+    with db() as con:
+        cursor=con.execute(
+            """UPDATE schedule_requests SET status=?
+               WHERE id=? AND tournament_id=? AND status=?""",
+            (new_status,int(request_id),int(tournament_id),expected_status),
+        )
+        rowcount=getattr(cursor,"rowcount",None)
+        con.commit()
+        saved=(rowcount == 1) if rowcount is not None and rowcount >= 0 else False
+    if saved:
+        _clear_render_query_cache()
+        return True,None
+    return False,"conflict"
+
+
+def _sponsor_snapshot(row):
+    return {
+        "name": _row_value(row,"name","") or "",
+        "level": _row_value(row,"level",None),
+        "description": _row_value(row,"description",None),
+        "website_url": _row_value(row,"website_url",None),
+        "logo_data_uri": _row_value(row,"logo_data_uri",None),
+        "active": int(_row_value(row,"active",0) or 0),
+        "sort_order": int(_row_value(row,"sort_order",0) or 0),
+    }
+
+
+def _admin_update_sponsor_if_unchanged(
+    sponsor_id,
+    tournament_id,
+    expected,
+    *,
+    name,
+    level,
+    description,
+    website_url,
+    logo_data_uri,
+    active,
+    sort_order,
+):
+    with db() as con:
+        cursor=con.execute(
+            """UPDATE sponsors SET
+                   name=?,level=?,description=?,website_url=?,logo_data_uri=?,active=?,sort_order=?
+               WHERE id=? AND tournament_id=?
+                 AND COALESCE(name,'')=?
+                 AND level IS ?
+                 AND description IS ?
+                 AND website_url IS ?
+                 AND logo_data_uri IS ?
+                 AND COALESCE(active,0)=?
+                 AND COALESCE(sort_order,0)=?""",
+            (
+                name,level,description,website_url,logo_data_uri,int(bool(active)),int(sort_order),
+                int(sponsor_id),int(tournament_id),
+                expected.get("name",""),expected.get("level"),expected.get("description"),
+                expected.get("website_url"),expected.get("logo_data_uri"),
+                int(expected.get("active",0) or 0),int(expected.get("sort_order",0) or 0),
+            ),
+        )
+        rowcount=getattr(cursor,"rowcount",None)
+        con.commit()
+        saved=(rowcount == 1) if rowcount is not None and rowcount >= 0 else False
+    if saved:
+        _clear_render_query_cache()
+        return True,None
+    return False,"conflict"
+
+
+def _admin_delete_sponsor_if_unchanged(sponsor_id, tournament_id, expected):
+    with db() as con:
+        cursor=con.execute(
+            """DELETE FROM sponsors
+               WHERE id=? AND tournament_id=?
+                 AND COALESCE(name,'')=?
+                 AND level IS ?
+                 AND description IS ?
+                 AND website_url IS ?
+                 AND logo_data_uri IS ?
+                 AND COALESCE(active,0)=?
+                 AND COALESCE(sort_order,0)=?""",
+            (
+                int(sponsor_id),int(tournament_id),
+                expected.get("name",""),expected.get("level"),expected.get("description"),
+                expected.get("website_url"),expected.get("logo_data_uri"),
+                int(expected.get("active",0) or 0),int(expected.get("sort_order",0) or 0),
+            ),
+        )
+        rowcount=getattr(cursor,"rowcount",None)
+        con.commit()
+        deleted=(rowcount == 1) if rowcount is not None and rowcount >= 0 else False
+    if deleted:
+        _clear_render_query_cache()
+        return True,None
+    return False,"conflict"
+
+
+def _functionary_snapshot(row):
+    return {
+        "name": _row_value(row,"name","") or "",
+        "role": _row_value(row,"role","") or "",
+        "phone": _row_value(row,"phone",None),
+        "email": _row_value(row,"email",None),
+        "pitch_number": _row_value(row,"pitch_number",None),
+        "notes": _row_value(row,"notes",None),
+        "public_contact": int(_row_value(row,"public_contact",0) or 0),
+        "active": int(_row_value(row,"active",1) or 0),
+    }
+
+
+def _admin_update_functionary_if_unchanged(
+    functionary_id,
+    tournament_id,
+    expected,
+    *,
+    name,
+    role,
+    phone,
+    email,
+    pitch_number,
+    notes,
+    public_contact,
+):
+    if email and ("@" not in email or "." not in email.rsplit("@",1)[-1]):
+        return False,"invalid_email"
+    with db() as con:
+        cursor=con.execute(
+            """UPDATE functionaries SET
+                   name=?,role=?,phone=?,email=?,pitch_number=?,notes=?,public_contact=?
+               WHERE id=? AND tournament_id=?
+                 AND COALESCE(name,'')=?
+                 AND COALESCE(role,'')=?
+                 AND phone IS ?
+                 AND email IS ?
+                 AND pitch_number IS ?
+                 AND notes IS ?
+                 AND COALESCE(public_contact,0)=?
+                 AND COALESCE(active,1)=?""",
+            (
+                name,role,phone,email,pitch_number,notes,int(bool(public_contact)),
+                int(functionary_id),int(tournament_id),
+                expected.get("name",""),expected.get("role",""),
+                expected.get("phone"),expected.get("email"),expected.get("pitch_number"),
+                expected.get("notes"),int(expected.get("public_contact",0) or 0),
+                int(expected.get("active",1) or 0),
+            ),
+        )
+        rowcount=getattr(cursor,"rowcount",None)
+        con.commit()
+        saved=(rowcount == 1) if rowcount is not None and rowcount >= 0 else False
+    if saved:
+        _clear_render_query_cache()
+        return True,None
+    return False,"conflict"
+
+
+def _admin_delete_functionary_if_unchanged(functionary_id, tournament_id, expected):
+    with db() as con:
+        cursor=con.execute(
+            """DELETE FROM functionaries
+               WHERE id=? AND tournament_id=?
+                 AND COALESCE(name,'')=?
+                 AND COALESCE(role,'')=?
+                 AND phone IS ?
+                 AND email IS ?
+                 AND pitch_number IS ?
+                 AND notes IS ?
+                 AND COALESCE(public_contact,0)=?
+                 AND COALESCE(active,1)=?""",
+            (
+                int(functionary_id),int(tournament_id),
+                expected.get("name",""),expected.get("role",""),
+                expected.get("phone"),expected.get("email"),expected.get("pitch_number"),
+                expected.get("notes"),int(expected.get("public_contact",0) or 0),
+                int(expected.get("active",1) or 0),
+            ),
+        )
+        rowcount=getattr(cursor,"rowcount",None)
+        con.commit()
+        deleted=(rowcount == 1) if rowcount is not None and rowcount >= 0 else False
+    if deleted:
+        _clear_render_query_cache()
+        return True,None
+    return False,"conflict"
+
+
+def _set_publication_if_current(
+    tournament_id,
+    *,
+    expected_is_published,
+    expected_lifecycle,
+    publish,
+):
+    """Apply publish/unpublish only to the tournament state rendered to Admin."""
+    tournament_id=int(tournament_id)
+    expected_is_published=int(bool(expected_is_published))
+    expected_lifecycle=str(expected_lifecycle or "draft")
+    with db() as con:
+        if publish:
+            con.execute(
+                """UPDATE matches SET schedule_published=1
+                   WHERE tournament_id=? AND scheduled_start IS NOT NULL""",
+                (tournament_id,),
+            )
+            cursor=con.execute(
+                """UPDATE tournaments
+                   SET is_published=1,
+                       lifecycle_status=CASE WHEN lifecycle_status='live' THEN 'live' ELSE 'published' END
+                   WHERE id=? AND COALESCE(is_published,0)=?
+                     AND COALESCE(lifecycle_status,'draft')=?""",
+                (tournament_id,expected_is_published,expected_lifecycle),
+            )
+        else:
+            cursor=con.execute(
+                """UPDATE tournaments
+                   SET is_published=0,lifecycle_status='draft'
+                   WHERE id=? AND COALESCE(is_published,0)=?
+                     AND COALESCE(lifecycle_status,'draft')=?""",
+                (tournament_id,expected_is_published,expected_lifecycle),
+            )
+        rowcount=getattr(cursor,"rowcount",None)
+        changed=(rowcount == 1) if rowcount is not None and rowcount >= 0 else False
+        if changed:
+            con.commit()
+        else:
+            con.rollback()
+    if changed:
+        _clear_render_query_cache()
+        return True,None
+    return False,"conflict"
+
+
+def _set_lifecycle_if_current(
+    tournament_id,
+    expected_lifecycle,
+    new_lifecycle,
+    *,
+    expected_is_published=1,
+):
+    """Atomic lifecycle transition for live/completed actions."""
+    if new_lifecycle not in {"live","completed"}:
+        raise ValueError("Ogiltig livscykelstatus.")
+    completed_at=datetime.now().isoformat(timespec="seconds") if new_lifecycle=="completed" else None
+    with db() as con:
+        if new_lifecycle=="completed":
+            cursor=con.execute(
+                """UPDATE tournaments SET lifecycle_status='completed',completed_at=?,is_published=1
+                   WHERE id=? AND COALESCE(lifecycle_status,'draft')=?
+                     AND COALESCE(is_published,0)=?""",
+                (completed_at,int(tournament_id),expected_lifecycle,int(bool(expected_is_published))),
+            )
+        else:
+            cursor=con.execute(
+                """UPDATE tournaments SET lifecycle_status='live'
+                   WHERE id=? AND COALESCE(lifecycle_status,'draft')=?
+                     AND COALESCE(is_published,0)=?""",
+                (int(tournament_id),expected_lifecycle,int(bool(expected_is_published))),
+            )
+        rowcount=getattr(cursor,"rowcount",None)
+        con.commit()
+        changed=(rowcount == 1) if rowcount is not None and rowcount >= 0 else False
+    if changed:
+        _clear_render_query_cache()
+        return True,None
+    return False,"conflict"
+
+
+def _undo_audit_entry_if_current(audit_id, tournament_id):
+    """Undo one reversible audit entry exactly once, in one transaction."""
+    audit_id=int(audit_id)
+    tournament_id=int(tournament_id)
+    with db() as con:
+        audit=con.execute(
+            """SELECT * FROM audit_log
+               WHERE id=? AND tournament_id=? AND undone_at IS NULL
+                 AND reversible=1 AND action_type IN ('schedule_move','delay_shift')""",
+            (audit_id,tournament_id),
+        ).fetchone()
+        if audit is None:
+            return False,"conflict",None
+
+        action_type=_row_value(audit,"action_type","")
+        entity_id=_row_value(audit,"entity_id",None)
+        before_json=_row_value(audit,"before_json",None)
+        description=_row_value(audit,"description","") or ""
+        entity_type=_row_value(audit,"entity_type","") or ""
+        before=json.loads(before_json or "null")
+
+        if action_type=="schedule_move" and isinstance(before,dict):
+            cursor=con.execute(
+                """UPDATE matches SET scheduled_start=?,pitch_number=?
+                   WHERE id=? AND tournament_id=?""",
+                (before.get("scheduled_start"),before.get("pitch_number"),entity_id,tournament_id),
+            )
+            rowcount=getattr(cursor,"rowcount",None)
+            if rowcount is not None and rowcount >= 0 and rowcount != 1:
+                con.rollback()
+                return False,"target_missing",None
+        elif action_type=="delay_shift" and isinstance(before,list):
+            for item in before:
+                cursor=con.execute(
+                    """UPDATE matches SET scheduled_start=?
+                       WHERE id=? AND tournament_id=?""",
+                    (item.get("scheduled_start"),item.get("id"),tournament_id),
+                )
+                rowcount=getattr(cursor,"rowcount",None)
+                if rowcount is not None and rowcount >= 0 and rowcount != 1:
+                    con.rollback()
+                    return False,"target_missing",None
+        else:
+            con.rollback()
+            return False,"invalid_payload",None
+
+        undone_at=datetime.now().isoformat(timespec="seconds")
+        cursor=con.execute(
+            """UPDATE audit_log SET undone_at=?
+               WHERE id=? AND tournament_id=? AND undone_at IS NULL""",
+            (undone_at,audit_id,tournament_id),
+        )
+        rowcount=getattr(cursor,"rowcount",None)
+        if rowcount is not None and rowcount >= 0 and rowcount != 1:
+            con.rollback()
+            return False,"conflict",None
+        con.commit()
+
+    _clear_render_query_cache()
+    return True,None,{
+        "entity_id":entity_id,
+        "entity_type":entity_type,
+        "description":description,
+    }
 
 
 def render_team_portal(tournament_id, tournament):
@@ -8136,9 +9047,13 @@ def render_team_portal(tournament_id, tournament):
         st.session_state.pop("participant_portal_auth", None)
         st.rerun()
 
-    unread_team_count = int((one_row("""SELECT COUNT(*) AS n FROM team_messages
-        WHERE tournament_id=? AND recipient_type='team' AND recipient_team_id=? AND read_at IS NULL""",
-        (tournament_id, team_id)) or {"n":0})["n"] or 0)
+    received_messages = all_rows(
+        """SELECT * FROM team_messages
+           WHERE tournament_id=? AND recipient_type='team' AND recipient_team_id=?
+           ORDER BY created_at DESC,id DESC LIMIT 200""",
+        (tournament_id, team_id),
+    )
+    unread_team_count = sum(1 for row in received_messages if not row["read_at"])
     message_tab_label = f"🔴 Meddelanden ({unread_team_count})" if unread_team_count else "Meddelanden"
     portal_tabs = st.tabs(["Översikt", "Trupp", "Matchtrupper", message_tab_label])
 
@@ -8149,17 +9064,29 @@ def render_team_portal(tournament_id, tournament):
             if bool(team_row["checked_in"]):
                 c1.success(f"✅ Incheckad {team_row['checked_in_at'] or ''}" + (f" av {team_row['checked_in_by']}" if team_row["checked_in_by"] else ""))
                 if c1.button("Ta bort incheckning", key=f"portal_uncheck_{team_id}"):
-                    run("UPDATE teams SET checked_in=0,checked_in_at=NULL,checked_in_by=NULL WHERE id=?", (team_id,))
-                    record_audit(tournament_id, "team_checkin", "team", f"{team_row['name']}: incheckning borttagen", entity_id=team_id, actor=role_label)
+                    saved, reason = _set_team_checkin_if_unchanged(
+                        team_id,
+                        _team_checkin_snapshot(team_row),
+                        checked_in=False,
+                    )
+                    if saved:
+                        record_audit(tournament_id, "team_checkin", "team", f"{team_row['name']}: incheckning borttagen", entity_id=team_id, actor=role_label)
+                    else:
+                        st.warning("Lagets incheckningsstatus ändrades av någon annan. Senaste status laddas om.")
                     st.rerun()
             else:
                 checkin_name = c1.text_input("Vem checkar in laget?", placeholder="Namn", key=f"checkin_name_{team_id}")
                 if c1.button("✅ Vi är på plats", type="primary", key=f"portal_check_{team_id}", use_container_width=True):
-                    run(
-                        "UPDATE teams SET checked_in=1,checked_in_at=?,checked_in_by=? WHERE id=?",
-                        (datetime.now().isoformat(timespec="seconds"), checkin_name.strip() or role_label, team_id),
+                    saved, reason = _set_team_checkin_if_unchanged(
+                        team_id,
+                        _team_checkin_snapshot(team_row),
+                        checked_in=True,
+                        checked_in_by=checkin_name.strip() or role_label,
                     )
-                    record_audit(tournament_id, "team_checkin", "team", f"{team_row['name']}: incheckad", entity_id=team_id, actor=role_label)
+                    if saved:
+                        record_audit(tournament_id, "team_checkin", "team", f"{team_row['name']}: incheckad", entity_id=team_id, actor=role_label)
+                    else:
+                        st.warning("Lagets incheckningsstatus ändrades av någon annan. Senaste status laddas om.")
                     st.rerun()
         else:
             c1.info("Lagincheckning används inte i den här turneringen.")
@@ -8170,16 +9097,31 @@ def render_team_portal(tournament_id, tournament):
             c2.info("👕 Matchställ är ännu inte bekräftade.")
         c2.markdown(kit_preview_html(_team_value(team_row, "home_pattern", "Helfärgad"), team_row["primary_color"], _team_value(team_row, "home_color_2", "#FFFFFF"), "Hemmaställ"), unsafe_allow_html=True)
         c2.markdown(kit_preview_html(_team_value(team_row, "away_pattern", "Helfärgad"), team_row["secondary_color"], _team_value(team_row, "away_color_2", "#111827"), "Bortaställ"), unsafe_allow_html=True)
-        if c2.button("Bekräfta matchställ", key=f"confirm_kit_{team_id}", use_container_width=True):
-            run("UPDATE teams SET kit_confirmed_at=? WHERE id=?", (datetime.now().isoformat(timespec="seconds"), team_id))
-            record_audit(tournament_id, "kit_confirmed", "team", f"{team_row['name']}: matchställ bekräftade", entity_id=team_id, actor=role_label)
+        if c2.button(
+            "Bekräfta matchställ",
+            key=f"confirm_kit_{team_id}",
+            use_container_width=True,
+            disabled=bool(team_row["kit_confirmed_at"]),
+        ):
+            saved, reason = _confirm_team_kit_if_unchanged(
+                team_id,
+                _team_kit_snapshot(team_row),
+            )
+            if saved:
+                record_audit(tournament_id, "kit_confirmed", "team", f"{team_row['name']}: matchställ bekräftade", entity_id=team_id, actor=role_label)
+            else:
+                st.warning("Matchställen ändrades av någon annan och bekräftades därför inte. Senaste version laddas om.")
             st.rerun()
 
         st.subheader("Mina matcher")
+        direct_team_source = f"team:{team_id}"
         matches = [
             row for row in all_rows(
-                "SELECT * FROM matches WHERE tournament_id=? AND scheduled_start IS NOT NULL ORDER BY scheduled_start,pitch_number,id",
-                (tournament_id,),
+                """SELECT * FROM matches
+                   WHERE tournament_id=? AND scheduled_start IS NOT NULL
+                     AND (home_source=? OR away_source=? OR home_source NOT LIKE 'team:%' OR away_source NOT LIKE 'team:%')
+                   ORDER BY scheduled_start,pitch_number,id""",
+                (tournament_id, direct_team_source, direct_team_source),
             )
             if team_id in _match_team_ids(row)
         ]
@@ -8193,6 +9135,13 @@ def render_team_portal(tournament_id, tournament):
             st.info("Inga schemalagda matcher ännu.")
 
         st.subheader("Ansvarig kontaktperson")
+        contact_notice_key=f"portal_contact_notice_{team_id}"
+        if contact_notice_key in st.session_state:
+            notice_type, notice_text = st.session_state.pop(contact_notice_key)
+            if notice_type == "success":
+                st.success(notice_text)
+            else:
+                st.warning(notice_text)
         with st.form(f"portal_contact_{team_id}"):
             contact_name = st.text_input("Namn", value=_team_value(team_row, "responsible_name", "") or "")
             contact_phone = st.text_input("Telefon", value=_team_value(team_row, "responsible_phone", "") or "")
@@ -8206,14 +9155,28 @@ def render_team_portal(tournament_id, tournament):
             )
             if st.form_submit_button("Spara kontaktuppgifter"):
                 public_enabled = int(bool(contact_public) and allow_public)
-                run(
-                    """UPDATE teams SET responsible_name=?,responsible_phone=?,responsible_email=?,
-                       public_contact_name=?,public_contact_phone=?,public_contact_email=?,public_contact_enabled=? WHERE id=?""",
-                    (contact_name.strip(), contact_phone.strip(), contact_email.strip(),
-                     contact_name.strip(), contact_phone.strip(), contact_email.strip(), public_enabled, team_id),
+                saved, contact_reason = _save_team_contact_if_unchanged(
+                    team_id,
+                    _team_contact_snapshot(team_row),
+                    contact_name=contact_name,
+                    contact_phone=contact_phone,
+                    contact_email=contact_email,
+                    public_enabled=public_enabled,
                 )
-                st.success("Kontaktuppgifterna är sparade.")
-                st.rerun()
+                if saved:
+                    st.session_state[contact_notice_key]=(
+                        "success",
+                        "Kontaktuppgifterna är sparade.",
+                    )
+                    st.rerun()
+                elif contact_reason == "invalid_email":
+                    st.error("Ange en giltig e-postadress eller lämna fältet tomt.")
+                else:
+                    st.session_state[contact_notice_key]=(
+                        "warning",
+                        "Kontaktuppgifterna ändrades av någon annan och dina äldre uppgifter skrevs inte över. Senaste uppgifter har laddats.",
+                    )
+                    st.rerun()
 
     with portal_tabs[1]:
         st.subheader("Hantera truppen")
@@ -8237,8 +9200,21 @@ def render_team_portal(tournament_id, tournament):
                     st.error(f"Arrangören har satt max {max_roster} spelare.")
                 else:
                     full_name = f"{pfirst.strip()} {plast.strip()}"
-                    run("INSERT INTO players(team_id,player_number,name,first_name,last_name,birth_year,position,is_protected) VALUES(?,?,?,?,?,?,?,?)", (team_id, pnumber, full_name, pfirst.strip(), plast.strip(), int(pbirth), pposition.strip(), int(pprotected)))
-                    record_audit(tournament_id, "roster_player_added", "team", f"{team_row['name']}: {full_name} tillagd", entity_id=team_id, actor=role_label)
+                    added, add_reason = _add_team_player_if_capacity(
+                        team_id,
+                        max_roster,
+                        player_number=pnumber,
+                        name=full_name,
+                        first_name=pfirst.strip(),
+                        last_name=plast.strip(),
+                        birth_year=int(pbirth),
+                        position=pposition.strip(),
+                        is_protected=pprotected,
+                    )
+                    if added:
+                        record_audit(tournament_id, "roster_player_added", "team", f"{team_row['name']}: {full_name} tillagd", entity_id=team_id, actor=role_label)
+                    elif add_reason == "roster_full":
+                        st.warning(f"Truppen har redan nått maxgränsen på {max_roster} spelare. Ingen spelare lades till.")
                     st.rerun()
         for player in players:
             with st.expander(f"#{player['player_number'] if player['player_number'] is not None else '–'} {_player_display_name(player)}"):
@@ -8255,67 +9231,139 @@ def render_team_portal(tournament_id, tournament):
                     eposition = ec5.text_input("Position/roll", value=player["position"] or "")
                     eprotected = st.checkbox("Skyddad spelare – visa inte namn publikt", value=bool(_row_value(player, "is_protected", 0)))
                     save_player = st.form_submit_button("Spara")
+                player_expected = _player_snapshot(player)
                 if save_player:
                     if not efirst.strip() or not elast.strip():
                         st.error("Ange både förnamn och efternamn.")
                     else:
                         full_name = f"{efirst.strip()} {elast.strip()}"
-                        run("UPDATE players SET name=?,first_name=?,last_name=?,player_number=?,birth_year=?,position=?,is_protected=? WHERE id=? AND team_id=?", (full_name, efirst.strip(), elast.strip(), enumber, int(ebirth), eposition.strip(), int(eprotected), player["id"], team_id))
+                        saved, save_reason = _update_team_player_if_unchanged(
+                            player["id"],
+                            team_id,
+                            player_expected,
+                            player_number=enumber,
+                            name=full_name,
+                            first_name=efirst.strip(),
+                            last_name=elast.strip(),
+                            birth_year=int(ebirth),
+                            position=eposition.strip(),
+                            is_protected=eprotected,
+                        )
+                        if not saved and save_reason == "conflict":
+                            st.warning("Spelaren ändrades av någon annan och dina äldre uppgifter skrevs inte över.")
                         st.rerun()
                 if st.button("Ta bort spelaren", key=f"portal_delete_player_{player['id']}"):
-                    run("DELETE FROM players WHERE id=? AND team_id=?", (player["id"], team_id))
-                    record_audit(tournament_id, "roster_player_deleted", "team", f"{team_row['name']}: spelare borttagen", entity_id=team_id, actor=role_label)
+                    deleted, delete_reason = _delete_team_player_if_unchanged(
+                        player["id"],
+                        team_id,
+                        player_expected,
+                    )
+                    if deleted:
+                        record_audit(tournament_id, "roster_player_deleted", "team", f"{team_row['name']}: spelare borttagen", entity_id=team_id, actor=role_label)
+                    elif delete_reason == "conflict":
+                        st.warning("Spelaren ändrades av någon annan och raderades därför inte. Senaste uppgifter laddas om.")
                     st.rerun()
 
     with portal_tabs[2]:
         st.subheader("Matchtrupper")
         deadline_minutes = int(_row_value(tournament, "squad_deadline_minutes", 30) or 0)
         st.caption(f"Matchtruppen låses {deadline_minutes} minuter före matchstart. Admin kan alltid ändra den.")
+        direct_team_source = f"team:{team_id}"
         team_matches = [
             row for row in all_rows(
-                "SELECT * FROM matches WHERE tournament_id=? AND scheduled_start IS NOT NULL ORDER BY scheduled_start,id",
-                (tournament_id,),
+                """SELECT * FROM matches
+                   WHERE tournament_id=? AND scheduled_start IS NOT NULL
+                     AND (home_source=? OR away_source=? OR home_source NOT LIKE 'team:%' OR away_source NOT LIKE 'team:%')
+                   ORDER BY scheduled_start,id""",
+                (tournament_id, direct_team_source, direct_team_source),
             ) if team_id in _match_team_ids(row)
         ]
         if not team_matches:
             st.info("Inga matcher att registrera matchtrupp för ännu.")
         else:
-            match_id = st.selectbox("Välj match", [row["id"] for row in team_matches], format_func=lambda mid: _portal_match_label(next(row for row in team_matches if row["id"] == mid)), key=f"portal_squad_match_{team_id}")
-            match_row = next(row for row in team_matches if row["id"] == match_id)
+            team_match_by_id = {int(row["id"]): row for row in team_matches}
+            roster_rows = all_rows(
+                """SELECT match_id,player_id
+                   FROM match_rosters
+                   WHERE team_id=?
+                   ORDER BY match_id,player_id""",
+                (team_id,),
+            )
+            roster_ids_by_match = {}
+            for roster_row in roster_rows:
+                roster_ids_by_match.setdefault(int(roster_row["match_id"]), []).append(int(roster_row["player_id"]))
+            rostered_match_ids = set(roster_ids_by_match)
+
+            match_id = st.selectbox(
+                "Välj match",
+                list(team_match_by_id),
+                format_func=lambda mid: _portal_match_label(team_match_by_id[int(mid)]),
+                key=f"portal_squad_match_{team_id}",
+            )
+            match_row = team_match_by_id[int(match_id)]
             locked = squad_is_locked(match_row["scheduled_start"], deadline_minutes)
             deadline = squad_deadline_at(match_row["scheduled_start"], deadline_minutes)
             if locked:
                 st.warning(f"Matchtruppen är låst. Deadline var {swedish_datetime(deadline.isoformat(timespec='minutes'))}.")
             else:
                 st.info(f"Deadline: {swedish_datetime(deadline.isoformat(timespec='minutes')) if deadline else 'Ingen deadline'}")
-            players = all_rows("SELECT * FROM players WHERE team_id=? ORDER BY player_number,name", (team_id,))
-            existing_ids = {int(row["player_id"]) for row in all_rows("SELECT player_id FROM match_rosters WHERE match_id=? AND team_id=?", (match_id, team_id))}
+            # `players` was already loaded for the Trupp tab earlier in this render.
+            existing_ids = set(roster_ids_by_match.get(int(match_id), []))
             options = [int(row["id"]) for row in players]
+            player_label_by_id = {
+                int(row["id"]): f"#{row['player_number'] if row['player_number'] is not None else '–'} {row['name']}"
+                for row in players
+            }
             selected_ids = st.multiselect(
                 "Spelare i matchtruppen",
                 options,
                 default=[pid for pid in options if pid in existing_ids],
-                format_func=lambda pid: next(f"#{row['player_number'] if row['player_number'] is not None else '–'} {row['name']}" for row in players if int(row["id"]) == int(pid)),
+                format_func=lambda pid: player_label_by_id[int(pid)],
                 disabled=locked,
                 key=f"portal_match_roster_{match_id}_{team_id}",
             )
-            prev_with_roster = None
-            for candidate in reversed([row for row in team_matches if row["scheduled_start"] < match_row["scheduled_start"]]):
-                count = one_row("SELECT COUNT(*) AS n FROM match_rosters WHERE match_id=? AND team_id=?", (candidate["id"], team_id))
-                if count and int(count["n"] or 0) > 0:
-                    prev_with_roster = candidate
-                    break
+            prev_with_roster = next(
+                (
+                    candidate
+                    for candidate in reversed([row for row in team_matches if row["scheduled_start"] < match_row["scheduled_start"]])
+                    if int(candidate["id"]) in rostered_match_ids
+                ),
+                None,
+            )
             bc1, bc2 = st.columns(2)
             if bc1.button("Spara matchtrupp", type="primary", disabled=locked, key=f"save_match_roster_{match_id}_{team_id}", use_container_width=True):
-                _save_match_roster(match_id, team_id, selected_ids, role_label)
-                record_audit(tournament_id, "match_roster_saved", "match", f"{team_row['name']}: matchtrupp sparad ({len(selected_ids)} spelare)", entity_id=match_id, actor=role_label)
-                st.success("Matchtruppen är sparad.")
+                saved, save_reason = _save_match_roster_if_unchanged(
+                    match_id,
+                    team_id,
+                    selected_ids,
+                    existing_ids,
+                    role_label,
+                )
+                if saved:
+                    record_audit(tournament_id, "match_roster_saved", "match", f"{team_row['name']}: matchtrupp sparad ({len(selected_ids)} spelare)", entity_id=match_id, actor=role_label)
+                    st.success("Matchtruppen är sparad.")
+                elif save_reason == "conflict":
+                    st.warning("Matchtruppen ändrades av någon annan och skrevs inte över. Senaste truppen laddas om.")
+                else:
+                    st.error("Matchtruppen kunde inte sparas eftersom en vald spelare inte längre tillhör laget.")
                 st.rerun()
             if bc2.button("Kopiera föregående matchtrupp", disabled=locked or prev_with_roster is None, key=f"copy_match_roster_{match_id}_{team_id}", use_container_width=True):
-                previous_ids = [row["player_id"] for row in all_rows("SELECT player_id FROM match_rosters WHERE match_id=? AND team_id=?", (prev_with_roster["id"], team_id))]
+                previous_ids = list(roster_ids_by_match.get(int(prev_with_roster["id"]), []))
                 valid_ids = {int(row["id"]) for row in players}
-                _save_match_roster(match_id, team_id, [pid for pid in previous_ids if int(pid) in valid_ids], role_label)
-                st.success("Föregående matchtrupp kopierades.")
+                copied_ids = [pid for pid in previous_ids if int(pid) in valid_ids]
+                saved, save_reason = _save_match_roster_if_unchanged(
+                    match_id,
+                    team_id,
+                    copied_ids,
+                    existing_ids,
+                    role_label,
+                )
+                if saved:
+                    st.success("Föregående matchtrupp kopierades.")
+                elif save_reason == "conflict":
+                    st.warning("Matchtruppen ändrades av någon annan och skrevs inte över. Senaste truppen laddas om.")
+                else:
+                    st.error("Matchtruppen kunde inte kopieras eftersom spelartruppen ändrades.")
                 st.rerun()
             if not existing_ids:
                 st.warning("⚠️ Matchtrupp ej registrerad.")
@@ -8327,6 +9375,9 @@ def render_team_portal(tournament_id, tournament):
         recipients = [("organizer", None, "Arrangören")] + [
             ("team", int(row["id"]), row["name"]) for row in teams if int(row["id"]) != team_id
         ]
+        portal_message_token_key=f"portal_message_request_token_{team_id}"
+        if portal_message_token_key not in st.session_state:
+            st.session_state[portal_message_token_key]=new_token()
         with st.form(f"portal_send_message_{team_id}", clear_on_submit=True):
             recipient_index = st.selectbox(
                 "Till",
@@ -8334,7 +9385,7 @@ def render_team_portal(tournament_id, tournament):
                 format_func=lambda idx: recipients[idx][2],
                 key=f"portal_message_recipient_{team_id}",
             )
-            msg_subject = st.text_input("Ämne", placeholder="Exempel: Förfrågan om träningsmatch")
+            msg_subject = st.text_input("Ämne", placeholder="Exempel: Förfrågan om träningsmatch", max_chars=200)
             msg_body = st.text_area(
                 "Meddelande",
                 placeholder="Exempel: Hej! Vi möts i cupen och skulle gärna spela en träningsmatch mot er senare under säsongen.",
@@ -8353,7 +9404,9 @@ def render_team_portal(tournament_id, tournament):
                     sender_team_id=team_id,
                     recipient_type=recipient_type,
                     recipient_team_id=recipient_team_id,
+                    request_token=st.session_state[portal_message_token_key],
                 )
+                st.session_state.pop(portal_message_token_key,None)
                 record_audit(tournament_id, "team_message_sent", "team", f"{team_row['name']}: meddelande skickat", entity_id=team_id, actor=role_label)
                 st.success("Meddelandet är skickat.")
                 st.rerun()
@@ -8362,25 +9415,25 @@ def render_team_portal(tournament_id, tournament):
 
         inbox, sent = st.tabs(["Inkorg", "Skickat"])
         with inbox:
-            received_messages = all_rows(
-                """SELECT * FROM team_messages
-                   WHERE tournament_id=? AND recipient_type='team' AND recipient_team_id=?
-                   ORDER BY created_at DESC,id DESC LIMIT 200""",
-                (tournament_id, team_id),
-            )
             unread_ids = [int(row["id"]) for row in received_messages if not row["read_at"]]
-            if unread_ids:
-                placeholders = ",".join("?" for _ in unread_ids)
-                run(
-                    f"UPDATE team_messages SET read_at=? WHERE id IN ({placeholders})",
-                    (datetime.now().isoformat(timespec="seconds"), *unread_ids),
+            if unread_ids and st.button(
+                f"Markera alla som lästa ({len(unread_ids)})",
+                key=f"portal_mark_messages_read_{team_id}",
+            ):
+                _mark_team_messages_read(
+                    unread_ids,
+                    tournament_id=tournament_id,
+                    recipient_type="team",
+                    recipient_team_id=team_id,
                 )
+                st.rerun()
             if not received_messages:
                 st.info("Inga mottagna meddelanden ännu.")
             for msg in received_messages:
                 sender, _ = _message_party_label(msg, team_names)
                 with st.container(border=True):
-                    st.markdown(f"**{html.escape(msg['subject'])}**")
+                    unread_prefix = "🔴 " if not msg["read_at"] else ""
+                    st.markdown(f"**{unread_prefix}{html.escape(msg['subject'])}**")
                     st.caption(f"Från {html.escape(sender)} · {msg['created_at']}")
                     st.write(msg["message"])
 
@@ -8398,6 +9451,16 @@ def render_team_portal(tournament_id, tournament):
                 with st.container(border=True):
                     st.markdown(f"**{html.escape(msg['subject'])}**")
                     st.caption(f"Till {html.escape(recipient)} · {msg['created_at']}")
+                    email_status=str(_row_value(msg,"email_status","") or "")
+                    if msg["recipient_type"] == "team":
+                        email_status_label={
+                            "sent":"E-postnotis skickad",
+                            "failed":"E-postnotis kunde inte skickas",
+                            "skipped":"Ingen e-postadress registrerad",
+                            "pending":"E-postnotis behandlas",
+                        }.get(email_status,"")
+                        if email_status_label:
+                            st.caption(email_status_label)
                     st.write(msg["message"])
 
 
@@ -8436,7 +9499,7 @@ if _direct_public_cup and st.session_state.get("view_mode") is None:
     st.session_state["view_mode"] = "Turneringsvy"
 elif st.session_state.get("view_mode") not in mode_options:
     st.session_state["view_mode"] = mode_options[0]
-st.sidebar.caption("Version v.1.217")
+st.sidebar.caption("Version v.1.230")
 
 def _set_view_mode(mode):
     st.session_state["view_mode"] = mode
@@ -9308,16 +10371,10 @@ def render_initial_tournament_setup(tournament_id, tournament):
         st.session_state[f"autosave_notice_{tournament_id}"]=f'✓ {_sport_rec["display_name"]}-profilen applicerades.'
         st.rerun()
 
-    # Säkerställ obligatoriska öppettider per cupdag.
-    class_rows = competition_classes(tournament_id)
-
     # Legacy QA anchor: ### 1. Tävlingsklasser och svårighetsgrad
     st.markdown("### 1. Grunduppgifter")
     st.caption("Definiera varje tävlingsklass och hur många lag du planerar i just den klassen. Summan används som cupens totala planeringsantal.")
-    _class_played_count=int(one_row(
-        "SELECT COUNT(*) AS n FROM matches WHERE tournament_id=? AND home_score IS NOT NULL AND away_score IS NOT NULL",
-        (tournament_id,),
-    )["n"] or 0)
+    _class_played_count=_played_setup
     _class_locked=_class_played_count > 0
     if _class_locked:
         st.warning("Tävlingsklasser och planerat lagantal är låsta efter att första resultatet har registrerats. Befintliga lag och spelade matcher skyddas.")
@@ -9334,13 +10391,26 @@ def render_initial_tournament_setup(tournament_id, tournament):
         st.rerun()
 
     class_rows = competition_classes(tournament_id)
+    _team_count_rows = all_rows(
+        """SELECT competition_class_id, COUNT(*) AS n
+           FROM teams
+           WHERE tournament_id=?
+           GROUP BY competition_class_id""",
+        (tournament_id,),
+    )
+    _team_count_by_class = {
+        _row_value(count_row, "competition_class_id", None): int(_row_value(count_row, "n", 0) or 0)
+        for count_row in _team_count_rows
+    }
+    _actual_team_count = sum(_team_count_by_class.values())
+
     if not class_rows:
         st.warning("Lägg till minst en tävlingsklass och ange planerat antal lag innan du går vidare.")
     _planned_total=0
     for row in class_rows:
         c1, c2, c3, c4, c5 = st.columns([1.6, .95, .9, .75, .75])
         c1.markdown(f"**{competition_class_label(row)}**")
-        _actual_in_class=int(one_row("SELECT COUNT(*) AS n FROM teams WHERE tournament_id=? AND competition_class_id=?",(tournament_id,int(row["id"])))["n"] or 0)
+        _actual_in_class=int(_team_count_by_class.get(int(row["id"]),0))
         saved_planned=max(_actual_in_class,int(_row_value(row,"planned_team_count",0) or 0))
         planned_key=f"setup_planned_class_teams_{row['id']}"
         planned_value=c2.number_input(
@@ -9441,7 +10511,7 @@ def render_initial_tournament_setup(tournament_id, tournament):
                 save_pitch_day_window(tournament_id,pitch,play_date,sv.strftime("%H:%M"),ev.strftime("%H:%M"),True)
                 st.session_state[f"autosave_notice_{tournament_id}"]="✓ Plantider sparade automatiskt"
 
-    _capacity_windows=pitch_day_windows(tournament_id,current_pitch_count)
+    _capacity_windows=windows
     _capacity_minutes,_capacity_slots=estimated_capacity_slots(
         _capacity_windows,
         rules,
@@ -9455,12 +10525,14 @@ def render_initial_tournament_setup(tournament_id, tournament):
     st.markdown("### 3. Rekommenderat tävlingsformat")
     st.caption("Nu känner CupNavi till sport, antal lag och faktisk plankapacitet. Därför kan formatförslaget bedömas mot vad som verkligen ryms. Inget ändras förrän du accepterar.")
 
-    _planned_by_class=sum(max(0,int(_row_value(row,"planned_team_count",0) or 0)) for row in competition_classes(tournament_id))
-    _actual_team_count=int(one_row("SELECT COUNT(*) AS n FROM teams WHERE tournament_id=?",(tournament_id,))["n"] or 0)
+    # _planned_total reflects the current widget values in this rerun, including
+    # any autosaved edits made above. Re-querying competition_classes here would
+    # add another DB read without giving fresher UI state.
+    _planned_by_class=_planned_total
     _rec_team_count=max(2,_planned_by_class,_actual_team_count)
-    _rec_pitch_count=max(1,int(_row_value(rules,"pitch_count",1) or 1))
+    _rec_pitch_count=current_pitch_count
     _rec_match_minutes=estimated_match_length_minutes(rules,row_value=_row_value)
-    _rec_windows=pitch_day_windows(tournament_id,_rec_pitch_count)
+    _rec_windows=windows
     _rec_available_minutes=available_pitch_minutes(_rec_windows,row_value=_row_value)
     if not _rec_available_minutes:
         _rec_available_minutes=480
@@ -10006,12 +11078,9 @@ if admin_page != _recommended_page:
 
 st.divider()
 
-current_schedule_state = one_row(
-    "SELECT schedule_dirty,(SELECT COUNT(*) FROM matches WHERE tournament_id=? AND scheduled_start IS NOT NULL) AS scheduled_n "
-    "FROM tournaments WHERE id=?",
-    (tid, tid),
-)
-if current_schedule_state and current_schedule_state["schedule_dirty"] and current_schedule_state["scheduled_n"]:
+current_schedule_dirty = bool(_row_value(tournament, "schedule_dirty", 0))
+current_schedule_scheduled = _flow_scheduled
+if current_schedule_dirty and current_schedule_scheduled:
     st.warning(
         "⚠️ Förutsättningarna för turneringen har ändrats efter att schemat skapades. "
         "Schemat är markerat som inaktuellt och bör regenereras under Schema innan det publiceras på nytt."
@@ -10024,10 +11093,7 @@ if sidebar_rules is None:
     run("INSERT INTO schedule_rules(tournament_id) VALUES(?)", (tid,))
     sidebar_rules = one_row("SELECT * FROM schedule_rules WHERE tournament_id=?", (tid,))
 
-sidebar_scheduled = one_row(
-    "SELECT COUNT(*) AS n FROM matches WHERE tournament_id=? AND scheduled_start IS NOT NULL",
-    (tid,),
-)["n"]
+sidebar_scheduled = _flow_scheduled
 
 validation_cache_key = f"_schedule_validation_{tid}"
 if sidebar_scheduled:
@@ -10093,24 +11159,25 @@ sidebar_publish_blocked = bool(publish_blockers)
 
 
 def _publish_tournament_now():
-    """Publish every scheduled match atomically; used by desktop sidebar and mobile main view."""
-    with db() as con:
-        con.execute(
-            "UPDATE matches SET schedule_published=1 WHERE tournament_id=? AND scheduled_start IS NOT NULL",
-            (tid,),
-        )
-        con.execute(
-            "UPDATE tournaments SET is_published=1,lifecycle_status=CASE WHEN lifecycle_status='live' THEN 'live' ELSE 'published' END WHERE id=?",
-            (tid,),
-        )
-        con.commit()
-    _clear_render_query_cache()
-    st.session_state["_validation_dirty"] = True
+    """Publish only the tournament version currently rendered to Admin."""
+    changed, reason = _set_publication_if_current(
+        tid,
+        expected_is_published=bool(tournament["is_published"]),
+        expected_lifecycle=tournament_lifecycle,
+        publish=True,
+    )
+    if changed:
+        st.session_state["_validation_dirty"] = True
+    return changed, reason
 
 
 def _unpublish_tournament_now():
-    run("UPDATE tournaments SET is_published=0,lifecycle_status='draft' WHERE id=?", (tid,))
-    _clear_render_query_cache()
+    return _set_publication_if_current(
+        tid,
+        expected_is_published=bool(tournament["is_published"]),
+        expected_lifecycle=tournament_lifecycle,
+        publish=False,
+    )
 
 
 if sidebar_publish_blocked:
@@ -10149,7 +11216,9 @@ if st.sidebar.button(
     disabled=sidebar_publish_blocked,
     key=f"publish_from_any_admin_page_{tid}",
 ):
-    _publish_tournament_now()
+    changed, publish_reason = _publish_tournament_now()
+    if not changed:
+        st.sidebar.warning("Publiceringsstatusen ändrades av en annan administratör. Senaste status laddas om.")
     st.rerun()
 
 if st.sidebar.button(
@@ -10158,7 +11227,9 @@ if st.sidebar.button(
     disabled=not tournament["is_published"],
     key=f"unpublish_from_any_admin_page_{tid}",
 ):
-    _unpublish_tournament_now()
+    changed, publish_reason = _unpublish_tournament_now()
+    if not changed:
+        st.sidebar.warning("Publiceringsstatusen ändrades av en annan administratör. Senaste status laddas om.")
     st.rerun()
 
 # v159: Publicering får inte vara beroende av sidebaren. På mobil ligger denna
@@ -10187,8 +11258,12 @@ with st.container(border=True):
         disabled=sidebar_publish_blocked,
         key=f"mobile_publish_from_admin_{tid}",
     ):
-        _publish_tournament_now()
-        st.session_state["mobile_publish_message"] = "✓ Turneringsvyn är publicerad och synkad."
+        changed, publish_reason = _publish_tournament_now()
+        st.session_state["mobile_publish_message"] = (
+            "✓ Turneringsvyn är publicerad och synkad."
+            if changed
+            else "Publiceringsstatusen ändrades av en annan administratör. Senaste status har laddats."
+        )
         st.rerun()
     if mobile_unpublish_col.button(
         "Avpublicera",
@@ -10196,7 +11271,9 @@ with st.container(border=True):
         disabled=not tournament["is_published"],
         key=f"mobile_unpublish_from_admin_{tid}",
     ):
-        _unpublish_tournament_now()
+        changed, publish_reason = _unpublish_tournament_now()
+        if not changed:
+            st.session_state["mobile_publish_message"] = "Publiceringsstatusen ändrades av en annan administratör. Senaste status har laddats."
         st.rerun()
     if "mobile_publish_message" in st.session_state:
         st.success(st.session_state.pop("mobile_publish_message"))
@@ -10205,7 +11282,14 @@ with st.container(border=True):
 # i admin men ligger kvar publikt tills admin uttryckligen flyttar den till papperskorgen.
 if tournament_lifecycle == "published" and tournament["is_published"]:
     if st.sidebar.button("🔴 Markera cupen som pågående", use_container_width=True, key=f"mark_live_{tid}"):
-        run("UPDATE tournaments SET lifecycle_status='live' WHERE id=?", (tid,))
+        changed, lifecycle_reason = _set_lifecycle_if_current(
+            tid,
+            "published",
+            "live",
+            expected_is_published=1,
+        )
+        if not changed:
+            st.sidebar.warning("Cupstatusen ändrades av en annan administratör. Senaste status laddas om.")
         st.rerun()
 
 lifecycle_counts = one_row(
@@ -10220,11 +11304,16 @@ if tournament_lifecycle in ("published", "live"):
     if not cup_can_complete:
         st.sidebar.caption(f"Avsluta cup: {life_played}/{life_total} publicerade matcher färdigrapporterade.")
     if st.sidebar.button("🏁 Avsluta cup", disabled=not cup_can_complete, use_container_width=True, key=f"complete_cup_{tid}"):
-        run(
-            "UPDATE tournaments SET lifecycle_status='completed',completed_at=?,is_published=1 WHERE id=?",
-            (datetime.now().isoformat(timespec="seconds"), tid),
+        changed, lifecycle_reason = _set_lifecycle_if_current(
+            tid,
+            tournament_lifecycle,
+            "completed",
+            expected_is_published=1,
         )
-        add_feed_item(tid, "Cupen är avslutad", "Resultat och statistik finns kvar i CupNavi-historiken.", category="Cup")
+        if changed:
+            add_feed_item(tid, "Cupen är avslutad", "Resultat och statistik finns kvar i CupNavi-historiken.", category="Cup")
+        else:
+            st.sidebar.warning("Cupstatusen ändrades av en annan administratör. Cupen avslutades inte från den här äldre vyn.")
         st.rerun()
 
 
@@ -10837,7 +11926,7 @@ elif admin_page == "Adminöversikt":
     _v139_class_rows = competition_classes(tid)
     _v139_classes = len(_v139_class_rows)
     _v139_pitches = one_row("SELECT COUNT(*) AS n FROM pitches WHERE tournament_id=?", (tid,))
-    _v139_rules = one_row("SELECT * FROM schedule_rules WHERE tournament_id=?", (tid,))
+    _v139_rules = sidebar_rules
     _v139_rules_ready = bool(
         _v139_rules
         and int(_row_value(_v139_rules, "halves", 0) or 0) > 0
@@ -10863,12 +11952,20 @@ elif admin_page == "Adminöversikt":
 
     # Per-class progress replaces the old opaque global "0 av 16" presentation.
     if _v139_class_rows:
+        _class_team_count_rows = all_rows(
+            """SELECT competition_class_id, COUNT(*) AS n
+               FROM teams
+               WHERE tournament_id=?
+               GROUP BY competition_class_id""",
+            (tid,),
+        )
+        _class_team_counts = {
+            int(_row_value(row, "competition_class_id", 0) or 0): int(_row_value(row, "n", 0) or 0)
+            for row in _class_team_count_rows
+        }
         _class_progress_parts=[]
         for _class in _v139_class_rows:
-            _actual=int(one_row(
-                "SELECT COUNT(*) AS n FROM teams WHERE tournament_id=? AND competition_class_id=?",
-                (tid,int(_class["id"])),
-            )["n"] or 0)
+            _actual=int(_class_team_counts.get(int(_class["id"]),0))
             _planned=max(_actual,int(_row_value(_class,"planned_team_count",0) or 0))
             _class_progress_parts.append(f"{competition_class_label(_class)}: {_actual}/{_planned}" if _planned else f"{competition_class_label(_class)}: {_actual}")
         st.caption("Lag per tävlingsklass · " + " · ".join(_class_progress_parts))
@@ -10909,7 +12006,7 @@ elif admin_page == "Adminöversikt":
     if _cc["schedule_dirty"]:
         st.warning("Schemat behöver genereras om efter ändrade förutsättningar.")
 
-    ux_counts = _admin_workflow_counts(tid)
+    ux_counts = _v139_counts
     ux_progress = workflow_progress(
         teams_ready=bool(ux_counts["teams_n"]), groups_ready=bool(ux_counts["groups_n"]),
         schedule_ready=bool(ux_counts["matches_n"]) and not bool(tournament["schedule_dirty"]),
@@ -12615,15 +13712,24 @@ if admin_page == "Önskemålscentral":
                 c1.caption(f"{req['strength']} · {state} · {detail}")
                 c2.write(f"Status: **{req['status']}**")
                 if req["status"]!="Godkänd" and c3.button("Godkänn",key=f"approve_req_{req['id']}",use_container_width=True):
-                    run("UPDATE schedule_requests SET status='Godkänd' WHERE id=?",(req["id"],))
-                    # Mirror legacy supported wishes to team fields used by scheduler.
-                    if req["request_type"]=="late_start":
-                        run("UPDATE teams SET late_first_match=1,earliest_first_time=? WHERE id=?",(req["request_value"],req["team_id"]))
-                    elif req["request_type"]=="avoid_late_group":
-                        run("UPDATE teams SET avoid_late_group_match=1 WHERE id=?",(req["team_id"],))
+                    saved, request_reason = _set_schedule_request_status_if_current(
+                        req["id"], tid, req["status"], "Godkänd"
+                    )
+                    if saved:
+                        # Mirror legacy supported wishes to team fields used by scheduler.
+                        if req["request_type"]=="late_start":
+                            run("UPDATE teams SET late_first_match=1,earliest_first_time=? WHERE id=? AND tournament_id=?",(req["request_value"],req["team_id"],tid))
+                        elif req["request_type"]=="avoid_late_group":
+                            run("UPDATE teams SET avoid_late_group_match=1 WHERE id=? AND tournament_id=?",(req["team_id"],tid))
+                    else:
+                        st.warning("Önskemålet ändrades av en annan administratör och din äldre åtgärd genomfördes inte.")
                     st.rerun()
                 if req["status"]!="Nekad" and c3.button("Neka",key=f"reject_req_{req['id']}",use_container_width=True):
-                    run("UPDATE schedule_requests SET status='Nekad' WHERE id=?",(req["id"],))
+                    saved, request_reason = _set_schedule_request_status_if_current(
+                        req["id"], tid, req["status"], "Nekad"
+                    )
+                    if not saved:
+                        st.warning("Önskemålet ändrades av en annan administratör och din äldre åtgärd genomfördes inte.")
                     st.rerun()
 
         _approved_rows=all_rows(
@@ -12918,20 +14024,29 @@ if admin_page == "Lag":
             (tid,),
         )
         unread_organizer_ids = [int(row["id"]) for row in organizer_messages if not row["read_at"]]
-        if unread_organizer_ids:
-            placeholders = ",".join("?" for _ in unread_organizer_ids)
-            run(
-                f"UPDATE team_messages SET read_at=? WHERE id IN ({placeholders})",
-                (datetime.now().isoformat(timespec="seconds"), *unread_organizer_ids),
-            )
-        inbox_tab, compose_tab, history_tab = st.tabs(["Inkorg", "Skriv till lag", "Alla meddelanden"])
+        organizer_inbox_label = (
+            f"🔴 Inkorg ({len(unread_organizer_ids)})"
+            if unread_organizer_ids else "Inkorg"
+        )
+        inbox_tab, compose_tab, history_tab = st.tabs([organizer_inbox_label, "Skriv till lag", "Alla meddelanden"])
         with inbox_tab:
+            if unread_organizer_ids and st.button(
+                f"Markera alla som lästa ({len(unread_organizer_ids)})",
+                key=f"admin_mark_messages_read_{tid}",
+            ):
+                _mark_team_messages_read(
+                    unread_organizer_ids,
+                    tournament_id=tid,
+                    recipient_type="organizer",
+                )
+                st.rerun()
             if not organizer_messages:
                 st.info("Inga meddelanden till arrangören ännu.")
             for msg in organizer_messages:
                 sender, _ = _message_party_label(msg, team_names)
                 with st.container(border=True):
-                    st.markdown(f"**{html.escape(msg['subject'])}**")
+                    unread_prefix = "🔴 " if not msg["read_at"] else ""
+                    st.markdown(f"**{unread_prefix}{html.escape(msg['subject'])}**")
                     st.caption(f"Från {html.escape(sender)} · {msg['created_at']}")
                     st.write(msg["message"])
                     if msg["sender_team_id"] is not None:
@@ -12941,6 +14056,9 @@ if admin_page == "Lag":
                             reply_send = st.form_submit_button("Skicka svar")
                         if reply_send:
                             try:
+                                reply_token_key=f"admin_reply_request_token_{msg['id']}"
+                                if reply_token_key not in st.session_state:
+                                    st.session_state[reply_token_key]=new_token()
                                 _send_team_message(
                                     tid,
                                     "organizer",
@@ -12948,13 +14066,18 @@ if admin_page == "Lag":
                                     reply_text,
                                     recipient_type="team",
                                     recipient_team_id=int(msg["sender_team_id"]),
+                                    request_token=st.session_state[reply_token_key],
                                 )
+                                st.session_state.pop(reply_token_key,None)
                                 st.success("Svaret är skickat.")
                                 st.rerun()
                             except ValueError as exc:
                                 st.error(str(exc))
 
         with compose_tab:
+            admin_message_token_key=f"admin_message_request_token_{tid}"
+            if admin_message_token_key not in st.session_state:
+                st.session_state[admin_message_token_key]=new_token()
             with st.form(f"admin_message_team_{tid}", clear_on_submit=True):
                 target_team_id = st.selectbox(
                     "Till lag",
@@ -12962,7 +14085,7 @@ if admin_page == "Lag":
                     format_func=lambda team_id: team_names[team_id],
                     key=f"admin_message_target_{tid}",
                 )
-                admin_subject = st.text_input("Ämne", placeholder="Exempel: Information från arrangören")
+                admin_subject = st.text_input("Ämne", placeholder="Exempel: Information från arrangören", max_chars=200)
                 admin_message = st.text_area("Meddelande", max_chars=3000, height=120)
                 admin_send = st.form_submit_button("Skicka meddelande", type="primary")
             if admin_send:
@@ -12974,7 +14097,9 @@ if admin_page == "Lag":
                         admin_message,
                         recipient_type="team",
                         recipient_team_id=int(target_team_id),
+                        request_token=st.session_state[admin_message_token_key],
                     )
+                    st.session_state.pop(admin_message_token_key,None)
                     st.success("Meddelandet är skickat.")
                     st.rerun()
                 except ValueError as exc:
@@ -13078,19 +14203,37 @@ if admin_page == "Lag":
                 )
                 if st.button("Spara ändringar", type="primary", key=f"save_team_{edit_team_id}"):
                     if edited_name.strip():
-                        run(
-                            """UPDATE teams SET
-                                name=?,primary_color=?,secondary_color=?,home_pattern=?,home_color_2=?,away_pattern=?,away_color_2=?,
-                                distance_km=?,late_first_match=?,earliest_first_time=?,travel_note=?,avoid_late_group_match=?,kit_confirmed_at=NULL,
-                                responsible_name=?,responsible_phone=?,responsible_email=?,age_class=?,competition_class_id=?,group_id=CASE WHEN COALESCE(competition_class_id,-1)!=COALESCE(?,-1) THEN NULL ELSE group_id END WHERE id=?""",
-                            (edited_name.strip(), edited_primary, edited_secondary,
-                             edited_home_pattern, edited_home_color_2, edited_away_pattern, edited_away_color_2,
-                             edited_distance, int(edited_late_first), edited_earliest.strftime("%H:%M") if edited_late_first else None,
-                             edited_travel_note.strip(), int(edited_avoid_late), edited_responsible_name.strip(), edited_responsible_phone.strip(),
-                             edited_responsible_email.strip(), edited_age_class or None, edited_class_id, edited_class_id, edit_team_id),
+                        saved, save_reason = _admin_update_team_if_unchanged(
+                            edit_team_id,
+                            tid,
+                            _admin_team_snapshot(edit_team),
+                            name=edited_name.strip(),
+                            primary_color=edited_primary,
+                            secondary_color=edited_secondary,
+                            home_pattern=edited_home_pattern,
+                            home_color_2=edited_home_color_2,
+                            away_pattern=edited_away_pattern,
+                            away_color_2=edited_away_color_2,
+                            distance_km=edited_distance,
+                            late_first_match=edited_late_first,
+                            earliest_first_time=edited_earliest.strftime("%H:%M") if edited_late_first else None,
+                            travel_note=edited_travel_note.strip(),
+                            avoid_late_group_match=edited_avoid_late,
+                            responsible_name=edited_responsible_name.strip(),
+                            responsible_phone=edited_responsible_phone.strip(),
+                            responsible_email=edited_responsible_email.strip(),
+                            age_class=edited_age_class or None,
+                            competition_class_id=edited_class_id,
                         )
+                        if saved:
+                            st.success("Lagets uppgifter är sparade.")
+                        elif save_reason == "invalid_email":
+                            st.error("Ange en giltig e-postadress eller lämna fältet tomt.")
+                        else:
+                            st.warning("Laget ändrades av någon annan och dina äldre uppgifter skrevs inte över.")
                         st.rerun()
-                    st.error("Lagnamnet får inte vara tomt.")
+                    else:
+                        st.error("Lagnamnet får inte vara tomt.")
             _team_delete_locked = (
                 production_history_locked(tid, tournament)
                 and team_has_played_result(tid, edit_team_id)
@@ -13110,20 +14253,13 @@ if admin_page == "Lag":
                 disabled=_team_delete_locked or not confirm_team_delete,
                 key=f"delete_team_{edit_team_id}",
             ):
-                token = f"team:{edit_team_id}"
-                bracket_ids = [r["bracket_id"] for r in all_rows("SELECT DISTINCT bracket_id FROM matches WHERE bracket_id IS NOT NULL AND (home_source=? OR away_source=?)", (token, token))]
-                if edit_team["group_id"]:
-                    group_brackets = all_rows(
-                        "SELECT DISTINCT bracket_id FROM matches WHERE bracket_id IS NOT NULL AND (home_source LIKE ? OR away_source LIKE ?)",
-                        (f"group:{edit_team['group_id']}:%", f"group:{edit_team['group_id']}:%"),
-                    )
-                    bracket_ids.extend(r["bracket_id"] for r in group_brackets)
-                with db() as con:
-                    con.execute("DELETE FROM matches WHERE home_source=? OR away_source=?", (token, token))
-                    for bracket_id in set(bracket_ids):
-                        con.execute("DELETE FROM brackets WHERE id=?", (bracket_id,))
-                    con.execute("DELETE FROM teams WHERE id=?", (edit_team_id,))
-                    con.commit()
+                deleted, delete_reason = _admin_delete_team_if_unchanged(
+                    edit_team_id,
+                    tid,
+                    _admin_team_snapshot(edit_team),
+                )
+                if not deleted and delete_reason == "conflict":
+                    st.warning("Laget ändrades av någon annan och raderades därför inte.")
                 st.rerun()
         else:
             st.info("Det finns inga lag att redigera.")
@@ -13274,7 +14410,16 @@ if admin_page == "Grupper":
                         if assigned_other_class:
                             st.error("Gruppen innehåller lag från en annan tävlingsklass. Flytta lagen först.")
                         else:
-                            run("UPDATE groups SET name=?,age_class=?,competition_class_id=? WHERE id=?", (edited_group_name.strip(), edited_group_class_name or None, edited_group_class_id, edit_group_id))
+                            saved, save_reason = _admin_update_group_if_unchanged(
+                                edit_group_id,
+                                tid,
+                                _admin_group_snapshot(edit_group),
+                                name=edited_group_name.strip(),
+                                age_class=edited_group_class_name or None,
+                                competition_class_id=edited_group_class_id,
+                            )
+                            if not saved and save_reason == "conflict":
+                                st.warning("Gruppen ändrades av någon annan och dina äldre uppgifter skrevs inte över.")
                             st.rerun()
                     else:
                         st.error("Gruppnamnet får inte vara tomt.")
@@ -13288,13 +14433,13 @@ if admin_page == "Grupper":
                 disabled=_group_history_locked or not confirm_group_delete,
                 key=f"delete_group_{edit_group_id}",
             ):
-                affected_brackets = [r["bracket_id"] for r in all_rows("SELECT DISTINCT bracket_id FROM matches WHERE bracket_id IS NOT NULL AND (home_source LIKE ? OR away_source LIKE ?)", (f"group:{edit_group_id}:%", f"group:{edit_group_id}:%"))]
-                with db() as con:
-                    con.execute("UPDATE teams SET group_id=NULL WHERE group_id=?", (edit_group_id,))
-                    for bracket_id in affected_brackets:
-                        con.execute("DELETE FROM brackets WHERE id=?", (bracket_id,))
-                    con.execute("DELETE FROM groups WHERE id=?", (edit_group_id,))
-                    con.commit()
+                deleted, delete_reason = _admin_delete_group_if_unchanged(
+                    edit_group_id,
+                    tid,
+                    _admin_group_snapshot(edit_group),
+                )
+                if not deleted and delete_reason == "conflict":
+                    st.warning("Gruppen ändrades av någon annan och raderades därför inte.")
                 st.rerun()
         else:
             st.info("Det finns inga grupper att redigera.")
@@ -13352,9 +14497,20 @@ if admin_page == "Trupper":
                 key=f"admin_match_roster_{admin_match_id}_{team_id}",
             )
             if st.button("Spara matchtrupp som admin", key=f"admin_save_squad_{admin_match_id}_{team_id}", type="primary"):
-                _save_match_roster(admin_match_id, team_id, admin_selected, "Admin")
-                record_audit(tid, "match_roster_saved", "match", f"Admin sparade matchtrupp för {next(row['name'] for row in teams if row['id'] == team_id)}", entity_id=admin_match_id, actor="Admin")
-                st.success("Matchtruppen är sparad. Admin kan ändra även efter deadline.")
+                saved, save_reason = _save_match_roster_if_unchanged(
+                    admin_match_id,
+                    team_id,
+                    admin_selected,
+                    existing_admin_squad,
+                    "Admin",
+                )
+                if saved:
+                    record_audit(tid, "match_roster_saved", "match", f"Admin sparade matchtrupp för {next(row['name'] for row in teams if row['id'] == team_id)}", entity_id=admin_match_id, actor="Admin")
+                    st.success("Matchtruppen är sparad. Admin kan ändra även efter deadline.")
+                elif save_reason == "conflict":
+                    st.warning("Matchtruppen ändrades av någon annan och skrevs inte över. Senaste truppen laddas om.")
+                else:
+                    st.error("Matchtruppen kunde inte sparas eftersom en vald spelare inte längre tillhör laget.")
                 st.rerun()
 
 
@@ -14669,25 +15825,33 @@ if admin_page == "Sponsorer":
                                 edit_logo_uri = sponsor["logo_data_uri"]
                                 if replacement_logo is not None:
                                     edit_logo_uri = image_data_uri(replacement_logo)
-                                run(
-                                    """UPDATE sponsors SET
-                                           name=?,level=?,description=?,website_url=?,
-                                           logo_data_uri=?,active=?,sort_order=?
-                                       WHERE id=? AND tournament_id=?""",
-                                    (
-                                        edit_name.strip(), edit_level or None,
-                                        edit_description.strip() or None,
-                                        normalized_website,
-                                        edit_logo_uri, 1 if edit_active else 0,
-                                        int(edit_order), sponsor["id"], tid,
-                                    ),
+                                saved, save_reason = _admin_update_sponsor_if_unchanged(
+                                    sponsor["id"],
+                                    tid,
+                                    _sponsor_snapshot(sponsor),
+                                    name=edit_name.strip(),
+                                    level=edit_level or None,
+                                    description=edit_description.strip() or None,
+                                    website_url=normalized_website,
+                                    logo_data_uri=edit_logo_uri,
+                                    active=edit_active,
+                                    sort_order=int(edit_order),
                                 )
-                                st.success("✓ Sponsorn är uppdaterad.")
+                                if saved:
+                                    st.success("✓ Sponsorn är uppdaterad.")
+                                else:
+                                    st.warning("Sponsorn ändrades av en annan administratör och dina äldre uppgifter skrevs inte över.")
                                 st.rerun()
                             except ValueError as exc:
                                 st.error(str(exc))
                 if st.button("Ta bort sponsor", key=f"delete_sponsor_{sponsor['id']}"):
-                    run("DELETE FROM sponsors WHERE id=? AND tournament_id=?", (sponsor["id"], tid))
+                    deleted, delete_reason = _admin_delete_sponsor_if_unchanged(
+                        sponsor["id"],
+                        tid,
+                        _sponsor_snapshot(sponsor),
+                    )
+                    if not deleted:
+                        st.warning("Sponsorn ändrades av en annan administratör och raderades därför inte.")
                     st.rerun()
 
 
@@ -14769,20 +15933,35 @@ if admin_page == "Funktionärer":
                     )
                     enotes = st.text_area("Anteckning / uppdrag", value=row["notes"] or "", key=f"fn_notes_{row['id']}")
                     if st.form_submit_button("Spara funktionär", use_container_width=True):
-                        run(
-                            """UPDATE functionaries SET
-                                   name=?,role=?,phone=?,email=?,pitch_number=?,notes=?,public_contact=?
-                               WHERE id=? AND tournament_id=?""",
-                            (
-                                ename.strip(), erole, ephone.strip() or None,
-                                eemail.strip() or None, int(epitch) or None,
-                                enotes.strip() or None, 1 if epublic else 0,
-                                row["id"], tid,
-                            ),
-                        )
-                        st.rerun()
+                        if not ename.strip():
+                            st.error("Namnet får inte vara tomt.")
+                        else:
+                            saved, save_reason = _admin_update_functionary_if_unchanged(
+                                row["id"],
+                                tid,
+                                _functionary_snapshot(row),
+                                name=ename.strip(),
+                                role=erole,
+                                phone=ephone.strip() or None,
+                                email=eemail.strip() or None,
+                                pitch_number=int(epitch) or None,
+                                notes=enotes.strip() or None,
+                                public_contact=epublic,
+                            )
+                            if save_reason == "invalid_email":
+                                st.error("Ange en giltig e-postadress eller lämna fältet tomt.")
+                            elif not saved:
+                                st.warning("Funktionären ändrades av en annan administratör och dina äldre uppgifter skrevs inte över.")
+                            else:
+                                st.rerun()
                 if st.button("Ta bort funktionär", key=f"delete_fn_{row['id']}"):
-                    run("DELETE FROM functionaries WHERE id=? AND tournament_id=?", (row["id"], tid))
+                    deleted, delete_reason = _admin_delete_functionary_if_unchanged(
+                        row["id"],
+                        tid,
+                        _functionary_snapshot(row),
+                    )
+                    if not deleted:
+                        st.warning("Funktionären ändrades av en annan administratör och raderades därför inte.")
                     st.rerun()
     else:
         render_empty_state("Inga funktionärer ännu", "Lägg till funktionärer för kiosk, sekretariat, planvärd eller andra uppdrag.", "🙋")
@@ -15594,17 +16773,18 @@ if admin_page == "Cupverktyg":
                 st.markdown(f"**{audit['created_at'].replace('T',' ')} · {audit['actor']}**{status}  \\n{audit['description']}")
                 can_undo = bool(audit["reversible"]) and not audit["undone_at"] and audit["action_type"] in {"schedule_move", "delay_shift"}
                 if can_undo and st.button("Ångra denna ändring", key=f"undo_audit_{audit['id']}"):
-                    before = json.loads(audit["before_json"] or "null")
-                    if audit["action_type"] == "schedule_move" and isinstance(before, dict):
-                        run("UPDATE matches SET scheduled_start=?,pitch_number=? WHERE id=?", (before.get("scheduled_start"), before.get("pitch_number"), audit["entity_id"]))
-                    elif audit["action_type"] == "delay_shift" and isinstance(before, list):
-                        with db() as con:
-                            for item in before:
-                                con.execute("UPDATE matches SET scheduled_start=? WHERE id=?", (item.get("scheduled_start"), item.get("id")))
-                            con.commit()
-                        _clear_render_query_cache()
-                    run("UPDATE audit_log SET undone_at=? WHERE id=?", (datetime.now().isoformat(timespec="seconds"), audit["id"]))
-                    record_audit(tid, "undo", audit["entity_type"], f"Ångrade: {audit['description']}", entity_id=audit["entity_id"], actor="Admin")
+                    undone, undo_reason, undo_meta = _undo_audit_entry_if_current(audit["id"], tid)
+                    if undone:
+                        record_audit(
+                            tid,
+                            "undo",
+                            undo_meta["entity_type"],
+                            f"Ångrade: {undo_meta['description']}",
+                            entity_id=undo_meta["entity_id"],
+                            actor="Admin",
+                        )
+                    else:
+                        st.warning("Ändringen kunde inte ångras från den här äldre vyn. Senaste historik laddas om.")
                     st.rerun()
 
     with tool_tabs[6]:

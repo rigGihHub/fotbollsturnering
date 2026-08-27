@@ -23,7 +23,8 @@ def test_dead_visitor_rows_builder_removed():
     assert "visitor_rows.append" not in PUBLIC
 
 def test_screen_stays_lazy_and_statistics_moved_out_of_main_public_renderer():
-    assert "screen_groups = _load_public_groups()[:4]" in PUBLIC
+    assert "_screen_table_bundle = calculate_all_group_tables(tournament_id, tournament)" in PUBLIC
+    assert 'screen_groups = _screen_table_bundle["groups"][:4]' in PUBLIC
     assert "render_public_statistics_section(" in PUBLIC
     assert "forecast_groups =" not in PUBLIC
 

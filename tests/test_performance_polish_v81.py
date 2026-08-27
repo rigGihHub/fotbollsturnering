@@ -3,11 +3,17 @@ from pathlib import Path
 def app_text():
     return Path("app.py").read_text(encoding="utf-8")
 
-def test_native_share_replaces_old_messenger_deeplink():
+def test_integrated_share_popover_replaces_old_messenger_deeplink():
     text = app_text()
-    assert "navigator.share" in text
+    start = text.index("# Kompakt delning direkt kopplad till cupheadern")
+    end = text.index("# v143: mobil först", start)
+    block = text[start:end]
+    assert 'with st.popover("Dela"' in block
+    assert "WhatsApp" in block
+    assert "mailto:?subject=" in block
+    assert "sms:?&body=" in block
     assert "fb-messenger://share/" not in text
-    assert "navigator.clipboard.writeText" in text
+    assert "navigator.share" not in text
 
 def test_global_translation_hooks_cover_common_streamlit_ui():
     text = app_text()

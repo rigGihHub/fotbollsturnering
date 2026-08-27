@@ -1,34 +1,37 @@
+
 from pathlib import Path
 
-def app_text():
-    return Path("app.py").read_text(encoding="utf-8")
+APP=Path("app.py").read_text(encoding="utf-8")
 
-def test_share_helper_supports_requested_channels():
-    text = app_text()
-    assert "def share_panel_html(" in text
-    assert "navigator.share" in text
-    assert "navigator.share" in text
-    assert "navigator.share" in text
-    assert "navigator.share" in text
+
+def _public_share_block():
+    start=APP.index("# Kompakt delning direkt kopplad till cupheadern")
+    end=APP.index("# v143: mobil först",start)
+    return APP[start:end]
+
+
+def test_live_share_controls_support_current_channels():
+    block=_public_share_block()
+    assert "WhatsApp" in block
+    assert "mailto:?subject=" in block
+    assert "sms:?&body=" in block
+    assert "qr_png_bytes(share_url)" in block
+
 
 def test_share_links_use_direct_current_cup_url():
-    text = app_text()
-    assert "share_url = public_cup_url(tournament_id)" in text
-    assert "SELECT public_slug FROM tournaments WHERE id=?" in text
-    assert "public_key" in text
+    block=_public_share_block()
+    assert "share_url = public_cup_url(tournament_id)" in block
+    assert "public_slug" in APP
 
-def test_public_view_renders_share_controls():
-    text = app_text()
-    start = text.index("def render_public_view(")
-    public_block = text[start:text.index("init_db()", start)]
-    assert "cn-share-panel-anchor" in public_block
-    assert "WhatsApp" in public_block
-    assert "mailto:?subject=" in public_block
-    assert "sms:?&body=" in public_block
-    assert "public_share_toggle_" not in public_block
 
-def test_admin_legacy_qr_panel_is_removed():
-    text = app_text()
-    assert 'with st.expander("Dela cupen med QR-kod"' not in text
-    assert "Delning sköts via den integrerade Dela cupen-knappen" not in text
-    assert "cn-share-panel-anchor" in text
+def test_public_view_renders_integrated_share_popover():
+    block=_public_share_block()
+    assert "cn-share-inline-anchor" in block
+    assert 'with st.popover("Dela"' in block
+    assert "public_share_toggle_" not in block
+
+
+def test_legacy_share_panel_code_is_removed():
+    assert "cn-share-panel-anchor" not in APP
+    assert "def share_panel_html(" not in APP
+    assert "def qr_share_panel_html(" not in APP

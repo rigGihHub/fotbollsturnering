@@ -15,10 +15,15 @@ def test_mobile_publish_uses_same_blocker_state():
 
 
 def test_publishing_marks_all_scheduled_matches_public():
-    block=APP[APP.index('def _publish_tournament_now'):APP.index('def _unpublish_tournament_now')]
+    block=APP[
+        APP.index('def _set_publication_if_current'):
+        APP.index('def _set_lifecycle_if_current')
+    ]
     assert 'UPDATE matches SET schedule_published=1' in block
+    assert 'WHERE tournament_id=? AND scheduled_start IS NOT NULL' in block
+    assert 'con.rollback()' in block
     assert 'scheduled_start IS NOT NULL' in block
-    assert 'UPDATE tournaments SET is_published=1' in block
+    assert 'SET is_published=1,' in block
 
 
 def test_admin_result_autosave_repairs_public_match_flag_when_cup_is_published():

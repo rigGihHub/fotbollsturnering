@@ -98,10 +98,31 @@ def wait_for_public_cup(page, cup_name, timeout_ms=60000):
     )
 
 
+def _ensure_create_tournament_expander_open(page):
+    """Return the creation form without accidentally toggling its expander closed."""
+    sidebar=page.locator('[data-testid="stSidebar"]')
+    expander=sidebar.locator("details").filter(has_text="Skapa ny turnering").first
+    expander.wait_for(state="attached",timeout=10000)
+
+    # Streamlit expanders are native <details>. The old helper clicked the title
+    # unconditionally, so the second create attempt could close the already-open
+    # expander and leave its animation layer intercepting the submit button.
+    if expander.get_attribute("open") is None:
+        summary=expander.locator("summary").first
+        summary.click(force=True)
+        deadline=time.time()+10
+        while time.time() < deadline and expander.get_attribute("open") is None:
+            page.wait_for_timeout(100)
+        assert expander.get_attribute("open") is not None, "Create tournament expander did not open"
+
+    create_form=expander.locator('[data-testid="stForm"]').first
+    create_form.wait_for(state="visible",timeout=10000)
+    return create_form
+
+
 def create_test_tournament_through_ui(page, cup_name):
     """Create a persisted Testmiljö using the real Streamlit UI and return its id."""
-    page.get_by_text("Skapa ny turnering",exact=True).click()
-    create_form=page.locator('[data-testid="stSidebar"] [data-testid="stForm"]').first
+    create_form=_ensure_create_tournament_expander_open(page)
     create_form.get_by_label("Namn",exact=True).fill(cup_name)
     create_form.get_by_label("Spelort",exact=True).fill("Örebro")
     # CUPNAVI_E2E makes Testmiljö the deterministic initial value. Do not
@@ -110,7 +131,10 @@ def create_test_tournament_through_ui(page, cup_name):
     test_environment=create_form.get_by_role("radio",name="Testmiljö",exact=True)
     test_environment.wait_for(state="attached",timeout=10000)
     assert test_environment.is_checked(), "CUPNAVI_E2E must preselect Testmiljö"
-    create_form.get_by_role("button",name="Skapa",exact=True).click()
+    submit=create_form.get_by_role("button",name="Skapa",exact=True)
+    submit.wait_for(state="visible",timeout=10000)
+    assert submit.is_enabled()
+    submit.click(force=True)
     wait_app(page)
 
     with sqlite3.connect(DB) as con:

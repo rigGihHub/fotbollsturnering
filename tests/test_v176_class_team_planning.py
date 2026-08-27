@@ -2,7 +2,7 @@ from pathlib import Path
 ROOT=Path(__file__).resolve().parents[1]
 APP=(ROOT/"app.py").read_text(encoding="utf-8")
 MIG=(ROOT/"cupnavi_core/migrations.py").read_text(encoding="utf-8")
-R="2026.08.27-217-E2E-CREATION-DIRECT-LINK-HARDENING"
+R="2026.08.27-230-ADMIN-RELIABILITY-PHASE2"
 
 def test_sidebar_no_longer_asks_global_team_count():
     start=APP.index('with st.sidebar.expander("Skapa ny turnering")')
@@ -25,7 +25,7 @@ def test_more_classes_allowed_until_results_exist():
 def test_global_team_limit_is_derived_from_classes():
     assert "Planerat antal lag" in APP
     assert "Beräknas från planerat antal i varje tävlingsklass" in APP
-    assert "_planned_by_class=sum(" in APP
+    assert "_planned_by_class=_planned_total" in APP
 
 def test_migration_22_adds_class_team_count():
     assert "LATEST_SCHEMA_VERSION = 23" in MIG

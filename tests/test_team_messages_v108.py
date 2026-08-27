@@ -26,7 +26,8 @@ def test_team_portal_can_message_organizer_or_another_team():
 def test_admin_has_message_inbox_and_can_reply():
     text = app_text()
     assert 'st.subheader("💬 Lagmeddelanden")' in text
-    assert '"Inkorg", "Skriv till lag", "Alla meddelanden"' in text
+    assert 'organizer_inbox_label' in text
+    assert '"Skriv till lag", "Alla meddelanden"' in text
     assert 'SV: {msg[' in text
     assert 'sender_type="organizer"' not in text  # helper uses positional sender type
     assert '_send_team_message(' in text

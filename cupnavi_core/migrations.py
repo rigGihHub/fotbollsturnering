@@ -612,6 +612,12 @@ def ensure_v19_schema_compat(con):
         con.execute("ALTER TABLE team_messages ADD COLUMN email_status TEXT")
     if "email_error" not in mc:
         con.execute("ALTER TABLE team_messages ADD COLUMN email_error TEXT")
+    if "request_token" not in mc:
+        con.execute("ALTER TABLE team_messages ADD COLUMN request_token TEXT")
+    con.execute(
+        "CREATE UNIQUE INDEX IF NOT EXISTS idx_team_messages_request_token "
+        "ON team_messages(tournament_id,request_token)"
+    )
     con.execute("""CREATE TABLE IF NOT EXISTS pitch_travel_times (
         tournament_id INTEGER NOT NULL REFERENCES tournaments(id) ON DELETE CASCADE,
         from_pitch_number INTEGER NOT NULL,to_pitch_number INTEGER NOT NULL,minutes INTEGER NOT NULL DEFAULT 0,

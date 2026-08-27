@@ -4,7 +4,7 @@ APP=(ROOT/"app.py").read_text(encoding="utf-8")
 
 def test_v139_version_sync():
     v=(ROOT/"VERSION.txt").read_text().strip()
-    assert v=="2026.08.27-217-E2E-CREATION-DIRECT-LINK-HARDENING"
+    assert v=="2026.08.27-230-ADMIN-RELIABILITY-PHASE2"
     assert v in APP
     assert v in (ROOT/"cupnavi_core/version.py").read_text()
 
