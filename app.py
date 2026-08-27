@@ -120,7 +120,7 @@ from cupnavi_core.public_match_feed_logic import classify_public_match_feed, pub
 from cupnavi_core.public_match_filters_view import render_public_match_filters as render_public_match_filters_module
 from cupnavi_core.match_reporter_logic import build_bulk_result_rows, prepare_bulk_result_update, result_snapshot, select_playable_matches
 
-APP_BUILD_VERSION = "2026.08.27-231-ADMIN-PHASE3-E2E-PLAYOFF"
+APP_BUILD_VERSION = "2026.08.27-232-E2E-PERSISTENCE-FRESH-READ"
 APP_VERSION = APP_BUILD_VERSION
 
 def read_core_version_from_disk():
@@ -9714,7 +9714,7 @@ if _direct_public_cup and st.session_state.get("view_mode") is None:
     st.session_state["view_mode"] = "Turneringsvy"
 elif st.session_state.get("view_mode") not in mode_options:
     st.session_state["view_mode"] = mode_options[0]
-st.sidebar.caption("Version v.1.231")
+st.sidebar.caption("Version v.1.232")
 
 def _set_view_mode(mode):
     st.session_state["view_mode"] = mode
@@ -9791,6 +9791,12 @@ else:
         mode_col3.button(tr("Matchrapportör"), key="view_mode_reporter_button", type="primary" if current_mode == "Matchrapportör" else "secondary", use_container_width=True, on_click=_set_view_mode, args=("Matchrapportör",))
         mode_col4.button(tr("Admin"), key="view_mode_admin_button", type="primary" if current_mode == "Admin" else "secondary", use_container_width=True, on_click=_set_view_mode, args=("Admin",))
         mode_col5.button(tr("Om"), key="view_mode_about_button", type="primary" if current_mode == "Om" else "secondary", use_container_width=True, on_click=_set_view_mode, args=("Om",))
+# E2E fixtures intentionally write SQLite directly from the test process.
+# Clear render-local caches at the start of each E2E script run so a fresh browser
+# always observes those committed fixture writes. Production behavior is unchanged.
+if os.environ.get("CUPNAVI_E2E") == "1":
+    _clear_render_query_cache()
+
 view_mode = st.session_state["view_mode"]
 if not public_app_mode:
     st.sidebar.caption(f"{tr('Visningsläge')}: {tr(view_mode)}")

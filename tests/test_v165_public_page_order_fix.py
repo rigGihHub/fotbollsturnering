@@ -3,7 +3,7 @@ from cupnavi_core.observability import error_id
 
 ROOT=Path(__file__).resolve().parents[1]
 APP=(ROOT/"app.py").read_text(encoding="utf-8")
-RELEASE="2026.08.27-231-ADMIN-PHASE3-E2E-PLAYOFF"
+RELEASE="2026.08.27-232-E2E-PERSISTENCE-FRESH-READ"
 
 def test_cn_aabcb9_matches_public_page_unboundlocalerror():
     exc=UnboundLocalError("cannot access local variable 'public_page' where it is not associated with a value")

@@ -2,7 +2,7 @@ from pathlib import Path
 
 ROOT=Path(__file__).resolve().parents[1]
 APP=(ROOT/"app.py").read_text(encoding="utf-8")
-R="2026.08.27-231-ADMIN-PHASE3-E2E-PLAYOFF"
+R="2026.08.27-232-E2E-PERSISTENCE-FRESH-READ"
 
 def setup_block():
     s=APP.index("def render_initial_tournament_setup")

@@ -84,9 +84,14 @@ def wait_for_public_cup(page, cup_name, timeout_ms=60000):
             if "This app has encountered an error" in last_body or "Traceback" in last_body:
                 raise AssertionError(f"Public cup render failed: {last_body[-2500:]}")
             if "Ingen turnering är publicerad ännu." in last_body:
-                raise AssertionError(
-                    f"Direct cup URL did not resolve published cup {cup_name!r}: {last_body[-1500:]}"
-                )
+                # The E2E fixture writes directly to SQLite outside Streamlit. A newly
+                # opened browser can briefly receive a render started before that commit
+                # became visible to the server session. Retry the real direct URL instead
+                # of accepting the empty state; the exact cup hero is still mandatory.
+                page.reload(wait_until="domcontentloaded", timeout=60000)
+                wait_app(page)
+                title=page.locator(".cup-hero .title")
+                continue
         except AssertionError:
             raise
         except Exception:
@@ -120,6 +125,31 @@ def _ensure_create_tournament_expander_open(page):
     return create_form
 
 
+def wait_for_persisted_tournament(cup_name, timeout_ms=20000):
+    """Wait for Streamlit form submission to become visible in SQLite.
+
+    The browser rerender and the committed DB write are separate observable events;
+    do not assume a fixed sleep means persistence has completed on every browser.
+    """
+    deadline=time.time() + timeout_ms / 1000
+    last_row=None
+    while time.time() < deadline:
+        try:
+            with sqlite3.connect(DB) as con:
+                last_row=con.execute(
+                    "SELECT id,environment_type FROM tournaments WHERE name=? ORDER BY id DESC LIMIT 1",
+                    (cup_name,),
+                ).fetchone()
+            if last_row is not None:
+                return last_row
+        except sqlite3.OperationalError:
+            pass
+        time.sleep(.15)
+    raise AssertionError(
+        f"Timed out waiting for persisted tournament {cup_name!r}; last_row={last_row!r}"
+    )
+
+
 def create_test_tournament_through_ui(page, cup_name):
     """Create a persisted Testmiljö using the real Streamlit UI and return its id."""
     create_form=_ensure_create_tournament_expander_open(page)
@@ -137,12 +167,7 @@ def create_test_tournament_through_ui(page, cup_name):
     submit.click(force=True)
     wait_app(page)
 
-    with sqlite3.connect(DB) as con:
-        row=con.execute(
-            "SELECT id,environment_type FROM tournaments WHERE name=? ORDER BY id DESC LIMIT 1",
-            (cup_name,),
-        ).fetchone()
-    assert row is not None
+    row=wait_for_persisted_tournament(cup_name)
     assert row[1] == "test"
 
     continue_button=page.get_by_role("button",name="Fortsätt till Admin",exact=True)

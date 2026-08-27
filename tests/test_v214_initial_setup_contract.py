@@ -16,5 +16,5 @@ def test_optional_service_fields_use_progressive_disclosure():
     assert "if show_prices_enabled:" in APP
 
 def test_release_is_v214():
-    assert VERSION=="2026.08.27-231-ADMIN-PHASE3-E2E-PLAYOFF"
-    assert "Version v.1.231" in APP
+    assert VERSION=="2026.08.27-232-E2E-PERSISTENCE-FRESH-READ"
+    assert "Version v.1.232" in APP
