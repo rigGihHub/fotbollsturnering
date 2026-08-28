@@ -36,9 +36,9 @@ def test_admin_overview_live_drift_status_can_expand_automatically():
 def test_controls_put_domain_checks_before_technical_tools():
     block=_block('if admin_page == "Kontroller":','if admin_page == "Lag":')
     core=block.index('control_rules = one_row(')
-    technical=block.index('with st.expander("Teknisk hälsa och backup", expanded=False)')
+    technical=block.index('st.toggle("Teknisk hälsa och backup"')
     assert core < technical
-    assert 'with st.expander("Fördjupad kontroll", expanded=False)' in block
+    assert 'st.toggle("Fördjupad kontroll"' in block
 
 
 def test_controls_keep_blockers_visible():

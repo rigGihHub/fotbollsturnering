@@ -4,7 +4,7 @@ APP=(ROOT/"app.py").read_text(encoding="utf-8")
 INFO=(ROOT/"cupnavi_core/public_info_view.py").read_text(encoding="utf-8")
 MIG=(ROOT/"cupnavi_core/migrations.py").read_text(encoding="utf-8")
 WF=(ROOT/".github/workflows/cross-browser.yml").read_text(encoding="utf-8")
-R="2026.08.28-254-PUBLISH-EMPTY-STATE-FIX"
+R="2026.08.28-261-HEAVY-ADMIN-PERFORMANCE"
 
 def test_server_side_rate_limits_cover_login_and_feedback():
     assert '_rate_allowed("admin-login", 8, 600)' in APP
@@ -14,7 +14,7 @@ def test_server_side_rate_limits_cover_login_and_feedback():
     assert "rå IP lagras aldrig" in APP
 
 def test_rate_limit_schema_is_migrated():
-    assert "LATEST_SCHEMA_VERSION = 23" in MIG
+    assert "LATEST_SCHEMA_VERSION = 24" in MIG
     assert "server_side_rate_limits_v190" in MIG
     assert "CREATE TABLE IF NOT EXISTS rate_limits" in MIG
 
@@ -30,6 +30,6 @@ def test_testable_database_path_keeps_default():
     assert 'os.getenv("CUPNAVI_DB_PATH") or Path(__file__).with_name("turnering.db")' in APP
 
 def test_version():
-    assert "Version v.1.254" in APP
+    assert "Version v.1.261" in APP
     assert f'APP_BUILD_VERSION = "{R}"' in APP
     assert f'APP_VERSION = "{R}"' in (ROOT/"cupnavi_core/version.py").read_text(encoding="utf-8")

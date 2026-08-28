@@ -46,8 +46,8 @@ def test_v137_migration_fields_and_tables_exist():
     con.execute('CREATE TABLE cupnavi_schema_migrations(version INTEGER PRIMARY KEY,name TEXT NOT NULL,applied_at TEXT NOT NULL)')
     con.execute("INSERT INTO cupnavi_schema_migrations VALUES(18,'named_pitches_v134','now')")
     applied=apply_migrations(con)
-    assert applied == [19, 20, 21, 22, 23]
-    assert LATEST_SCHEMA_VERSION == 23
+    assert applied == [19, 20, 21, 22, 23, 24]
+    assert LATEST_SCHEMA_VERSION == 24
     schedule_cols={r[1] for r in con.execute('PRAGMA table_info(schedule_rules)')}
     pitch_cols={r[1] for r in con.execute('PRAGMA table_info(pitches)')}
     message_cols={r[1] for r in con.execute('PRAGMA table_info(team_messages)')}

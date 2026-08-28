@@ -38,5 +38,5 @@ def test_core_components_are_normalized():
         assert token in APP
 
 def test_release_is_v198():
-    assert VERSION == "2026.08.28-254-PUBLISH-EMPTY-STATE-FIX"
-    assert "Version v.1.254" in APP
+    assert VERSION == "2026.08.28-261-HEAVY-ADMIN-PERFORMANCE"
+    assert "Version v.1.261" in APP

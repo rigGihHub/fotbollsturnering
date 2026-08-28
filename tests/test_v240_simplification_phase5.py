@@ -16,8 +16,9 @@ def test_results_page_prioritizes_result_editor():
     assert 'st.header("Resultat")' in block
     assert 'st.caption("Registrera resultat match för match eller använd massinmatning när det passar.")' in block
     assert 'st.data_editor(' in block
-    assert 'with st.expander("Visa hela matchschemat", expanded=False)' in block
-    assert block.index('st.caption("Registrera resultat match för match eller använd massinmatning när det passar.")') < block.index('with st.expander("Visa hela matchschemat", expanded=False)')
+    assert '_show_full_result_schedule = st.toggle(' in block
+    assert '"Visa hela matchschemat"' in block
+    assert block.index('st.caption("Registrera resultat match för match eller använd massinmatning när det passar.")') < block.index('_show_full_result_schedule = st.toggle(')
 
 
 def test_results_page_keeps_auto_save_and_concurrency_guards():

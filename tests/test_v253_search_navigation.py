@@ -12,8 +12,8 @@ def test_search_hit_carries_context_into_destination():
 def test_player_search_contains_team_id_and_routes_to_rosters():
     search=APP[APP.index('with st.expander("Sök i cupen"'):APP.index("admin_page = st.session_state[admin_page_key]")]
     assert "players.team_id" in search
-    assert '"target_page": "Trupper"' in search
-    assert '"team_id": int(row["team_id"])' in search
+    assert "'Trupper' AS target_page" in search
+    assert 'hit["team_id"]' in search
 
 def test_roster_page_auto_selects_player_team():
     roster=APP[APP.index('if admin_page == "Trupper":'):APP.index('if admin_page == "Domare":')]

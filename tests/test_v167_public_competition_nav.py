@@ -2,7 +2,7 @@ from pathlib import Path
 from cupnavi_core.public_view_logic import public_navigation_specs, public_section_for_page
 ROOT=Path(__file__).resolve().parents[1]
 APP=(ROOT/"app.py").read_text(encoding="utf-8")
-R="2026.08.28-254-PUBLISH-EMPTY-STATE-FIX"
+R="2026.08.28-261-HEAVY-ADMIN-PERFORMANCE"
 
 def test_public_has_clear_competition_navigation():
     specs=public_navigation_specs()

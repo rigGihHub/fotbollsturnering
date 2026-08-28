@@ -9,7 +9,7 @@ Regel:
 from dataclasses import dataclass
 from datetime import datetime, timezone
 
-LATEST_SCHEMA_VERSION = 23
+LATEST_SCHEMA_VERSION = 24
 
 
 @dataclass(frozen=True)
@@ -430,6 +430,35 @@ MIGRATIONS = (
                 PRIMARY KEY(scope,subject_hash,window_start)
             )""",
             "CREATE INDEX IF NOT EXISTS idx_rate_limits_last_seen ON rate_limits(last_seen)",
+        ),
+    ),
+    Migration(
+        24,
+        "monetization_readiness_v255",
+        (
+            """CREATE TABLE IF NOT EXISTS tournament_billing (
+                tournament_id INTEGER PRIMARY KEY REFERENCES tournaments(id) ON DELETE CASCADE,
+                billing_model TEXT NOT NULL DEFAULT 'per_team',
+                currency TEXT NOT NULL DEFAULT 'SEK',
+                unit_price_minor INTEGER NOT NULL DEFAULT 0,
+                discount_minor INTEGER NOT NULL DEFAULT 0,
+                billable_teams_snapshot INTEGER,
+                subtotal_minor_snapshot INTEGER,
+                total_minor_snapshot INTEGER,
+                payment_status TEXT NOT NULL DEFAULT 'not_required',
+                payment_provider TEXT NOT NULL DEFAULT 'none',
+                provider_customer_id TEXT,
+                provider_payment_id TEXT,
+                quoted_at TEXT,
+                paid_at TEXT,
+                updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                CHECK(unit_price_minor >= 0),
+                CHECK(discount_minor >= 0),
+                CHECK(billable_teams_snapshot IS NULL OR billable_teams_snapshot >= 0),
+                CHECK(subtotal_minor_snapshot IS NULL OR subtotal_minor_snapshot >= 0),
+                CHECK(total_minor_snapshot IS NULL OR total_minor_snapshot >= 0)
+            )""",
+            "CREATE INDEX IF NOT EXISTS idx_tournament_billing_status ON tournament_billing(payment_status)",
         ),
     ),
 

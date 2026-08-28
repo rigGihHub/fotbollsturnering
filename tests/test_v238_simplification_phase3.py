@@ -36,7 +36,8 @@ def test_roster_page_keeps_player_creation_primary():
     block=_block('if admin_page == "Trupper":','if admin_page == "Domare":')
     assert 'st.form("new_player"' in block
     assert 'st.form_submit_button("Lägg till spelare", type="primary")' in block
-    assert 'with st.expander("Matchtrupper – admin", expanded=False)' in block
+    assert '"Visa matchtrupper – admin"' in block
+    assert "st.toggle(" in block
     assert '["Ej angiven", "Målvakt", "Försvarare", "Mittfältare", "Anfallare"]' in block
 
 
