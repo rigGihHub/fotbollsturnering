@@ -5,7 +5,7 @@ APP=(ROOT/"app.py").read_text(encoding="utf-8")
 PWA=(ROOT/"public_pwa/styles.css").read_text(encoding="utf-8")
 STATS=(ROOT/"cupnavi_core/public_statistics_view.py").read_text(encoding="utf-8")
 MATCH=(ROOT/"cupnavi_core/public_match_cards.py").read_text(encoding="utf-8")
-R="2026.08.28-261-HEAVY-ADMIN-PERFORMANCE"
+R="2026.08.28-264-PUSH-NOTIFICATION-READINESS"
 
 def test_design_system_has_functional_tokens():
     for token in (
@@ -28,8 +28,8 @@ def test_buttons_inputs_focus_and_reduced_motion_are_standardized():
 
 def test_public_navigation_is_text_first_and_mobile_has_cupinfo():
     specs=public_navigation_specs()
-    assert specs[0][2] == "Schema & resultat"
-    assert specs[-1][3] == "Cupinfo"
+    assert specs[0][2] == "Cupinfo"
+    assert specs[0][3] == "Cupinfo"
     flat=" ".join(str(item) for spec in specs for item in spec)
     assert "🗓️" not in flat and "📊" not in flat and "🏆" not in flat
 

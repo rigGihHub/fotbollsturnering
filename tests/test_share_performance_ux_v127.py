@@ -1,8 +1,8 @@
 from pathlib import Path
 APP=Path("app.py").read_text(encoding="utf-8")
 def test_share_uses_single_popover_without_full_page_toggle_state():
-    start=APP.index("# Kompakt delning direkt kopplad till cupheadern")
-    end=APP.index('# v143: mobil först',start)
+    start=APP.index("def render_public_share_control(")
+    end=APP.index('@st.cache_data(show_spinner=False)',start)
     block=APP[start:end]
     assert 'with st.popover("Dela"' in block
     assert "render_public_share_fragment" not in block

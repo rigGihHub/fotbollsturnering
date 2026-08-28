@@ -11,8 +11,8 @@ def test_public_view_renders_only_selected_main_page():
     assert 'if public_page == "Statistik":' in APP
     assert 'if public_page == "Info":' in APP
 def test_share_qr_uses_cached_generator_inside_popover():
-    start=APP.index("# Kompakt delning direkt kopplad till cupheadern")
-    end=APP.index('# v143: mobil först',start)
+    start=APP.index("def render_public_share_control(")
+    end=APP.index('@st.cache_data(show_spinner=False)',start)
     block=APP[start:end]
     assert 'with st.popover("Dela"' in block
     assert "share_qr = qr_png_bytes(share_url)" in block

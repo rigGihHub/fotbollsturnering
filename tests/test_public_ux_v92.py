@@ -16,7 +16,7 @@ def test_public_competition_navigation_exists_and_has_active_state():
     from cupnavi_core.public_view_logic import public_navigation_specs
     block = public_block()
     assert len(public_navigation_specs()) == 5
-    assert [item[0] for item in public_navigation_specs()] == ["Matcher","Tabeller","Slutspel","Statistik","Info"]
+    assert [item[0] for item in public_navigation_specs()] == ["Info","Matcher","Tabeller","Slutspel","Statistik"]
     assert 'type="primary" if active else "secondary"' in block
 
 

@@ -10,6 +10,6 @@ def test_tighter_desktop_spacing():
     assert ".cn-flow-context{margin-top:0!important" in APP
 def test_zero_height_helpers():
     assert ".cn-public-follow-anchor{height:0" in APP
-    assert ".cn-share-inline-anchor{height:0" in APP
+    assert ".cn-share-metrics-anchor{height:0" in APP
 def test_clear_release_warning():
     assert "Releasefilerna är inte synkade" in APP

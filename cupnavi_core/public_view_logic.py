@@ -5,11 +5,11 @@ navigation behavior independently testable.
 """
 
 PUBLIC_PAGE_SPECS = (
+    ("Info", "info", "Cupinfo", "Cupinfo"),
     ("Matcher", "matches", "Schema & resultat", "Schema"),
     ("Tabeller", "tables", "Tabeller", "Tabeller"),
     ("Slutspel", "playoffs", "Slutspel", "Slutspel"),
     ("Statistik", "stats", "Statistik", "Statistik"),
-    ("Info", "info", "Cupinfo", "Cupinfo"),
 )
 
 PUBLIC_SECTION_TO_PAGE = {section: page for page, section, _, _ in PUBLIC_PAGE_SPECS}

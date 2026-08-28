@@ -20,8 +20,8 @@ def test_legacy_share_renderers_are_removed():
 
 
 def test_live_public_share_popover_is_retained():
-    start=APP.index("# Kompakt delning direkt kopplad till cupheadern")
-    end=APP.index("# v143: mobil först",start)
+    start=APP.index("def render_public_share_control(")
+    end=APP.index("@st.cache_data(show_spinner=False)",start)
     block=APP[start:end]
     assert 'with st.popover("Dela"' in block
     assert "qr_png_bytes(share_url)" in block

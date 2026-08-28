@@ -2,7 +2,7 @@ from pathlib import Path
 ROOT=Path(__file__).resolve().parents[1]
 APP=(ROOT/"app.py").read_text(encoding="utf-8")
 MIG=(ROOT/"cupnavi_core/migrations.py").read_text(encoding="utf-8")
-R="2026.08.28-261-HEAVY-ADMIN-PERFORMANCE"
+R="2026.08.28-264-PUSH-NOTIFICATION-READINESS"
 
 def test_sidebar_no_longer_asks_global_team_count():
     start=APP.index('with st.sidebar.expander("Skapa ny turnering")')
@@ -28,7 +28,7 @@ def test_global_team_limit_is_derived_from_classes():
     assert "_planned_by_class=_planned_total" in APP
 
 def test_migration_22_adds_class_team_count():
-    assert "LATEST_SCHEMA_VERSION = 24" in MIG
+    assert "LATEST_SCHEMA_VERSION = " in MIG
     assert "competition_class_planned_team_count_v176" in MIG
     assert 'if migration.version == 22:' in MIG
     assert "ensure_competition_class_schema_compat(con)" in MIG

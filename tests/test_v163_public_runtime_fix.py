@@ -1,7 +1,7 @@
 from pathlib import Path
 ROOT=Path(__file__).resolve().parents[1]
 APP=(ROOT/"app.py").read_text(encoding="utf-8")
-RELEASE="2026.08.28-261-HEAVY-ADMIN-PERFORMANCE"
+RELEASE="2026.08.28-264-PUSH-NOTIFICATION-READINESS"
 
 def test_public_follow_container_uses_compatible_streamlit_api():
     assert 'with st.container():' in APP

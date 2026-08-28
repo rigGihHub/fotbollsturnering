@@ -5,8 +5,8 @@ APP=Path("app.py").read_text(encoding="utf-8")
 
 
 def _public_share_block():
-    start=APP.index("# Kompakt delning direkt kopplad till cupheadern")
-    end=APP.index("# v143: mobil först",start)
+    start=APP.index("def render_public_share_control(")
+    end=APP.index("@st.cache_data(show_spinner=False)",start)
     return APP[start:end]
 
 

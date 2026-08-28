@@ -9,7 +9,7 @@ Regel:
 from dataclasses import dataclass
 from datetime import datetime, timezone
 
-LATEST_SCHEMA_VERSION = 24
+LATEST_SCHEMA_VERSION = 25
 
 
 @dataclass(frozen=True)
@@ -459,6 +459,46 @@ MIGRATIONS = (
                 CHECK(total_minor_snapshot IS NULL OR total_minor_snapshot >= 0)
             )""",
             "CREATE INDEX IF NOT EXISTS idx_tournament_billing_status ON tournament_billing(payment_status)",
+        ),
+    ),
+    Migration(
+        25,
+        "push_notification_readiness_v264",
+        (
+            """CREATE TABLE IF NOT EXISTS web_push_subscriptions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                tournament_id INTEGER NOT NULL REFERENCES tournaments(id) ON DELETE CASCADE,
+                team_id INTEGER NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
+                endpoint TEXT NOT NULL,
+                endpoint_hash TEXT NOT NULL,
+                p256dh TEXT NOT NULL,
+                auth TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                disabled_at TEXT,
+                notify_goals INTEGER NOT NULL DEFAULT 1,
+                notify_schedule INTEGER NOT NULL DEFAULT 1,
+                notify_results INTEGER NOT NULL DEFAULT 0,
+                notify_messages INTEGER NOT NULL DEFAULT 0,
+                UNIQUE(tournament_id,team_id,endpoint_hash)
+            )""",
+            """CREATE TABLE IF NOT EXISTS push_notification_outbox (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                tournament_id INTEGER NOT NULL REFERENCES tournaments(id) ON DELETE CASCADE,
+                team_id INTEGER NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
+                match_id INTEGER REFERENCES matches(id) ON DELETE CASCADE,
+                event_type TEXT NOT NULL,
+                event_key TEXT NOT NULL UNIQUE,
+                title TEXT NOT NULL,
+                body TEXT NOT NULL,
+                payload_json TEXT NOT NULL DEFAULT '{}',
+                created_at TEXT NOT NULL,
+                status TEXT NOT NULL DEFAULT 'pending',
+                attempted_at TEXT,
+                delivered_at TEXT,
+                error TEXT
+            )""",
+            "CREATE INDEX IF NOT EXISTS idx_web_push_team_active ON web_push_subscriptions(tournament_id,team_id,disabled_at)",
+            "CREATE INDEX IF NOT EXISTS idx_push_outbox_status_created ON push_notification_outbox(status,created_at)",
         ),
     ),
 

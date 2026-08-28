@@ -5,8 +5,8 @@ APP=Path("app.py").read_text(encoding="utf-8")
 
 
 def _public_share_block():
-    start=APP.index("# Kompakt delning direkt kopplad till cupheadern")
-    end=APP.index("# v143: mobil först",start)
+    start=APP.index("def render_public_share_control(")
+    end=APP.index("@st.cache_data(show_spinner=False)",start)
     return APP[start:end]
 
 
@@ -26,7 +26,7 @@ def test_share_links_use_direct_current_cup_url():
 
 def test_public_view_renders_integrated_share_popover():
     block=_public_share_block()
-    assert "cn-share-inline-anchor" in block
+    assert "cn-share-metrics-anchor" in block
     assert 'with st.popover("Dela"' in block
     assert "public_share_toggle_" not in block
 

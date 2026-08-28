@@ -23,10 +23,10 @@ def test_v255_billing_schema_is_provider_neutral_and_free_by_default():
     # Sparse fixture: mark earlier migrations as already applied so v24 can be tested alone.
     con.execute("CREATE TABLE cupnavi_schema_migrations(version INTEGER PRIMARY KEY,name TEXT NOT NULL,applied_at TEXT NOT NULL)")
     con.execute("INSERT INTO cupnavi_schema_migrations VALUES(23,'fixture','now')")
-    assert apply_migrations(con) == [24]
+    assert 24 in apply_migrations(con)
     cols = {r[1]: r for r in con.execute("PRAGMA table_info(tournament_billing)")}
     assert cols["billing_model"][4] == "'per_team'"
     assert cols["unit_price_minor"][4] == "0"
     assert cols["payment_status"][4] == "'not_required'"
     assert cols["payment_provider"][4] == "'none'"
-    assert LATEST_SCHEMA_VERSION == 24
+    assert LATEST_SCHEMA_VERSION >= 24

@@ -29,5 +29,5 @@ def test_desktop_and_mobile_navigation_share_one_source_of_truth():
     specs=public_navigation_specs()
     assert specs == PUBLIC_PAGE_SPECS
     assert len(specs) == 5
-    assert [item[0] for item in specs] == ["Matcher","Tabeller","Slutspel","Statistik","Info"]
-    assert [item[1] for item in specs] == ["matches","tables","playoffs","stats","info"]
+    assert [item[0] for item in specs] == ["Info","Matcher","Tabeller","Slutspel","Statistik"]
+    assert [item[1] for item in specs] == ["info","matches","tables","playoffs","stats"]

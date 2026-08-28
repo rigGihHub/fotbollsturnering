@@ -100,6 +100,7 @@ from cupnavi_core.schedule_optimizer import optimize_match_order
 from cupnavi_core.v137 import candidate_sort_key, normalize_schedule_strategy, travel_minutes
 from cupnavi_core.email_service import send_notification_email
 from cupnavi_core.notification_service import new_token, token_hash, normalize_email, category_enabled, classify_notification, now_iso
+from cupnavi_core.push_notification_service import enqueue_goal_push_events
 from cupnavi_core.i18n import SUPPORTED_LOCALES, DEFAULT_LOCALE, DEFAULT_TIMEZONE, valid_timezone
 from cupnavi_core.lifecycle import normalize_status, status_label, choose_unique_slug
 from cupnavi_core.qol import TOURNAMENT_TEMPLATES, template_definition, clone_tournament_payload, checklist_items, admin_mode
@@ -122,7 +123,7 @@ from cupnavi_core.public_match_feed_logic import classify_public_match_feed, pub
 from cupnavi_core.public_match_filters_view import render_public_match_filters as render_public_match_filters_module
 from cupnavi_core.match_reporter_logic import build_bulk_result_rows, prepare_bulk_result_update, result_snapshot, select_playable_matches
 
-APP_BUILD_VERSION = "2026.08.28-261-HEAVY-ADMIN-PERFORMANCE"
+APP_BUILD_VERSION = "2026.08.28-264-PUSH-NOTIFICATION-READINESS"
 APP_VERSION = APP_BUILD_VERSION
 
 def read_core_version_from_disk():
@@ -1001,6 +1002,79 @@ def track_public_visit(tournament_id):
     st.session_state[throttle_key] = now_dt
 
 
+def active_public_visitors(tournament_id, *, active_minutes=5):
+    """Approximerat antal besökare som är aktiva på cupsidan just nu.
+
+    Den aktuella Streamlit-sessionen räknas alltid med vid rendering. Övriga
+    sessioner räknas om deras senaste aktivitet är inom det valda tidsfönstret.
+    Detta ger en snabb, integritetsvänlig närvarosiffra utan IP-adresser.
+    """
+    session_key = f"_cupnavi_visitor_session_{tournament_id}"
+    token = st.session_state.get(session_key)
+    if not token:
+        token = hashlib.sha256(os.urandom(32)).hexdigest()
+        st.session_state[session_key] = token
+
+    cutoff = (datetime.now() - timedelta(minutes=max(1, int(active_minutes)))).isoformat(timespec="seconds")
+    row = one_row(
+        """SELECT COUNT(*) AS n
+           FROM visitor_sessions
+           WHERE tournament_id=? AND last_seen>=? AND session_token<>?""",
+        (tournament_id, cutoff, token),
+    )
+    return int((row["n"] if row else 0) or 0) + 1
+
+
+def render_public_share_control(tournament_id, tournament):
+    """Kompakt delningskontroll placerad under publika nyckeltal."""
+    share_url = public_cup_url(tournament_id)
+    share_text = f"{tr('Följ cupen')}: {tournament['name']} – {share_url}"
+    whatsapp_href = "https://wa.me/?text=" + quote(share_text)
+    email_href = "mailto:?subject=" + quote(f"CupNavi – {tournament['name']}") + "&body=" + quote(share_text)
+    sms_href = "sms:?&body=" + quote(share_text)
+
+    st.markdown(
+        """<style>
+        .cn-share-metrics-anchor{height:0;margin:0;padding:0}
+        .cn-share-metrics-anchor + div{width:max-content!important;margin:0 0 8px 0!important}
+        .cn-share-metrics-anchor + div button{
+          min-height:34px!important;padding:4px 12px!important;border-radius:9px!important;
+          font-size:.78rem!important;font-weight:800!important;box-shadow:none!important;
+        }
+        @media(max-width:760px){
+          .cn-share-metrics-anchor + div{width:100%!important;margin:0 0 10px!important}
+          .cn-share-metrics-anchor + div button{width:100%!important;min-height:40px!important}
+        }
+        </style>""",
+        unsafe_allow_html=True,
+    )
+    st.markdown("<div class='cn-share-metrics-anchor'></div>", unsafe_allow_html=True)
+    with st.popover("Dela", help=tr("Dela cupen")):
+        st.markdown(f"### {tr('Dela cupen')}")
+        st.caption(tr("Dela länken eller QR-koden till den här cupen."))
+        st.code(share_url, language=None)
+        share_col1, share_col2, share_col3 = st.columns(3)
+        share_col1.link_button("WhatsApp", whatsapp_href, use_container_width=True)
+        share_col2.link_button(tr("E-post"), email_href, use_container_width=True)
+        share_col3.link_button("SMS", sms_href, use_container_width=True)
+        share_qr = qr_png_bytes(share_url)
+        if share_qr:
+            st.markdown("#### QR-kod")
+            qr_col1, qr_col2 = st.columns([1, 2], vertical_alignment="center")
+            qr_col1.image(share_qr, width=120)
+            with qr_col2:
+                st.caption("Skanna koden för att öppna den publika cupsidan.")
+                st.download_button(
+                    tr("Ladda ner QR-kod"),
+                    data=share_qr,
+                    file_name=f"cupnavi-{int(tournament_id)}-qr.png",
+                    mime="image/png",
+                    key=f"cn_share_qr_download_{int(tournament_id)}",
+                    use_container_width=True,
+                )
+        st.caption("Länken går till den publika cupsidan och kräver ingen inloggning.")
+
+
 @st.cache_data(show_spinner=False)
 def qr_png_bytes(value):
     """QR-bilden är deterministisk och behöver inte byggas om vid varje rerun."""
@@ -1084,7 +1158,7 @@ TRANSLATIONS = {
         "Senaste 7 dagarna": "Last 7 days", "Senaste 30 dagarna": "Last 30 days",
         "Senaste 90 dagarna": "Last 90 days", "All tid": "All time",
         "Unika sessioner": "Unique sessions", "Sidvisningar": "Page views",
-        "Besök idag": "Visits today", "Sidvisningar idag": "Page views today",
+        "Besök idag": "Visits today", "Sidvisningar idag": "Page views today", "Besökare nu": "Visitors now",
         "Aktiva senaste 30 min": "Active in last 30 min", "Utveckling över tid": "Trend over time",
         "Enheter": "Devices", "Webbläsare": "Browsers", "Trafikkälla": "Traffic source",
         "Senaste besöken": "Recent visits", "Mobil": "Mobile", "Dator": "Desktop",
@@ -4744,6 +4818,24 @@ def _match_team_ids(match_row):
     return ids
 
 
+def _goal_push_kwargs(tournament_id, match_row, expected, home_score, away_score):
+    """Build provider-neutral goal push payload inputs before a write transaction."""
+    home_team_id = resolve_source(match_row["home_source"])
+    away_team_id = resolve_source(match_row["away_source"])
+    return {
+        "tournament_id": int(tournament_id),
+        "match_id": int(match_row["id"]),
+        "home_team_id": int(home_team_id) if home_team_id else None,
+        "away_team_id": int(away_team_id) if away_team_id else None,
+        "home_team_name": source_label(match_row["home_source"]),
+        "away_team_name": source_label(match_row["away_source"]),
+        "old_home_score": expected.get("home_score"),
+        "old_away_score": expected.get("away_score"),
+        "new_home_score": home_score,
+        "new_away_score": away_score,
+    }
+
+
 def schedule_repository():
     """Repository-gräns för all SQL som hör till schemadomänen."""
     return ScheduleRepository(
@@ -6971,75 +7063,7 @@ def render_public_view(tournament_id, tournament):
     if requested_team_id not in public_team_names:
         requested_team_id = None
 
-    # Kompakt delning direkt kopplad till cupheadern. Popovern ersätter den gamla
-    # fragment/container-raden som reserverade vertikal höjd även när panelen var stängd.
-    share_url = public_cup_url(tournament_id)
-    share_text = f"{tr('Följ cupen')}: {tournament['name']} – {share_url}"
-    whatsapp_href = "https://wa.me/?text=" + quote(share_text)
-    email_href = "mailto:?subject=" + quote(f"CupNavi – {tournament['name']}") + "&body=" + quote(share_text)
-    sms_href = "sms:?&body=" + quote(share_text)
-
-    st.markdown(
-        """<style>
-        .cn-share-inline-anchor{height:0;margin:0;padding:0}
-        .cn-share-inline-anchor + div{
-          position:relative!important;
-          z-index:30!important;
-          width:max-content!important;
-          margin:-40px 12px 6px auto!important;
-        }
-        .cn-share-inline-anchor + div button{
-          min-height:30px!important;
-          padding:3px 9px!important;
-          border-radius:8px!important;
-          border:1px solid rgba(255,255,255,.42)!important;
-          background:rgba(255,255,255,.14)!important;
-          color:#ffffff!important;
-          font-size:.76rem!important;
-          font-weight:800!important;
-          box-shadow:none!important;
-        }
-        .cn-share-inline-anchor + div button:hover{
-          background:rgba(255,255,255,.24)!important;
-          border-color:rgba(255,255,255,.72)!important;
-        }
-        @media(max-width:760px){
-          .cn-share-inline-anchor + div{
-            margin:-38px 8px 5px auto!important;
-          }
-          .cn-share-inline-anchor + div button{
-            min-height:32px!important;
-          }
-        }
-        </style>""",
-        unsafe_allow_html=True,
-    )
-    st.markdown("<div class='cn-share-inline-anchor'></div>", unsafe_allow_html=True)
-    with st.popover("Dela", help=tr("Dela cupen")):
-        st.markdown("<span class='cn-share-popover-marker'></span>", unsafe_allow_html=True)
-        st.markdown(f"### {tr('Dela cupen')}")
-        st.caption(tr("Dela länken eller QR-koden till den här cupen."))
-        st.code(share_url, language=None)
-        share_col1, share_col2, share_col3 = st.columns(3)
-        share_col1.link_button("WhatsApp", whatsapp_href, use_container_width=True)
-        share_col2.link_button(tr("E-post"), email_href, use_container_width=True)
-        share_col3.link_button("SMS", sms_href, use_container_width=True)
-        share_qr = qr_png_bytes(share_url)
-        if share_qr:
-            st.markdown("#### QR-kod")
-            qr_col1, qr_col2 = st.columns([1, 2], vertical_alignment="center")
-            qr_col1.image(share_qr, width=120)
-            with qr_col2:
-                st.caption("Skanna koden för att öppna den publika cupsidan.")
-                st.download_button(
-                    tr("Ladda ner QR-kod"),
-                    data=share_qr,
-                    file_name=f"cupnavi-{int(tournament_id)}-qr.png",
-                    mime="image/png",
-                    key=f"cn_share_qr_download_{int(tournament_id)}",
-                    use_container_width=True,
-                )
-        st.caption("Länken går till den publika cupsidan och kräver ingen inloggning.")
+    # Delningskontrollen renderas längre ned, direkt under publika nyckeltal.
 
     # v143: mobil först – "Följ mitt lag" är en personlig cupyta, inte bara ett filter.
     st.markdown(
@@ -7573,17 +7597,20 @@ def render_public_view(tournament_id, tournament):
                 f"<div class='cn-public-highlights'>{''.join(_highlight_cards)}</div>"
                 if _highlight_cards else ""
             )
+            _active_visitors = active_public_visitors(tournament_id)
             st.markdown(
                 f"""<div class='cn-public-summary-row'>
                   <div class='public-metric-grid'>
                     <div class='public-metric'><div class='label'>{html.escape(tr("Lag"))}</div><div class='value'>{team_count}</div></div>
                     <div class='public-metric'><div class='label'>{html.escape(tr("Matcher spelade"))}</div><div class='value'>{len(played_matches)} {html.escape(tr("av"))} {len(published_matches)}</div></div>
                     <div class='public-metric'><div class='label'>{html.escape(str(sport_profile(_row_value(tournament, 'sport', 'Fotboll'))['score_label']).capitalize())}</div><div class='value'>{total_goals}</div></div>
+                    <div class='public-metric'><div class='label'>👥 {html.escape(tr("Besökare nu"))}</div><div class='value'>{_active_visitors}</div></div>
                   </div>
                   {_highlights_html}
                 </div>""",
                 unsafe_allow_html=True,
             )
+            render_public_share_control(tournament_id, tournament)
 
             requested_match_view = str(st.query_params.get("matches", "all")) if hasattr(st, "query_params") else "all"
             requested_match_view = requested_match_view if requested_match_view in {"all", "upcoming", "played"} else "all"
@@ -7804,6 +7831,9 @@ def render_match_reporter_view(tournament_id, tournament):
                 disabled=playoff_tie_needs_detail,
             ):
                 before = result_snapshot(quick_match)
+                _quick_goal_push = _goal_push_kwargs(
+                    tournament_id, quick_match, before, quick_home_score, quick_away_score
+                )
                 with db() as con:
                     _quick_saved = update_match_result_if_unchanged(
                         con,
@@ -7817,6 +7847,7 @@ def render_match_reporter_view(tournament_id, tournament):
                         referee_id=quick_match["referee_id"],
                     )
                     if _quick_saved:
+                        enqueue_goal_push_events(con, **_quick_goal_push)
                         con.commit()
                 if not _quick_saved:
                     st.error(
@@ -7905,6 +7936,12 @@ def render_match_reporter_view(tournament_id, tournament):
                 st.info(message)
 
             if updates:
+                for update in updates:
+                    _match_for_push = original_by_id[update["match_id"]]
+                    update["_goal_push"] = _goal_push_kwargs(
+                        tournament_id, _match_for_push, update["expected"],
+                        update["home_score"], update["away_score"],
+                    )
                 _reporter_saved = []
                 _reporter_conflicts = []
                 with db() as con:
@@ -7921,6 +7958,8 @@ def render_match_reporter_view(tournament_id, tournament):
                             referee_id=update["referee_id"],
                         )
                         (_reporter_saved if saved else _reporter_conflicts).append(update)
+                        if saved:
+                            enqueue_goal_push_events(con, **update["_goal_push"])
                     con.commit()
                 _clear_render_query_cache()
                 for update in _reporter_saved:
@@ -11363,7 +11402,7 @@ ADMIN_PAGES = [
 ]
 ADMIN_NAV_GROUPS = [
     ("Översikt", [("Adminöversikt", tr("Översikt")), ("Cupinställningar", "Inställningar"), ("Kontroller", tr("Kontroller")), ("Problem & lösningar", "Problem"), ("Instruktioner", "Guide")]),
-    ("Deltagare", [("Lag", tr("Lag")), ("Önskemålscentral", "Önskemål"), ("Grupper", tr("Grupper")), ("Trupper", tr("Trupper")), ("Import", tr("Import"))]),
+    ("Deltagare", [("Lag", tr("Lag")), ("Önskemålscentral", "Önskemål"), ("Grupper", tr("Grupper")), ("Trupper", "Spelare & trupper"), ("Import", tr("Import"))]),
     ("Matcher", [("Skapa och publicera schema", tr("Schema")), ("Matcher och resultat", "Resultat"), ("Matchhändelser", tr("Händelser")), ("Tabeller", tr("Tabeller")), ("Slutspel", tr("Slutspel")), ("Skytteligor", tr("Skytteligor"))]),
     ("Organisation", [("Domare", tr("Domare")), ("Funktionärer", tr("Funktionärer")), ("Cupverktyg", "Verktyg")]),
     ("Kommunikation", [("Erbjudanden", tr("Erbjudanden")), ("Sponsorer", tr("Sponsorer")), ("Besöksstatistik", tr("Besök"))]),
@@ -14449,6 +14488,8 @@ if admin_page == "Lag":
     if max_teams:
         status_icon = "✓" if team_limit_reached else "👥"
         st.caption(f"{status_icon} {registered_team_count} av {max_teams} lag/deltagare registrerade." + (" Maxantalet är uppnått." if team_limit_reached else ""))
+    if registered_team_count:
+        st.caption("Spelare registreras under **Deltagare → Spelare & trupper**.")
     if team_limit_reached:
         if st.button("Ändra maxantal lag", key=f"change_team_limit_{tid}", use_container_width=True):
             st.session_state[admin_page_key] = "Adminöversikt"
@@ -14484,10 +14525,12 @@ if admin_page == "Lag":
             away_color_2 = ac3.color_picker("Borta – färg 2", "#111827", help="Används när stället inte är helfärgat.")
             st.markdown(kit_preview_html(away_pattern, secondary, away_color_2, "Förhandsvisning bortaställ"), unsafe_allow_html=True)
 
+            st.markdown("#### Lagansvarig kontaktperson")
+            st.caption("Ange den person som CupNavi/arrangören i första hand ska kontakta för laget, till exempel lagledare eller tränare. Uppgifterna är interna om du inte uttryckligen väljer att visa kontaktpersonen publikt.")
             rc1, rc2, rc3 = st.columns(3)
-            responsible_name = rc1.text_input("Namn", key=f"new_team_responsible_name_{tid}")
-            responsible_phone = rc2.text_input("Telefon", key=f"new_team_responsible_phone_{tid}")
-            responsible_email = rc3.text_input("E-post", key=f"new_team_responsible_email_{tid}")
+            responsible_name = rc1.text_input("Namn på lagansvarig", key=f"new_team_responsible_name_{tid}")
+            responsible_phone = rc2.text_input("Telefon till lagansvarig", key=f"new_team_responsible_phone_{tid}")
+            responsible_email = rc3.text_input("E-post till lagansvarig", key=f"new_team_responsible_email_{tid}")
             distance = st.number_input("Resväg i kilometer", 0, 5000, 0)
             travel_note = st.text_input("Resekommentar", placeholder="Exempel: Reser samma morgon")
             late_first_match = st.checkbox("Önskar senare första match", help="Använd detta exempelvis för lag med lång resväg.")
@@ -14942,11 +14985,12 @@ if admin_page == "Lag":
                 edited_away_color_2 = ea3.color_picker("Borta – färg 2", _team_value(edit_team, "away_color_2", "#111827"), key=f"edit_away_color2_{edit_team_id}")
                 st.markdown(kit_preview_html(edited_away_pattern, edited_secondary, edited_away_color_2, "Bortaställ"), unsafe_allow_html=True)
 
-                st.markdown("#### Ansvarig kontaktperson")
+                st.markdown("#### Lagansvarig kontaktperson")
+                st.caption("Personen som CupNavi/arrangören i första hand kontaktar för laget, till exempel lagledare eller tränare.")
                 erc1, erc2, erc3 = st.columns(3)
-                edited_responsible_name = erc1.text_input("Namn", value=_team_value(edit_team, "responsible_name", "") or "", key=f"edit_responsible_name_{edit_team_id}")
-                edited_responsible_phone = erc2.text_input("Telefon", value=_team_value(edit_team, "responsible_phone", "") or "", key=f"edit_responsible_phone_{edit_team_id}")
-                edited_responsible_email = erc3.text_input("E-post", value=_team_value(edit_team, "responsible_email", "") or "", key=f"edit_responsible_email_{edit_team_id}")
+                edited_responsible_name = erc1.text_input("Namn på lagansvarig", value=_team_value(edit_team, "responsible_name", "") or "", key=f"edit_responsible_name_{edit_team_id}")
+                edited_responsible_phone = erc2.text_input("Telefon till lagansvarig", value=_team_value(edit_team, "responsible_phone", "") or "", key=f"edit_responsible_phone_{edit_team_id}")
+                edited_responsible_email = erc3.text_input("E-post till lagansvarig", value=_team_value(edit_team, "responsible_email", "") or "", key=f"edit_responsible_email_{edit_team_id}")
                 edited_distance = st.number_input("Resväg i kilometer", 0, 5000, int(edit_team["distance_km"] or 0), key=f"edit_distance_{edit_team_id}")
                 edited_travel_note = st.text_input("Resekommentar", value=edit_team["travel_note"] or "", key=f"edit_travel_note_{edit_team_id}")
                 edited_late_first = st.checkbox("Önskar senare första match", value=bool(edit_team["late_first_match"]), key=f"edit_late_first_{edit_team_id}")
@@ -15209,8 +15253,8 @@ if admin_page == "Grupper":
 
 
 if admin_page == "Trupper":
-    st.header("Trupper")
-    st.caption("Välj lag och registrera spelare. Matchtrupper och portalregler finns som extra verktyg.")
+    st.header("Spelare & trupper")
+    st.caption("Här lägger du in och hanterar spelarna i varje lag. Välj lag nedan och lägg sedan till spelare manuellt eller via AI-import från foto/skärmdump.")
     with st.expander("⚙️ Regler för Lagportal och matchtrupper", expanded=False):
         rc1, rc2 = st.columns(2)
         portal_max_roster = rc1.number_input("Max spelare i truppen (0 = ingen gräns)", 0, 200, int(_row_value(tournament, "max_roster_size", 0) or 0), key=f"max_roster_{tid}")
@@ -16540,6 +16584,12 @@ if admin_page == "Matcher och resultat":
                 st.info(message)
 
             if auto_updates:
+                for update in auto_updates:
+                    _match_for_push = original_match_by_id[update["match_id"]]
+                    update["_goal_push"] = _goal_push_kwargs(
+                        tid, _match_for_push, update["expected"],
+                        update["home_score"], update["away_score"],
+                    )
                 _saved_updates = []
                 _conflicted_updates = []
                 with db() as con:
@@ -16556,6 +16606,8 @@ if admin_page == "Matcher och resultat":
                             referee_id=update["referee_id"],
                         )
                         (_saved_updates if saved else _conflicted_updates).append(update)
+                        if saved:
+                            enqueue_goal_push_events(con, **update["_goal_push"])
                     if tournament["is_published"] and _saved_updates:
                         con.executemany(
                             "UPDATE matches SET schedule_published=1 WHERE id=? AND scheduled_start IS NOT NULL",

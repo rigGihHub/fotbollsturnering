@@ -5,8 +5,8 @@ def app_text():
 
 def test_integrated_share_popover_replaces_old_messenger_deeplink():
     text = app_text()
-    start = text.index("# Kompakt delning direkt kopplad till cupheadern")
-    end = text.index("# v143: mobil först", start)
+    start = text.index("def render_public_share_control(")
+    end = text.index("@st.cache_data(show_spinner=False)", start)
     block = text[start:end]
     assert 'with st.popover("Dela"' in block
     assert "WhatsApp" in block
