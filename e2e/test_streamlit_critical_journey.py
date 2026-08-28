@@ -602,7 +602,7 @@ def test_full_cup_lifecycle_journey(server,browser_name):
         wait_app(page)
         page.get_by_role("button",name="Matchrapportör",exact=True).click()
         wait_app(page)
-        page.get_by_label("Lösenord",exact=True).fill("123")
+        page.get_by_label("Kod",exact=True).fill("123")
         page.get_by_role("button",name="Logga in",exact=True).click()
         wait_app(page)
         reporter_body=page.locator("body").inner_text()

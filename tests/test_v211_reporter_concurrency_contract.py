@@ -17,5 +17,5 @@ def test_conditional_update_remains_in_app_persistence_boundary():
     assert "def update_match_result_if_unchanged(" not in LOGIC
 
 def test_release_is_v211():
-    assert VERSION=="2026.08.28-264-PUSH-NOTIFICATION-READINESS"
-    assert "Version v.1.261" in APP
+    assert VERSION=="2026.08.28-265-CI-E2E-HARDENING"
+    assert "Version v.1.265" in APP

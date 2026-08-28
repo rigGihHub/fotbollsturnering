@@ -123,7 +123,7 @@ from cupnavi_core.public_match_feed_logic import classify_public_match_feed, pub
 from cupnavi_core.public_match_filters_view import render_public_match_filters as render_public_match_filters_module
 from cupnavi_core.match_reporter_logic import build_bulk_result_rows, prepare_bulk_result_update, result_snapshot, select_playable_matches
 
-APP_BUILD_VERSION = "2026.08.28-264-PUSH-NOTIFICATION-READINESS"
+APP_BUILD_VERSION = "2026.08.28-265-CI-E2E-HARDENING"
 APP_VERSION = APP_BUILD_VERSION
 
 def read_core_version_from_disk():
@@ -10033,7 +10033,7 @@ if _direct_public_cup and st.session_state.get("view_mode") is None:
     st.session_state["view_mode"] = "Turneringsvy"
 elif st.session_state.get("view_mode") not in mode_options:
     st.session_state["view_mode"] = mode_options[0]
-st.sidebar.caption("Version v.1.261")
+st.sidebar.caption("Version v.1.265")
 
 def _set_view_mode(mode):
     st.session_state["view_mode"] = mode
@@ -10442,10 +10442,12 @@ def _tournament_selector_label(tournament_id):
         return f"🔴 {label} · {status_label(status, current_language())}"
     return label
 
-# Seed the widget only when its state is missing/invalid. Do not overwrite it on
-# every rerun: doing so made the "Aktiv turnering" selectbox snap back to the
-# URL/preferred cup immediately after the user selected another tournament.
-if st.session_state.get("active_tournament_selector") not in tournament_ids:
+# A direct public cup URL is authoritative in the public view. This prevents a
+# stale session selection from silently rewriting ?cup= to another tournament.
+# Admin/role views keep the deliberate selector behavior below.
+if view_mode == "Turneringsvy" and requested_cup_id in tournament_ids:
+    st.session_state["active_tournament_selector"] = int(requested_cup_id)
+elif st.session_state.get("active_tournament_selector") not in tournament_ids:
     st.session_state["active_tournament_selector"] = selector_seed
 
 tid = st.sidebar.selectbox(

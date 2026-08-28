@@ -5,8 +5,8 @@ LOGIC=(ROOT/"cupnavi_core/public_view_logic.py").read_text(encoding="utf-8")
 VERSION=(ROOT/"VERSION.txt").read_text(encoding="utf-8").strip()
 
 def test_release_v201():
-    assert VERSION == "2026.08.28-264-PUSH-NOTIFICATION-READINESS"
-    assert "Version v.1.261" in APP
+    assert VERSION == "2026.08.28-265-CI-E2E-HARDENING"
+    assert "Version v.1.265" in APP
 
 def test_public_view_consumes_extracted_logic():
     assert "from cupnavi_core.public_view_logic import" in APP
