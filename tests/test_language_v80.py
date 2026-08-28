@@ -15,7 +15,7 @@ def test_translation_layer_has_fallback():
 
 def test_public_navigation_is_translated():
     text = app_text()
-    assert 'label = tr(desktop_label)' in text
+    assert 'desktop_text = tr(desktop_label)' in text
     from cupnavi_core.public_view_logic import public_navigation_specs
     assert [item[2] for item in public_navigation_specs()[:4]] == [
         "Cupinfo","Schema & resultat","Tabeller","Slutspel"

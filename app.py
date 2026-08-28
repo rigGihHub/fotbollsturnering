@@ -123,7 +123,7 @@ from cupnavi_core.public_match_feed_logic import classify_public_match_feed, pub
 from cupnavi_core.public_match_filters_view import render_public_match_filters as render_public_match_filters_module
 from cupnavi_core.match_reporter_logic import build_bulk_result_rows, prepare_bulk_result_update, result_snapshot, select_playable_matches
 
-APP_BUILD_VERSION = "2026.08.28-265-CI-E2E-HARDENING"
+APP_BUILD_VERSION = "2026.08.28-266-MOBILE-PUBLIC-PERFORMANCE-UX"
 APP_VERSION = APP_BUILD_VERSION
 
 def read_core_version_from_disk():
@@ -3140,6 +3140,93 @@ def render_persistent_brand():
 
 
 render_persistent_brand()
+
+# v1.266: mobil publikvy – ta bort Streamlit Cloud-chrome som visar bl.a. "Fork",
+# fäst cupnavigeringen upptill och säkra responsiviteten i summeringsrutorna.
+def inject_v266_public_mobile_css():
+    st.markdown(
+        """<style>
+        /* Behåll Streamlits header (sidebar-kontroll behövs i admin) men dölj
+           hostingverktyg/deploy-toolbar i den publika produktupplevelsen. */
+        [data-testid="stToolbar"],
+        [data-testid="stDecoration"],
+        [data-testid="stStatusWidget"],
+        .stAppDeployButton { display:none !important; }
+
+        /* Summeringen får aldrig pressa metric-korten till bokstavssmala kolumner. */
+        .cn-public-summary-row,
+        .cn-public-summary-row > * { min-width:0 !important; }
+        .public-metric-grid { min-width:0 !important; }
+        .public-metric { min-width:0 !important; overflow:hidden !important; }
+        .public-metric .label, .public-metric .value {
+          word-break:normal !important; overflow-wrap:normal !important; hyphens:none !important;
+        }
+
+        .cn-public-section-nav{
+          display:grid !important;grid-template-columns:repeat(5,minmax(0,1fr)) !important;
+          position:sticky !important;top:0 !important;z-index:999995 !important;
+          width:100% !important;margin:4px 0 10px !important;padding:5px !important;
+          background:rgba(255,255,255,.98) !important;border:1px solid #dbe4ea !important;
+          border-radius:12px !important;box-shadow:0 4px 14px rgba(15,23,42,.10) !important;
+        }
+        .cn-public-section-nav a{
+          display:flex !important;align-items:center !important;justify-content:center !important;
+          min-width:0 !important;min-height:42px !important;padding:6px 7px !important;
+          border-radius:9px !important;text-decoration:none !important;color:#475569 !important;
+          font-size:13px !important;font-weight:750 !important;text-align:center !important;
+        }
+        .cn-public-section-nav a.active{background:#eef8f1 !important;color:#14552f !important}
+        .cn-public-section-nav .cn-nav-mobile{display:none}
+
+        @media(max-width:900px){
+          /* Samma breakpoint som mobilnavigationen – tidigare gällde layoutfixen först
+             under 760px, vilket gav sönderpressade rutor på vissa Android-viewports. */
+          .cn-public-summary-row{display:block !important;margin-bottom:10px !important;width:100% !important}
+          .cn-public-summary-row .public-metric-grid{
+            display:grid !important;grid-template-columns:repeat(2,minmax(0,1fr)) !important;
+            width:100% !important;gap:8px !important;margin:5px 0 8px !important;
+          }
+          .cn-public-summary-row .public-metric{
+            width:auto !important;min-width:0 !important;min-height:68px !important;
+            padding:10px 11px !important;display:block !important;
+          }
+          .cn-public-summary-row .public-metric .label{
+            display:block !important;font-size:12px !important;line-height:1.2 !important;
+            white-space:normal !important;margin-bottom:5px !important;
+          }
+          .cn-public-summary-row .public-metric .value{
+            display:block !important;font-size:23px !important;line-height:1.05 !important;
+            white-space:normal !important;
+          }
+          .cn-public-highlights{
+            display:grid !important;grid-template-columns:repeat(2,minmax(0,1fr)) !important;
+            width:100% !important;max-width:none !important;gap:8px !important;
+          }
+          .cn-public-highlight{min-width:0 !important;padding:10px !important}
+          .cn-public-highlight .value,.cn-public-highlight .sub{white-space:normal !important}
+
+          /* Mobilens cupnavigation ligger i dokumentflödet och fastnar i överkant.
+             Den ersätter den tidigare bottenbaren som skymde innehåll. */
+          .cn-public-section-nav{left:auto !important;right:auto !important;bottom:auto !important}
+          .cn-public-section-nav .cn-nav-desktop{display:none !important}
+          .cn-public-section-nav .cn-nav-mobile{display:inline !important}
+          .cn-public-section-nav a{min-width:0 !important;min-height:46px !important;padding:4px 2px !important}
+          .cn-public-section-nav a span{font-size:10px !important;white-space:nowrap !important}
+          .stApp .block-container{padding-bottom:1.5rem !important}
+        }
+
+        @media(max-width:430px){
+          .cn-public-summary-row .public-metric-grid{gap:7px !important}
+          .cn-public-summary-row .public-metric{padding:9px !important;min-height:64px !important}
+          .cn-public-summary-row .public-metric .value{font-size:21px !important}
+          .cn-public-highlights{grid-template-columns:1fr !important}
+          .cn-public-section-nav a span{font-size:9px !important}
+        }
+        </style>""",
+        unsafe_allow_html=True,
+    )
+
+inject_v266_public_mobile_css()
 # APP_VERSION centraliseras i cupnavi_core/version.py
 DB_FILE = Path(os.getenv("CUPNAVI_DB_PATH") or Path(__file__).with_name("turnering.db"))
 
@@ -7381,25 +7468,27 @@ def render_public_view(tournament_id, tournament):
     )
     st.session_state[public_page_key] = public_page
 
-    st.markdown("<div class='cn-public-top-nav'></div>", unsafe_allow_html=True)
-    nav_specs = public_navigation_specs()
-    nav_columns = st.columns(len(nav_specs))
-    for nav_col, (page_value, _section, desktop_label, _mobile_label) in zip(nav_columns, nav_specs):
-        label = tr(desktop_label) if desktop_label != "Cupinfo" else "Cupinfo"
-        active = public_page == page_value
-        if nav_col.button(
-            label,
-            key=f"public_nav_v144_{tournament_id}_{page_value}",
-            type="primary" if active else "secondary",
-            use_container_width=True,
-        ):
-            st.session_state[public_page_key] = page_value
-            if hasattr(st, "query_params"):
-                st.query_params["cup"] = str(_row_value(tournament, "public_slug", tournament_id) or tournament_id)
-                st.query_params["section"] = public_section_for_page(page_value)
-                if requested_team_id:
-                    st.query_params["team"] = str(requested_team_id)
-            st.rerun()
+    # v1.266: en enda länkbaserad cupnavigation ersätter fem Streamlit-knappar
+    # plus den tidigare duplicerade mobilbaren. Det minskar widget/render-arbetet
+    # på framför allt Android och ger samma sticky navigation på alla skärmstorlekar.
+    cup_key = quote(str(_row_value(tournament, "public_slug", tournament_id) or tournament_id))
+    team_query = "&team=" + str(requested_team_id) if requested_team_id else ""
+    nav_links = []
+    for page_value, section, desktop_label, mobile_label in public_navigation_specs():
+        active_class = "active" if public_page == page_value else ""
+        desktop_text = tr(desktop_label) if desktop_label != "Cupinfo" else "Cupinfo"
+        mobile_text = tr(mobile_label) if mobile_label != "Cupinfo" else "Cupinfo"
+        nav_links.append(
+            f"<a role='button' class='{active_class}' href='?cup={cup_key}&section={section}{team_query}'>"
+            f"<span class='cn-nav-desktop'>{html.escape(desktop_text)}</span>"
+            f"<span class='cn-nav-mobile'>{html.escape(mobile_text)}</span></a>"
+        )
+    st.markdown(
+        "<nav class='cn-mobile-bottom-nav cn-public-section-nav' aria-label='Cup navigation'>"
+        + "".join(nav_links)
+        + "</nav>",
+        unsafe_allow_html=True,
+    )
 
     # Page-specific UI must only be evaluated after public_page is resolved.
     screen_url = public_cup_url(tournament_id) + ("&" if "?" in public_cup_url(tournament_id) else "?") + "screen=1"
@@ -7408,21 +7497,6 @@ def render_public_view(tournament_id, tournament):
             f"<div style='text-align:right;margin:-4px 0 8px'><a class='cn-screen-link' href='{html.escape(screen_url, quote=True)}'>🖥 Informationsskärm</a></div>",
             unsafe_allow_html=True,
         )
-
-    cup_key = quote(str(_row_value(tournament, "public_slug", tournament_id) or tournament_id))
-    team_query = "&team=" + str(requested_team_id) if requested_team_id else ""
-    mobile_links = []
-    for page_value, section, _desktop_label, mobile_label in public_navigation_specs():
-        active_class = "active" if public_page == page_value else ""
-        mobile_links.append(
-            f"<a class='{active_class}' href='?cup={cup_key}&section={section}{team_query}'><span>{html.escape(mobile_label)}</span></a>"
-        )
-    st.markdown(
-        "<nav class='cn-mobile-bottom-nav' aria-label='Cup navigation'>"
-        + "".join(mobile_links)
-        + "</nav>",
-        unsafe_allow_html=True,
-    )
 
     def _filter_public_matches(base_matches, key_prefix, heading):
         return render_public_match_filters_module(
@@ -10033,7 +10107,7 @@ if _direct_public_cup and st.session_state.get("view_mode") is None:
     st.session_state["view_mode"] = "Turneringsvy"
 elif st.session_state.get("view_mode") not in mode_options:
     st.session_state["view_mode"] = mode_options[0]
-st.sidebar.caption("Version v.1.265")
+st.sidebar.caption("Version v.1.266")
 
 def _set_view_mode(mode):
     st.session_state["view_mode"] = mode

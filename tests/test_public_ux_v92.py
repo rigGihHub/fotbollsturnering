@@ -17,7 +17,8 @@ def test_public_competition_navigation_exists_and_has_active_state():
     block = public_block()
     assert len(public_navigation_specs()) == 5
     assert [item[0] for item in public_navigation_specs()] == ["Info","Matcher","Tabeller","Slutspel","Statistik"]
-    assert 'type="primary" if active else "secondary"' in block
+    assert 'active_class = "active" if public_page == page_value else ""' in block
+    assert "role='button'" in block
 
 
 def test_matches_merge_schedule_and_results_and_keep_filters():

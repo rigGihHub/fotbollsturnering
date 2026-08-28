@@ -5,14 +5,15 @@ LOGIC=(ROOT/"cupnavi_core/public_view_logic.py").read_text(encoding="utf-8")
 VERSION=(ROOT/"VERSION.txt").read_text(encoding="utf-8").strip()
 
 def test_release_v201():
-    assert VERSION == "2026.08.28-265-CI-E2E-HARDENING"
-    assert "Version v.1.265" in APP
+    assert VERSION == "2026.08.28-266-MOBILE-PUBLIC-PERFORMANCE-UX"
+    assert "Version v.1.266" in APP
 
 def test_public_view_consumes_extracted_logic():
     assert "from cupnavi_core.public_view_logic import" in APP
     assert "resolve_public_page(" in APP
     assert "public_navigation_specs()" in APP
-    assert "public_section_for_page(page_value)" in APP
+    assert "for page_value, section, desktop_label, mobile_label in public_navigation_specs()" in APP
+    assert "&section={section}" in APP
 
 def test_logic_module_is_streamlit_free():
     assert "import streamlit" not in LOGIC

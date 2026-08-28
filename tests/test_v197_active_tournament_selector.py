@@ -6,6 +6,6 @@ def test_selector_is_not_reset_from_preferred_or_url_every_rerun():
     text = APP.read_text(encoding="utf-8")
     assert 'resolve_tournament_selector_seed(' in text
     assert 'st.session_state["preferred_tournament_id"] = int(tid)' in text
-    block = text[text.index("# Seed the widget only"):text.index("tournament = next(t for t in tournaments if t[\"id\"] == tid)")]
-    assert 'st.session_state["active_tournament_selector"] = requested_cup_id' not in block
+    block = text[text.index("# Resolve the initial selector seed"):text.index("tournament = next(t for t in tournaments if t[\"id\"] == tid)")]
+    assert 'if view_mode == "Turneringsvy" and requested_cup_id in tournament_ids:' in block
     assert 'st.session_state["active_tournament_selector"] = preferred_tournament_id' not in block

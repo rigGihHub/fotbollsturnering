@@ -5,7 +5,7 @@ STATS=(Path(__file__).resolve().parents[1]/"cupnavi_core/public_statistics_view.
 def test_public_stats_button_updates_url_section():
     from cupnavi_core.public_view_logic import public_section_for_page
     assert public_section_for_page("Statistik") == "stats"
-    assert 'st.query_params["section"] = public_section_for_page(page_value)' in APP
+    assert "href='?cup={cup_key}&section={section}{team_query}'" in APP
 
 def test_played_match_switch_is_url_backed_and_mobile_safe():
     assert 'st.query_params["matches"] = _selected_match_view' in APP

@@ -4,7 +4,7 @@ ROOT=Path(__file__).resolve().parents[1]
 APP=(ROOT/"app.py").read_text(encoding="utf-8")
 VERSION=(ROOT/"cupnavi_core/version.py").read_text(encoding="utf-8")
 MATCH=(ROOT/"cupnavi_core/public_match_cards.py").read_text(encoding="utf-8")
-RELEASE="2026.08.28-265-CI-E2E-HARDENING"
+RELEASE="2026.08.28-266-MOBILE-PUBLIC-PERFORMANCE-UX"
 
 def test_release_version_is_hard_synced():
     assert RELEASE in APP
@@ -24,7 +24,7 @@ def test_duplicate_next_match_hero_is_removed():
 
 def test_information_screen_is_demoted_to_info_page():
     start=APP.index("public_page = resolve_public_page(")
-    end=APP.index("cup_key = quote(",start)
+    end=APP.index("def _filter_public_matches",start)
     block=APP[start:end]
     assert "screen_url = public_cup_url" in block
     assert 'if public_page == "Info":' in block
