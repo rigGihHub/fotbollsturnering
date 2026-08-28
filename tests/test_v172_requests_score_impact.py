@@ -1,7 +1,7 @@
 from pathlib import Path
 ROOT=Path(__file__).resolve().parents[1]
 APP=(ROOT/"app.py").read_text(encoding="utf-8")
-R="2026.08.28-266-MOBILE-PUBLIC-PERFORMANCE-UX"
+R="2026.08.28-270-INCREMENTAL-PUBLIC-MATCHES"
 
 def test_requests_center_exists():
     assert "CREATE TABLE IF NOT EXISTS schedule_requests" in APP

@@ -10,5 +10,5 @@ def test_tokens():
 def test_accessibility_responsive():
  for t in ["focus-visible","@media(prefers-reduced-motion:reduce)","--cn-control-h:44px","overflow-x:hidden!important","@media(max-width:390px)","@media(min-width:1440px)"]: assert t in APP
 def test_release():
- assert VERSION=="2026.08.28-266-MOBILE-PUBLIC-PERFORMANCE-UX"
+ assert VERSION=="2026.08.28-270-INCREMENTAL-PUBLIC-MATCHES"
  assert "Version v.1.266" in APP

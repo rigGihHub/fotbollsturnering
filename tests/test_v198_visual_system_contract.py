@@ -38,5 +38,5 @@ def test_core_components_are_normalized():
         assert token in APP
 
 def test_release_is_v198():
-    assert VERSION == "2026.08.28-266-MOBILE-PUBLIC-PERFORMANCE-UX"
+    assert VERSION == "2026.08.28-270-INCREMENTAL-PUBLIC-MATCHES"
     assert "Version v.1.266" in APP

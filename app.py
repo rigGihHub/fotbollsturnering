@@ -71,6 +71,7 @@ from cupnavi_core.version import APP_VERSION as IMPORTED_CORE_APP_VERSION
 
 from cupnavi_core.product_foundation import organizer_workflow, workflow_summary
 from cupnavi_core.observability import safe_error_record, persist_error
+from cupnavi_core.performance import build_performance_snapshot, performance_log_line
 from cupnavi_core.schedule_quality import assess_schedule
 from cupnavi_core.public_competition import calculate_group_table
 from cupnavi_core.rules import validate_match_event_totals
@@ -120,10 +121,17 @@ from cupnavi_core.ai_roster_import import extract_roster_from_image, ALLOWED_POS
 from cupnavi_core.public_match_cards import render_public_match_cards as render_public_match_cards_module
 from cupnavi_core.public_match_filter_logic import filter_matches, sort_public_matches
 from cupnavi_core.public_match_feed_logic import classify_public_match_feed, public_match_feed_summary
+from cupnavi_core.public_match_overview import build_live_feed_html, build_highlights_html, build_summary_html
 from cupnavi_core.public_match_filters_view import render_public_match_filters as render_public_match_filters_module
 from cupnavi_core.match_reporter_logic import build_bulk_result_rows, prepare_bulk_result_update, result_snapshot, select_playable_matches
 
-APP_BUILD_VERSION = "2026.08.28-266-MOBILE-PUBLIC-PERFORMANCE-UX"
+from cupnavi_core.public_match_paging import (
+    PUBLIC_MATCH_BATCH_SIZE,
+    PUBLIC_MATCH_INITIAL_BATCH,
+    visible_match_batch,
+    next_visible_count,
+)
+APP_BUILD_VERSION = "2026.08.28-270-INCREMENTAL-PUBLIC-MATCHES"
 APP_VERSION = APP_BUILD_VERSION
 
 def read_core_version_from_disk():
@@ -1002,12 +1010,11 @@ def track_public_visit(tournament_id):
     st.session_state[throttle_key] = now_dt
 
 
-def active_public_visitors(tournament_id, *, active_minutes=5):
-    """Approximerat antal besökare som är aktiva på cupsidan just nu.
+def public_match_overview_db_snapshot(tournament_id, *, scorer_enabled=True, assist_enabled=True, active_minutes=5):
+    """Load active visitor count and optional individual leaders with one SQL statement.
 
-    Den aktuella Streamlit-sessionen räknas alltid med vid rendering. Övriga
-    sessioner räknas om deras senaste aktivitet är inom det valda tidsfönstret.
-    Detta ger en snabb, integritetsvänlig närvarosiffra utan IP-adresser.
+    This is deliberately fresh on every rerun. The optimization is fewer remote
+    statements/payload, not a long-lived cache that could make live cup data stale.
     """
     session_key = f"_cupnavi_visitor_session_{tournament_id}"
     token = st.session_state.get(session_key)
@@ -1016,13 +1023,61 @@ def active_public_visitors(tournament_id, *, active_minutes=5):
         st.session_state[session_key] = token
 
     cutoff = (datetime.now() - timedelta(minutes=max(1, int(active_minutes)))).isoformat(timespec="seconds")
-    row = one_row(
-        """SELECT COUNT(*) AS n
-           FROM visitor_sessions
-           WHERE tournament_id=? AND last_seen>=? AND session_token<>?""",
-        (tournament_id, cutoff, token),
-    )
-    return int((row["n"] if row else 0) or 0) + 1
+    started = time.perf_counter()
+    with db() as con:
+        row = _one_from_cursor(con.execute(
+            """WITH agg AS (
+                   SELECT CASE WHEN COALESCE(players.is_protected,0)=1 THEN 'Skyddad spelare' ELSE players.name END AS player_name,
+                          teams.name AS team_name, SUM(s.goals) AS goals, SUM(s.assists) AS assists
+                   FROM player_match_stats s
+                   JOIN players ON players.id=s.player_id
+                   JOIN teams ON teams.id=players.team_id
+                   JOIN matches ON matches.id=s.match_id
+                   WHERE matches.tournament_id=?
+                   GROUP BY players.id,players.name,players.is_protected,teams.name
+               ), scorer AS (
+                   SELECT player_name,team_name,goals,assists FROM agg
+                   WHERE ?=1 AND goals>0
+                   ORDER BY goals DESC, assists DESC, LOWER(player_name) ASC LIMIT 1
+               ), assister AS (
+                   SELECT player_name,team_name,goals,assists FROM agg
+                   WHERE ?=1 AND assists>0
+                   ORDER BY assists DESC, goals DESC, LOWER(player_name) ASC LIMIT 1
+               )
+               SELECT
+                   (SELECT COUNT(*) FROM visitor_sessions
+                    WHERE tournament_id=? AND last_seen>=? AND session_token<>?) AS visitor_count,
+                   (SELECT player_name FROM scorer) AS scorer_player,
+                   (SELECT team_name FROM scorer) AS scorer_team,
+                   (SELECT goals FROM scorer) AS scorer_goals,
+                   (SELECT assists FROM scorer) AS scorer_assists,
+                   (SELECT player_name FROM assister) AS assist_player,
+                   (SELECT team_name FROM assister) AS assist_team,
+                   (SELECT goals FROM assister) AS assist_goals,
+                   (SELECT assists FROM assister) AS assist_assists""",
+            (
+                tournament_id, int(bool(scorer_enabled)), int(bool(assist_enabled)),
+                tournament_id, cutoff, token,
+            ),
+        ))
+    _record_db_call(started)
+
+    leader_rows = []
+    if row and row["scorer_player"]:
+        leader_rows.append({
+            "player_name": row["scorer_player"], "team_name": row["scorer_team"],
+            "goals": row["scorer_goals"], "assists": row["scorer_assists"],
+        })
+    if row and row["assist_player"] and not any(
+        leader.get("player_name") == row["assist_player"] and leader.get("team_name") == row["assist_team"]
+        for leader in leader_rows
+    ):
+        leader_rows.append({
+            "player_name": row["assist_player"], "team_name": row["assist_team"],
+            "goals": row["assist_goals"], "assists": row["assist_assists"],
+        })
+    active_visitors = int((row["visitor_count"] if row else 0) or 0) + 1
+    return {"active_visitors": active_visitors, "leader_rows": leader_rows}
 
 
 def render_public_share_control(tournament_id, tournament):
@@ -6982,7 +7037,6 @@ def render_public_statistics_section(tournament_id, tournament, published_matche
 
 
 @st.fragment
-@st.fragment
 def render_public_info_section(tournament_id, tournament, published_matches):
     """Thin application adapter for the extracted Cupinfo view."""
     return render_public_info_section_module(
@@ -7467,6 +7521,7 @@ def render_public_view(tournament_id, tournament):
         st.session_state.get(public_page_key),
     )
     st.session_state[public_page_key] = public_page
+    st.session_state["_cupnavi_current_public_page"] = public_page
 
     # v1.266: en enda länkbaserad cupnavigation ersätter fem Streamlit-knappar
     # plus den tidigare duplicerade mobilbaren. Det minskar widget/render-arbetet
@@ -7555,67 +7610,42 @@ def render_public_view(tournament_id, tournament):
             )
             public_events_by_match = {}
 
+            _stage_timings = {}
+            _stage_started = time.perf_counter()
             _live_now, _next_matches, _recent_results = classify_public_match_feed(
                 published_matches,
                 now=now,
                 match_duration_minutes=match_duration_minutes(tournament),
             )
             _feed_summary = public_match_feed_summary(_live_now, _next_matches)
-            if _feed_summary["items"]:
-                _live_items = _feed_summary["items"]
-                _is_live_mode = _feed_summary["is_live"]
-                _head_title = _feed_summary["title"]
-                _head_subtitle = _feed_summary["subtitle"]
-                _head_status = _feed_summary["status"]
-                _live_cards = []
-                for _m in _live_items:
-                    try:
-                        _dt = datetime.fromisoformat(str(_row_value(_m, "scheduled_start", "")))
-                        _time_text = _dt.strftime("%H:%M")
-                        _date_text = _dt.strftime("%a %d %b").replace("Mon","Mån").replace("Tue","Tis").replace("Wed","Ons").replace("Thu","Tors").replace("Fri","Fre").replace("Sat","Lör").replace("Sun","Sön")
-                    except (TypeError, ValueError):
-                        _time_text, _date_text = "–", ""
-                    _home = html.escape(_public_source_label(_m["home_source"]))
-                    _away = html.escape(_public_source_label(_m["away_source"]))
-                    _pitch = html.escape(_public_pitch_label(_m))
-                    _card_class = "cn-live-card is-live" if _is_live_mode else "cn-live-card"
-                    _live_cards.append(
-                        f"<div class='{_card_class}'>"
-                        f"<div class='cn-live-card-top'><div><div class='cn-live-time'>{html.escape(_time_text)}</div>"
-                        f"<div class='cn-live-date'>{html.escape(_date_text)}</div></div>"
-                        f"<div class='cn-live-pitch'>📍 {_pitch}</div></div>"
-                        f"<div class='cn-live-teams'>{_home}<span class='cn-live-vs'> – </span>{_away}</div>"
-                        f"</div>"
-                    )
-                st.markdown(
-                    f"<section class='cn-live-strip'>"
-                    f"<div class='cn-live-head'><div class='cn-live-head-left'><span class='cn-live-dot'></span>"
-                    f"<div><div class='cn-live-title'>{html.escape(_head_title)}</div>"
-                    f"<div class='cn-live-subtitle'>{html.escape(_head_subtitle)}</div></div></div>"
-                    f"<div class='cn-live-status'>{html.escape(_head_status)}</div></div>"
-                    f"<div class='cn-live-grid'>{''.join(_live_cards)}</div>"
-                    f"</section>",
-                    unsafe_allow_html=True,
-                )
+            _feed_html = build_live_feed_html(
+                _feed_summary["items"],
+                is_live=bool(_feed_summary["is_live"]),
+                title=str(_feed_summary["title"]),
+                subtitle=str(_feed_summary["subtitle"]),
+                status=str(_feed_summary["status"]),
+                row_value=_row_value,
+                source_label=_public_source_label,
+                pitch_label=_public_pitch_label,
+            )
+            if _feed_html:
+                st.markdown(_feed_html, unsafe_allow_html=True)
+            _stage_timings["live_feed_ms"] = round((time.perf_counter() - _stage_started) * 1000, 1)
+
+            _stage_started = time.perf_counter()
 
             _scorer_enabled = bool(_row_value(tournament, "enable_scorer_leaderboard", 1))
             _assist_enabled = bool(_row_value(tournament, "enable_assist_leaderboard", 1))
-            _leader_rows = []
-            if played_matches and (_scorer_enabled or _assist_enabled):
-                _leader_rows = all_rows(
-                    """
-                    SELECT CASE WHEN COALESCE(players.is_protected,0)=1 THEN 'Skyddad spelare' ELSE players.name END AS player_name,
-                           teams.name AS team_name,
-                           SUM(s.goals) AS goals, SUM(s.assists) AS assists
-                    FROM player_match_stats s
-                    JOIN players ON players.id=s.player_id
-                    JOIN teams ON teams.id=players.team_id
-                    JOIN matches ON matches.id=s.match_id
-                    WHERE matches.tournament_id=?
-                    GROUP BY players.id,players.name,players.is_protected,teams.name
-                    """,
-                    (tournament_id,),
-                )
+            _overview_db = public_match_overview_db_snapshot(
+                tournament_id,
+                scorer_enabled=bool(played_matches) and _scorer_enabled,
+                assist_enabled=bool(played_matches) and _assist_enabled,
+            )
+            _leader_rows = _overview_db["leader_rows"]
+            _active_visitors = _overview_db["active_visitors"]
+            _stage_timings["overview_db_ms"] = round((time.perf_counter() - _stage_started) * 1000, 1)
+
+            _stage_started = time.perf_counter()
             _highlight_tables = snapshot_table_bundle(
                 public_teams,
                 published_matches,
@@ -7631,60 +7661,24 @@ def render_public_view(tournament_id, tournament):
                 assist_enabled=_assist_enabled,
             )
 
-            def _highlight_team_names(names):
-                cleaned = [str(name) for name in names if str(name).strip()]
-                if len(cleaned) <= 2:
-                    return " / ".join(cleaned)
-                return f"{cleaned[0]} + {len(cleaned) - 1}"
+            _highlights_html = build_highlights_html(_highlights, tr=tr)
+            _stage_timings["highlights_ms"] = round((time.perf_counter() - _stage_started) * 1000, 1)
+            _stage_timings["visitors_ms"] = 0.0
 
-            _highlight_cards = []
-            if "points" in _highlights:
-                _item = _highlights["points"]
-                _highlight_cards.append(
-                    f"<div class='cn-public-highlight'><div class='label'>🏆 {html.escape(tr('Poängledare'))}</div>"
-                    f"<div class='value'>{html.escape(_highlight_team_names(_item['names']))}</div>"
-                    f"<div class='sub'>{int(_item['value'])} {html.escape(tr('poäng'))}</div></div>"
-                )
-            if "defence" in _highlights:
-                _item = _highlights["defence"]
-                _highlight_cards.append(
-                    f"<div class='cn-public-highlight'><div class='label'>🛡️ {html.escape(tr('Minst insläppta'))}</div>"
-                    f"<div class='value'>{html.escape(_highlight_team_names(_item['names']))}</div>"
-                    f"<div class='sub'>{int(_item['value'])} {html.escape(tr('insläppta'))}</div></div>"
-                )
-            if "scorer" in _highlights:
-                _item = _highlights["scorer"]
-                _highlight_cards.append(
-                    f"<div class='cn-public-highlight'><div class='label'>🎯 {html.escape(tr('Skytteligaledare'))}</div>"
-                    f"<div class='value'>{html.escape(_item['player'])}</div>"
-                    f"<div class='sub'>{html.escape(_item['team'])} · {int(_item['value'])} {html.escape(tr('Mål').lower())}</div></div>"
-                )
-            if "assist" in _highlights:
-                _item = _highlights["assist"]
-                _highlight_cards.append(
-                    f"<div class='cn-public-highlight'><div class='label'>✨ {html.escape(tr('Assistledare'))}</div>"
-                    f"<div class='value'>{html.escape(_item['player'])}</div>"
-                    f"<div class='sub'>{html.escape(_item['team'])} · {int(_item['value'])} {html.escape(tr('Assist').lower())}</div></div>"
-                )
-
-            _highlights_html = (
-                f"<div class='cn-public-highlights'>{''.join(_highlight_cards)}</div>"
-                if _highlight_cards else ""
+            _stage_started = time.perf_counter()
+            _summary_html = build_summary_html(
+                team_count=team_count,
+                played_count=len(played_matches),
+                total_matches=len(published_matches),
+                total_score=total_goals,
+                score_label=sport_profile(_row_value(tournament, 'sport', 'Fotboll'))['score_label'],
+                active_visitors=_active_visitors,
+                highlights_html=_highlights_html,
+                tr=tr,
             )
-            _active_visitors = active_public_visitors(tournament_id)
-            st.markdown(
-                f"""<div class='cn-public-summary-row'>
-                  <div class='public-metric-grid'>
-                    <div class='public-metric'><div class='label'>{html.escape(tr("Lag"))}</div><div class='value'>{team_count}</div></div>
-                    <div class='public-metric'><div class='label'>{html.escape(tr("Matcher spelade"))}</div><div class='value'>{len(played_matches)} {html.escape(tr("av"))} {len(published_matches)}</div></div>
-                    <div class='public-metric'><div class='label'>{html.escape(str(sport_profile(_row_value(tournament, 'sport', 'Fotboll'))['score_label']).capitalize())}</div><div class='value'>{total_goals}</div></div>
-                    <div class='public-metric'><div class='label'>👥 {html.escape(tr("Besökare nu"))}</div><div class='value'>{_active_visitors}</div></div>
-                  </div>
-                  {_highlights_html}
-                </div>""",
-                unsafe_allow_html=True,
-            )
+            st.markdown(_summary_html, unsafe_allow_html=True)
             render_public_share_control(tournament_id, tournament)
+            _stage_timings["summary_share_ms"] = round((time.perf_counter() - _stage_started) * 1000, 1)
 
             requested_match_view = str(st.query_params.get("matches", "all")) if hasattr(st, "query_params") else "all"
             requested_match_view = requested_match_view if requested_match_view in {"all", "upcoming", "played"} else "all"
@@ -7739,16 +7733,47 @@ def render_public_view(tournament_id, tournament):
                 base_match_list = [m for m in base_match_list if int(m["pitch_number"] or 0) == requested_pitch_no]
                 st.info(f"📍 QR-länken visar Plan {requested_pitch_no}.")
 
+            _stage_started = time.perf_counter()
             match_list, match_filter_mode, match_filter_label = _filter_public_matches(
                 base_match_list,
                 "public_matches",
                 tr("Filtrera matcher"),
             )
-            st.caption(f"{tr('Visar')} {len(match_list)} {tr('matcher').lower()} · {match_filter_label}")
 
-            # Load match events only for visible played matches. The previous
-            # implementation fetched all scoring/red-card rows for the entire
-            # tournament even when the user viewed only upcoming fixtures.
+            # v1.270: render the public schedule incrementally. Large cups can
+            # contain hundreds of match cards; sending all of them to a phone on
+            # the first render makes the DOM and Streamlit delta payload needlessly
+            # heavy. Reset the batch when the actual filtered result set changes.
+            _all_filtered_matches = match_list
+            _match_ids_signature = tuple(
+                int(_row_value(match_row, "id", 0) or 0)
+                for match_row in _all_filtered_matches
+            )
+            _limit_key = f"public_match_render_limit_v270_{tournament_id}"
+            _signature_key = f"public_match_render_signature_v270_{tournament_id}"
+            if st.session_state.get(_signature_key) != _match_ids_signature:
+                st.session_state[_signature_key] = _match_ids_signature
+                st.session_state[_limit_key] = PUBLIC_MATCH_INITIAL_BATCH
+
+            match_list, _visible_match_count = visible_match_batch(
+                _all_filtered_matches,
+                st.session_state.get(_limit_key, PUBLIC_MATCH_INITIAL_BATCH),
+            )
+            _total_filtered_matches = len(_all_filtered_matches)
+            if _visible_match_count < _total_filtered_matches:
+                st.caption(
+                    f"{tr('Visar')} {_visible_match_count} av {_total_filtered_matches} "
+                    f"{tr('matcher').lower()} · {match_filter_label}"
+                )
+            else:
+                st.caption(f"{tr('Visar')} {_total_filtered_matches} {tr('matcher').lower()} · {match_filter_label}")
+            _stage_timings["filters_ms"] = round((time.perf_counter() - _stage_started) * 1000, 1)
+
+            _stage_started = time.perf_counter()
+            # Load match events only for visible played matches. The visible
+            # set is now the bounded batch of cards actually rendered.
+            # The previous implementation fetched all filtered played matches,
+            # even when most cards were below the mobile first-view batch.
             visible_played_match_ids = [
                 int(_row_value(match_row, "id", 0) or 0)
                 for match_row in match_list
@@ -7776,6 +7801,7 @@ def render_public_view(tournament_id, tournament):
                 )
                 for event_row in public_event_rows:
                     public_events_by_match.setdefault(event_row["match_id"], []).append(event_row)
+            _stage_timings["events_ms"] = round((time.perf_counter() - _stage_started) * 1000, 1)
 
             def _safe_public_start(match_row):
                 value = _row_value(match_row, "scheduled_start", None)
@@ -7788,9 +7814,10 @@ def render_public_view(tournament_id, tournament):
 
             # v162: Cupen just nu ovan är den enda primära "nästa match"-ytan.
             # Vi undviker ett andra stort hero-kort som duplicerar samma information.
+            _stage_started = time.perf_counter()
             show_match_weather = st.toggle(
                 "🌦️ " + tr("Visa väderprognos"),
-                value=True,
+                value=False,
                 key=f"public_matches_weather_{tournament_id}",
             )
             _render_public_match_cards(
@@ -7799,13 +7826,34 @@ def render_public_view(tournament_id, tournament):
                 show_weather=show_match_weather,
                 events_by_match=public_events_by_match,
             )
+            if _visible_match_count < _total_filtered_matches:
+                _remaining_matches = _total_filtered_matches - _visible_match_count
+                _next_batch_size = min(PUBLIC_MATCH_BATCH_SIZE, _remaining_matches)
+                if st.button(
+                    f"Visa {_next_batch_size} fler matcher",
+                    key=f"public_matches_more_v270_{tournament_id}_{_visible_match_count}",
+                    use_container_width=True,
+                ):
+                    st.session_state[_limit_key] = next_visible_count(
+                        _visible_match_count, _total_filtered_matches
+                    )
+                    st.rerun(scope="fragment")
+            _stage_timings["cards_weather_ms"] = round((time.perf_counter() - _stage_started) * 1000, 1)
 
             _elapsed_ms = (time.perf_counter() - _fragment_started) * 1000
-            st.session_state[f"_public_perf_matches_{tournament_id}"] = {
+            _public_perf_snapshot = {
                 "render_ms": round(_elapsed_ms, 1),
                 "db_calls": _PERF["db_calls"] - _db_calls_before,
                 "db_ms": round(_PERF["db_ms"] - _db_ms_before, 1),
+                **_stage_timings,
+                "visible_matches": len(match_list),
+                "filtered_matches": _total_filtered_matches,
+                "played_matches": len(played_matches),
             }
+            st.session_state[f"_public_perf_matches_{tournament_id}"] = _public_perf_snapshot
+            _public_perf_history = list(st.session_state.get("_cupnavi_public_matches_perf_history", []))
+            _public_perf_history.append(_public_perf_snapshot)
+            st.session_state["_cupnavi_public_matches_perf_history"] = _public_perf_history[-12:]
 
         render_public_matches_fragment()
 
@@ -18243,16 +18291,34 @@ if admin_page == "Slutspel":
 
 
 
-# --- CupNavi performance diagnostics (Admin only) -----------------------------
-# Rendered last so the measurements represent almost the whole Streamlit rerun.
+# --- CupNavi performance diagnostics ------------------------------------------
+# One compact snapshot is recorded for every rerun. This gives us route-specific
+# measurements instead of continuing to optimize from subjective impressions.
+_cupnavi_run_seq = int(st.session_state.get("_cupnavi_run_seq", 0) or 0) + 1
+st.session_state["_cupnavi_run_seq"] = _cupnavi_run_seq
+_render_ms = round((time.perf_counter() - _APP_RENDER_STARTED) * 1000, 1)
+_perf_snapshot = build_performance_snapshot(
+    render_ms=_render_ms,
+    perf=_PERF,
+    view_mode=view_mode,
+    admin_page=admin_page if view_mode == "Admin" else None,
+    public_page=st.session_state.get("_cupnavi_current_public_page") if view_mode == "Turneringsvy" else None,
+    run_seq=_cupnavi_run_seq,
+    source_refreshed=SOURCE_PACKAGE_REFRESHED,
+)
+_perf_route_history = list(st.session_state.get("_cupnavi_perf_route_history", []))
+_perf_route_history.append(_perf_snapshot)
+st.session_state["_cupnavi_perf_route_history"] = _perf_route_history[-24:]
+if os.environ.get("CUPNAVI_PERF_LOG") == "1":
+    print(performance_log_line(_perf_snapshot), flush=True)
+
 if view_mode == "Admin" and admin_page == "Adminöversikt":
-    _render_ms = round((time.perf_counter() - _APP_RENDER_STARTED) * 1000, 1)
-    _db_ms = round(float(_PERF.get("db_ms", 0.0)), 1)
-    _db_calls = int(_PERF.get("db_calls", 0) or 0)
-    _writes = int(_PERF.get("writes", 0) or 0)
-    _cache_hits = int(_PERF.get("cache_hits", 0) or 0)
-    _derived_hits = int(_PERF.get("derived_hits", 0) or 0)
-    _db_share = round((_db_ms / _render_ms) * 100, 1) if _render_ms > 0 else 0.0
+    _db_ms = _perf_snapshot["db_ms"]
+    _db_calls = _perf_snapshot["db_calls"]
+    _writes = _perf_snapshot["writes"]
+    _cache_hits = _perf_snapshot["query_cache_hits"]
+    _derived_hits = _perf_snapshot["derived_cache_hits"]
+    _db_share = _perf_snapshot["db_share_pct"]
 
     _perf_history = list(st.session_state.get("_cupnavi_perf_history", []))
     _perf_history.append(
@@ -18270,8 +18336,8 @@ if view_mode == "Admin" and admin_page == "Adminöversikt":
 
     with st.expander("Prestandadiagnostik", expanded=False):
         st.caption(
-            "Mäter den aktuella Admin-rerenderingen i den här sessionen. "
-            "Värdena skickas inte till någon extern analystjänst."
+            "Mäter aktuell rerendering och sparar de senaste rutterna i den här browser-sessionen. "
+            "Inget skickas till en extern analystjänst."
         )
         _perf_cols = st.columns(4)
         _perf_cols[0].metric("Render", f"{_render_ms:.0f} ms")
@@ -18295,6 +18361,40 @@ if view_mode == "Admin" and admin_page == "Adminöversikt":
                 f"{_avg_render:.0f} ms render · {_avg_db:.0f} ms DB."
             )
             render_centered_table(pd.DataFrame(_history))
+
+        _route_history = list(st.session_state.get("_cupnavi_perf_route_history", []))
+        if _route_history:
+            st.markdown("**Senaste rutter**")
+            _route_rows = [{
+                "Vy": row["route"],
+                "Render ms": row["render_ms"],
+                "DB ms": row["db_ms"],
+                "DB-anrop": row["db_calls"],
+                "Fas": row["session_phase"],
+            } for row in _route_history[-8:]]
+            render_centered_table(pd.DataFrame(_route_rows))
+
+        _public_matches_history = list(st.session_state.get("_cupnavi_public_matches_perf_history", []))
+        if _public_matches_history:
+            st.markdown("**Turneringsvy / Matcher – delsteg**")
+            st.caption(
+                "Visar vad som faktiskt tog tid i de senaste matchvyerna på samma browser-session. "
+                "Det gör det möjligt att skilja DB/visitor/highlights/filter från själva matchkortsrenderingen."
+            )
+            _public_stage_rows = [{
+                "Total ms": row.get("render_ms", 0),
+                "Liveflöde": row.get("live_feed_ms", 0),
+                "Översikt DB": row.get("overview_db_ms", 0),
+                "Highlights": row.get("highlights_ms", 0),
+                "Besökare": row.get("visitors_ms", 0),
+                "Summering/dela": row.get("summary_share_ms", 0),
+                "Filter": row.get("filters_ms", 0),
+                "Händelser": row.get("events_ms", 0),
+                "Matchkort/väder": row.get("cards_weather_ms", 0),
+                "DB ms": row.get("db_ms", 0),
+                "Matcher": row.get("visible_matches", 0),
+            } for row in _public_matches_history[-6:]]
+            render_centered_table(pd.DataFrame(_public_stage_rows))
 
 
 

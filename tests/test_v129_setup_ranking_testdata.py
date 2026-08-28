@@ -1,14 +1,15 @@
 from pathlib import Path
 
+OVERVIEW = Path("cupnavi_core/public_match_overview.py").read_text(encoding="utf-8")
+
 
 def app_text():
     return Path("app.py").read_text(encoding="utf-8")
 
 
 def test_public_metric_says_matches_played():
-    text = app_text()
-    assert 'tr("Matcher spelade")' in text
-    assert 'len(played_matches)' in text and 'len(published_matches)' in text
+    assert "tr('Matcher spelade')" in OVERVIEW
+    assert 'played_count' in OVERVIEW and 'total_matches' in OVERVIEW
 
 
 def test_testdata_has_variable_team_and_group_counts_and_gated_progress():

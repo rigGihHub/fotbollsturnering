@@ -2,7 +2,9 @@ from pathlib import Path
 
 from cupnavi_core.public_highlights import competition_highlights, snapshot_table_bundle
 
-APP=(Path(__file__).resolve().parents[1]/"app.py").read_text(encoding="utf-8")
+ROOT=Path(__file__).resolve().parents[1]
+APP=(ROOT/"app.py").read_text(encoding="utf-8")
+OVERVIEW=(ROOT/"cupnavi_core"/"public_match_overview.py").read_text(encoding="utf-8")
 
 
 def _bundle():
@@ -47,13 +49,15 @@ def test_disabled_leaderboards_are_not_exposed():
 
 def test_public_match_summary_places_compact_highlights_beside_metrics():
     block = APP[APP.index("_scorer_enabled = bool"):APP.index("requested_match_view =")]
-    assert "cn-public-summary-row" in block
-    assert "Poängledare" in block
-    assert "Minst insläppta" in block
-    assert "Skytteligaledare" in block
-    assert "Assistledare" in block
+    assert "build_summary_html" in block
+    assert "build_highlights_html" in block
     assert "enable_scorer_leaderboard" in block
     assert "enable_assist_leaderboard" in block
+    assert "cn-public-summary-row" in OVERVIEW
+    assert "Poängledare" in OVERVIEW
+    assert "Minst insläppta" in OVERVIEW
+    assert "Skytteligaledare" in OVERVIEW
+    assert "Assistledare" in OVERVIEW
 
 
 def test_snapshot_bundle_uses_loaded_data_without_group_queries():

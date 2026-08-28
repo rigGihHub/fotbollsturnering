@@ -1,7 +1,7 @@
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-RELEASE = "2026.08.28-266-MOBILE-PUBLIC-PERFORMANCE-UX"
+RELEASE = "2026.08.28-270-INCREMENTAL-PUBLIC-MATCHES"
 
 
 def test_health_contract_testclient_dependency_is_declared():
