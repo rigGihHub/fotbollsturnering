@@ -4,11 +4,11 @@ APP=(ROOT/"app.py").read_text(encoding="utf-8")
 INFO=(ROOT/"cupnavi_core/public_info_view.py").read_text(encoding="utf-8")
 MIG=(ROOT/"cupnavi_core/migrations.py").read_text(encoding="utf-8")
 WF=(ROOT/".github/workflows/cross-browser.yml").read_text(encoding="utf-8")
-R="2026.08.28-249-PUBLIC-MATCH-RENDER-FIX"
+R="2026.08.28-252-CODE-REGEN-CONFIRM"
 
 def test_server_side_rate_limits_cover_login_and_feedback():
     assert '_rate_allowed("admin-login", 8, 600)' in APP
-    assert '_rate_allowed("reporter-login", 12, 600)' in APP
+    assert 'f"reporter-login:{int(reporter_tid)}"' in APP
     assert 'rate_allowed(f"feedback:{int(tournament_id)}", 5, 600)' in INFO
     assert "rate_allowed=_rate_allowed" in APP
     assert "rå IP lagras aldrig" in APP
@@ -30,6 +30,6 @@ def test_testable_database_path_keeps_default():
     assert 'os.getenv("CUPNAVI_DB_PATH") or Path(__file__).with_name("turnering.db")' in APP
 
 def test_version():
-    assert "Version v.1.249" in APP
+    assert "Version v.1.252" in APP
     assert f'APP_BUILD_VERSION = "{R}"' in APP
     assert f'APP_VERSION = "{R}"' in (ROOT/"cupnavi_core/version.py").read_text(encoding="utf-8")

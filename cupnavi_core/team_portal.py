@@ -12,6 +12,12 @@ def generate_access_code(length=6):
     return "".join(secrets.choice(CODE_ALPHABET) for _ in range(length))
 
 
+def generate_short_numeric_code(length=4):
+    """Kort numerisk engångsvisad kod för roller där enkel mobil inloggning prioriteras."""
+    length = max(4, int(length or 4))
+    return "".join(secrets.choice("0123456789") for _ in range(length))
+
+
 def new_code_hash(code):
     salt = secrets.token_hex(16)
     digest = hashlib.pbkdf2_hmac("sha256", code.strip().upper().encode(), bytes.fromhex(salt), 120_000).hex()

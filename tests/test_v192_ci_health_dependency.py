@@ -1,7 +1,7 @@
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-RELEASE = "2026.08.28-249-PUBLIC-MATCH-RENDER-FIX"
+RELEASE = "2026.08.28-252-CODE-REGEN-CONFIRM"
 
 
 def test_health_contract_testclient_dependency_is_declared():
@@ -17,7 +17,7 @@ def test_v192_release_sync_and_visible_version():
     assert (ROOT / "VERSION.txt").read_text(encoding="utf-8").strip() == RELEASE
     assert f'APP_BUILD_VERSION = "{RELEASE}"' in app
     assert f'APP_VERSION = "{RELEASE}"' in core
-    assert 'st.sidebar.caption("Version v.1.249")' in app
+    assert 'st.sidebar.caption("Version v.1.252")' in app
 
 
 def test_release_manifest_excludes_runtime_and_secret_files():

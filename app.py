@@ -89,7 +89,7 @@ from cupnavi_core.import_service import (
     TEAM_FIELDS, PLAYER_FIELDS, auto_map_columns,
     build_team_import_plan, build_player_import_plan,
 )
-from cupnavi_core.team_portal import generate_access_code, new_code_hash, verify_access_code, squad_deadline_at, squad_is_locked
+from cupnavi_core.team_portal import generate_access_code, generate_short_numeric_code, new_code_hash, verify_access_code, squad_deadline_at, squad_is_locked
 from cupnavi_core.experience import (
     SPORT_PROFILES, sport_profile, match_duration_minutes, analyze_schedule_change,
     planned_delay_updates, tournament_quality_score, playoff_preview, cup_summary,
@@ -120,7 +120,7 @@ from cupnavi_core.public_match_feed_logic import classify_public_match_feed, pub
 from cupnavi_core.public_match_filters_view import render_public_match_filters as render_public_match_filters_module
 from cupnavi_core.match_reporter_logic import build_bulk_result_rows, prepare_bulk_result_update, result_snapshot, select_playable_matches
 
-APP_BUILD_VERSION = "2026.08.28-249-PUBLIC-MATCH-RENDER-FIX"
+APP_BUILD_VERSION = "2026.08.28-252-CODE-REGEN-CONFIRM"
 APP_VERSION = APP_BUILD_VERSION
 
 def read_core_version_from_disk():
@@ -3123,34 +3123,121 @@ def require_admin_access():
     st.stop()
 
 
+def _verify_tournament_role_code(table_name, tournament_id, entered_code):
+    if table_name not in {"match_reporter_credentials", "referee_credentials"}:
+        return None
+    credential = one_row(
+        f"SELECT code_salt,code_hash FROM {table_name} WHERE tournament_id=?",
+        (int(tournament_id),),
+    )
+    if credential and verify_access_code(entered_code, credential["code_salt"], credential["code_hash"]):
+        return credential
+    return None
+
+
 def require_match_reporter_access():
-    """Separat inloggning. Enkel kod är endast tillåten för Testmiljö."""
+    """Matchrapportör loggar normalt in med en turneringsspecifik fyrsiffrig kod."""
     reporter_password = setting("MATCH_REPORTER_PASSWORD")
     test_password = setting("TEST_MATCH_REPORTER_PASSWORD") or "123"
 
     if st.session_state.get("reporter_authenticated"):
         auth_scope = st.session_state.get("reporter_auth_scope", "production")
-        st.sidebar.success(
-            "Inloggad som matchrapportör"
-            + (" · endast testmiljöer" if auth_scope == "test_only" else "")
-        )
+        if auth_scope == "tournament":
+            authenticated_tid = st.session_state.get("reporter_tournament_id")
+            credential_table = (
+                "referee_credentials"
+                if st.session_state.get("reporter_role") == "referee"
+                else "match_reporter_credentials"
+            )
+            current_credential = one_row(
+                f"SELECT code_hash FROM {credential_table} WHERE tournament_id=?",
+                (authenticated_tid,),
+            )
+            # A regenerated code immediately invalidates sessions authenticated with
+            # the previous credential.
+            if (
+                current_credential is None
+                or not hmac.compare_digest(
+                    str(st.session_state.get("reporter_credential_hash", "")),
+                    str(current_credential["code_hash"]),
+                )
+            ):
+                st.session_state["reporter_authenticated"] = False
+                st.session_state.pop("reporter_auth_scope", None)
+                st.session_state.pop("reporter_tournament_id", None)
+                st.session_state.pop("reporter_credential_hash", None)
+                st.warning("Matchrapportörskoden har ändrats. Logga in med den nya koden.")
+                st.rerun()
+            st.sidebar.success(
+                "Inloggad som domare"
+                if st.session_state.get("reporter_role") == "referee"
+                else "Inloggad som matchrapportör"
+            )
+        else:
+            st.sidebar.success(
+                "Inloggad som matchrapportör"
+                + (" · endast testmiljöer" if auth_scope == "test_only" else "")
+            )
         if st.sidebar.button("Logga ut", key="reporter_logout", use_container_width=True):
             st.session_state["reporter_authenticated"] = False
             st.session_state.pop("reporter_auth_scope", None)
+            st.session_state.pop("reporter_tournament_id", None)
+            st.session_state.pop("reporter_credential_hash", None)
+            st.session_state.pop("reporter_role", None)
             st.rerun()
         return
 
     st.title(tr("Matchrapportör"))
-    st.caption("Den här rollen kan endast rapportera matchresultat och matchhändelser.")
-    if not reporter_password:
-        st.info(
-            "Ingen produktionskod för matchrapportör är konfigurerad. "
-            "Enkel testinloggning är tillgänglig och ger endast åtkomst till Testmiljöer."
-        )
+    st.caption("Välj turnering och ange din fyrsiffriga matchrapportörs- eller domarkod.")
+
+    reporter_tournaments = all_rows(
+        """SELECT id,name,environment_type FROM tournaments
+           WHERE COALESCE(lifecycle_status,'draft')!='trashed'
+           ORDER BY CASE COALESCE(lifecycle_status,'draft')
+                    WHEN 'live' THEN 0 WHEN 'published' THEN 1
+                    WHEN 'draft' THEN 2 WHEN 'completed' THEN 3 ELSE 4 END,
+                    COALESCE(start_date,tournament_date) DESC,name"""
+    )
+    if not reporter_tournaments:
+        st.info("Det finns ingen turnering att rapportera ännu.")
+        st.stop()
+
+    reporter_ids = [int(row["id"]) for row in reporter_tournaments]
+    reporter_names = {int(row["id"]): row["name"] for row in reporter_tournaments}
     with st.form("match_reporter_login"):
-        entered_password = st.text_input(tr("Lösenord"), type="password")
+        reporter_tid = st.selectbox(
+            "Turnering",
+            reporter_ids,
+            format_func=lambda tournament_id: reporter_names[tournament_id],
+            key="reporter_login_tournament",
+        )
+        entered_password = st.text_input(
+            "Kod",
+            type="password",
+            max_chars=12,
+            placeholder="4 siffror",
+        )
         submitted = st.form_submit_button("Logga in", type="primary", use_container_width=True)
+
     if submitted:
+        credential = _verify_tournament_role_code(
+            "match_reporter_credentials", reporter_tid, entered_password
+        )
+        referee_credential = _verify_tournament_role_code(
+            "referee_credentials", reporter_tid, entered_password
+        )
+        role_credential = credential or referee_credential
+        if role_credential:
+            st.session_state["reporter_authenticated"] = True
+            st.session_state["reporter_auth_scope"] = "tournament"
+            st.session_state["reporter_role"] = "referee" if referee_credential else "reporter"
+            st.session_state["reporter_tournament_id"] = int(reporter_tid)
+            st.session_state["reporter_credential_hash"] = str(role_credential["code_hash"])
+            st.session_state["preferred_tournament_id"] = int(reporter_tid)
+            st.session_state["active_tournament_selector"] = int(reporter_tid)
+            st.rerun()
+
+        # Backward compatibility for installations that still use Streamlit Secrets.
         if reporter_password and hmac.compare_digest(entered_password, reporter_password):
             st.session_state["reporter_authenticated"] = True
             st.session_state["reporter_auth_scope"] = "production"
@@ -3159,11 +3246,22 @@ def require_match_reporter_access():
             st.session_state["reporter_authenticated"] = True
             st.session_state["reporter_auth_scope"] = "test_only"
             st.rerun()
-        allowed, retry_after, _ = _rate_allowed("reporter-login", 12, 600)
+
+        allowed, retry_after, _ = _rate_allowed(
+            f"reporter-login:{int(reporter_tid)}",
+            12,
+            600,
+        )
         if not allowed:
-            st.error(f"För många misslyckade försök. Försök igen om cirka {max(1, retry_after // 60)} minut(er).")
+            st.error(
+                f"För många misslyckade försök. Försök igen om cirka "
+                f"{max(1, retry_after // 60)} minut(er)."
+            )
         else:
-            st.error("Fel lösenord.")
+            if credential is None:
+                st.error("Ingen matchrapportörskod är skapad för den här turneringen ännu.")
+            else:
+                st.error("Fel kod.")
     st.stop()
 
 
@@ -4025,6 +4123,20 @@ def init_db():
                 phone TEXT,
                 email TEXT,
                 referee_level TEXT
+            );
+            CREATE TABLE IF NOT EXISTS match_reporter_credentials (
+                tournament_id INTEGER PRIMARY KEY REFERENCES tournaments(id) ON DELETE CASCADE,
+                code_salt TEXT NOT NULL,
+                code_hash TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                rotated_at TEXT
+            );
+            CREATE TABLE IF NOT EXISTS referee_credentials (
+                tournament_id INTEGER PRIMARY KEY REFERENCES tournaments(id) ON DELETE CASCADE,
+                code_salt TEXT NOT NULL,
+                code_hash TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                rotated_at TEXT
             );
             CREATE TABLE IF NOT EXISTS brackets (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -9171,6 +9283,43 @@ def _rotate_participant_code_if_unchanged(tournament_id,team_id,expected):
     return False,"conflict",None
 
 
+def _rotate_all_participant_codes(tournament_id):
+    """Rotate every team portal code for one tournament in a single transaction."""
+    team_rows = all_rows(
+        "SELECT id FROM teams WHERE tournament_id=? ORDER BY id",
+        (int(tournament_id),),
+    )
+    if not team_rows:
+        return [], None
+
+    generated = []
+    now_iso = datetime.now().isoformat(timespec="microseconds")
+    try:
+        with db() as con:
+            for team_row in team_rows:
+                team_id = int(team_row["id"])
+                plain_code = generate_access_code()
+                salt, code_hash = new_code_hash(plain_code)
+                con.execute(
+                    """INSERT INTO participant_access_credentials(
+                           tournament_id,team_id,code_salt,code_hash,created_at,rotated_at,admin_code
+                       ) VALUES(?,?,?,?,?,NULL,?)
+                       ON CONFLICT(tournament_id,team_id) DO UPDATE SET
+                           code_salt=excluded.code_salt,
+                           code_hash=excluded.code_hash,
+                           rotated_at=excluded.created_at,
+                           admin_code=excluded.admin_code""",
+                    (int(tournament_id), team_id, salt, code_hash, now_iso, plain_code),
+                )
+                generated.append((team_id, plain_code))
+            con.commit()
+    except Exception as exc:
+        return [], str(exc)
+
+    _clear_render_query_cache()
+    return generated, None
+
+
 def _trash_tournament_if_current(tournament_id,expected_lifecycle,expected_is_published):
     with db() as con:
         cursor=con.execute(
@@ -9723,7 +9872,7 @@ if _direct_public_cup and st.session_state.get("view_mode") is None:
     st.session_state["view_mode"] = "Turneringsvy"
 elif st.session_state.get("view_mode") not in mode_options:
     st.session_state["view_mode"] = mode_options[0]
-st.sidebar.caption("Version v.1.249")
+st.sidebar.caption("Version v.1.252")
 
 def _set_view_mode(mode):
     st.session_state["view_mode"] = mode
@@ -10034,6 +10183,9 @@ if view_mode in ("Admin", "Matchrapportör", "Lagportal"):
     _tournament_access_params = ()
     if view_mode == "Matchrapportör" and st.session_state.get("reporter_auth_scope") == "test_only":
         _tournament_access_sql += " AND COALESCE(environment_type,'production')='test'"
+    if view_mode == "Matchrapportör" and st.session_state.get("reporter_auth_scope") == "tournament":
+        _tournament_access_sql += " AND id=?"
+        _tournament_access_params = (int(st.session_state["reporter_tournament_id"]),)
     tournaments = all_rows(
         _tournament_access_sql
         + " ORDER BY CASE COALESCE(lifecycle_status,'draft') WHEN 'live' THEN 0 WHEN 'published' THEN 1 WHEN 'draft' THEN 2 WHEN 'completed' THEN 3 ELSE 4 END, "
@@ -14194,6 +14346,65 @@ if admin_page == "Lag":
                     "Senast ändrad": (cred["rotated_at"] or cred["created_at"]) if cred else "–",
                 })
             render_centered_table(pd.DataFrame(code_rows))
+
+            regenerate_all_key = f"confirm_regenerate_all_team_codes_{tid}"
+            all_team_codes_notice_key = f"all_team_codes_notice_{tid}"
+            if all_team_codes_notice_key in st.session_state:
+                notice_type, notice_text = st.session_state.pop(all_team_codes_notice_key)
+                getattr(st, notice_type)(notice_text)
+
+            if teams:
+                if not st.session_state.get(regenerate_all_key):
+                    if st.button(
+                        "Regenerera koder för alla lag",
+                        key=f"request_regenerate_all_team_codes_{tid}",
+                        use_container_width=True,
+                    ):
+                        st.session_state[regenerate_all_key] = True
+                        st.rerun()
+                else:
+                    st.warning(
+                        f"Är du säker? Alla {len(teams)} nuvarande lagkoder slutar fungera direkt "
+                        "och måste delas ut på nytt."
+                    )
+                    bulk_yes, bulk_no = st.columns(2)
+                    if bulk_yes.button(
+                        "Ja, regenerera alla",
+                        key=f"confirm_regenerate_all_team_codes_button_{tid}",
+                        type="primary",
+                        use_container_width=True,
+                    ):
+                        generated_codes, bulk_error = _rotate_all_participant_codes(tid)
+                        st.session_state.pop(regenerate_all_key, None)
+                        if bulk_error:
+                            st.session_state[all_team_codes_notice_key] = (
+                                "error",
+                                f"Lagkoderna kunde inte regenereras: {bulk_error}",
+                            )
+                        else:
+                            for team_id, _plain_code in generated_codes:
+                                record_audit(
+                                    tid,
+                                    "participant_code_rotated",
+                                    "team",
+                                    "Lagkod regenererad via massåtgärd",
+                                    entity_id=team_id,
+                                    actor="Admin",
+                                )
+                            st.session_state[all_team_codes_notice_key] = (
+                                "success",
+                                f"Nya koder skapades för {len(generated_codes)} lag. "
+                                "Alla tidigare lagkoder är nu ogiltiga.",
+                            )
+                        st.rerun()
+                    if bulk_no.button(
+                        "Avbryt",
+                        key=f"cancel_regenerate_all_team_codes_{tid}",
+                        use_container_width=True,
+                    ):
+                        st.session_state.pop(regenerate_all_key, None)
+                        st.rerun()
+
             if missing_display_codes:
                 st.warning(f"{len(missing_display_codes)} lag saknar en visningsbar kod. Äldre hashade koder kan inte återläsas.")
                 if st.button("Skapa/ersätt koder för alla som saknar visningsbar kod", key=f"generate_missing_portal_codes_{tid}", type="primary", use_container_width=True):
@@ -14227,14 +14438,58 @@ if admin_page == "Lag":
             if portal_code_notice_key in st.session_state:
                 notice_type, notice_text = st.session_state.pop(portal_code_notice_key)
                 getattr(st, notice_type)(notice_text)
-            if st.button("Skapa ny kod" if not credential else "Återställ och skapa ny kod", key=f"generate_portal_code_{tid}_{access_team_id}", type="primary"):
+            individual_confirm_key = f"confirm_regenerate_team_code_{tid}_{access_team_id}"
+            rotate_individual = False
+            if not credential:
+                rotate_individual = st.button(
+                    "Skapa ny kod",
+                    key=f"generate_portal_code_{tid}_{access_team_id}",
+                    type="primary",
+                )
+            elif not st.session_state.get(individual_confirm_key):
+                if st.button(
+                    "Regenerera lagkod",
+                    key=f"request_regenerate_portal_code_{tid}_{access_team_id}",
+                ):
+                    st.session_state[individual_confirm_key] = True
+                    st.rerun()
+            else:
+                selected_team_name = next(
+                    row["name"] for row in teams if row["id"] == access_team_id
+                )
+                st.warning(
+                    f"Är du säker? Den nuvarande lagkoden för {selected_team_name} slutar fungera direkt."
+                )
+                indiv_yes, indiv_no = st.columns(2)
+                if indiv_yes.button(
+                    "Ja, regenerera",
+                    key=f"confirm_regenerate_portal_code_{tid}_{access_team_id}",
+                    type="primary",
+                ):
+                    rotate_individual = True
+                    st.session_state.pop(individual_confirm_key, None)
+                if indiv_no.button(
+                    "Avbryt",
+                    key=f"cancel_regenerate_portal_code_{tid}_{access_team_id}",
+                ):
+                    st.session_state.pop(individual_confirm_key, None)
+                    st.rerun()
+
+            if rotate_individual:
                 changed, rotate_reason, plain_code = _rotate_participant_code_if_unchanged(
                     tid,
                     access_team_id,
                     _credential_snapshot(credential),
                 )
                 if changed:
-                    record_audit(tid, "participant_code_rotated", "team", "Ny portal-kod skapad", entity_id=access_team_id, actor="Admin")
+                    record_audit(
+                        tid,
+                        "participant_code_rotated",
+                        "team",
+                        "Ny portal-kod skapad",
+                        entity_id=access_team_id,
+                        actor="Admin",
+                    )
                     st.session_state[portal_code_notice_key]=("success",f"Ny lagkod: **{plain_code}**")
                 else:
                     st.session_state[portal_code_notice_key]=(
@@ -14725,6 +14980,109 @@ if admin_page == "Trupper":
 if admin_page == "Domare":
     st.header("Domare")
     st.caption("Lägg till domare för automatisk eller manuell matchtilldelning.")
+
+    st.subheader("Åtkomstkoder")
+    st.caption("Matchrapportör och domare ligger på samma nivå. Varje roll har en egen fyrsiffrig kod för den aktiva turneringen.")
+
+    def render_role_code_card(label, table_name, session_prefix):
+        credential = one_row(
+            f"SELECT code_hash,created_at,rotated_at FROM {table_name} WHERE tournament_id=?",
+            (tid,),
+        )
+        with st.container(border=True):
+            st.markdown(f"**{label}**")
+            if credential:
+                st.caption(
+                    "Kod aktiv"
+                    + (
+                        f" · ändrad {str(credential['rotated_at']).replace('T',' ')}"
+                        if credential["rotated_at"] else ""
+                    )
+                )
+            else:
+                st.caption("Ingen kod skapad ännu.")
+
+            code_key = f"new_{session_prefix}_code_{tid}"
+            confirm_key = f"confirm_regenerate_{session_prefix}_code_{tid}"
+
+            # Initial creation is non-destructive. Re-generation invalidates the
+            # current code and therefore always requires an explicit confirmation.
+            if not credential:
+                create_requested = st.button(
+                    "Generera 4-siffrig kod",
+                    key=f"generate_{session_prefix}_code_{tid}",
+                    type="primary",
+                    use_container_width=True,
+                )
+            else:
+                create_requested = False
+                if not st.session_state.get(confirm_key):
+                    if st.button(
+                        "Regenerera ny kod",
+                        key=f"request_regenerate_{session_prefix}_code_{tid}",
+                        use_container_width=True,
+                    ):
+                        st.session_state[confirm_key] = True
+                        st.rerun()
+                else:
+                    st.warning(
+                        f"Är du säker? Den nuvarande koden för {label.lower()} slutar fungera direkt."
+                    )
+                    yes_col, no_col = st.columns(2)
+                    if yes_col.button(
+                        "Ja, regenerera",
+                        key=f"confirm_regenerate_{session_prefix}_{tid}",
+                        type="primary",
+                        use_container_width=True,
+                    ):
+                        create_requested = True
+                        st.session_state.pop(confirm_key, None)
+                    if no_col.button(
+                        "Avbryt",
+                        key=f"cancel_regenerate_{session_prefix}_{tid}",
+                        use_container_width=True,
+                    ):
+                        st.session_state.pop(confirm_key, None)
+                        st.rerun()
+
+            if create_requested:
+                new_code = generate_short_numeric_code(4)
+                code_salt, code_hash = new_code_hash(new_code)
+                now_text = datetime.now().isoformat(timespec="seconds")
+                with db() as con:
+                    existing = con.execute(
+                        f"SELECT tournament_id FROM {table_name} WHERE tournament_id=?",
+                        (tid,),
+                    ).fetchone()
+                    if existing:
+                        con.execute(
+                            f"UPDATE {table_name} SET code_salt=?,code_hash=?,rotated_at=? WHERE tournament_id=?",
+                            (code_salt, code_hash, now_text, tid),
+                        )
+                    else:
+                        con.execute(
+                            f"INSERT INTO {table_name}(tournament_id,code_salt,code_hash,created_at,rotated_at) VALUES(?,?,?,?,NULL)",
+                            (tid, code_salt, code_hash, now_text),
+                        )
+                    con.commit()
+                st.session_state[code_key] = new_code
+                st.rerun()
+
+            if st.session_state.get(code_key):
+                st.markdown(
+                    f"<div style='font-size:2rem;font-weight:900;letter-spacing:.22em;"
+                    f"text-align:center;padding:12px;border:1px solid #d9e2dd;border-radius:12px;"
+                    f"background:#fff'>{html.escape(st.session_state[code_key])}</div>",
+                    unsafe_allow_html=True,
+                )
+                st.caption("Kopiera eller dela koden nu. Den visas bara efter generering.")
+
+    code_col1, code_col2 = st.columns(2)
+    with code_col1:
+        render_role_code_card("Matchrapportör", "match_reporter_credentials", "reporter")
+    with code_col2:
+        render_role_code_card("Domare", "referee_credentials", "referee")
+
     with st.form("new_referee", clear_on_submit=True):
         rname = st.text_input("Namn")
         with st.expander("Kontaktuppgifter", expanded=False):
