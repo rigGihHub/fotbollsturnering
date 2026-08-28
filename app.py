@@ -120,7 +120,7 @@ from cupnavi_core.public_match_feed_logic import classify_public_match_feed, pub
 from cupnavi_core.public_match_filters_view import render_public_match_filters as render_public_match_filters_module
 from cupnavi_core.match_reporter_logic import build_bulk_result_rows, prepare_bulk_result_update, result_snapshot, select_playable_matches
 
-APP_BUILD_VERSION = "2026.08.28-252-CODE-REGEN-CONFIRM"
+APP_BUILD_VERSION = "2026.08.28-254-PUBLISH-EMPTY-STATE-FIX"
 APP_VERSION = APP_BUILD_VERSION
 
 def read_core_version_from_disk():
@@ -3627,6 +3627,7 @@ def ensure_v99_team_portal_schema_compat(con):
         "squad_deadline_minutes": "INTEGER NOT NULL DEFAULT 30",
         "max_roster_size": "INTEGER NOT NULL DEFAULT 0",
         "allow_team_public_contact": "INTEGER NOT NULL DEFAULT 0",
+        "published_once": "INTEGER NOT NULL DEFAULT 0",
     }
     team_additions = {
         "checked_in_by": "TEXT",
@@ -3642,6 +3643,9 @@ def ensure_v99_team_portal_schema_compat(con):
     for name, ddl in team_additions.items():
         if name not in team_cols:
             con.execute(f"ALTER TABLE teams ADD COLUMN {name} {ddl}")
+    con.execute(
+        "UPDATE tournaments SET published_once=1 WHERE COALESCE(is_published,0)=1 AND COALESCE(published_once,0)=0"
+    )
     execute_script(
         con,
         """
@@ -3997,6 +4001,7 @@ def init_db():
                 end_date TEXT,
                 expected_team_count INTEGER NOT NULL DEFAULT 0,
                 is_published INTEGER NOT NULL DEFAULT 0,
+                published_once INTEGER NOT NULL DEFAULT 0,
                 points_win INTEGER NOT NULL DEFAULT 3,
                 points_draw INTEGER NOT NULL DEFAULT 1,
                 points_loss INTEGER NOT NULL DEFAULT 0,
@@ -8994,6 +8999,7 @@ def _set_publication_if_current(
             cursor=con.execute(
                 """UPDATE tournaments
                    SET is_published=1,
+                       published_once=1,
                        lifecycle_status=CASE WHEN lifecycle_status='live' THEN 'live' ELSE 'published' END
                    WHERE id=? AND COALESCE(is_published,0)=?
                      AND COALESCE(lifecycle_status,'draft')=?""",
@@ -9872,7 +9878,7 @@ if _direct_public_cup and st.session_state.get("view_mode") is None:
     st.session_state["view_mode"] = "Turneringsvy"
 elif st.session_state.get("view_mode") not in mode_options:
     st.session_state["view_mode"] = mode_options[0]
-st.sidebar.caption("Version v.1.252")
+st.sidebar.caption("Version v.1.254")
 
 def _set_view_mode(mode):
     st.session_state["view_mode"] = mode
@@ -11356,6 +11362,21 @@ if _more_nav_items:
                 args=(page_name,),
             )
 
+def _open_admin_search_hit(target_page, kind, entity_id, team_id=None):
+    """Navigate from global search and carry the selected entity into its target view."""
+    st.session_state[admin_page_key] = target_page
+    st.session_state[admin_group_key] = _admin_group_for_page(target_page)
+    st.session_state[f"admin_search_focus_kind_{tid}"] = kind
+    st.session_state[f"admin_search_focus_entity_{tid}"] = int(entity_id)
+    if team_id is not None:
+        st.session_state[f"admin_search_focus_team_{tid}"] = int(team_id)
+    else:
+        st.session_state.pop(f"admin_search_focus_team_{tid}", None)
+    # Clear the search field in the callback (before widgets are rebuilt) so the
+    # user sees the destination rather than an apparently unchanged search panel.
+    st.session_state[f"global_admin_search_{tid}"] = ""
+
+
 with st.expander("Sök i cupen", expanded=False):
     global_query = st.text_input(
         "Sök lag/deltagare, spelare, domare eller matchnummer",
@@ -11365,22 +11386,71 @@ with st.expander("Sök i cupen", expanded=False):
     if len(global_query) >= 2:
         like_query = f"%{global_query}%"
         search_hits = []
-        for row in all_rows("SELECT id,name FROM teams WHERE tournament_id=? AND name LIKE ? ORDER BY name LIMIT 8", (tid, like_query)):
-            search_hits.append(("Lag", row["name"], "Lag"))
-        for row in all_rows("SELECT players.id,players.name,teams.name AS team_name FROM players JOIN teams ON teams.id=players.team_id WHERE teams.tournament_id=? AND players.name LIKE ? ORDER BY players.name LIMIT 8", (tid, like_query)):
-            search_hits.append(("Spelare", f"{row['name']} · {row['team_name']}", "Trupper"))
-        for row in all_rows("SELECT id,name FROM referees WHERE tournament_id=? AND name LIKE ? ORDER BY name LIMIT 8", (tid, like_query)):
-            search_hits.append(("Domare", row["name"], "Domare"))
+        for row in all_rows(
+            "SELECT id,name FROM teams WHERE tournament_id=? AND name LIKE ? ORDER BY name LIMIT 8",
+            (tid, like_query),
+        ):
+            search_hits.append({
+                "kind": "Lag",
+                "label": row["name"],
+                "target_page": "Lag",
+                "entity_id": int(row["id"]),
+                "team_id": int(row["id"]),
+            })
+        for row in all_rows(
+            """SELECT players.id,players.name,players.team_id,teams.name AS team_name
+               FROM players JOIN teams ON teams.id=players.team_id
+               WHERE teams.tournament_id=? AND players.name LIKE ?
+               ORDER BY players.name LIMIT 8""",
+            (tid, like_query),
+        ):
+            search_hits.append({
+                "kind": "Spelare",
+                "label": f"{row['name']} · {row['team_name']}",
+                "target_page": "Trupper",
+                "entity_id": int(row["id"]),
+                "team_id": int(row["team_id"]),
+            })
+        for row in all_rows(
+            "SELECT id,name FROM referees WHERE tournament_id=? AND name LIKE ? ORDER BY name LIMIT 8",
+            (tid, like_query),
+        ):
+            search_hits.append({
+                "kind": "Domare",
+                "label": row["name"],
+                "target_page": "Domare",
+                "entity_id": int(row["id"]),
+                "team_id": None,
+            })
         if global_query.isdigit():
-            for row in all_rows("SELECT id,match_no,stage FROM matches WHERE tournament_id=? AND match_no=? ORDER BY id LIMIT 8", (tid, int(global_query))):
-                search_hits.append(("Match", f"Match {row['match_no']} · {row['stage']}", "Matcher och resultat"))
+            for row in all_rows(
+                "SELECT id,match_no,stage FROM matches WHERE tournament_id=? AND match_no=? ORDER BY id LIMIT 8",
+                (tid, int(global_query)),
+            ):
+                search_hits.append({
+                    "kind": "Match",
+                    "label": f"Match {row['match_no']} · {row['stage']}",
+                    "target_page": "Matcher och resultat",
+                    "entity_id": int(row["id"]),
+                    "team_id": None,
+                })
         if search_hits:
-            for hit_index, (kind, label, target_page) in enumerate(search_hits[:15]):
+            for hit_index, hit in enumerate(search_hits[:15]):
                 hit_cols = st.columns([4, 1])
-                hit_cols[0].markdown(f"**{html.escape(kind)}:** {html.escape(str(label))}")
+                hit_cols[0].markdown(
+                    f"**{html.escape(hit['kind'])}:** {html.escape(str(hit['label']))}"
+                )
                 hit_cols[1].button(
-                    "Öppna", key=f"global_hit_{tid}_{hit_index}", use_container_width=True,
-                    on_click=_set_admin_page, args=(target_page,),
+                    "Öppna",
+                    key=f"global_hit_{tid}_{hit_index}",
+                    use_container_width=True,
+                    on_click=_open_admin_search_hit,
+                    args=(
+                        hit["target_page"],
+                        hit["kind"],
+                        hit["entity_id"],
+                        hit["team_id"],
+                    ),
                 )
         else:
             st.caption("Inga träffar i den aktiva cupen.")
@@ -11584,8 +11654,11 @@ if advisory_sidebar_warnings:
             st.markdown(f"**{index}.** {warning}")
         st.caption("Dessa notiser stoppar inte publicering.")
 
+_has_been_published = bool(_row_value(tournament, "published_once", 0))
+_publish_action_label = "Uppdatera" if _has_been_published else "Publicera"
+
 if st.sidebar.button(
-    "Publicera",
+    _publish_action_label,
     type="primary",
     use_container_width=True,
     disabled=sidebar_publish_blocked,
@@ -11625,9 +11698,11 @@ with st.container(border=True):
     if sidebar_publish_blocked:
         st.warning("Kan inte publicera ännu: " + " ".join(publish_blockers))
 
-    mobile_publish_col, mobile_unpublish_col = st.columns(2)
+    # Primary publication action sits by itself on the left. Avoid two equally
+    # prominent full-width buttons competing for attention.
+    mobile_publish_col, _publish_spacer = st.columns([1, 1])
     if mobile_publish_col.button(
-        "📣 Publicera / uppdatera publik vy",
+        f"📣 {_publish_action_label}",
         type="primary",
         use_container_width=True,
         disabled=sidebar_publish_blocked,
@@ -11640,16 +11715,20 @@ with st.container(border=True):
             else "Publiceringsstatusen ändrades av en annan administratör. Senaste status har laddats."
         )
         st.rerun()
-    if mobile_unpublish_col.button(
-        "Avpublicera",
-        use_container_width=True,
-        disabled=not tournament["is_published"],
-        key=f"mobile_unpublish_from_admin_{tid}",
-    ):
-        changed, publish_reason = _unpublish_tournament_now()
-        if not changed:
-            st.session_state["mobile_publish_message"] = "Publiceringsstatusen ändrades av en annan administratör. Senaste status har laddats."
-        st.rerun()
+
+    if tournament["is_published"]:
+        with st.expander("Fler publiceringsval", expanded=False):
+            if st.button(
+                "Avpublicera",
+                key=f"mobile_unpublish_from_admin_{tid}",
+            ):
+                changed, publish_reason = _unpublish_tournament_now()
+                if not changed:
+                    st.session_state["mobile_publish_message"] = (
+                        "Publiceringsstatusen ändrades av en annan administratör. "
+                        "Senaste status har laddats."
+                    )
+                st.rerun()
     if "mobile_publish_message" in st.session_state:
         st.success(st.session_state.pop("mobile_publish_message"))
 
@@ -14145,6 +14224,36 @@ if admin_page == "Önskemålscentral":
 if admin_page == "Lag":
     st.header("Lag")
     st.caption("Lägg till lagen först. Gruppindelning görs sedan under Grupper.")
+
+    _search_focus_kind = st.session_state.get(f"admin_search_focus_kind_{tid}")
+    _search_focus_entity = st.session_state.get(f"admin_search_focus_entity_{tid}")
+    if _search_focus_kind == "Lag" and _search_focus_entity:
+        _focused_team = one_row(
+            "SELECT * FROM teams WHERE tournament_id=? AND id=?",
+            (tid, int(_search_focus_entity)),
+        )
+        if _focused_team:
+            _focused_group = (
+                one_row("SELECT name FROM groups WHERE id=? AND tournament_id=?", (_focused_team["group_id"], tid))
+                if _focused_team["group_id"] is not None else None
+            )
+            with st.container(border=True):
+                st.markdown(f"### 🔎 {html.escape(_focused_team['name'])}")
+                st.caption("Öppnad från Sök i cupen")
+                focus_cols = st.columns(3)
+                focus_cols[0].metric("Tävlingsklass", _team_value(_focused_team, "age_class", "") or "–")
+                focus_cols[1].metric("Grupp", _focused_group["name"] if _focused_group else "Ej placerad")
+                focus_cols[2].metric("Spelare", one_row("SELECT COUNT(*) AS n FROM players WHERE team_id=?", (_focused_team["id"],))["n"])
+                if st.button(
+                    "Öppna lagets trupp",
+                    key=f"search_focus_team_roster_{tid}_{_focused_team['id']}",
+                    type="primary",
+                ):
+                    st.session_state[f"admin_search_focus_kind_{tid}"] = "Lag"
+                    st.session_state[f"admin_search_focus_team_{tid}"] = int(_focused_team["id"])
+                    st.session_state[admin_page_key] = "Trupper"
+                    st.session_state[admin_group_key] = _admin_group_for_page("Trupper")
+                    st.rerun()
     class_rows = sync_competition_classes(tid)
     current_classes = [competition_class_label(row) for row in class_rows]
     with st.expander("Tävlingsklasser", expanded=False):
@@ -14275,7 +14384,11 @@ if admin_page == "Lag":
             ])
         )
     else:
-        render_empty_state("Inga deltagare ännu", "Lägg till första laget/deltagaren eller använd Import för flera på en gång.", "👥")
+        render_empty_state(
+            "Inga deltagare ännu",
+            "Lägg till första laget/deltagaren eller använd Import för flera på en gång.",
+            symbol="👥",
+        )
 
     if teams and bool(_row_value(tournament, "enable_team_checkin", 1)):
         with st.expander("Digital lagincheckning", expanded=False):
@@ -14924,7 +15037,39 @@ if admin_page == "Trupper":
     if not teams:
         st.info("Lägg först till ett lag.")
     else:
-        team_id = st.selectbox("Välj lag", [t["id"] for t in teams], format_func=lambda x: next(t["name"] for t in teams if t["id"] == x))
+        _roster_team_ids = [int(t["id"]) for t in teams]
+        _focus_team_id = st.session_state.get(f"admin_search_focus_team_{tid}")
+        _roster_selector_key = f"admin_roster_team_{tid}"
+        if _focus_team_id in _roster_team_ids:
+            st.session_state[_roster_selector_key] = int(_focus_team_id)
+        elif st.session_state.get(_roster_selector_key) not in _roster_team_ids:
+            st.session_state[_roster_selector_key] = _roster_team_ids[0]
+
+        team_id = st.selectbox(
+            "Välj lag",
+            _roster_team_ids,
+            format_func=lambda x: next(t["name"] for t in teams if t["id"] == x),
+            key=_roster_selector_key,
+        )
+
+        _focus_kind = st.session_state.get(f"admin_search_focus_kind_{tid}")
+        _focus_entity = st.session_state.get(f"admin_search_focus_entity_{tid}")
+        if _focus_kind == "Spelare" and _focus_entity:
+            _focused_player = one_row(
+                "SELECT id,name,player_number FROM players WHERE id=? AND team_id=?",
+                (int(_focus_entity), int(team_id)),
+            )
+            if _focused_player:
+                number_text = (
+                    f"#{_focused_player['player_number']} · "
+                    if _focused_player["player_number"] is not None else ""
+                )
+                st.success(
+                    f"🔎 Öppnad från sökningen: {number_text}{_focused_player['name']}"
+                )
+        elif _focus_team_id == team_id:
+            st.caption("🔎 Laget öppnades från Sök i cupen.")
+
         with st.form("new_player", clear_on_submit=True):
             c1, c2, c3, c4 = st.columns(4)
             pname = c1.text_input("Spelare")
@@ -14980,6 +15125,22 @@ if admin_page == "Trupper":
 if admin_page == "Domare":
     st.header("Domare")
     st.caption("Lägg till domare för automatisk eller manuell matchtilldelning.")
+
+    _focus_kind = st.session_state.get(f"admin_search_focus_kind_{tid}")
+    _focus_entity = st.session_state.get(f"admin_search_focus_entity_{tid}")
+    if _focus_kind == "Domare" and _focus_entity:
+        _focused_referee = one_row(
+            "SELECT * FROM referees WHERE tournament_id=? AND id=?",
+            (tid, int(_focus_entity)),
+        )
+        if _focused_referee:
+            with st.container(border=True):
+                st.markdown(f"### 🔎 {html.escape(_focused_referee['name'])}")
+                st.caption("Öppnad från Sök i cupen")
+                if _focused_referee["phone"]:
+                    st.write(f"Telefon: {_focused_referee['phone']}")
+                if _focused_referee["email"]:
+                    st.write(f"E-post: {_focused_referee['email']}")
 
     st.subheader("Åtkomstkoder")
     st.caption("Matchrapportör och domare ligger på samma nivå. Varje roll har en egen fyrsiffrig kod för den aktiva turneringen.")
@@ -15742,6 +15903,22 @@ if admin_page == "Skapa och publicera schema":
 if admin_page == "Matcher och resultat":
     st.header("Resultat")
     st.caption("Registrera resultat. Domare kan justeras direkt i samma tabell.")
+
+    _focus_kind = st.session_state.get(f"admin_search_focus_kind_{tid}")
+    _focus_entity = st.session_state.get(f"admin_search_focus_entity_{tid}")
+    if _focus_kind == "Match" and _focus_entity:
+        _focused_match = one_row(
+            "SELECT * FROM matches WHERE tournament_id=? AND id=?",
+            (tid, int(_focus_entity)),
+        )
+        if _focused_match:
+            with st.container(border=True):
+                _focused_match_label = match_result_label(_focused_match) if (
+                    _focused_match["home_score"] is not None
+                    and _focused_match["away_score"] is not None
+                ) else _portal_match_label(_focused_match)
+                st.markdown(f"### 🔎 {html.escape(_focused_match_label)}")
+                st.caption("Öppnad från Sök i cupen")
     _result_progress = one_row(
         """SELECT COUNT(*) AS total,
                   SUM(CASE WHEN home_score IS NOT NULL AND away_score IS NOT NULL THEN 1 ELSE 0 END) AS played

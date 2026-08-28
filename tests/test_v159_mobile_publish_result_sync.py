@@ -3,7 +3,8 @@ APP=(Path(__file__).resolve().parents[1]/"app.py").read_text(encoding="utf-8")
 
 
 def test_publish_control_exists_in_main_content_not_only_sidebar():
-    assert '📣 Publicera / uppdatera publik vy' in APP
+    assert 'f"📣 {_publish_action_label}"' in APP
+    assert '_publish_action_label = "Uppdatera" if _has_been_published else "Publicera"' in APP
     assert 'mobile_publish_from_admin_' in APP
     assert '_publish_tournament_now()' in APP
 

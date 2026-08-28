@@ -63,7 +63,8 @@ def _create(path):
         pitch_number INTEGER,notes TEXT,public_contact INTEGER,active INTEGER
     )""")
     con.execute("""CREATE TABLE tournaments(
-        id INTEGER PRIMARY KEY,is_published INTEGER,lifecycle_status TEXT,completed_at TEXT
+        id INTEGER PRIMARY KEY,is_published INTEGER,published_once INTEGER,
+        lifecycle_status TEXT,completed_at TEXT
     )""")
     con.execute("""CREATE TABLE matches(
         id INTEGER PRIMARY KEY,tournament_id INTEGER,scheduled_start TEXT,pitch_number INTEGER,
@@ -76,8 +77,8 @@ def _create(path):
     )""")
     con.execute("INSERT INTO sponsors VALUES(1,7,'Sponsor A','Partner','Desc','https://a.se',NULL,1,1)")
     con.execute("INSERT INTO functionaries VALUES(2,7,'Fia','Kiosk','070','fia@example.com',1,'Not',0,1)")
-    con.execute("INSERT INTO tournaments VALUES(7,0,'draft',NULL)")
-    con.execute("INSERT INTO tournaments VALUES(8,0,'draft',NULL)")
+    con.execute("INSERT INTO tournaments VALUES(7,0,0,'draft',NULL)")
+    con.execute("INSERT INTO tournaments VALUES(8,0,0,'draft',NULL)")
     con.execute("INSERT INTO matches VALUES(10,7,'2026-09-01T10:00',1,0)")
     con.execute("INSERT INTO matches VALUES(11,8,'2026-09-01T11:00',2,0)")
     before=json.dumps({"scheduled_start":"2026-09-01T09:00","pitch_number":3})
