@@ -18,4 +18,4 @@ def test_share_content_has_qr_guidance_and_public_link_note():
     assert "kräver ingen inloggning" in APP
 
 def test_visible_version_is_195():
-    assert 'Version v.1.247' in APP
+    assert 'Version v.1.249' in APP

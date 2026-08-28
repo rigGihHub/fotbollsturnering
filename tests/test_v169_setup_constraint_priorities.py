@@ -1,7 +1,7 @@
 from pathlib import Path
 ROOT=Path(__file__).resolve().parents[1]
 APP=(ROOT/"app.py").read_text(encoding="utf-8")
-R="2026.08.28-247-PUBLIC-TEAM-MOBILE-QA"
+R="2026.08.28-249-PUBLIC-MATCH-RENDER-FIX"
 
 def test_release_sync():
     assert f'APP_BUILD_VERSION = "{R}"' in APP

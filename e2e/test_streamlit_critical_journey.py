@@ -291,8 +291,17 @@ def choose_streamlit_option(page, label, option, timeout=20000):
         return
 
     combo.click()
+    # Streamlit/BaseWeb has changed the popup markup across releases and browser
+    # engines. Prefer the semantic option role, but fall back to exact visible text
+    # inside the active listbox so CI does not depend on one ARIA implementation.
     choice=page.get_by_role("option",name=option,exact=True)
-    choice.wait_for(state="visible",timeout=timeout)
+    try:
+        choice.wait_for(state="visible",timeout=min(timeout,5000))
+    except Exception:
+        listbox=page.locator('[role="listbox"]').last
+        listbox.wait_for(state="visible",timeout=timeout)
+        choice=listbox.get_by_text(option,exact=True)
+        choice.wait_for(state="visible",timeout=timeout)
     choice.click()
 
     # Streamlit rerenders the widget after selection, so reacquire by label while
@@ -505,7 +514,18 @@ def test_full_cup_lifecycle_journey(server,browser_name):
         assert "TESTMILJÖ" in page.locator("body").inner_text()
 
         # 2. Classes → teams → groups → players/referees through the app's Testmiljö tool.
-        demo_button=page.get_by_role("button",name=re.compile(r"^Skapa testdata:"))
+        # Testverktyg is intentionally collapsed in the production UX; open the real
+        # expander explicitly rather than relying on a formerly always-visible button.
+        test_tools=page.locator("details").filter(has_text="Testverktyg").first
+        test_tools.wait_for(state="attached",timeout=20000)
+        if test_tools.get_attribute("open") is None:
+            test_tools.locator("summary").first.click(force=True)
+            page.wait_for_function(
+                "el => el.hasAttribute('open')",
+                arg=test_tools.element_handle(),
+                timeout=10000,
+            )
+        demo_button=test_tools.get_by_role("button",name=re.compile(r"^Skapa testdata:"))
         demo_button.wait_for(state="visible",timeout=20000)
         assert demo_button.is_enabled()
         demo_button.click()

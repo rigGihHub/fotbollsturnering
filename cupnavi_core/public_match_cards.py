@@ -129,29 +129,46 @@ def render_public_match_cards(
             else:
                 status_text, status_class = "KOMMANDE", "status-upcoming"
 
-        st.markdown(
-            f"""
-            <div class="public-match-card" style="border:1px solid #d1d5db;border-radius:14px;padding:16px;margin:12px 0;background:#ffffff;color:#172033;box-shadow:0 3px 10px rgba(15,23,42,.06)">
-              <div style="display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #edf2f7;padding-bottom:7px;gap:12px">
-                <div style="display:flex;gap:6px;align-items:center"><span class="match-stage" style="font-size:11px;font-weight:800;color:#fff;background:#166534;padding:4px 8px;border-radius:999px">{match_row['stage']}</span><span class="status-pill {status_class}">{status_text}</span></div>
-                <span class="match-meta">Match {number} · <b>{start}</b> · {html.escape(public_pitch_label(match_row))}</span>
-              </div>
-              <div style="display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);gap:12px;align-items:center;margin-top:7px;color:#0f172a">
-                <div><span style="display:inline-block;width:18px;height:13px;background:{home_kit_bg};border:1px solid #64748b;border-radius:3px"></span>
-                <b class="public-team-name">{html.escape(home_name)}</b><br><small class="kit-label">Hemmalag</small></div>
-                <div class="match-score" style="font-size:20px">{center_text}</div>
-                <div style="text-align:right"><b class="public-team-name">{html.escape(away_name)}</b> <span style="display:inline-block;width:18px;height:13px;background:{away_kit_bg};border:1px solid #64748b;border-radius:3px"></span>
-                <br><small class="kit-label">{'Bortaställ' if away_kit_used else 'Hemmaställ'}</small></div>
-              </div>
-              {match_events_html}
-              <div class="public-match-secondary">
-                {f'<span class="match-weather">{html.escape(weather_text)}</span>' if show_weather and weather_text else ''}
-                <span class="match-referee">Domare: {html.escape(public_referee_label(match_row) or 'Ej tillsatt')}</span>
-              </div>
-            </div>
-            """,
-            unsafe_allow_html=True,
+        # Keep the whole card as one compact HTML block. Markdown can interpret
+        # indented HTML after an injected block as a code block, which previously
+        # exposed the referee <span> as literal text in the public card.
+        weather_html = (
+            f'<span class="match-weather">{html.escape(weather_text)}</span>'
+            if show_weather and weather_text else ""
         )
+        referee_html = (
+            f'<span class="match-referee">Domare: '
+            f'{html.escape(public_referee_label(match_row) or "Ej tillsatt")}</span>'
+        )
+        card_html = (
+            '<div class="public-match-card" style="border:1px solid #d1d5db;border-radius:14px;'
+            'padding:16px;margin:12px 0;background:#ffffff;color:#172033;'
+            'box-shadow:0 3px 10px rgba(15,23,42,.06)">'
+            '<div style="display:flex;justify-content:space-between;align-items:center;'
+            'border-bottom:1px solid #edf2f7;padding-bottom:7px;gap:12px">'
+            f'<div style="display:flex;gap:6px;align-items:center"><span class="match-stage" '
+            f'style="font-size:11px;font-weight:800;color:#fff;background:#166534;padding:4px 8px;'
+            f'border-radius:999px">{html.escape(str(match_row["stage"]))}</span>'
+            f'<span class="status-pill {status_class}">{html.escape(status_text)}</span></div>'
+            f'<span class="match-meta">Match {number} · <b>{html.escape(start)}</b> · '
+            f'{html.escape(public_pitch_label(match_row))}</span></div>'
+            '<div style="display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);'
+            'gap:12px;align-items:center;margin-top:7px;color:#0f172a">'
+            f'<div><span style="display:inline-block;width:18px;height:13px;background:{home_kit_bg};'
+            f'border:1px solid #64748b;border-radius:3px"></span>'
+            f'<b class="public-team-name">{html.escape(home_name)}</b><br>'
+            '<small class="kit-label">Hemmalag</small></div>'
+            f'<div class="match-score" style="font-size:20px">{html.escape(center_text)}</div>'
+            f'<div style="text-align:right"><b class="public-team-name">{html.escape(away_name)}</b> '
+            f'<span style="display:inline-block;width:18px;height:13px;background:{away_kit_bg};'
+            'border:1px solid #64748b;border-radius:3px"></span><br>'
+            f'<small class="kit-label">{"Bortaställ" if away_kit_used else "Hemmaställ"}</small></div>'
+            '</div>'
+            f'{match_events_html}'
+            f'<div class="public-match-secondary">{weather_html}{referee_html}</div>'
+            '</div>'
+        )
+        st.markdown(card_html, unsafe_allow_html=True)
 
     if show_weather:
         st.caption("Väderprognos från Open-Meteo. Prognosen uppdateras automatiskt och kan förändras.")

@@ -16,4 +16,4 @@ def test_completed_match_cards_are_denser():
 
 def test_weather_placeholder_does_not_consume_card_height():
     assert 'weather_status = ""' in MATCH
-    assert "if show_weather and weather_text else ''" in MATCH
+    assert "if show_weather and weather_text else \"\"" in MATCH
