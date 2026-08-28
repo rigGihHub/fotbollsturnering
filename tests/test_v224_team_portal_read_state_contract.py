@@ -27,7 +27,7 @@ def test_contact_form_uses_optimistic_writer():
 
 
 def test_admin_inbox_has_explicit_unread_action():
-    block=APP[APP.index('st.subheader("💬 Lagmeddelanden")'):]
+    block=APP[APP.index('with st.expander("Lagmeddelanden", expanded=False)'):]
     assert "organizer_inbox_label" in block
     assert "admin_mark_messages_read_" in block
     assert "_mark_team_messages_read(" in block

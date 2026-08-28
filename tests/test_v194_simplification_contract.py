@@ -17,10 +17,10 @@ def test_admin_advanced_tools_use_progressive_disclosure():
 def test_redundant_prev_next_flow_buttons_removed():
     assert "v160_prev_" not in APP
     assert "v160_next_" not in APP
-    assert "Nästa rekommenderade steg" in APP
+    assert "Nästa steg" in APP
 
 def test_database_backend_is_not_normal_user_copy():
     assert 'st.sidebar.caption("Databas: Turso"' not in APP
 
 def test_release_v194():
-    assert 'Version v.1.234' in APP
+    assert 'Version v.1.247' in APP

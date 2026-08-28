@@ -45,7 +45,7 @@ def test_checklist_has_action_targets():
 def test_app_contains_qol_entry_points():
     text = Path("app.py").read_text(encoding="utf-8")
     for needle in (
-        "Startmall", "Duplicera tidigare cup", "Sök i cupen", "Snabbkommandon",
+        "Startmall", "Duplicera tidigare cup", "Sök i cupen", "Genvägar & publik vy",
         "Förhandsgranska publik vy", "Checklista inför cupstart",
     ):
         assert needle in text

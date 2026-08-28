@@ -3,11 +3,14 @@ from pathlib import Path
 def app_text():
     return Path("app.py").read_text(encoding="utf-8")
 
-def test_import_is_five_step_guided_flow():
+def test_import_is_guided_but_visually_simplified():
     text=app_text()
-    assert "cn-import-steps" in text
-    for step in ("Välj typ","Ladda upp","Matcha kolumner","Granska","Importera"):
-        assert step in text
+    block=text[text.index('if admin_page == "Import":'):text.index('if admin_page == "Cupverktyg":')]
+    assert 'st.header("Import")' in block
+    assert 'st.subheader("Ladda upp fil")' in block
+    assert 'with st.expander("Kolumnmappning", expanded=required_auto_missing)' in block
+    assert 'st.subheader("Granska import")' in block
+    assert 'st.subheader("Importera")' in block
 
 def test_import_has_column_mapping_and_auto_detection():
     text=app_text()

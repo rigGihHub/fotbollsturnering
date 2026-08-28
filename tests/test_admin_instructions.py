@@ -3,7 +3,7 @@ from pathlib import Path
 def test_instructions_are_admin_navigation_page():
     text=Path("app.py").read_text(encoding="utf-8")
     assert '"Instruktioner", "Adminöversikt"' in text
-    assert '("Instruktioner", tr("Instruktioner"))' in text
+    assert '("Instruktioner", "Guide")' in text
     assert 'if admin_page == "Instruktioner":' in text
 
 def test_guide_is_dynamic():

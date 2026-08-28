@@ -282,16 +282,23 @@ def wait_until_enabled(locator, timeout=20000):
 def choose_streamlit_option(page, label, option, timeout=20000):
     """Choose an option from Streamlit's React-Aria combobox.
 
-    Streamlit selectbox is not a native <select>, so Playwright select_option()
-    is intentionally not used here.
+    Streamlit selectbox is not a native <select>. React-Aria may omit the currently
+    selected item from the popup options, so selecting the already-active value must
+    be a no-op rather than waiting for an option that is not rendered.
     """
     combo=wait_until_enabled(page.get_by_label(label,exact=True),timeout=timeout)
+    if combo.input_value().strip() == option:
+        return
+
     combo.click()
     choice=page.get_by_role("option",name=option,exact=True)
     choice.wait_for(state="visible",timeout=timeout)
     choice.click()
+
+    # Streamlit rerenders the widget after selection, so reacquire by label while
+    # waiting for the persisted UI value rather than holding the pre-rerun locator.
     page.wait_for_function(
-        "([label, expected]) => { const el=[...document.querySelectorAll('[aria-label]')].find(x => x.getAttribute('aria-label')===label && !x.disabled); return !!el && el.value===expected; }",
+        "([label, expected]) => { const el=[...document.querySelectorAll('[aria-label]')].find(x => x.getAttribute('aria-label')===label && !x.disabled); return !!el && (el.value || '').trim()===expected; }",
         arg=[label,option],
         timeout=timeout,
     )
@@ -627,13 +634,21 @@ def test_active_tournament_switch_survives_browser_rerun(server):
         second_id=create_test_tournament_through_ui(page,second)
         assert first_id != second_id
 
+        # Creating the second tournament must not silently overwrite an already-valid
+        # deliberate selector state. To test the actual switch regression, first move
+        # to B and then explicitly back to A.
+        choose_streamlit_option(page,"Aktiv turnering",second)
+        wait_app(page)
+        assert page.get_by_label("Aktiv turnering",exact=True).input_value() == second
+        assert_no_ui_error(page)
+
         choose_streamlit_option(page,"Aktiv turnering",first)
         wait_app(page)
         assert page.get_by_label("Aktiv turnering",exact=True).input_value() == first
         assert_no_ui_error(page)
 
-        # A real browser reload must restore the deliberate selection through the
-        # canonical cup query parameter, not snap back to the previously active cup.
+        # A real browser reload must restore the deliberate A selection through the
+        # canonical cup query parameter, not snap back to B or another preferred cup.
         page.reload(wait_until="domcontentloaded")
         wait_app(page)
         selector=page.get_by_label("Aktiv turnering",exact=True)

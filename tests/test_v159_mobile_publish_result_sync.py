@@ -28,7 +28,7 @@ def test_publishing_marks_all_scheduled_matches_public():
 
 def test_admin_result_autosave_repairs_public_match_flag_when_cup_is_published():
     page=APP[APP.index('if admin_page == "Matcher och resultat"'):APP.index('if admin_page == "Matchhändelser"')]
-    assert 'if tournament["is_published"]:' in page
+    assert 'if tournament["is_published"] and _saved_updates:' in page
     assert 'UPDATE matches SET schedule_published=1 WHERE id=? AND scheduled_start IS NOT NULL' in page
 
 
@@ -41,5 +41,5 @@ def test_public_view_reads_scores_directly_from_published_match_rows():
 
 
 def test_draft_admin_explains_saved_results_are_not_public_yet():
-    assert 'Resultaten är sparade men cupen är inte publicerad ännu.' in APP
-    assert 'sparade resultat slår igenom automatiskt i turneringsvyn' in APP
+    assert 'Cupen är i utkast – resultaten sparas nu och blir publika när cupen publiceras.' in APP
+    assert '✓ Publika resultat uppdateras automatiskt.' in APP

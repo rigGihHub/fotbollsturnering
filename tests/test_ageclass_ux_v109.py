@@ -8,4 +8,5 @@ def test_age_classes_are_modeled_and_filtered():
     lag_end = APP.index('if admin_page == "Grupper":', lag_start)
     lag = APP[lag_start:lag_end]
     assert '"Tävlingsklass"' in lag
-    assert "Hantera tävlingsklasser i Adminöversikt" in lag
+    assert 'with st.expander("Tävlingsklasser", expanded=False)' in lag
+    assert '"Hantera tävlingsklasser"' in lag

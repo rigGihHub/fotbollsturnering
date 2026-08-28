@@ -1,7 +1,7 @@
 from pathlib import Path
 ROOT=Path(__file__).resolve().parents[1]
 APP=(ROOT/"app.py").read_text(encoding="utf-8")
-R="2026.08.27-234-E2E-FRESH-DB-STATE"
+R="2026.08.28-247-PUBLIC-TEAM-MOBILE-QA"
 
 def test_release_sync():
     assert f'APP_BUILD_VERSION = "{R}"' in APP
@@ -23,8 +23,8 @@ def test_team_requests_are_soft_ranked_preferences():
 
 def test_admin_owns_existing_cup_configuration():
     assert '"Cupinställningar"' in APP
-    assert "Öppna guidad setup" in APP
-    assert "Nuvarande fas:" in APP
+    assert "Ändra cupens inställningar" in APP
+    assert 'Fas: **{_phase}**' in APP
 
 def test_sidebar_is_only_creation_groundwork():
     assert "Ny cup skapas här med bara grunduppgifter" in APP

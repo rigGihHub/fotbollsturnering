@@ -32,7 +32,7 @@ def test_admin_has_detailed_visitor_statistics_page():
     assert "#### Enheter" in text
     assert "#### Webbläsare" in text
     assert "#### Trafikkälla" in text
-    assert "#### Senaste besöken" in text
+    assert 'with st.expander("Senaste besök & integritet", expanded=False)' in text
 
 def test_tracking_throttles_repeat_writes_for_at_least_five_minutes():
     text = app_text()

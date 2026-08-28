@@ -14,10 +14,10 @@ def test_team_page_does_not_duplicate_class_crud():
     start = APP.index('if admin_page == "Lag":')
     end = APP.index('if admin_page == "Grupper":', start)
     block = APP[start:end]
-    assert "Hantera tävlingsklasser i Adminöversikt" in block
+    assert '"Hantera tävlingsklasser"' in block
     assert 'key=f"manage_add_class_{tid}"' not in block
     assert 'key=f"remove_class_' not in block
-    assert "Tävlingsklasser definieras i Adminöversikten" in block
+    assert 'with st.expander("Tävlingsklasser", expanded=False)' in block
 
 def test_secondary_text_has_explicit_contrast():
     assert '[data-testid="stCaptionContainer"]' in APP
