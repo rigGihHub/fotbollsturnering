@@ -4,7 +4,7 @@ APP = (Path(__file__).parents[1] / "app.py").read_text(encoding="utf-8")
 VERSION = (Path(__file__).parents[1] / "VERSION.txt").read_text(encoding="utf-8").strip()
 
 def test_v263_version():
-    assert VERSION == "2026.08.29-302-PUBLIC-MATCH-EVENT-ROBUSTNESS"
+    assert VERSION == "2026.08.29-303-PUBLIC-MATCH-EVENT-ROW-NORMALIZATION"
 
 def test_team_contact_fields_identify_team_responsible():
     assert "Lagansvarig kontaktperson" in APP

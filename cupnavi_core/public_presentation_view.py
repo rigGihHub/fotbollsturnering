@@ -307,10 +307,12 @@ def public_match_events_html(match_id, match_row=None, rows=None, team_names=Non
 
     team_data = {}
     for row in rows:
-        team_id = row["team_id"]
-        team_data.setdefault(team_id, {"name": row["team_name"], "events": []})
-        goals = int(row["goals"] or 0)
-        reds = int(row["red_cards"] or 0)
+        team_id = row_value(row, "team_id")
+        if team_id is None:
+            continue
+        team_data.setdefault(team_id, {"name": row_value(row, "team_name", ""), "events": []})
+        goals = int(row_value(row, "goals", 0) or 0)
+        reds = int(row_value(row, "red_cards", 0) or 0)
         public_player_name = "Skyddad spelare" if bool(row_value(row, "is_protected", 0)) else str(row_value(row, "player_name", "") or "")
         if goals:
             suffix = f" ×{goals}" if goals > 1 else ""

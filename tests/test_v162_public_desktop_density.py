@@ -9,7 +9,7 @@ MATCH=(ROOT/"cupnavi_core/public_match_cards.py").read_text(encoding="utf-8")
 FEED=(ROOT/"cupnavi_core/public_match_feed_logic.py").read_text(encoding="utf-8")
 MATCHES=(ROOT/"cupnavi_core/public_matches_view.py").read_text(encoding="utf-8")
 WORKSPACE=(ROOT/"cupnavi_core/public_workspace_view.py").read_text(encoding="utf-8")
-RELEASE="2026.08.29-302-PUBLIC-MATCH-EVENT-ROBUSTNESS"
+RELEASE="2026.08.29-303-PUBLIC-MATCH-EVENT-ROW-NORMALIZATION"
 
 def test_release_version_is_hard_synced():
     assert RELEASE in APP

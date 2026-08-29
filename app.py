@@ -196,7 +196,7 @@ def inject_v198_visual_system():
     return _inject_v198_visual_system_impl(st)
 
 
-APP_BUILD_VERSION = "2026.08.29-302-PUBLIC-MATCH-EVENT-ROBUSTNESS"
+APP_BUILD_VERSION = "2026.08.29-303-PUBLIC-MATCH-EVENT-ROW-NORMALIZATION"
 APP_VERSION = APP_BUILD_VERSION
 
 def read_core_version_from_disk():

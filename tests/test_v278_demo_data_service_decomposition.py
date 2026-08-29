@@ -5,7 +5,7 @@ from cupnavi_core.demo_data_service import DemoDataDeps, DemoDataService
 ROOT = Path(__file__).resolve().parents[1]
 APP = (ROOT / "app.py").read_text(encoding="utf-8")
 SERVICE = (ROOT / "cupnavi_core" / "demo_data_service.py").read_text(encoding="utf-8")
-VERSION = "2026.08.29-302-PUBLIC-MATCH-EVENT-ROBUSTNESS"
+VERSION = "2026.08.29-303-PUBLIC-MATCH-EVENT-ROW-NORMALIZATION"
 
 
 def _noop(*args, **kwargs):

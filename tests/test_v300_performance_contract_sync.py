@@ -6,4 +6,4 @@ def test_contract_tracks_workspace():
     assert 'assert "_public_core = public_core_snapshot(tournament_id)" in public_workspace' in SCRIPT
     assert '_public_core = public_core_snapshot(tournament_id)' in WORKSPACE
 def test_release_version():
-    assert (ROOT/"VERSION.txt").read_text(encoding="utf-8").strip()=="2026.08.29-302-PUBLIC-MATCH-EVENT-ROBUSTNESS"
+    assert (ROOT/"VERSION.txt").read_text(encoding="utf-8").strip()=="2026.08.29-303-PUBLIC-MATCH-EVENT-ROW-NORMALIZATION"

@@ -84,10 +84,28 @@ def fetch_public_match_events(con: Any, match_ids: list[int] | tuple[int, ...]) 
         tuple(normalized_ids),
     ).fetchall()
     grouped: dict[int, list[Any]] = {}
+    event_columns = (
+        "match_id", "player_name", "is_protected", "team_id",
+        "team_name", "goals", "red_cards",
+    )
     for row in rows:
+        # SQLite rows support named access, while libSQL/Turso can return plain
+        # positional tuples. Normalize at the repository boundary so the public
+        # presentation layer never depends on a specific DB row implementation.
+        normalized: dict[str, Any] = {}
+        for index, column in enumerate(event_columns):
+            try:
+                value = row[column]
+            except (TypeError, KeyError, IndexError):
+                try:
+                    value = row[index]
+                except (TypeError, KeyError, IndexError):
+                    value = None
+            normalized[column] = value
+
         try:
-            match_id = int(row["match_id"])
-        except (TypeError, KeyError, IndexError):
-            match_id = int(row[0])
-        grouped.setdefault(match_id, []).append(row)
+            match_id = int(normalized["match_id"])
+        except (TypeError, ValueError):
+            continue
+        grouped.setdefault(match_id, []).append(normalized)
     return grouped
