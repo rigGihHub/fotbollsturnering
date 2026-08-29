@@ -8,7 +8,7 @@ VERSION=(ROOT/"cupnavi_core/version.py").read_text(encoding="utf-8")
 MATCH=(ROOT/"cupnavi_core/public_match_cards.py").read_text(encoding="utf-8")
 FEED=(ROOT/"cupnavi_core/public_match_feed_logic.py").read_text(encoding="utf-8")
 MATCHES=(ROOT/"cupnavi_core/public_matches_view.py").read_text(encoding="utf-8")
-RELEASE="2026.08.29-291-ADMIN-PAGE-SIMPLIFICATION"
+RELEASE="2026.08.29-292-MOBILE-TABLE-NAV-FOCUS"
 
 def test_release_version_is_hard_synced():
     assert RELEASE in APP

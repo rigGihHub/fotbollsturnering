@@ -28,7 +28,7 @@ class Con:
 
 
 def test_release_and_public_matches_fragment_are_extracted():
-    assert VERSION == "2026.08.29-291-ADMIN-PAGE-SIMPLIFICATION"
+    assert VERSION == "2026.08.29-292-MOBILE-TABLE-NAV-FOCUS"
     assert "from cupnavi_core.public_matches_view import render_public_matches_fragment" in APP
     assert "render_public_matches_fragment_module(" in APP
     assert 'f"Visa {next_batch_size} fler matcher"' not in APP

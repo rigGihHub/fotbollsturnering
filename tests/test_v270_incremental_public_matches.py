@@ -7,7 +7,7 @@ MATCHES = (ROOT / "cupnavi_core" / "public_matches_view.py").read_text(encoding=
 
 
 def test_release_version_270():
-    assert VERSION == "2026.08.29-291-ADMIN-PAGE-SIMPLIFICATION"
+    assert VERSION == "2026.08.29-292-MOBILE-TABLE-NAV-FOCUS"
 
 
 def test_public_match_paging_helper_batches_without_framework_state():

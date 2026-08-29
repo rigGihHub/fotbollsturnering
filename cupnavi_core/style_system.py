@@ -1218,17 +1218,19 @@ def inject_v266_public_mobile_css(st):
         .cn-public-section-nav{
           display:grid !important;grid-template-columns:repeat(5,minmax(0,1fr)) !important;
           position:sticky !important;top:0 !important;z-index:999995 !important;
-          width:100% !important;margin:4px 0 10px !important;padding:5px !important;
-          background:rgba(255,255,255,.98) !important;border:1px solid #dbe4ea !important;
-          border-radius:12px !important;box-shadow:0 4px 14px rgba(15,23,42,.10) !important;
+          width:100% !important;margin:4px 0 12px !important;padding:6px !important;
+          background:#1f6f4a !important;border:1px solid #195d3e !important;
+          border-radius:12px !important;box-shadow:0 5px 16px rgba(15,23,42,.14) !important;
         }
         .cn-public-section-nav a{
           display:flex !important;align-items:center !important;justify-content:center !important;
           min-width:0 !important;min-height:42px !important;padding:6px 7px !important;
-          border-radius:9px !important;text-decoration:none !important;color:#475569 !important;
-          font-size:13px !important;font-weight:750 !important;text-align:center !important;
+          border-radius:8px !important;text-decoration:none !important;color:#f8fffb !important;
+          font-size:13px !important;font-weight:800 !important;text-align:center !important;
+          transition:background-color .15s ease,color .15s ease !important;
         }
-        .cn-public-section-nav a.active{background:#eef8f1 !important;color:#14552f !important}
+        .cn-public-section-nav a:hover{background:rgba(255,255,255,.12) !important;color:#fff !important}
+        .cn-public-section-nav a.active{background:#ffffff !important;color:#14552f !important;box-shadow:0 1px 4px rgba(15,23,42,.16) !important}
         .cn-public-section-nav .cn-nav-mobile{display:none}
 
         @media(max-width:900px){

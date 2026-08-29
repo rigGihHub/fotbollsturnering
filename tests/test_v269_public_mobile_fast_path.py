@@ -8,7 +8,7 @@ MATCHES = (ROOT / "cupnavi_core" / "public_matches_view.py").read_text(encoding=
 
 
 def test_v269_version_and_weather_is_opt_in():
-    assert VERSION == "2026.08.29-291-ADMIN-PAGE-SIMPLIFICATION"
+    assert VERSION == "2026.08.29-292-MOBILE-TABLE-NAV-FOCUS"
     weather_block = MATCHES[MATCHES.index('show_match_weather = st.toggle('):]
     weather_block = weather_block[:500]
     assert 'value=False' in weather_block

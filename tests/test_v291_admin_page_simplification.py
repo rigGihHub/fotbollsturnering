@@ -6,7 +6,7 @@ VERSION = (ROOT / "VERSION.txt").read_text(encoding="utf-8").strip()
 
 
 def test_release_version():
-    assert VERSION == "2026.08.29-291-ADMIN-PAGE-SIMPLIFICATION"
+    assert VERSION == "2026.08.29-292-MOBILE-TABLE-NAV-FOCUS"
     assert VERSION in APP
 
 

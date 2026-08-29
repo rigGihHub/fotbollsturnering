@@ -116,4 +116,4 @@ def test_workspace_delegates_read_projection_and_offline_markup_while_app_keeps_
 
 
 def test_release_version():
-    assert VERSION == "2026.08.29-291-ADMIN-PAGE-SIMPLIFICATION"
+    assert VERSION == "2026.08.29-292-MOBILE-TABLE-NAV-FOCUS"

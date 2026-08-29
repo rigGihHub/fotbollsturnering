@@ -2,7 +2,7 @@ from pathlib import Path
 ROOT=Path(__file__).resolve().parents[1]
 APP=(ROOT/"app.py").read_text(encoding="utf-8")
 SETUP=(ROOT/"cupnavi_core"/"initial_setup_view.py").read_text(encoding="utf-8")
-R="2026.08.29-291-ADMIN-PAGE-SIMPLIFICATION"
+R="2026.08.29-292-MOBILE-TABLE-NAV-FOCUS"
 
 def test_recommender_is_explainable_and_capacity_aware():
     assert "def recommend_tournament_format" in APP

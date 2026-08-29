@@ -17,5 +17,5 @@ def test_optional_service_fields_use_progressive_disclosure():
     assert "if show_prices_enabled:" in SETUP
 
 def test_release_is_v214():
-    assert VERSION=="2026.08.29-291-ADMIN-PAGE-SIMPLIFICATION"
+    assert VERSION=="2026.08.29-292-MOBILE-TABLE-NAV-FOCUS"
     assert "release_ui_label(APP_BUILD_VERSION)" in APP

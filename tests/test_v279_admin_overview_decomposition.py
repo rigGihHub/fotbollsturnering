@@ -15,7 +15,7 @@ ROOT = Path(__file__).resolve().parents[1]
 APP = (ROOT / "app.py").read_text(encoding="utf-8")
 MODULE = (ROOT / "cupnavi_core" / "admin_overview.py").read_text(encoding="utf-8")
 REPOSITORY = (ROOT / "cupnavi_core" / "admin_overview_repository.py").read_text(encoding="utf-8")
-VERSION = "2026.08.29-291-ADMIN-PAGE-SIMPLIFICATION"
+VERSION = "2026.08.29-292-MOBILE-TABLE-NAV-FOCUS"
 
 
 def sample_counts(**overrides):

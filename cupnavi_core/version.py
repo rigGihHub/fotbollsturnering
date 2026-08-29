@@ -1,4 +1,4 @@
-APP_VERSION = "2026.08.29-291-ADMIN-PAGE-SIMPLIFICATION"
+APP_VERSION = "2026.08.29-292-MOBILE-TABLE-NAV-FOCUS"
 
 
 def release_ui_label(version: str) -> str:

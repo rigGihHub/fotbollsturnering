@@ -185,7 +185,7 @@ def inject_v198_visual_system():
     return _inject_v198_visual_system_impl(st)
 
 
-APP_BUILD_VERSION = "2026.08.29-291-ADMIN-PAGE-SIMPLIFICATION"
+APP_BUILD_VERSION = "2026.08.29-292-MOBILE-TABLE-NAV-FOCUS"
 APP_VERSION = APP_BUILD_VERSION
 
 def read_core_version_from_disk():
@@ -4864,14 +4864,26 @@ def render_group_table(table_rows, tournament, group_id=None):
                 css_class = row_class.replace("qual-", "")
             else:
                 css_class = "playoff"
-            qualifier = f"<span class='qualifier {css_class}'>{html.escape(str(qualifier_label))}</span>"
+            qualifier_text = html.escape(str(qualifier_label))
+            mobile_qualifier = "✓"
+            if row_class.startswith("qual-rank-"):
+                rank_value = row_class.rsplit("-", 1)[-1]
+                mobile_qualifier = f"{rank_value}:a"
+            elif qualifier_label in {"A", "B"}:
+                mobile_qualifier = str(qualifier_label)
+            qualifier = (
+                f"<span class='qualifier {css_class}' title='{qualifier_text}'>"
+                f"<span class='qualifier-desktop'>{qualifier_text}</span>"
+                f"<span class='qualifier-mobile'>{html.escape(mobile_qualifier)}</span>"
+                "</span>"
+            )
         elif fmt == "A- och B-slutspel":
             # Fallback before the bracket has been generated.
             if position <= 2:
-                qualifier = "<span class='qualifier a'>A</span>"
+                qualifier = "<span class='qualifier a'><span class='qualifier-desktop'>A</span><span class='qualifier-mobile'>A</span></span>"
                 row_class = "qual-a"
             elif position <= 4:
-                qualifier = "<span class='qualifier b'>B</span>"
+                qualifier = "<span class='qualifier b'><span class='qualifier-desktop'>B</span><span class='qualifier-mobile'>B</span></span>"
                 row_class = "qual-b"
         rows_html.append(
             f"<tr class='{row_class}'><td>{position}</td><td class='team'>{html.escape(str(data['Lag']))}</td>"
@@ -4907,6 +4919,23 @@ def render_group_table(table_rows, tournament, group_id=None):
         .texttv-legend{{display:flex;gap:18px;margin-top:7px;color:#334155;font-size:13px}}
         .texttv-legend span{{display:flex;align-items:center;gap:6px}}
         .texttv-legend i{{width:13px;height:13px;border-radius:2px;display:inline-block}}
+        .qualifier-mobile{{display:none}}
+        @media(max-width:600px){{
+          .texttv-wrap{{overflow-x:hidden;padding:3px;border-width:1px;border-radius:10px}}
+          .texttv-table{{table-layout:fixed;font-size:12px}}
+          .texttv-table th,.texttv-table td{{padding:7px 3px;white-space:nowrap}}
+          .texttv-table th:nth-child(1),.texttv-table td:nth-child(1){{width:28px}}
+          .texttv-table th:nth-child(2),.texttv-table td:nth-child(2){{width:34%;text-align:left!important;overflow:hidden;text-overflow:ellipsis}}
+          .texttv-table th:nth-child(7),.texttv-table td:nth-child(7),
+          .texttv-table th:nth-child(8),.texttv-table td:nth-child(8){{display:none}}
+          .texttv-table th:nth-child(11),.texttv-table td:nth-child(11){{width:54px}}
+          .texttv-table th:nth-child(11){{font-size:0}}
+          .texttv-table th:nth-child(11)::after{{content:'Vidare';font-size:11px}}
+          .qualifier{{min-width:30px!important;width:auto!important;height:24px!important;padding:0 5px!important;font-size:11px!important;line-height:1!important}}
+          .qualifier-desktop{{display:none}}
+          .qualifier-mobile{{display:inline}}
+          .texttv-legend{{gap:10px;font-size:11px;flex-wrap:wrap}}
+        }}
         </style>
         <div class="texttv-wrap"><table class="texttv-table">
         <thead><tr><th>Pl</th><th>Lag</th><th>S</th><th>V</th><th>O</th><th>F</th><th>GM</th><th>IM</th><th>MS</th><th>P</th><th>Slutspel</th></tr></thead>
