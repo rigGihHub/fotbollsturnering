@@ -6,10 +6,11 @@ from cupnavi_core.public_view_logic import public_navigation_specs
 
 ROOT = Path(__file__).resolve().parents[1]
 VERSION = (ROOT / "VERSION.txt").read_text(encoding="utf-8").strip()
+WORKSPACE = (ROOT / "cupnavi_core" / "public_workspace_view.py").read_text(encoding="utf-8")
 
 
 def test_release_version_v273():
-    assert VERSION == "2026.08.29-292-MOBILE-TABLE-NAV-FOCUS"
+    assert VERSION == "2026.08.29-299-PERSISTENT-PUBLIC-NAVIGATION"
 
 
 def test_navigation_builder_keeps_single_responsive_nav_and_active_page():
@@ -48,7 +49,7 @@ def test_app_uses_builder_instead_of_inline_navigation_assembly():
     app = (ROOT / "app.py").read_text(encoding="utf-8")
     module = (ROOT / "cupnavi_core" / "public_navigation_view.py").read_text(encoding="utf-8")
     assert "from cupnavi_core.public_navigation_view import build_public_navigation_html" in app
-    assert "build_public_navigation_html(" in app
+    assert "build_public_navigation_html(" in WORKSPACE
     assert "nav_links = []" not in app
     assert "import streamlit" not in module.lower()
     assert "sqlite" not in module.lower()

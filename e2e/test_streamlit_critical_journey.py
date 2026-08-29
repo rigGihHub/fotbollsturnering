@@ -290,18 +290,34 @@ def choose_streamlit_option(page, label, option, timeout=20000):
     if combo.input_value().strip() == option:
         return
 
-    combo.click()
-    # Streamlit/BaseWeb has changed the popup markup across releases and browser
-    # engines. Prefer the semantic option role, but fall back to exact visible text
-    # inside the active listbox so CI does not depend on one ARIA implementation.
-    choice=page.get_by_role("option",name=option,exact=True)
-    try:
-        choice.wait_for(state="visible",timeout=min(timeout,5000))
-    except Exception:
-        listbox=page.locator('[role="listbox"]').last
-        listbox.wait_for(state="visible",timeout=timeout)
-        choice=listbox.get_by_text(option,exact=True)
-        choice.wait_for(state="visible",timeout=timeout)
+    # The widget may be replaced by a Streamlit rerun between lookup and click.
+    # Reacquire it and retry opening the popup instead of assuming one click is enough.
+    choice=None
+    deadline=time.time()+timeout/1000
+    while time.time()<deadline:
+        combo=wait_until_enabled(page.get_by_label(label,exact=True),timeout=min(5000,timeout))
+        if combo.input_value().strip() == option:
+            return
+        try:
+            combo.click(force=True)
+        except Exception:
+            time.sleep(.15)
+            continue
+
+        # Streamlit has used both React-Aria and BaseWeb markup. Search by the
+        # semantic option role first, then by exact visible text in an open popup.
+        semantic=page.get_by_role("option",name=option,exact=True)
+        if semantic.count() and semantic.first.is_visible():
+            choice=semantic.first
+            break
+        popup_text=page.locator('[role="listbox"], [data-baseweb="popover"], [data-baseweb="menu"]').get_by_text(option,exact=True)
+        if popup_text.count() and popup_text.last.is_visible():
+            choice=popup_text.last
+            break
+        time.sleep(.2)
+
+    if choice is None:
+        raise AssertionError(f"Could not open {label!r} and find option {option!r}")
     choice.click()
 
     # Streamlit rerenders the widget after selection, so reacquire by label while
@@ -574,18 +590,23 @@ def test_full_cup_lifecycle_journey(server,browser_name):
 
         team_token,group_token=representative_public_tokens(tid)
         section_contracts = [
-            ("Schema & resultat", team_token),
-            ("Tabeller", group_token),
-            ("Slutspel", "FINAL"),
-            ("Statistik", "Skytteliga"),
-            ("Cupinfo", "Cupens regler"),
+            ("Schema & resultat", "matches", team_token),
+            ("Tabeller", "tables", group_token),
+            ("Slutspel", "playoffs", "FINAL"),
+            ("Statistik", "stats", "Skytteliga"),
+            ("Cupinfo", "info", "Cupens regler"),
         ]
-        for label,expected_token in section_contracts:
+        for label,section,expected_token in section_contracts:
             button=page.get_by_role("button",name=label,exact=True)
             button.wait_for(state="visible",timeout=15000)
             button.click()
-            wait_app(page)
+            # Public navigation is made of real links. wait_app() can otherwise
+            # return against the old Streamlit DOM before the URL navigation has
+            # committed, which made the cross-browser journey assert stale content.
+            page.wait_for_url(re.compile(rf"[?&]section={re.escape(section)}(?:&|$)"),timeout=20000)
+            wait_for_public_cup(page,cup_name)
             assert_no_ui_error(page)
+            page.get_by_text(expected_token,exact=False).first.wait_for(state="visible",timeout=20000)
             current=page.locator("body").inner_text()
             assert expected_token and expected_token in current, (
                 f"{label} rendered without its expected domain content: {expected_token!r}"

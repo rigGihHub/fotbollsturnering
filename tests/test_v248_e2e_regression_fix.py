@@ -11,6 +11,6 @@ def test_lifecycle_opens_collapsed_test_tools_before_demo_button():
 def test_selectbox_helper_has_cross_browser_popup_fallback():
     helper=E2E[E2E.index("def choose_streamlit_option"):E2E.index("def _cup_progress_state")]
     assert 'get_by_role("option",name=option,exact=True)' in helper
-    assert "listbox=page.locator('[role=\"listbox\"]').last" in helper
-    assert "choice=listbox.get_by_text(option,exact=True)" in helper
+    assert "'[role=\"listbox\"], [data-baseweb=\"popover\"], [data-baseweb=\"menu\"]'" in helper
+    assert "popup_text=page.locator" in helper and ".get_by_text(option,exact=True)" in helper
     assert "combo.input_value().strip() == option" in helper

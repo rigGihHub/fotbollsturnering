@@ -6,11 +6,11 @@ VERSION=(ROOT/"VERSION.txt").read_text(encoding="utf-8").strip()
 
 def test_public_sections_require_domain_content_not_only_no_traceback():
     for token in [
-        '("Schema & resultat", team_token)',
-        '("Tabeller", group_token)',
-        '("Slutspel", "FINAL")',
-        '("Statistik", "Skytteliga")',
-        '("Cupinfo", "Cupens regler")',
+        '("Schema & resultat", "matches", team_token)',
+        '("Tabeller", "tables", group_token)',
+        '("Slutspel", "playoffs", "FINAL")',
+        '("Statistik", "stats", "Skytteliga")',
+        '("Cupinfo", "info", "Cupens regler")',
     ]:
         assert token in E2E
 
@@ -21,4 +21,4 @@ def test_active_tournament_has_real_browser_regression_guard():
     assert 'selector.input_value() == first' in E2E
 
 def test_release_is_v200():
-    assert VERSION == "2026.08.29-292-MOBILE-TABLE-NAV-FOCUS"
+    assert VERSION == "2026.08.29-299-PERSISTENT-PUBLIC-NAVIGATION"

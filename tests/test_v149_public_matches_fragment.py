@@ -3,15 +3,16 @@ APP=(Path(__file__).resolve().parents[1]/"app.py").read_text(encoding="utf-8")
 INFO=(Path(__file__).resolve().parents[1]/"cupnavi_core/public_info_view.py").read_text(encoding="utf-8")
 STATS=(Path(__file__).resolve().parents[1]/"cupnavi_core/public_statistics_view.py").read_text(encoding="utf-8")
 MATCHES=(Path(__file__).resolve().parents[1]/"cupnavi_core/public_matches_view.py").read_text(encoding="utf-8")
+WORKSPACE=(Path(__file__).resolve().parents[1]/"cupnavi_core/public_workspace_view.py").read_text(encoding="utf-8")
 
 def test_matches_are_isolated_in_fragment():
-    public=APP[APP.index("def render_public_view"):APP.index("def render_match_reporter_view")]
+    public=WORKSPACE
     assert "@st.fragment" in public
     assert "def render_public_matches_fragment" in public
     assert "render_public_matches_fragment()" in public
 
 def test_match_filters_and_weather_live_inside_fragment():
-    public=APP[APP.index("def render_public_view"):APP.index("def render_match_reporter_view")]
+    public=WORKSPACE
     assert "render_public_matches_fragment_module(" in public
     assert "st.segmented_control(" in MATCHES
     assert "filter_matches_view(" in MATCHES

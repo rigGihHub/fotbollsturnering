@@ -1,7 +1,7 @@
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-RELEASE = "2026.08.29-292-MOBILE-TABLE-NAV-FOCUS"
+RELEASE = "2026.08.29-299-PERSISTENT-PUBLIC-NAVIGATION"
 
 
 def test_health_contract_testclient_dependency_is_declared():

@@ -7,6 +7,7 @@ APP = (ROOT / "app.py").read_text(encoding="utf-8")
 VIEW = (ROOT / "cupnavi_core" / "public_matches_view.py").read_text(encoding="utf-8")
 REPOSITORY = (ROOT / "cupnavi_core" / "public_match_repository.py").read_text(encoding="utf-8")
 VERSION = (ROOT / "VERSION.txt").read_text(encoding="utf-8").strip()
+WORKSPACE = (ROOT / "cupnavi_core" / "public_workspace_view.py").read_text(encoding="utf-8")
 
 
 class Cursor:
@@ -28,9 +29,9 @@ class Con:
 
 
 def test_release_and_public_matches_fragment_are_extracted():
-    assert VERSION == "2026.08.29-292-MOBILE-TABLE-NAV-FOCUS"
+    assert VERSION == "2026.08.29-299-PERSISTENT-PUBLIC-NAVIGATION"
     assert "from cupnavi_core.public_matches_view import render_public_matches_fragment" in APP
-    assert "render_public_matches_fragment_module(" in APP
+    assert "render_public_matches_fragment_module(" in WORKSPACE
     assert 'f"Visa {next_batch_size} fler matcher"' not in APP
     assert 'f"Visa {next_batch_size} fler matcher"' in VIEW
     assert "_cupnavi_public_matches_perf_history" in VIEW
@@ -64,7 +65,7 @@ def test_event_repository_skips_empty_input_without_query():
 
 
 def test_app_keeps_fragment_boundary_and_db_timing_service():
-    block = APP[APP.index('if public_page == "Matcher":'):APP.index('if public_page == "Tabeller":')]
+    block = WORKSPACE[WORKSPACE.index('if public_page == "Matcher":'):WORKSPACE.index('if public_page == "Tabeller":')]
     assert "@st.fragment" in block
     assert "render_public_matches_fragment_module(" in block
     db_block = APP[APP.index("def public_match_events_db_snapshot("):APP.index("def render_public_share_control")]

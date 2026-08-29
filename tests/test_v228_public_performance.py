@@ -4,18 +4,21 @@ import ast
 
 ROOT=Path(__file__).resolve().parents[1]
 APP=(ROOT/"app.py").read_text(encoding="utf-8")
+WORKSPACE=(ROOT/"cupnavi_core"/"public_workspace_view.py").read_text(encoding="utf-8")
 SCREEN=(ROOT/"cupnavi_core"/"public_shell_view.py").read_text(encoding="utf-8")
+PRESENTATION=(ROOT/"cupnavi_core"/"public_presentation_view.py").read_text(encoding="utf-8")
 
 
 def _fn(name):
-    tree=ast.parse(APP)
+    source = PRESENTATION if name == "render_bracket_tree" else APP
+    tree=ast.parse(source)
     node=next(n for n in tree.body if isinstance(n,ast.FunctionDef) and n.name==name)
-    lines=APP.splitlines()
+    lines=source.splitlines()
     return "\n".join(lines[node.lineno-1:node.end_lineno])
 
 
 def test_screen_tables_use_batched_all_group_tables():
-    public=_fn("render_public_view")
+    public=WORKSPACE
     assert "render_public_screen_mode(" in public
     assert "table_bundle = calculate_all_group_tables(" in SCREEN
     screen_block=SCREEN[SCREEN.index("table_bundle = calculate_all_group_tables"):SCREEN.index("sponsors = all_rows",SCREEN.index("table_bundle = calculate_all_group_tables"))]

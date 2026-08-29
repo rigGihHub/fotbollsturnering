@@ -94,6 +94,7 @@ from cupnavi_core.config import BACKUP_FILE_SUFFIX, PUBLIC_BASE_URL
 from cupnavi_core.schedule_repository import ScheduleRepository
 from cupnavi_core.schedule_domain import build_schedule_window, schedule_source_team_id
 from cupnavi_core.schedule_workspace_view import ScheduleWorkspaceDependencies, render_schedule_workspace
+from cupnavi_core.schedule_recovery_view import ScheduleRecoveryDependencies, render_schedule_recovery_actions as render_schedule_recovery_actions_module
 from cupnavi_core.admin_results_view import AdminResultsDependencies, render_admin_results_workspace
 from cupnavi_core.admin_match_events_view import AdminMatchEventsDependencies, render_admin_match_events_workspace
 from cupnavi_core.style_system import (
@@ -103,6 +104,7 @@ from cupnavi_core.style_system import (
     inject_v193_product_design_system as _inject_v193_product_design_system_impl,
     inject_v266_public_mobile_css as _inject_v266_public_mobile_css_impl,
     inject_v198_visual_system as _inject_v198_visual_system_impl,
+    inject_public_experience_styles,
 )
 from cupnavi_core.team_portal import generate_access_code, generate_short_numeric_code, new_code_hash, verify_access_code, squad_deadline_at, squad_is_locked
 from cupnavi_core.team_portal_view import TeamPortalDependencies, render_team_portal_workspace
@@ -138,6 +140,13 @@ from cupnavi_core.public_statistics_view import render_public_statistics_section
 from cupnavi_core.public_match_cards import render_public_match_cards as render_public_match_cards_module
 from cupnavi_core.public_match_filter_logic import filter_matches, sort_public_matches
 from cupnavi_core.public_match_filters_view import render_public_match_filters as render_public_match_filters_module
+from cupnavi_core.public_workspace_view import PublicWorkspaceDependencies, render_public_workspace
+from cupnavi_core.public_presentation_view import (
+    public_match_events_html as _public_match_events_html_impl,
+    public_rules_html as _public_rules_html_impl,
+    render_bracket_tree as _render_bracket_tree_impl,
+    render_group_table as _render_group_table_impl,
+)
 from cupnavi_core.match_reporter_logic import result_snapshot
 from cupnavi_core.match_reporter_workspace_view import (
     MatchReporterWorkspaceDeps,
@@ -160,6 +169,8 @@ from cupnavi_core.admin_publication_view import (
     render_admin_lifecycle_controls,
     render_admin_publication_controls,
 )
+from cupnavi_core.admin_role_codes_view import render_role_code_card
+
 
 def inject_custom_css():
     return _inject_custom_css_impl(st)
@@ -185,7 +196,7 @@ def inject_v198_visual_system():
     return _inject_v198_visual_system_impl(st)
 
 
-APP_BUILD_VERSION = "2026.08.29-292-MOBILE-TABLE-NAV-FOCUS"
+APP_BUILD_VERSION = "2026.08.29-299-PERSISTENT-PUBLIC-NAVIGATION"
 APP_VERSION = APP_BUILD_VERSION
 
 def read_core_version_from_disk():
@@ -839,100 +850,53 @@ def _rerun_schedule_after_recovery(tournament_id, tournament, rules, action_labe
     st.rerun()
 
 
-def render_schedule_recovery_actions(tournament_id,tournament,rules,context):
-    if not context or int(context.get("unresolved",0) or 0)<=0:
-        return
-    unresolved=int(context.get("unresolved",0) or 0)
-    st.markdown("#### CupNavi föreslår en lösning")
-    st.caption(
-        "Förslagen är rangordnade efter minsta praktiska förändring som bedöms ge störst effekt. "
-        "Varje knapp genomför ändringen och provar schemat igen direkt. Om det fortfarande inte går ihop visas nästa bästa åtgärd automatiskt."
+def _apply_schedule_recovery_extend(tournament_id, tournament, rules, context, minutes):
+    rows = pitch_day_windows(tournament_id, int(rules["pitch_count"]))
+    changed = 0
+    for row in rows:
+        if str(row["play_date"]) != str(context["last_date"]):
+            continue
+        old = datetime.strptime(row["end_time"], "%H:%M")
+        proposed = min(old + timedelta(minutes=minutes), datetime.strptime("23:55", "%H:%M"))
+        new = proposed.strftime("%H:%M")
+        if new > row["end_time"]:
+            save_pitch_day_window(tournament_id, int(row["pitch_number"]), row["play_date"], row["start_time"], new, True)
+            changed += 1
+    _rerun_schedule_after_recovery(tournament_id, tournament, rules, f"Plantiderna förlängdes på {changed} plan(er) med upp till {minutes} minuter")
+
+
+def _apply_schedule_recovery_late_first(tournament_id, tournament, rules, context):
+    run("UPDATE teams SET late_first_match=0,earliest_first_time=NULL WHERE tournament_id=? AND late_first_match=1", (int(tournament_id),))
+    run("UPDATE tournaments SET schedule_dirty=1,is_published=0 WHERE id=?", (int(tournament_id),))
+    _rerun_schedule_after_recovery(tournament_id, tournament, rules, "Lagens önskemål om senare första match togs bort")
+
+
+def _apply_schedule_recovery_break(tournament_id, tournament, rules, context):
+    run("UPDATE schedule_rules SET consecutive_match_break_minutes=0 WHERE tournament_id=?", (int(tournament_id),))
+    run("UPDATE tournaments SET schedule_dirty=1,is_published=0 WHERE id=?", (int(tournament_id),))
+    _rerun_schedule_after_recovery(tournament_id, tournament, rules, "Extra lagvila sattes till 0 minuter")
+
+
+def _apply_schedule_recovery_pitch(tournament_id, tournament, rules, context):
+    new_count = int(rules["pitch_count"] or 1) + 1
+    run("UPDATE schedule_rules SET pitch_count=? WHERE tournament_id=?", (new_count, int(tournament_id)))
+    ensure_pitch_definitions(tournament_id, new_count)
+    ensure_pitch_day_windows(tournament_id, tournament, new_count, rules["first_match_time"], rules["latest_kickoff_time"])
+    run("UPDATE tournaments SET schedule_dirty=1,is_published=0 WHERE id=?", (int(tournament_id),))
+    _rerun_schedule_after_recovery(tournament_id, tournament, rules, f"Plan {new_count} lades till med standardtider")
+
+
+def render_schedule_recovery_actions(tournament_id, tournament, rules, context):
+    return render_schedule_recovery_actions_module(
+        tournament_id, tournament, rules, context,
+        deps=ScheduleRecoveryDependencies(
+            st=st,
+            apply_extend=_apply_schedule_recovery_extend,
+            apply_late_first=_apply_schedule_recovery_late_first,
+            apply_break=_apply_schedule_recovery_break,
+            apply_pitch=_apply_schedule_recovery_pitch,
+        ),
     )
-    if context.get("physical_shortfall",0)>0:
-        st.error(
-            f"Cupen saknar minst {context.get('physical_shortfall',0)} teoretiska matchplatser med nuvarande plan- och öppettider "
-            f"({context.get('capacity',0)} platser för {context.get('total_matches',0)} matcher)."
-        )
-
-    solutions=[]
-    # Hårda kapacitetsproblem måste lösas med mer faktisk speltid/kapacitet.
-    if context.get("last_date"):
-        minutes=int(context.get("extension_minutes",30))
-        solutions.append({
-            "kind":"extend", "title":f"Förläng sista dagens plantider med {minutes} min",
-            "effect":f"Skapar ungefär den extra tidskapacitet som behövs för de {unresolved} matcher som saknar tid.",
-            "change":f"Endast sluttiden på sista cupdagen ändras (+{minutes} min per tillgänglig plan).",
-            "certainty":"Hög" if context.get("physical_shortfall",0)>0 else "Medel–hög",
-            "score": 10 if context.get("physical_shortfall",0)>0 else 30,
-            "minutes":minutes,
-        })
-    if context.get("late_first"):
-        solutions.append({
-            "kind":"late_first", "title":"Släpp önskemål om senare första match",
-            "effect":f"Frigör tidiga matchtider för {context['late_first']} lag som idag har en hård startbegränsning.",
-            "change":"Plantider och matchregler ändras inte; endast lagens reseönskemål tas bort.",
-            "certainty":"Medel–hög", "score":20 if not context.get("physical_shortfall",0) else 45,
-        })
-    if context.get("avoid_consecutive") and context.get("consecutive_break",0)>0:
-        solutions.append({
-            "kind":"break", "title":f"Minska extra lagvila ({context['consecutive_break']} min → 0 min)",
-            "effect":"Frigör fler möjliga starttider mellan ett lags matcher.",
-            "change":"Sportslig återhämtning påverkas, därför rankas detta efter mindre ingripande lösningar.",
-            "certainty":"Medel", "score":40,
-        })
-    # Undvik-sen-match är en preferens/straffterm, inte en hård blockerare. Visa den därför inte som primär lösning.
-    solutions.append({
-        "kind":"pitch", "title":"Lägg till en extra plan/spelyta",
-        "effect":"Ger en stor och robust kapacitetsökning under samtliga öppettider.",
-        "change":"Kräver att arrangören faktiskt har ytterligare en spelplan tillgänglig.",
-        "certainty":"Mycket hög", "score":90,
-    })
-    solutions.sort(key=lambda x:x["score"])
-
-    for rank,sol in enumerate(solutions,1):
-        with st.container(border=True):
-            st.markdown(f"**{rank}. {sol['title']}**")
-            a,b=st.columns([3,1])
-            a.caption(sol["effect"] + " " + sol["change"])
-            b.markdown(f"**Bedömd effekt:** {sol['certainty']}")
-            if sol["kind"]=="extend":
-                minutes=sol["minutes"]
-                label=f"Tillämpa +{minutes} min och generera om"
-                if st.button(label,key=f"recover_extend_{tournament_id}_{rank}",use_container_width=True,type="primary" if rank==1 else "secondary"):
-                    rows=pitch_day_windows(tournament_id,int(rules["pitch_count"]))
-                    changed=0
-                    for row in rows:
-                        if str(row["play_date"])!=str(context["last_date"]): continue
-                        old=datetime.strptime(row["end_time"],"%H:%M")
-                        proposed=min(old+timedelta(minutes=minutes),datetime.strptime("23:55","%H:%M"))
-                        new=proposed.strftime("%H:%M")
-                        if new>row["end_time"]:
-                            save_pitch_day_window(tournament_id,int(row["pitch_number"]),row["play_date"],row["start_time"],new,True); changed+=1
-                    _rerun_schedule_after_recovery(tournament_id,tournament,rules,f"Plantiderna förlängdes på {changed} plan(er) med upp till {minutes} minuter")
-            elif sol["kind"]=="late_first":
-                if st.button("Ta bort reservationerna och generera om",key=f"recover_late_{tournament_id}_{rank}",use_container_width=True,type="primary" if rank==1 else "secondary"):
-                    run("UPDATE teams SET late_first_match=0,earliest_first_time=NULL WHERE tournament_id=? AND late_first_match=1",(int(tournament_id),))
-                    run("UPDATE tournaments SET schedule_dirty=1,is_published=0 WHERE id=?",(int(tournament_id),))
-                    _rerun_schedule_after_recovery(tournament_id,tournament,rules,"Lagens önskemål om senare första match togs bort")
-            elif sol["kind"]=="break":
-                if st.button("Sätt extrapusen till 0 min och generera om",key=f"recover_break_{tournament_id}_{rank}",use_container_width=True,type="primary" if rank==1 else "secondary"):
-                    run("UPDATE schedule_rules SET consecutive_match_break_minutes=0 WHERE tournament_id=?",(int(tournament_id),))
-                    run("UPDATE tournaments SET schedule_dirty=1,is_published=0 WHERE id=?",(int(tournament_id),))
-                    _rerun_schedule_after_recovery(tournament_id,tournament,rules,"Extra lagvila sattes till 0 minuter")
-            elif sol["kind"]=="pitch":
-                if st.button("Lägg till 1 plan och generera om",key=f"recover_pitch_{tournament_id}_{rank}",use_container_width=True,type="primary" if rank==1 else "secondary"):
-                    new_count=int(rules["pitch_count"] or 1)+1
-                    run("UPDATE schedule_rules SET pitch_count=? WHERE tournament_id=?",(new_count,int(tournament_id)))
-                    ensure_pitch_definitions(tournament_id,new_count)
-                    ensure_pitch_day_windows(tournament_id,tournament,new_count,rules["first_match_time"],rules["latest_kickoff_time"])
-                    run("UPDATE tournaments SET schedule_dirty=1,is_published=0 WHERE id=?",(int(tournament_id),))
-                    _rerun_schedule_after_recovery(tournament_id,tournament,rules,f"Plan {new_count} lades till med standardtider")
-
-    if context.get("avoid_late"):
-        st.caption(
-            f"Obs: {context['avoid_late']} lag har önskemål om att undvika den senaste gruppspelsmatchen. "
-            "Detta är en mjuk prioritering och blockerar inte i sig schemaläggningen, därför visas den inte som en huvudlösning."
-        )
 
 def _autosave_tournament_field(tournament_id, column, key, cast=None, dirty=False):
     value = st.session_state.get(key)
@@ -4844,104 +4808,9 @@ def render_empty_state(title, description, *, symbol="•"):
 
 
 def render_group_table(table_rows, tournament, group_id=None):
-    """Text-TV-inspirerad grupptabell med tydlig markering av slutspelsplatser."""
-    if not table_rows:
-        st.info("Ingen tabelldata att visa.")
-        return
-    rows_html = []
-    fmt = tournament["playoff_format"]
-    qualifier_map = group_playoff_qualifiers(tournament["id"], group_id) if group_id else {}
-    for position, (_, data) in enumerate(table_rows, 1):
-        qualifier = ""
-        row_class = ""
-        if position in qualifier_map:
-            qualifier_label, row_class = qualifier_map[position]
-            if qualifier_label == "A":
-                css_class = "a"
-            elif qualifier_label == "B":
-                css_class = "b"
-            elif row_class.startswith("qual-rank-"):
-                css_class = row_class.replace("qual-", "")
-            else:
-                css_class = "playoff"
-            qualifier_text = html.escape(str(qualifier_label))
-            mobile_qualifier = "✓"
-            if row_class.startswith("qual-rank-"):
-                rank_value = row_class.rsplit("-", 1)[-1]
-                mobile_qualifier = f"{rank_value}:a"
-            elif qualifier_label in {"A", "B"}:
-                mobile_qualifier = str(qualifier_label)
-            qualifier = (
-                f"<span class='qualifier {css_class}' title='{qualifier_text}'>"
-                f"<span class='qualifier-desktop'>{qualifier_text}</span>"
-                f"<span class='qualifier-mobile'>{html.escape(mobile_qualifier)}</span>"
-                "</span>"
-            )
-        elif fmt == "A- och B-slutspel":
-            # Fallback before the bracket has been generated.
-            if position <= 2:
-                qualifier = "<span class='qualifier a'><span class='qualifier-desktop'>A</span><span class='qualifier-mobile'>A</span></span>"
-                row_class = "qual-a"
-            elif position <= 4:
-                qualifier = "<span class='qualifier b'><span class='qualifier-desktop'>B</span><span class='qualifier-mobile'>B</span></span>"
-                row_class = "qual-b"
-        rows_html.append(
-            f"<tr class='{row_class}'><td>{position}</td><td class='team'>{html.escape(str(data['Lag']))}</td>"
-            f"<td>{data['S']}</td><td>{data['V']}</td><td>{data['O']}</td><td>{data['F']}</td>"
-            f"<td>{data['GM']}</td><td>{data['IM']}</td><td>{data['MS']}</td><td><b>{data['P']}</b></td><td>{qualifier}</td></tr>"
-        )
-    legend = ""
-    if fmt == "A- och B-slutspel":
-        legend = "<div class='texttv-legend'><span><i class='a'></i>A-slutspel</span><span><i class='b'></i>B-slutspel</span></div>"
-    st.markdown(
-        f"""
-        <style>
-        .texttv-wrap{{overflow-x:auto;border:2px solid #172554;border-radius:8px;background:#07111f;padding:6px}}
-        .texttv-table{{width:100%;border-collapse:collapse;font-family:ui-monospace,SFMono-Regular,Consolas,monospace;color:#f8fafc}}
-        .texttv-table th,.texttv-table td{{text-align:center!important;padding:8px 9px;border-bottom:1px solid #334155}}
-        .texttv-table th{{background:#172554;color:#facc15;font-weight:900}}
-        .texttv-table td.team{{text-align:left!important;font-weight:800}}
-        .texttv-table tr.qual-a td{{background:#dcfce7!important;color:#14532d!important}}
-        .texttv-table tr.qual-b td{{background:#dbeafe!important;color:#1e3a8a!important}}
-        .texttv-table tr.qual-rank-1 td{{background:#dcfce7!important;color:#14532d!important}}
-        .texttv-table tr.qual-rank-2 td{{background:#dbeafe!important;color:#1e3a8a!important}}
-        .texttv-table tr.qual-rank-3 td{{background:#fef3c7!important;color:#78350f!important}}
-        .texttv-table tr.qual-rank-4 td{{background:#f1f5f9!important;color:#334155!important}}
-        .texttv-table tr.qual-playoff td{{background:#fef3c7!important;color:#78350f!important}}
-        .qualifier{{display:inline-flex;width:24px;height:24px;align-items:center;justify-content:center;border-radius:4px;color:#fff;font-weight:900}}
-        .qualifier.a,.texttv-legend i.a{{background:#16a34a}}
-        .qualifier.b,.texttv-legend i.b{{background:#2563eb}}
-        .qualifier.rank-1{{background:#15803d;min-width:28px;width:auto;padding:0 6px}}
-        .qualifier.rank-2{{background:#2563eb;min-width:28px;width:auto;padding:0 6px}}
-        .qualifier.rank-3{{background:#d97706;min-width:28px;width:auto;padding:0 6px}}
-        .qualifier.rank-4{{background:#64748b;min-width:28px;width:auto;padding:0 6px}}
-        .qualifier.playoff{{background:#d97706;min-width:28px;width:auto;padding:0 6px}}
-        .texttv-legend{{display:flex;gap:18px;margin-top:7px;color:#334155;font-size:13px}}
-        .texttv-legend span{{display:flex;align-items:center;gap:6px}}
-        .texttv-legend i{{width:13px;height:13px;border-radius:2px;display:inline-block}}
-        .qualifier-mobile{{display:none}}
-        @media(max-width:600px){{
-          .texttv-wrap{{overflow-x:hidden;padding:3px;border-width:1px;border-radius:10px}}
-          .texttv-table{{table-layout:fixed;font-size:12px}}
-          .texttv-table th,.texttv-table td{{padding:7px 3px;white-space:nowrap}}
-          .texttv-table th:nth-child(1),.texttv-table td:nth-child(1){{width:28px}}
-          .texttv-table th:nth-child(2),.texttv-table td:nth-child(2){{width:34%;text-align:left!important;overflow:hidden;text-overflow:ellipsis}}
-          .texttv-table th:nth-child(7),.texttv-table td:nth-child(7),
-          .texttv-table th:nth-child(8),.texttv-table td:nth-child(8){{display:none}}
-          .texttv-table th:nth-child(11),.texttv-table td:nth-child(11){{width:54px}}
-          .texttv-table th:nth-child(11){{font-size:0}}
-          .texttv-table th:nth-child(11)::after{{content:'Vidare';font-size:11px}}
-          .qualifier{{min-width:30px!important;width:auto!important;height:24px!important;padding:0 5px!important;font-size:11px!important;line-height:1!important}}
-          .qualifier-desktop{{display:none}}
-          .qualifier-mobile{{display:inline}}
-          .texttv-legend{{gap:10px;font-size:11px;flex-wrap:wrap}}
-        }}
-        </style>
-        <div class="texttv-wrap"><table class="texttv-table">
-        <thead><tr><th>Pl</th><th>Lag</th><th>S</th><th>V</th><th>O</th><th>F</th><th>GM</th><th>IM</th><th>MS</th><th>P</th><th>Slutspel</th></tr></thead>
-        <tbody>{''.join(rows_html)}</tbody></table></div>{legend}
-        """,
-        unsafe_allow_html=True,
+    return _render_group_table_impl(
+        table_rows, tournament, group_id, st=st,
+        group_playoff_qualifiers=group_playoff_qualifiers,
     )
 
 
@@ -5450,316 +5319,26 @@ def validate_schedule(tournament_id, tournament, rules):
 
 
 def render_bracket_tree(bracket_id, public=False):
-    bracket_matches = all_rows("SELECT * FROM matches WHERE bracket_id=? ORDER BY round_no,match_no", (bracket_id,))
-    bracket_team_by_id = {}
-    if bracket_matches:
-        bracket_tournament_id = int(_row_value(bracket_matches[0], "tournament_id", 0) or 0)
-        if bracket_tournament_id:
-            bracket_team_rows = all_rows(
-                "SELECT * FROM teams WHERE tournament_id=? ORDER BY id",
-                (bracket_tournament_id,),
-            )
-            bracket_team_by_id = {int(row["id"]): row for row in bracket_team_rows}
-    main_stages = []
-    for stage_name in ["Kvartsfinal", "Semifinal", "Final"]:
-        stage_matches = [m for m in bracket_matches if m["stage"] == stage_name]
-        if stage_matches:
-            main_stages.append((stage_name, stage_matches))
-    if not main_stages:
-        st.info("Slutspelsträdet saknar matcher.")
-        return
-
-    # A final-only bracket should be compact instead of reserving a full tree canvas.
-    stage_count = len(main_stages)
-    first_count = len(main_stages[0][1])
-    compact_final_only = stage_count == 1 and first_count == 1
-    card_width = 320 if compact_final_only else 250
-    card_height = 108
-    column_gap = 92
-    column_width = card_width + column_gap
-    header_height = 44
-    if compact_final_only:
-        play_height = card_height + 44
-        canvas_width = min(520, card_width + 40)
-    else:
-        play_height = max(250, first_count * 154)
-        canvas_width = stage_count * column_width - column_gap + 40
-    canvas_height = header_height + play_height + 16
-
-    stage_centers = []
-    first_centers = [(index + 0.5) * play_height / first_count for index in range(first_count)]
-    stage_centers.append(first_centers)
-    for stage_index in range(1, len(main_stages)):
-        previous = stage_centers[-1]
-        match_count = len(main_stages[stage_index][1])
-        centers = []
-        for index in range(match_count):
-            feeders = previous[index * 2:index * 2 + 2]
-            centers.append(sum(feeders) / len(feeders) if feeders else (index + 0.5) * play_height / match_count)
-        stage_centers.append(centers)
-
-    def match_card(match_row, left, center, extra_class=""):
-        home_id = resolve_source(match_row["home_source"])
-        away_id = resolve_source(match_row["away_source"])
-        home = bracket_team_by_id.get(int(home_id)) if home_id else None
-        away = bracket_team_by_id.get(int(away_id)) if away_id else None
-        home_name = html.escape(home["name"] if home is not None else source_label(match_row["home_source"]))
-        away_name = html.escape(away["name"] if away is not None else source_label(match_row["away_source"]))
-        home_color = home["primary_color"] if home else "#94a3b8"
-        away_color = away["secondary_color"] if away else "#94a3b8"
-        home_score = "–" if match_row["home_score"] is None else str(match_row["home_score"])
-        away_score = "–" if match_row["away_score"] is None else str(match_row["away_score"])
-        home_winner = away_winner = False
-        if match_row["home_score"] is not None and match_row["away_score"] is not None:
-            if match_row["home_score"] > match_row["away_score"]:
-                home_winner = True
-            elif match_row["away_score"] > match_row["home_score"]:
-                away_winner = True
-            elif match_row["decided_winner_id"] in (home_id, away_id):
-                home_winner = match_row["decided_winner_id"] == home_id
-                away_winner = match_row["decided_winner_id"] == away_id
-            elif match_row["home_penalties"] is not None and match_row["away_penalties"] is not None:
-                home_winner = match_row["home_penalties"] > match_row["away_penalties"]
-                away_winner = match_row["away_penalties"] > match_row["home_penalties"]
-        if public and not match_row["schedule_published"]:
-            schedule_text, referee = "Tid och plan ej publicerade", "Ej publicerad"
-        else:
-            schedule_text, referee = match_meta(match_row)
-        penalties = ""
-        if match_row["decided_winner_id"]:
-            penalties = "<div class='bracket-penalties'>Avgjord genom lottning</div>"
-        elif match_row["home_penalties"] is not None:
-            penalties = f"<div class='bracket-penalties'>Straffar {match_row['home_penalties']}–{match_row['away_penalties']}</div>"
-        top = header_height + center - card_height / 2
-        return f"""
-          <div class="classic-match {extra_class}" style="left:{left}px;top:{top:.1f}px;width:{card_width}px;min-height:{card_height}px">
-            <div class="classic-meta">{html.escape(schedule_text)}</div>
-            <div class="classic-team{' winner' if home_winner else ''}"><i style="background:{home_color}"></i><span>{home_name}</span><b>{home_score}</b></div>
-            <div class="classic-team{' winner' if away_winner else ''}"><i style="background:{away_color}"></i><span>{away_name}</span><b>{away_score}</b></div>
-            {penalties}<div class="classic-referee">Domare: {html.escape(referee)}</div>
-          </div>
-        """
-
-    headers = []
-    cards = []
-    for stage_index, (stage_name, stage_matches) in enumerate(main_stages):
-        left = 20 + stage_index * column_width
-        if compact_final_only:
-            left = max(20, (canvas_width - card_width) / 2)
-        trophy = " 🏆" if stage_name == "Final" else ""
-        headers.append(f"<div class='classic-stage-title' style='left:{left}px;width:{card_width}px'>{stage_name}{trophy}</div>")
-        for match_index, match_row in enumerate(stage_matches):
-            cards.append(match_card(match_row, left, stage_centers[stage_index][match_index], "final-match" if stage_name == "Final" else ""))
-
-    connectors = []
-    for stage_index in range(len(main_stages) - 1):
-        start_x = 20 + stage_index * column_width + card_width
-        end_x = 20 + (stage_index + 1) * column_width
-        middle_x = (start_x + end_x) / 2
-        previous = stage_centers[stage_index]
-        following = stage_centers[stage_index + 1]
-        for next_index, next_center in enumerate(following):
-            feeders = previous[next_index * 2:next_index * 2 + 2]
-            if not feeders:
-                continue
-            top_y = header_height + min(feeders)
-            bottom_y = header_height + max(feeders)
-            for feeder in feeders:
-                y = header_height + feeder
-                connectors.append(f"<span class='line horizontal' style='left:{start_x}px;top:{y:.1f}px;width:{middle_x-start_x}px'></span>")
-            connectors.append(f"<span class='line vertical' style='left:{middle_x}px;top:{top_y:.1f}px;height:{bottom_y-top_y:.1f}px'></span>")
-            target_y = header_height + next_center
-            connectors.append(f"<span class='line horizontal' style='left:{middle_x}px;top:{target_y:.1f}px;width:{end_x-middle_x}px'></span>")
-
-    bronze_matches = [m for m in bracket_matches if m["stage"] == "Bronsmatch"]
-    bronze_html = ""
-    if bronze_matches:
-        bronze = bronze_matches[0]
-        bronze_home = "–" if bronze["home_score"] is None else bronze["home_score"]
-        bronze_away = "–" if bronze["away_score"] is None else bronze["away_score"]
-        bronze_html = f"""
-          <div class='classic-bronze'>
-            <div><strong>🥉 Bronsmatch</strong><small>Placeringsmatch</small></div>
-            <span>{html.escape(source_label(bronze['home_source']))}</span><b>{bronze_home}</b>
-            <span>{html.escape(source_label(bronze['away_source']))}</span><b>{bronze_away}</b>
-          </div>
-        """
-    st.markdown(
-        f"""
-        <style>
-          .classic-bracket-scroll {{overflow-x:auto;padding:4px 3px 12px}}
-          .classic-bracket {{position:relative;width:{canvas_width}px;min-width:{canvas_width}px;max-width:100%;height:{canvas_height}px;background:#fff;border:1px solid #e2e8f0;border-radius:14px}}
-          .classic-stage-title {{position:absolute;top:12px;text-align:center;font-size:14px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:#334155}}
-          .classic-match {{position:absolute;z-index:2;box-sizing:border-box;background:#fff;border:1px solid #cbd5e1;border-radius:8px;box-shadow:0 3px 10px rgba(15,23,42,.11);overflow:hidden}}
-          .classic-match.final-match {{border:2px solid #d4a017;box-shadow:0 4px 14px rgba(180,120,0,.18)}}
-          .classic-meta {{padding:5px 9px;background:#0f5132;color:#fff;font-size:10px;font-weight:650;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}}
-          .classic-team {{display:grid;grid-template-columns:12px 1fr 25px;gap:7px;align-items:center;min-height:29px;padding:2px 8px;border-bottom:1px solid #e5e7eb;font-size:13px;color:#334155}}
-          .classic-team i {{width:11px;height:18px;border:1px solid #64748b;border-radius:2px}}
-          .classic-team span {{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}}
-          .classic-team b {{font-size:15px;text-align:center;color:#0f172a}}
-          .classic-team.winner {{background:#ecfdf5;color:#065f46;font-weight:800}}
-          .classic-team.winner b {{color:#047857}}
-          .classic-referee {{padding:3px 8px;color:#64748b;font-size:9px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}}
-          .bracket-penalties {{position:absolute;right:34px;bottom:3px;color:#9a3412;font-size:9px;font-weight:700}}
-          .line {{position:absolute;z-index:1;display:block;box-sizing:border-box}}
-          .line.horizontal {{border-top:2px solid #94a3b8}}
-          .line.vertical {{border-left:2px solid #94a3b8}}
-          .classic-bronze {{display:grid;grid-template-columns:1fr 32px;gap:4px 10px;max-width:330px;margin-top:12px;padding:12px 14px;background:#fffbeb;border:1px solid #fcd34d;border-left:5px solid #b45309;border-radius:9px}}
-          .classic-bronze div {{grid-column:1 / 3;display:flex;justify-content:space-between;margin-bottom:4px;color:#92400e}}
-          .classic-bronze small {{color:#a16207}}
-          .classic-bronze span {{font-size:13px}}
-          .classic-bronze b {{text-align:center}}
-        </style>
-        <div class="classic-bracket-scroll">
-          <div class="classic-bracket">{''.join(connectors)}{''.join(headers)}{''.join(cards)}</div>
-          {bronze_html}
-        </div>
-        """,
-        unsafe_allow_html=True,
+    return _render_bracket_tree_impl(
+        bracket_id, public, st=st, all_rows=all_rows, row_value=_row_value,
+        resolve_source=resolve_source, source_label=source_label, match_meta=match_meta,
     )
 
 
 
 def public_match_events_html(match_id, match_row=None, rows=None, team_names=None):
-    """Publika mål/röda kort. Förhämtad data undviker N+1-frågor."""
-    if match_row is None:
-        match_row = one_row("SELECT home_source, away_source FROM matches WHERE id=?", (match_id,))
-    if not match_row:
-        return ""
-
-    home_team_id = resolve_source(match_row["home_source"])
-    away_team_id = resolve_source(match_row["away_source"])
-
-    if rows is None:
-        rows = all_rows(
-            """
-            SELECT p.name AS player_name, COALESCE(p.is_protected,0) AS is_protected,
-                   t.id AS team_id, t.name AS team_name, s.goals, s.red_cards
-            FROM player_match_stats s
-            JOIN players p ON p.id=s.player_id
-            JOIN teams t ON t.id=p.team_id
-            WHERE s.match_id=? AND (s.goals > 0 OR s.red_cards > 0)
-            ORDER BY p.name
-            """,
-            (match_id,),
-        )
-    if not rows:
-        return ""
-
-    team_data = {}
-    for row in rows:
-        team_id = row["team_id"]
-        team_data.setdefault(team_id, {"name": row["team_name"], "events": []})
-        goals = int(row["goals"] or 0)
-        reds = int(row["red_cards"] or 0)
-        public_player_name = "Skyddad spelare" if bool(_row_value(row, "is_protected", 0)) else row["player_name"]
-        if goals:
-            suffix = f" ×{goals}" if goals > 1 else ""
-            team_data[team_id]["events"].append(
-                f"<span class='cn-event cn-goal'>⚽ {html.escape(public_player_name)}{suffix}</span>"
-            )
-        if reds:
-            suffix = f" ×{reds}" if reds > 1 else ""
-            team_data[team_id]["events"].append(
-                f"<span class='cn-event cn-red'>🟥 {html.escape(public_player_name)}{suffix}</span>"
-            )
-
-    ordered_team_ids = [home_team_id, away_team_id]
-    team_blocks = []
-    for team_id in ordered_team_ids:
-        data = team_data.get(team_id)
-        if data:
-            name = data["name"]
-            events = "".join(data["events"])
-        else:
-            name = (team_names or {}).get(team_id, "")
-            events = "<span class='cn-no-events'>–</span>"
-        team_blocks.append(
-            "<div class='cn-event-team'>"
-            f"<div class='cn-event-team-name'>{html.escape(name)}</div>"
-            f"<div class='cn-events-list'>{events}</div>"
-            "</div>"
-        )
-
-    return (
-        "<div class='cn-match-events'>"
-        f"<div class='cn-events-title'>{html.escape(tr('Matchhändelser'))}</div>"
-        "<div class='cn-event-teams'>" + "".join(team_blocks) + "</div>"
-        "</div>"
+    return _public_match_events_html_impl(
+        match_id, match_row, rows, team_names, all_rows=all_rows, one_row=one_row,
+        row_value=_row_value, resolve_source=resolve_source, tr=tr,
     )
 
 
 
 
 def public_rules_html(tournament, rules):
-    """Bygg lättlästa publika regler utifrån cupens sparade inställningar."""
-    if not rules:
-        return ""
-
-    profile = sport_profile(_row_value(tournament, "sport", "Fotboll"))
-    period_label = str(profile["period_label"])
-    halves = int(rules["halves"] or 1)
-    minutes = int(rules["minutes_per_half"] or 0)
-    halftime = int(rules["halftime_minutes"] or 0)
-    pitch_break = int(rules["pitch_break_minutes"] or 0)
-    minimum_rest = int(rules["minimum_team_rest_minutes"] or 0)
-    avoid_consecutive = bool(rules["avoid_consecutive_matches"])
-    consecutive_break = int(rules["consecutive_match_break_minutes"] or 0)
-    pitch_count = int(rules["pitch_count"] or 0)
-
-    match_format = f"{minutes} minuter" if halves == 1 else f"{halves} {period_label} × {minutes} minuter"
-    halftime_text = "Ingen periodpaus" if halves == 1 or halftime == 0 else f"Paus mellan {period_label}: {halftime} min"
-
-    if tournament["table_tiebreak"] == "Inbördes möten först":
-        table_rule = "Vid lika poäng avgör inbördes möten först, därefter målskillnad och gjorda mål."
-    else:
-        table_rule = "Vid lika poäng avgör målskillnad först, därefter gjorda mål och lagnamn."
-
-    if avoid_consecutive:
-        consecutive_rule = (
-            "CupNavi försöker undvika att samma lag spelar direkt efter föregående match. "
-            f"Om det inte går läggs {consecutive_break} minuters extra paus in."
-        )
-    else:
-        consecutive_rule = "Följdmatcher för samma lag är tillåtna enligt cupens inställningar."
-
-    playoff_format = tournament["playoff_format"] or "Inget slutspel"
-    if playoff_format == "Inget slutspel":
-        playoff_rule = "Cupen har inget slutspel."
-    else:
-        tie_rule = tournament["playoff_tie_rule"] or "Straffar direkt"
-        if tie_rule == "Förlängning + straffar":
-            extra = int(tournament["extra_time_minutes"] or 0)
-            deciding = f"Vid oavgjort spelas {extra} minuters förlängning och därefter straffar vid behov."
-        elif tie_rule == "Lottning":
-            deciding = "Vid oavgjort avgörs slutspelsmatchen genom lottning."
-        else:
-            deciding = "Vid oavgjort avgörs slutspelsmatchen med straffar direkt."
-        bronze = " Bronsmatch spelas." if tournament["bronze_match"] else " Ingen bronsmatch spelas."
-        playoff_rule = f"Slutspelsmodell: {playoff_format}. {deciding}{bronze}"
-
-    return f"""
-    <div class="cn-rules-grid">
-      <div class="cn-rule-card"><div class="cn-rule-icon">⏱️</div><div>
-        <strong>Matchtid</strong><span>{html.escape(match_format)}</span><small>{html.escape(halftime_text)}</small>
-      </div></div>
-      <div class="cn-rule-card"><div class="cn-rule-icon">🏅</div><div>
-        <strong>Poäng</strong><span>Vinst {int(tournament["points_win"] or 0)} · Oavgjort {int(tournament["points_draw"] or 0)} · Förlust {int(tournament["points_loss"] or 0)}</span>
-      </div></div>
-      <div class="cn-rule-card"><div class="cn-rule-icon">📊</div><div>
-        <strong>Tabellplacering</strong><span>{html.escape(table_rule)}</span>
-      </div></div>
-      <div class="cn-rule-card"><div class="cn-rule-icon">🧘</div><div>
-        <strong>Lagvila</strong><span>Minsta lagvila: {minimum_rest} minuter.</span><small>{html.escape(consecutive_rule)}</small>
-      </div></div>
-      <div class="cn-rule-card"><div class="cn-rule-icon">🏟️</div><div>
-        <strong>Planer och pauser</strong><span>{pitch_count} {'plan' if pitch_count == 1 else 'planer'} används.</span><small>Paus mellan matcher på samma plan: {pitch_break} min.</small>
-      </div></div>
-      <div class="cn-rule-card"><div class="cn-rule-icon">🏆</div><div>
-        <strong>Slutspel</strong><span>{html.escape(playoff_rule)}</span>
-      </div></div>
-    </div>
-    """
+    return _public_rules_html_impl(
+        tournament, rules, row_value=_row_value, sport_profile=sport_profile,
+    )
 
 
 def render_about_page():
@@ -5851,364 +5430,60 @@ def render_public_info_section(tournament_id, tournament, published_matches):
 
 
 def render_public_view(tournament_id, tournament):
-    # Besöksstatistik registreras sist så den inte ligger före sidans innehåll.
-    if hasattr(st, "query_params"):
-        _confirm_token = str(st.query_params.get("notify_confirm", "") or "").strip()
-        _unsubscribe_token = str(st.query_params.get("notify_unsubscribe", "") or "").strip()
-        if _confirm_token:
-            st.success("✓ E-postnotiser är aktiverade.") if confirm_notification_subscription(_confirm_token) else st.warning("Bekräftelselänken är ogiltig eller redan använd.")
-            try: del st.query_params["notify_confirm"]
-            except KeyError: pass
-        if _unsubscribe_token:
-            st.success("E-postnotiser är avslutade.") if unsubscribe_notification_subscription(_unsubscribe_token) else st.warning("Avregistreringslänken är ogiltig eller redan använd.")
-            try: del st.query_params["notify_unsubscribe"]
-            except KeyError: pass
-    _public_core = public_core_snapshot(tournament_id)
-    published_matches = _public_core["matches"]
-    played_matches = [m for m in published_matches if m["home_score"] is not None and m["away_score"] is not None]
-    public_teams = _public_core["teams"]
-    public_team_by_id = {row["id"]: row for row in public_teams}
-    public_team_names = {row["id"]: row["name"] for row in public_teams}
-    now = datetime.now()
-
-    def _public_pitch_label(match_row):
-        return str(_row_value(match_row, "pitch_name", None) or pitch_label(tournament_id, match_row["pitch_number"]))
-
-    def _public_referee_label(match_row):
-        return str(_row_value(match_row, "referee_name", "") or "")
-
-    # v147: grupper laddas först när skärm, gruppfilter eller statistik behöver dem.
-    # Matcher-sidan gör alltså ingen gruppfråga bara för att rendera grundvyn.
-    def _load_public_groups():
-        return _derived_cache_get(
-            ("public-groups", int(tournament_id)),
-            lambda: all_rows("SELECT * FROM groups WHERE tournament_id=? ORDER BY name", (tournament_id,)),
-        )
-
-    def _public_source_team_id(source):
-        """Lös vanliga team:<id>-källor lokalt; bara komplexa slutspelskällor behöver DB-resolver."""
-        parts = source.split(":") if source else []
-        if len(parts) >= 2 and parts[0] == "team":
-            try:
-                return int(parts[1])
-            except (TypeError, ValueError):
-                return None
-        return resolve_source(source)
-
-    def _public_source_label(source):
-        team_id = _public_source_team_id(source)
-        if team_id in public_team_names:
-            return public_team_names[team_id]
-        return source_label(source)
-
-    screen_mode = bool(hasattr(st, "query_params") and str(st.query_params.get("screen", "")) == "1")
-    if screen_mode:
-        render_public_screen_mode(
-            tournament_id,
-            tournament,
-            published_matches,
-            now=now,
-            public_cup_url=public_cup_url,
-            source_label=_public_source_label,
-            pitch_label=_public_pitch_label,
-            match_duration_minutes=match_duration_minutes,
-            calculate_all_group_tables=calculate_all_group_tables,
+    """Thin application adapter for the extracted public tournament workspace."""
+    return render_public_workspace(
+        tournament_id,
+        tournament,
+        PublicWorkspaceDependencies(
+            st=st,
+            perf=_PERF,
+            derived_cache_get=_derived_cache_get,
+            row_value=_row_value,
             all_rows=all_rows,
-        )
-        return
-    filtered_public_matches = published_matches
-    next_match = next(
-        (
-            m for m in filtered_public_matches
-            if datetime.fromisoformat(m["scheduled_start"]) >= now and m["home_score"] is None
-        ),
-        None,
-    )
-    public_lifecycle = normalize_status(
-        _row_value(tournament, "lifecycle_status", None),
-        is_published=bool(tournament["is_published"]),
-    )
-    st.markdown(
-        build_public_hero_html(
-            tournament,
-            lifecycle_status=public_lifecycle,
+            build_public_hero_html=build_public_hero_html,
+            build_public_navigation_html=build_public_navigation_html,
+            calculate_all_group_tables=calculate_all_group_tables,
+            calculate_table=calculate_table,
+            confirm_notification_subscription=confirm_notification_subscription,
+            create_notification_subscription=create_notification_subscription,
             cup_date_label=cup_date_label,
-            row_value=_row_value,
-            translate=tr,
-        ),
-        unsafe_allow_html=True,
-    )
-
-    # Min cup: lagvalet ligger även i URL:en så länken kan bokmärkas/delas och
-    # fungerar utan konto. Session state gör växlingen snabb under samma besök.
-    team_query = st.query_params.get("team") if hasattr(st, "query_params") else None
-    pitch_query = st.query_params.get("pitch") if hasattr(st, "query_params") else None
-    try:
-        requested_team_id = int(team_query) if team_query else None
-    except (TypeError, ValueError):
-        requested_team_id = None
-    try:
-        requested_pitch_no = int(pitch_query) if pitch_query else None
-    except (TypeError, ValueError):
-        requested_pitch_no = None
-    if requested_team_id not in public_team_names:
-        requested_team_id = None
-
-    # Delningskontrollen renderas längre ned, direkt under publika nyckeltal.
-
-    # v143: mobil först – "Följ mitt lag" är en personlig cupyta, inte bara ett filter.
-    st.markdown(
-        """<style>
-        .cn-follow-shell{border:1px solid #dce6e1;border-radius:20px;background:#fff;
-          padding:16px 18px;margin:8px 0 14px;box-shadow:0 8px 24px rgba(15,23,42,.05)}
-        .cn-follow-kicker{font-size:.78rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#15733c}
-        .cn-follow-team{font-size:1.45rem;font-weight:850;color:#142033;margin:2px 0 10px}
-        .cn-next-card{border-radius:18px;background:#f5fbf7;border:1px solid #cfe5d7;padding:16px;margin-top:8px}
-        .cn-next-meta{font-size:.83rem;font-weight:750;color:#51606d;margin-bottom:8px}
-        .cn-next-teams{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:10px;
-          font-size:1.06rem;font-weight:800;color:#152033}
-        .cn-next-teams .away{text-align:right}.cn-next-vs{color:#6b7785;font-size:.85rem}
-        .cn-follow-mini{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:10px}
-        .cn-follow-mini>div{border:1px solid #e2e8ec;border-radius:14px;padding:10px;background:#fbfcfd}
-        .cn-follow-mini span{display:block;color:#73808d;font-size:.75rem}.cn-follow-mini strong{font-size:1rem;color:#172033}
-        .cn-live-strip{margin:12px 0 18px}
-        .cn-live-head{display:flex;align-items:center;justify-content:space-between;gap:12px;border:1px solid #fecaca;background:linear-gradient(135deg,#fff7f7,#fff);border-radius:16px;padding:13px 15px;margin-bottom:10px}
-        .cn-live-head-left{display:flex;align-items:center;gap:10px}
-        .cn-live-dot{width:10px;height:10px;border-radius:50%;background:#ef4444;box-shadow:0 0 0 5px rgba(239,68,68,.10)}
-        .cn-live-title{font-size:.76rem;font-weight:900;letter-spacing:.08em;color:#b91c1c;text-transform:uppercase}
-        .cn-live-subtitle{font-size:.82rem;color:#64748b;margin-top:2px}
-        .cn-live-status{font-size:.72rem;font-weight:800;color:#b91c1c;background:#fff;border:1px solid #fecaca;border-radius:999px;padding:5px 8px;white-space:nowrap}
-        .cn-live-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
-        .cn-live-card{background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:13px 14px;box-shadow:0 5px 16px rgba(15,23,42,.055);min-width:0}
-        .cn-live-card-top{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:9px}
-        .cn-live-time{font-size:1rem;font-weight:900;color:#166534}
-        .cn-live-date{font-size:.72rem;color:#64748b;margin-top:1px}
-        .cn-live-pitch{font-size:.75rem;font-weight:800;color:#475569;background:#f8fafc;border:1px solid #e2e8f0;border-radius:999px;padding:5px 8px;white-space:nowrap}
-        .cn-live-teams{font-size:.91rem;font-weight:820;color:#172033;line-height:1.35}
-        .cn-live-vs{color:#94a3b8;font-weight:750;padding:0 3px}
-        .cn-live-card.is-live{border-color:#fecaca;background:linear-gradient(180deg,#fff,#fff7f7)}
-        .cn-live-card.is-live .cn-live-time{color:#b91c1c}
-
-                .cn-public-main-nav-note{font-size:12px;color:#64748b;margin:2px 0 6px}
-.cn-public-follow-anchor{height:0;margin:0;padding:0}
-        @media(min-width:901px){
-          .cn-public-follow-anchor + div{margin-top:0!important;margin-bottom:2px!important}
-@media(max-width:900px){.cn-live-grid{grid-template-columns:1fr}.cn-live-head{align-items:flex-start}.cn-live-status{display:none}}
-        .cn-my-status{display:flex;gap:8px;flex-wrap:wrap;margin:8px 0}.cn-my-pill{border:1px solid #dbe5df;border-radius:999px;padding:6px 10px;background:#f8fbf9;font-size:.8rem;font-weight:750}
-        .cn-venue-card{border:1px solid #e2e8f0;border-radius:14px;padding:11px 12px;margin:7px 0;background:#fff}
-
-        /* v166: tighter desktop rhythm. */
-        @media(min-width:901px){
-          .stApp .block-container{padding-top:.75rem!important;padding-bottom:1.5rem!important}
-          .cn-flow-context{margin-top:0!important;margin-bottom:5px!important;padding:9px 12px!important}
-          .cn-next-action{margin:0!important;padding:7px 10px!important}
-
-        @media(min-width:901px){
-          .cn-next-action{min-height:44px!important;display:flex;align-items:center;gap:8px}
-          .cn-next-action br{display:none}
-        }
-          hr{margin:.7rem 0!important}
-          [data-testid="stAlert"]{margin-top:.3rem!important;margin-bottom:.45rem!important}
-          [data-testid="stVerticalBlock"]{gap:.42rem!important}
-        }
-
-        /* v162: publika desktopvyn använder bredden bättre och minskar dubblerad höjd. */
-        @media(min-width:901px){
-          .cup-hero{padding:13px 18px!important;margin:0 0 7px!important;border-radius:14px!important}
-          .cup-hero .title{font-size:28px!important;margin:2px 0 3px!important}
-          .cup-hero .meta{font-size:13px!important}
-          .cn-live-strip{margin:5px 0 7px!important}
-          .cn-live-head{padding:10px 13px!important;margin-bottom:8px!important}
-          .cn-live-card{padding:10px 12px!important;border-radius:13px!important}
-          .cn-live-card-top{margin-bottom:6px!important}
-          .public-metric-grid{display:flex!important;gap:8px!important;margin:6px 0 10px!important}
-          .public-metric{min-height:auto!important;padding:8px 11px!important;border-radius:10px!important;display:flex!important;align-items:baseline!important;gap:8px!important;flex:0 0 auto!important}
-          .public-metric .label{font-size:12px!important;margin:0!important}
-          .public-metric .value{font-size:18px!important}
-          .cn-public-follow-anchor + div [data-testid="stSelectbox"]{margin-bottom:0!important}
-          .cn-public-follow-anchor + div [data-testid="stSelectbox"] label{font-size:12px!important}
-          .public-match-card{margin:7px 0!important;padding:10px 12px!important;border-radius:12px!important}
-          .public-match-card .public-team-name{font-size:15px!important}
-          .public-match-card .match-score{font-size:18px!important}
-          .public-match-card .match-meta{font-size:12px!important}
-          .public-match-card .kit-label{font-size:10px!important}
-          .public-match-card .match-weather,.public-match-card .match-referee{font-size:11px!important;margin-top:6px!important}
-          .public-match-card .cn-match-events{margin-top:6px!important;padding-top:6px!important}
-          .public-match-card .cn-event-team{padding:5px!important}
-          .public-match-card .cn-event{font-size:11px!important;padding:3px 6px!important}
-        }
-
-        @media(max-width:760px){
-          .cn-public-summary-row{display:block!important;margin-bottom:10px!important}
-          .cn-public-summary-row .public-metric-grid{margin-bottom:8px!important}
-          .cn-public-highlights{grid-template-columns:repeat(2,minmax(0,1fr))!important;max-width:none!important;gap:7px!important}
-          .cn-public-highlight{padding:8px 9px!important}
-          .cn-public-highlight .value{font-size:13px!important}
-          .cn-follow-shell{padding:14px;margin-top:4px;border-radius:16px}
-          .cn-follow-team{font-size:1.22rem}
-          .cn-next-card{padding:13px;border-radius:15px}
-          .cn-next-teams{grid-template-columns:1fr auto 1fr;font-size:.98rem}
-          .cn-follow-mini{grid-template-columns:1fr 1fr 1fr;gap:6px}
-          .cn-follow-mini>div{padding:8px}
-          [class*="st-key-public_favorite_team_"] label{font-size:.82rem!important}
-        }
-        </style>""",
-        unsafe_allow_html=True,
-    )
-
-    # v1.276: hela den interaktiva publika "Mitt lag"-upplevelsen är
-    # extraherad till en separat Streamlit-vy. app.py behåller domän-/DB-funktionerna
-    # och injicerar dem för att undvika duplicerad persistence eller ny arkitektur.
-    render_public_team_follow(
-        tournament_id=tournament_id,
-        tournament=tournament,
-        requested_team_id=requested_team_id,
-        public_teams=public_teams,
-        public_team_names=public_team_names,
-        published_matches=published_matches,
-        now=now,
-        tr=tr,
-        source_team_id=_public_source_team_id,
-        source_label=_public_source_label,
-        row_value=_row_value,
-        public_pitch_label=_public_pitch_label,
-        pitch_label=pitch_label,
-        swedish_datetime=swedish_datetime,
-        calculate_table=calculate_table,
-        one_row=one_row,
-        all_rows=all_rows,
-        create_notification_subscription=create_notification_subscription,
-    )
-
-    public_page_key = f"public_page_v167_{tournament_id}"
-    requested_section = str(st.query_params.get("section", "")) if hasattr(st, "query_params") else ""
-    public_page = resolve_public_page(
-        requested_section,
-        st.session_state.get(public_page_key),
-    )
-    st.session_state[public_page_key] = public_page
-    st.session_state["_cupnavi_current_public_page"] = public_page
-
-    # v1.273: navigationens HTML byggs i en ren modul. Streamlit-vyn behåller
-    # bara routing/state och renderingen, medan länk/escaping-logik kan testas separat.
-    st.markdown(
-        build_public_navigation_html(
-            public_navigation_specs(),
-            current_page=public_page,
-            public_slug=_row_value(tournament, "public_slug", tournament_id) or tournament_id,
-            requested_team_id=requested_team_id,
-            translate=tr,
-        ),
-        unsafe_allow_html=True,
-    )
-
-    # Page-specific UI must only be evaluated after public_page is resolved.
-    screen_url = public_cup_url(tournament_id) + ("&" if "?" in public_cup_url(tournament_id) else "?") + "screen=1"
-    if public_page == "Info":
-        st.markdown(
-            f"<div style='text-align:right;margin:-4px 0 8px'><a class='cn-screen-link' href='{html.escape(screen_url, quote=True)}'>🖥 Informationsskärm</a></div>",
-            unsafe_allow_html=True,
-        )
-
-    def _filter_public_matches(base_matches, key_prefix, heading):
-        return render_public_match_filters_module(
-            base_matches,
-            key_prefix,
-            heading,
-            tournament_id=tournament_id,
-            tr=tr,
-            public_teams=public_teams,
-            public_team_names=public_team_names,
-            load_public_groups=_load_public_groups,
-            source_team_id=_public_source_team_id,
-            row_value=_row_value,
-            filter_matches=filter_matches,
-            sort_public_matches=sort_public_matches,
-        )
-
-
-    def _render_public_match_cards(matches, show_results=None, show_weather=False, events_by_match=None):
-        return render_public_match_cards_module(
-            matches,
-            tournament=tournament,
-            show_results=show_results,
-            show_weather=show_weather,
-            events_by_match=events_by_match,
-            row_value=_row_value,
             fetch_weather_forecast=fetch_weather_forecast,
-            public_team_by_id=public_team_by_id,
-            public_team_names=public_team_names,
-            public_source_team_id=_public_source_team_id,
-            public_source_label=_public_source_label,
+            filter_matches=filter_matches,
+            inject_public_experience_styles=inject_public_experience_styles,
+            kit_background_for_team=kit_background_for_team,
+            match_duration_minutes=match_duration_minutes,
+            match_kit_colors=match_kit_colors,
+            normalize_status=normalize_status,
+            one_row=one_row,
+            pitch_label=pitch_label,
+            public_core_snapshot=public_core_snapshot,
+            public_cup_url=public_cup_url,
+            public_match_events_db_snapshot=public_match_events_db_snapshot,
+            public_match_events_html=public_match_events_html,
+            public_match_overview_db_snapshot=public_match_overview_db_snapshot,
+            public_navigation_specs=public_navigation_specs,
+            render_empty_state=render_empty_state,
+            render_public_info_section=render_public_info_section,
+            render_public_match_cards_module=render_public_match_cards_module,
+            render_public_match_filters_module=render_public_match_filters_module,
+            render_public_matches_fragment_module=render_public_matches_fragment_module,
+            render_public_screen_mode=render_public_screen_mode,
+            render_public_share_control=render_public_share_control,
+            render_public_statistics_section=render_public_statistics_section,
+            render_public_team_follow=render_public_team_follow,
+            resolve_public_page=resolve_public_page,
+            resolve_source=resolve_source,
+            sort_public_matches=sort_public_matches,
+            source_label=source_label,
+            sport_profile=sport_profile,
             swedish_datetime=swedish_datetime,
+            tr=tr,
+            track_public_visit=track_public_visit,
+            unsubscribe_notification_subscription=unsubscribe_notification_subscription,
             weather_for_match=weather_for_match,
             weather_label=weather_label,
-            match_kit_colors=match_kit_colors,
-            kit_background_for_team=kit_background_for_team,
-            public_match_events_html=public_match_events_html,
-            public_pitch_label=_public_pitch_label,
-            public_referee_label=_public_referee_label,
-            render_empty_state=render_empty_state,
-            now=now,
-        )
-
-
-    if public_page == "Matcher":
-        @st.fragment
-        def render_public_matches_fragment():
-            return render_public_matches_fragment_module(
-                st=st,
-                tournament_id=tournament_id,
-                tournament=tournament,
-                published_matches=published_matches,
-                played_matches=played_matches,
-                public_teams=public_teams,
-                public_team_names=public_team_names,
-                requested_team_id=requested_team_id,
-                requested_pitch_no=requested_pitch_no,
-                now=now,
-                perf=_PERF,
-                tr=tr,
-                row_value=_row_value,
-                sport_profile=sport_profile,
-                match_duration_minutes=match_duration_minutes,
-                source_label=_public_source_label,
-                source_team_id=_public_source_team_id,
-                pitch_label=_public_pitch_label,
-                overview_snapshot=public_match_overview_db_snapshot,
-                render_share_control=render_public_share_control,
-                filter_matches_view=_filter_public_matches,
-                render_match_cards=_render_public_match_cards,
-                load_match_events=public_match_events_db_snapshot,
-            )
-
-        render_public_matches_fragment()
-
-    if public_page == "Tabeller":
-        render_public_statistics_section(
-            tournament_id, tournament, published_matches, played_matches,
-            forced_section=tr("Tabeller"),
-        )
-
-    if public_page == "Slutspel":
-        render_public_statistics_section(
-            tournament_id, tournament, published_matches, played_matches,
-            forced_section=tr("Slutspel"),
-        )
-
-    if public_page == "Statistik":
-        render_public_statistics_section(
-            tournament_id, tournament, published_matches, played_matches,
-            forced_section=tr("Topplistor"),
-        )
-
-    if public_page == "Info":
-        render_public_info_section(tournament_id, tournament, published_matches)
-
-    # Icke-kritisk analytics sist: ett långsamt Turso-write ska inte fördröja
-    # hero/navigation/matchinnehåll på den publika sidan.
-    track_public_visit(tournament_id)
-
+        ),
+    )
 
 def _reporter_save_quick_result(tournament_id, quick_match, home_score, away_score):
     """Persist one quick result with the existing optimistic-locking boundary."""
@@ -12200,104 +11475,55 @@ if admin_page == "Domare":
     st.subheader("Åtkomstkoder")
     st.caption("Matchrapportör och domare har varsin fyrsiffrig kod för den aktiva cupen.")
 
-    def render_role_code_card(label, table_name, session_prefix):
-        credential = one_row(
+    def _load_role_code_credential(table_name):
+        return one_row(
             f"SELECT code_hash,created_at,rotated_at FROM {table_name} WHERE tournament_id=?",
             (tid,),
         )
-        with st.container(border=True):
-            st.markdown(f"**{label}**")
-            if credential:
-                st.caption(
-                    "Kod aktiv"
-                    + (
-                        f" · ändrad {str(credential['rotated_at']).replace('T',' ')}"
-                        if credential["rotated_at"] else ""
-                    )
+
+    def _rotate_admin_role_code(table_name):
+        new_code = generate_short_numeric_code(4)
+        code_salt, code_hash = new_code_hash(new_code)
+        now_text = datetime.now().isoformat(timespec="seconds")
+        with db() as con:
+            existing = con.execute(
+                f"SELECT tournament_id FROM {table_name} WHERE tournament_id=?",
+                (tid,),
+            ).fetchone()
+            if existing:
+                con.execute(
+                    f"UPDATE {table_name} SET code_salt=?,code_hash=?,rotated_at=? WHERE tournament_id=?",
+                    (code_salt, code_hash, now_text, tid),
                 )
             else:
-                st.caption("Ingen kod skapad ännu.")
-
-            code_key = f"new_{session_prefix}_code_{tid}"
-            confirm_key = f"confirm_regenerate_{session_prefix}_code_{tid}"
-
-            # Initial creation is non-destructive. Re-generation invalidates the
-            # current code and therefore always requires an explicit confirmation.
-            if not credential:
-                create_requested = st.button(
-                    "Generera 4-siffrig kod",
-                    key=f"generate_{session_prefix}_code_{tid}",
-                    type="primary",
-                    use_container_width=True,
+                con.execute(
+                    f"INSERT INTO {table_name}(tournament_id,code_salt,code_hash,created_at,rotated_at) VALUES(?,?,?,?,NULL)",
+                    (tid, code_salt, code_hash, now_text),
                 )
-            else:
-                create_requested = False
-                if not st.session_state.get(confirm_key):
-                    if st.button(
-                        "Regenerera ny kod",
-                        key=f"request_regenerate_{session_prefix}_code_{tid}",
-                        use_container_width=True,
-                    ):
-                        st.session_state[confirm_key] = True
-                        st.rerun()
-                else:
-                    st.warning(
-                        f"Är du säker? Den nuvarande koden för {label.lower()} slutar fungera direkt."
-                    )
-                    yes_col, no_col = st.columns(2)
-                    if yes_col.button(
-                        "Ja, regenerera",
-                        key=f"confirm_regenerate_{session_prefix}_{tid}",
-                        type="primary",
-                        use_container_width=True,
-                    ):
-                        create_requested = True
-                        st.session_state.pop(confirm_key, None)
-                    if no_col.button(
-                        "Avbryt",
-                        key=f"cancel_regenerate_{session_prefix}_{tid}",
-                        use_container_width=True,
-                    ):
-                        st.session_state.pop(confirm_key, None)
-                        st.rerun()
-
-            if create_requested:
-                new_code = generate_short_numeric_code(4)
-                code_salt, code_hash = new_code_hash(new_code)
-                now_text = datetime.now().isoformat(timespec="seconds")
-                with db() as con:
-                    existing = con.execute(
-                        f"SELECT tournament_id FROM {table_name} WHERE tournament_id=?",
-                        (tid,),
-                    ).fetchone()
-                    if existing:
-                        con.execute(
-                            f"UPDATE {table_name} SET code_salt=?,code_hash=?,rotated_at=? WHERE tournament_id=?",
-                            (code_salt, code_hash, now_text, tid),
-                        )
-                    else:
-                        con.execute(
-                            f"INSERT INTO {table_name}(tournament_id,code_salt,code_hash,created_at,rotated_at) VALUES(?,?,?,?,NULL)",
-                            (tid, code_salt, code_hash, now_text),
-                        )
-                    con.commit()
-                st.session_state[code_key] = new_code
-                st.rerun()
-
-            if st.session_state.get(code_key):
-                st.markdown(
-                    f"<div style='font-size:2rem;font-weight:900;letter-spacing:.22em;"
-                    f"text-align:center;padding:12px;border:1px solid #d9e2dd;border-radius:12px;"
-                    f"background:#fff'>{html.escape(st.session_state[code_key])}</div>",
-                    unsafe_allow_html=True,
-                )
-                st.caption("Kopiera eller dela koden nu. Den visas bara efter generering.")
+            con.commit()
+        return new_code
 
     code_col1, code_col2 = st.columns(2)
     with code_col1:
-        render_role_code_card("Matchrapportör", "match_reporter_credentials", "reporter")
+        render_role_code_card(
+            st,
+            "Matchrapportör",
+            "match_reporter_credentials",
+            "reporter",
+            tid,
+            _load_role_code_credential("match_reporter_credentials"),
+            _rotate_admin_role_code,
+        )
     with code_col2:
-        render_role_code_card("Domare", "referee_credentials", "referee")
+        render_role_code_card(
+            st,
+            "Domare",
+            "referee_credentials",
+            "referee",
+            tid,
+            _load_role_code_credential("referee_credentials"),
+            _rotate_admin_role_code,
+        )
 
     with st.form("new_referee", clear_on_submit=True):
         rname = st.text_input("Namn")

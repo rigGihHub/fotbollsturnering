@@ -38,9 +38,7 @@ def test_analytics_skips_database_between_samples():
 
 def test_public_view_batches_team_and_event_data():
     text = app_text()
-    start = text.index("def render_public_view(")
-    end = text.index("def render_match_reporter_view(", start)
-    block = text[start:end]
+    block = Path("cupnavi_core/public_workspace_view.py").read_text(encoding="utf-8")
     matches_view = Path("cupnavi_core/public_matches_view.py").read_text(encoding="utf-8")
     repository = Path("cupnavi_core/public_match_repository.py").read_text(encoding="utf-8")
     assert "public_team_by_id" in block

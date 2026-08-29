@@ -68,7 +68,8 @@ def test_hero_html_escapes_team_and_source_labels():
 def test_app_uses_public_team_follow_module():
     app = open('app.py', encoding='utf-8').read()
     view = open('cupnavi_core/public_team_follow_view.py', encoding='utf-8').read()
+    workspace = open('cupnavi_core/public_workspace_view.py', encoding='utf-8').read()
     assert 'from cupnavi_core.public_team_follow_view import render_public_team_follow' in app
-    assert 'render_public_team_follow(' in app
+    assert 'render_public_team_follow(' in workspace
     assert 'favorite_snapshot = build_favorite_team_snapshot(' in view
     assert 'build_favorite_team_hero_html(' in view

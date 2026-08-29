@@ -4,6 +4,7 @@ from pathlib import Path
 ROOT=Path(__file__).resolve().parents[1]
 APP=(ROOT/"app.py").read_text(encoding="utf-8")
 TEAM=(ROOT/"cupnavi_core/team_portal.py").read_text(encoding="utf-8")
+ROLE=(ROOT/"cupnavi_core/admin_role_codes_view.py").read_text(encoding="utf-8")
 
 def test_secure_short_numeric_code_generator_exists():
     assert "def generate_short_numeric_code(length=4):" in TEAM
@@ -19,10 +20,10 @@ def test_reporter_credentials_are_per_tournament_and_hashed():
 def test_admin_can_generate_four_digit_reporter_code_under_referees():
     block=APP[APP.index('if admin_page == "Domare":'):APP.index('if admin_page == "Skapa och publicera schema":')]
     assert 'st.subheader("Åtkomstkoder")' in block
-    assert 'render_role_code_card("Matchrapportör", "match_reporter_credentials", "reporter")' in block
-    assert '"Generera 4-siffrig kod"' in block
+    assert '"Matchrapportör"' in block and '"match_reporter_credentials"' in block and '"reporter"' in block
+    assert '"Generera 4-siffrig kod"' in ROLE
     assert "generate_short_numeric_code(4)" in block
-    assert "Kopiera eller dela koden nu." in block
+    assert "Kopiera eller dela koden nu." in ROLE
 
 def test_reporter_login_uses_tournament_and_code():
     block=APP[APP.index("def require_match_reporter_access():"):APP.index("class CloudConnection:")]

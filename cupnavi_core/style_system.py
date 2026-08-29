@@ -1215,9 +1215,18 @@ def inject_v266_public_mobile_css(st):
           word-break:normal !important; overflow-wrap:normal !important; hyphens:none !important;
         }
 
+        /* The public section navigation must remain visible throughout the whole
+           page. Making only the <nav> sticky is not sufficient in Streamlit: the
+           nav lives inside a short markdown element, so sticky positioning stops
+           when that element leaves the viewport. Make the Streamlit element
+           itself sticky and keep the nav in normal flow inside it. */
+        [data-testid="stElementContainer"]:has(.cn-public-section-nav),
+        .element-container:has(.cn-public-section-nav){
+          position:sticky !important;top:0 !important;z-index:999995 !important;
+        }
         .cn-public-section-nav{
           display:grid !important;grid-template-columns:repeat(5,minmax(0,1fr)) !important;
-          position:sticky !important;top:0 !important;z-index:999995 !important;
+          position:relative !important;top:auto !important;z-index:1 !important;
           width:100% !important;margin:4px 0 12px !important;padding:6px !important;
           background:#1f6f4a !important;border:1px solid #195d3e !important;
           border-radius:12px !important;box-shadow:0 5px 16px rgba(15,23,42,.14) !important;
@@ -1750,6 +1759,110 @@ def inject_v198_visual_system(st):
             transition-duration:.01ms!important;
             scroll-behavior:auto!important;
           }
+        }
+        </style>""",
+        unsafe_allow_html=True,
+    )
+
+
+def inject_public_experience_styles(st):
+    """Public follow/live/layout styles with valid, non-nested media queries.
+
+    Extracted from ``render_public_view`` in v294. Keeping the public experience
+    rules here avoids growing the application orchestrator and makes responsive
+    CSS independently regression-testable.
+    """
+    st.markdown(
+        """<style>
+        .cn-follow-shell{border:1px solid #dce6e1;border-radius:20px;background:#fff;
+          padding:16px 18px;margin:8px 0 14px;box-shadow:0 8px 24px rgba(15,23,42,.05)}
+        .cn-follow-kicker{font-size:.78rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#15733c}
+        .cn-follow-team{font-size:1.45rem;font-weight:850;color:#142033;margin:2px 0 10px}
+        .cn-next-card{border-radius:18px;background:#f5fbf7;border:1px solid #cfe5d7;padding:16px;margin-top:8px}
+        .cn-next-meta{font-size:.83rem;font-weight:750;color:#51606d;margin-bottom:8px}
+        .cn-next-teams{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:10px;
+          font-size:1.06rem;font-weight:800;color:#152033}
+        .cn-next-teams .away{text-align:right}.cn-next-vs{color:#6b7785;font-size:.85rem}
+        .cn-follow-mini{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:10px}
+        .cn-follow-mini>div{border:1px solid #e2e8ec;border-radius:14px;padding:10px;background:#fbfcfd}
+        .cn-follow-mini span{display:block;color:#73808d;font-size:.75rem}.cn-follow-mini strong{font-size:1rem;color:#172033}
+        .cn-live-strip{margin:12px 0 18px}
+        .cn-live-head{display:flex;align-items:center;justify-content:space-between;gap:12px;border:1px solid #fecaca;background:linear-gradient(135deg,#fff7f7,#fff);border-radius:16px;padding:13px 15px;margin-bottom:10px}
+        .cn-live-head-left{display:flex;align-items:center;gap:10px}
+        .cn-live-dot{width:10px;height:10px;border-radius:50%;background:#ef4444;box-shadow:0 0 0 5px rgba(239,68,68,.10)}
+        .cn-live-title{font-size:.76rem;font-weight:900;letter-spacing:.08em;color:#b91c1c;text-transform:uppercase}
+        .cn-live-subtitle{font-size:.82rem;color:#64748b;margin-top:2px}
+        .cn-live-status{font-size:.72rem;font-weight:800;color:#b91c1c;background:#fff;border:1px solid #fecaca;border-radius:999px;padding:5px 8px;white-space:nowrap}
+        .cn-live-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+        .cn-live-card{background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:13px 14px;box-shadow:0 5px 16px rgba(15,23,42,.055);min-width:0}
+        .cn-live-card-top{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:9px}
+        .cn-live-time{font-size:1rem;font-weight:900;color:#166534}
+        .cn-live-date{font-size:.72rem;color:#64748b;margin-top:1px}
+        .cn-live-pitch{font-size:.75rem;font-weight:800;color:#475569;background:#f8fafc;border:1px solid #e2e8f0;border-radius:999px;padding:5px 8px;white-space:nowrap}
+        .cn-live-teams{font-size:.91rem;font-weight:820;color:#172033;line-height:1.35}
+        .cn-live-vs{color:#94a3b8;font-weight:750;padding:0 3px}
+        .cn-live-card.is-live{border-color:#fecaca;background:linear-gradient(180deg,#fff,#fff7f7)}
+        .cn-live-card.is-live .cn-live-time{color:#b91c1c}
+        .cn-public-main-nav-note{font-size:12px;color:#64748b;margin:2px 0 6px}
+        .cn-public-follow-anchor{height:0;margin:0;padding:0}
+        .cn-my-status{display:flex;gap:8px;flex-wrap:wrap;margin:8px 0}
+        .cn-my-pill{border:1px solid #dbe5df;border-radius:999px;padding:6px 10px;background:#f8fbf9;font-size:.8rem;font-weight:750}
+        .cn-venue-card{border:1px solid #e2e8f0;border-radius:14px;padding:11px 12px;margin:7px 0;background:#fff}
+
+        @media(max-width:900px){
+          .cn-live-grid{grid-template-columns:1fr}
+          .cn-live-head{align-items:flex-start}
+          .cn-live-status{display:none}
+        }
+
+        /* Tighter desktop rhythm. */
+        @media(min-width:901px){
+          .cn-public-follow-anchor + div{margin-top:0!important;margin-bottom:2px!important}
+          .stApp .block-container{padding-top:.75rem!important;padding-bottom:1.5rem!important}
+          .cn-flow-context{margin-top:0!important;margin-bottom:5px!important;padding:9px 12px!important}
+          .cn-next-action{margin:0!important;padding:7px 10px!important;min-height:44px!important;display:flex;align-items:center;gap:8px}
+          .cn-next-action br{display:none}
+          hr{margin:.7rem 0!important}
+          [data-testid="stAlert"]{margin-top:.3rem!important;margin-bottom:.45rem!important}
+          [data-testid="stVerticalBlock"]{gap:.42rem!important}
+
+          .cup-hero{padding:13px 18px!important;margin:0 0 7px!important;border-radius:14px!important}
+          .cup-hero .title{font-size:28px!important;margin:2px 0 3px!important}
+          .cup-hero .meta{font-size:13px!important}
+          .cn-live-strip{margin:5px 0 7px!important}
+          .cn-live-head{padding:10px 13px!important;margin-bottom:8px!important}
+          .cn-live-card{padding:10px 12px!important;border-radius:13px!important}
+          .cn-live-card-top{margin-bottom:6px!important}
+          .public-metric-grid{display:flex!important;gap:8px!important;margin:6px 0 10px!important}
+          .public-metric{min-height:auto!important;padding:8px 11px!important;border-radius:10px!important;display:flex!important;align-items:baseline!important;gap:8px!important;flex:0 0 auto!important}
+          .public-metric .label{font-size:12px!important;margin:0!important}
+          .public-metric .value{font-size:18px!important}
+          .cn-public-follow-anchor + div [data-testid="stSelectbox"]{margin-bottom:0!important}
+          .cn-public-follow-anchor + div [data-testid="stSelectbox"] label{font-size:12px!important}
+          .public-match-card{margin:7px 0!important;padding:10px 12px!important;border-radius:12px!important}
+          .public-match-card .public-team-name{font-size:15px!important}
+          .public-match-card .match-score{font-size:18px!important}
+          .public-match-card .match-meta{font-size:12px!important}
+          .public-match-card .kit-label{font-size:10px!important}
+          .public-match-card .match-weather,.public-match-card .match-referee{font-size:11px!important;margin-top:6px!important}
+          .public-match-card .cn-match-events{margin-top:6px!important;padding-top:6px!important}
+          .public-match-card .cn-event-team{padding:5px!important}
+          .public-match-card .cn-event{font-size:11px!important;padding:3px 6px!important}
+        }
+
+        @media(max-width:760px){
+          .cn-public-summary-row{display:block!important;margin-bottom:10px!important}
+          .cn-public-summary-row .public-metric-grid{margin-bottom:8px!important}
+          .cn-public-highlights{grid-template-columns:repeat(2,minmax(0,1fr))!important;max-width:none!important;gap:7px!important}
+          .cn-public-highlight{padding:8px 9px!important}
+          .cn-public-highlight .value{font-size:13px!important}
+          .cn-follow-shell{padding:14px;margin-top:4px;border-radius:16px}
+          .cn-follow-team{font-size:1.22rem}
+          .cn-next-card{padding:13px;border-radius:15px}
+          .cn-next-teams{grid-template-columns:1fr auto 1fr;font-size:.98rem}
+          .cn-follow-mini{grid-template-columns:1fr 1fr 1fr;gap:6px}
+          .cn-follow-mini>div{padding:8px}
+          [class*="st-key-public_favorite_team_"] label{font-size:.82rem!important}
         }
         </style>""",
         unsafe_allow_html=True,

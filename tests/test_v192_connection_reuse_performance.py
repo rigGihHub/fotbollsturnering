@@ -2,6 +2,7 @@ from pathlib import Path
 
 ROOT=Path(__file__).resolve().parents[1]
 APP=(ROOT/"app.py").read_text(encoding="utf-8")
+WORKSPACE=(ROOT/"cupnavi_core"/"public_workspace_view.py").read_text(encoding="utf-8")
 REPO=(ROOT/"cupnavi_api/repository.py").read_text(encoding="utf-8")
 MAIN=(ROOT/"cupnavi_api/main.py").read_text(encoding="utf-8")
 
@@ -10,7 +11,7 @@ def test_streamlit_public_core_reuses_one_connection():
     assert block.count("with db() as con:") == 1
     assert "FROM matches m" in block
     assert "FROM teams WHERE tournament_id=?" in block
-    public=APP[APP.index("def render_public_view"):APP.index("def render_initial_tournament_setup")]
+    public=WORKSPACE
     assert "_public_core = public_core_snapshot(tournament_id)" in public
 
 def test_public_api_snapshot_reuses_one_connection():

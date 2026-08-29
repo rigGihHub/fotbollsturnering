@@ -16,7 +16,7 @@ def test_completed_fixture_enables_playoff_when_it_seeds_bracket():
 
 
 def test_browser_contract_still_requires_real_final_content():
-    assert '("Slutspel", "FINAL")' in E2E
+    assert '("Slutspel", "playoffs", "FINAL")' in E2E
 
 
 def test_completed_fixture_persists_playoff_configuration(tmp_path):

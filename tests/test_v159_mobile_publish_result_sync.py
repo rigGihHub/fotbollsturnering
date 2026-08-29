@@ -4,6 +4,7 @@ ROOT=Path(__file__).resolve().parents[1]
 APP=(ROOT/"app.py").read_text(encoding="utf-8")
 VIEW=(ROOT/"cupnavi_core"/"admin_publication_view.py").read_text(encoding="utf-8")
 RESULTS_VIEW=(ROOT/"cupnavi_core"/"admin_results_view.py").read_text(encoding="utf-8")
+PUBLIC_WORKSPACE=(ROOT/"cupnavi_core"/"public_workspace_view.py").read_text(encoding="utf-8")
 
 
 def test_publish_control_exists_in_main_content_not_only_sidebar():
@@ -41,7 +42,7 @@ def test_admin_result_autosave_repairs_public_match_flag_when_cup_is_published()
 
 def test_public_view_reads_scores_directly_from_published_match_rows():
     core=APP[APP.index('def public_core_snapshot'):APP.index('def run_many')]
-    public=APP[APP.index('def render_public_view'):APP.index('def render_match_reporter_view')]
+    public=PUBLIC_WORKSPACE
     assert 'schedule_published=1' in core
     assert '_public_core = public_core_snapshot(tournament_id)' in public
     assert 'played_matches = [m for m in published_matches if m["home_score"] is not None and m["away_score"] is not None]' in public

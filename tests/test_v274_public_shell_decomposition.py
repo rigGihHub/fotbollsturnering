@@ -5,10 +5,11 @@ from cupnavi_core.public_shell_view import _screen_matches_html, build_public_he
 
 ROOT = Path(__file__).resolve().parents[1]
 VERSION = (ROOT / "VERSION.txt").read_text(encoding="utf-8").strip()
+WORKSPACE = (ROOT / "cupnavi_core" / "public_workspace_view.py").read_text(encoding="utf-8")
 
 
 def test_release_version_v274():
-    assert VERSION == "2026.08.29-292-MOBILE-TABLE-NAV-FOCUS"
+    assert VERSION == "2026.08.29-299-PERSISTENT-PUBLIC-NAVIGATION"
 
 
 def test_public_hero_builder_preserves_status_and_escapes_content():
@@ -43,7 +44,7 @@ def test_app_delegates_public_screen_and_hero_to_shell_module():
     app = (ROOT / "app.py").read_text(encoding="utf-8")
     module = (ROOT / "cupnavi_core" / "public_shell_view.py").read_text(encoding="utf-8")
     assert "from cupnavi_core.public_shell_view import build_public_hero_html, render_public_screen_mode" in app
-    assert "render_public_screen_mode(" in app
-    assert "build_public_hero_html(" in app
-    assert "cn-screen-grid" not in app[app.index("def render_public_view"):app.index("def render_match_reporter_view")]
+    assert "render_public_screen_mode(" in WORKSPACE
+    assert "build_public_hero_html(" in WORKSPACE
+    assert "cn-screen-grid" not in WORKSPACE
     assert "SELECT * FROM sponsors WHERE tournament_id=? AND active=1" in module

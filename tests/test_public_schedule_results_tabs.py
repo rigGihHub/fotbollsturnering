@@ -4,7 +4,7 @@ def app_text():
     return Path("app.py").read_text(encoding="utf-8")
 
 def test_schedule_and_results_are_merged_into_matches():
-    text = app_text()
+    text = Path("cupnavi_core/public_workspace_view.py").read_text(encoding="utf-8")
     view = Path('cupnavi_core/public_matches_view.py').read_text(encoding='utf-8')
     assert 'if public_page == "Matcher":' in text
     assert 'tr("Kommande")' in view

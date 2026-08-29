@@ -3,6 +3,7 @@ from pathlib import Path
 APP=(Path(__file__).resolve().parents[1]/"app.py").read_text(encoding="utf-8")
 INFO=(Path(__file__).resolve().parents[1]/"cupnavi_core/public_info_view.py").read_text(encoding="utf-8")
 STATS=(Path(__file__).resolve().parents[1]/"cupnavi_core/public_statistics_view.py").read_text(encoding="utf-8")
+WORKSPACE=(Path(__file__).resolve().parents[1]/"cupnavi_core/public_workspace_view.py").read_text(encoding="utf-8")
 
 def _block(start_name, end_name):
     start=APP.index(start_name)
@@ -15,7 +16,7 @@ def test_statistics_and_info_are_streamlit_fragments():
     assert "@st.fragment\ndef render_public_info_section" in APP
 
 def test_main_public_renderer_delegates_heavy_sections():
-    public=_block("def render_public_view(", "def render_match_reporter_view(")
+    public=WORKSPACE
     assert "render_public_statistics_section(" in public
     assert 'forced_section=tr("Tabeller")' in public
     assert 'forced_section=tr("Slutspel")' in public

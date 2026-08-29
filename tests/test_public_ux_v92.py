@@ -6,10 +6,7 @@ def app_text():
 
 
 def public_block():
-    text = app_text()
-    start = text.index("def render_public_view(")
-    end = text.index("def render_match_reporter_view(", start)
-    return text[start:end]
+    return Path("cupnavi_core/public_workspace_view.py").read_text(encoding="utf-8")
 
 
 def test_public_competition_navigation_exists_and_has_active_state():
@@ -36,7 +33,7 @@ def test_matches_merge_schedule_and_results_and_keep_filters():
 
 
 def test_info_rules_derive_from_all_requested_saved_settings():
-    text = app_text()
+    text = Path("cupnavi_core/public_presentation_view.py").read_text(encoding="utf-8")
     for required in (
         'rules["halves"]',
         'rules["minutes_per_half"]',

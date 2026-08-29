@@ -39,5 +39,5 @@ def test_core_components_are_normalized():
         assert token in STYLE
 
 def test_release_is_v198():
-    assert VERSION == "2026.08.29-292-MOBILE-TABLE-NAV-FOCUS"
+    assert VERSION == "2026.08.29-299-PERSISTENT-PUBLIC-NAVIGATION"
     assert "release_ui_label(APP_BUILD_VERSION)" in APP

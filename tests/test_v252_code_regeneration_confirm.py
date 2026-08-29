@@ -2,9 +2,10 @@
 from pathlib import Path
 ROOT=Path(__file__).resolve().parents[1]
 APP=(ROOT/"app.py").read_text(encoding="utf-8")
+ROLE=(ROOT/"cupnavi_core/admin_role_codes_view.py").read_text(encoding="utf-8")
 
 def test_reporter_and_referee_regeneration_requires_confirmation():
-    block=APP[APP.index("def render_role_code_card"):APP.index("code_col1, code_col2 = st.columns(2)")]
+    block=ROLE
     assert '"Regenerera ny kod"' in block
     assert '"Är du säker?' in block
     assert '"Ja, regenerera"' in block

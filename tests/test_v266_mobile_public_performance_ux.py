@@ -3,6 +3,7 @@ from pathlib import Path
 APP = Path('app.py').read_text(encoding='utf-8')
 STYLE = Path('cupnavi_core/style_system.py').read_text(encoding='utf-8')
 PUBLIC_NAV = Path('cupnavi_core/public_navigation_view.py').read_text(encoding='utf-8')
+WORKSPACE = Path('cupnavi_core/public_workspace_view.py').read_text(encoding='utf-8')
 CFG = Path('.streamlit/config.toml').read_text(encoding='utf-8')
 
 
@@ -12,7 +13,7 @@ def test_public_nav_is_single_link_based_sticky_control():
     assert 'st.columns(' not in PUBLIC_NAV
     assert '.button(' not in PUBLIC_NAV
     assert PUBLIC_NAV.count("cn-mobile-bottom-nav cn-public-section-nav") == 1
-    assert "build_public_navigation_html(" in APP
+    assert "build_public_navigation_html(" in WORKSPACE
 
 
 def test_android_summary_uses_900px_responsive_breakpoint():

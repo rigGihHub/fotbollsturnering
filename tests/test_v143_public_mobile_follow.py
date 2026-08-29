@@ -5,6 +5,8 @@ APP = (ROOT / "app.py").read_text(encoding="utf-8")
 PUBLIC_NAV = (ROOT / "cupnavi_core" / "public_navigation_view.py").read_text(encoding="utf-8")
 PUBLIC_TEAM_FOLLOW = (ROOT / "cupnavi_core" / "public_team_follow.py").read_text(encoding="utf-8")
 PUBLIC_TEAM_VIEW = (ROOT / "cupnavi_core" / "public_team_follow_view.py").read_text(encoding="utf-8")
+STYLE = (ROOT / "cupnavi_core" / "style_system.py").read_text(encoding="utf-8")
+WORKSPACE = (ROOT / "cupnavi_core" / "public_workspace_view.py").read_text(encoding="utf-8")
 
 def test_follow_my_team_has_personal_dashboard():
     assert "⭐ Mitt lag" in PUBLIC_TEAM_FOLLOW
@@ -14,7 +16,7 @@ def test_follow_my_team_has_personal_dashboard():
 
 def test_followed_team_is_preserved_in_mobile_navigation():
     assert 'team_query = f"&team={int(requested_team_id)}"' in PUBLIC_NAV
-    assert 'requested_team_id=requested_team_id' in APP
+    assert 'requested_team_id=requested_team_id' in WORKSPACE
     assert "public_force_team_filter_" in PUBLIC_TEAM_VIEW
 
 def test_favorite_match_datetime_is_defensive():
@@ -23,6 +25,7 @@ def test_favorite_match_datetime_is_defensive():
     assert "match_datetime(match, row_value) is not None" in PUBLIC_TEAM_FOLLOW
 
 def test_public_follow_has_mobile_specific_css():
-    assert "@media(max-width:760px)" in APP
-    assert ".cn-follow-shell" in APP
-    assert ".cn-next-card" in APP
+    assert "@media(max-width:760px)" in STYLE
+    assert ".cn-follow-shell" in STYLE
+    assert ".cn-next-card" in STYLE
+    assert "inject_public_experience_styles(st)" in WORKSPACE

@@ -2,15 +2,17 @@ from pathlib import Path
 
 APP=(Path(__file__).resolve().parents[1]/"app.py").read_text(encoding="utf-8")
 FEED=(Path(__file__).resolve().parents[1]/"cupnavi_core/public_match_feed_logic.py").read_text(encoding="utf-8")
+STYLE=(Path(__file__).resolve().parents[1]/"cupnavi_core/style_system.py").read_text(encoding="utf-8")
 
 def test_live_center_uses_visual_cards():
-    assert "cn-live-grid" in APP
-    assert "cn-live-card" in APP
-    assert "cn-live-head" in APP
+    assert "cn-live-grid" in STYLE
+    assert "cn-live-card" in STYLE
+    assert "cn-live-head" in STYLE
     assert "Nästa matcher i turneringen." in FEED
 
 def test_live_center_is_responsive():
-    assert "@media(max-width:900px){.cn-live-grid{grid-template-columns:1fr}" in APP
+    assert "@media(max-width:900px){" in STYLE
+    assert ".cn-live-grid{grid-template-columns:1fr}" in STYLE
 
 def test_public_cup_feed_is_removed():
     public=APP[APP.index("def render_public_view"):APP.index("def render_match_reporter_view")]
