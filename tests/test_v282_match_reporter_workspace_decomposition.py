@@ -50,4 +50,4 @@ def test_workspace_uses_injected_persistence_callbacks():
 
 
 def test_release_version():
-    assert VERSION == "2026.08.29-299-PERSISTENT-PUBLIC-NAVIGATION"
+    assert VERSION == "2026.08.29-301-E2E-PUBLIC-NAVIGATION-CONTRACT"

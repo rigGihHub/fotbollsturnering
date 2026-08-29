@@ -4,7 +4,7 @@ APP = (Path(__file__).parents[1] / "app.py").read_text(encoding="utf-8")
 VERSION = (Path(__file__).parents[1] / "VERSION.txt").read_text(encoding="utf-8").strip()
 
 def test_v263_version():
-    assert VERSION == "2026.08.29-299-PERSISTENT-PUBLIC-NAVIGATION"
+    assert VERSION == "2026.08.29-301-E2E-PUBLIC-NAVIGATION-CONTRACT"
 
 def test_team_contact_fields_identify_team_responsible():
     assert "Lagansvarig kontaktperson" in APP

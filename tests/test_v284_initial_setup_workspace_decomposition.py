@@ -6,7 +6,7 @@ VIEW = (ROOT / "cupnavi_core" / "initial_setup_view.py").read_text(encoding="utf
 
 
 def test_v284_release_and_extracted_setup_module_exist():
-    assert "2026.08.29-299-PERSISTENT-PUBLIC-NAVIGATION" in APP
+    assert "2026.08.29-301-E2E-PUBLIC-NAVIGATION-CONTRACT" in APP
     assert "class InitialSetupDependencies" in VIEW
     assert "def render_initial_tournament_setup" in VIEW
 

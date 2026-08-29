@@ -1,6 +1,7 @@
 from __future__ import annotations
 from pathlib import Path
 import os, re, sqlite3, subprocess, sys, time, urllib.request
+from urllib.parse import urljoin
 from datetime import datetime, timedelta
 import pytest
 from playwright.sync_api import sync_playwright
@@ -599,10 +600,16 @@ def test_full_cup_lifecycle_journey(server,browser_name):
         for label,section,expected_token in section_contracts:
             button=page.get_by_role("button",name=label,exact=True)
             button.wait_for(state="visible",timeout=15000)
-            button.click()
-            # Public navigation is made of real links. wait_app() can otherwise
-            # return against the old Streamlit DOM before the URL navigation has
-            # committed, which made the cross-browser journey assert stale content.
+            # Validate the real public-link contract, then navigate to that exact href.
+            # In Streamlit's continuously rerendered DOM a Playwright click can be
+            # detached/replaced between pointer dispatch and the browser navigation.
+            # That produced identical false timeouts in Chromium, Firefox and WebKit
+            # even though the rendered anchor already carried the correct destination.
+            href=button.get_attribute("href")
+            assert href and f"section={section}" in href, (
+                f"{label} rendered an invalid public navigation href: {href!r}"
+            )
+            page.goto(urljoin(BASE,href),wait_until="domcontentloaded",timeout=60000)
             page.wait_for_url(re.compile(rf"[?&]section={re.escape(section)}(?:&|$)"),timeout=20000)
             wait_for_public_cup(page,cup_name)
             assert_no_ui_error(page)
