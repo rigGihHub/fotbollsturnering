@@ -78,7 +78,10 @@ def test_cup_summary_counts_played_and_score():
 
 
 def test_v96_features_are_wired_into_streamlit_app():
-    text = Path("app.py").read_text(encoding="utf-8")
+    text = (
+        Path("app.py").read_text(encoding="utf-8")
+        + Path("cupnavi_core/match_reporter_view.py").read_text(encoding="utf-8")
+    )
     required = [
         "Följ mitt lag",
         "notifications",

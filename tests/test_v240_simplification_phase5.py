@@ -3,6 +3,7 @@ from pathlib import Path
 
 ROOT=Path(__file__).resolve().parents[1]
 APP=(ROOT/"app.py").read_text(encoding="utf-8")
+RESULTS_VIEW=(ROOT/"cupnavi_core"/"admin_results_view.py").read_text(encoding="utf-8")
 
 
 def _block(start_marker,end_marker):
@@ -12,24 +13,25 @@ def _block(start_marker,end_marker):
 
 
 def test_results_page_prioritizes_result_editor():
-    block=_block('if admin_page == "Matcher och resultat":','if admin_page == "Matchhändelser":')
+    block=RESULTS_VIEW
     assert 'st.header("Resultat")' in block
     assert 'st.caption("Registrera resultat match för match eller använd massinmatning när det passar.")' in block
     assert 'st.data_editor(' in block
-    assert '_show_full_result_schedule = st.toggle(' in block
+    assert 'show_full_result_schedule = st.toggle(' in block
     assert '"Visa hela matchschemat"' in block
-    assert block.index('st.caption("Registrera resultat match för match eller använd massinmatning när det passar.")') < block.index('_show_full_result_schedule = st.toggle(')
+    assert block.index('st.caption("Registrera resultat match för match eller använd massinmatning när det passar.")') < block.index('show_full_result_schedule = st.toggle(')
 
 
 def test_results_page_keeps_auto_save_and_concurrency_guards():
-    block=_block('if admin_page == "Matcher och resultat":','if admin_page == "Matchhändelser":')
-    assert "update_match_result_if_unchanged(" in block
-    assert 'st.caption("✓ Ändringar sparas automatiskt – ingen Spara-knapp behövs.")' in block
-    assert "bulk_result_conflict_message" in block
+    app_block=_block('if admin_page == "Matcher och resultat":','if admin_page == "Matchhändelser":')
+    assert "update_match_result_if_unchanged(" in app_block
+    assert 'st.caption("✓ Ändringar sparas automatiskt – ingen Spara-knapp behövs.")' in RESULTS_VIEW
+    assert "bulk_result_conflict_message" in RESULTS_VIEW
+    assert 'save_result_updates=_save_admin_result_updates' in app_block
 
 
 def test_playoff_help_is_progressively_disclosed():
-    block=_block('if admin_page == "Matcher och resultat":','if admin_page == "Matchhändelser":')
+    block=RESULTS_VIEW
     assert 'with st.expander("Regler vid oavgjort i slutspel", expanded=False)' in block
     assert 'with st.expander(f"Kommande slutspelsmatcher · {unresolved_count} väntar på lag", expanded=False)' in block
 

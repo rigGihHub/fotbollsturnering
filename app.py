@@ -24,22 +24,33 @@ import streamlit.components.v1 as components
 
 
 def _compute_source_fingerprint():
-    """Fingerprint deployed application sources without relying on imported modules."""
+    """Fingerprint deployed sources with metadata instead of rereading every file.
+
+    CupNavi increments VERSION.txt for each release. Combining that small file with
+    source path/size/mtime metadata preserves hot-deploy detection while avoiding
+    repeatedly reading ~1 MB of Python source on every Streamlit rerun.
+    """
     root = Path(__file__).resolve().parent
     candidates = [root / "app.py", root / "requirements.txt", root / "VERSION.txt"]
     core_root = root / "cupnavi_core"
     if core_root.exists():
         candidates.extend(sorted(core_root.rglob("*.py")))
     digest = hashlib.sha256()
+    try:
+        digest.update((root / "VERSION.txt").read_bytes())
+    except OSError:
+        pass
     for path in candidates:
         try:
             relative = path.relative_to(root).as_posix()
-            data = path.read_bytes()
+            stat = path.stat()
         except (OSError, ValueError):
             continue
         digest.update(relative.encode("utf-8"))
         digest.update(b"\0")
-        digest.update(data)
+        digest.update(str(stat.st_size).encode("ascii"))
+        digest.update(b":")
+        digest.update(str(stat.st_mtime_ns).encode("ascii"))
         digest.update(b"\0")
     return digest.hexdigest()
 
@@ -67,18 +78,14 @@ def _refresh_cupnavi_imports_if_sources_changed():
 
 ACTIVE_SOURCE_FINGERPRINT, SOURCE_PACKAGE_REFRESHED = _refresh_cupnavi_imports_if_sources_changed()
 
-from cupnavi_core.version import APP_VERSION as IMPORTED_CORE_APP_VERSION
+from cupnavi_core.version import APP_VERSION as IMPORTED_CORE_APP_VERSION, release_ui_label
 
-from cupnavi_core.product_foundation import organizer_workflow, workflow_summary
 from cupnavi_core.observability import safe_error_record, persist_error
 from cupnavi_core.performance import build_performance_snapshot, performance_log_line
 from cupnavi_core.schedule_quality import assess_schedule
 from cupnavi_core.public_competition import calculate_group_table
-from cupnavi_core.rules import validate_match_event_totals
-from cupnavi_core.match_event_logic import prepare_changed_event_rows
-from cupnavi_core.initial_setup_logic import available_pitch_minutes, estimated_capacity_slots, estimated_match_length_minutes, normalized_priority_order, priority_order_changed
+from cupnavi_core.initial_setup_view import InitialSetupDependencies, render_initial_tournament_setup as render_initial_tournament_setup_module
 from cupnavi_core.home_away import orientation_balance_score
-from cupnavi_core.pdf_export import build_schedule_pdf
 from cupnavi_core.migrations import apply_migrations, LATEST_SCHEMA_VERSION, ensure_competition_class_schema_compat, ensure_v16_setup_schema_compat, ensure_v18_pitch_names_schema_compat, ensure_v19_schema_compat, ensure_v20_schema_compat, ensure_v21_schema_compat
 from cupnavi_core.health import collect_database_health
 from cupnavi_core.backup import build_backup_bytes, validate_backup_bytes, restore_backup_as_new_tournament
@@ -86,11 +93,19 @@ from cupnavi_core.rate_limit import consume_rate_limit
 from cupnavi_core.config import BACKUP_FILE_SUFFIX, PUBLIC_BASE_URL
 from cupnavi_core.schedule_repository import ScheduleRepository
 from cupnavi_core.schedule_domain import build_schedule_window, schedule_source_team_id
-from cupnavi_core.import_service import (
-    TEAM_FIELDS, PLAYER_FIELDS, auto_map_columns,
-    build_team_import_plan, build_player_import_plan,
+from cupnavi_core.schedule_workspace_view import ScheduleWorkspaceDependencies, render_schedule_workspace
+from cupnavi_core.admin_results_view import AdminResultsDependencies, render_admin_results_workspace
+from cupnavi_core.admin_match_events_view import AdminMatchEventsDependencies, render_admin_match_events_workspace
+from cupnavi_core.style_system import (
+    inject_custom_css as _inject_custom_css_impl,
+    inject_ux2_css as _inject_ux2_css_impl,
+    inject_v191_design_system as _inject_v191_design_system_impl,
+    inject_v193_product_design_system as _inject_v193_product_design_system_impl,
+    inject_v266_public_mobile_css as _inject_v266_public_mobile_css_impl,
+    inject_v198_visual_system as _inject_v198_visual_system_impl,
 )
 from cupnavi_core.team_portal import generate_access_code, generate_short_numeric_code, new_code_hash, verify_access_code, squad_deadline_at, squad_is_locked
+from cupnavi_core.team_portal_view import TeamPortalDependencies, render_team_portal_workspace
 from cupnavi_core.experience import (
     SPORT_PROFILES, sport_profile, match_duration_minutes, analyze_schedule_change,
     planned_delay_updates, tournament_quality_score, playoff_preview, cup_summary,
@@ -106,7 +121,7 @@ from cupnavi_core.i18n import SUPPORTED_LOCALES, DEFAULT_LOCALE, DEFAULT_TIMEZON
 from cupnavi_core.lifecycle import normalize_status, status_label, choose_unique_slug
 from cupnavi_core.qol import TOURNAMENT_TEMPLATES, template_definition, clone_tournament_payload, checklist_items, admin_mode
 from cupnavi_core.fairness import fairness_report
-from cupnavi_core.ux2 import workflow_progress, attention_items, schedule_board
+from cupnavi_core.ux2 import schedule_board
 from cupnavi_core.about import feature_catalog, about_intro
 from cupnavi_core.ui_logic import resolve_tournament_selector_seed
 from cupnavi_core.public_view_logic import (
@@ -114,24 +129,63 @@ from cupnavi_core.public_view_logic import (
     public_section_for_page,
     resolve_public_page,
 )
+from cupnavi_core.public_navigation_view import build_public_navigation_html
+from cupnavi_core.public_shell_view import build_public_hero_html, render_public_screen_mode
+from cupnavi_core.public_team_follow_view import render_public_team_follow
+from cupnavi_core.public_matches_view import render_public_matches_fragment as render_public_matches_fragment_module
 from cupnavi_core.public_info_view import render_public_info_section as render_public_info_section_module
 from cupnavi_core.public_statistics_view import render_public_statistics_section as render_public_statistics_section_module
-from cupnavi_core.public_highlights import competition_highlights, snapshot_table_bundle
-from cupnavi_core.ai_roster_import import extract_roster_from_image, ALLOWED_POSITIONS
 from cupnavi_core.public_match_cards import render_public_match_cards as render_public_match_cards_module
 from cupnavi_core.public_match_filter_logic import filter_matches, sort_public_matches
-from cupnavi_core.public_match_feed_logic import classify_public_match_feed, public_match_feed_summary
-from cupnavi_core.public_match_overview import build_live_feed_html, build_highlights_html, build_summary_html
 from cupnavi_core.public_match_filters_view import render_public_match_filters as render_public_match_filters_module
-from cupnavi_core.match_reporter_logic import build_bulk_result_rows, prepare_bulk_result_update, result_snapshot, select_playable_matches
-
-from cupnavi_core.public_match_paging import (
-    PUBLIC_MATCH_BATCH_SIZE,
-    PUBLIC_MATCH_INITIAL_BATCH,
-    visible_match_batch,
-    next_visible_count,
+from cupnavi_core.match_reporter_logic import result_snapshot
+from cupnavi_core.match_reporter_workspace_view import (
+    MatchReporterWorkspaceDeps,
+    render_match_reporter_workspace,
 )
-APP_BUILD_VERSION = "2026.08.28-270-INCREMENTAL-PUBLIC-MATCHES"
+from cupnavi_core.admin_overview_repository import fetch_admin_workflow_counts
+from cupnavi_core.admin_overview import (
+    build_control_status,
+    build_organizer_overview,
+    build_progress_and_attention,
+    build_readiness,
+    build_status_cards_html,
+    build_workflow_html,
+    class_progress_caption,
+    recommend_next_step,
+)
+from cupnavi_core.admin_publication import build_completion_state
+from cupnavi_core.admin_publication_repository import fetch_lifecycle_match_counts
+from cupnavi_core.admin_publication_view import (
+    render_admin_lifecycle_controls,
+    render_admin_publication_controls,
+)
+
+def inject_custom_css():
+    return _inject_custom_css_impl(st)
+
+
+def inject_ux2_css():
+    return _inject_ux2_css_impl(st, components)
+
+
+def inject_v191_design_system():
+    return _inject_v191_design_system_impl(st)
+
+
+def inject_v193_product_design_system():
+    return _inject_v193_product_design_system_impl(st)
+
+
+def inject_v266_public_mobile_css():
+    return _inject_v266_public_mobile_css_impl(st)
+
+
+def inject_v198_visual_system():
+    return _inject_v198_visual_system_impl(st)
+
+
+APP_BUILD_VERSION = "2026.08.29-291-ADMIN-PAGE-SIMPLIFICATION"
 APP_VERSION = APP_BUILD_VERSION
 
 def read_core_version_from_disk():
@@ -165,13 +219,6 @@ try:
     from streamlit_sortables import sort_items
 except ImportError:
     sort_items = None
-
-try:
-    import qrcode
-except ImportError:
-    qrcode = None
-
-
 
 PUBLIC_APP_URL = PUBLIC_BASE_URL.rstrip("/") + "/"
 
@@ -1011,11 +1058,9 @@ def track_public_visit(tournament_id):
 
 
 def public_match_overview_db_snapshot(tournament_id, *, scorer_enabled=True, assist_enabled=True, active_minutes=5):
-    """Load active visitor count and optional individual leaders with one SQL statement.
+    """Load fresh public overview data while keeping Streamlit/session concerns in the UI layer."""
+    from cupnavi_core.public_match_repository import fetch_public_match_overview
 
-    This is deliberately fresh on every rerun. The optimization is fewer remote
-    statements/payload, not a long-lived cache that could make live cup data stale.
-    """
     session_key = f"_cupnavi_visitor_session_{tournament_id}"
     token = st.session_state.get(session_key)
     if not token:
@@ -1025,59 +1070,29 @@ def public_match_overview_db_snapshot(tournament_id, *, scorer_enabled=True, ass
     cutoff = (datetime.now() - timedelta(minutes=max(1, int(active_minutes)))).isoformat(timespec="seconds")
     started = time.perf_counter()
     with db() as con:
-        row = _one_from_cursor(con.execute(
-            """WITH agg AS (
-                   SELECT CASE WHEN COALESCE(players.is_protected,0)=1 THEN 'Skyddad spelare' ELSE players.name END AS player_name,
-                          teams.name AS team_name, SUM(s.goals) AS goals, SUM(s.assists) AS assists
-                   FROM player_match_stats s
-                   JOIN players ON players.id=s.player_id
-                   JOIN teams ON teams.id=players.team_id
-                   JOIN matches ON matches.id=s.match_id
-                   WHERE matches.tournament_id=?
-                   GROUP BY players.id,players.name,players.is_protected,teams.name
-               ), scorer AS (
-                   SELECT player_name,team_name,goals,assists FROM agg
-                   WHERE ?=1 AND goals>0
-                   ORDER BY goals DESC, assists DESC, LOWER(player_name) ASC LIMIT 1
-               ), assister AS (
-                   SELECT player_name,team_name,goals,assists FROM agg
-                   WHERE ?=1 AND assists>0
-                   ORDER BY assists DESC, goals DESC, LOWER(player_name) ASC LIMIT 1
-               )
-               SELECT
-                   (SELECT COUNT(*) FROM visitor_sessions
-                    WHERE tournament_id=? AND last_seen>=? AND session_token<>?) AS visitor_count,
-                   (SELECT player_name FROM scorer) AS scorer_player,
-                   (SELECT team_name FROM scorer) AS scorer_team,
-                   (SELECT goals FROM scorer) AS scorer_goals,
-                   (SELECT assists FROM scorer) AS scorer_assists,
-                   (SELECT player_name FROM assister) AS assist_player,
-                   (SELECT team_name FROM assister) AS assist_team,
-                   (SELECT goals FROM assister) AS assist_goals,
-                   (SELECT assists FROM assister) AS assist_assists""",
-            (
-                tournament_id, int(bool(scorer_enabled)), int(bool(assist_enabled)),
-                tournament_id, cutoff, token,
-            ),
-        ))
+        snapshot = fetch_public_match_overview(
+            con, tournament_id=tournament_id, cutoff=cutoff, session_token=token,
+            scorer_enabled=scorer_enabled, assist_enabled=assist_enabled,
+        )
     _record_db_call(started)
+    return {
+        "active_visitors": int(snapshot["visitor_count"]) + 1,
+        "leader_rows": snapshot["leader_rows"],
+    }
 
-    leader_rows = []
-    if row and row["scorer_player"]:
-        leader_rows.append({
-            "player_name": row["scorer_player"], "team_name": row["scorer_team"],
-            "goals": row["scorer_goals"], "assists": row["scorer_assists"],
-        })
-    if row and row["assist_player"] and not any(
-        leader.get("player_name") == row["assist_player"] and leader.get("team_name") == row["assist_team"]
-        for leader in leader_rows
-    ):
-        leader_rows.append({
-            "player_name": row["assist_player"], "team_name": row["assist_team"],
-            "goals": row["assist_goals"], "assists": row["assist_assists"],
-        })
-    active_visitors = int((row["visitor_count"] if row else 0) or 0) + 1
-    return {"active_visitors": active_visitors, "leader_rows": leader_rows}
+
+def public_match_events_db_snapshot(match_ids):
+    """Load visible public match events with DB timing kept in the app service layer."""
+    from cupnavi_core.public_match_repository import fetch_public_match_events
+
+    normalized_ids = [int(match_id) for match_id in match_ids if int(match_id) > 0]
+    if not normalized_ids:
+        return {}
+    started = time.perf_counter()
+    with db() as con:
+        grouped = fetch_public_match_events(con, normalized_ids)
+    _record_db_call(started)
+    return grouped
 
 
 def render_public_share_control(tournament_id, tournament):
@@ -1132,8 +1147,10 @@ def render_public_share_control(tournament_id, tournament):
 
 @st.cache_data(show_spinner=False)
 def qr_png_bytes(value):
-    """QR-bilden är deterministisk och behöver inte byggas om vid varje rerun."""
-    if qrcode is None:
+    """QR-bilden är deterministisk och qrcode laddas först när delning används."""
+    try:
+        import qrcode
+    except ImportError:
         return None
     image = qrcode.make(value)
     buffer = io.BytesIO()
@@ -1929,872 +1946,6 @@ st.html("""
 
 
 
-def inject_custom_css():
-    """CupNavis samlade visuella tema: ljust, konsekvent och med hög läsbarhet."""
-    st.markdown(
-        """
-        <style>
-          :root {
-            --cup-ink:#172033;
-            --cup-ink-soft:#334155;
-            --cup-muted:#5b6878;
-            --cup-bg:#f4f7fa;
-            --cup-surface:#ffffff;
-            --cup-surface-soft:#eef3f7;
-            --cup-border:#cfd8e3;
-            --cup-border-strong:#b8c5d3;
-            --cup-green:#166534;
-            --cup-green-hover:#14532d;
-            --cup-blue:#1e3a5f;
-            --cup-focus:#2563eb;
-            --cup-danger:#991b1b;
-            --cup-warning:#92400e;
-          }
-
-          /* ---------- Grundyta och typografi ---------- */
-          html, body, .stApp {
-            background:var(--cup-bg) !important;
-            color:var(--cup-ink) !important;
-          }
-          .stApp { min-height:100vh; min-height:100dvh; }
-          [data-testid="stHeader"] { background:rgba(244,247,250,.96) !important; }
-          [data-testid="stToolbar"] { color:var(--cup-ink) !important; }
-          .block-container {
-            padding-top:1.35rem;
-            padding-bottom:3rem;
-            max-width:1480px;
-          }
-          .stApp h1,.stApp h2,.stApp h3,.stApp h4,.stApp h5,.stApp h6 {
-            color:var(--cup-ink) !important;
-            letter-spacing:-.015em;
-            line-height:1.2;
-          }
-          .stApp h1 { font-weight:800; }
-          .stApp h2,.stApp h3 { font-weight:750; }
-          .stApp p,.stApp li,.stApp label,.stApp small,
-          .stApp [data-testid="stMarkdownContainer"],
-          .stApp [data-testid="stCaptionContainer"],
-          .stApp [data-testid="stWidgetLabel"],
-          .stApp [data-testid="stMetricLabel"] {
-            color:var(--cup-ink-soft) !important;
-          }
-          .stApp [data-testid="stCaptionContainer"],
-          .stApp [data-testid="stCaptionContainer"] p {
-            color:var(--cup-muted) !important;
-          }
-          .stApp a { color:#1d4ed8 !important; text-decoration-color:#93c5fd; }
-          .stApp hr { border-color:var(--cup-border) !important; }
-
-          /* ---------- ÅTERÖPPNA DOLD SIDOMENY v70 ---------- */
-          [data-testid="collapsedControl"],
-          [data-testid="stSidebarCollapsedControl"] {
-            display:flex !important;
-            visibility:visible !important;
-            opacity:1 !important;
-            position:fixed !important;
-            top:10px !important;
-            left:10px !important;
-            z-index:1000000 !important;
-            width:auto !important;
-            height:auto !important;
-            pointer-events:auto !important;
-          }
-
-          [data-testid="collapsedControl"] button,
-          [data-testid="stSidebarCollapsedControl"] button {
-            display:flex !important;
-            visibility:visible !important;
-            opacity:1 !important;
-            align-items:center !important;
-            justify-content:center !important;
-            width:42px !important;
-            min-width:42px !important;
-            height:42px !important;
-            min-height:42px !important;
-            padding:0 !important;
-            border:1px solid #94a3b8 !important;
-            border-radius:11px !important;
-            background:#ffffff !important;
-            color:#172033 !important;
-            box-shadow:0 4px 14px rgba(15,23,42,.18) !important;
-            cursor:pointer !important;
-            pointer-events:auto !important;
-          }
-
-          [data-testid="collapsedControl"] button svg,
-          [data-testid="stSidebarCollapsedControl"] button svg {
-            color:#172033 !important;
-            fill:#172033 !important;
-            stroke:#172033 !important;
-            width:22px !important;
-            height:22px !important;
-          }
-
-          [data-testid="collapsedControl"] button:hover,
-          [data-testid="stSidebarCollapsedControl"] button:hover {
-            background:#f1f5f9 !important;
-            border-color:#64748b !important;
-          }
-
-          @media (max-width:768px) {
-            [data-testid="collapsedControl"],
-            [data-testid="stSidebarCollapsedControl"] {
-              top:8px !important;
-              left:8px !important;
-            }
-
-            [data-testid="collapsedControl"] button,
-            [data-testid="stSidebarCollapsedControl"] button {
-              width:46px !important;
-              min-width:46px !important;
-              height:46px !important;
-              min-height:46px !important;
-            }
-          }
-
-          /* ---------- Sidomeny: alltid ljus ---------- */
-          [data-testid="stSidebar"] {
-            background:#eaf0f5 !important;
-            border-right:1px solid var(--cup-border) !important;
-          }
-          [data-testid="stSidebar"] > div { background:#eaf0f5 !important; }
-          [data-testid="stSidebar"] h1,
-          [data-testid="stSidebar"] h2,
-          [data-testid="stSidebar"] h3,
-          [data-testid="stSidebar"] p,
-          [data-testid="stSidebar"] label,
-          [data-testid="stSidebar"] span,
-          [data-testid="stSidebar"] small,
-          [data-testid="stSidebar"] [data-testid="stMarkdownContainer"] {
-            color:var(--cup-ink) !important;
-          }
-
-          /* ---------- Formulär, containers och expanders ---------- */
-          [data-testid="stForm"],
-          [data-testid="stVerticalBlockBorderWrapper"] {
-            background:var(--cup-surface) !important;
-            border-color:var(--cup-border) !important;
-            border-radius:14px !important;
-          }
-          details[data-testid="stExpander"] {
-            background:var(--cup-surface) !important;
-            border:1px solid var(--cup-border) !important;
-            border-radius:12px !important;
-            overflow:hidden;
-          }
-          details[data-testid="stExpander"] summary {
-            background:#f7f9fb !important;
-            color:var(--cup-ink) !important;
-          }
-          details[data-testid="stExpander"] summary * { color:var(--cup-ink) !important; }
-          [data-testid="stExpander"] details,
-          [data-testid="stExpander"] summary,
-          div[data-testid="stExpander"] summary,
-          div[data-testid="stExpander"] details {
-            background:#f7f9fb !important;
-            color:var(--cup-ink) !important;
-          }
-          [data-testid="stExpander"] summary *,
-          div[data-testid="stExpander"] summary * { color:var(--cup-ink) !important; }
-
-          /* ---------- Inmatningsfält ---------- */
-          [data-baseweb="input"],
-          [data-baseweb="textarea"],
-          [data-baseweb="select"] > div,
-          [data-testid="stNumberInput"] [data-baseweb="input"],
-          [data-testid="stDateInput"] [data-baseweb="input"],
-          [data-testid="stTimeInput"] [data-baseweb="input"] {
-            background:var(--cup-surface) !important;
-            color:var(--cup-ink) !important;
-            border-color:var(--cup-border-strong) !important;
-          }
-          .stApp input,
-          .stApp textarea,
-          .stApp [data-baseweb="select"] input,
-          .stApp [data-baseweb="select"] span,
-          .stApp [data-baseweb="select"] div {
-            color:var(--cup-ink) !important;
-          }
-          .stApp input,
-          .stApp textarea {
-            background:var(--cup-surface) !important;
-            caret-color:var(--cup-ink) !important;
-          }
-          .stApp input::placeholder,.stApp textarea::placeholder {
-            color:#718096 !important;
-            opacity:1 !important;
-          }
-          [data-baseweb="input"]:focus-within,
-          [data-baseweb="textarea"]:focus-within,
-          [data-baseweb="select"] > div:focus-within {
-            border-color:var(--cup-focus) !important;
-            box-shadow:0 0 0 1px var(--cup-focus) !important;
-          }
-
-          /* Dropdown-menyer renderas ibland utanför .stApp. */
-          [role="listbox"], [data-baseweb="popover"] {
-            background:var(--cup-surface) !important;
-            color:var(--cup-ink) !important;
-          }
-          [role="option"], [role="option"] * {
-            color:var(--cup-ink) !important;
-          }
-          [role="option"]:hover { background:#eef4f8 !important; }
-          [aria-selected="true"][role="option"] { background:#e2edf5 !important; }
-
-
-          /* ---------- Kalender / datumväljare ---------- */
-          /* Kalendern ligger i en BaseWeb-popover utanför delar av Streamlits vanliga tema.
-             Sätt därför bakgrund och text explicit även för veckodagsraden. */
-          [data-baseweb="calendar"],
-          [data-baseweb="calendar"] > div,
-          [data-baseweb="calendar"] [role="grid"],
-          [data-baseweb="calendar"] [role="row"],
-          [data-baseweb="calendar"] [role="columnheader"] {
-            background:#ffffff !important;
-            color:#0f172a !important;
-          }
-          [data-baseweb="calendar"] [role="columnheader"],
-          [data-baseweb="calendar"] [role="columnheader"] *,
-          [data-baseweb="calendar"] abbr {
-            color:#0f172a !important;
-            font-weight:700 !important;
-            opacity:1 !important;
-            text-decoration:none !important;
-          }
-          [data-baseweb="calendar"] [role="gridcell"],
-          [data-baseweb="calendar"] [role="gridcell"] * {
-            color:#0f172a !important;
-          }
-          [data-baseweb="calendar"] select,
-          [data-baseweb="calendar"] [data-baseweb="select"],
-          [data-baseweb="calendar"] [data-baseweb="select"] * {
-            background:#ffffff !important;
-            color:#0f172a !important;
-          }
-          [data-baseweb="calendar"],
-          [data-baseweb="calendar"] > div,
-          [data-baseweb="calendar"] table,
-          [data-baseweb="calendar"] tbody,
-          [data-baseweb="calendar"] thead {
-            background:#ffffff !important;
-            color:#172033 !important;
-          }
-          [data-baseweb="calendar"] *,
-          [data-baseweb="calendar"] button,
-          [data-baseweb="calendar"] th,
-          [data-baseweb="calendar"] td,
-          [data-baseweb="calendar"] div,
-          [data-baseweb="calendar"] span {
-            color:#172033 !important;
-          }
-          [data-baseweb="calendar"] button {
-            background:#ffffff !important;
-            border-color:transparent !important;
-          }
-          [data-baseweb="calendar"] button:hover {
-            background:#eaf2f7 !important;
-          }
-          [data-baseweb="calendar"] [aria-selected="true"],
-          [data-baseweb="calendar"] [aria-selected="true"] *,
-          [data-baseweb="calendar"] button[aria-selected="true"],
-          [data-baseweb="calendar"] button[aria-selected="true"] * {
-            background:#166534 !important;
-            color:#ffffff !important;
-            border-radius:8px !important;
-          }
-          [data-baseweb="calendar"] [aria-disabled="true"],
-          [data-baseweb="calendar"] [aria-disabled="true"] * {
-            color:#8a98a8 !important;
-          }
-          [data-baseweb="calendar"] [aria-current="date"] {
-            outline:2px solid #2563eb !important;
-            outline-offset:-2px !important;
-          }
-
-          /* ---------- Checkbox, radio och toggles ---------- */
-          [data-testid="stCheckbox"] label,
-          [data-testid="stRadio"] label,
-          [data-testid="stToggle"] label,
-          [data-testid="stCheckbox"] span,
-          [data-testid="stRadio"] span,
-          [data-testid="stToggle"] span {
-            color:var(--cup-ink) !important;
-          }
-
-          /* ---------- Segmenterade knappar ----------
-             Streamlit kan annars ärva mörka theme-färger här.
-             Håll alla segmenterade kontroller ljusa och CupNavi-enhetliga. */
-          [data-testid="stSegmentedControl"] button,
-          [data-testid="stButtonGroup"] button,
-          [data-testid="stSegmentedControl"] [role="button"],
-          [data-testid="stButtonGroup"] [role="button"] {
-            background:#F8FAFC !important;
-            color:#172033 !important;
-            border-color:#CBD5E1 !important;
-            opacity:1 !important;
-            box-shadow:none !important;
-          }
-          [data-testid="stSegmentedControl"] button *,
-          [data-testid="stButtonGroup"] button *,
-          [data-testid="stSegmentedControl"] [role="button"] *,
-          [data-testid="stButtonGroup"] [role="button"] * {
-            color:#172033 !important;
-            opacity:1 !important;
-          }
-          [data-testid="stSegmentedControl"] button:hover,
-          [data-testid="stButtonGroup"] button:hover,
-          [data-testid="stSegmentedControl"] [role="button"]:hover,
-          [data-testid="stButtonGroup"] [role="button"]:hover {
-            background:#EEF6F0 !important;
-            border-color:#86A995 !important;
-          }
-          [data-testid="stSegmentedControl"] button[aria-pressed="true"],
-          [data-testid="stButtonGroup"] button[aria-pressed="true"],
-          [data-testid="stSegmentedControl"] [role="button"][aria-pressed="true"],
-          [data-testid="stButtonGroup"] [role="button"][aria-pressed="true"],
-          [data-testid="stSegmentedControl"] button[aria-checked="true"],
-          [data-testid="stButtonGroup"] button[aria-checked="true"],
-          [data-testid="stSegmentedControl"] [data-selected="true"],
-          [data-testid="stButtonGroup"] [data-selected="true"] {
-            background:#DCFCE7 !important;
-            color:#14532D !important;
-            border-color:#86A995 !important;
-            font-weight:800 !important;
-          }
-          [data-testid="stSegmentedControl"] button[aria-pressed="true"] *,
-          [data-testid="stButtonGroup"] button[aria-pressed="true"] *,
-          [data-testid="stSegmentedControl"] [role="button"][aria-pressed="true"] *,
-          [data-testid="stButtonGroup"] [role="button"][aria-pressed="true"] *,
-          [data-testid="stSegmentedControl"] button[aria-checked="true"] *,
-          [data-testid="stButtonGroup"] button[aria-checked="true"] *,
-          [data-testid="stSegmentedControl"] [data-selected="true"] *,
-          [data-testid="stButtonGroup"] [data-selected="true"] * {
-            color:#14532D !important;
-            opacity:1 !important;
-          }
-
-          /* ---------- Knappar ---------- */
-          .stButton > button,
-          .stFormSubmitButton > button,
-          .stDownloadButton > button {
-            background:var(--cup-surface) !important;
-            color:var(--cup-ink) !important;
-            border:1px solid var(--cup-border-strong) !important;
-            border-radius:10px !important;
-            font-weight:700 !important;
-            min-height:2.55rem;
-            box-shadow:0 1px 2px rgba(15,23,42,.04);
-            transition:background .12s ease,border-color .12s ease,box-shadow .12s ease;
-          }
-          .stButton > button p,.stButton > button span,
-          .stFormSubmitButton > button p,.stFormSubmitButton > button span,
-          .stDownloadButton > button p,.stDownloadButton > button span {
-            color:var(--cup-ink) !important;
-          }
-          .stButton > button:hover,
-          .stFormSubmitButton > button:hover,
-          .stDownloadButton > button:hover {
-            background:#f2f6f9 !important;
-            border-color:#98a9bb !important;
-            box-shadow:0 3px 9px rgba(15,23,42,.08);
-          }
-          button[kind="primary"],
-          .stButton > button[kind="primary"],
-          .stFormSubmitButton > button[kind="primary"] {
-            background:var(--cup-green) !important;
-            border-color:var(--cup-green) !important;
-            color:#ffffff !important;
-          }
-          button[kind="primary"] p,button[kind="primary"] span,
-          .stButton > button[kind="primary"] p,.stButton > button[kind="primary"] span,
-          .stFormSubmitButton > button[kind="primary"] p,.stFormSubmitButton > button[kind="primary"] span {
-            color:#ffffff !important;
-          }
-          button[kind="primary"]:hover { background:var(--cup-green-hover) !important; }
-          button:disabled,button:disabled * {
-            color:#7b8794 !important;
-            opacity:1 !important;
-          }
-          button:disabled { background:#edf1f4 !important; border-color:#d7dee6 !important; }
-
-          /* ---------- Metrics ---------- */
-          div[data-testid="stMetric"] {
-            background:var(--cup-surface) !important;
-            border:1px solid var(--cup-border) !important;
-            border-radius:12px !important;
-            padding:13px 15px !important;
-            box-shadow:none !important;
-          }
-          div[data-testid="stMetricLabel"],div[data-testid="stMetricLabel"] * {
-            color:var(--cup-muted) !important;
-          }
-          div[data-testid="stMetricValue"],div[data-testid="stMetricValue"] * {
-            color:var(--cup-ink) !important;
-            font-weight:800 !important;
-          }
-
-          /* Streamlits generiska Enter-instruktion skapar visuellt brus, särskilt i sidofältet. */
-          [data-testid="InputInstructions"] { display:none !important; }
-
-          /* ---------- Informations-, varnings- och felrutor ---------- */
-          [data-testid="stAlert"] {
-            border-radius:10px !important;
-            border:1px solid var(--cup-border) !important;
-          }
-          [data-testid="stAlert"] p,[data-testid="stAlert"] div,[data-testid="stAlert"] span {
-            color:var(--cup-ink) !important;
-          }
-          [data-testid="stNotification"] * { color:var(--cup-ink) !important; }
-
-          /* ---------- Tabeller och data ---------- */
-          .stApp table {
-            background:var(--cup-surface) !important;
-            color:var(--cup-ink) !important;
-            border-color:var(--cup-border) !important;
-          }
-          .stApp table th {
-            background:#e9eff4 !important;
-            color:var(--cup-ink) !important;
-            font-weight:750 !important;
-          }
-          .stApp table td { color:var(--cup-ink) !important; }
-          [data-testid="stDataFrame"] {
-            background:var(--cup-surface) !important;
-            border:1px solid var(--cup-border) !important;
-            border-radius:10px !important;
-            overflow:hidden;
-          }
-
-          /* ---------- Publik hero och matchkort ---------- */
-          /* v91 public navigation + info */
-          .cn-rules-grid {
-            display:grid;
-            grid-template-columns:repeat(2,minmax(0,1fr));
-            gap:12px;
-            margin:10px 0 20px;
-          }
-          .cn-rule-card {
-            display:flex;
-            gap:12px;
-            align-items:flex-start;
-            padding:16px;
-            border:1px solid #dbe3ea;
-            border-radius:16px;
-            background:linear-gradient(145deg,#ffffff,#f7f9fc);
-            box-shadow:0 5px 16px rgba(15,23,42,.06);
-          }
-          .cn-rule-icon {
-            width:38px;height:38px;border-radius:12px;
-            display:flex;align-items:center;justify-content:center;
-            background:#eef4ff;font-size:20px;flex:0 0 38px;
-          }
-          .cn-rule-card strong {display:block;color:#172033;font-size:15px;margin-bottom:4px}
-          .cn-rule-card span {display:block;color:#334155;line-height:1.45;font-size:14px}
-          .cn-rule-card small {display:block;color:#64748b;margin-top:4px}
-          .cn-custom-info-card,.cn-practical-info-card {
-            border:1px solid #dbe3ea;border-radius:16px;padding:17px 18px;
-            background:#fff;box-shadow:0 4px 14px rgba(15,23,42,.05);
-            line-height:1.6;color:#172033;margin:8px 0 18px;
-          }
-          .cn-practical-info-card {display:grid;gap:10px}
-          @media (max-width:680px) {
-            .cn-rules-grid {grid-template-columns:1fr}
-            div[data-testid="stHorizontalBlock"] > div[data-testid="stColumn"] button {
-              min-height:64px;
-              border-radius:15px;
-              font-weight:850;
-              font-size:14px;
-              box-shadow:0 4px 12px rgba(15,23,42,.08);
-            }
-          }
-
-          .cup-hero {
-            background:linear-gradient(135deg,#172033 0%,#1e3a5f 58%,#166534 120%);
-            color:#ffffff !important;
-            border-radius:16px;
-            padding:22px 24px;
-            margin:4px 0 18px;
-            box-shadow:0 8px 20px rgba(15,23,42,.14);
-          }
-          .cup-hero,.cup-hero h1,.cup-hero h2,.cup-hero h3,.cup-hero h4,
-          .cup-hero p,.cup-hero div,.cup-hero span,.cup-hero b,.cup-hero small {
-            color:#ffffff !important;
-          }
-          .cup-hero .eyebrow { font-size:12px; text-transform:uppercase; letter-spacing:.11em; opacity:.82; font-weight:800; }
-          .cup-hero .title { font-size:clamp(26px,4vw,40px); font-weight:850; line-height:1.08; margin:5px 0 8px; }
-          .cup-hero .meta { font-size:14px; opacity:.94; }
-
-          .cn-hero-title-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
-          .cn-hero-title-row .title{margin-right:auto}
-          .cn-hero-status{display:inline-flex;align-items:center;border-radius:999px;padding:5px 9px;font-size:11px;font-weight:850;line-height:1}
-          .cn-hero-status.live{background:rgba(34,197,94,.20);border:1px solid rgba(134,239,172,.45);color:#dcfce7!important}
-          .cn-hero-status.completed{background:rgba(250,204,21,.18);border:1px solid rgba(253,224,71,.40);color:#fef9c3!important}
-          .cn-hero-status.upcoming{background:rgba(255,255,255,.13);border:1px solid rgba(255,255,255,.22);color:#fff!important}
-
-          .status-pill { display:inline-block; padding:4px 9px; border-radius:999px; font-size:11px; font-weight:800; letter-spacing:.03em; }
-          .status-live { background:#dcfce7 !important; color:#14532d !important; }
-          .status-upcoming { background:#dbeafe !important; color:#1e40af !important; }
-          .status-finished { background:#e2e8f0 !important; color:#334155 !important; }
-          .public-match-card {
-            background:var(--cup-surface) !important;
-            color:var(--cup-ink) !important;
-            border-color:var(--cup-border) !important;
-            box-shadow:0 2px 8px rgba(15,23,42,.06) !important;
-            transition:border-color .15s ease,box-shadow .15s ease;
-          }
-          .public-match-card,.public-match-card div,.public-match-card p,
-          .public-match-card b,.public-match-card small {
-            color:var(--cup-ink) !important;
-          }
-          .public-match-card .match-stage { color:#ffffff !important; }
-          .public-match-card .match-meta { color:var(--cup-ink-soft) !important; }
-          .public-match-card .match-weather,.public-match-card .match-referee,
-          .public-match-card .kit-label { color:var(--cup-muted) !important; }
-          .public-match-card:hover {
-            box-shadow:0 5px 14px rgba(15,23,42,.10) !important;
-            border-color:#aebdca !important;
-          }
-
-          /* ---------- Versionsmärke ---------- */
-          .cup-version-badge {
-            display:inline-block;
-            margin:2px 0 12px;
-            padding:6px 10px;
-            border-radius:7px;
-            background:#e4efe8;
-            border:1px solid #b9d2c1;
-            color:#14532d !important;
-            font-size:12px;
-            font-weight:800;
-            letter-spacing:.02em;
-          }
-
-          /* ---------- Publik statistik ---------- */
-          .public-metric-grid {
-            display:grid;
-            grid-template-columns:repeat(4,minmax(0,1fr));
-            gap:12px;
-            margin:0 0 16px;
-          }
-          .public-metric {
-            background:#ffffff;
-            border:1px solid var(--cup-border);
-            border-radius:12px;
-            padding:13px 15px;
-            min-height:82px;
-          }
-          .public-metric .label { color:var(--cup-muted) !important; font-size:13px; margin-bottom:6px; }
-          .public-metric .value { color:var(--cup-ink) !important; font-size:30px; line-height:1; font-weight:850; }
-          .cn-public-summary-row {
-            display:flex;
-            align-items:flex-start;
-            justify-content:space-between;
-            gap:14px;
-            margin:0 0 12px;
-          }
-          .cn-public-summary-row .public-metric-grid { margin-bottom:0; }
-          .cn-public-highlights {
-            display:grid;
-            grid-template-columns:repeat(2,minmax(155px,1fr));
-            gap:8px;
-            flex:1 1 460px;
-            max-width:680px;
-          }
-          .cn-public-highlight {
-            background:#f8fafc;
-            border:1px solid var(--cup-border);
-            border-radius:10px;
-            padding:8px 10px;
-            min-width:0;
-          }
-          .cn-public-highlight .label { color:var(--cup-muted) !important; font-size:11px; font-weight:750; margin-bottom:2px; }
-          .cn-public-highlight .value { color:var(--cup-ink) !important; font-size:14px; line-height:1.25; font-weight:850; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-          .cn-public-highlight .sub { color:var(--cup-muted) !important; font-size:11px; line-height:1.2; margin-top:2px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-
-
-          /* ---------- Mobilkompatibilitet: iOS + Android ---------- */
-          html, body {
-            -webkit-text-size-adjust:100% !important;
-            text-size-adjust:100% !important;
-          }
-
-          /* Undvik iOS auto-zoom när användaren trycker i formulärfält. */
-          input, textarea, select,
-          [data-baseweb="input"] input,
-          [data-baseweb="textarea"] textarea,
-          [data-baseweb="select"] input {
-            font-size:16px !important;
-          }
-
-
-          /* Datumfält: tydlig kontrast även när Safari använder native-kontroll. */
-          input[type="date"],
-          input[type="time"] {
-            background:#ffffff !important;
-            color:#172033 !important;
-            color-scheme:light !important;
-            min-height:44px !important;
-          }
-          input[type="date"]::-webkit-date-and-time-value,
-          input[type="time"]::-webkit-date-and-time-value {
-            color:#172033 !important;
-            text-align:left;
-          }
-          input[type="date"]::-webkit-calendar-picker-indicator,
-          input[type="time"]::-webkit-calendar-picker-indicator {
-            opacity:.85;
-          }
-
-
-          /* Dataframes får inte pressa hela sidan bredare än mobilen. */
-          [data-testid="stDataFrame"],
-          [data-testid="stDataEditor"] {
-            max-width:100% !important;
-            overflow-x:auto !important;
-            -webkit-overflow-scrolling:touch !important;
-          }
-
-          @supports (padding: max(0px)) {
-            .stApp .block-container {
-              padding-left:max(.65rem, env(safe-area-inset-left)) !important;
-              padding-right:max(.65rem, env(safe-area-inset-right)) !important;
-              padding-bottom:max(1rem, env(safe-area-inset-bottom)) !important;
-            }
-          }
-
-          @media (max-width:760px) {
-            /* Rubriker får brytas utan att skapa horisontell scroll. */
-            h1, h2, h3, h4, .cup-hero .title {
-              overflow-wrap:anywhere;
-              word-break:normal;
-            }
-
-
-            /* Matchkort ska hålla sig inom viewport. */
-            .public-match-card {
-              max-width:100% !important;
-              overflow:hidden !important;
-            }
-
-            /* Formulär i flera kolumner får bli en kolumn på mycket smala telefoner. */
-            div[data-testid="stHorizontalBlock"] {
-              gap:.55rem !important;
-            }
-          }
-
-          @media (max-width:430px) {
-            .block-container {
-              padding-top:.35rem !important;
-            }
-            .cup-version-badge {
-              font-size:11px !important;
-              padding:5px 8px !important;
-            }
-            .cup-hero .title {
-              font-size:24px !important;
-            }
-            .public-metric .value {
-              font-size:23px !important;
-            }
-          }
-
-          /* iOS/Safari-specifikt – påverkar inte Android. */
-          @supports (-webkit-touch-callout:none) {
-            body {
-              -webkit-font-smoothing:antialiased;
-            }
-            input, textarea, select, button {
-              -webkit-appearance:none;
-            }
-            input[type="checkbox"],
-            input[type="radio"] {
-              -webkit-appearance:auto;
-            }
-          }
-
-          /* ---------- Mobil ---------- */
-          @media (max-width:760px) {
-            .block-container { padding-left:.65rem; padding-right:.65rem; padding-top:.55rem; }
-            .cup-hero { padding:15px 14px; border-radius:13px; margin-top:8px; margin-bottom:12px; }
-            .cup-hero .title { font-size:27px; }
-            .public-metric-grid { grid-template-columns:repeat(2,minmax(0,1fr)); gap:9px; margin-bottom:12px; }
-            .public-metric { min-height:70px; padding:11px 12px; }
-            .public-metric .value { font-size:25px; }
-            .public-match-card { padding:11px !important; }
-            .public-match-card .public-team-name { font-size:15px !important; }
-            .public-match-card .kit-label { display:none !important; }
-            .public-match-card .match-meta { font-size:12px !important; line-height:1.35 !important; }
-            div[data-baseweb="tab-list"] {
-              border-radius:9px !important;
-              overflow-x:auto !important;
-              flex-wrap:nowrap !important;
-              scrollbar-width:none;
-            }
-            div[data-baseweb="tab-list"]::-webkit-scrollbar { display:none; }
-            button[data-baseweb="tab"] { min-height:40px; white-space:nowrap !important; padding-left:10px !important; padding-right:10px !important; }
-            div[role="radiogroup"] { gap:.25rem !important; }
-          }
-
-
-
-          /* ===== CENTRAL NAVIGATION v29 =====
-             Alla navigationsval använder vanliga Streamlit-knappar.
-             Inaktiv = ljus yta + mörk text.
-             Aktiv = grön yta + vit text.
-          */
-          .stButton > button,
-          .stFormSubmitButton > button,
-          .stDownloadButton > button {
-            background:#FFFFFF !important;
-            border:1px solid #B8C5D1 !important;
-            color:#0F172A !important;
-            opacity:1 !important;
-          }
-          .stButton > button *,
-          .stFormSubmitButton > button *,
-          .stDownloadButton > button * {
-            color:#0F172A !important;
-            opacity:1 !important;
-          }
-          .stButton > button:hover,
-          .stFormSubmitButton > button:hover,
-          .stDownloadButton > button:hover {
-            background:#F1F5F9 !important;
-            border-color:#94A3B8 !important;
-          }
-          [data-testid="stLinkButton"] a {
-            background:#FFFFFF !important;
-            border:1px solid #B8C5D1 !important;
-            color:#0F172A !important;
-            opacity:1 !important;
-            border-radius:10px !important;
-            font-weight:700 !important;
-            min-height:2.55rem !important;
-            box-shadow:0 1px 2px rgba(15,23,42,.04) !important;
-          }
-          [data-testid="stLinkButton"] a *,
-          [data-testid="stLinkButton"] a p,
-          [data-testid="stLinkButton"] a span {
-            color:#0F172A !important;
-            opacity:1 !important;
-          }
-          [data-testid="stLinkButton"] a:hover {
-            background:#F1F5F9 !important;
-            border-color:#94A3B8 !important;
-          }
-
-          .stButton > button[kind="primary"],
-          .stFormSubmitButton > button[kind="primary"] {
-            background:#166534 !important;
-            border-color:#166534 !important;
-            color:#FFFFFF !important;
-            opacity:1 !important;
-          }
-          .stButton > button[kind="primary"] *,
-          .stFormSubmitButton > button[kind="primary"] * {
-            color:#FFFFFF !important;
-            opacity:1 !important;
-          }
-          .stButton > button[kind="primary"]:hover,
-          .stFormSubmitButton > button[kind="primary"]:hover {
-            background:#14532D !important;
-            border-color:#14532D !important;
-          }
-
-          /* Publika flikar ligger kvar överst när användaren scrollar. */
-          div[data-baseweb="tab-list"] {
-            position:sticky !important;
-            top:0 !important;
-            z-index:999 !important;
-            box-shadow:0 4px 10px rgba(15,23,42,.10) !important;
-          }
-
-          /* Publika st.tabs finns kvar men får ett enda tydligt färgsystem. */
-          div[data-baseweb="tab-list"] {
-            background:#F1F5F9 !important;
-            border:1px solid #CBD5E1 !important;
-            isolation:isolate !important;
-            border-radius:10px !important;
-            padding:4px !important;
-            gap:3px !important;
-            overflow-x:auto !important;
-          }
-          button[data-baseweb="tab"],
-          button[data-baseweb="tab"] > div {
-            background:#FFFFFF !important;
-            color:#0F172A !important;
-            opacity:1 !important;
-          }
-          button[data-baseweb="tab"] *,
-          button[data-baseweb="tab"] p,
-          button[data-baseweb="tab"] span {
-            color:#0F172A !important;
-            opacity:1 !important;
-          }
-          button[data-baseweb="tab"][aria-selected="true"],
-          button[data-baseweb="tab"][aria-selected="true"] > div {
-            background:#DCFCE7 !important;
-            color:#14532D !important;
-            font-weight:800 !important;
-          }
-          button[data-baseweb="tab"][aria-selected="true"] * {
-            color:#14532D !important;
-          }
-
-          @media (max-width:760px) {
-            .stButton > button {
-              min-height:44px !important;
-              font-size:14px !important;
-            }
-            div[data-baseweb="tab-list"] {
-              flex-wrap:nowrap !important;
-              overflow-x:auto !important;
-              -webkit-overflow-scrolling:touch !important;
-              scrollbar-width:none;
-            }
-            div[data-baseweb="tab-list"]::-webkit-scrollbar { display:none; }
-            button[data-baseweb="tab"] {
-              flex:0 0 auto !important;
-              min-height:44px !important;
-              white-space:nowrap !important;
-              padding-left:12px !important;
-              padding-right:12px !important;
-            }
-          }
-
-
-          /* ===== TABELLER v31: centrera rubriker och innehåll ===== */
-          table th,
-          table td {
-            text-align:center !important;
-            vertical-align:middle !important;
-          }
-
-          /* Streamlit dataframe/data_editor (Glide Data Grid) */
-          [data-testid="stDataFrame"] [role="columnheader"],
-          [data-testid="stDataFrame"] [role="gridcell"],
-          [data-testid="stDataEditor"] [role="columnheader"],
-          [data-testid="stDataEditor"] [role="gridcell"] {
-            text-align:center !important;
-            justify-content:center !important;
-            align-items:center !important;
-          }
-
-          [data-testid="stDataFrame"] [role="columnheader"] *,
-          [data-testid="stDataFrame"] [role="gridcell"] *,
-          [data-testid="stDataEditor"] [role="columnheader"] *,
-          [data-testid="stDataEditor"] [role="gridcell"] * {
-            text-align:center !important;
-            justify-content:center !important;
-            margin-left:auto !important;
-            margin-right:auto !important;
-          }
-
-</style>
-        """,
-        unsafe_allow_html=True,
-    )
 
 
 inject_custom_css()
@@ -2811,320 +1962,15 @@ st.markdown(
 )
 
 
-def inject_ux2_css():
-    st.markdown(
-        """<style>
-        :root{--cn-space-1:4px;--cn-space-2:8px;--cn-space-3:12px;--cn-space-4:16px;--cn-space-5:24px;--cn-radius:14px;--cn-primary:#176b3a;--cn-primary-soft:#eef8f1;--cn-text:#132033;--cn-muted:#64748b;--cn-border:#dbe4ea}
-        .cn-recommend-card,.cn-progress-hero,.cn-attention-row{background:#fff;border:1px solid var(--cn-border);border-radius:var(--cn-radius);box-shadow:0 5px 18px rgba(15,23,42,.05)}
-        .cn-recommend-card{padding:14px 16px;margin:8px 0 12px;display:flex;flex-direction:column;gap:4px}.cn-recommend-card b{color:var(--cn-primary)}.cn-recommend-card span{font-weight:750;color:var(--cn-text)}.cn-recommend-card small{color:var(--cn-muted)}
-        .cn-progress-hero{padding:16px 18px;margin:8px 0 18px}.cn-progress-hero>div:first-child{display:flex;justify-content:space-between;gap:16px;align-items:baseline}.cn-progress-hero span{color:var(--cn-muted);font-weight:700}.cn-progress-hero strong{color:var(--cn-text);font-size:22px}.cn-progress-track{height:9px;background:#edf2f7;border-radius:99px;margin-top:10px;overflow:hidden}.cn-progress-track i{display:block;height:100%;background:var(--cn-primary);border-radius:99px}
-        .cn-attention-row{padding:11px 13px;margin:3px 0;color:var(--cn-text)}
-        .cn-empty-state{display:flex;gap:13px;align-items:center;padding:18px;border:1px dashed #b9c7d2;border-radius:14px;background:#fbfcfd;margin:10px 0 16px}.cn-empty-state .icon{width:42px;height:42px;border-radius:12px;background:#eef8f1;display:grid;place-items:center;font-size:22px;color:#176b3a}.cn-empty-state b{color:#132033;font-size:16px}.cn-empty-state p{margin:3px 0 0;color:#64748b} 
-        .cn-schedule-grid{display:grid;grid-template-columns:72px repeat(var(--cn-pitches,4),minmax(150px,1fr));gap:8px;margin:7px 0;min-width:720px}.cn-schedule-head>div{font-size:12px;font-weight:850;color:var(--cn-muted);text-transform:uppercase;padding:4px 6px}.cn-schedule-time{font-weight:850;color:var(--cn-text);padding:11px 6px}.cn-match-tile{display:grid;grid-template-columns:auto 1fr auto 1fr;gap:5px;align-items:center;padding:10px 11px;border:1px solid var(--cn-border);border-radius:12px;background:#fff;color:var(--cn-text);box-shadow:0 2px 8px rgba(15,23,42,.04)}.cn-match-tile small{color:var(--cn-muted)}.cn-match-tile.empty{display:block;color:#94a3b8;background:#f8fafc;box-shadow:none}.stExpander:has(.cn-schedule-grid){overflow-x:auto}
-        .cn-mobile-bottom-nav{display:none}
-        [data-testid="stButton"] button{min-height:44px;border-radius:12px;font-weight:720;touch-action:manipulation;-webkit-tap-highlight-color:transparent}
-        [data-testid="stDataFrame"],.texttv-table-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
-        [data-testid="stButton"] button[kind="primary"]{box-shadow:0 4px 12px rgba(23,107,58,.14)}
-        .cn-current-admin-page{position:sticky;top:78px;z-index:50;background:rgba(248,250,252,.94);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);border:1px solid var(--cn-border);box-shadow:0 5px 14px rgba(15,23,42,.05)}
-        .cn-admin-nav-group-title{margin-top:18px!important;color:#64748b!important;font-size:12px!important;letter-spacing:.06em!important}
-
-        .cn-admin-section-label{font-size:12px;font-weight:900;text-transform:uppercase;letter-spacing:.07em;color:#64748b;margin:2px 0 5px}
-
-        .cn-mode-nav-safezone{height:0;margin:0;padding:0}
-        @media(min-width:901px){
-          .cn-mode-nav-safezone{height:24px!important;display:block!important}
-          .cn-mode-nav-safezone + div{
-            position:relative;z-index:20;
-            max-width:430px!important;margin-left:auto!important;
-          }
-          .cn-mode-nav-safezone + div [data-testid="stButton"] button{
-            min-height:38px!important;font-size:.86rem!important;
-          }
-        }
-        @media(max-width:900px){
-          .cn-mode-nav-safezone{height:0!important}
-        }
-
-        .cn-setup-flow{display:flex;align-items:center;gap:8px;flex-wrap:wrap;background:#fff;border:1px solid #d7e0ea;border-radius:12px;padding:10px 12px;margin:4px 0 10px}
-        .cn-setup-flow b{background:#eef7f0;color:#166534;border:1px solid #bbdfc5;border-radius:999px;padding:5px 9px;font-size:12px}
-        .cn-setup-flow span{color:#94a3b8;font-weight:800}
-        .cn-rule-type{font-size:11px;font-weight:900;letter-spacing:.05em;text-transform:uppercase}
-        .cn-flow-context{background:#fff;border:1px solid var(--cn-border);border-radius:16px;padding:14px 16px;margin:8px 0 12px;box-shadow:0 4px 14px rgba(15,23,42,.045)}
-        .cn-flow-kicker{font-size:11px;font-weight:900;text-transform:uppercase;letter-spacing:.07em;color:#64748b;margin-bottom:3px}
-        .cn-flow-title{font-size:17px;font-weight:850;color:#132033;margin-bottom:3px}
-        .cn-flow-copy{font-size:13px;line-height:1.45;color:#64748b}
-        .cn-flow-status{display:flex;gap:7px;flex-wrap:wrap;margin-top:10px}
-        .cn-flow-pill{display:inline-flex;align-items:center;gap:5px;border:1px solid #dbe4ea;border-radius:999px;padding:5px 9px;background:#f8fafc;color:#475569;font-size:12px;font-weight:780}
-        .cn-flow-pill.good{background:#ecfdf5;border-color:#bbf7d0;color:#166534}
-        .cn-flow-pill.warn{background:#fff7ed;border-color:#fed7aa;color:#9a3412}
-        .cn-next-action{border-left:4px solid #176b3a;background:#f5fbf7;border-radius:12px;padding:11px 13px;margin:8px 0 12px}
-        .cn-next-action b{color:#14532d}.cn-next-action span{color:#475569;font-size:13px}
-
-        @media(max-width:760px){
-          .cn-mobile-bottom-nav{display:grid;grid-template-columns:repeat(4,1fr);position:fixed;left:8px;right:8px;bottom:8px;z-index:999996;background:rgba(255,255,255,.97);border:1px solid #dbe4ea;border-radius:18px;box-shadow:0 10px 28px rgba(15,23,42,.16);padding:6px;-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px)}
-          .cn-mobile-bottom-nav a{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;min-height:52px;text-decoration:none!important;color:#475569!important;font-size:17px;border-radius:12px}.cn-mobile-bottom-nav a span{font-size:10px;font-weight:800}.cn-mobile-bottom-nav a.active{background:#eef8f1;color:#14532d!important}
-          .stApp .block-container{padding-bottom:5.8rem!important}.cn-schedule-grid{min-width:640px}.cn-current-admin-page{top:70px} [data-testid="stButton"] button{min-height:46px !important}
-        }
-        </style>""", unsafe_allow_html=True)
-    components.html("""<script>document.addEventListener('keydown',function(e){if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='k'){e.preventDefault();const f=window.parent.document.querySelector('input[aria-label*=\"Sök lag\"],input[placeholder*=\"ÖSK\"]');if(f){f.focus();f.scrollIntoView({block:'center'});}}});</script>""",height=0)
 
 inject_ux2_css()
 
 
-def inject_v191_design_system():
-    """Gemensamt produktlager ovanpå Streamlit utan att ändra affärslogik."""
-    st.markdown(
-        """<style>
-        :root{
-          --cn-primary:#176b3a;
-          --cn-primary-hover:#12572f;
-          --cn-primary-soft:#edf7f0;
-          --cn-secondary:#334155;
-          --cn-accent:#0f766e;
-          --cn-bg:#f6f8f7;
-          --cn-surface:#ffffff;
-          --cn-surface-subtle:#f8faf9;
-          --cn-border:#d9e2dd;
-          --cn-border-strong:#c4d1ca;
-          --cn-text:#17231d;
-          --cn-text-secondary:#5f6f66;
-          --cn-success:#18723d;
-          --cn-warning:#9a5b0a;
-          --cn-error:#b42318;
-          --cn-info:#315b7d;
-          --cn-disabled:#94a39b;
-          --cn-space-1:4px;--cn-space-2:8px;--cn-space-3:12px;--cn-space-4:16px;
-          --cn-space-5:24px;--cn-space-6:32px;--cn-space-7:48px;--cn-space-8:64px;
-          --cn-radius-sm:8px;--cn-radius-md:12px;--cn-radius-lg:16px;
-          --cn-shadow-sm:0 1px 2px rgba(16,24,20,.05);
-        }
-
-        html,body,[class*="css"]{font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
-        .stApp{background:var(--cn-bg);color:var(--cn-text)}
-        .stApp .block-container{max-width:1180px;padding-left:clamp(14px,3vw,32px);padding-right:clamp(14px,3vw,32px)}
-        [data-testid="stSidebar"]{background:#f1f5f2;border-right:1px solid var(--cn-border)}
-        [data-testid="stSidebar"] [data-testid="stVerticalBlock"]{gap:.55rem}
-
-        h1{font-size:clamp(1.65rem,2.2vw,2.05rem)!important;line-height:1.15!important;letter-spacing:-.025em!important;font-weight:760!important;margin-bottom:.45rem!important}
-        h2{font-size:clamp(1.30rem,1.8vw,1.55rem)!important;line-height:1.2!important;letter-spacing:-.018em!important;font-weight:730!important}
-        h3{font-size:1.12rem!important;line-height:1.3!important;font-weight:700!important}
-        h4{font-size:1rem!important;line-height:1.35!important;font-weight:690!important}
-        p,li,[data-testid="stCaptionContainer"]{line-height:1.52}
-        [data-testid="stCaptionContainer"]{color:var(--cn-text-secondary)!important;font-size:.84rem!important}
-
-        [data-testid="stButton"] button,
-        [data-testid="stFormSubmitButton"] button,
-        [data-testid="stDownloadButton"] button,
-        [data-testid="stLinkButton"] a{
-          min-height:42px!important;border-radius:var(--cn-radius-sm)!important;
-          font-weight:660!important;letter-spacing:0!important;box-shadow:none!important;
-          transition:background-color .12s ease,border-color .12s ease,color .12s ease!important;
-        }
-        [data-testid="stButton"] button[kind="primary"],
-        [data-testid="stFormSubmitButton"] button[kind="primary"]{
-          background:var(--cn-primary)!important;border-color:var(--cn-primary)!important;color:white!important;
-        }
-        [data-testid="stButton"] button[kind="primary"]:hover,
-        [data-testid="stFormSubmitButton"] button[kind="primary"]:hover{
-          background:var(--cn-primary-hover)!important;border-color:var(--cn-primary-hover)!important;
-        }
-        [data-testid="stButton"] button[kind="secondary"],
-        [data-testid="stFormSubmitButton"] button[kind="secondary"],
-        [data-testid="stDownloadButton"] button,
-        [data-testid="stLinkButton"] a{
-          background:var(--cn-surface)!important;border:1px solid var(--cn-border-strong)!important;color:var(--cn-secondary)!important;
-        }
-        [data-testid="stButton"] button[kind="secondary"]:hover,
-        [data-testid="stDownloadButton"] button:hover,
-        [data-testid="stLinkButton"] a:hover{background:#f3f6f4!important;border-color:#9fb1a7!important}
-
-        button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible,[role="combobox"]:focus-visible{
-          outline:3px solid rgba(23,107,58,.28)!important;outline-offset:2px!important;
-        }
-        button:disabled,[aria-disabled="true"]{opacity:.52!important;cursor:not-allowed!important}
-
-        [data-testid="stTextInput"] input,
-        [data-testid="stNumberInput"] input,
-        [data-testid="stTextArea"] textarea,
-        [data-baseweb="select"]>div,
-        [data-testid="stDateInput"] input{
-          border-radius:var(--cn-radius-sm)!important;border-color:var(--cn-border-strong)!important;
-          background:var(--cn-surface)!important;box-shadow:none!important;
-        }
-        [data-testid="stTextInput"] input:focus,
-        [data-testid="stNumberInput"] input:focus,
-        [data-testid="stTextArea"] textarea:focus{
-          border-color:var(--cn-primary)!important;
-        }
-
-        [data-testid="stVerticalBlockBorderWrapper"]{
-          border-color:var(--cn-border)!important;border-radius:var(--cn-radius-md)!important;
-          box-shadow:none!important;background:var(--cn-surface)!important;
-        }
-        [data-testid="stExpander"]{
-          border:1px solid var(--cn-border)!important;border-radius:var(--cn-radius-md)!important;
-          background:var(--cn-surface)!important;box-shadow:none!important;
-        }
-        [data-testid="stExpander"] summary{font-weight:660!important}
-
-        [data-testid="stAlert"]{
-          border-radius:var(--cn-radius-md)!important;box-shadow:none!important;border-width:1px!important;
-        }
-        [data-testid="stMetric"]{
-          background:var(--cn-surface);border:1px solid var(--cn-border);
-          border-radius:var(--cn-radius-md);padding:12px 14px;box-shadow:none;
-        }
-
-        [data-testid="stDataFrame"]{
-          border:1px solid var(--cn-border);border-radius:var(--cn-radius-md);background:var(--cn-surface);
-          overflow:hidden;
-        }
-        [data-testid="stDataFrame"] [role="columnheader"]{font-weight:700!important;background:#f1f5f2!important}
-        .texttv-table{border-collapse:separate!important;border-spacing:0!important}
-        .texttv-table th{position:sticky;top:0;z-index:2;background:#eef3f0!important;font-size:.78rem!important;letter-spacing:.02em}
-        .texttv-table td,.texttv-table th{padding:9px 10px!important;border-bottom:1px solid #e6ece8!important}
-        .texttv-table tbody tr:hover td{filter:brightness(.985)}
-        .texttv-table td:not(:nth-child(2)){font-variant-numeric:tabular-nums}
-
-        [data-testid="stTabs"] [role="tablist"]{gap:4px;border-bottom:1px solid var(--cn-border)}
-        [data-testid="stTabs"] button[role="tab"]{
-          border-radius:var(--cn-radius-sm) var(--cn-radius-sm) 0 0!important;font-weight:640!important;padding:.55rem .8rem!important;
-        }
-
-        .cn-recommend-card,.cn-progress-hero,.cn-attention-row,.cn-flow-context,.cn-follow-shell,.cn-next-card{
-          box-shadow:none!important;border-color:var(--cn-border)!important;border-radius:var(--cn-radius-md)!important;
-        }
-        .cn-flow-context{padding:12px 14px!important;margin:6px 0 10px!important}
-        .cn-flow-kicker,.cn-admin-section-label,.cn-admin-nav-group-title{letter-spacing:.045em!important;font-weight:720!important}
-        .cn-flow-pill{border-radius:999px!important;font-weight:650!important}
-        .cn-current-admin-page{
-          box-shadow:none!important;background:#f6f8f7!important;-webkit-backdrop-filter:none!important;backdrop-filter:none!important;
-          border-color:var(--cn-border)!important;
-        }
-
-        .cn-empty-state{
-          border:1px dashed var(--cn-border-strong)!important;background:var(--cn-surface-subtle)!important;
-          border-radius:var(--cn-radius-md)!important;padding:18px!important;box-shadow:none!important;
-        }
-        .cn-empty-state .icon{background:var(--cn-primary-soft)!important;border-radius:var(--cn-radius-sm)!important}
-        .cn-empty-state p{color:var(--cn-text-secondary)!important}
-
-        .cn-public-top-nav + div [data-testid="stButton"] button{min-height:46px!important}
-        .cn-public-top-nav + div [data-testid="stButton"] button[kind="primary"]{
-          background:var(--cn-primary-soft)!important;color:#14552f!important;border:1px solid #9bc8aa!important;
-        }
-        .cn-public-top-nav + div [data-testid="stButton"] button[kind="secondary"]{
-          background:transparent!important;border-color:transparent!important;color:#53645a!important;
-        }
-        .cn-public-top-nav + div [data-testid="stButton"] button[kind="secondary"]:hover{
-          background:#eef2ef!important;border-color:#dce5df!important;color:#263a2e!important;
-        }
-
-        .cn-mobile-bottom-nav{
-          border-radius:var(--cn-radius-md)!important;background:#fff!important;border-color:var(--cn-border)!important;
-          box-shadow:0 8px 22px rgba(16,24,20,.12)!important;-webkit-backdrop-filter:none!important;backdrop-filter:none!important;
-        }
-        .cn-mobile-bottom-nav a{border-radius:var(--cn-radius-sm)!important;color:#5c6d63!important}
-        .cn-mobile-bottom-nav a.active{background:var(--cn-primary-soft)!important;color:#14552f!important}
-
-        @media(max-width:900px){
-          .stApp .block-container{padding-left:12px!important;padding-right:12px!important}
-          .cn-mode-nav-safezone + div [data-testid="stHorizontalBlock"]{flex-wrap:wrap!important;gap:6px!important}
-          .cn-mode-nav-safezone + div [data-testid="column"]{min-width:calc(50% - 4px)!important;flex:1 1 calc(50% - 4px)!important}
-          .cn-public-top-nav + div{display:none!important}
-        }
-        @media(max-width:760px){
-          h1{font-size:1.55rem!important} h2{font-size:1.25rem!important}
-          .public-metric-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:7px!important}
-          .public-metric{min-height:auto!important;padding:9px 10px!important}
-          .public-metric .value{font-size:22px!important}
-          .public-match-card{padding:10px!important;margin:7px 0!important}
-          [data-testid="stButton"] button,[data-testid="stFormSubmitButton"] button{min-height:46px!important}
-          [data-testid="stVerticalBlockBorderWrapper"]{border-radius:10px!important}
-          .cn-mobile-bottom-nav{grid-template-columns:repeat(5,1fr)!important;left:6px!important;right:6px!important;bottom:max(6px,env(safe-area-inset-bottom))!important;padding:5px!important}
-          .cn-mobile-bottom-nav a{min-height:50px!important;font-size:15px!important}
-          .cn-mobile-bottom-nav a span{font-size:9.5px!important}
-          .texttv-table td,.texttv-table th{padding:8px 8px!important}
-        }
-        @media(min-width:1400px){
-          .stApp .block-container{max-width:1220px!important}
-        }
-        @media(prefers-reduced-motion:reduce){
-          *,*::before,*::after{scroll-behavior:auto!important;transition:none!important;animation:none!important}
-        }
-        </style>""",
-        unsafe_allow_html=True,
-    )
 
 
 inject_v191_design_system()
 
 
-def inject_v193_product_design_system():
-    """Cohesive presentation-only product design layer for v1.193."""
-    st.markdown(
-        """<style>
-        /* CUPNAVI PRODUCT DESIGN SYSTEM v1.193 */
-        :root{
-          --cn-color-primary:#176b3a;--cn-color-primary-hover:#12572f;--cn-color-primary-pressed:#0d4727;
-          --cn-color-primary-soft:#edf7f0;--cn-color-secondary:#334155;--cn-color-accent:#0f766e;
-          --cn-color-bg:#f5f7f6;--cn-color-surface:#fff;--cn-color-surface-subtle:#f8faf9;
-          --cn-color-border:#d9e2dd;--cn-color-border-strong:#b9c8c0;
-          --cn-color-text:#16231c;--cn-color-text-secondary:#5b6b62;--cn-color-text-tertiary:#738078;
-          --cn-color-success:#176b3a;--cn-color-warning:#8a5308;--cn-color-error:#b42318;--cn-color-info:#315b7d;
-          --cn-space-1:4px;--cn-space-2:8px;--cn-space-3:12px;--cn-space-4:16px;--cn-space-5:24px;--cn-space-6:32px;--cn-space-7:48px;--cn-space-8:64px;
-          --cn-radius-xs:6px;--cn-radius-sm:8px;--cn-radius-md:12px;--cn-radius-lg:16px;
-          --cn-shadow-xs:0 1px 2px rgba(16,24,20,.035);--cn-shadow-sm:0 3px 12px rgba(16,24,20,.055);
-          --cn-control-h:40px;--cn-content-max:1240px;
-        }
-        html,body,.stApp{background:var(--cn-color-bg)!important;color:var(--cn-color-text)!important}
-        html,body,.stApp,button,input,textarea,select{font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif!important}
-        .stApp .block-container{max-width:var(--cn-content-max)!important;padding-left:clamp(14px,2.4vw,30px)!important;padding-right:clamp(14px,2.4vw,30px)!important;padding-bottom:32px!important}
-        h1,h2,h3,h4,h5,h6{color:var(--cn-color-text)!important;text-wrap:balance}
-        h1{font-size:clamp(1.55rem,2vw,1.95rem)!important;line-height:1.12!important;letter-spacing:-.025em!important;font-weight:780!important;margin:0 0 12px!important}
-        h2{font-size:clamp(1.25rem,1.6vw,1.48rem)!important;line-height:1.2!important;letter-spacing:-.018em!important;font-weight:750!important;margin:24px 0 12px!important}
-        h3{font-size:1.08rem!important;line-height:1.28!important;font-weight:720!important;margin:16px 0 8px!important}
-        h4{font-size:.98rem!important;font-weight:700!important} p,li{line-height:1.48}
-        [data-testid="stCaptionContainer"],[data-testid="stCaptionContainer"] p{color:var(--cn-color-text-secondary)!important;font-size:.82rem!important;line-height:1.42!important}
-        [data-testid="stMarkdownContainer"] a{color:#145a34;text-underline-offset:2px}
-        [data-testid="stVerticalBlock"]{gap:.65rem}[data-testid="stHorizontalBlock"]{gap:.75rem}hr{border-color:var(--cn-color-border)!important;margin:24px 0!important}
-        [data-testid="stSidebar"]{background:#f0f4f1!important;border-right:1px solid var(--cn-color-border)!important}
-        [data-testid="stSidebar"] [data-testid="stVerticalBlock"]{gap:.42rem!important}
-        [data-testid="stSidebar"] [data-testid="stWidgetLabel"] p{font-size:.76rem!important;color:var(--cn-color-text-secondary)!important;font-weight:700!important}
-        [data-testid="stWidgetLabel"],[data-testid="stWidgetLabel"] p,label[data-testid="stWidgetLabel"]{color:var(--cn-color-text)!important;font-size:.84rem!important;font-weight:650!important;line-height:1.28!important;opacity:1!important}
-        [data-testid="stTextInput"] input,[data-testid="stNumberInput"] input,[data-testid="stTextArea"] textarea,[data-testid="stDateInput"] input,[data-baseweb="select"]>div{min-height:var(--cn-control-h)!important;border:1px solid var(--cn-color-border-strong)!important;border-radius:var(--cn-radius-sm)!important;background:var(--cn-color-surface)!important;color:var(--cn-color-text)!important;box-shadow:none!important}
-        [data-testid="stTextInput"] input:focus,[data-testid="stNumberInput"] input:focus,[data-testid="stTextArea"] textarea:focus,[data-testid="stDateInput"] input:focus,[data-baseweb="select"]>div:focus-within{border-color:var(--cn-color-primary)!important;box-shadow:0 0 0 3px rgba(23,107,58,.12)!important;outline:none!important}
-        [data-testid="stForm"]{background:var(--cn-color-surface)!important;border-color:var(--cn-color-border)!important;border-radius:var(--cn-radius-md)!important}
-        [data-testid="stRadio"]>div{gap:6px!important;flex-wrap:wrap!important}[data-testid="stRadio"] label{padding:6px 10px!important;border:1px solid var(--cn-color-border)!important;border-radius:var(--cn-radius-sm)!important;background:#fff!important;color:var(--cn-color-text)!important;font-size:.84rem!important}
-        [data-testid="stButton"] button,[data-testid="stFormSubmitButton"] button,[data-testid="stDownloadButton"] button,[data-testid="stLinkButton"] a,[data-testid="stPopover"] button{min-height:var(--cn-control-h)!important;padding:7px 13px!important;border-radius:var(--cn-radius-sm)!important;box-shadow:none!important;font-weight:670!important;font-size:.84rem!important;line-height:1.15!important;transition:background-color .12s ease,border-color .12s ease,color .12s ease,transform .06s ease!important}
-        [data-testid="stButton"] button[kind="primary"],[data-testid="stFormSubmitButton"] button[kind="primary"]{background:var(--cn-color-primary)!important;border:1px solid var(--cn-color-primary)!important;color:#fff!important}
-        [data-testid="stButton"] button[kind="primary"] *,[data-testid="stFormSubmitButton"] button[kind="primary"] *{color:#fff!important}
-        [data-testid="stButton"] button[kind="primary"]:hover,[data-testid="stFormSubmitButton"] button[kind="primary"]:hover{background:var(--cn-color-primary-hover)!important;border-color:var(--cn-color-primary-hover)!important}
-        [data-testid="stButton"] button[kind="secondary"],[data-testid="stFormSubmitButton"] button[kind="secondary"],[data-testid="stDownloadButton"] button,[data-testid="stLinkButton"] a,[data-testid="stPopover"] button{background:#fff!important;border:1px solid var(--cn-color-border-strong)!important;color:var(--cn-color-secondary)!important}
-        [data-testid="stButton"] button[kind="secondary"]:hover,[data-testid="stDownloadButton"] button:hover,[data-testid="stLinkButton"] a:hover,[data-testid="stPopover"] button:hover{background:#f0f4f2!important;border-color:#8fa49a!important;color:#183126!important}
-        button:disabled,[aria-disabled="true"]{opacity:.48!important;cursor:not-allowed!important;filter:saturate(.65)}
-        button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible,[role="combobox"]:focus-visible,[role="tab"]:focus-visible,[role="radio"]:focus-visible{outline:3px solid rgba(23,107,58,.28)!important;outline-offset:2px!important}
-        [data-testid="stVerticalBlockBorderWrapper"],[data-testid="stExpander"],[data-testid="stMetric"]{background:#fff!important;border:1px solid var(--cn-color-border)!important;border-radius:var(--cn-radius-md)!important;box-shadow:none!important}
-        [data-testid="stExpander"] summary{min-height:42px!important;font-size:.86rem!important;font-weight:680!important;color:var(--cn-color-text)!important}
-        [data-testid="stMetric"]{padding:11px 13px!important}[data-testid="stMetricLabel"]{color:var(--cn-color-text-secondary)!important}[data-testid="stMetricValue"]{font-weight:770!important;letter-spacing:-.02em!important}
-        .cn-status-card,.cn-step,.cn-recommend-card,.cn-progress-hero,.cn-attention-row,.cn-flow-context,.cn-follow-shell,.cn-next-card,.cn-venue-card,.cn-live-card,.public-match-card{box-shadow:none!important;border-color:var(--cn-color-border)!important;border-radius:var(--cn-radius-md)!important}
-        [data-testid="stAlert"]{border-radius:var(--cn-radius-md)!important;border-width:1px!important;box-shadow:none!important;padding:10px 12px!important;margin:.25rem 0 .5rem!important}[data-testid="stAlert"] p{font-size:.84rem!important;line-height:1.4!important}
-        [data-testid="stTabs"] [role="tablist"]{gap:3px!important;border-bottom:1px solid var(--cn-color-border)!important}[data-testid="stTabs"] button[role="tab"]{min-height:38px!important;padding:6px 10px!important;border-radius:8px 8px 0 0!important;color:var(--cn-color-text-secondary)!important;font-size:.83rem!important;font-weight:650!important}[data-testid="stTabs"] button[role="tab"][aria-selected="true"]{color:var(--cn-color-primary)!important;font-weight:720!important}
-        [data-testid="stButtonGroup"] button{min-height:36px!important;background:#fff!important;border-color:var(--cn-color-border)!important;color:var(--cn-color-secondary)!important;font-size:.82rem!important}[data-testid="stButtonGroup"] button[aria-pressed="true"],[data-testid="stButtonGroup"] button[aria-checked="true"],[data-testid="stButtonGroup"] [data-selected="true"]{background:var(--cn-color-primary-soft)!important;color:#14552f!important;border-color:#98bca7!important;font-weight:700!important}
-        [data-testid="stDataFrame"],.texttv-table-wrap{border:1px solid var(--cn-color-border)!important;border-radius:var(--cn-radius-md)!important;background:#fff!important;box-shadow:none!important;overflow:auto!important}[data-testid="stDataFrame"] [role="columnheader"]{background:#edf2ef!important;color:var(--cn-color-text)!important;font-size:.78rem!important;font-weight:720!important}[data-testid="stDataFrame"] [role="gridcell"]{color:var(--cn-color-text)!important;font-size:.82rem!important}
-        .texttv-table{width:100%!important;border-collapse:separate!important;border-spacing:0!important}.texttv-table th{position:sticky!important;top:0!important;z-index:2!important;background:#edf2ef!important;color:var(--cn-color-text)!important;font-size:.77rem!important;font-weight:720!important}.texttv-table td,.texttv-table th{padding:8px 10px!important;border-bottom:1px solid #e5ebe7!important}.texttv-table tbody tr:hover td{background:#f8faf9!important}
-        .cn-empty-state{background:var(--cn-color-surface-subtle)!important;border:1px dashed var(--cn-color-border-strong)!important;border-radius:var(--cn-radius-md)!important;padding:20px!important;box-shadow:none!important}.cn-empty-state .icon{background:var(--cn-color-primary-soft)!important;border-radius:var(--cn-radius-sm)!important}.cn-empty-state p{color:var(--cn-color-text-secondary)!important}
-        .cup-hero,.cn-next-match,.cn-live-head,.cn-live-card.is-live{background-image:none!important}.cup-hero{background:#17324d!important;box-shadow:none!important}
-        .cn-current-admin-page{background:rgba(245,247,246,.96)!important;border-color:var(--cn-color-border)!important;box-shadow:none!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important}.cn-admin-nav-group-title,.cn-admin-section-label,.cn-flow-kicker{color:var(--cn-color-text-secondary)!important;font-size:.72rem!important;font-weight:730!important;letter-spacing:.055em!important;text-transform:uppercase!important}.cn-flow-context{padding:10px 12px!important;margin:4px 0 8px!important;background:#fff!important}
-        .cn-public-top-nav + div [data-testid="stButton"] button{min-height:38px!important;font-size:.81rem!important}.public-metric{box-shadow:none!important;border-color:var(--cn-color-border)!important}.public-match-card{background:#fff!important}
-        @media(max-width:1024px){:root{--cn-content-max:100%}.stApp .block-container{padding-left:16px!important;padding-right:16px!important}}
-        @media(max-width:768px){:root{--cn-control-h:44px}html,body,.stApp{max-width:100vw!important;overflow-x:hidden!important}.stApp .block-container{padding-left:10px!important;padding-right:10px!important;padding-bottom:88px!important}[data-testid="stHorizontalBlock"]{gap:8px!important}[data-testid="stButton"] button,[data-testid="stFormSubmitButton"] button,[data-testid="stDownloadButton"] button,[data-testid="stLinkButton"] a{min-height:44px!important}h1{font-size:1.46rem!important}h2{font-size:1.22rem!important}h3{font-size:1.02rem!important}[data-testid="stDataFrame"],.texttv-table-wrap{max-width:100%!important;overflow-x:auto!important;-webkit-overflow-scrolling:touch}[data-testid="stPopoverBody"]{max-width:calc(100vw - 20px)!important;max-height:calc(100vh - 24px)!important;overflow:auto!important}}
-        @media(max-width:390px){.stApp .block-container{padding-left:8px!important;padding-right:8px!important}[data-testid="stHorizontalBlock"]{gap:6px!important}[data-testid="stButton"] button,[data-testid="stFormSubmitButton"] button{padding-left:9px!important;padding-right:9px!important;font-size:.81rem!important}}
-        @media(min-width:1440px){:root{--cn-content-max:1280px}}
-        @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important;scroll-behavior:auto!important}}
-        </style>""",
-        unsafe_allow_html=True,
-    )
 
 inject_v193_product_design_system()
 
@@ -3198,88 +2044,6 @@ render_persistent_brand()
 
 # v1.266: mobil publikvy – ta bort Streamlit Cloud-chrome som visar bl.a. "Fork",
 # fäst cupnavigeringen upptill och säkra responsiviteten i summeringsrutorna.
-def inject_v266_public_mobile_css():
-    st.markdown(
-        """<style>
-        /* Behåll Streamlits header (sidebar-kontroll behövs i admin) men dölj
-           hostingverktyg/deploy-toolbar i den publika produktupplevelsen. */
-        [data-testid="stToolbar"],
-        [data-testid="stDecoration"],
-        [data-testid="stStatusWidget"],
-        .stAppDeployButton { display:none !important; }
-
-        /* Summeringen får aldrig pressa metric-korten till bokstavssmala kolumner. */
-        .cn-public-summary-row,
-        .cn-public-summary-row > * { min-width:0 !important; }
-        .public-metric-grid { min-width:0 !important; }
-        .public-metric { min-width:0 !important; overflow:hidden !important; }
-        .public-metric .label, .public-metric .value {
-          word-break:normal !important; overflow-wrap:normal !important; hyphens:none !important;
-        }
-
-        .cn-public-section-nav{
-          display:grid !important;grid-template-columns:repeat(5,minmax(0,1fr)) !important;
-          position:sticky !important;top:0 !important;z-index:999995 !important;
-          width:100% !important;margin:4px 0 10px !important;padding:5px !important;
-          background:rgba(255,255,255,.98) !important;border:1px solid #dbe4ea !important;
-          border-radius:12px !important;box-shadow:0 4px 14px rgba(15,23,42,.10) !important;
-        }
-        .cn-public-section-nav a{
-          display:flex !important;align-items:center !important;justify-content:center !important;
-          min-width:0 !important;min-height:42px !important;padding:6px 7px !important;
-          border-radius:9px !important;text-decoration:none !important;color:#475569 !important;
-          font-size:13px !important;font-weight:750 !important;text-align:center !important;
-        }
-        .cn-public-section-nav a.active{background:#eef8f1 !important;color:#14552f !important}
-        .cn-public-section-nav .cn-nav-mobile{display:none}
-
-        @media(max-width:900px){
-          /* Samma breakpoint som mobilnavigationen – tidigare gällde layoutfixen först
-             under 760px, vilket gav sönderpressade rutor på vissa Android-viewports. */
-          .cn-public-summary-row{display:block !important;margin-bottom:10px !important;width:100% !important}
-          .cn-public-summary-row .public-metric-grid{
-            display:grid !important;grid-template-columns:repeat(2,minmax(0,1fr)) !important;
-            width:100% !important;gap:8px !important;margin:5px 0 8px !important;
-          }
-          .cn-public-summary-row .public-metric{
-            width:auto !important;min-width:0 !important;min-height:68px !important;
-            padding:10px 11px !important;display:block !important;
-          }
-          .cn-public-summary-row .public-metric .label{
-            display:block !important;font-size:12px !important;line-height:1.2 !important;
-            white-space:normal !important;margin-bottom:5px !important;
-          }
-          .cn-public-summary-row .public-metric .value{
-            display:block !important;font-size:23px !important;line-height:1.05 !important;
-            white-space:normal !important;
-          }
-          .cn-public-highlights{
-            display:grid !important;grid-template-columns:repeat(2,minmax(0,1fr)) !important;
-            width:100% !important;max-width:none !important;gap:8px !important;
-          }
-          .cn-public-highlight{min-width:0 !important;padding:10px !important}
-          .cn-public-highlight .value,.cn-public-highlight .sub{white-space:normal !important}
-
-          /* Mobilens cupnavigation ligger i dokumentflödet och fastnar i överkant.
-             Den ersätter den tidigare bottenbaren som skymde innehåll. */
-          .cn-public-section-nav{left:auto !important;right:auto !important;bottom:auto !important}
-          .cn-public-section-nav .cn-nav-desktop{display:none !important}
-          .cn-public-section-nav .cn-nav-mobile{display:inline !important}
-          .cn-public-section-nav a{min-width:0 !important;min-height:46px !important;padding:4px 2px !important}
-          .cn-public-section-nav a span{font-size:10px !important;white-space:nowrap !important}
-          .stApp .block-container{padding-bottom:1.5rem !important}
-        }
-
-        @media(max-width:430px){
-          .cn-public-summary-row .public-metric-grid{gap:7px !important}
-          .cn-public-summary-row .public-metric{padding:9px !important;min-height:64px !important}
-          .cn-public-summary-row .public-metric .value{font-size:21px !important}
-          .cn-public-highlights{grid-template-columns:1fr !important}
-          .cn-public-section-nav a span{font-size:9px !important}
-        }
-        </style>""",
-        unsafe_allow_html=True,
-    )
 
 inject_v266_public_mobile_css()
 # APP_VERSION centraliseras i cupnavi_core/version.py
@@ -7110,57 +5874,18 @@ def render_public_view(tournament_id, tournament):
 
     screen_mode = bool(hasattr(st, "query_params") and str(st.query_params.get("screen", "")) == "1")
     if screen_mode:
-        screen_exit_url = public_cup_url(tournament_id)
-        st.markdown("""<style>
-          [data-testid="stSidebar"], [data-testid="stHeader"] {display:none !important;}
-          .stApp .block-container {max-width:1600px !important;padding:1.2rem 2rem 2rem !important;}
-          .cn-persistent-brand,.cn-fixed-share {display:none !important;}
-          .cn-screen-head{display:flex;justify-content:space-between;align-items:center;gap:20px;margin-bottom:18px}
-          .cn-screen-title{font-size:34px;font-weight:900;color:#0f172a}.cn-screen-meta{color:#475569;font-size:16px}
-          .cn-screen-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}.cn-screen-card{background:white;border:1px solid #dbe3ea;border-radius:16px;padding:16px;box-shadow:0 6px 18px rgba(15,23,42,.06)}
-          .cn-screen-card h3{margin:0 0 10px;color:#0f172a}.cn-screen-match{padding:10px 0;border-top:1px solid #edf2f7}.cn-screen-match:first-of-type{border-top:0}.cn-screen-score{font-size:26px;font-weight:900;color:#14532d}.cn-screen-time{font-weight:800;color:#0f172a}.cn-screen-muted{color:#64748b}
-          @media(max-width:900px){.cn-screen-grid{grid-template-columns:1fr}.cn-screen-title{font-size:27px}}
-        </style>""", unsafe_allow_html=True)
-        st.markdown(f"<div class='cn-screen-head'><div><div class='cn-screen-title'>🏆 {html.escape(tournament['name'])}</div><div class='cn-screen-meta'>Informationsskärm · uppdateras automatiskt</div></div><a href='{html.escape(screen_exit_url, quote=True)}'>← Till cupsidan</a></div>", unsafe_allow_html=True)
-        components.html("<script>setTimeout(function(){window.parent.location.reload();},30000);</script>", height=0)
-        live_rows=[]; upcoming_rows=[]; recent_rows=[]
-        for m in published_matches:
-            start=datetime.fromisoformat(m['scheduled_start'])
-            label=f"{_public_source_label(m['home_source'])} – {_public_source_label(m['away_source'])}"
-            if m['home_score'] is not None and m['away_score'] is not None:
-                recent_rows.append((start,m,label))
-            elif start <= now <= start + timedelta(minutes=max(20, match_duration_minutes(tournament))):
-                live_rows.append((start,m,label))
-            elif start >= now:
-                upcoming_rows.append((start,m,label))
-        recent_rows=sorted(recent_rows, reverse=True)[:6]
-        upcoming_rows=sorted(upcoming_rows)[:8]
-        live_rows=sorted(live_rows)[:8]
-        def _screen_matches(rows, kind):
-            if not rows: return "<div class='cn-screen-muted'>Inga matcher just nu.</div>"
-            out=[]
-            for start,m,label in rows:
-                if kind=='recent':
-                    info=f"<span class='cn-screen-score'>{int(m['home_score'])}–{int(m['away_score'])}</span>"
-                else:
-                    info=f"<span class='cn-screen-time'>{start.strftime('%H:%M')}</span> · {html.escape(_public_pitch_label(m))}"
-                out.append(f"<div class='cn-screen-match'><div><b>{html.escape(label)}</b></div><div>{info}</div></div>")
-            return ''.join(out)
-        st.markdown(f"<div class='cn-screen-grid'><div class='cn-screen-card'><h3>🔴 Pågår / nu</h3>{_screen_matches(live_rows,'live')}</div><div class='cn-screen-card'><h3>⏭ Kommande</h3>{_screen_matches(upcoming_rows,'upcoming')}</div><div class='cn-screen-card'><h3>✅ Senaste resultat</h3>{_screen_matches(recent_rows,'recent')}</div></div>", unsafe_allow_html=True)
-        _screen_table_bundle = calculate_all_group_tables(tournament_id, tournament)
-        screen_groups = _screen_table_bundle["groups"][:4]
-        if screen_groups:
-            st.markdown("### Tabeller")
-            cols=st.columns(min(2,len(screen_groups)))
-            for idx,g in enumerate(screen_groups):
-                table=_screen_table_bundle["tables"].get(int(g["id"]), [])
-                rows=[data for _team_id,data in table]
-                with cols[idx % len(cols)]:
-                    st.markdown(f"**{html.escape(g['name'])}**")
-                    if rows: st.dataframe(pd.DataFrame(rows)[['Lag','S','MS','P']], hide_index=True, use_container_width=True)
-        sponsors=all_rows("SELECT * FROM sponsors WHERE tournament_id=? AND active=1 ORDER BY sort_order,id LIMIT 8", (tournament_id,))
-        if sponsors:
-            st.caption("Partners: " + " · ".join(s['name'] for s in sponsors))
+        render_public_screen_mode(
+            tournament_id,
+            tournament,
+            published_matches,
+            now=now,
+            public_cup_url=public_cup_url,
+            source_label=_public_source_label,
+            pitch_label=_public_pitch_label,
+            match_duration_minutes=match_duration_minutes,
+            calculate_all_group_tables=calculate_all_group_tables,
+            all_rows=all_rows,
+        )
         return
     filtered_public_matches = published_matches
     next_match = next(
@@ -7174,18 +5899,14 @@ def render_public_view(tournament_id, tournament):
         _row_value(tournament, "lifecycle_status", None),
         is_published=bool(tournament["is_published"]),
     )
-    if public_lifecycle == "completed":
-        _hero_status = "<span class='cn-hero-status completed'>🏆 Avslutad</span>"
-    elif public_lifecycle == "live":
-        _hero_status = "<span class='cn-hero-status live'>● Pågår</span>"
-    else:
-        _hero_status = "<span class='cn-hero-status upcoming'>Kommande</span>"
-
-    hero_meta = f"{cup_date_label(tournament)} · {html.escape(tournament['location'] or 'Spelort ej angiven')}"
     st.markdown(
-        f"""<div class='cup-hero'><div class='eyebrow'>CupNavi · {html.escape(tr("Turneringsöversikt"))}</div>
-        <div class='cn-hero-title-row'><div class='title'>{html.escape(tournament['name'])}</div>{_hero_status}</div>
-        <div class='meta'>{hero_meta} · {html.escape(str(_row_value(tournament, 'sport', 'Fotboll')))}</div></div>""",
+        build_public_hero_html(
+            tournament,
+            lifecycle_status=public_lifecycle,
+            cup_date_label=cup_date_label,
+            row_value=_row_value,
+            translate=tr,
+        ),
         unsafe_allow_html=True,
     )
 
@@ -7306,213 +6027,29 @@ def render_public_view(tournament_id, tournament):
         unsafe_allow_html=True,
     )
 
-    st.markdown("<div class='cn-public-follow-anchor'></div>", unsafe_allow_html=True)
-    with st.container():
-        _all_teams_value = "__all__"
-        favorite_options = [_all_teams_value] + [row["id"] for row in public_teams]
-        favorite_index = favorite_options.index(requested_team_id) if requested_team_id in favorite_options else 0
-        _favorite_selection = st.selectbox(
-            "⭐ Följ mitt lag",
-            favorite_options,
-            index=favorite_index,
-            format_func=lambda team_id: tr("Alla lag") if team_id == _all_teams_value else public_team_names.get(team_id, "Lag"),
-            key=f"public_favorite_team_{tournament_id}",
-            help="Valet sparas i länken så cupen kan öppnas direkt med ditt lag.",
-        )
-        favorite_team_id = None if _favorite_selection == _all_teams_value else _favorite_selection
-        if favorite_team_id is not None and favorite_team_id != requested_team_id:
-            if hasattr(st, "query_params"):
-                st.query_params["team"] = str(favorite_team_id)
-                st.query_params["cup"] = str(tournament_id)
-            st.rerun()
-        if favorite_team_id is None and requested_team_id is not None:
-            if hasattr(st, "query_params"):
-                try:
-                    del st.query_params["team"]
-                except KeyError:
-                    pass
-                st.query_params["cup"] = str(tournament_id)
-            st.rerun()
-
-        if requested_team_id:
-            favorite_matches = [
-                m for m in published_matches
-                if requested_team_id in (_public_source_team_id(m["home_source"]), _public_source_team_id(m["away_source"]))
-            ]
-
-            def _public_match_dt(match_row):
-                value = _row_value(match_row, "scheduled_start", None)
-                if not value:
-                    return None
-                try:
-                    return datetime.fromisoformat(str(value))
-                except (TypeError, ValueError):
-                    return None
-
-            favorite_matches = sorted(
-                favorite_matches,
-                key=lambda m: (_public_match_dt(m) is None, _public_match_dt(m) or datetime.max),
-            )
-            favorite_next = next(
-                (
-                    m for m in favorite_matches
-                    if _row_value(m, "home_score", None) is None
-                    and _row_value(m, "away_score", None) is None
-                    and _public_match_dt(m) is not None
-                    and _public_match_dt(m) >= now
-                ),
-                None,
-            )
-            favorite_latest = next(
-                (
-                    m for m in reversed(favorite_matches)
-                    if _row_value(m, "home_score", None) is not None
-                    and _row_value(m, "away_score", None) is not None
-                ),
-                None,
-            )
-            played_count = sum(
-                1 for m in favorite_matches
-                if _row_value(m, "home_score", None) is not None and _row_value(m, "away_score", None) is not None
-            )
-            wins = 0
-            for m in favorite_matches:
-                hs, aw = _row_value(m, "home_score", None), _row_value(m, "away_score", None)
-                if hs is None or aw is None:
-                    continue
-                home_id = _public_source_team_id(m["home_source"])
-                if (home_id == requested_team_id and hs > aw) or (home_id != requested_team_id and aw > hs):
-                    wins += 1
-
-            team_name = public_team_names.get(requested_team_id, "Lag")
-            hero_html = (
-                f"<div class='cn-follow-shell'><div class='cn-follow-kicker'>⭐ Mitt lag</div>"
-                f"<div class='cn-follow-team'>{html.escape(team_name)}</div>"
-            )
-            if favorite_next:
-                next_dt = _public_match_dt(favorite_next)
-                minutes_until = max(0, int((next_dt-now).total_seconds()//60)) if next_dt else None
-                if minutes_until is None:
-                    relative_text = ""
-                elif minutes_until < 60:
-                    relative_text = f" · om {minutes_until} min"
-                elif minutes_until < 24*60:
-                    relative_text = f" · om {minutes_until//60} h {minutes_until%60:02d} min"
-                else:
-                    relative_text = ""
-                hero_html += (
-                    f"<div class='cn-next-card'><div class='cn-next-meta'>Nästa match · "
-                    f"{html.escape(swedish_datetime(favorite_next['scheduled_start']))} · "
-                    f"{html.escape(_public_pitch_label(favorite_next))}"
-                    f"{html.escape(relative_text)}</div>"
-                    f"<div class='cn-next-teams'><div>{html.escape(_public_source_label(favorite_next['home_source']))}</div>"
-                    f"<div class='cn-next-vs'>VS</div>"
-                    f"<div class='away'>{html.escape(_public_source_label(favorite_next['away_source']))}</div></div></div>"
-                )
-            else:
-                hero_html += "<div class='cn-next-card'><div class='cn-next-meta'>Ingen kommande match är schemalagd just nu.</div></div>"
-
-            latest_text = "–"
-            if favorite_latest:
-                latest_text = f"{favorite_latest['home_score']}–{favorite_latest['away_score']}"
-
-            table_position_text = "–"
-            favorite_team_row = next((row for row in public_teams if int(row["id"]) == int(requested_team_id)), None)
-            favorite_group_id = _row_value(favorite_team_row, "group_id", None) if favorite_team_row else None
-            if favorite_group_id:
-                try:
-                    favorite_table = calculate_table(int(favorite_group_id), tournament)
-                    favorite_position = next((idx for idx, (team_id, _) in enumerate(favorite_table, 1) if int(team_id) == int(requested_team_id)), None)
-                    if favorite_position:
-                        table_position_text = f"{favorite_position}:a"
-                except Exception:
-                    pass
-            possible_playoff = next(
-                (m for m in published_matches
-                 if _row_value(m, "stage", "Gruppspel") != "Gruppspel"
-                 and requested_team_id in (_public_source_team_id(m["home_source"]), _public_source_team_id(m["away_source"]))
-                 and _row_value(m, "home_score", None) is None and _row_value(m, "away_score", None) is None),
-                None,
-            )
-            hero_html += (
-                "<div class='cn-follow-mini'>"
-                f"<div><span>Matcher</span><strong>{len(favorite_matches)}</strong></div>"
-                f"<div><span>Spelade</span><strong>{played_count}</strong></div>"
-                f"<div><span>Senaste</span><strong>{html.escape(str(latest_text))}</strong></div>"
-                "</div>"
-                f"<div class='cn-my-status'><span class='cn-my-pill'>📊 Tabell: {html.escape(table_position_text)}</span>"
-                + (
-                    f"<span class='cn-my-pill'>🏆 {html.escape(str(_row_value(possible_playoff,'stage','Slutspel')))} · {html.escape(swedish_datetime(possible_playoff['scheduled_start']))}</span>"
-                    if possible_playoff and _row_value(possible_playoff, "scheduled_start", None) else
-                    "<span class='cn-my-pill'>🏆 Slutspel: inväntar kvalificering</span>"
-                )
-                + "</div></div>"
-            )
-            st.markdown(hero_html, unsafe_allow_html=True)
-
-            team_action_1, team_action_2 = st.columns(2)
-            if favorite_next:
-                favorite_pitch_no = _row_value(favorite_next, "pitch_number", None)
-                favorite_pitch_name = pitch_label(tournament_id, favorite_pitch_no) if favorite_pitch_no else None
-                venue_direction = one_row(
-                    """SELECT url,label FROM venue_points
-                       WHERE tournament_id=? AND kind='Plan' AND url IS NOT NULL AND TRIM(url)<>''
-                         AND (LOWER(label)=LOWER(?) OR LOWER(label)=LOWER(?))
-                       ORDER BY id LIMIT 1""",
-                    (tournament_id, str(favorite_pitch_name or ""), f"Plan {favorite_pitch_no}" if favorite_pitch_no else ""),
-                )
-                if venue_direction:
-                    st.link_button(f"📍 Vägbeskrivning till {venue_direction['label']}", venue_direction["url"], use_container_width=True)
-            if team_action_1.button("🗓️ Visa mitt lags matcher", key=f"favorite_matches_btn_{tournament_id}", use_container_width=True, type="primary"):
-                st.session_state[f"public_force_team_filter_{tournament_id}"] = requested_team_id
-                st.session_state[f"public_page_v92_{tournament_id}"] = "Matcher"
-                st.rerun()
-            if team_action_2.button(tr("Visa alla lag"), key=f"clear_favorite_team_{tournament_id}", use_container_width=True):
-                if hasattr(st, "query_params"):
-                    try:
-                        del st.query_params["team"]
-                    except KeyError:
-                        pass
-                st.rerun()
-
-            with st.expander("🔔 Få viktiga lagnotiser via e-post", expanded=False):
-                st.caption("E-postadressen måste verifieras innan några notiser skickas.")
-                with st.form(f"public_notification_subscribe_{tournament_id}_{requested_team_id}"):
-                    notify_email = st.text_input("E-post", key=f"notify_email_{tournament_id}_{requested_team_id}")
-                    nc1, nc2, nc3 = st.columns(3)
-                    notify_schedule = nc1.checkbox("Matchtid/plan", value=True)
-                    notify_results = nc2.checkbox("Resultat", value=True)
-                    notify_messages = nc3.checkbox("Arrangörsinfo", value=True)
-                    consent = st.checkbox("Jag vill få CupNavi-notiser för detta lag och kan avsluta dem via länken i varje mejl.")
-                    if st.form_submit_button("Skicka verifieringsmejl", type="primary", use_container_width=True):
-                        if not consent:
-                            st.error("Godkänn prenumerationen först.")
-                        else:
-                            try:
-                                ok, error = create_notification_subscription(
-                                    tournament_id, requested_team_id, notify_email,
-                                    notify_schedule=notify_schedule, notify_results=notify_results, notify_messages=notify_messages,
-                                )
-                                if ok:
-                                    st.success("Verifieringsmejl skickat. Öppna länken i mejlet för att aktivera notiser.")
-                                else:
-                                    st.error(f"Prenumerationen sparades men verifieringsmejlet kunde inte skickas: {error}")
-                            except ValueError as exc:
-                                st.error(str(exc))
-
-            notification_rows = all_rows(
-                """SELECT * FROM notifications WHERE tournament_id=? AND (team_id=? OR team_id IS NULL)
-                   ORDER BY created_at DESC,id DESC LIMIT 5""",
-                (tournament_id, requested_team_id),
-            )
-            if notification_rows:
-                with st.expander(f"🔔 Viktigt för {team_name} ({len(notification_rows)})", expanded=False):
-                    for note in notification_rows:
-                        st.markdown(f"**{note['title']}**  \n{note['message']}")
-                        st.caption(note["created_at"].replace("T", " "))
-            st.caption("Bokmärk sidan – lagvalet ligger i länken och följer med nästa gång.")
-        else:
-            pass
+    # v1.276: hela den interaktiva publika "Mitt lag"-upplevelsen är
+    # extraherad till en separat Streamlit-vy. app.py behåller domän-/DB-funktionerna
+    # och injicerar dem för att undvika duplicerad persistence eller ny arkitektur.
+    render_public_team_follow(
+        tournament_id=tournament_id,
+        tournament=tournament,
+        requested_team_id=requested_team_id,
+        public_teams=public_teams,
+        public_team_names=public_team_names,
+        published_matches=published_matches,
+        now=now,
+        tr=tr,
+        source_team_id=_public_source_team_id,
+        source_label=_public_source_label,
+        row_value=_row_value,
+        public_pitch_label=_public_pitch_label,
+        pitch_label=pitch_label,
+        swedish_datetime=swedish_datetime,
+        calculate_table=calculate_table,
+        one_row=one_row,
+        all_rows=all_rows,
+        create_notification_subscription=create_notification_subscription,
+    )
 
     public_page_key = f"public_page_v167_{tournament_id}"
     requested_section = str(st.query_params.get("section", "")) if hasattr(st, "query_params") else ""
@@ -7523,25 +6060,16 @@ def render_public_view(tournament_id, tournament):
     st.session_state[public_page_key] = public_page
     st.session_state["_cupnavi_current_public_page"] = public_page
 
-    # v1.266: en enda länkbaserad cupnavigation ersätter fem Streamlit-knappar
-    # plus den tidigare duplicerade mobilbaren. Det minskar widget/render-arbetet
-    # på framför allt Android och ger samma sticky navigation på alla skärmstorlekar.
-    cup_key = quote(str(_row_value(tournament, "public_slug", tournament_id) or tournament_id))
-    team_query = "&team=" + str(requested_team_id) if requested_team_id else ""
-    nav_links = []
-    for page_value, section, desktop_label, mobile_label in public_navigation_specs():
-        active_class = "active" if public_page == page_value else ""
-        desktop_text = tr(desktop_label) if desktop_label != "Cupinfo" else "Cupinfo"
-        mobile_text = tr(mobile_label) if mobile_label != "Cupinfo" else "Cupinfo"
-        nav_links.append(
-            f"<a role='button' class='{active_class}' href='?cup={cup_key}&section={section}{team_query}'>"
-            f"<span class='cn-nav-desktop'>{html.escape(desktop_text)}</span>"
-            f"<span class='cn-nav-mobile'>{html.escape(mobile_text)}</span></a>"
-        )
+    # v1.273: navigationens HTML byggs i en ren modul. Streamlit-vyn behåller
+    # bara routing/state och renderingen, medan länk/escaping-logik kan testas separat.
     st.markdown(
-        "<nav class='cn-mobile-bottom-nav cn-public-section-nav' aria-label='Cup navigation'>"
-        + "".join(nav_links)
-        + "</nav>",
+        build_public_navigation_html(
+            public_navigation_specs(),
+            current_page=public_page,
+            public_slug=_row_value(tournament, "public_slug", tournament_id) or tournament_id,
+            requested_team_id=requested_team_id,
+            translate=tr,
+        ),
         unsafe_allow_html=True,
     )
 
@@ -7599,261 +6127,31 @@ def render_public_view(tournament_id, tournament):
     if public_page == "Matcher":
         @st.fragment
         def render_public_matches_fragment():
-            _fragment_started = time.perf_counter()
-            _db_calls_before = _PERF["db_calls"]
-            _db_ms_before = _PERF["db_ms"]
-            # Matcher-specifika summeringar beräknas först när sidan öppnas.
-            team_count = len(public_teams)
-            total_goals = sum(
-                int(m["home_score"] or 0) + int(m["away_score"] or 0)
-                for m in played_matches
-            )
-            public_events_by_match = {}
-
-            _stage_timings = {}
-            _stage_started = time.perf_counter()
-            _live_now, _next_matches, _recent_results = classify_public_match_feed(
-                published_matches,
+            return render_public_matches_fragment_module(
+                st=st,
+                tournament_id=tournament_id,
+                tournament=tournament,
+                published_matches=published_matches,
+                played_matches=played_matches,
+                public_teams=public_teams,
+                public_team_names=public_team_names,
+                requested_team_id=requested_team_id,
+                requested_pitch_no=requested_pitch_no,
                 now=now,
-                match_duration_minutes=match_duration_minutes(tournament),
-            )
-            _feed_summary = public_match_feed_summary(_live_now, _next_matches)
-            _feed_html = build_live_feed_html(
-                _feed_summary["items"],
-                is_live=bool(_feed_summary["is_live"]),
-                title=str(_feed_summary["title"]),
-                subtitle=str(_feed_summary["subtitle"]),
-                status=str(_feed_summary["status"]),
-                row_value=_row_value,
-                source_label=_public_source_label,
-                pitch_label=_public_pitch_label,
-            )
-            if _feed_html:
-                st.markdown(_feed_html, unsafe_allow_html=True)
-            _stage_timings["live_feed_ms"] = round((time.perf_counter() - _stage_started) * 1000, 1)
-
-            _stage_started = time.perf_counter()
-
-            _scorer_enabled = bool(_row_value(tournament, "enable_scorer_leaderboard", 1))
-            _assist_enabled = bool(_row_value(tournament, "enable_assist_leaderboard", 1))
-            _overview_db = public_match_overview_db_snapshot(
-                tournament_id,
-                scorer_enabled=bool(played_matches) and _scorer_enabled,
-                assist_enabled=bool(played_matches) and _assist_enabled,
-            )
-            _leader_rows = _overview_db["leader_rows"]
-            _active_visitors = _overview_db["active_visitors"]
-            _stage_timings["overview_db_ms"] = round((time.perf_counter() - _stage_started) * 1000, 1)
-
-            _stage_started = time.perf_counter()
-            _highlight_tables = snapshot_table_bundle(
-                public_teams,
-                published_matches,
-                points_win=int(_row_value(tournament, "points_win", 3) or 0),
-                points_draw=int(_row_value(tournament, "points_draw", 1) or 0),
-                points_loss=int(_row_value(tournament, "points_loss", 0) or 0),
-                table_tiebreak=str(_row_value(tournament, "table_tiebreak", "Målskillnad först") or "Målskillnad först"),
-            )
-            _highlights = competition_highlights(
-                _highlight_tables,
-                _leader_rows,
-                scorer_enabled=_scorer_enabled,
-                assist_enabled=_assist_enabled,
-            )
-
-            _highlights_html = build_highlights_html(_highlights, tr=tr)
-            _stage_timings["highlights_ms"] = round((time.perf_counter() - _stage_started) * 1000, 1)
-            _stage_timings["visitors_ms"] = 0.0
-
-            _stage_started = time.perf_counter()
-            _summary_html = build_summary_html(
-                team_count=team_count,
-                played_count=len(played_matches),
-                total_matches=len(published_matches),
-                total_score=total_goals,
-                score_label=sport_profile(_row_value(tournament, 'sport', 'Fotboll'))['score_label'],
-                active_visitors=_active_visitors,
-                highlights_html=_highlights_html,
+                perf=_PERF,
                 tr=tr,
+                row_value=_row_value,
+                sport_profile=sport_profile,
+                match_duration_minutes=match_duration_minutes,
+                source_label=_public_source_label,
+                source_team_id=_public_source_team_id,
+                pitch_label=_public_pitch_label,
+                overview_snapshot=public_match_overview_db_snapshot,
+                render_share_control=render_public_share_control,
+                filter_matches_view=_filter_public_matches,
+                render_match_cards=_render_public_match_cards,
+                load_match_events=public_match_events_db_snapshot,
             )
-            st.markdown(_summary_html, unsafe_allow_html=True)
-            render_public_share_control(tournament_id, tournament)
-            _stage_timings["summary_share_ms"] = round((time.perf_counter() - _stage_started) * 1000, 1)
-
-            requested_match_view = str(st.query_params.get("matches", "all")) if hasattr(st, "query_params") else "all"
-            requested_match_view = requested_match_view if requested_match_view in {"all", "upcoming", "played"} else "all"
-            _match_view_labels = {
-                "all": tr("Alla"),
-                "upcoming": tr("Kommande"),
-                "played": tr("Spelade"),
-            }
-            _match_key_by_label = {value: key for key, value in _match_view_labels.items()}
-            match_view = st.segmented_control(
-                tr("Visa matcher"),
-                [tr("Alla"), tr("Kommande"), tr("Spelade")],
-                default=_match_view_labels[requested_match_view],
-                key=f"public_match_view_v144_{tournament_id}",
-            ) or _match_view_labels[requested_match_view]
-            _selected_match_view = _match_key_by_label.get(match_view, "all")
-
-            if _selected_match_view != requested_match_view and hasattr(st, "query_params"):
-                st.query_params["matches"] = _selected_match_view
-                st.query_params["section"] = "matches"
-                st.query_params["cup"] = str(_row_value(tournament, "public_slug", tournament_id) or tournament_id)
-                if requested_team_id:
-                    st.query_params["team"] = str(requested_team_id)
-
-            if _selected_match_view == "upcoming":
-                base_match_list = [m for m in published_matches if m["home_score"] is None or m["away_score"] is None]
-            elif _selected_match_view == "played":
-                base_match_list = played_matches
-            else:
-                base_match_list = published_matches
-
-            if _selected_match_view == "played" and not played_matches:
-                st.info("Inga publicerade matcher har ett komplett resultat ännu.")
-
-            if requested_team_id:
-                base_match_list = [
-                    m for m in base_match_list
-                    if requested_team_id in (_public_source_team_id(m["home_source"]), _public_source_team_id(m["away_source"]))
-                ]
-                _follow_info_col, _follow_clear_col = st.columns([3, 1])
-                _follow_info_col.info(f"⭐ Min cup visar matcher för {public_team_names[requested_team_id]}.")
-                if _follow_clear_col.button("Visa hela cupen", key=f"public_clear_team_filter_v144_{tournament_id}", use_container_width=True):
-                    if hasattr(st, "query_params"):
-                        try:
-                            del st.query_params["team"]
-                        except KeyError:
-                            pass
-                        st.query_params["section"] = "matches"
-                    st.rerun()
-
-            if requested_pitch_no:
-                base_match_list = [m for m in base_match_list if int(m["pitch_number"] or 0) == requested_pitch_no]
-                st.info(f"📍 QR-länken visar Plan {requested_pitch_no}.")
-
-            _stage_started = time.perf_counter()
-            match_list, match_filter_mode, match_filter_label = _filter_public_matches(
-                base_match_list,
-                "public_matches",
-                tr("Filtrera matcher"),
-            )
-
-            # v1.270: render the public schedule incrementally. Large cups can
-            # contain hundreds of match cards; sending all of them to a phone on
-            # the first render makes the DOM and Streamlit delta payload needlessly
-            # heavy. Reset the batch when the actual filtered result set changes.
-            _all_filtered_matches = match_list
-            _match_ids_signature = tuple(
-                int(_row_value(match_row, "id", 0) or 0)
-                for match_row in _all_filtered_matches
-            )
-            _limit_key = f"public_match_render_limit_v270_{tournament_id}"
-            _signature_key = f"public_match_render_signature_v270_{tournament_id}"
-            if st.session_state.get(_signature_key) != _match_ids_signature:
-                st.session_state[_signature_key] = _match_ids_signature
-                st.session_state[_limit_key] = PUBLIC_MATCH_INITIAL_BATCH
-
-            match_list, _visible_match_count = visible_match_batch(
-                _all_filtered_matches,
-                st.session_state.get(_limit_key, PUBLIC_MATCH_INITIAL_BATCH),
-            )
-            _total_filtered_matches = len(_all_filtered_matches)
-            if _visible_match_count < _total_filtered_matches:
-                st.caption(
-                    f"{tr('Visar')} {_visible_match_count} av {_total_filtered_matches} "
-                    f"{tr('matcher').lower()} · {match_filter_label}"
-                )
-            else:
-                st.caption(f"{tr('Visar')} {_total_filtered_matches} {tr('matcher').lower()} · {match_filter_label}")
-            _stage_timings["filters_ms"] = round((time.perf_counter() - _stage_started) * 1000, 1)
-
-            _stage_started = time.perf_counter()
-            # Load match events only for visible played matches. The visible
-            # set is now the bounded batch of cards actually rendered.
-            # The previous implementation fetched all filtered played matches,
-            # even when most cards were below the mobile first-view batch.
-            visible_played_match_ids = [
-                int(_row_value(match_row, "id", 0) or 0)
-                for match_row in match_list
-                if (
-                    _row_value(match_row, "home_score", None) is not None
-                    and _row_value(match_row, "away_score", None) is not None
-                    and int(_row_value(match_row, "id", 0) or 0) > 0
-                )
-            ]
-            public_events_by_match = {}
-            if visible_played_match_ids:
-                event_placeholders = ",".join("?" for _ in visible_played_match_ids)
-                public_event_rows = all_rows(
-                    f"""
-                    SELECT s.match_id, p.name AS player_name, COALESCE(p.is_protected,0) AS is_protected,
-                           t.id AS team_id, t.name AS team_name, s.goals, s.red_cards
-                    FROM player_match_stats s
-                    JOIN players p ON p.id=s.player_id
-                    JOIN teams t ON t.id=p.team_id
-                    WHERE s.match_id IN ({event_placeholders})
-                      AND (s.goals > 0 OR s.red_cards > 0)
-                    ORDER BY s.match_id,p.name
-                    """,
-                    tuple(visible_played_match_ids),
-                )
-                for event_row in public_event_rows:
-                    public_events_by_match.setdefault(event_row["match_id"], []).append(event_row)
-            _stage_timings["events_ms"] = round((time.perf_counter() - _stage_started) * 1000, 1)
-
-            def _safe_public_start(match_row):
-                value = _row_value(match_row, "scheduled_start", None)
-                if not value:
-                    return None
-                try:
-                    return datetime.fromisoformat(str(value))
-                except (TypeError, ValueError):
-                    return None
-
-            # v162: Cupen just nu ovan är den enda primära "nästa match"-ytan.
-            # Vi undviker ett andra stort hero-kort som duplicerar samma information.
-            _stage_started = time.perf_counter()
-            show_match_weather = st.toggle(
-                "🌦️ " + tr("Visa väderprognos"),
-                value=False,
-                key=f"public_matches_weather_{tournament_id}",
-            )
-            _render_public_match_cards(
-                match_list,
-                show_results=None,
-                show_weather=show_match_weather,
-                events_by_match=public_events_by_match,
-            )
-            if _visible_match_count < _total_filtered_matches:
-                _remaining_matches = _total_filtered_matches - _visible_match_count
-                _next_batch_size = min(PUBLIC_MATCH_BATCH_SIZE, _remaining_matches)
-                if st.button(
-                    f"Visa {_next_batch_size} fler matcher",
-                    key=f"public_matches_more_v270_{tournament_id}_{_visible_match_count}",
-                    use_container_width=True,
-                ):
-                    st.session_state[_limit_key] = next_visible_count(
-                        _visible_match_count, _total_filtered_matches
-                    )
-                    st.rerun(scope="fragment")
-            _stage_timings["cards_weather_ms"] = round((time.perf_counter() - _stage_started) * 1000, 1)
-
-            _elapsed_ms = (time.perf_counter() - _fragment_started) * 1000
-            _public_perf_snapshot = {
-                "render_ms": round(_elapsed_ms, 1),
-                "db_calls": _PERF["db_calls"] - _db_calls_before,
-                "db_ms": round(_PERF["db_ms"] - _db_ms_before, 1),
-                **_stage_timings,
-                "visible_matches": len(match_list),
-                "filtered_matches": _total_filtered_matches,
-                "played_matches": len(played_matches),
-            }
-            st.session_state[f"_public_perf_matches_{tournament_id}"] = _public_perf_snapshot
-            _public_perf_history = list(st.session_state.get("_cupnavi_public_matches_perf_history", []))
-            _public_perf_history.append(_public_perf_snapshot)
-            st.session_state["_cupnavi_public_matches_perf_history"] = _public_perf_history[-12:]
 
         render_public_matches_fragment()
 
@@ -7883,464 +6181,138 @@ def render_public_view(tournament_id, tournament):
     track_public_visit(tournament_id)
 
 
-def render_match_reporter_view(tournament_id, tournament):
-    """Begränsad arbetsyta: endast resultat och matchhändelser."""
-    st.title(f"📝 Matchrapportör · {tournament['name']}")
-    st.caption(
-        "Här kan du endast rapportera resultat samt mål, assist, varningar och utvisningar. "
-        "Övrig administration är inte tillgänglig."
+def _reporter_save_quick_result(tournament_id, quick_match, home_score, away_score):
+    """Persist one quick result with the existing optimistic-locking boundary."""
+    quick_match_id = int(quick_match["id"])
+    before = result_snapshot(quick_match)
+    goal_push = _goal_push_kwargs(tournament_id, quick_match, before, home_score, away_score)
+    with db() as con:
+        saved = update_match_result_if_unchanged(
+            con,
+            quick_match_id,
+            before,
+            home_score=home_score,
+            away_score=away_score,
+            home_penalties=quick_match["home_penalties"],
+            away_penalties=quick_match["away_penalties"],
+            decided_winner_id=quick_match["decided_winner_id"],
+            referee_id=quick_match["referee_id"],
+        )
+        if saved:
+            enqueue_goal_push_events(con, **goal_push)
+            con.commit()
+    if not saved:
+        return False
+    quick_home_name = source_label(quick_match["home_source"])
+    quick_away_name = source_label(quick_match["away_source"])
+    description = f"{quick_home_name}–{quick_away_name} {home_score}–{away_score}"
+    record_audit(
+        tournament_id, "result", "match", description, entity_id=quick_match_id,
+        before=before, after={"home_score": home_score, "away_score": away_score}, actor="Matchrapportör"
+    )
+    add_feed_item(tournament_id, f"Slut: {description}", category="Resultat", related_match_id=quick_match_id)
+    for team_id in _match_team_ids(quick_match):
+        add_team_notification(
+            tournament_id, team_id, "Nytt resultat", description,
+            event_key=f"result:{quick_match_id}:{home_score}:{away_score}",
+        )
+    return True
+
+
+def _reporter_save_bulk_results(tournament_id, original_by_id, updates):
+    """Persist bulk results without moving concurrency/write logic into the view."""
+    for update in updates:
+        match_for_push = original_by_id[update["match_id"]]
+        update["_goal_push"] = _goal_push_kwargs(
+            tournament_id, match_for_push, update["expected"], update["home_score"], update["away_score"]
+        )
+    saved_updates = []
+    conflicts = []
+    with db() as con:
+        for update in updates:
+            saved = update_match_result_if_unchanged(
+                con, update["match_id"], update["expected"],
+                home_score=update["home_score"], away_score=update["away_score"],
+                home_penalties=update["home_penalties"], away_penalties=update["away_penalties"],
+                decided_winner_id=update["decided_winner_id"], referee_id=update["referee_id"],
+            )
+            (saved_updates if saved else conflicts).append(update)
+            if saved:
+                enqueue_goal_push_events(con, **update["_goal_push"])
+        con.commit()
+    _clear_render_query_cache()
+    for update in saved_updates:
+        home_score = update["home_score"]
+        away_score = update["away_score"]
+        home_penalties = update["home_penalties"]
+        away_penalties = update["away_penalties"]
+        changed_match_id = update["match_id"]
+        if home_score is None or away_score is None:
+            continue
+        changed_match = original_by_id[changed_match_id]
+        description = f"{source_label(changed_match['home_source'])}–{source_label(changed_match['away_source'])} {home_score}–{away_score}"
+        if home_penalties is not None and away_penalties is not None:
+            description += f" ({home_penalties}–{away_penalties} str.)"
+        add_feed_item(tournament_id, f"Slut: {description}", category="Resultat", related_match_id=changed_match_id)
+        for team_id in _match_team_ids(changed_match):
+            add_team_notification(
+                tournament_id, team_id, "Nytt resultat", description,
+                event_key=f"result:{changed_match_id}:{home_score}:{away_score}:{home_penalties}:{away_penalties}",
+            )
+    st.session_state["_validation_dirty"] = True
+    return {"saved": len(saved_updates), "conflicts": len(conflicts)}
+
+
+def _reporter_save_event_rows(changed_rows):
+    """Persist player-event edits with the existing optimistic-locking helper."""
+    saved_rows = []
+    conflicted_rows = []
+    with db() as con:
+        for event_update in changed_rows:
+            saved = update_player_match_stats_if_unchanged(
+                con, event_update["match_id"], event_update["player_id"], event_update["expected"],
+                goals=event_update["goals"], assists=event_update["assists"],
+                yellow_cards=event_update["yellow_cards"], red_cards=event_update["red_cards"],
+            )
+            (saved_rows if saved else conflicted_rows).append(event_update)
+        con.commit()
+    _clear_render_query_cache()
+    return {"saved": len(saved_rows), "conflicts": len(conflicted_rows)}
+
+
+def _reporter_acknowledge_referee(tournament_id, referee_id, match_id):
+    run(
+        """INSERT INTO referee_acknowledgements(tournament_id,referee_id,match_id,acknowledged_at)
+           VALUES(?,?,?,?) ON CONFLICT(referee_id,match_id) DO NOTHING""",
+        (tournament_id, referee_id, match_id, datetime.now().isoformat(timespec="seconds")),
+    )
+    record_audit(
+        tournament_id, "referee_ack", "match", "Domaruppdrag bekräftat",
+        entity_id=match_id, actor="Domare",
     )
 
-    result_tab, event_tab, referee_tab, offline_tab = st.tabs([
-        tr("CupNavi Score"), tr("Matchhändelser"), tr("Domarcentral"), tr("Offlineutkast")
-    ])
 
-    with result_tab:
-        matches = all_rows(
-            """SELECT * FROM matches
-               WHERE tournament_id=? AND scheduled_start IS NOT NULL
-               ORDER BY scheduled_start,pitch_number,id""",
-            (tournament_id,),
-        )
-        playable_matches = select_playable_matches(
-            matches,
+def render_match_reporter_view(tournament_id, tournament):
+    """Thin app boundary: inject reads, labels and protected persistence callbacks."""
+    render_match_reporter_workspace(
+        tournament_id,
+        tournament,
+        MatchReporterWorkspaceDeps(
+            query_all=all_rows,
             resolve_source=resolve_source,
-        )
-
-        if "reporter_result_message" in st.session_state:
-            st.success(st.session_state.pop("reporter_result_message"), icon="✅")
-        if "reporter_conflict_message" in st.session_state:
-            st.warning(st.session_state.pop("reporter_conflict_message"))
-
-        if not playable_matches:
-            st.info("Det finns ännu inga schemalagda matcher med två klara lag.")
-        else:
-            st.markdown("### ⚡ CupNavi Score")
-            quick_match_id = st.selectbox(
-                "Välj match för snabbresultat",
-                [row["id"] for row in playable_matches],
-                format_func=lambda match_id: match_result_label(next(row for row in playable_matches if row["id"] == match_id)),
-                key=f"quick_score_match_{tournament_id}",
-            )
-            quick_match = next(row for row in playable_matches if row["id"] == quick_match_id)
-            quick_home_name = source_label(quick_match["home_source"])
-            quick_away_name = source_label(quick_match["away_source"])
-            draft_key = f"quick_score_draft_{quick_match_id}"
-            if draft_key not in st.session_state:
-                st.session_state[draft_key] = [int(quick_match["home_score"] or 0), int(quick_match["away_score"] or 0)]
-            quick_home_score, quick_away_score = st.session_state[draft_key]
-            qh, qc, qa = st.columns([2, 1, 2])
-            qh.markdown(f"**{quick_home_name}**")
-            qa.markdown(f"**{quick_away_name}**")
-            qh_minus, qh_plus = qh.columns(2)
-            qa_minus, qa_plus = qa.columns(2)
-            if qh_minus.button("−", key=f"qs_hm_{quick_match_id}", use_container_width=True):
-                st.session_state[draft_key][0] = max(0, quick_home_score - 1); st.rerun()
-            if qh_plus.button("+", key=f"qs_hp_{quick_match_id}", use_container_width=True):
-                st.session_state[draft_key][0] = quick_home_score + 1; st.rerun()
-            if qa_minus.button("−", key=f"qs_am_{quick_match_id}", use_container_width=True):
-                st.session_state[draft_key][1] = max(0, quick_away_score - 1); st.rerun()
-            if qa_plus.button("+", key=f"qs_ap_{quick_match_id}", use_container_width=True):
-                st.session_state[draft_key][1] = quick_away_score + 1; st.rerun()
-            qc.markdown(
-                f"<div style='text-align:center;font-size:30px;font-weight:900;padding-top:8px'>{quick_home_score}–{quick_away_score}</div>",
-                unsafe_allow_html=True,
-            )
-            save_col, reset_col = st.columns(2)
-            playoff_tie_needs_detail = quick_match["stage"] != "Gruppspel" and quick_home_score == quick_away_score
-            if save_col.button(
-                "✅ Spara slutresultat", key=f"qs_save_{quick_match_id}", type="primary", use_container_width=True,
-                disabled=playoff_tie_needs_detail,
-            ):
-                before = result_snapshot(quick_match)
-                _quick_goal_push = _goal_push_kwargs(
-                    tournament_id, quick_match, before, quick_home_score, quick_away_score
-                )
-                with db() as con:
-                    _quick_saved = update_match_result_if_unchanged(
-                        con,
-                        quick_match_id,
-                        before,
-                        home_score=quick_home_score,
-                        away_score=quick_away_score,
-                        home_penalties=quick_match["home_penalties"],
-                        away_penalties=quick_match["away_penalties"],
-                        decided_winner_id=quick_match["decided_winner_id"],
-                        referee_id=quick_match["referee_id"],
-                    )
-                    if _quick_saved:
-                        enqueue_goal_push_events(con, **_quick_goal_push)
-                        con.commit()
-                if not _quick_saved:
-                    st.error(
-                        "Resultatet ändrades av en annan användare innan du hann spara. "
-                        "Sidan laddas om så att du ser det senaste resultatet."
-                    )
-                    st.session_state.pop(draft_key, None)
-                    st.rerun()
-                description = f"{quick_home_name}–{quick_away_name} {quick_home_score}–{quick_away_score}"
-                record_audit(tournament_id, "result", "match", description, entity_id=quick_match_id, before=before,
-                             after={"home_score": quick_home_score, "away_score": quick_away_score}, actor="Matchrapportör")
-                add_feed_item(tournament_id, f"Slut: {description}", category="Resultat", related_match_id=quick_match_id)
-                for team_id in _match_team_ids(quick_match):
-                    add_team_notification(tournament_id, team_id, "Nytt resultat", description, event_key=f"result:{quick_match_id}:{quick_home_score}:{quick_away_score}")
-                st.session_state["reporter_result_message"] = "Slutresultatet är sparat."
-                st.rerun()
-            if reset_col.button("Återställ utkast", key=f"qs_reset_{quick_match_id}", use_container_width=True):
-                st.session_state[draft_key] = [int(quick_match["home_score"] or 0), int(quick_match["away_score"] or 0)]; st.rerun()
-            if playoff_tie_needs_detail:
-                st.info("Oavgjord slutspelsmatch behöver avgörande uppgifter. Använd tabellen nedan för straffar/lottning.")
-            st.divider()
-            st.caption("Tabellen nedan finns kvar för massinmatning och slutspelsavgöranden.")
-
-            team_rows = all_rows(
-                "SELECT id,name FROM teams WHERE tournament_id=? ORDER BY name",
-                (tournament_id,),
-            )
-            team_name_by_id = {row["id"]: row["name"] for row in team_rows}
-            team_id_by_name = {row["name"]: row["id"] for row in team_rows}
-            decision_options = ["–"] + [row["name"] for row in team_rows]
-
-            result_rows = build_bulk_result_rows(
-                playable_matches,
-                source_label=source_label,
-                swedish_datetime=swedish_datetime,
-                team_name_by_id=team_name_by_id,
-            )
-
-            edited_results = st.data_editor(
-                pd.DataFrame(result_rows),
-                hide_index=True,
-                use_container_width=True,
-                disabled=["match_id", "Match", "Plan", "Fas", "Hemmalag", "Bortalag"],
-                column_order=[
-                    "Match", "Plan", "Fas", "Hemmalag", "Hemmamål",
-                    "Bortamål", "Bortalag", "Hemmastraffar",
-                    "Bortastraffar", "Avgörande vinnare",
-                ],
-                column_config={
-                    "Hemmamål": st.column_config.NumberColumn(min_value=0, max_value=99, step=1),
-                    "Bortamål": st.column_config.NumberColumn(min_value=0, max_value=99, step=1),
-                    "Hemmastraffar": st.column_config.NumberColumn(
-                        "Straffar hemma", min_value=0, max_value=99, step=1
-                    ),
-                    "Bortastraffar": st.column_config.NumberColumn(
-                        "Straffar borta", min_value=0, max_value=99, step=1
-                    ),
-                    "Avgörande vinnare": st.column_config.SelectboxColumn(options=decision_options),
-                },
-                key=f"reporter_results_{tournament_id}",
-            )
-
-            original_by_id = {int(row["id"]): row for row in playable_matches}
-            updates = []
-            info_messages = []
-            error_messages = []
-
-            for _, row in edited_results.iterrows():
-                match_id = int(row["match_id"])
-                original = original_by_id[match_id]
-                prepared = prepare_bulk_result_update(
-                    row,
-                    original,
-                    team_id_by_name=team_id_by_name,
-                    playoff_tie_rule=tournament["playoff_tie_rule"],
-                    is_na=pd.isna,
-                )
-                info_messages.extend(prepared["info"])
-                error_messages.extend(prepared["errors"])
-                if prepared["update"] is not None:
-                    updates.append(prepared["update"])
-
-            for message in error_messages:
-                st.error(message)
-            for message in info_messages:
-                st.info(message)
-
-            if updates:
-                for update in updates:
-                    _match_for_push = original_by_id[update["match_id"]]
-                    update["_goal_push"] = _goal_push_kwargs(
-                        tournament_id, _match_for_push, update["expected"],
-                        update["home_score"], update["away_score"],
-                    )
-                _reporter_saved = []
-                _reporter_conflicts = []
-                with db() as con:
-                    for update in updates:
-                        saved = update_match_result_if_unchanged(
-                            con,
-                            update["match_id"],
-                            update["expected"],
-                            home_score=update["home_score"],
-                            away_score=update["away_score"],
-                            home_penalties=update["home_penalties"],
-                            away_penalties=update["away_penalties"],
-                            decided_winner_id=update["decided_winner_id"],
-                            referee_id=update["referee_id"],
-                        )
-                        (_reporter_saved if saved else _reporter_conflicts).append(update)
-                        if saved:
-                            enqueue_goal_push_events(con, **update["_goal_push"])
-                    con.commit()
-                _clear_render_query_cache()
-                for update in _reporter_saved:
-                    home_score = update["home_score"]
-                    away_score = update["away_score"]
-                    home_penalties = update["home_penalties"]
-                    away_penalties = update["away_penalties"]
-                    changed_match_id = update["match_id"]
-                    if home_score is None or away_score is None:
-                        continue
-                    changed_match = original_by_id[changed_match_id]
-                    description = f"{source_label(changed_match['home_source'])}–{source_label(changed_match['away_source'])} {home_score}–{away_score}"
-                    if home_penalties is not None and away_penalties is not None:
-                        description += f" ({home_penalties}–{away_penalties} str.)"
-                    add_feed_item(tournament_id, f"Slut: {description}", category="Resultat", related_match_id=changed_match_id)
-                    for team_id in _match_team_ids(changed_match):
-                        add_team_notification(tournament_id, team_id, "Nytt resultat", description,
-                                              event_key=f"result:{changed_match_id}:{home_score}:{away_score}:{home_penalties}:{away_penalties}")
-                st.session_state["_validation_dirty"] = True
-                if _reporter_saved:
-                    st.session_state["reporter_result_message"] = "Sparat automatiskt"
-                if _reporter_conflicts:
-                    st.session_state["reporter_conflict_message"] = (
-                        f"{len(_reporter_conflicts)} match(er) hade ändrats av en annan rapportör och skrevs inte över. "
-                        "De senaste värdena har laddats om."
-                    )
-                st.rerun()
-
-            st.caption("✓ Kompletta resultat sparas automatiskt.")
-
-    with event_tab:
-        played_matches = all_rows(
-            """SELECT * FROM matches
-               WHERE tournament_id=? AND home_score IS NOT NULL AND away_score IS NOT NULL
-               ORDER BY scheduled_start DESC,id DESC""",
-            (tournament_id,),
-        )
-        playable_matches = select_playable_matches(
-            played_matches,
-            resolve_source=resolve_source,
-        )
-
-        if not playable_matches:
-            st.info("Rapportera först ett matchresultat. Därefter kan matchhändelser registreras.")
-        else:
-            match_id = st.selectbox(
-                "Välj match",
-                [row["id"] for row in playable_matches],
-                format_func=lambda selected_id: match_result_label(
-                    next(row for row in playable_matches if row["id"] == selected_id)
-                ),
-                key=f"reporter_event_match_{tournament_id}",
-            )
-            match_row = next(row for row in playable_matches if row["id"] == match_id)
-            home_team_id = resolve_source(match_row["home_source"])
-            away_team_id = resolve_source(match_row["away_source"])
-
-            for selected_team_id in [home_team_id, away_team_id]:
-                selected_team = team(selected_team_id)
-                registered_match_roster = all_rows(
-                    """SELECT p.* FROM players p
-                       JOIN match_rosters mr ON mr.player_id=p.id
-                       WHERE mr.match_id=? AND mr.team_id=? AND p.team_id=?
-                       ORDER BY p.player_number,p.name""",
-                    (match_id, selected_team_id, selected_team_id),
-                )
-                players = registered_match_roster or all_rows(
-                    "SELECT * FROM players WHERE team_id=? ORDER BY player_number,name",
-                    (selected_team_id,),
-                )
-                st.markdown(f"#### {selected_team['name']}")
-                if registered_match_roster:
-                    st.caption(f"Matchtrupp registrerad · {len(registered_match_roster)} spelare. Endast dessa kan få matchhändelser.")
-                elif players:
-                    st.warning("Matchtrupp saknas. Alla spelare visas tills en matchtrupp registreras.")
-                if not players:
-                    st.warning("Laget saknar registrerade spelare.")
-                    continue
-
-                existing = {
-                    row["player_id"]: row
-                    for row in all_rows(
-                        """SELECT * FROM player_match_stats
-                           WHERE match_id=? AND player_id IN
-                           (SELECT id FROM players WHERE team_id=?)""",
-                        (match_id, selected_team_id),
-                    )
-                }
-
-                data = pd.DataFrame([
-                    {
-                        "player_id": player["id"],
-                        "Nr": player["player_number"],
-                        "Spelare": player["name"],
-                        "Mål": existing[player["id"]]["goals"] if player["id"] in existing else 0,
-                        "Assist": existing[player["id"]]["assists"] if player["id"] in existing else 0,
-                        "Varningar": existing[player["id"]]["yellow_cards"] if player["id"] in existing else 0,
-                        "Utvisningar": existing[player["id"]]["red_cards"] if player["id"] in existing else 0,
-                    }
-                    for player in players
-                ])
-
-                reporter_columns = ["Nr", "Spelare", "Mål"]
-                if bool(_row_value(tournament, "enable_assist_leaderboard", 1)):
-                    reporter_columns.append("Assist")
-                if bool(_row_value(tournament, "enable_card_statistics", 1)):
-                    reporter_columns.extend(["Varningar", "Utvisningar"])
-                edited = st.data_editor(
-                    data,
-                    hide_index=True,
-                    use_container_width=True,
-                    disabled=["player_id", "Nr", "Spelare"],
-                    column_order=reporter_columns,
-                    column_config={
-                        "Mål": st.column_config.NumberColumn(min_value=0, step=1),
-                        "Assist": st.column_config.NumberColumn(min_value=0, step=1),
-                        "Varningar": st.column_config.NumberColumn(min_value=0, step=1),
-                        "Utvisningar": st.column_config.NumberColumn(min_value=0, step=1),
-                    },
-                    key=f"reporter_stats_{match_id}_{selected_team_id}",
-                )
-
-                team_goals = int(
-                    match_row["home_score"] if selected_team_id == home_team_id
-                    else match_row["away_score"]
-                )
-                entered_goals = int(edited["Mål"].fillna(0).sum())
-                entered_assists = int(edited["Assist"].fillna(0).sum())
-                validation = validate_match_event_totals(
-                    team_goals, entered_goals, entered_assists
-                )
-                for message in validation["errors"]:
-                    st.error(f"{selected_team['name']}: {message}")
-
-                autosave_key = f"reporter_event_saved_{match_id}_{selected_team_id}"
-                if autosave_key in st.session_state:
-                    st.success(st.session_state.pop(autosave_key), icon="✅")
-                reporter_event_conflict_key = f"reporter_event_conflict_{match_id}_{selected_team_id}"
-                if reporter_event_conflict_key in st.session_state:
-                    st.warning(st.session_state.pop(reporter_event_conflict_key), icon="⚠️")
-
-                if not validation["errors"]:
-                    changed_rows = prepare_changed_event_rows(
-                        (edited_row for _, edited_row in edited.iterrows()),
-                        existing,
-                        match_id=match_id,
-                        is_na=pd.isna,
-                    )
-
-                    if changed_rows:
-                        saved_rows = []
-                        conflicted_rows = []
-                        with db() as con:
-                            for event_update in changed_rows:
-                                saved = update_player_match_stats_if_unchanged(
-                                    con,
-                                    event_update["match_id"],
-                                    event_update["player_id"],
-                                    event_update["expected"],
-                                    goals=event_update["goals"],
-                                    assists=event_update["assists"],
-                                    yellow_cards=event_update["yellow_cards"],
-                                    red_cards=event_update["red_cards"],
-                                )
-                                (saved_rows if saved else conflicted_rows).append(event_update)
-                            con.commit()
-                        _clear_render_query_cache()
-                        if conflicted_rows:
-                            st.session_state[
-                                f"reporter_event_conflict_{match_id}_{selected_team_id}"
-                            ] = (
-                                f"{len(conflicted_rows)} spelarrad(er) hade ändrats av en annan "
-                                "rapportör och skrevs inte över. Senaste värden laddas om."
-                            )
-                        if saved_rows:
-                            st.session_state[autosave_key] = "Sparat automatiskt"
-                        st.rerun()
-
-                st.caption(
-                    f"Matchresultat: {team_goals} mål · registrerade spelarmål: {entered_goals} · "
-                    f"registrerade assist: {entered_assists}"
-                )
-
-    with referee_tab:
-        st.markdown("### 🧑‍⚖️ Domarcentral")
-        st.caption("Domare kan se sitt dagsprogram och bekräfta att uppdraget är sett. Ingen adminnavigation visas här.")
-        referee_rows = all_rows("SELECT * FROM referees WHERE tournament_id=? ORDER BY name", (tournament_id,))
-        if not referee_rows:
-            render_empty_state("Inga domare ännu", "Lägg till domare för att kunna använda automatisk domartillsättning.", "🧑‍⚖️")
-        else:
-            referee_id = st.selectbox(
-                "Välj domare",
-                [row["id"] for row in referee_rows],
-                format_func=lambda rid: next(row["name"] for row in referee_rows if row["id"] == rid),
-                key=f"reporter_referee_{tournament_id}",
-            )
-            assignments = all_rows(
-                """SELECT * FROM matches WHERE tournament_id=? AND referee_id=? AND scheduled_start IS NOT NULL
-                   ORDER BY scheduled_start,pitch_number,id""",
-                (tournament_id, referee_id),
-            )
-            acked = {
-                row["match_id"] for row in all_rows(
-                    "SELECT match_id FROM referee_acknowledgements WHERE tournament_id=? AND referee_id=?",
-                    (tournament_id, referee_id),
-                )
-            }
-            if not assignments:
-                st.info("Domaren har inga schemalagda matcher ännu.")
-            for assignment in assignments:
-                with st.container(border=True):
-                    st.markdown(
-                        f"**{swedish_datetime(assignment['scheduled_start'])} · Plan {assignment['pitch_number']}**  \n"
-                        f"{source_label(assignment['home_source'])} – {source_label(assignment['away_source'])}"
-                    )
-                    if assignment["id"] in acked:
-                        st.success("Uppdraget är bekräftat.", icon="✅")
-                    elif st.button("Bekräfta att jag sett matchen", key=f"ref_ack_{referee_id}_{assignment['id']}", use_container_width=True):
-                        run(
-                            """INSERT INTO referee_acknowledgements(tournament_id,referee_id,match_id,acknowledged_at)
-                               VALUES(?,?,?,?) ON CONFLICT(referee_id,match_id) DO NOTHING""",
-                            (tournament_id, referee_id, assignment["id"], datetime.now().isoformat(timespec="seconds")),
-                        )
-                        record_audit(tournament_id, "referee_ack", "match", "Domaruppdrag bekräftat", entity_id=assignment["id"], actor="Domare")
-                        st.rerun()
-
-    with offline_tab:
-        st.markdown("### 📶 Offlineutkast")
-        st.caption(
-            "Streamlit kräver serverkontakt för riktig synkronisering. Den här säkerhetsfunktionen sparar därför ett lokalt "
-            "resultatutkast i webbläsaren om nätet blir dåligt. Utkastet ligger kvar på enheten och kan föras över till CupNavi Score när nätet återkommer."
-        )
-        offline_matches = all_rows(
-            """SELECT * FROM matches WHERE tournament_id=? AND scheduled_start IS NOT NULL ORDER BY scheduled_start,pitch_number,id""",
-            (tournament_id,),
-        )
-        offline_options = [
-            {
-                "id": int(row["id"]),
-                "label": f"{swedish_datetime(row['scheduled_start'])} · Plan {row['pitch_number']} · {source_label(row['home_source'])} – {source_label(row['away_source'])}",
-            }
-            for row in offline_matches
-        ]
-        offline_html = f"""
-        <style>body{{font-family:Arial,sans-serif;color:#172033;margin:0}} .box{{border:1px solid #cbd5e1;border-radius:14px;padding:14px;background:#fff}}
-        select,input,button{{font-size:16px;padding:9px;border:1px solid #cbd5e1;border-radius:9px}} .scores{{display:flex;gap:8px;margin:12px 0;align-items:center}} input{{width:70px}} button{{cursor:pointer;background:#ecfdf5}} #status{{font-size:12px;color:#475569;margin-top:8px}}</style>
-        <div class='box'><b>Lokalt resultatutkast</b><br><small>Data sparas endast i den här webbläsaren.</small><br><br>
-        <select id='m'></select><div class='scores'><input id='h' type='number' min='0' value='0'><b>–</b><input id='a' type='number' min='0' value='0'><button id='save'>Spara lokalt</button><button id='copy'>Kopiera</button></div><div id='status'></div></div>
-        <script>
-        const matches={json.dumps(offline_options, ensure_ascii=False)}; const key='cupnavi-offline-{int(tournament_id)}';
-        const select=document.getElementById('m'); const h=document.getElementById('h'); const a=document.getElementById('a'); const status=document.getElementById('status');
-        matches.forEach(x=>{{const o=document.createElement('option');o.value=x.id;o.textContent=x.label;select.appendChild(o)}});
-        function load(){{const all=JSON.parse(localStorage.getItem(key)||'{{}}');const d=all[select.value];if(d){{h.value=d.h;a.value=d.a;status.textContent='Lokalt utkast hittat: '+d.saved}}else{{h.value=0;a.value=0;status.textContent='Inget lokalt utkast för vald match.'}}}}
-        select.addEventListener('change',load); document.getElementById('save').onclick=()=>{{const all=JSON.parse(localStorage.getItem(key)||'{{}}');all[select.value]={{h:+h.value||0,a:+a.value||0,saved:new Date().toLocaleString()}};localStorage.setItem(key,JSON.stringify(all));status.textContent='Sparat lokalt på enheten.'}};
-        document.getElementById('copy').onclick=async()=>{{const label=select.options[select.selectedIndex]?.text||'';const txt=label+' | '+h.value+'–'+a.value;try{{await navigator.clipboard.writeText(txt);status.textContent='Utkastet kopierades.'}}catch(e){{status.textContent=txt}}}}; load();
-        </script>
-        """
-        components.html(offline_html, height=210, scrolling=False)
-
+            source_label=source_label,
+            swedish_datetime=swedish_datetime,
+            match_result_label=match_result_label,
+            team=team,
+            row_value=_row_value,
+            translate=tr,
+            render_empty_state=render_empty_state,
+            save_quick_result=_reporter_save_quick_result,
+            save_bulk_results=_reporter_save_bulk_results,
+            save_event_rows=_reporter_save_event_rows,
+            acknowledge_referee=_reporter_acknowledge_referee,
+        ),
+    )
 
 def _participant_role_label(tournament):
     sport = str(_row_value(tournament, "sport", "Fotboll") or "Fotboll")
@@ -9657,467 +7629,34 @@ def _delete_trashed_tournament_if_current(tournament_id,expected_name,expected_t
 
 def render_team_portal(tournament_id, tournament):
     """Begränsad portal för ett enda lag/deltagare i en enda cup."""
-    role_label = _participant_role_label(tournament)
-    st.title(f"👥 {role_label} · {tournament['name']}")
-    st.caption("Portalen ger endast åtkomst till det egna laget/deltagaren. Resultat och officiella matchhändelser rapporteras av matchrapportör eller domare.")
-
-    teams = all_rows("SELECT * FROM teams WHERE tournament_id=? ORDER BY name", (tournament_id,))
-    if not teams:
-        st.info("Det finns ännu inga deltagare/lag i cupen.")
-        return
-
-    auth = st.session_state.get("participant_portal_auth") or {}
-    authenticated_team_id = auth.get("team_id") if auth.get("tournament_id") == tournament_id else None
-    valid_team_ids = {int(row["id"]) for row in teams}
-    if authenticated_team_id not in valid_team_ids:
-        authenticated_team_id = None
-
-    if not authenticated_team_id:
-        with st.form(f"participant_login_{tournament_id}"):
-            selected_team_id = st.selectbox(
-                "Välj lag/deltagare",
-                [row["id"] for row in teams],
-                format_func=lambda team_id: next(row["name"] for row in teams if row["id"] == team_id),
-            )
-            code = st.text_input("Lagkod / deltagarkod", type="password", max_chars=12)
-            submitted = st.form_submit_button("Logga in", type="primary", use_container_width=True)
-        if submitted:
-            credential = one_row(
-                "SELECT * FROM participant_access_credentials WHERE tournament_id=? AND team_id=?",
-                (tournament_id, selected_team_id),
-            )
-            if credential and verify_access_code(code, credential["code_salt"], credential["code_hash"]):
-                st.session_state["participant_portal_auth"] = {
-                    "tournament_id": int(tournament_id), "team_id": int(selected_team_id)
-                }
-                st.rerun()
-            st.error("Fel kod, eller så har laget ännu ingen kod. Kontakta cupadministratören.")
-        return
-
-    team_row = next(row for row in teams if int(row["id"]) == int(authenticated_team_id))
-    team_id = int(team_row["id"])
-    top1, top2 = st.columns([3, 1])
-    top1.markdown(f"**{html.escape(team_row['name'])}**")
-    top1.caption("Inloggad i lagportalen")
-    if top2.button("Logga ut", key=f"participant_logout_{tournament_id}_{team_id}", use_container_width=True):
-        st.session_state.pop("participant_portal_auth", None)
-        st.rerun()
-
-    received_messages = all_rows(
-        """SELECT * FROM team_messages
-           WHERE tournament_id=? AND recipient_type='team' AND recipient_team_id=?
-           ORDER BY created_at DESC,id DESC LIMIT 200""",
-        (tournament_id, team_id),
+    deps = TeamPortalDependencies(
+        all_rows=all_rows,
+        one_row=one_row,
+        participant_role_label=_participant_role_label,
+        row_value=_row_value,
+        team_value=_team_value,
+        match_team_ids=_match_team_ids,
+        portal_match_label=_portal_match_label,
+        team_checkin_snapshot=_team_checkin_snapshot,
+        set_team_checkin_if_unchanged=_set_team_checkin_if_unchanged,
+        team_kit_snapshot=_team_kit_snapshot,
+        confirm_team_kit_if_unchanged=_confirm_team_kit_if_unchanged,
+        team_contact_snapshot=_team_contact_snapshot,
+        save_team_contact_if_unchanged=_save_team_contact_if_unchanged,
+        add_team_player_if_capacity=_add_team_player_if_capacity,
+        player_display_name=_player_display_name,
+        player_snapshot=_player_snapshot,
+        update_team_player_if_unchanged=_update_team_player_if_unchanged,
+        delete_team_player_if_unchanged=_delete_team_player_if_unchanged,
+        save_match_roster_if_unchanged=_save_match_roster_if_unchanged,
+        send_team_message=_send_team_message,
+        mark_team_messages_read=_mark_team_messages_read,
+        message_party_label=_message_party_label,
+        record_audit=record_audit,
+        kit_preview_html=kit_preview_html,
+        swedish_datetime=swedish_datetime,
     )
-    unread_team_count = sum(1 for row in received_messages if not row["read_at"])
-    message_tab_label = f"🔴 Meddelanden ({unread_team_count})" if unread_team_count else "Meddelanden"
-    portal_tabs = st.tabs(["Lag & matcher", "Trupp", "Matchtrupper", message_tab_label])
-
-    with portal_tabs[0]:
-        st.caption("Checka in laget, bekräfta matchställ och se kommande matcher.")
-        c1, c2 = st.columns(2)
-        if bool(_row_value(tournament, "enable_team_checkin", 1)):
-            if bool(team_row["checked_in"]):
-                c1.success(f"✅ Incheckad {team_row['checked_in_at'] or ''}" + (f" av {team_row['checked_in_by']}" if team_row["checked_in_by"] else ""))
-                if c1.button("Ta bort incheckning", key=f"portal_uncheck_{team_id}"):
-                    saved, reason = _set_team_checkin_if_unchanged(
-                        team_id,
-                        _team_checkin_snapshot(team_row),
-                        checked_in=False,
-                    )
-                    if saved:
-                        record_audit(tournament_id, "team_checkin", "team", f"{team_row['name']}: incheckning borttagen", entity_id=team_id, actor=role_label)
-                    else:
-                        st.warning("Lagets incheckningsstatus ändrades av någon annan. Senaste status laddas om.")
-                    st.rerun()
-            else:
-                checkin_name = c1.text_input("Vem checkar in laget?", placeholder="Namn", key=f"checkin_name_{team_id}")
-                if c1.button("✅ Vi är på plats", type="primary", key=f"portal_check_{team_id}", use_container_width=True):
-                    saved, reason = _set_team_checkin_if_unchanged(
-                        team_id,
-                        _team_checkin_snapshot(team_row),
-                        checked_in=True,
-                        checked_in_by=checkin_name.strip() or role_label,
-                    )
-                    if saved:
-                        record_audit(tournament_id, "team_checkin", "team", f"{team_row['name']}: incheckad", entity_id=team_id, actor=role_label)
-                    else:
-                        st.warning("Lagets incheckningsstatus ändrades av någon annan. Senaste status laddas om.")
-                    st.rerun()
-        else:
-            c1.caption("Lagincheckning används inte i den här turneringen.")
-
-        if team_row["kit_confirmed_at"]:
-            c2.success(f"👕 Matchställ bekräftade {team_row['kit_confirmed_at']}")
-        else:
-            c2.caption("👕 Matchställ är ännu inte bekräftade.")
-        c2.markdown(kit_preview_html(_team_value(team_row, "home_pattern", "Helfärgad"), team_row["primary_color"], _team_value(team_row, "home_color_2", "#FFFFFF"), "Hemmaställ"), unsafe_allow_html=True)
-        c2.markdown(kit_preview_html(_team_value(team_row, "away_pattern", "Helfärgad"), team_row["secondary_color"], _team_value(team_row, "away_color_2", "#111827"), "Bortaställ"), unsafe_allow_html=True)
-        if c2.button(
-            "Bekräfta matchställ",
-            key=f"confirm_kit_{team_id}",
-            use_container_width=True,
-            disabled=bool(team_row["kit_confirmed_at"]),
-        ):
-            saved, reason = _confirm_team_kit_if_unchanged(
-                team_id,
-                _team_kit_snapshot(team_row),
-            )
-            if saved:
-                record_audit(tournament_id, "kit_confirmed", "team", f"{team_row['name']}: matchställ bekräftade", entity_id=team_id, actor=role_label)
-            else:
-                st.warning("Matchställen ändrades av någon annan och bekräftades därför inte. Senaste version laddas om.")
-            st.rerun()
-
-        st.subheader("Mina matcher")
-        direct_team_source = f"team:{team_id}"
-        matches = [
-            row for row in all_rows(
-                """SELECT * FROM matches
-                   WHERE tournament_id=? AND scheduled_start IS NOT NULL
-                     AND (home_source=? OR away_source=? OR home_source NOT LIKE 'team:%' OR away_source NOT LIKE 'team:%')
-                   ORDER BY scheduled_start,pitch_number,id""",
-                (tournament_id, direct_team_source, direct_team_source),
-            )
-            if team_id in _match_team_ids(row)
-        ]
-        if matches:
-            for match_row in matches:
-                score = ""
-                if match_row["home_score"] is not None and match_row["away_score"] is not None:
-                    score = f" · {match_row['home_score']}–{match_row['away_score']}"
-                st.markdown(f"**{html.escape(_portal_match_label(match_row))}{score}**")
-        else:
-            st.caption("Inga schemalagda matcher ännu.")
-
-        st.subheader("Ansvarig kontaktperson")
-        contact_notice_key=f"portal_contact_notice_{team_id}"
-        if contact_notice_key in st.session_state:
-            notice_type, notice_text = st.session_state.pop(contact_notice_key)
-            if notice_type == "success":
-                st.success(notice_text)
-            else:
-                st.warning(notice_text)
-        with st.form(f"portal_contact_{team_id}"):
-            contact_name = st.text_input("Namn", value=_team_value(team_row, "responsible_name", "") or "")
-            contact_phone = st.text_input("Telefon", value=_team_value(team_row, "responsible_phone", "") or "")
-            contact_email = st.text_input("E-post", value=_team_value(team_row, "responsible_email", "") or "")
-            allow_public = bool(_row_value(tournament, "allow_team_public_contact", 0))
-            contact_public = st.checkbox(
-                "Visa kontaktpersonen publikt",
-                value=bool(_team_value(team_row, "public_contact_enabled", 0)) and allow_public,
-                disabled=not allow_public,
-                help="Kontaktuppgifter är interna som standard. Detta val kan bara aktiveras om arrangören tillåter publika lagkontakter.",
-            )
-            if st.form_submit_button("Spara kontaktuppgifter"):
-                public_enabled = int(bool(contact_public) and allow_public)
-                saved, contact_reason = _save_team_contact_if_unchanged(
-                    team_id,
-                    _team_contact_snapshot(team_row),
-                    contact_name=contact_name,
-                    contact_phone=contact_phone,
-                    contact_email=contact_email,
-                    public_enabled=public_enabled,
-                )
-                if saved:
-                    st.session_state[contact_notice_key]=(
-                        "success",
-                        "Kontaktuppgifterna är sparade.",
-                    )
-                    st.rerun()
-                elif contact_reason == "invalid_email":
-                    st.error("Ange en giltig e-postadress eller lämna fältet tomt.")
-                else:
-                    st.session_state[contact_notice_key]=(
-                        "warning",
-                        "Kontaktuppgifterna ändrades av någon annan och dina äldre uppgifter skrevs inte över. Senaste uppgifter har laddats.",
-                    )
-                    st.rerun()
-
-    with portal_tabs[1]:
-        st.subheader("Hantera truppen")
-        max_roster = int(_row_value(tournament, "max_roster_size", 0) or 0)
-        players = all_rows("SELECT * FROM players WHERE team_id=? ORDER BY player_number,name", (team_id,))
-        st.caption(f"{len(players)} registrerade spelare" + (f" · max {max_roster}" if max_roster else " · ingen maxgräns satt"))
-        with st.form(f"portal_add_player_{team_id}", clear_on_submit=True):
-            pc1, pc2 = st.columns(2)
-            pfirst = pc1.text_input("Förnamn")
-            plast = pc2.text_input("Efternamn")
-            pc3, pc4, pc5 = st.columns(3)
-            pnumber = pc3.number_input("Nummer", 0, 999, 0)
-            current_year = datetime.now().year
-            pbirth = pc4.number_input("Födelseår", 1900, current_year, current_year - 12)
-            pposition = pc5.text_input("Position/roll", placeholder="Frivilligt")
-            pprotected = st.checkbox("Skyddad spelare – visa inte namn publikt", value=False)
-            if st.form_submit_button("Lägg till spelare", type="primary", disabled=bool(max_roster and len(players) >= max_roster)):
-                if not pfirst.strip() or not plast.strip():
-                    st.error("Ange både förnamn och efternamn.")
-                elif max_roster and len(players) >= max_roster:
-                    st.error(f"Arrangören har satt max {max_roster} spelare.")
-                else:
-                    full_name = f"{pfirst.strip()} {plast.strip()}"
-                    added, add_reason = _add_team_player_if_capacity(
-                        team_id,
-                        max_roster,
-                        player_number=pnumber,
-                        name=full_name,
-                        first_name=pfirst.strip(),
-                        last_name=plast.strip(),
-                        birth_year=int(pbirth),
-                        position=pposition.strip(),
-                        is_protected=pprotected,
-                    )
-                    if added:
-                        record_audit(tournament_id, "roster_player_added", "team", f"{team_row['name']}: {full_name} tillagd", entity_id=team_id, actor=role_label)
-                    elif add_reason == "roster_full":
-                        st.warning(f"Truppen har redan nått maxgränsen på {max_roster} spelare. Ingen spelare lades till.")
-                    st.rerun()
-        for player in players:
-            with st.expander(f"#{player['player_number'] if player['player_number'] is not None else '–'} {_player_display_name(player)}"):
-                with st.form(f"portal_edit_player_{player['id']}"):
-                    ec1, ec2 = st.columns(2)
-                    legacy_parts = str(player["name"] or "").strip().split(" ", 1)
-                    default_first = _row_value(player, "first_name", "") or (legacy_parts[0] if legacy_parts else "")
-                    default_last = _row_value(player, "last_name", "") or (legacy_parts[1] if len(legacy_parts) > 1 else "")
-                    efirst = ec1.text_input("Förnamn", value=default_first)
-                    elast = ec2.text_input("Efternamn", value=default_last)
-                    ec3, ec4, ec5 = st.columns(3)
-                    enumber = ec3.number_input("Nummer", 0, 999, int(player["player_number"] or 0))
-                    ebirth = ec4.number_input("Födelseår", 1900, datetime.now().year, int(_row_value(player, "birth_year", datetime.now().year - 12) or datetime.now().year - 12))
-                    eposition = ec5.text_input("Position/roll", value=player["position"] or "")
-                    eprotected = st.checkbox("Skyddad spelare – visa inte namn publikt", value=bool(_row_value(player, "is_protected", 0)))
-                    save_player = st.form_submit_button("Spara")
-                player_expected = _player_snapshot(player)
-                if save_player:
-                    if not efirst.strip() or not elast.strip():
-                        st.error("Ange både förnamn och efternamn.")
-                    else:
-                        full_name = f"{efirst.strip()} {elast.strip()}"
-                        saved, save_reason = _update_team_player_if_unchanged(
-                            player["id"],
-                            team_id,
-                            player_expected,
-                            player_number=enumber,
-                            name=full_name,
-                            first_name=efirst.strip(),
-                            last_name=elast.strip(),
-                            birth_year=int(ebirth),
-                            position=eposition.strip(),
-                            is_protected=eprotected,
-                        )
-                        if not saved and save_reason == "conflict":
-                            st.warning("Spelaren ändrades av någon annan och dina äldre uppgifter skrevs inte över.")
-                        st.rerun()
-                if st.button("Ta bort spelaren", key=f"portal_delete_player_{player['id']}"):
-                    deleted, delete_reason = _delete_team_player_if_unchanged(
-                        player["id"],
-                        team_id,
-                        player_expected,
-                    )
-                    if deleted:
-                        record_audit(tournament_id, "roster_player_deleted", "team", f"{team_row['name']}: spelare borttagen", entity_id=team_id, actor=role_label)
-                    elif delete_reason == "conflict":
-                        st.warning("Spelaren ändrades av någon annan och raderades därför inte. Senaste uppgifter laddas om.")
-                    st.rerun()
-
-    with portal_tabs[2]:
-        st.subheader("Matchtrupper")
-        deadline_minutes = int(_row_value(tournament, "squad_deadline_minutes", 30) or 0)
-        st.caption(f"Matchtruppen låses {deadline_minutes} minuter före matchstart. Admin kan alltid ändra den.")
-        direct_team_source = f"team:{team_id}"
-        team_matches = [
-            row for row in all_rows(
-                """SELECT * FROM matches
-                   WHERE tournament_id=? AND scheduled_start IS NOT NULL
-                     AND (home_source=? OR away_source=? OR home_source NOT LIKE 'team:%' OR away_source NOT LIKE 'team:%')
-                   ORDER BY scheduled_start,id""",
-                (tournament_id, direct_team_source, direct_team_source),
-            ) if team_id in _match_team_ids(row)
-        ]
-        if not team_matches:
-            st.info("Inga matcher att registrera matchtrupp för ännu.")
-        else:
-            team_match_by_id = {int(row["id"]): row for row in team_matches}
-            roster_rows = all_rows(
-                """SELECT match_id,player_id
-                   FROM match_rosters
-                   WHERE team_id=?
-                   ORDER BY match_id,player_id""",
-                (team_id,),
-            )
-            roster_ids_by_match = {}
-            for roster_row in roster_rows:
-                roster_ids_by_match.setdefault(int(roster_row["match_id"]), []).append(int(roster_row["player_id"]))
-            rostered_match_ids = set(roster_ids_by_match)
-
-            match_id = st.selectbox(
-                "Välj match",
-                list(team_match_by_id),
-                format_func=lambda mid: _portal_match_label(team_match_by_id[int(mid)]),
-                key=f"portal_squad_match_{team_id}",
-            )
-            match_row = team_match_by_id[int(match_id)]
-            locked = squad_is_locked(match_row["scheduled_start"], deadline_minutes)
-            deadline = squad_deadline_at(match_row["scheduled_start"], deadline_minutes)
-            if locked:
-                st.warning(f"Matchtruppen är låst. Deadline var {swedish_datetime(deadline.isoformat(timespec='minutes'))}.")
-            else:
-                st.info(f"Deadline: {swedish_datetime(deadline.isoformat(timespec='minutes')) if deadline else 'Ingen deadline'}")
-            # `players` was already loaded for the Trupp tab earlier in this render.
-            existing_ids = set(roster_ids_by_match.get(int(match_id), []))
-            options = [int(row["id"]) for row in players]
-            player_label_by_id = {
-                int(row["id"]): f"#{row['player_number'] if row['player_number'] is not None else '–'} {row['name']}"
-                for row in players
-            }
-            selected_ids = st.multiselect(
-                "Spelare i matchtruppen",
-                options,
-                default=[pid for pid in options if pid in existing_ids],
-                format_func=lambda pid: player_label_by_id[int(pid)],
-                disabled=locked,
-                key=f"portal_match_roster_{match_id}_{team_id}",
-            )
-            prev_with_roster = next(
-                (
-                    candidate
-                    for candidate in reversed([row for row in team_matches if row["scheduled_start"] < match_row["scheduled_start"]])
-                    if int(candidate["id"]) in rostered_match_ids
-                ),
-                None,
-            )
-            bc1, bc2 = st.columns(2)
-            if bc1.button("Spara matchtrupp", type="primary", disabled=locked, key=f"save_match_roster_{match_id}_{team_id}", use_container_width=True):
-                saved, save_reason = _save_match_roster_if_unchanged(
-                    match_id,
-                    team_id,
-                    selected_ids,
-                    existing_ids,
-                    role_label,
-                )
-                if saved:
-                    record_audit(tournament_id, "match_roster_saved", "match", f"{team_row['name']}: matchtrupp sparad ({len(selected_ids)} spelare)", entity_id=match_id, actor=role_label)
-                    st.success("Matchtruppen är sparad.")
-                elif save_reason == "conflict":
-                    st.warning("Matchtruppen ändrades av någon annan och skrevs inte över. Senaste truppen laddas om.")
-                else:
-                    st.error("Matchtruppen kunde inte sparas eftersom en vald spelare inte längre tillhör laget.")
-                st.rerun()
-            if bc2.button("Kopiera föregående matchtrupp", disabled=locked or prev_with_roster is None, key=f"copy_match_roster_{match_id}_{team_id}", use_container_width=True):
-                previous_ids = list(roster_ids_by_match.get(int(prev_with_roster["id"]), []))
-                valid_ids = {int(row["id"]) for row in players}
-                copied_ids = [pid for pid in previous_ids if int(pid) in valid_ids]
-                saved, save_reason = _save_match_roster_if_unchanged(
-                    match_id,
-                    team_id,
-                    copied_ids,
-                    existing_ids,
-                    role_label,
-                )
-                if saved:
-                    st.success("Föregående matchtrupp kopierades.")
-                elif save_reason == "conflict":
-                    st.warning("Matchtruppen ändrades av någon annan och skrevs inte över. Senaste truppen laddas om.")
-                else:
-                    st.error("Matchtruppen kunde inte kopieras eftersom spelartruppen ändrades.")
-                st.rerun()
-            if not existing_ids:
-                st.warning("⚠️ Matchtrupp ej registrerad.")
-
-    with portal_tabs[3]:
-        st.subheader("Meddelanden")
-        st.caption("Skriv internt till arrangören eller till ett annat deltagande lag i samma cup. Meddelanden visas bara för berörda parter och arrangören.")
-        team_names = {int(row["id"]): row["name"] for row in teams}
-        recipients = [("organizer", None, "Arrangören")] + [
-            ("team", int(row["id"]), row["name"]) for row in teams if int(row["id"]) != team_id
-        ]
-        portal_message_token_key=f"portal_message_request_token_{team_id}"
-        if portal_message_token_key not in st.session_state:
-            st.session_state[portal_message_token_key]=new_token()
-        with st.form(f"portal_send_message_{team_id}", clear_on_submit=True):
-            recipient_index = st.selectbox(
-                "Till",
-                range(len(recipients)),
-                format_func=lambda idx: recipients[idx][2],
-                key=f"portal_message_recipient_{team_id}",
-            )
-            msg_subject = st.text_input("Ämne", placeholder="Exempel: Förfrågan om träningsmatch", max_chars=200)
-            msg_body = st.text_area(
-                "Meddelande",
-                placeholder="Exempel: Hej! Vi möts i cupen och skulle gärna spela en träningsmatch mot er senare under säsongen.",
-                max_chars=3000,
-                height=120,
-            )
-            send_message = st.form_submit_button("Skicka meddelande", type="primary", use_container_width=True)
-        if send_message:
-            recipient_type, recipient_team_id, _ = recipients[int(recipient_index)]
-            try:
-                _send_team_message(
-                    tournament_id,
-                    "team",
-                    msg_subject,
-                    msg_body,
-                    sender_team_id=team_id,
-                    recipient_type=recipient_type,
-                    recipient_team_id=recipient_team_id,
-                    request_token=st.session_state[portal_message_token_key],
-                )
-                st.session_state.pop(portal_message_token_key,None)
-                record_audit(tournament_id, "team_message_sent", "team", f"{team_row['name']}: meddelande skickat", entity_id=team_id, actor=role_label)
-                st.success("Meddelandet är skickat.")
-                st.rerun()
-            except ValueError as exc:
-                st.error(str(exc))
-
-        inbox, sent = st.tabs(["Inkorg", "Skickat"])
-        with inbox:
-            unread_ids = [int(row["id"]) for row in received_messages if not row["read_at"]]
-            if unread_ids and st.button(
-                f"Markera alla som lästa ({len(unread_ids)})",
-                key=f"portal_mark_messages_read_{team_id}",
-            ):
-                _mark_team_messages_read(
-                    unread_ids,
-                    tournament_id=tournament_id,
-                    recipient_type="team",
-                    recipient_team_id=team_id,
-                )
-                st.rerun()
-            if not received_messages:
-                st.info("Inga mottagna meddelanden ännu.")
-            for msg in received_messages:
-                sender, _ = _message_party_label(msg, team_names)
-                with st.container(border=True):
-                    unread_prefix = "🔴 " if not msg["read_at"] else ""
-                    st.markdown(f"**{unread_prefix}{html.escape(msg['subject'])}**")
-                    st.caption(f"Från {html.escape(sender)} · {msg['created_at']}")
-                    st.write(msg["message"])
-
-        with sent:
-            sent_messages = all_rows(
-                """SELECT * FROM team_messages
-                   WHERE tournament_id=? AND sender_type='team' AND sender_team_id=?
-                   ORDER BY created_at DESC,id DESC LIMIT 200""",
-                (tournament_id, team_id),
-            )
-            if not sent_messages:
-                st.info("Inga skickade meddelanden ännu.")
-            for msg in sent_messages:
-                _, recipient = _message_party_label(msg, team_names)
-                with st.container(border=True):
-                    st.markdown(f"**{html.escape(msg['subject'])}**")
-                    st.caption(f"Till {html.escape(recipient)} · {msg['created_at']}")
-                    email_status=str(_row_value(msg,"email_status","") or "")
-                    if msg["recipient_type"] == "team":
-                        email_status_label={
-                            "sent":"E-postnotis skickad",
-                            "failed":"E-postnotis kunde inte skickas",
-                            "skipped":"Ingen e-postadress registrerad",
-                            "pending":"E-postnotis behandlas",
-                        }.get(email_status,"")
-                        if email_status_label:
-                            st.caption(email_status_label)
-                    st.write(msg["message"])
+    return render_team_portal_workspace(tournament_id, tournament, deps)
 
 
 
@@ -10155,7 +7694,7 @@ if _direct_public_cup and st.session_state.get("view_mode") is None:
     st.session_state["view_mode"] = "Turneringsvy"
 elif st.session_state.get("view_mode") not in mode_options:
     st.session_state["view_mode"] = mode_options[0]
-st.sidebar.caption("Version v.1.266")
+st.sidebar.caption(release_ui_label(APP_BUILD_VERSION))
 
 def _set_view_mode(mode):
     st.session_state["view_mode"] = mode
@@ -10233,8 +7772,6 @@ else:
         mode_col4.button(tr("Admin"), key="view_mode_admin_button", type="primary" if current_mode == "Admin" else "secondary", use_container_width=True, on_click=_set_view_mode, args=("Admin",))
         mode_col5.button(tr("Om"), key="view_mode_about_button", type="primary" if current_mode == "Om" else "secondary", use_container_width=True, on_click=_set_view_mode, args=("Om",))
 view_mode = st.session_state["view_mode"]
-if not public_app_mode:
-    st.sidebar.caption(f"{tr('Visningsläge')}: {tr(view_mode)}")
 if view_mode == "Om":
     render_about_page()
     st.stop()
@@ -10968,489 +8505,43 @@ label[data-testid="stWidgetLabel"] {
 """, unsafe_allow_html=True)
 
 def render_initial_tournament_setup(tournament_id, tournament):
-    """Första konfigurationssidan efter skapande. Vanliga fält autosparas."""
-    st.title("Setup av turneringen")
-    st.caption("Bygg tävlingen från regler och hårda begränsningar till önskemål och optimering. Inställningarna autosparas.")
-    st.info(f"**{tournament['name']}** · {tournament['sport']} · {cup_date_label(tournament)}")
-    st.markdown(
-        "<div class='cn-setup-flow'><b>1 Grund</b><span>→</span><b>2 Kapacitet</b><span>→</span>"
-        "<b>3 Formatförslag</b><span>→</span><b>4 Regler</b><span>→</span>"
-        "<b>5 Prioriteringar</b><span>→</span><b>6 Service</b><span>→</span><b>7 Kontroll</b></div>",
-        unsafe_allow_html=True,
+    """Render the guided setup via the extracted presentation/orchestration layer."""
+    return render_initial_tournament_setup_module(
+        tournament_id,
+        tournament,
+        deps=InitialSetupDependencies(
+            st=st,
+            one_row=one_row,
+            run=run,
+            sport_setup_recommendation=sport_setup_recommendation,
+            row_value=_row_value,
+            cup_date_label=cup_date_label,
+            add_competition_class=add_competition_class,
+            competition_classes=competition_classes,
+            all_rows=all_rows,
+            competition_class_label=competition_class_label,
+            sync_expected_team_count_from_classes=sync_expected_team_count_from_classes,
+            remove_competition_class=remove_competition_class,
+            autosave_rule_field=_autosave_rule_field,
+            ensure_pitch_definitions=ensure_pitch_definitions,
+            save_pitch_name=save_pitch_name,
+            save_pitch_address=save_pitch_address,
+            ensure_pitch_day_windows=ensure_pitch_day_windows,
+            save_pitch_day_window=save_pitch_day_window,
+            pitch_travel_matrix=pitch_travel_matrix,
+            save_pitch_travel_time=save_pitch_travel_time,
+            recommend_tournament_format=recommend_tournament_format,
+            autosave_tournament_field=_autosave_tournament_field,
+            render_centered_table=render_centered_table,
+            db=db,
+            clear_render_query_cache=_clear_render_query_cache,
+            sort_items=sort_items,
+            youth_class_categories=YOUTH_CLASS_CATEGORIES,
+            youth_class_years=YOUTH_CLASS_YEARS,
+            difficulty_levels=DIFFICULTY_LEVELS,
+            date_with_weekday=date_with_weekday,
+        ),
     )
-    st.caption("HÅRT KRAV = får aldrig brytas · ÖNSKEMÅL = försöker uppfyllas · OPTIMERING = avgör vilket av flera giltiga scheman som är bäst.")
-    rules = one_row("SELECT * FROM schedule_rules WHERE tournament_id=?", (tournament_id,))
-    if rules is None:
-        run("INSERT INTO schedule_rules(tournament_id) VALUES(?)", (tournament_id,))
-        rules = one_row("SELECT * FROM schedule_rules WHERE tournament_id=?", (tournament_id,))
-
-    _sport_rec=sport_setup_recommendation(_row_value(tournament,"sport","Fotboll"))
-    st.markdown("### Sportprofil")
-    _sp1,_sp2,_sp3,_sp4=st.columns(4)
-    _sp1.metric("Sport",_sport_rec["display_name"])
-    _sp2.metric("Format",f'{_sport_rec["periods"]} {_sport_rec["period_label"]}')
-    _sp3.metric("Standardtid",f'{_sport_rec["minutes_per_period"]} min/{_sport_rec["period_label"].rstrip("er")}')
-    _sp4.metric("Min. lagvila",f'{_sport_rec["minimum_rest_minutes"]} min')
-    st.caption(
-        f'{_sport_rec["match_note"]} {_sport_rec["rest_note"]} '
-        f'Relevant statistik: {", ".join(_sport_rec["relevant_stats"])}. '
-        f'Slutspel: {_sport_rec["playoff_note"]}'
-    )
-
-    _played_setup=int(one_row(
-        "SELECT COUNT(*) AS n FROM matches WHERE tournament_id=? AND home_score IS NOT NULL AND away_score IS NOT NULL",
-        (tournament_id,),
-    )["n"] or 0)
-    if _played_setup:
-        st.info("Sportprofilens standardvärden visas som referens. De kan inte appliceras efter att resultat har registrerats.")
-    elif st.button(
-        f'Använd rekommenderade {_sport_rec["display_name"].lower()}-värden',
-        key=f"apply_sport_defaults_{tournament_id}",
-        use_container_width=True,
-    ):
-        run(
-            """UPDATE schedule_rules
-               SET halves=?,minutes_per_half=?,halftime_minutes=?,minimum_team_rest_minutes=?
-               WHERE tournament_id=?""",
-            (
-                _sport_rec["periods"],
-                _sport_rec["minutes_per_period"],
-                _sport_rec["break_minutes"],
-                _sport_rec["minimum_rest_minutes"],
-                tournament_id,
-            ),
-        )
-        # Public stat defaults follow what the sport actually tracks.
-        run(
-            """UPDATE tournaments
-               SET enable_scorer_leaderboard=?,
-                   enable_assist_leaderboard=?,
-                   enable_card_statistics=?
-               WHERE id=?""",
-            (
-                1 if _sport_rec["score_label"] in ("mål","goals") else 0,
-                1 if _sport_rec["tracks_assists"] else 0,
-                1 if _sport_rec["discipline_mode"] in ("cards","two_minute_and_cards") else 0,
-                tournament_id,
-            ),
-        )
-        st.session_state[f"autosave_notice_{tournament_id}"]=f'✓ {_sport_rec["display_name"]}-profilen applicerades.'
-        st.rerun()
-
-    # Legacy QA anchor: ### 1. Tävlingsklasser och svårighetsgrad
-    st.markdown("### 1. Grunduppgifter")
-    st.caption("Definiera varje tävlingsklass och hur många lag du planerar i just den klassen. Summan används som cupens totala planeringsantal.")
-    _class_played_count=_played_setup
-    _class_locked=_class_played_count > 0
-    if _class_locked:
-        st.warning("Tävlingsklasser och planerat lagantal är låsta efter att första resultatet har registrerats. Befintliga lag och spelade matcher skyddas.")
-    elif bool(_row_value(tournament,"is_published",0)):
-        st.info("Du kan fortfarande lägga till en klass före första spelade matchen. Det kan kräva ny gruppindelning och omplanering av framtida matcher.")
-
-    add_c1, add_c2, add_c3, add_c4 = st.columns([1.15, .9, .85, 1])
-    setup_category = add_c1.selectbox("Kategori", list(YOUTH_CLASS_CATEGORIES), key=f"setup_class_category_{tournament_id}", disabled=_class_locked)
-    setup_year = add_c2.selectbox("Födelseår", YOUTH_CLASS_YEARS, index=YOUTH_CLASS_YEARS.index(2014) if 2014 in YOUTH_CLASS_YEARS else 0, key=f"setup_class_year_{tournament_id}", disabled=_class_locked)
-    setup_class_teams = add_c3.number_input("Planerade lag", 2, 200, 8, key=f"setup_class_teams_new_{tournament_id}", disabled=_class_locked)
-    if add_c4.button("Lägg till tävlingsklass", key=f"setup_add_class_{tournament_id}", use_container_width=True, disabled=_class_locked):
-        ok, message = add_competition_class(tournament_id, setup_category, setup_year, setup_class_teams)
-        (st.success if ok else st.info)(message)
-        st.rerun()
-
-    class_rows = competition_classes(tournament_id)
-    _team_count_rows = all_rows(
-        """SELECT competition_class_id, COUNT(*) AS n
-           FROM teams
-           WHERE tournament_id=?
-           GROUP BY competition_class_id""",
-        (tournament_id,),
-    )
-    _team_count_by_class = {
-        _row_value(count_row, "competition_class_id", None): int(_row_value(count_row, "n", 0) or 0)
-        for count_row in _team_count_rows
-    }
-    _actual_team_count = sum(_team_count_by_class.values())
-
-    if not class_rows:
-        st.warning("Lägg till minst en tävlingsklass och ange planerat antal lag innan du går vidare.")
-    _planned_total=0
-    for row in class_rows:
-        c1, c2, c3, c4, c5 = st.columns([1.6, .95, .9, .75, .75])
-        c1.markdown(f"**{competition_class_label(row)}**")
-        _actual_in_class=int(_team_count_by_class.get(int(row["id"]),0))
-        saved_planned=max(_actual_in_class,int(_row_value(row,"planned_team_count",0) or 0))
-        planned_key=f"setup_planned_class_teams_{row['id']}"
-        planned_value=c2.number_input(
-            "Planerade lag",
-            min_value=max(2,_actual_in_class),
-            max_value=200,
-            value=max(2,saved_planned or 8),
-            key=planned_key,
-            label_visibility="collapsed",
-            disabled=_class_locked,
-            help=f"Registrerade lag i klassen: {_actual_in_class}. Planerat antal kan inte understiga detta.",
-        )
-        _planned_total += int(planned_value)
-        if not _class_locked and int(planned_value)!=int(_row_value(row,"planned_team_count",0) or 0):
-            run("UPDATE competition_classes SET planned_team_count=? WHERE id=?",(int(planned_value),int(row["id"])))
-            sync_expected_team_count_from_classes(tournament_id)
-            st.session_state[f"autosave_notice_{tournament_id}"]="✓ Planerat lagantal sparat"
-
-        saved_diff = _row_value(row, "difficulty", "Medel") or "Medel"
-        if saved_diff not in DIFFICULTY_LEVELS:
-            saved_diff = "Medel"
-        key = f"setup_diff_{row['id']}"
-        choice = c3.selectbox("Nivå", DIFFICULTY_LEVELS, index=DIFFICULTY_LEVELS.index(saved_diff), key=key, label_visibility="collapsed", disabled=_class_locked)
-        if not _class_locked and choice != saved_diff:
-            run("UPDATE competition_classes SET difficulty=? WHERE id=?", (choice, row["id"]))
-            st.session_state[f"autosave_notice_{tournament_id}"] = "✓ Sparat automatiskt"
-        c4.metric("Anmälda",_actual_in_class)
-        if c5.button("Ta bort", key=f"setup_remove_class_{row['id']}", use_container_width=True, disabled=_class_locked):
-            ok, message = remove_competition_class(tournament_id, int(row["id"]))
-            (st.success if ok else st.error)(message)
-            if ok:
-                st.rerun()
-    if class_rows:
-        st.caption(f"Planerat totalt antal lag: **{_planned_total}** · detta är summan av klasserna och kan ändras fram till första registrerade resultat.")
-
-    # Legacy QA anchor: ### 2. Planer och öppettider per dag
-    st.markdown("### 2. Kapacitet & speltider")
-    st.caption("Detta kommer före tävlingsformatet eftersom antal planer och tillgängliga timmar avgör hur många matcher och vilket slutspel som faktiskt ryms.")
-    pitch_key=f"setup_pitches_{tournament_id}"
-    st.number_input(
-        "Antal tillgängliga planer/spelytor",
-        1, 50, int(rules["pitch_count"]),
-        key=pitch_key,
-        on_change=_autosave_rule_field,
-        args=(tournament_id,"pitch_count",pitch_key,int),
-        help="Detta är cupens samtidiga plankapacitet och används tillsammans med start- och sluttiderna för varje dag när schemat byggs.",
-    )
-    current_pitch_count=int(st.session_state.get(pitch_key,rules["pitch_count"]))
-    pitch_rows=ensure_pitch_definitions(tournament_id,current_pitch_count)
-    st.markdown("**Namnge planer/spelytor**")
-    st.caption("Ge varje plan ett eget namn, exempelvis Huvudplan, Hall A eller Arena 2. Planens nummer behålls bara som internt ID.")
-    pitch_names={}
-    for pr in pitch_rows:
-        pitch=int(pr["pitch_number"]); saved_name=str(pr["name"] or f"Plan {pitch}")
-        nk=f"pitch_name_{tournament_id}_{pitch}"
-        name=st.text_input(f"Plan {pitch}",value=saved_name,key=nk,placeholder=f"Exempel: A-plan, Hall 1 eller Arena {pitch}")
-        clean=(name or "").strip() or f"Plan {pitch}"
-        pitch_names[pitch]=clean
-        if clean!=saved_name:
-            save_pitch_name(tournament_id,pitch,clean)
-            st.session_state[f"autosave_notice_{tournament_id}"]="✓ Plannamn sparade automatiskt"
-        saved_address=str(_row_value(pr,"address","") or "")
-        ak=f"pitch_address_{tournament_id}_{pitch}"
-        address=st.text_input(f"Adress – {clean}",value=saved_address,key=ak,placeholder="Exempel: Rudbecksgatan 52, Örebro")
-        if address.strip()!=saved_address.strip():
-            save_pitch_address(tournament_id,pitch,address)
-            st.session_state[f"autosave_notice_{tournament_id}"]="✓ Planadress sparad automatiskt"
-    st.caption("Kapacitetssteget anger vad som är möjligt. Hur CupNavi ska prioritera mellan flera möjliga scheman väljer du i steg 5.")
-    travel_key=f"setup_consider_pitch_travel_{tournament_id}"
-    consider_travel=st.checkbox("Ta hänsyn till restid mellan planer",value=bool(_row_value(rules,"consider_pitch_travel",0)),key=travel_key,help="CupNavi använder de restider du anger nedan. Ingen extern karttjänst anropas.")
-    if consider_travel!=bool(_row_value(rules,"consider_pitch_travel",0)):
-        run("UPDATE schedule_rules SET consider_pitch_travel=? WHERE tournament_id=?",(1 if consider_travel else 0,int(tournament_id)))
-    if consider_travel and current_pitch_count>1:
-        st.caption("Ange faktisk förflyttningstid mellan spelytor. Värdet används som minsta extra tid när ett lag byter plan.")
-        matrix=pitch_travel_matrix(tournament_id)
-        for a in range(1,current_pitch_count+1):
-            for b in range(a+1,current_pitch_count+1):
-                tk=f"travel_{tournament_id}_{a}_{b}"
-                minutes=st.number_input(f"Restid {pitch_names.get(a,f'Plan {a}')} → {pitch_names.get(b,f'Plan {b}')} (min)",0,180,int(matrix.get((a,b),0)),key=tk)
-                if int(minutes)!=int(matrix.get((a,b),0)):
-                    save_pitch_travel_time(tournament_id,a,b,int(minutes))
-    windows=ensure_pitch_day_windows(tournament_id,tournament,current_pitch_count,rules["first_match_time"],rules["latest_kickoff_time"])
-    valid_windows=True
-    by_day={}
-    for row in windows: by_day.setdefault(str(row["play_date"]),[]).append(row)
-    for play_date,rows in by_day.items():
-        d=datetime.fromisoformat(play_date).date()
-        st.markdown(f"**{date_with_weekday(d)}**")
-        for w in rows:
-            pitch=int(w["pitch_number"]); c0,c1,c2=st.columns([0.7,1.15,1.15])
-            c0.markdown(f"**{pitch_names.get(pitch, f'Plan {pitch}')}**")
-            sk=f"pitch_start_{tournament_id}_{pitch}_{play_date}"; ek=f"pitch_end_{tournament_id}_{pitch}_{play_date}"
-            sv=c1.time_input("Starttid",value=datetime.strptime(w["start_time"],"%H:%M").time(),key=sk,label_visibility="collapsed")
-            ev=c2.time_input("Sluttid",value=datetime.strptime(w["end_time"],"%H:%M").time(),key=ek,label_visibility="collapsed")
-            if sv>=ev:
-                valid_windows=False; st.error(f"{date_with_weekday(d)}, {pitch_names.get(pitch, f'Plan {pitch}')}: sluttiden måste vara senare än starttiden.")
-            elif sv.strftime("%H:%M")!=w["start_time"] or ev.strftime("%H:%M")!=w["end_time"] or not bool(_row_value(w,"confirmed",0)):
-                save_pitch_day_window(tournament_id,pitch,play_date,sv.strftime("%H:%M"),ev.strftime("%H:%M"),True)
-                st.session_state[f"autosave_notice_{tournament_id}"]="✓ Plantider sparade automatiskt"
-
-    _capacity_windows=windows
-    _capacity_minutes,_capacity_slots=estimated_capacity_slots(
-        _capacity_windows,
-        rules,
-        row_value=_row_value,
-    )
-    cap1,cap2,cap3=st.columns(3)
-    cap1.metric("Spelytor",current_pitch_count)
-    cap2.metric("Tillgängliga plantimmar",f"{_capacity_minutes/60:.1f}" if _capacity_minutes else "–")
-    cap3.metric("Uppskattade matchslotar",_capacity_slots or "–")
-
-    st.markdown("### 3. Rekommenderat tävlingsformat")
-    st.caption("Nu känner CupNavi till sport, antal lag och faktisk plankapacitet. Därför kan formatförslaget bedömas mot vad som verkligen ryms. Inget ändras förrän du accepterar.")
-
-    # _planned_total reflects the current widget values in this rerun, including
-    # any autosaved edits made above. Re-querying competition_classes here would
-    # add another DB read without giving fresher UI state.
-    _planned_by_class=_planned_total
-    _rec_team_count=max(2,_planned_by_class,_actual_team_count)
-    _rec_pitch_count=current_pitch_count
-    _rec_match_minutes=estimated_match_length_minutes(rules,row_value=_row_value)
-    _rec_windows=windows
-    _rec_available_minutes=available_pitch_minutes(_rec_windows,row_value=_row_value)
-    if not _rec_available_minutes:
-        _rec_available_minutes=480
-
-    _format_rec=recommend_tournament_format(
-        sport=_row_value(tournament,"sport","Fotboll"),
-        team_count=_rec_team_count,
-        pitch_count=_rec_pitch_count,
-        available_minutes=_rec_available_minutes,
-        match_minutes=_rec_match_minutes,
-        compactness=int(_row_value(rules,"compactness_level",50) or 50),
-    )
-
-    _fmt1,_fmt2,_fmt3,_fmt4=st.columns(4)
-    _fmt1.metric("Grupper",_format_rec["group_count"])
-    _fmt2.metric("Lag/grupp",_format_rec["group_size"])
-    _fmt3.metric("Matcher",_format_rec["total_matches"])
-    _fmt4.metric("Slutspelslag",_format_rec["playoff_size"])
-    st.markdown(
-        f"**Förslag:** {_format_rec['group_count']} grupper · cirka {_format_rec['group_size']} lag per grupp · "
-        f"{_format_rec['playoff_format_label']} · cirka {_format_rec['total_matches']} matcher."
-    )
-    if _format_rec["capacity_matches"]:
-        if _format_rec["fits_capacity"]:
-            st.success(f"✓ Förslaget ryms inom uppskattad kapacitet: cirka {_format_rec['capacity_matches']} matchslotar.")
-        else:
-            st.warning(f"Nuvarande kapacitet är cirka {_format_rec['capacity_matches']} matchslotar medan förslaget behöver cirka {_format_rec['total_matches']} matcher. CupNavi rekommenderar mer plantid, fler planer eller ett kompaktare format.")
-    if st.button("Använd rekommenderat format",type="primary",use_container_width=True,key=f"accept_format_rec_{tournament_id}"):
-        run(
-            "UPDATE schedule_rules SET recommended_group_count=?,recommended_group_size=?,recommended_playoff_size=? WHERE tournament_id=?",
-            (_format_rec["group_count"],_format_rec["group_size"],_format_rec["playoff_size"],tournament_id),
-        )
-        st.success("Rekommendationen är sparad och används som hjälp i gruppindelningen. Inga lag eller grupper ändrades automatiskt.")
-        rules=one_row("SELECT * FROM schedule_rules WHERE tournament_id=?",(tournament_id,))
-
-
-    st.markdown("### 4. Tävlingsregler")
-    fields=[
-        ("Poäng vinst","points_win",int(tournament["points_win"])),
-        ("Poäng oavgjort","points_draw",int(tournament["points_draw"])),
-        ("Poäng förlust","points_loss",int(tournament["points_loss"])),
-    ]
-    cols=st.columns(3)
-    for col,(label,column,val) in zip(cols,fields):
-        k=f"setup_{column}_{tournament_id}"
-        col.number_input(label,0,10,val,key=k,on_change=_autosave_tournament_field,args=(tournament_id,column,k,int))
-    # Legacy QA anchor: ### 5. Match- och schemaregler
-    st.markdown("### 4. Matchregler och hårda begränsningar")
-    st.caption(
-        f'För {_sport_rec["display_name"]}: {_sport_rec["periods"]} {_sport_rec["period_label"]} är standardprofilen. '
-        f'Disciplin: {_sport_rec["discipline_label"]}. Poäng/resultat mäts som {_sport_rec["score_label"]}.'
-    )
-    r1,r2=st.columns(2)
-    hk=f"setup_halves_{tournament_id}"; mk=f"setup_minutes_{tournament_id}"
-    r1.number_input("Perioder/halvlekar/set",1,7,int(rules["halves"]),key=hk,on_change=_autosave_rule_field,args=(tournament_id,"halves",hk,int))
-    r2.number_input("Minuter per period/halvlek/set",1,120,int(rules["minutes_per_half"]),key=mk,on_change=_autosave_rule_field,args=(tournament_id,"minutes_per_half",mk,int))
-    r4,r5,r6=st.columns(3)
-    htk=f"setup_halftime_{tournament_id}"; pbk=f"setup_pitchbreak_{tournament_id}"; restk=f"setup_rest_{tournament_id}"
-    r4.number_input("Paus mellan perioder",0,60,int(rules["halftime_minutes"]),key=htk,on_change=_autosave_rule_field,args=(tournament_id,"halftime_minutes",htk,int))
-    r5.number_input("Paus mellan matcher på plan",0,120,int(rules["pitch_break_minutes"]),key=pbk,on_change=_autosave_rule_field,args=(tournament_id,"pitch_break_minutes",pbk,int))
-    r6.number_input("Minsta lagvila",0,300,int(rules["minimum_team_rest_minutes"]),key=restk,on_change=_autosave_rule_field,args=(tournament_id,"minimum_team_rest_minutes",restk,int))
-
-    st.markdown("### 5. Schemaprioriteringar")
-    st.caption("Dra målen i den ordning CupNavi ska prioritera dem. Ordningen används bara mellan lösningar som redan uppfyller alla hårda krav.")
-    _core_priorities = [
-        "Tillgodose lagens startönskemål",
-        "Undvik matcher direkt efter varandra",
-        "Jämna ut lagens vilotider",
-        "Minimera långa håltider",
-    ]
-    _advanced_priorities = [
-        "Jämn belastning mellan planer",
-        "Minimera sena gruppmatcher",
-    ]
-    _default_priorities = _core_priorities + _advanced_priorities
-    try:
-        _saved_priorities = json.loads(_row_value(rules, "preference_order_json", "") or "[]")
-    except (TypeError, ValueError, json.JSONDecodeError):
-        _saved_priorities = []
-    _priority_items = normalized_priority_order(_saved_priorities, _default_priorities)
-    _core_items=[x for x in _priority_items if x in _core_priorities]
-    _advanced_items=[x for x in _priority_items if x in _advanced_priorities]
-    st.markdown("**Grundprioriteringar**")
-    st.caption("Det här är de fyra val som normalt har störst påverkan på lagens upplevelse.")
-    if sort_items is not None:
-        _new_core_items = sort_items(
-            _core_items,
-            direction="vertical",
-            custom_style=".sortable-item{background:#fff;color:#172033;border:1px solid #cbd5e1;border-radius:10px;padding:9px 11px;margin:4px 0;font-weight:750;}",
-            key=f"setup_priority_core_sort_{tournament_id}",
-        )
-    else:
-        st.info("Drag-and-drop kräver streamlit-sortables. Prioriteringen visas i nuvarande ordning.")
-        _new_core_items = _core_items
-    with st.expander("Avancerade schemamål", expanded=False):
-        st.caption("Dessa mål är relevanta, men behöver normalt inte styra setupen för en vanlig cup.")
-        if sort_items is not None:
-            _new_advanced_items = sort_items(
-                _advanced_items,
-                direction="vertical",
-                custom_style=".sortable-item{background:#fff;color:#172033;border:1px solid #cbd5e1;border-radius:10px;padding:9px 11px;margin:4px 0;font-weight:750;}",
-                key=f"setup_priority_advanced_sort_{tournament_id}",
-            )
-        else:
-            _new_advanced_items = _advanced_items
-    _new_priority_items = list(_new_core_items) + list(_new_advanced_items)
-    if priority_order_changed(_new_priority_items, _saved_priorities):
-        run(
-            "UPDATE schedule_rules SET preference_order_json=? WHERE tournament_id=?",
-            (json.dumps(_new_priority_items, ensure_ascii=False), int(tournament_id)),
-        )
-        rules = one_row("SELECT * FROM schedule_rules WHERE tournament_id=?", (int(tournament_id),))
-
-    _compact_key=f"setup_compactness_{tournament_id}"
-    _compactness=st.slider(
-        "Turneringens tempo",
-        0,100,int(_row_value(rules,"compactness_level",50) or 50),
-        key=_compact_key,
-        help="0 = luftigare schema och mer marginal. 100 = komprimera cupen och bli klar så tidigt som möjligt."
-    )
-    st.caption("Luftigt schema ←  turneringens tempo  → Kompakt / tidigt avslut")
-    if int(_compactness)!=int(_row_value(rules,"compactness_level",50) or 50):
-        run("UPDATE schedule_rules SET compactness_level=?,schedule_strategy=? WHERE tournament_id=?",
-            (int(_compactness), "earliest_finish" if int(_compactness)>=50 else "use_pitch_windows", int(tournament_id)))
-        rules=one_row("SELECT * FROM schedule_rules WHERE tournament_id=?",(int(tournament_id),))
-
-    st.markdown("**Prioritera inkomna lagönskemål**")
-    _request_teams = all_rows(
-        "SELECT id,name,late_first_match,earliest_first_time,avoid_late_group_match,request_priority FROM teams "
-        "WHERE tournament_id=? AND (late_first_match=1 OR avoid_late_group_match=1) ORDER BY request_priority,name",
-        (int(tournament_id),),
-    )
-    if not _request_teams:
-        st.caption("Inga lagönskemål finns ännu. De kan registreras under Admin → Lag eller av laget via Lagportalen.")
-    else:
-        _request_labels = [
-            f"{row['name']} · " +
-            (f"helst första match efter {row['earliest_first_time']}" if row['late_first_match'] and row['earliest_first_time'] else "undvik sen gruppmatch")
-            for row in _request_teams
-        ]
-        if sort_items is not None:
-            _sorted_requests = sort_items(
-                _request_labels, direction="vertical",
-                custom_style=".sortable-item{background:#fff;color:#172033;border:1px solid #cbd5e1;border-radius:10px;padding:9px 11px;margin:4px 0;}",
-                key=f"setup_request_sort_{tournament_id}",
-            )
-            if _sorted_requests:
-                _label_to_row={label:row for label,row in zip(_request_labels,_request_teams)}
-                _request_priority_updates=[]
-                for pos,label in enumerate(_sorted_requests, start=1):
-                    row=_label_to_row[label]
-                    if int(_row_value(row,"request_priority",0) or 0) != pos:
-                        _request_priority_updates.append((pos,int(row["id"])))
-                if _request_priority_updates:
-                    with db() as con:
-                        con.executemany(
-                            "UPDATE teams SET request_priority=? WHERE id=?",
-                            _request_priority_updates,
-                        )
-                        con.commit()
-                    _clear_render_query_cache()
-        st.caption("Överst = viktigast om flera önskemål konkurrerar om samma tider.")
-
-    # Service-/arrangemangsval påverkar inte formatmotorn och kommer därför sent i setupen.
-    st.markdown("### 6. Arrangemang & deltagarservice")
-    st.caption("Dessa val påverkar deltagarupplevelsen och publik information, men inte hur CupNavi räknar ut tävlingsformatet.")
-    svc1,svc2=st.columns(2)
-    checkin_key=f"setup_team_checkin_{tournament_id}"
-    svc1.checkbox(
-        "Använd lagincheckning",
-        value=bool(_row_value(tournament,"enable_team_checkin",0)),
-        key=checkin_key,
-        on_change=_autosave_tournament_field,
-        args=(tournament_id,"enable_team_checkin",checkin_key,lambda v:1 if v else 0),
-        help="Lagledare/Admin kan markera laget på plats. Detta är en driftfunktion, inte en schemaregel.",
-    )
-    ranking_key=f"setup_final_ranking_{tournament_id}"
-    svc2.checkbox(
-        "Skapa slutlig ranking av alla lag",
-        value=bool(_row_value(tournament,"enable_final_ranking",0)),
-        key=ranking_key,
-        on_change=_autosave_tournament_field,
-        args=(tournament_id,"enable_final_ranking",ranking_key,lambda v:1 if v else 0),
-    )
-    cr_toggle=f"setup_changing_rooms_{tournament_id}"
-    changing_rooms_enabled=st.checkbox(
-        "Tillgång till omklädningsrum",
-        value=bool(_row_value(tournament,"changing_rooms_available",0)),
-        key=cr_toggle,
-        on_change=_autosave_tournament_field,
-        args=(tournament_id,"changing_rooms_available",cr_toggle,lambda v:1 if v else 0),
-    )
-    if changing_rooms_enabled:
-        cr_key=f"setup_changing_info_{tournament_id}"
-        st.text_area(
-            "Information om omklädningsrum",
-            value=_row_value(tournament,"changing_room_info","") or "",
-            key=cr_key,
-            placeholder="Exempel: 4 omklädningsrum i huvudbyggnaden. Nycklar hämtas i sekretariatet.",
-            on_change=_autosave_tournament_field,
-            args=(tournament_id,"changing_room_info",cr_key),
-        )
-
-    pshow=f"setup_show_prices_{tournament_id}"
-    show_prices_enabled=st.checkbox(
-        "Visa priser/avgifter publikt",
-        value=bool(_row_value(tournament,"show_price_information",0)),
-        key=pshow,
-        on_change=_autosave_tournament_field,
-        args=(tournament_id,"show_price_information",pshow,lambda v:1 if v else 0),
-    )
-    if show_prices_enabled:
-        pkey=f"setup_price_info_{tournament_id}"
-        st.text_area(
-            "Priser/avgifter",
-            value=_row_value(tournament,"price_information","") or "",
-            key=pkey,
-            placeholder="Exempel: Lagavgift 1 500 SEK. Matchcamp 250 SEK/spelare.",
-            on_change=_autosave_tournament_field,
-            args=(tournament_id,"price_information",pkey),
-        )
-
-
-    st.markdown("### 7. Kontroll & skapa")
-    st.caption("Kontrollera kapacitet, regler och ändringsbarhet innan du lämnar setupen. CupNavi visar vad som kan ändras senare och vad som låses efter start.")
-    _editability = pd.DataFrame([
-        {"Parameter":"Namn, kontakt, publik information","Utkast":"✓","Publicerad":"✓","Startad":"✓"},
-        {"Parameter":"Domare och funktionärer","Utkast":"✓","Publicerad":"✓","Startad":"✓ framtida matcher"},
-        {"Parameter":"Plan/tid för framtida match","Utkast":"✓","Publicerad":"✓","Startad":"⚠ kontroll"},
-        {"Parameter":"Plantider och schemaprioriteringar","Utkast":"✓","Publicerad":"⚠ omplanering","Startad":"⚠ endast framtida"},
-        {"Parameter":"Lag och gruppindelning","Utkast":"✓","Publicerad":"⚠ omplanering","Startad":"🔒"},
-        {"Parameter":"Matchtid, poängsystem, tävlingsformat","Utkast":"✓","Publicerad":"⚠ omplanering","Startad":"🔒 efter första resultat"},
-        {"Parameter":"Sport, region, tidszon","Utkast":"🔒 grundval","Publicerad":"🔒","Startad":"🔒"},
-    ])
-    render_centered_table(_editability)
-
-    st.markdown("### Publik statistik och drift")
-    f1,f2,f3,f4=st.columns(4)
-    for col,label,column,default in [
-        (f1,"Skytteliga","enable_scorer_leaderboard",1),(f2,"Assistliga","enable_assist_leaderboard",1),
-        (f3,"Gula/röda kort","enable_card_statistics",1),(f4,"Control Center","enable_control_center",0)]:
-        k=f"setup_{column}_{tournament_id}"
-        col.checkbox(label,value=bool(_row_value(tournament,column,default)),key=k,on_change=_autosave_tournament_field,args=(tournament_id,column,k,lambda v:1 if v else 0))
-
-    notice=st.session_state.pop(f"autosave_notice_{tournament_id}",None)
-    if notice: st.success(notice)
-    st.caption("Vanliga inställningar autosparas. Endast åtgärder som publicering, schemagenerering och radering kräver fortfarande ett aktivt knapptryck.")
-    if st.button("Fortsätt till Admin", type="primary", use_container_width=True, disabled=not valid_windows):
-        st.session_state.pop("new_tournament_setup_id", None)
-        st.session_state.pop("preferred_tournament_id", None)
-        st.session_state[f"admin_page_{tournament_id}"] = "Adminöversikt"
-        st.rerun()
 
 
 def _render_with_friendly_error(renderer, *args):
@@ -11536,11 +8627,6 @@ admin_page_key = f"admin_page_{tid}"
 if st.session_state.get(admin_page_key) not in ADMIN_PAGES:
     st.session_state[admin_page_key] = "Adminöversikt"
 
-st.markdown(
-    f"<div class='cn-admin-section-label'>{html.escape(tr('Administration'))}</div>",
-    unsafe_allow_html=True,
-)
-
 def _set_admin_page(page):
     st.session_state[admin_page_key] = page
 
@@ -11590,11 +8676,6 @@ elif selected_group == "Matcher":
             nav_items.append((page_name, button_label))
 else:
     nav_items = raw_items
-
-st.markdown(
-    f"<div class='cn-admin-nav-group-title'>{html.escape(tr(selected_group))}</div>",
-    unsafe_allow_html=True,
-)
 
 # Primära sidor visas direkt. Situationsbundna verktyg finns kvar under Fler verktyg.
 # Detta minskar samtidig knappmängd utan att göra någon funktion oåtkomlig.
@@ -11815,7 +8896,7 @@ if _flow_index is not None:
 else:
     _recommended_page = _recommended_label = None
 
-if _flow_index is not None and admin_page != _recommended_page:
+if _flow_index is not None and admin_page not in (_recommended_page, "Adminöversikt"):
     _next_copy_col, _next_button_col = st.columns([3, 2])
     _next_copy_col.markdown(
         f"<div class='cn-next-action'><b>Nästa steg</b><br><span>{html.escape(_recommended_label)}</span></div>",
@@ -11873,58 +8954,6 @@ if sidebar_scheduled:
 else:
     sidebar_errors, sidebar_warnings, _sidebar_quality = ([], [], [])
 
-st.sidebar.divider()
-st.sidebar.subheader("Publicering")
-if tournament["is_published"]:
-    st.sidebar.success("Publicerad")
-else:
-    st.sidebar.caption("Turneringsvyn är ett utkast.")
-
-
-def _is_advisory_schedule_warning(message):
-    """Varningar som ska synas men aldrig blockera publicering."""
-    lowered = (message or "").lower()
-    return any(term in lowered for term in ("färgkrock", "tröjfärg", "färglikhet", "extraställ"))
-
-
-blocking_sidebar_warnings = [
-    warning for warning in sidebar_warnings
-    if not _is_advisory_schedule_warning(warning)
-]
-advisory_sidebar_warnings = [
-    warning for warning in sidebar_warnings
-    if _is_advisory_schedule_warning(warning)
-]
-
-sidebar_warnings_approved = st.sidebar.checkbox(
-    "Jag har granskat schemavarningarna",
-    disabled=not bool(blocking_sidebar_warnings),
-    key=f"sidebar_warning_approval_{tid}",
-)
-mobile_warnings_approved = bool(st.session_state.get(f"mobile_warning_approval_{tid}", False))
-all_warnings_approved = bool(sidebar_warnings_approved or mobile_warnings_approved)
-
-publish_blockers = []
-if not tournament["playoff_model_confirmed"]:
-    publish_blockers.append("Slutspelsmodell och cupregler måste sparas på Översikt.")
-if not sidebar_scheduled:
-    publish_blockers.append("Spelschema saknas. Generera schemat under Schema.")
-if bool(tournament["schedule_dirty"]) and sidebar_scheduled:
-    publish_blockers.append(
-        "Schemat är inaktuellt eftersom förutsättningarna har ändrats. Regenerera schemat."
-    )
-if sidebar_errors:
-    publish_blockers.append(
-        f"{len(sidebar_errors)} blockerande schemafel måste åtgärdas."
-    )
-if blocking_sidebar_warnings and not all_warnings_approved:
-    publish_blockers.append(
-        f"{len(blocking_sidebar_warnings)} schemavarningar måste granskas och godkännas."
-    )
-
-sidebar_publish_blocked = bool(publish_blockers)
-
-
 def _publish_tournament_now():
     """Publish only the tournament version currently rendered to Admin."""
     changed, reason = _set_publication_if_current(
@@ -11947,540 +8976,127 @@ def _unpublish_tournament_now():
     )
 
 
-if sidebar_publish_blocked:
-    st.sidebar.error("Kan inte publicera ännu")
-    for reason in publish_blockers:
-        st.sidebar.markdown(f"• {reason}")
-
-    if sidebar_errors:
-        with st.sidebar.expander(f"Visa schemafel ({len(sidebar_errors)})"):
-            for index, error in enumerate(sidebar_errors[:10], 1):
-                st.markdown(f"**{index}.** {error}")
-            if len(sidebar_errors) > 10:
-                st.caption(f"Ytterligare {len(sidebar_errors) - 10} fel visas under Kontroller/Schema.")
-
-    if blocking_sidebar_warnings:
-        with st.sidebar.expander(f"Visa schemavarningar ({len(blocking_sidebar_warnings)})"):
-            for index, warning in enumerate(blocking_sidebar_warnings[:10], 1):
-                st.markdown(f"**{index}.** {warning}")
-            if len(blocking_sidebar_warnings) > 10:
-                st.caption(
-                    f"Ytterligare {len(blocking_sidebar_warnings) - 10} varningar visas under Kontroller/Schema."
-                )
-else:
-    st.sidebar.success("✓ Alla publiceringskrav är uppfyllda.")
-
-if advisory_sidebar_warnings:
-    with st.sidebar.expander(f"Notiser – blockerar inte ({len(advisory_sidebar_warnings)})"):
-        for index, warning in enumerate(advisory_sidebar_warnings[:10], 1):
-            st.markdown(f"**{index}.** {warning}")
-        st.caption("Dessa notiser stoppar inte publicering.")
-
-_has_been_published = bool(_row_value(tournament, "published_once", 0))
-_publish_action_label = "Uppdatera" if _has_been_published else "Publicera"
-
-if st.sidebar.button(
-    _publish_action_label,
-    type="primary",
-    use_container_width=True,
-    disabled=sidebar_publish_blocked,
-    key=f"publish_from_any_admin_page_{tid}",
-):
-    changed, publish_reason = _publish_tournament_now()
-    if not changed:
-        st.sidebar.warning("Publiceringsstatusen ändrades av en annan administratör. Senaste status laddas om.")
-    st.rerun()
-
-if st.sidebar.button(
-    "Avpublicera",
-    use_container_width=True,
-    disabled=not tournament["is_published"],
-    key=f"unpublish_from_any_admin_page_{tid}",
-):
-    changed, publish_reason = _unpublish_tournament_now()
-    if not changed:
-        st.sidebar.warning("Publiceringsstatusen ändrades av en annan administratör. Senaste status laddas om.")
-    st.rerun()
-
-# v159: Publicering får inte vara beroende av sidebaren. På mobil ligger denna
-# kontroll direkt i huvudinnehållet och använder exakt samma validering.
-with st.container(border=True):
-    st.markdown("#### 📣 Publicering")
-    if tournament["is_published"]:
-        st.success("Turneringen är publicerad. Sparade resultat visas automatiskt i turneringsvyn.")
-    else:
-        st.caption("Turneringsvyn är fortfarande ett utkast tills du publicerar den.")
-
-    if blocking_sidebar_warnings:
-        st.checkbox(
-            "Jag har granskat schemavarningarna",
-            key=f"mobile_warning_approval_{tid}",
-        )
-
-    if sidebar_publish_blocked:
-        st.warning("Kan inte publicera ännu: " + " ".join(publish_blockers))
-
-    # Primary publication action sits by itself on the left. Avoid two equally
-    # prominent full-width buttons competing for attention.
-    mobile_publish_col, _publish_spacer = st.columns([1, 1])
-    if mobile_publish_col.button(
-        f"📣 {_publish_action_label}",
-        type="primary",
-        use_container_width=True,
-        disabled=sidebar_publish_blocked,
-        key=f"mobile_publish_from_admin_{tid}",
-    ):
-        changed, publish_reason = _publish_tournament_now()
-        st.session_state["mobile_publish_message"] = (
-            "✓ Turneringsvyn är publicerad och synkad."
-            if changed
-            else "Publiceringsstatusen ändrades av en annan administratör. Senaste status har laddats."
-        )
-        st.rerun()
-
-    if tournament["is_published"]:
-        with st.expander("Fler publiceringsval", expanded=False):
-            if st.button(
-                "Avpublicera",
-                key=f"mobile_unpublish_from_admin_{tid}",
-            ):
-                changed, publish_reason = _unpublish_tournament_now()
-                if not changed:
-                    st.session_state["mobile_publish_message"] = (
-                        "Publiceringsstatusen ändrades av en annan administratör. "
-                        "Senaste status har laddats."
-                    )
-                st.rerun()
-    if "mobile_publish_message" in st.session_state:
-        st.success(st.session_state.pop("mobile_publish_message"))
+render_admin_publication_controls(
+    tournament_id=tid,
+    is_published=bool(tournament["is_published"]),
+    published_once=bool(_row_value(tournament, "published_once", 0)),
+    playoff_model_confirmed=bool(tournament["playoff_model_confirmed"]),
+    scheduled_matches=sidebar_scheduled,
+    schedule_dirty=bool(tournament["schedule_dirty"]),
+    schedule_errors=sidebar_errors,
+    schedule_warnings=sidebar_warnings,
+    publish_now=_publish_tournament_now,
+    unpublish_now=_unpublish_tournament_now,
+)
 
 # Cupens livscykel: publicerad -> pågår -> avslutad. Avslutad cup blir skrivskyddad
 # i admin men ligger kvar publikt tills admin uttryckligen flyttar den till papperskorgen.
-if tournament_lifecycle == "published" and tournament["is_published"]:
-    if st.sidebar.button("🔴 Markera cupen som pågående", use_container_width=True, key=f"mark_live_{tid}"):
-        changed, lifecycle_reason = _set_lifecycle_if_current(
-            tid,
-            "published",
-            "live",
-            expected_is_published=1,
-        )
-        if not changed:
-            st.sidebar.warning("Cupstatusen ändrades av en annan administratör. Senaste status laddas om.")
-        st.rerun()
-
-lifecycle_counts = one_row(
-    "SELECT COUNT(*) AS total, SUM(CASE WHEN home_score IS NOT NULL AND away_score IS NOT NULL THEN 1 ELSE 0 END) AS played "
-    "FROM matches WHERE tournament_id=? AND scheduled_start IS NOT NULL AND schedule_published=1",
-    (tid,),
+lifecycle_counts = fetch_lifecycle_match_counts(one_row, tid)
+completion_state = build_completion_state(
+    total=int(lifecycle_counts["total"] or 0) if lifecycle_counts else 0,
+    played=int(lifecycle_counts["played"] or 0) if lifecycle_counts else 0,
+    lifecycle=tournament_lifecycle,
 )
-life_total = int(lifecycle_counts["total"] or 0) if lifecycle_counts else 0
-life_played = int(lifecycle_counts["played"] or 0) if lifecycle_counts else 0
-cup_can_complete = life_total > 0 and life_played == life_total and tournament_lifecycle in ("published", "live")
-if tournament_lifecycle in ("published", "live"):
-    if not cup_can_complete:
-        st.sidebar.caption(f"Avsluta cup: {life_played}/{life_total} publicerade matcher färdigrapporterade.")
-    if st.sidebar.button("🏁 Avsluta cup", disabled=not cup_can_complete, use_container_width=True, key=f"complete_cup_{tid}"):
-        changed, lifecycle_reason = _set_lifecycle_if_current(
-            tid,
-            tournament_lifecycle,
-            "completed",
-            expected_is_published=1,
+
+
+def _admin_set_public_lifecycle(expected_lifecycle, new_lifecycle):
+    return _set_lifecycle_if_current(
+        tid,
+        expected_lifecycle,
+        new_lifecycle,
+        expected_is_published=1,
+    )
+
+
+def _add_completed_cup_feed_item():
+    add_feed_item(
+        tid,
+        "Cupen är avslutad",
+        "Resultat och statistik finns kvar i CupNavi-historiken.",
+        category="Cup",
+    )
+
+
+render_admin_lifecycle_controls(
+    tournament_id=tid,
+    lifecycle=tournament_lifecycle,
+    is_published=bool(tournament["is_published"]),
+    completion_state=completion_state,
+    set_lifecycle=_admin_set_public_lifecycle,
+    add_completion_feed_item=_add_completed_cup_feed_item,
+)
+
+def _demo_data_service():
+    from cupnavi_core.demo_data_service import DemoDataDeps, DemoDataService
+
+    return DemoDataService(
+        DemoDataDeps(
+            all_rows=all_rows,
+            one_row=one_row,
+            run=run,
+            db=db,
+            resolve_source=resolve_source,
+            clear_render_query_cache=_clear_render_query_cache,
+            is_test_environment=is_test_environment,
+            ensure_tournament_day_windows=ensure_tournament_day_windows,
+            ensure_pitch_day_windows=ensure_pitch_day_windows,
+            create_all_group_matches=create_all_group_matches,
+            ensure_playoffs_for_schedule=ensure_playoffs_for_schedule,
+            generate_schedule=generate_schedule,
+            add_feed_item=add_feed_item,
+            rows_from_cursor=_rows_from_cursor,
         )
-        if changed:
-            add_feed_item(tid, "Cupen är avslutad", "Resultat och statistik finns kvar i CupNavi-historiken.", category="Cup")
-        else:
-            st.sidebar.warning("Cupstatusen ändrades av en annan administratör. Cupen avslutades inte från den här äldre vyn.")
-        st.rerun()
+    )
 
 
 def _demo_distribute_count(total, players):
-    """Fördela ett heltalsantal slumpmässigt över spelare."""
-    if total <= 0 or not players:
-        return {}
-    counts = {player["id"]: 0 for player in players}
-    for _ in range(total):
-        chosen = random.choice(players)
-        counts[chosen["id"]] += 1
-    return {player_id: count for player_id, count in counts.items() if count}
+    return _demo_data_service().distribute_count(total, players)
 
 
 def _demo_write_match_stats(match_id, team_id, goals, con):
-    """Skapa fiktiva mål/assist/kort för ett lag i en redan resultatsatt match."""
-    players = _rows_from_cursor(
-        con.execute(
-            "SELECT id,name FROM players WHERE team_id=? ORDER BY player_number,name",
-            (team_id,),
-        )
-    )
-    if not players:
-        return 0
-
-    goal_map = _demo_distribute_count(goals, players)
-
-    # Alla mål behöver inte ha assist. Antalet assist kan aldrig överstiga antalet mål.
-    assist_total = random.randint(0, goals) if goals > 0 else 0
-    assist_map = _demo_distribute_count(assist_total, players)
-
-    # Kortdata är separat från mål/assist.
-    yellow_total = random.choices([0, 1, 2, 3], weights=[45, 35, 15, 5], k=1)[0]
-    red_total = random.choices([0, 1], weights=[92, 8], k=1)[0]
-    yellow_map = _demo_distribute_count(yellow_total, players)
-    red_map = _demo_distribute_count(red_total, players)
-
-    all_player_ids = set(goal_map) | set(assist_map) | set(yellow_map) | set(red_map)
-    for player_id in all_player_ids:
-        con.execute(
-            """
-            INSERT INTO player_match_stats(match_id,player_id,goals,assists,yellow_cards,red_cards)
-            VALUES(?,?,?,?,?,?)
-            ON CONFLICT(match_id,player_id)
-            DO UPDATE SET goals=excluded.goals,
-                          assists=excluded.assists,
-                          yellow_cards=excluded.yellow_cards,
-                          red_cards=excluded.red_cards
-            """,
-            (
-                match_id,
-                player_id,
-                goal_map.get(player_id, 0),
-                assist_map.get(player_id, 0),
-                yellow_map.get(player_id, 0),
-                red_map.get(player_id, 0),
-            ),
-        )
-    return len(all_player_ids)
+    return _demo_data_service().write_match_stats(match_id, team_id, goals, con)
 
 
 def _demo_generate_group_results(tournament_id, *, fraction=1.0):
-    """Slumpa resultat och matchhändelser för en vald andel gruppspelsmatcher."""
-    group_matches = all_rows(
-        """SELECT * FROM matches
-           WHERE tournament_id=? AND stage='Gruppspel'
-           ORDER BY COALESCE(scheduled_start,''),group_id,match_no,id""",
-        (tournament_id,),
-    )
-    if not group_matches:
-        return 0, 0, "Inga gruppspelsmatcher finns ännu. Generera spelschemat först."
-
-    fraction = max(0.0, min(1.0, float(fraction)))
-    target_count = len(group_matches) if fraction >= 1.0 else max(1, int((len(group_matches) * fraction) + 0.5))
-    selected_matches = group_matches[:target_count]
-    generated = 0
-    stat_rows = 0
-    with db() as con:
-        for match_row in selected_matches:
-            home_id = resolve_source(match_row["home_source"])
-            away_id = resolve_source(match_row["away_source"])
-            if not home_id or not away_id:
-                continue
-
-            # Rimliga testresultat med både målsnåla och målglada matcher.
-            home_score = random.choices([0,1,2,3,4,5], weights=[14,25,25,19,11,6], k=1)[0]
-            away_score = random.choices([0,1,2,3,4,5], weights=[16,27,24,18,10,5], k=1)[0]
-
-            con.execute(
-                """UPDATE matches
-                   SET home_score=?,away_score=?,home_penalties=NULL,away_penalties=NULL,decided_winner_id=NULL
-                   WHERE id=?""",
-                (home_score, away_score, match_row["id"]),
-            )
-            con.execute("DELETE FROM player_match_stats WHERE match_id=?", (match_row["id"],))
-            stat_rows += _demo_write_match_stats(match_row["id"], home_id, home_score, con)
-            stat_rows += _demo_write_match_stats(match_row["id"], away_id, away_score, con)
-            generated += 1
-        con.commit()
-
-    _clear_render_query_cache()
-    return generated, stat_rows, None
+    return _demo_data_service().generate_group_results(tournament_id, fraction=fraction)
 
 
 def _demo_generate_playoff_results(tournament_id, *, fraction=1.0):
-    """Slumpa en vald andel slutspelsresultat i spelordning så vinnare går vidare."""
-    playoff_matches = all_rows(
-        """SELECT * FROM matches
-           WHERE tournament_id=? AND stage<>'Gruppspel'
-           ORDER BY round_no,match_no,id""",
-        (tournament_id,),
-    )
-    if not playoff_matches:
-        return 0, 0, "Inga slutspelsmatcher finns ännu. Generera spelschemat först."
-
-    fraction = max(0.0, min(1.0, float(fraction)))
-    target_count = len(playoff_matches) if fraction >= 1.0 else max(1, int((len(playoff_matches) * fraction) + 0.5))
-    playoff_matches = playoff_matches[:target_count]
-
-    tournament_row = one_row("SELECT * FROM tournaments WHERE id=?", (tournament_id,))
-    tie_rule = tournament_row["playoff_tie_rule"] or "Straffar direkt"
-    generated = 0
-    stat_rows = 0
-    skipped = 0
-
-    # Kör match för match och commit:a varje resultat så winner:<match-id>
-    # kan lösas direkt i efterföljande semifinal/final.
-    for match_stub in playoff_matches:
-        _clear_render_query_cache()
-        match_row = one_row("SELECT * FROM matches WHERE id=?", (match_stub["id"],))
-        home_id = resolve_source(match_row["home_source"])
-        away_id = resolve_source(match_row["away_source"])
-        if not home_id or not away_id:
-            skipped += 1
-            continue
-
-        # Cirka 25 % av matcherna går till oavgjort i ordinarie tid så
-        # straff/lottning också får testdata.
-        if random.random() < 0.25:
-            score = random.choice([0, 1, 2, 3])
-            home_score = away_score = score
-        else:
-            home_score = random.choices([0,1,2,3,4], weights=[15,28,27,20,10], k=1)[0]
-            away_score = random.choices([0,1,2,3,4], weights=[15,28,27,20,10], k=1)[0]
-            if home_score == away_score:
-                if random.random() < 0.5:
-                    home_score += 1
-                else:
-                    away_score += 1
-
-        home_penalties = away_penalties = decided_winner_id = None
-        if home_score == away_score:
-            if tie_rule == "Lottning":
-                decided_winner_id = random.choice([home_id, away_id])
-            else:
-                winner_home = random.random() < 0.5
-                base = random.randint(3, 5)
-                if winner_home:
-                    home_penalties, away_penalties = base, base - 1
-                else:
-                    home_penalties, away_penalties = base - 1, base
-
-        with db() as con:
-            con.execute(
-                """UPDATE matches
-                   SET home_score=?,away_score=?,home_penalties=?,away_penalties=?,decided_winner_id=?
-                   WHERE id=?""",
-                (
-                    home_score,
-                    away_score,
-                    home_penalties,
-                    away_penalties,
-                    decided_winner_id,
-                    match_row["id"],
-                ),
-            )
-            con.execute("DELETE FROM player_match_stats WHERE match_id=?", (match_row["id"],))
-            stat_rows += _demo_write_match_stats(match_row["id"], home_id, home_score, con)
-            stat_rows += _demo_write_match_stats(match_row["id"], away_id, away_score, con)
-            con.commit()
-
-        _clear_render_query_cache()
-        generated += 1
-
-    warning = None
-    if skipped:
-        warning = (
-            f"{skipped} slutspelsmatcher kunde inte fyllas eftersom deltagande lag ännu inte kunde avgöras. "
-            "Kontrollera att gruppspelet är färdigspelat och kör sedan knappen igen."
-        )
-    return generated, stat_rows, warning
-
+    return _demo_data_service().generate_playoff_results(tournament_id, fraction=fraction)
 
 
 def _demo_reset_results(tournament_id):
-    """Nollställ testresultat/händelser utan att röra schema eller grunddata."""
-    with db() as con:
-        con.execute(
-            """DELETE FROM player_match_stats
-               WHERE match_id IN (SELECT id FROM matches WHERE tournament_id=?)""",
-            (tournament_id,),
-        )
-        con.execute(
-            """UPDATE matches SET home_score=NULL,away_score=NULL,home_penalties=NULL,away_penalties=NULL,decided_winner_id=NULL
-               WHERE tournament_id=?""",
-            (tournament_id,),
-        )
-        con.commit()
-    _clear_render_query_cache()
+    return _demo_data_service().reset_results(tournament_id)
 
 
 def _demo_apply_safe_schedule_capacity(tournament_id, tournament_row):
-    """Ge en Testmiljö reproducerbar kapacitet när democupen annars inte får plats.
-
-    Detta används alltid i CUPNAVI_E2E och som fallback i vanliga Testmiljöer.
-    Riktiga cuper påverkas aldrig.
-    """
-    if not is_test_environment(tournament_row):
-        return one_row("SELECT * FROM schedule_rules WHERE tournament_id=?", (tournament_id,))
-
-    run(
-        """UPDATE schedule_rules
-           SET pitch_count=CASE WHEN pitch_count < 8 THEN 8 ELSE pitch_count END,
-               first_match_time='07:00',
-               latest_kickoff_time='23:00',
-               pitch_break_minutes=0,
-               avoid_consecutive_matches=0,
-               consecutive_match_break_minutes=0,
-               referee_mode='Manuell'
-           WHERE tournament_id=?""",
-        (tournament_id,),
-    )
-    # Viktigt: pitch_day_windows ärver tider från tournament_day_windows. Tidigare
-    # raderades bara planfönstren, vilket gjorde att de direkt återskapades från
-    # gamla 09:00–18:00-fönster och den "säkra" kapaciteten aldrig fick effekt.
-    run("DELETE FROM pitch_day_windows WHERE tournament_id=?", (tournament_id,))
-    run("DELETE FROM tournament_day_windows WHERE tournament_id=?", (tournament_id,))
-    rules_row = one_row("SELECT * FROM schedule_rules WHERE tournament_id=?", (tournament_id,))
-    ensure_tournament_day_windows(
-        tournament_id,
-        tournament_row,
-        rules_row["first_match_time"],
-        rules_row["latest_kickoff_time"],
-    )
-    ensure_pitch_day_windows(
-        tournament_id,
-        tournament_row,
-        int(rules_row["pitch_count"]),
-        rules_row["first_match_time"],
-        rules_row["latest_kickoff_time"],
-    )
-    return one_row("SELECT * FROM schedule_rules WHERE tournament_id=?", (tournament_id,))
+    return _demo_data_service().apply_safe_schedule_capacity(tournament_id, tournament_row)
 
 
 def _demo_prepare_schedule(tournament_id):
-    """Säkerställ gruppmöten, slutspel och ett faktiskt genomförbart demoschema."""
-    tournament_row = one_row("SELECT * FROM tournaments WHERE id=?", (tournament_id,))
-    rules_row = one_row("SELECT * FROM schedule_rules WHERE tournament_id=?", (tournament_id,))
-    if rules_row is None:
-        run("INSERT INTO schedule_rules(tournament_id) VALUES(?)", (tournament_id,))
-        rules_row = one_row("SELECT * FROM schedule_rules WHERE tournament_id=?", (tournament_id,))
-
-    # CI måste vara helt deterministiskt. En nyskapad endagscup kan annars skapa
-    # gruppmatcherna men fastna före resultat/publicering om plantiderna är för snäva.
-    if os.environ.get("CUPNAVI_E2E") == "1" and is_test_environment(tournament_row):
-        rules_row = _demo_apply_safe_schedule_capacity(tournament_id, tournament_row)
-
-    create_all_group_matches(tournament_id)
-    playoff_ok, playoff_error = ensure_playoffs_for_schedule(tournament_id, tournament_row)
-    if not playoff_ok:
-        return False, playoff_error
-
-    count, unresolved, warning = generate_schedule(tournament_id, tournament_row, rules_row)
-
-    # Vanliga Testmiljöer ska också vara lätta att experimentera i. Om användarens
-    # plantider inte räcker får demomotorn en enda säker fallback i stället för att
-    # lämna cupen halvbyggd med matcher men utan resultat.
-    if unresolved and is_test_environment(tournament_row):
-        rules_row = _demo_apply_safe_schedule_capacity(tournament_id, tournament_row)
-        count, unresolved, retry_warning = generate_schedule(
-            tournament_id, tournament_row, rules_row
-        )
-        warning = retry_warning or warning
-
-    if unresolved:
-        return False, warning or f"{unresolved} matcher kunde inte schemaläggas."
-    return True, warning
+    return _demo_data_service().prepare_schedule(tournament_id)
 
 
 def _demo_apply_progress_level(tournament_id, level):
-    """Bygg ett reproducerbart testläge från halv grupp till helt avslutad cup."""
-    ok, warning = _demo_prepare_schedule(tournament_id)
-    if not ok:
-        return False, warning
-
-    _demo_reset_results(tournament_id)
-    now_iso = datetime.now().isoformat(timespec="seconds")
-    run(
-        "UPDATE tournaments SET is_published=1,lifecycle_status='live',completed_at=NULL WHERE id=?",
-        (tournament_id,),
-    )
-
-    if level == "half_group":
-        group_generated, _, group_warning = _demo_generate_group_results(tournament_id, fraction=0.5)
-        return True, group_warning or f"Halva gruppspelet är testspelat ({group_generated} matcher)."
-
-    group_generated, _, group_warning = _demo_generate_group_results(tournament_id, fraction=1.0)
-    if group_warning:
-        return False, group_warning
-
-    if level == "full_group":
-        return True, f"Hela gruppspelet är testspelat ({group_generated} matcher). Slutspel återstår."
-
-    playoff_fraction = 0.5 if level == "half_playoff" else 1.0
-    playoff_generated, _, playoff_warning = _demo_generate_playoff_results(
-        tournament_id, fraction=playoff_fraction
-    )
-    if level == "half_playoff":
-        return True, playoff_warning or f"Gruppspelet och halva slutspelet är testspelat ({playoff_generated} slutspelsmatcher)."
-
-    if playoff_warning:
-        return False, playoff_warning
-    run(
-        "UPDATE tournaments SET lifecycle_status='completed',completed_at=? WHERE id=?",
-        (now_iso, tournament_id),
-    )
-    add_feed_item(
-        tournament_id,
-        "Democupen är färdigspelad",
-        "Alla grupp- och slutspelsmatcher har testresultat.",
-        category="Resultat",
-        public=True,
-    )
-    return True, f"Hela cupen är färdigspelad i testdata ({group_generated} gruppmatcher, {playoff_generated} slutspelsmatcher)."
-
+    return _demo_data_service().apply_progress_level(tournament_id, level)
 
 
 def _admin_workflow_counts(tournament_id):
-    # Samla dashboardens vanligaste räknare i ett enda Turso-anrop. Adminöversikten
-    # kan redan ha laddat exakt samma snapshot tillsammans med flödesstatusen.
+    # v1.279: query ownership lives in the repository module; app.py keeps only
+    # the render-cache/performance boundary used by the current Streamlit run.
     cache_key = ("admin-workflow-counts", int(tournament_id))
     if cache_key in _DERIVED_RENDER_CACHE:
         _PERF["derived_hits"] += 1
         return _DERIVED_RENDER_CACHE[cache_key]
-    now_iso = datetime.now().isoformat(timespec="seconds")
-    delayed_cutoff_iso = (datetime.now() - timedelta(minutes=90)).isoformat(timespec="seconds")
-    result = one_row(
-        """SELECT
-          (SELECT COUNT(*) FROM teams WHERE tournament_id=?) AS teams_n,
-          (SELECT COUNT(*) FROM groups WHERE tournament_id=?) AS groups_n,
-          (SELECT COUNT(*) FROM players p JOIN teams t ON t.id=p.team_id WHERE t.tournament_id=?) AS players_n,
-          (SELECT COUNT(*) FROM referees WHERE tournament_id=?) AS refs_n,
-          (SELECT COUNT(*) FROM matches WHERE tournament_id=?) AS matches_n,
-          (SELECT COUNT(*) FROM matches WHERE tournament_id=? AND scheduled_start IS NOT NULL) AS scheduled_n,
-          (SELECT COUNT(*) FROM matches WHERE tournament_id=? AND home_score IS NOT NULL AND away_score IS NOT NULL) AS played_n,
-          (SELECT COUNT(*) FROM matches WHERE tournament_id=? AND scheduled_start IS NOT NULL AND referee_id IS NULL) AS missing_refs_n,
-          (SELECT COUNT(*) FROM teams WHERE tournament_id=? AND COALESCE(checked_in,0)=0) AS unchecked_n,
-          (SELECT COUNT(*) FROM pitches WHERE tournament_id=?) AS pitches_n,
-          (SELECT COUNT(*) FROM matches WHERE tournament_id=? AND schedule_published=1) AS published_n,
-          (SELECT COUNT(*) FROM player_match_stats s JOIN matches m ON m.id=s.match_id
-             WHERE m.tournament_id=? AND (s.goals>0 OR s.assists>0 OR s.yellow_cards>0 OR s.red_cards>0)) AS events_n,
-          (SELECT COUNT(*) FROM matches WHERE tournament_id=? AND scheduled_start>?) AS upcoming_n,
-          (SELECT COUNT(*) FROM matches WHERE tournament_id=? AND scheduled_start IS NOT NULL AND scheduled_start<=?
-             AND (home_score IS NULL OR away_score IS NULL)) AS missing_results_n,
-          (SELECT COUNT(*) FROM matches WHERE tournament_id=? AND scheduled_start IS NOT NULL AND scheduled_start<?
-             AND (home_score IS NULL OR away_score IS NULL)) AS delayed_n
-        """,
-        (tournament_id,tournament_id,tournament_id,tournament_id,tournament_id,tournament_id,tournament_id,tournament_id,tournament_id,tournament_id,tournament_id,tournament_id,tournament_id,now_iso,tournament_id,now_iso,tournament_id,delayed_cutoff_iso),
-    )
+    result = fetch_admin_workflow_counts(one_row, int(tournament_id))
     _DERIVED_RENDER_CACHE[cache_key] = result
     return result
-
-
-def _admin_workflow_step(title, state, meta):
-    css_class = "done" if state == "done" else ("warn" if state == "warn" else "todo")
-    icon = "✓" if state == "done" else ("⚠" if state == "warn" else "○")
-    return (
-        f"<div class='cn-step {css_class}'>"
-        f"<div class='title'>{icon} {html.escape(title)}</div>"
-        f"<div class='meta'>{html.escape(meta)}</div>"
-        "</div>"
-    )
 
 
 
 if admin_page == "Instruktioner":
     st.header("Instruktioner")
-    st.caption(
-        "En steg-för-steg-guide för dig som administrerar en cup för första gången. "
-        "Guiden läser av den valda turneringen och ändrar status och nästa rekommenderade steg automatiskt."
-    )
+    st.caption("Följ cupen steg för steg. Guiden anpassas automatiskt efter turneringens aktuella status.")
 
     guide_counts = _admin_workflow_counts(tid)
     guide_expected = int(tournament["expected_team_count"] or 0)
@@ -12682,10 +9298,6 @@ if admin_page == "Instruktioner":
         - **Matcher är samlade på en publik sida.** Kommande och spelade matcher visas i samma flöde, med resultat och registrerade händelser när de finns.
         """
     )
-    st.caption(
-        "Den här sidan bygger sin status från turneringens aktuella data. "
-        "När CupNavi får nya arbetssteg eller funktioner ska motsvarande instruktion uppdateras tillsammans med funktionen."
-    )
 
 
 elif admin_page == "Adminöversikt":
@@ -12702,30 +9314,17 @@ elif admin_page == "Adminöversikt":
     # vad arrangören faktiskt behöver göra, inte bara vilka funktioner som finns.
     _v139_counts = _admin_workflow_counts(tid)
     _v139_class_rows = competition_classes(tid)
-    _v139_classes = len(_v139_class_rows)
-    _v139_pitches = {"n": _v139_counts["pitches_n"]}
-    _v139_rules = sidebar_rules
-    _v139_rules_ready = bool(
-        _v139_rules
-        and int(_row_value(_v139_rules, "halves", 0) or 0) > 0
-        and int(_row_value(_v139_rules, "minutes_per_half", 0) or 0) > 0
-        and int(_row_value(_v139_rules, "pitch_count", 0) or 0) > 0
-        and int(_row_value(_v139_rules, "minimum_team_rest_minutes", 0) or 0) >= 0
-    )
-    _v139_planned_total = sum(max(0,int(_row_value(row,"planned_team_count",0) or 0)) for row in _v139_class_rows)
-    _v139_expected_total = max(_v139_planned_total, int(_v139_counts["teams_n"] or 0))
-    _v139_steps = organizer_workflow(
-        competition_classes=_v139_classes,
-        teams=int(_v139_counts["teams_n"] or 0),
-        expected_teams=_v139_expected_total,
-        groups=int(_v139_counts["groups_n"] or 0),
-        pitches=int(_row_value(_v139_pitches, "n", 0) or 0),
-        rules_ready=_v139_rules_ready,
-        matches=int(_v139_counts["matches_n"] or 0),
+    _v139_model = build_organizer_overview(
+        _v139_counts,
+        class_rows=_v139_class_rows,
+        sidebar_rules=sidebar_rules,
         schedule_dirty=bool(tournament["schedule_dirty"]),
         published=bool(tournament["is_published"]),
     )
-    _v139_summary = workflow_summary(_v139_steps)
+    _v139_classes = _v139_model["classes_n"]
+    _v139_expected_total = _v139_model["expected_total"]
+    _v139_steps = _v139_model["steps"]
+    _v139_summary = _v139_model["summary"]
     with st.expander("Förberedelser i detalj", expanded=False):
         st.caption(f"{_v139_summary['done']}/{_v139_summary['total']} förberedelsesteg klara")
 
@@ -12742,12 +9341,7 @@ elif admin_page == "Adminöversikt":
                 int(_row_value(row, "competition_class_id", 0) or 0): int(_row_value(row, "n", 0) or 0)
                 for row in _class_team_count_rows
             }
-            _class_progress_parts=[]
-            for _class in _v139_class_rows:
-                _actual=int(_class_team_counts.get(int(_class["id"]),0))
-                _planned=max(_actual,int(_row_value(_class,"planned_team_count",0) or 0))
-                _class_progress_parts.append(f"{competition_class_label(_class)}: {_actual}/{_planned}" if _planned else f"{competition_class_label(_class)}: {_actual}")
-            st.caption("Lag per tävlingsklass · " + " · ".join(_class_progress_parts))
+            st.caption(class_progress_caption(_v139_class_rows, _class_team_counts, competition_class_label))
 
         _v139_cols = st.columns(4)
         for _v139_i, _v139_step in enumerate(_v139_steps):
@@ -12772,13 +9366,7 @@ elif admin_page == "Adminöversikt":
     # v141 Control Center: operational status for the tournament.
     # v1.260: driftstatusen ingår i dashboard-snapshoten. Tidigare hämtades varje
     # matchrad över nätet och räknades i Python på varje Adminöversikt-rendering.
-    _cc = {
-        "upcoming": int(_v139_counts["upcoming_n"] or 0),
-        "missing_results": int(_v139_counts["missing_results_n"] or 0),
-        "delayed": int(_v139_counts["delayed_n"] or 0),
-        "schedule_dirty": bool(tournament["schedule_dirty"]),
-    }
-    _cc["problems"] = _cc["delayed"] + (1 if _cc["schedule_dirty"] else 0)
+    _cc = build_control_status(_v139_counts, schedule_dirty=bool(tournament["schedule_dirty"]))
     with st.expander("Driftstatus", expanded=current_admin_mode == "live"):
         _cc_cols = st.columns(4)
         _cc_cols[0].metric("Kommande matcher", _cc["upcoming"])
@@ -12789,15 +9377,13 @@ elif admin_page == "Adminöversikt":
             st.warning("Schemat behöver genereras om efter ändrade förutsättningar.")
 
     ux_counts = _v139_counts
-    ux_progress = workflow_progress(
-        teams_ready=bool(ux_counts["teams_n"]), groups_ready=bool(ux_counts["groups_n"]),
-        schedule_ready=bool(ux_counts["matches_n"]) and not bool(tournament["schedule_dirty"]),
-        referees_ready=bool(ux_counts["refs_n"]), published=bool(tournament["is_published"]),
-    )
-    ux_missing_refs = int(ux_counts["missing_refs_n"] or 0)
     checkin_enabled = bool(_row_value(tournament, "enable_team_checkin", 1))
-    ux_unchecked = int(ux_counts["unchecked_n"] or 0) if checkin_enabled else 0
-    ux_attention = attention_items(missing_referees=int(ux_missing_refs or 0), unchecked_teams=int(ux_unchecked or 0), schedule_dirty=bool(tournament["schedule_dirty"]), unpublished=not bool(tournament["is_published"]))
+    ux_progress, ux_attention = build_progress_and_attention(
+        ux_counts,
+        schedule_dirty=bool(tournament["schedule_dirty"]),
+        published=bool(tournament["is_published"]),
+        checkin_enabled=checkin_enabled,
+    )
     st.markdown(f"<div class='cn-progress-hero'><div><span>Förberedelser</span><strong>{ux_progress['percent']} % klara</strong></div><div class='cn-progress-track'><i style='width:{ux_progress['percent']}%'></i></div></div>", unsafe_allow_html=True)
     if ux_attention:
         st.markdown("#### Kräver din uppmärksamhet")
@@ -12858,81 +9444,28 @@ elif admin_page == "Adminöversikt":
                 )
 
     expected_teams = int(tournament["expected_team_count"] or 0)
-    teams_ready = workflow_counts["teams_n"] > 0 and (
-        expected_teams == 0 or workflow_counts["teams_n"] == expected_teams
+    readiness = build_readiness(
+        workflow_counts,
+        expected_teams=expected_teams,
+        schedule_dirty=bool(tournament["schedule_dirty"]),
     )
-    groups_ready = workflow_counts["groups_n"] > 0
-    players_ready = workflow_counts["players_n"] > 0
-    refs_ready = workflow_counts["refs_n"] > 0
-    schedule_ready = workflow_counts["matches_n"] > 0 and not bool(tournament["schedule_dirty"])
-    results_ready = (
-        workflow_counts["matches_n"] > 0
-        and workflow_counts["played_n"] == workflow_counts["matches_n"]
-    )
+    teams_ready = readiness.teams_ready
+    groups_ready = readiness.groups_ready
+    players_ready = readiness.players_ready
+    refs_ready = readiness.referees_ready
+    schedule_ready = readiness.schedule_ready
+    results_ready = readiness.results_ready
 
     st.markdown(
-        f"""
-        <div class="cn-dashboard-grid">
-          <div class="cn-status-card">
-            <div class="cn-label">Lag</div>
-            <div class="cn-value">{workflow_counts['teams_n']}</div>
-            <div class="cn-sub">Planerat: {expected_teams or 'ej satt'}</div>
-          </div>
-          <div class="cn-status-card">
-            <div class="cn-label">Grupper</div>
-            <div class="cn-value">{workflow_counts['groups_n']}</div>
-            <div class="cn-sub">Gruppindelning</div>
-          </div>
-          <div class="cn-status-card">
-            <div class="cn-label">Matcher</div>
-            <div class="cn-value">{workflow_counts['matches_n']}</div>
-            <div class="cn-sub">Spelade: {workflow_counts['played_n']}</div>
-          </div>
-          <div class="cn-status-card">
-            <div class="cn-label">Status</div>
-            <div class="cn-value">{'Publicerad' if tournament['is_published'] else 'Utkast'}</div>
-            <div class="cn-sub">{'Schema aktuellt' if not tournament['schedule_dirty'] else 'Schema behöver uppdateras'}</div>
-          </div>
-        </div>
-        """,
+        build_status_cards_html(
+            workflow_counts,
+            expected_teams=expected_teams,
+            published=bool(tournament["is_published"]),
+            schedule_dirty=bool(tournament["schedule_dirty"]),
+        ),
         unsafe_allow_html=True,
     )
-
-    workflow_html = "".join([
-        _admin_workflow_step(
-            "Lag",
-            "done" if teams_ready else "todo",
-            f"{workflow_counts['teams_n']} registrerade",
-        ),
-        _admin_workflow_step(
-            "Grupper",
-            "done" if groups_ready else "todo",
-            f"{workflow_counts['groups_n']} skapade",
-        ),
-        _admin_workflow_step(
-            "Trupper",
-            "done" if players_ready else "todo",
-            f"{workflow_counts['players_n']} spelare",
-        ),
-        _admin_workflow_step(
-            "Domare",
-            "done" if refs_ready else "todo",
-            f"{workflow_counts['refs_n']} registrerade",
-        ),
-        _admin_workflow_step(
-            "Schema",
-            "done" if schedule_ready else ("warn" if workflow_counts["matches_n"] > 0 else "todo"),
-            "Aktuellt" if schedule_ready else (
-                "Behöver regenereras" if workflow_counts["matches_n"] > 0 else "Ej genererat"
-            ),
-        ),
-        _admin_workflow_step(
-            "Resultat",
-            "done" if results_ready else "todo",
-            f"{workflow_counts['played_n']} av {workflow_counts['matches_n']} matcher",
-        ),
-    ])
-    st.markdown(f"<div class='cn-workflow'>{workflow_html}</div>", unsafe_allow_html=True)
+    st.markdown(build_workflow_html(workflow_counts, readiness), unsafe_allow_html=True)
 
     # Fairness ska aldrig kunna fälla hela Adminöversikten. Hämta hela matchrader
     # via samma beprövade SELECT *-väg som övriga schemavyer (Turso/libSQL har i
@@ -12952,7 +9485,7 @@ elif admin_page == "Adminöversikt":
         print(f"CupNavi fairness warning for tournament {tid}: {type(exc).__name__}: {exc}")
     with st.expander(f"⚖️ Fairness · {fairness['score']}/100", expanded=False):
         st.progress(int(fairness["score"]) / 100)
-        st.caption("Fairness analyserar bland annat skillnader i vila, tidiga/sena matcher och byten av plan/spelplats. Poängen är rådgivande – sportspecifika regler gäller alltid först.")
+        st.caption("Rådgivande analys av vila, matchtider och planbyten. Sportspecifika regler gäller alltid först.")
         for finding in fairness["findings"]:
             st.write(f"• {finding}")
 
@@ -12997,46 +9530,18 @@ elif admin_page == "Adminöversikt":
                         st.rerun()
 
     # Tydlig rekommendation om nästa arbetssteg.
-    if not teams_ready:
-        next_step_title = "Nästa steg: registrera lag"
-        next_step_target = "Lag"
-        next_step_text = "Lägg in samtliga deltagande lag innan gruppindelning."
-    elif not groups_ready:
-        next_step_title = "Nästa steg: skapa grupper"
-        next_step_target = "Grupper"
-        next_step_text = "Skapa grupper och placera lagen innan schemat genereras."
-    elif not players_ready:
-        next_step_title = "Nästa steg: lägg till trupper"
-        next_step_target = "Trupper"
-        next_step_text = "Trupper behövs för mål, assist och kortstatistik."
-    elif not refs_ready:
-        next_step_title = "Nästa steg: lägg till domare"
-        next_step_target = "Domare"
-        next_step_text = "Lägg till domare innan automatisk domartillsättning används."
-    elif not workflow_counts["matches_n"]:
-        next_step_title = "Nästa steg: generera schema"
-        next_step_target = "Skapa och publicera schema"
-        next_step_text = "Grunddata är på plats. Generera gruppspel och slutspel."
-    elif bool(tournament["schedule_dirty"]):
-        next_step_title = "Nästa steg: regenerera schema"
-        next_step_target = "Skapa och publicera schema"
-        next_step_text = "Förutsättningarna har ändrats sedan schemat skapades."
-    elif not results_ready:
-        next_step_title = "Nästa steg: registrera resultat"
-        next_step_target = "Matcher och resultat"
-        next_step_text = "Schemat är klart. Registrera matchresultaten när turneringen spelas."
-    else:
-        next_step_title = "Nästa steg: granska och publicera"
-        next_step_target = "Kontroller"
-        next_step_text = "Grundflödet är klart. Kontrollera varningar och publiceringsstatus."
-
-    st.info(f"**{next_step_title}**\n\n{next_step_text}")
+    next_step = recommend_next_step(
+        readiness,
+        workflow_counts,
+        schedule_dirty=bool(tournament["schedule_dirty"]),
+    )
+    st.info(f"**{next_step.title}**\n\n{next_step.text}")
     st.button(
-        next_step_title,
+        next_step.title,
         key=f"dashboard_next_step_{tid}",
         use_container_width=True,
         on_click=_set_admin_page,
-        args=(next_step_target,),
+        args=(next_step.target,),
     )
 
     if bool(tournament["schedule_dirty"]) and workflow_counts["matches_n"] > 0:
@@ -13907,7 +10412,7 @@ elif admin_page == "Adminöversikt":
 
 if admin_page == "Cupinställningar":
     st.subheader("Cupinställningar")
-    st.caption("Ändra cupens regler i den guidade setupen. Extra konsekvens- och teknikinfo visas bara vid behov.")
+    st.caption("Ändra regler och planeringsförutsättningar i den guidade setupen.")
     _played_count = int(one_row("SELECT COUNT(*) AS n FROM matches WHERE tournament_id=? AND home_score IS NOT NULL AND away_score IS NOT NULL",(tid,))["n"] or 0)
     _is_started = tournament_lifecycle in ("live","completed") or _played_count > 0
     _is_public = bool(tournament["is_published"])
@@ -13933,20 +10438,22 @@ if admin_page == "Cupinställningar":
         elif not RELEASE_FILES_MISMATCH:
             st.success("App- och corefiler är synkade.")
     _admin_sport_rec=sport_setup_recommendation(_row_value(tournament,"sport","Fotboll"))
-    st.caption(
-        f'Sportprofil: **{_admin_sport_rec["display_name"]}** · '
-        f'{_admin_sport_rec["periods"]} {_admin_sport_rec["period_label"]} × {_admin_sport_rec["minutes_per_period"]} min · '
-        f'min. lagvila {_admin_sport_rec["minimum_rest_minutes"]} min.'
-    )
     _settings_rules=one_row("SELECT * FROM schedule_rules WHERE tournament_id=?",(tid,))
     _saved_gc=int(_row_value(_settings_rules,"recommended_group_count",0) or 0)
-    if _saved_gc:
-        with st.expander("CupNavi formatrekommendation",expanded=False):
+    with st.expander("Tävlingsprofil och rekommendation", expanded=False):
+        st.write(
+            f'**{_admin_sport_rec["display_name"]}** · '
+            f'{_admin_sport_rec["periods"]} {_admin_sport_rec["period_label"]} × {_admin_sport_rec["minutes_per_period"]} min · '
+            f'min. lagvila {_admin_sport_rec["minimum_rest_minutes"]} min.'
+        )
+        if _saved_gc:
             st.write(
-                f"Sparat förslag: **{_saved_gc} grupper** · cirka **{int(_row_value(_settings_rules,'recommended_group_size',0) or 0)} lag/grupp** · "
+                f"Rekommenderat format: **{_saved_gc} grupper** · cirka **{int(_row_value(_settings_rules,'recommended_group_size',0) or 0)} lag/grupp** · "
                 f"**{int(_row_value(_settings_rules,'recommended_playoff_size',0) or 0)} lag i slutspel**."
             )
-            st.caption("Det här är beslutsstöd. Det ändrar inte en pågående cup automatiskt.")
+            st.caption("Rekommendationen är beslutsstöd och ändrar inte cupen automatiskt.")
+        else:
+            st.caption("Formatrekommendation visas när CupNavi har tillräckliga planeringsuppgifter.")
 
     _show_change_impact = st.toggle("Kontrollera konsekvens före större ändring", value=False, key=f"show_change_impact_{tid}")
     if _show_change_impact:
@@ -14056,8 +10563,7 @@ if admin_page == "Kontroller":
             st.success("Alla skapade grupper har minst två lag.")
 
 
-    st.caption("Tekniska verktyg")
-    _show_technical_health = st.toggle("Teknisk hälsa och backup", value=False, key=f"show_technical_health_{tid}")
+    _show_technical_health = st.toggle("Visa teknisk hälsa och backup", value=False, key=f"show_technical_health_{tid}")
     if _show_technical_health:
         st.caption(
             "Det här området är till för drift och felsökning. Det påverkar inte själva turneringsreglerna."
@@ -14383,7 +10889,7 @@ if admin_page == "Kontroller":
 
 if admin_page == "Problem & lösningar":
     st.header("Problem & lösningar")
-    st.caption("Här samlas schemaproblem och valideringsproblem som går att åtgärda utan tekniska stack traces. Förslag rangordnas efter minsta åtgärd och största sannolika effekt.")
+    st.caption("Se vad som blockerar schemat och få förslag på minsta möjliga åtgärd.")
     problem_rules = one_row("SELECT * FROM schedule_rules WHERE tournament_id=?", (tid,))
     if problem_rules is None:
         run("INSERT INTO schedule_rules(tournament_id) VALUES(?)", (tid,))
@@ -15378,7 +11884,7 @@ if admin_page == "Grupper":
 
 if admin_page == "Trupper":
     st.header("Spelare & trupper")
-    st.caption("Här lägger du in och hanterar spelarna i varje lag. Välj lag nedan och lägg sedan till spelare manuellt eller via AI-import från foto/skärmdump.")
+    st.caption("Välj lag och hantera spelare manuellt eller via AI-import.")
     with st.expander("⚙️ Regler för Lagportal och matchtrupper", expanded=False):
         rc1, rc2 = st.columns(2)
         portal_max_roster = rc1.number_input("Max spelare i truppen (0 = ingen gräns)", 0, 200, int(_row_value(tournament, "max_roster_size", 0) or 0), key=f"max_roster_{tid}")
@@ -15447,6 +11953,8 @@ if admin_page == "Trupper":
                     with st.spinner("Läser laglistan…"):
                         for _uploaded in _ai_files:
                             _mime = str(getattr(_uploaded, "type", None) or "image/png")
+                            from cupnavi_core.ai_roster_import import extract_roster_from_image
+
                             _rows = extract_roster_from_image(
                                 _uploaded.getvalue(),
                                 _mime,
@@ -15469,6 +11977,8 @@ if admin_page == "Trupper":
 
             _ai_rows = st.session_state.get(_ai_roster_key, [])
             if _ai_rows:
+                from cupnavi_core.ai_roster_import import ALLOWED_POSITIONS
+
                 _existing_names = {
                     str(row["name"]).strip().casefold()
                     for row in all_rows("SELECT name FROM players WHERE team_id=?", (team_id,))
@@ -15659,7 +12169,7 @@ if admin_page == "Domare":
                     st.write(f"E-post: {_focused_referee['email']}")
 
     st.subheader("Åtkomstkoder")
-    st.caption("Matchrapportör och domare ligger på samma nivå. Varje roll har en egen fyrsiffrig kod för den aktiva turneringen.")
+    st.caption("Matchrapportör och domare har varsin fyrsiffrig kod för den aktiva cupen.")
 
     def render_role_code_card(label, table_name, session_prefix):
         credential = one_row(
@@ -15788,1123 +12298,245 @@ if admin_page == "Domare":
             ]))
 
 
+def _undo_schedule_change(tournament_id, undo_rows):
+    """Restore the exact pre-edit schedule snapshot used by the admin undo action."""
+    with db() as con:
+        con.executemany(
+            "UPDATE matches SET scheduled_start=?,pitch_number=?,schedule_locked=?,schedule_published=? WHERE id=?",
+            undo_rows,
+        )
+        con.execute(
+            "UPDATE tournaments SET is_published=0,schedule_dirty=0 WHERE id=?",
+            (tournament_id,),
+        )
+        con.commit()
+    _clear_render_query_cache()
+
+
+def _apply_drag_schedule_updates(tournament_id, updates):
+    """Persist a drag-and-drop slot reassignment without changing schedule validation rules."""
+    with db() as con:
+        con.executemany(
+            """UPDATE matches
+               SET scheduled_start=?,pitch_number=?,schedule_locked=?,schedule_published=0
+               WHERE id=?""",
+            updates,
+        )
+        con.execute(
+            "UPDATE tournaments SET is_published=0,schedule_dirty=0 WHERE id=?",
+            (tournament_id,),
+        )
+        con.commit()
+    _clear_render_query_cache()
+
+
+def _save_adjusted_schedule_match(
+    tournament_id,
+    scheduled_start,
+    pitch_number,
+    referee_id,
+    schedule_locked,
+    match_id,
+):
+    """Persist one manual schedule adjustment and force republication."""
+    run(
+        "UPDATE matches SET scheduled_start=?,pitch_number=?,referee_id=?,schedule_locked=?,schedule_published=0 WHERE id=?",
+        (
+            scheduled_start,
+            pitch_number,
+            referee_id,
+            int(schedule_locked),
+            match_id,
+        ),
+    )
+    run("UPDATE tournaments SET is_published=0 WHERE id=?", (tournament_id,))
+    _clear_render_query_cache()
+
+
+def _save_bulk_schedule_results(tournament_id, changed_scores, tournament_is_published):
+    """Persist only changed schedule-table scores while preserving current publication semantics."""
+    with db() as con:
+        if tournament_is_published:
+            for home_score, away_score, match_id in changed_scores:
+                con.execute(
+                    """UPDATE matches
+                       SET home_score=?,away_score=?,
+                           schedule_published=CASE WHEN scheduled_start IS NOT NULL THEN 1 ELSE schedule_published END
+                       WHERE id=?""",
+                    (home_score, away_score, match_id),
+                )
+        else:
+            con.executemany(
+                "UPDATE matches SET home_score=?,away_score=? WHERE id=?",
+                changed_scores,
+            )
+        con.commit()
+    _clear_render_query_cache()
+
+
 if admin_page == "Skapa och publicera schema":
-    st.header("Schema")
-    st.caption("Skapa eller uppdatera hela spelschemat. Detaljer och specialverktyg visas bara när du öppnar dem.")
-    if "schedule_message" in st.session_state:
-        message_type, message_text = st.session_state.pop("schedule_message")
-        getattr(st, message_type)(message_text)
-
-    rules = one_row("SELECT * FROM schedule_rules WHERE tournament_id=?", (tid,))
-    if rules is None:
-        run("INSERT INTO schedule_rules(tournament_id) VALUES(?)", (tid,))
-        rules = one_row("SELECT * FROM schedule_rules WHERE tournament_id=?", (tid,))
-
-    # v1.261: st.expander är inte lazy. Den gamla score-analysen kördes därför
-    # vid varje rerun trots att användaren inte öppnat den.
-    _show_schedule_quality = st.toggle(
-        "Visa regelverk & schemakvalitet",
-        value=False,
-        key=f"show_schedule_quality_{tid}",
-        help="Analysen laddas först när du öppnar den.",
+    render_schedule_workspace(
+        tid,
+        tournament,
+        deps=ScheduleWorkspaceDependencies(
+            st=st,
+            one_row=one_row,
+            run=run,
+            all_rows=all_rows,
+            validate_schedule=validate_schedule,
+            playoff_specs_for_tournament=playoff_specs_for_tournament,
+            schedule_score_report=schedule_score_report,
+            schedule_request_label=schedule_request_label,
+            render_schedule_recovery_actions=render_schedule_recovery_actions,
+            optimize_group_home_away=optimize_group_home_away,
+            ensure_playoffs_for_schedule=ensure_playoffs_for_schedule,
+            generate_schedule=generate_schedule,
+            create_all_group_matches=create_all_group_matches,
+            schedule_recovery_context=_schedule_recovery_context,
+            render_centered_table=render_centered_table,
+            source_label=source_label,
+            resolve_source=resolve_source,
+            undo_schedule_change=_undo_schedule_change,
+            schedule_board=schedule_board,
+            swedish_datetime=swedish_datetime,
+            apply_drag_schedule_updates=_apply_drag_schedule_updates,
+            match_meta=match_meta,
+            save_adjusted_schedule_match=_save_adjusted_schedule_match,
+            pitch_name_map=pitch_name_map,
+            team=team,
+            match_kit_colors=match_kit_colors,
+            kit_color_conflict=kit_color_conflict,
+            kit_swatch=kit_swatch,
+            save_bulk_schedule_results=_save_bulk_schedule_results,
+            sort_items=sort_items,
+            swedish_weekdays=SWEDISH_WEEKDAYS,
+        ),
     )
-    if _show_schedule_quality:
-        with st.container(border=True):
-            st.markdown("#### Regelverk & schemakvalitet")
-            match_minutes = (rules["halves"] * rules["minutes_per_half"]) + ((rules["halves"] - 1) * rules["halftime_minutes"])
-            consecutive_rule_text = (
-                f"försök undvika följdmatcher, extra paus {rules['consecutive_match_break_minutes']} min om det inte går"
-                if rules["avoid_consecutive_matches"] else "följdmatcher tillåtna"
-            )
-            st.info(
-                f"{rules['halves']} × {rules['minutes_per_half']} minuter · halvtidspaus {rules['halftime_minutes']} min · "
-                f"matchtid totalt {match_minutes} min · {rules['pitch_count']} planer/spelytor med individuella öppettider · "
-                f"{consecutive_rule_text} · domare: {rules['referee_mode']}."
-            )
-            st.caption("Regelverket och slutspelsformatet ändras under Adminöversikt → Cupens grunduppgifter.")
-            _score_report=schedule_score_report(tid,rules)
-            _sc1,_sc2,_sc3,_sc4=st.columns(4)
-            _sc1.metric("Schema Score",f"{_score_report['score']}/100")
-            _sc2.metric("Bedömning",_score_report["grade"])
-            _sc3.metric("Önskemål",f"{_score_report['fulfilled']}/{_score_report['request_total']}")
-            _sc4.metric("Hårda krav brutna",_score_report["hard_failed"])
-            with st.expander("Varför fick schemat den här poängen?",expanded=False):
-                _q=_score_report["quality"]
-                st.write(f"• Ej schemalagda matcher: **{_q['unscheduled']}**")
-                st.write(f"• För kort lagvila: **{_q['short_rest']}**")
-                st.write(f"• Sena-startönskemål missade: **{_q['late_preferences_missed']}**")
-                if _score_report["requests"]:
-                    st.markdown("**Godkända lagönskemål**")
-                    for _req,_ok,_detail in _score_report["requests"]:
-                        _icon="✅" if _ok is True else ("⚠️" if _ok is False else "➖")
-                        st.write(f"{_icon} {schedule_request_label(_req)} · {_detail}")
-                else:
-                    st.caption("Inga godkända lagönskemål finns ännu.")
-
-    if st.session_state.get("schedule_recovery"):
-        render_schedule_recovery_actions(tid,tournament,rules,st.session_state.get("schedule_recovery"))
-    schedule_groups = all_rows("SELECT id,name FROM groups WHERE tournament_id=? ORDER BY name", (tid,))
-    schedule_teams = all_rows("SELECT id,group_id FROM teams WHERE tournament_id=?", (tid,))
-    unassigned_count = sum(1 for team_row in schedule_teams if team_row["group_id"] is None)
-    _schedule_team_counts = {}
-    for _team_row in schedule_teams:
-        _gid = _team_row["group_id"]
-        if _gid is not None:
-            _schedule_team_counts[int(_gid)] = _schedule_team_counts.get(int(_gid), 0) + 1
-    too_small_groups = [
-        group["name"] for group in schedule_groups
-        if _schedule_team_counts.get(int(group["id"]), 0) < 2
-    ]
-    # v1.261: fem COUNT-frågor blev en enda status-snapshot.
-    _schedule_counts = one_row(
-        """SELECT
-             SUM(CASE WHEN stage='Gruppspel' THEN 1 ELSE 0 END) AS group_match_n,
-             SUM(CASE WHEN stage='Gruppspel' AND scheduled_start IS NULL THEN 1 ELSE 0 END) AS unscheduled_group_n,
-             SUM(CASE WHEN scheduled_start IS NOT NULL THEN 1 ELSE 0 END) AS scheduled_n,
-             SUM(CASE WHEN scheduled_start IS NOT NULL AND schedule_published=0 THEN 1 ELSE 0 END) AS unpublished_n,
-             SUM(CASE WHEN home_score IS NOT NULL AND away_score IS NOT NULL THEN 1 ELSE 0 END) AS played_n
-           FROM matches WHERE tournament_id=?""",
-        (tid,),
-    )
-    group_match_total = int(_schedule_counts["group_match_n"] or 0)
-    unscheduled_group_total = int(_schedule_counts["unscheduled_group_n"] or 0)
-    scheduled_total = int(_schedule_counts["scheduled_n"] or 0)
-    unpublished_total = int(_schedule_counts["unpublished_n"] or 0)
-    played_result_total = int(_schedule_counts["played_n"] or 0)
-    schedule_errors, schedule_warnings, schedule_quality = validate_schedule(tid, tournament, rules)
-    playoff_specs, playoff_setup_error = playoff_specs_for_tournament(tid, tournament)
-    playoff_model_ready = bool(tournament["playoff_model_confirmed"])
-
-    st.markdown("#### Skapa eller uppdatera schema")
-    with st.container(border=True):
-        status1, status2, status3 = st.columns(3)
-        status1.metric("Gruppspelsmatcher", group_match_total)
-        status2.metric("Schemalagda matcher", scheduled_total)
-        status3.metric("Ej publicerade", unpublished_total)
-        create_disabled = (
-            not schedule_groups
-            or unassigned_count > 0
-            or bool(too_small_groups)
-            or not playoff_model_ready
-            or bool(playoff_setup_error)
-        )
-        if tournament["playoff_format"] != "Inget slutspel":
-            if playoff_setup_error:
-                st.error(f"Slutspel kan inte genereras: {playoff_setup_error}")
-            elif playoff_specs:
-                _playoff_match_estimate = sum(max(0, int(size) - 1) + (1 if bool(tournament["bronze_match"]) and int(size) >= 4 else 0) for _, size, _ in playoff_specs)
-                st.success(f"Slutspel redo att genereras · {len(playoff_specs)} träd · cirka {_playoff_match_estimate} slutspelsmatcher.")
-            else:
-                st.warning("Slutspel är valt men CupNavi kunde inte ta fram något slutspelsträd.")
-
-        schedule_button_label = (
-            "Uppdatera återstående schema"
-            if played_result_total else "Skapa hela spelschemat"
-        )
-        st.caption(
-            "Spelade matcher lämnas oförändrade."
-            if played_result_total
-            else "CupNavi skapar gruppspel, slutspel och fördelar tider, planer och domare."
-        )
-        if st.button(schedule_button_label, type="primary", use_container_width=True, disabled=create_disabled):
-            started_schedule = time.perf_counter()
-            try:
-                with st.spinner("CupNavi bygger schemat och fördelar planer/domare…"):
-                    if played_result_total:
-                        created, ready_groups, skipped_groups = 0, len(schedule_groups), []
-                        optimize_group_home_away(tid)
-                        playoff_ok, playoff_error = ensure_playoffs_for_schedule(tid, tournament)
-                        if not playoff_ok:
-                            raise RuntimeError(playoff_error)
-                        count, unresolved, warning = generate_schedule(tid, tournament, rules, preserve_existing=True)
-                        parts = [
-                            f"{played_result_total} färdigspelade matcher skyddades och lämnades oförändrade.",
-                            "Slutspelsträdet kontrollerades och uppdaterades automatiskt.",
-                            f"{count} återstående matcher schemalades.",
-                        ]
-                    else:
-                        created, ready_groups, skipped_groups = create_all_group_matches(tid)
-                        playoff_ok, playoff_error = ensure_playoffs_for_schedule(tid, tournament)
-                        if not playoff_ok:
-                            raise RuntimeError(playoff_error)
-                        count, unresolved, warning = generate_schedule(tid, tournament, rules)
-                        parts = [
-                            f"Alla {ready_groups} grupper kontrollerades och {created} saknade gruppmatcher skapades.",
-                            "Slutspelsmatcherna skapades automatiskt utifrån vald slutspelsmodell.",
-                            f"{count} matcher schemalades totalt.",
-                        ]
-                elapsed = time.perf_counter() - started_schedule
-                parts.append(f"Genereringen tog {elapsed:.1f} sekunder.")
-                if unresolved:
-                    parts.append(f"{unresolved} matcher kunde inte schemaläggas.")
-                if warning:
-                    parts.append(warning)
-                st.session_state["schedule_message"] = (
-                    "warning" if unresolved or warning else "success",
-                    " ".join(parts),
-                )
-                if unresolved:
-                    st.session_state["schedule_recovery"] = _schedule_recovery_context(tid,tournament,rules,unresolved)
-                else:
-                    st.session_state.pop("schedule_recovery",None)
-            except Exception as exc:
-                elapsed = time.perf_counter() - started_schedule
-                st.session_state["schedule_message"] = (
-                    "error",
-                    f"Schemagenereringen avbröts efter {elapsed:.1f} sekunder: {exc}",
-                )
-            st.rerun()
-        if played_result_total:
-            st.info(
-                f"Det finns {played_result_total} matcher med registrerat resultat. "
-                "Därför bevaras befintliga schematider och resultat; endast återstående matcher får nya tider."
-            )
-        if create_disabled:
-            problems = []
-            if not schedule_groups:
-                problems.append("skapa minst en grupp")
-            if unassigned_count:
-                problems.append(f"placera {unassigned_count} lag i en grupp")
-            if too_small_groups:
-                problems.append("lägg minst två lag i: " + ", ".join(too_small_groups))
-            if not playoff_model_ready:
-                problems.append("välj och spara slutspelsmodell på Adminöversikten")
-            if playoff_setup_error:
-                problems.append(playoff_setup_error)
-            st.warning("Innan hela spelschemat kan skapas måste du " + "; ".join(problems) + ".")
-        elif scheduled_total == 0:
-            st.caption("Knappen ovan skapar gruppspel, slutspel och spelschema i ett steg.")
-        elif schedule_errors:
-            st.error(f"Schemat har {len(schedule_errors)} fel och kan inte publiceras. Se schemakontrollen nedan.")
-        elif schedule_warnings:
-            st.warning("Schemat har varningar. Granska dem och godkänn dem i vänsterspalten före publicering.")
-        elif unpublished_total:
-            st.warning("Schemat är ett utkast. Kontrollera matchlistan och publicera sedan från vänsterspalten.")
-        else:
-            st.success("Det aktuella spelschemat är publicerat i Turneringsvyn.")
-
-        with st.expander("Detaljer per grupp", expanded=False):
-            st.markdown("**Kontroll per grupp**")
-            team_counts = {
-                row["group_id"]: row["n"]
-                for row in all_rows(
-                    "SELECT group_id,COUNT(*) AS n FROM teams WHERE tournament_id=? AND group_id IS NOT NULL GROUP BY group_id",
-                    (tid,),
-                )
-            }
-            match_counts = {
-                row["group_id"]: row
-                for row in all_rows(
-                    """SELECT group_id,
-                              COUNT(*) AS created_n,
-                              SUM(CASE WHEN scheduled_start IS NOT NULL THEN 1 ELSE 0 END) AS scheduled_n,
-                              SUM(CASE WHEN schedule_published=1 THEN 1 ELSE 0 END) AS published_n
-                       FROM matches
-                       WHERE tournament_id=? AND stage='Gruppspel'
-                       GROUP BY group_id""",
-                    (tid,),
-                )
-            }
-            group_status_rows = []
-            for group in schedule_groups:
-                team_count = int(team_counts.get(group["id"], 0) or 0)
-                counts = match_counts.get(group["id"]) or {}
-                expected_matches = team_count * (team_count - 1) // 2
-                group_status_rows.append({
-                    "Grupp": group["name"],
-                    "Lag": team_count,
-                    "Förväntade möten": expected_matches,
-                    "Skapade": int(counts.get("created_n", 0) or 0),
-                    "Schemalagda": int(counts.get("scheduled_n", 0) or 0),
-                    "Publicerade": int(counts.get("published_n", 0) or 0),
-                })
-            if group_status_rows:
-                render_centered_table(pd.DataFrame(group_status_rows))
-
-    _show_schedule_export = st.toggle("Exportera schema", value=False, key=f"schedule_export_{tid}", help="Exportunderlaget laddas först när du behöver det.")
-    if _show_schedule_export:
-        st.markdown("**PDF-export**")
-        st.caption(
-            "Skapa ett komplett, utskriftsvänligt PDF-paket med hela schemat samt separata "
-            "scheman per grupp, lag, plan, slutspel och domare."
-        )
-        pdf_matches = all_rows(
-            "SELECT * FROM matches WHERE tournament_id=? AND scheduled_start IS NOT NULL "
-            "ORDER BY scheduled_start,pitch_number,id",
-            (tid,),
-        )
-        if not pdf_matches:
-            st.caption("PDF-export blir tillgänglig när ett schema finns.")
-        else:
-            pdf_key = f"schedule_pdf_bytes_{tid}"
-            pdf_fingerprint_key = f"schedule_pdf_fingerprint_{tid}"
-            pdf_fingerprint = "|".join(
-                f"{m['id']}:{m['scheduled_start']}:{m['pitch_number']}:{m['home_source']}:{m['away_source']}:"
-                f"{m['home_score']}:{m['away_score']}:{m['referee_id']}"
-                for m in pdf_matches
-            )
-
-            if st.button("Skapa komplett schemapaket som PDF", use_container_width=True, key=f"prepare_pdf_{tid}"):
-                with st.spinner("CupNavi skapar PDF-paketet…"):
-                    pdf_teams = all_rows("SELECT * FROM teams WHERE tournament_id=? ORDER BY name", (tid,))
-                    pdf_groups = all_rows("SELECT * FROM groups WHERE tournament_id=? ORDER BY name", (tid,))
-                    pdf_refs = all_rows("SELECT * FROM referees WHERE tournament_id=? ORDER BY name", (tid,))
-
-                    unique_sources = {
-                        source
-                        for match_row in pdf_matches
-                        for source in (match_row["home_source"], match_row["away_source"])
-                        if source
-                    }
-                    source_labels_for_pdf = {source: source_label(source) for source in unique_sources}
-                    source_team_ids_for_pdf = {source: resolve_source(source) for source in unique_sources}
-
-                    tournament_for_pdf = {
-                        key: tournament[key]
-                        for key in ("name", "location", "tournament_date", "start_date", "end_date")
-                    }
-                    matches_for_pdf = [
-                        {
-                            key: match_row[key]
-                            for key in (
-                                "id", "group_id", "stage", "scheduled_start", "pitch_number",
-                                "home_source", "away_source", "home_score", "away_score",
-                                "home_penalties", "away_penalties", "referee_id",
-                            )
-                        }
-                        for match_row in pdf_matches
-                    ]
-                    teams_for_pdf = [
-                        {key: team_row[key] for key in ("id", "name", "group_id")}
-                        for team_row in pdf_teams
-                    ]
-                    groups_for_pdf = [
-                        {key: group_row[key] for key in ("id", "name")}
-                        for group_row in pdf_groups
-                    ]
-                    refs_for_pdf = [
-                        {key: ref_row[key] for key in ("id", "name")}
-                        for ref_row in pdf_refs
-                    ]
-
-                    st.session_state[pdf_key] = build_schedule_pdf(
-                        tournament_for_pdf,
-                        matches_for_pdf,
-                        teams_for_pdf,
-                        groups_for_pdf,
-                        refs_for_pdf,
-                        source_labels_for_pdf,
-                        source_team_ids_for_pdf,
-                    )
-                    st.session_state[pdf_fingerprint_key] = pdf_fingerprint
-
-            if (
-                pdf_key in st.session_state
-                and st.session_state.get(pdf_fingerprint_key) == pdf_fingerprint
-            ):
-                safe_pdf_name = re.sub(r"[^A-Za-z0-9_-]+", "_", tournament["name"] or "CupNavi").strip("_")
-                st.success("✓ PDF-paketet är klart.")
-                st.download_button(
-                    "Ladda ner alla scheman som PDF",
-                    data=st.session_state[pdf_key],
-                    file_name=f"{safe_pdf_name}_alla_scheman.pdf",
-                    mime="application/pdf",
-                    use_container_width=True,
-                    key=f"download_schedule_pdf_{tid}",
-                )
-            elif pdf_key in st.session_state:
-                st.warning("Schemat har ändrats sedan PDF:en skapades. Skapa PDF-paketet på nytt.")
-
-    _show_schedule_travel = st.toggle("Reseinformation", value=False, key=f"schedule_travel_{tid}", help="Laginformationen laddas först när du öppnar den.")
-    if _show_schedule_travel:
-        travel_teams = all_rows("SELECT * FROM teams WHERE tournament_id=? ORDER BY name", (tid,))
-        st.markdown("**Reseinformation för lagen**")
-        render_centered_table(
-            pd.DataFrame([
-                {
-                    "Lag": t["name"],
-                    "Resväg km": t["distance_km"],
-                    "Senare första match": "Ja" if t["late_first_match"] else "Nej",
-                    "Första match tidigast": t["earliest_first_time"] or "–",
-                    "Kommentar": t["travel_note"] or "",
-                }
-                for t in travel_teams
-            ])
-        )
-    undo_schedule_key = f"ux2_schedule_undo_{tid}"
-    if st.session_state.get(undo_schedule_key):
-        undo_cols = st.columns([5,1])
-        undo_cols[0].success("Schemaändringen sparades.")
-        if undo_cols[1].button("↶ Ångra", key=f"undo_schedule_{tid}", use_container_width=True):
-            undo_rows = st.session_state.pop(undo_schedule_key)
-            with db() as con:
-                con.executemany("UPDATE matches SET scheduled_start=?,pitch_number=?,schedule_locked=?,schedule_published=? WHERE id=?", undo_rows)
-                con.execute("UPDATE tournaments SET is_published=0,schedule_dirty=0 WHERE id=?", (tid,))
-                con.commit()
-            _clear_render_query_cache()
-            st.toast("Schemaändringen ångrades.")
-            st.rerun()
-
-    adjustable_matches = all_rows(
-        "SELECT * FROM matches WHERE tournament_id=? AND scheduled_start IS NOT NULL ORDER BY scheduled_start,pitch_number,id",
-        (tid,),
-    )
-    if adjustable_matches:
-        board_rows = [dict(row) for row in adjustable_matches]
-        board = schedule_board(board_rows, source_label)
-        with st.expander("🗓️ Visuellt schema", expanded=True):
-            st.caption("Överblick per tid och plan. Drag-and-drop och konfliktkontroll finns direkt under vyn.")
-            if board["pitches"]:
-                st.caption("Tips: använd ⋯/redigeringsverktygen under schemat för att ändra en match i sitt sammanhang i stället för att leta i andra vyer.")
-                header = f"<div class='cn-schedule-grid cn-schedule-head' style='--cn-pitches:{len(board["pitches"])}'><div>Tid</div>" + "".join(f"<div>Plan {p}</div>" for p in board["pitches"]) + "</div>"
-                rows_html = []
-                for time_label in board["times"]:
-                    cells = [f"<div class='cn-schedule-time'>{html.escape(time_label)}</div>"]
-                    for pitch in board["pitches"]:
-                        cell = board["cells"].get(time_label, {}).get(pitch)
-                        if cell:
-                            cells.append(f"<div class='cn-match-tile'><small>#{cell['id']}</small><b>{html.escape(str(cell['home']))}</b><span>–</span><b>{html.escape(str(cell['away']))}</b></div>")
-                        else:
-                            cells.append("<div class='cn-match-tile empty'>Ledigt</div>")
-                    rows_html.append(f"<div class='cn-schedule-grid' style='--cn-pitches:{len(board["pitches"])}'>" + "".join(cells) + "</div>")
-                st.markdown(header + "".join(rows_html), unsafe_allow_html=True)
-        with st.expander("Dra och släpp matcher mellan befintliga tid/plan-platser", expanded=False):
-            st.caption(
-                "Dra matcherna till önskad ordning. När du tillämpar ordningen får matcherna "
-                "de befintliga tid/plan-platserna uppifrån och ned. Exakta tider och planer kan "
-                "fortfarande finjusteras i formuläret under. CupNavi validerar schemat efter ändringen."
-            )
-            if sort_items is None:
-                st.warning(
-                    "Drag-and-drop-komponenten kunde inte laddas. Kontrollera att streamlit-sortables "
-                    "är installerat från requirements.txt."
-                )
-            else:
-                drag_items = [
-                    f"#{row['id']} | {swedish_datetime(row['scheduled_start'])} | Plan {row['pitch_number']} | "
-                    f"{source_label(row['home_source'])} – {source_label(row['away_source'])}"
-                    for row in adjustable_matches
-                ]
-                dragged_items = sort_items(
-                    drag_items,
-                    direction="vertical",
-                    custom_style="""
-                    .sortable-item {
-                        background:#ffffff;
-                        color:#172033;
-                        border:1px solid #cbd5e1;
-                        border-radius:10px;
-                        padding:10px 12px;
-                        margin:5px 0;
-                        font-weight:700;
-                    }
-                    .sortable-item:hover {
-                        background:#f0fdf4;
-                        border-color:#86efac;
-                    }
-                    """,
-                )
-                original_ids = [row["id"] for row in adjustable_matches]
-                dragged_items = dragged_items or drag_items
-                dragged_ids = [
-                    int(item.split("|", 1)[0].strip().lstrip("#"))
-                    for item in dragged_items
-                ]
-                if dragged_ids != original_ids:
-                    st.warning(
-                        "Du har ändrat ordningen. Klicka på Tillämpa drag-and-drop-ordningen "
-                        "för att spara. Schemat avpubliceras tills kontrollerna är granskade igen."
-                    )
-                else:
-                    st.caption("Ordningen är oförändrad.")
-
-                if st.button(
-                    "Tillämpa drag-and-drop-ordningen",
-                    type="primary",
-                    use_container_width=True,
-                    disabled=dragged_ids == original_ids,
-                    key=f"apply_drag_schedule_{tid}",
-                ):
-                    slots = [
-                        (row["scheduled_start"], row["pitch_number"])
-                        for row in adjustable_matches
-                    ]
-                    original_by_id = {row["id"]: row for row in adjustable_matches}
-                    updates = []
-                    for match_id, (slot_start, slot_pitch) in zip(dragged_ids, slots):
-                        original = original_by_id[match_id]
-                        changed = (
-                            original["scheduled_start"] != slot_start
-                            or int(original["pitch_number"] or 0) != int(slot_pitch or 0)
-                        )
-                        updates.append(
-                            (
-                                slot_start,
-                                slot_pitch,
-                                1 if changed else int(original["schedule_locked"] or 0),
-                                match_id,
-                            )
-                        )
-                    st.session_state[undo_schedule_key] = [
-                        (row["scheduled_start"], row["pitch_number"], int(row["schedule_locked"] or 0), int(row["schedule_published"] or 0), row["id"])
-                        for row in adjustable_matches
-                    ]
-                    with db() as con:
-                        con.executemany(
-                            """UPDATE matches
-                               SET scheduled_start=?,pitch_number=?,schedule_locked=?,schedule_published=0
-                               WHERE id=?""",
-                            updates,
-                        )
-                        con.execute(
-                            "UPDATE tournaments SET is_published=0,schedule_dirty=0 WHERE id=?",
-                            (tid,),
-                        )
-                        con.commit()
-                    _clear_render_query_cache()
-                    post_errors, post_warnings, _ = validate_schedule(tid, tournament, rules)
-                    if post_errors:
-                        st.session_state["schedule_message"] = (
-                            "error",
-                            f"Drag-and-drop sparades men gav {len(post_errors)} blockerande schemafel. "
-                            "Öppna Kontroller och rätta dem innan publicering.",
-                        )
-                    elif post_warnings:
-                        st.session_state["schedule_message"] = (
-                            "warning",
-                            f"Drag-and-drop sparades. Schemat har {len(post_warnings)} varningar att granska.",
-                        )
-                    else:
-                        st.session_state["schedule_message"] = (
-                            "success",
-                            "Drag-and-drop-ordningen sparades och schemakontrollen hittade inga fel.",
-                        )
-                    st.rerun()
-
-        with st.expander("Justera och lås en match"):
-            adjustable_refs = all_rows("SELECT * FROM referees WHERE tournament_id=? ORDER BY name", (tid,))
-            adjustable_ids = [match_row["id"] for match_row in adjustable_matches]
-            adjust_id = st.selectbox(
-                "Match",
-                adjustable_ids,
-                format_func=lambda match_id: next(
-                    f"{match_meta(row)[0]} · {source_label(row['home_source'])}–{source_label(row['away_source'])}"
-                    for row in adjustable_matches if row["id"] == match_id
-                ),
-                key=f"adjust_match_{tid}",
-            )
-            adjust_match = next(row for row in adjustable_matches if row["id"] == adjust_id)
-            adjust_start = datetime.fromisoformat(adjust_match["scheduled_start"])
-            with st.form(f"adjust_schedule_{adjust_id}"):
-                ad1, ad2, ad3 = st.columns(3)
-                adjusted_date = ad1.date_input(
-                    "Datum", value=adjust_start.date(),
-                    min_value=datetime.fromisoformat(tournament["start_date"] or tournament["tournament_date"]).date(),
-                    max_value=datetime.fromisoformat(tournament["end_date"] or tournament["start_date"] or tournament["tournament_date"]).date(),
-                )
-                adjusted_time = ad2.time_input("Avspark", value=adjust_start.time())
-                adjusted_pitch = ad3.number_input("Plan", 1, int(rules["pitch_count"]), int(adjust_match["pitch_number"] or 1))
-                referee_options = [None] + [referee["id"] for referee in adjustable_refs]
-                referee_index = referee_options.index(adjust_match["referee_id"]) if adjust_match["referee_id"] in referee_options else 0
-                adjusted_referee = st.selectbox(
-                    "Domare", referee_options, index=referee_index,
-                    format_func=lambda referee_id: "Ingen domare" if referee_id is None else next(referee["name"] for referee in adjustable_refs if referee["id"] == referee_id),
-                )
-                adjusted_locked = st.checkbox(
-                    "Lås matchen – automatisk schemaläggning får inte flytta den",
-                    value=bool(adjust_match["schedule_locked"]),
-                )
-                if st.form_submit_button("Spara matchens tid, plan och låsning", type="primary"):
-                    adjusted_start = datetime.combine(adjusted_date, adjusted_time).isoformat(timespec="minutes")
-                    run(
-                        "UPDATE matches SET scheduled_start=?,pitch_number=?,referee_id=?,schedule_locked=?,schedule_published=0 WHERE id=?",
-                        (adjusted_start, adjusted_pitch, adjusted_referee, int(adjusted_locked), adjust_id),
-                    )
-                    run("UPDATE tournaments SET is_published=0 WHERE id=?", (tid,))
-                    st.session_state["schedule_message"] = ("success", "Matchen sparades. Kör schemakontrollen och publicera schemat på nytt.")
-                    st.rerun()
-    st.divider()
-    st.subheader("Matchschema")
-    refs = all_rows("SELECT * FROM referees WHERE tournament_id=? ORDER BY name", (tid,))
-    referee_names = {r["id"]: r["name"] for r in refs}
-    schedule_pitch_names = pitch_name_map(tid,int(rules["pitch_count"]))
-    scheduled_matches = all_rows("SELECT * FROM matches WHERE tournament_id=? AND scheduled_start IS NOT NULL ORDER BY scheduled_start,pitch_number,id", (tid,))
-    if not scheduled_matches:
-        st.info("Klicka på Skapa matcher och generera spelschema ovan.")
-    else:
-        schedule_rows = []
-        for index, m in enumerate(scheduled_matches, 1):
-            home_id = resolve_source(m["home_source"])
-            away_id = resolve_source(m["away_source"])
-            home = team(home_id)
-            away = team(away_id)
-            start_dt = datetime.fromisoformat(m["scheduled_start"])
-            event_rows = all_rows(
-                """
-                SELECT players.name, player_match_stats.* FROM player_match_stats
-                JOIN players ON players.id=player_match_stats.player_id
-                WHERE player_match_stats.match_id=? ORDER BY players.name
-                """,
-                (m["id"],),
-            )
-            goals_text = ", ".join(f"{e['name']} ({e['goals']})" for e in event_rows if e["goals"]) or "–"
-            assists_text = ", ".join(f"{e['name']} ({e['assists']})" for e in event_rows if e["assists"]) or "–"
-            yellow_text = ", ".join(f"{e['name']} ({e['yellow_cards']})" for e in event_rows if e["yellow_cards"]) or "–"
-            red_text = ", ".join(f"{e['name']} ({e['red_cards']})" for e in event_rows if e["red_cards"]) or "–"
-            home_kit_color, away_kit_color, away_kit_used = match_kit_colors(home, away)
-            if kit_color_conflict(home, away):
-                kit_note = f"ℹ Om färgerna upplevs som för lika kan {away['name']} behöva ett extraställ" if away else "ℹ Möjlig färglikhet"
-            elif away_kit_used:
-                kit_note = f"{away['name']} använder sin andra tröjfärg"
-            else:
-                kit_note = ""
-            schedule_rows.append({
-                "match_id": m["id"],
-                "Match": index,
-                "Fas": m["stage"],
-                "Plan": schedule_pitch_names.get(int(m["pitch_number"] or 0), f"Plan {m['pitch_number']}") if m["pitch_number"] else "–",
-                "Datum": f"{SWEDISH_WEEKDAYS[start_dt.weekday()]} {start_dt.strftime('%Y-%m-%d')}",
-                "Tid": start_dt.strftime("%H:%M"),
-                "Hemmalag": home["name"] if home else source_label(m["home_source"]),
-                "Hemmafärg": kit_swatch(home, "home") if home else None,
-                "Bortalag": away["name"] if away else source_label(m["away_source"]),
-                "Bortafärg": kit_swatch(away, "away" if away_kit_used else "home") if away else None,
-                "Tröjval": kit_note,
-                "Domare": referee_names.get(m["referee_id"], "Ej tillsatt"),
-                "Låst": "Ja" if m["schedule_locked"] else "Nej",
-                "Hemmamål": m["home_score"],
-                "Bortamål": m["away_score"],
-                "Målskyttar": goals_text,
-                "Assister": assists_text,
-                "Varningar": yellow_text,
-                "Utvisningar": red_text,
-            })
-        schedule_df = pd.DataFrame(schedule_rows)
-
-        st.markdown("#### Visuell schemaöversikt")
-        st.caption("Problem visas direkt på den match där de behöver åtgärdas.")
-        for row in schedule_rows:
-            issues = []
-            if row["Domare"] == "Ej tillsatt":
-                issues.append("Domare saknas")
-            if row["Tröjval"].startswith("⚠"):
-                issues.append("Möjlig färglikhet")
-            if row["Hemmalag"].startswith(("Vinnaren i ", "Vinnare match ", "Förlorare match ")):
-                issues.append("Hemmalag ej avgjort")
-            if row["Bortalag"].startswith(("Vinnaren i ", "Vinnare match ", "Förlorare match ")):
-                issues.append("Bortalag ej avgjort")
-            issue_html = "".join(
-                f"<span class='cn-issue-pill'>{html.escape(issue)}</span>" for issue in issues
-            )
-            card_class = "cn-admin-match issue" if issues else "cn-admin-match"
-            st.markdown(
-                f"""
-                <div class="{card_class}">
-                  <div><div class="number">#{row['Match']}</div><div class="meta">{html.escape(str(row['Fas']))}</div></div>
-                  <div><div class="team">{html.escape(str(row['Hemmalag']))}</div><div class="meta">{html.escape(str(row['Datum']))} · {html.escape(str(row['Tid']))}</div></div>
-                  <div><div class="team">{html.escape(str(row['Bortalag']))}</div><div class="meta">Plan {html.escape(str(row['Plan']))}</div></div>
-                  <div class="ref-col"><div class="meta">Domare</div><div class="team">{html.escape(str(row['Domare']))}</div>{issue_html}</div>
-                </div>
-                """,
-                unsafe_allow_html=True,
-            )
-
-        with st.expander("Redigera resultat i tabell"):
-            edited_schedule = st.data_editor(
-                schedule_df,
-                hide_index=True,
-                use_container_width=True,
-                disabled=["match_id", "Match", "Fas", "Plan", "Datum", "Tid", "Hemmalag", "Hemmafärg", "Bortalag", "Bortafärg", "Tröjval", "Domare", "Låst", "Målskyttar", "Assister", "Varningar", "Utvisningar"],
-                column_order=["Match", "Fas", "Plan", "Datum", "Tid", "Hemmalag", "Hemmafärg", "Hemmamål", "Bortamål", "Bortafärg", "Bortalag", "Tröjval", "Domare", "Låst", "Målskyttar", "Assister", "Varningar", "Utvisningar"],
-                column_config={
-                    "Hemmamål": st.column_config.NumberColumn(min_value=0, step=1),
-                    "Bortamål": st.column_config.NumberColumn(min_value=0, step=1),
-                    "Hemmafärg": st.column_config.ImageColumn("Hemmafärg", width="small"),
-                    "Bortafärg": st.column_config.ImageColumn("Bortafärg", width="small"),
-                },
-                key=f"schedule_editor_{tid}",
-            )
-        if st.button("Spara alla resultat i schemat"):
-            original_scores = {
-                int(row["match_id"]): (
-                    None if pd.isna(row["Hemmamål"]) else int(row["Hemmamål"]),
-                    None if pd.isna(row["Bortamål"]) else int(row["Bortamål"]),
-                )
-                for _, row in schedule_df.iterrows()
-            }
-            changed_scores = []
-            for _, row in edited_schedule.iterrows():
-                match_id = int(row["match_id"])
-                home_score = None if pd.isna(row["Hemmamål"]) else int(row["Hemmamål"])
-                away_score = None if pd.isna(row["Bortamål"]) else int(row["Bortamål"])
-                if original_scores.get(match_id) != (home_score, away_score):
-                    changed_scores.append((home_score, away_score, match_id))
-
-            if changed_scores:
-                with db() as con:
-                    if tournament["is_published"]:
-                        # Samma UPDATE sparar resultatet och säkerställer publik status.
-                        # Tidigare skickades två UPDATE-kommandon för varje rad och även
-                        # helt oförändrade matcher skrevs om.
-                        for home_score, away_score, match_id in changed_scores:
-                            con.execute(
-                                """UPDATE matches
-                                   SET home_score=?,away_score=?,
-                                       schedule_published=CASE WHEN scheduled_start IS NOT NULL THEN 1 ELSE schedule_published END
-                                   WHERE id=?""",
-                                (home_score, away_score, match_id),
-                            )
-                    else:
-                        con.executemany(
-                            "UPDATE matches SET home_score=?,away_score=? WHERE id=?",
-                            changed_scores,
-                        )
-                    con.commit()
-                _clear_render_query_cache()
-                st.success(f"Resultat sparade för {len(changed_scores)} matcher.")
-                st.rerun()
-            else:
-                st.info("Inga resultatändringar att spara.")
-        st.caption("Målskyttar, assist, varningar och utvisningar registreras under fliken Matchhändelser och visas därefter automatiskt här.")
 
 
 if admin_page == "Matcher och resultat":
-    st.header("Resultat")
-    st.caption("Registrera resultat. Domare kan justeras direkt i samma tabell.")
-
-    # v1.261: editorn behöver ändå matcherna. Återanvänd samma snapshot för
-    # sökträff och progress i stället för separata DB-frågor.
-    matches = all_rows("SELECT * FROM matches WHERE tournament_id=? ORDER BY CASE stage WHEN 'Gruppspel' THEN 0 ELSE 1 END, group_id, bracket_id, round_no, match_no", (tid,))
-    _match_by_id = {int(row["id"]): row for row in matches}
-    _focus_kind = st.session_state.get(f"admin_search_focus_kind_{tid}")
-    _focus_entity = st.session_state.get(f"admin_search_focus_entity_{tid}")
-    if _focus_kind == "Match" and _focus_entity:
-        _focused_match = _match_by_id.get(int(_focus_entity))
-        if _focused_match:
-            with st.container(border=True):
-                _focused_match_label = match_result_label(_focused_match) if (
-                    _focused_match["home_score"] is not None
-                    and _focused_match["away_score"] is not None
-                ) else _portal_match_label(_focused_match)
-                st.markdown(f"### 🔎 {html.escape(_focused_match_label)}")
-                st.caption("Öppnad från Sök i cupen")
-    _rp_total = len(matches)
-    _rp_played = sum(1 for row in matches if row["home_score"] is not None and row["away_score"] is not None)
-    _rp_pct = int(round((_rp_played / _rp_total) * 100)) if _rp_total else 0
-    st.markdown(
-        f"<div class='cn-progress-hero'><div><span>Resultatstatus</span><strong>{_rp_played}/{_rp_total}</strong></div>"
-        f"<div class='cn-progress-track'><i style='width:{_rp_pct}%'></i></div></div>",
-        unsafe_allow_html=True,
-    )
-    st.caption(
-        "✓ Publika resultat uppdateras automatiskt."
-        if tournament["is_published"]
-        else "Cupen är i utkast – resultaten sparas nu och blir publika när cupen publiceras."
-    )
-    refs = all_rows("SELECT * FROM referees WHERE tournament_id=? ORDER BY name", (tid,))
-    st.caption("Registrera resultat match för match eller använd massinmatning när det passar.")
-    if "bulk_result_message" in st.session_state:
-        st.success(st.session_state.pop("bulk_result_message"), icon="✅")
-    if "bulk_result_conflict_message" in st.session_state:
-        st.warning(st.session_state.pop("bulk_result_conflict_message"))
-    if not matches:
-        render_empty_state(
-            "Inga matcher ännu",
-            "Skapa eller generera schemat först. Därefter kan resultat registreras här.",
-            symbol="—",
-        )
-    else:
-        _show_full_result_schedule = st.toggle(
-            "Visa hela matchschemat", value=False, key=f"show_full_result_schedule_{tid}",
-            help="Listan byggs först när du öppnar den."
-        )
-        if _show_full_result_schedule:
-            all_match_rows = []
-            for m in sorted(
-                matches,
-                key=lambda row: (
-                    row["scheduled_start"] is None,
-                    row["scheduled_start"] or "9999-12-31T23:59",
-                    row["pitch_number"] or 999,
-                    row["id"],
-                ),
-            ):
-                schedule_text, referee_name = match_meta(m)
-                all_match_rows.append({
-                    "Match": schedule_text.split(" · ", 1)[0] if m["scheduled_start"] else "Ej schemalagd",
-                    "Fas": m["stage"],
-                    "Tid/plan": schedule_text.replace(schedule_text.split(" · ", 1)[0] + " · ", "", 1) if m["scheduled_start"] else "Ej schemalagd",
-                    "Hemmalag": source_label(m["home_source"]),
-                    "Bortalag": source_label(m["away_source"]),
-                    "Domare": referee_name,
-                })
-            render_centered_table(pd.DataFrame(all_match_rows))
-            st.caption(
-                "Slutspelsmatcherna visas även innan lagen är klara. Exempel: Vinnaren i Grupp A eller Vinnare match 17."
+    def _save_admin_result_updates(auto_updates, original_match_by_id):
+        for update in auto_updates:
+            match_for_push = original_match_by_id[update["match_id"]]
+            update["_goal_push"] = _goal_push_kwargs(
+                tid, match_for_push, update["expected"],
+                update["home_score"], update["away_score"],
             )
 
-        playable_matches = [m for m in matches if resolve_source(m["home_source"]) and resolve_source(m["away_source"])]
-        unresolved_count = len(matches) - len(playable_matches)
-        if unresolved_count:
-            with st.expander(f"Kommande slutspelsmatcher · {unresolved_count} väntar på lag", expanded=False):
-                st.caption("Dessa matcher blir möjliga att resultatregistrera automatiskt när föregående matcher eller grupper är avgjorda.")
-        if not playable_matches:
-            st.info("Det finns ännu inga matcher med två klara lag.")
-        else:
-            referee_names = {r["id"]: r["name"] for r in refs}
-            referee_ids_by_name = {r["name"]: r["id"] for r in refs}
-            referee_options = ["Ej tillsatt"] + [r["name"] for r in refs]
-            all_result_teams = all_rows("SELECT id,name FROM teams WHERE tournament_id=? ORDER BY name", (tid,))
-            result_team_name_by_id = {row["id"]: row["name"] for row in all_result_teams}
-            result_team_id_by_name = {row["name"]: row["id"] for row in all_result_teams}
-            decision_options = ["–"] + [row["name"] for row in all_result_teams]
-            result_rows = []
-            for m in playable_matches:
-                schedule_text, _ = match_meta(m)
-                result_rows.append({
-                    "match_id": m["id"],
-                    "Match": schedule_text,
-                    "Fas": m["stage"],
-                    "Hemmalag": source_label(m["home_source"]),
-                    "Hemmamål": m["home_score"],
-                    "Bortamål": m["away_score"],
-                    "Bortalag": source_label(m["away_source"]),
-                    "Hemmastraffar": m["home_penalties"] if m["stage"] != "Gruppspel" else None,
-                    "Bortastraffar": m["away_penalties"] if m["stage"] != "Gruppspel" else None,
-                    "Avgörande vinnare": result_team_name_by_id.get(m["decided_winner_id"], "–") if m["stage"] != "Gruppspel" else "–",
-                    "Domare": referee_names.get(m["referee_id"], "Ej tillsatt"),
-                })
-            edited_results = st.data_editor(
-                pd.DataFrame(result_rows),
-                hide_index=True,
-                use_container_width=True,
-                disabled=["match_id", "Match", "Fas", "Hemmalag", "Bortalag"],
-                column_order=["Match", "Fas", "Hemmalag", "Hemmamål", "Bortamål", "Bortalag", "Hemmastraffar", "Bortastraffar", "Avgörande vinnare", "Domare"],
-                column_config={
-                    "Hemmamål": st.column_config.NumberColumn(min_value=0, max_value=99, step=1),
-                    "Bortamål": st.column_config.NumberColumn(min_value=0, max_value=99, step=1),
-                    "Hemmastraffar": st.column_config.NumberColumn("Straffar hemma", min_value=0, max_value=99, step=1),
-                    "Bortastraffar": st.column_config.NumberColumn("Straffar borta", min_value=0, max_value=99, step=1),
-                    "Avgörande vinnare": st.column_config.SelectboxColumn(options=decision_options),
-                    "Domare": st.column_config.SelectboxColumn(options=referee_options),
-                },
-                key=f"bulk_results_{tid}",
+        saved_updates = []
+        conflicted_updates = []
+        with db() as con:
+            for update in auto_updates:
+                saved = update_match_result_if_unchanged(
+                    con,
+                    update["match_id"],
+                    update["expected"],
+                    home_score=update["home_score"],
+                    away_score=update["away_score"],
+                    home_penalties=update["home_penalties"],
+                    away_penalties=update["away_penalties"],
+                    decided_winner_id=update["decided_winner_id"],
+                    referee_id=update["referee_id"],
+                )
+                (saved_updates if saved else conflicted_updates).append(update)
+                if saved:
+                    enqueue_goal_push_events(con, **update["_goal_push"])
+            if tournament["is_published"] and saved_updates:
+                con.executemany(
+                    "UPDATE matches SET schedule_published=1 WHERE id=? AND scheduled_start IS NOT NULL",
+                    [(int(update["match_id"]),) for update in saved_updates],
+                )
+            con.commit()
+
+        _clear_render_query_cache()
+        if conflicted_updates:
+            st.session_state["bulk_result_conflict_message"] = (
+                f"{len(conflicted_updates)} match(er) hade ändrats av en annan användare och skrevs inte över. "
+                "CupNavi har laddat om de senaste värdena."
             )
-            if any(m["stage"] != "Gruppspel" for m in playable_matches):
-                with st.expander("Regler vid oavgjort i slutspel", expanded=False):
-                    if tournament["playoff_tie_rule"] == "Lottning":
-                        st.caption("Välj vinnaren i kolumnen Avgörande vinnare enligt tävlingsregeln Lottning.")
-                    elif tournament["playoff_tie_rule"] == "Förlängning + straffar":
-                        st.caption(f"Vid oavgjort spelas {tournament['extra_time_minutes']} min förlängning och därefter straffar. Registrera straffresultatet vid fortsatt oavgjort.")
-                    else:
-                        st.caption("Vid oavgjort avgörs slutspelsmatchen med straffar direkt. Registrera straffresultatet.")
-            # Resultat sparas automatiskt så snart en komplett ändring finns.
-            # Vi jämför editorn mot aktuell databasdata och skriver bara ändrade rader.
-            original_match_by_id = {int(match_row["id"]): match_row for match_row in playable_matches}
-            auto_updates = []
-            auto_messages = []
-            auto_errors = []
 
-            for _, row in edited_results.iterrows():
-                match_id = int(row["match_id"])
-                original_match = original_match_by_id[match_id]
-
-                home_score = None if pd.isna(row["Hemmamål"]) else int(row["Hemmamål"])
-                away_score = None if pd.isna(row["Bortamål"]) else int(row["Bortamål"])
-                home_penalties = None if pd.isna(row["Hemmastraffar"]) else int(row["Hemmastraffar"])
-                away_penalties = None if pd.isna(row["Bortastraffar"]) else int(row["Bortastraffar"])
-                referee_id = referee_ids_by_name.get(row["Domare"])
-
-                original_home = original_match["home_score"]
-                original_away = original_match["away_score"]
-                original_hp = original_match["home_penalties"]
-                original_ap = original_match["away_penalties"]
-                original_decided = original_match["decided_winner_id"]
-                original_referee = original_match["referee_id"]
-
-                row_changed = any([
-                    home_score != original_home,
-                    away_score != original_away,
-                    home_penalties != original_hp,
-                    away_penalties != original_ap,
-                    referee_id != original_referee,
-                    (
-                        row["Fas"] != "Gruppspel"
-                        and result_team_id_by_name.get(row["Avgörande vinnare"]) != original_decided
-                        and row["Avgörande vinnare"] != "–"
-                    ),
-                ])
-                if not row_changed:
-                    continue
-
-                # Ett resultat ska aldrig sparas halvt.
-                if (home_score is None) != (away_score is None):
-                    auto_messages.append(
-                        f"{row['Hemmalag']}–{row['Bortalag']}: fyll i båda målresultaten så sparas det automatiskt."
-                    )
-                    continue
-
-                decided_winner_id = None
-                if row["Fas"] == "Gruppspel":
-                    home_penalties = None
-                    away_penalties = None
-                elif home_score is not None and home_score == away_score:
-                    home_team_id = result_team_id_by_name.get(row["Hemmalag"])
-                    away_team_id = result_team_id_by_name.get(row["Bortalag"])
-
-                    if tournament["playoff_tie_rule"] == "Lottning":
-                        selected_winner_id = result_team_id_by_name.get(row["Avgörande vinnare"])
-                        home_penalties = None
-                        away_penalties = None
-                        if selected_winner_id in (home_team_id, away_team_id):
-                            decided_winner_id = selected_winner_id
-                        else:
-                            auto_messages.append(
-                                f"{row['Hemmalag']}–{row['Bortalag']}: resultatet sparas, men välj vinnare av lottningen för att avgöra matchen."
-                            )
-                    else:
-                        # Oavgjort resultat får sparas direkt. Straffarna kan fyllas i efteråt.
-                        if home_penalties is not None or away_penalties is not None:
-                            if (
-                                home_penalties is None
-                                or away_penalties is None
-                                or home_penalties == away_penalties
-                            ):
-                                auto_errors.append(
-                                    f"{row['Hemmalag']}–{row['Bortalag']}: fyll i ett komplett och avgörande straffresultat."
-                                )
-                                continue
-                        else:
-                            auto_messages.append(
-                                f"{row['Hemmalag']}–{row['Bortalag']}: det oavgjorda resultatet sparas. Ange straffresultat för att avgöra matchen."
-                            )
-                else:
-                    home_penalties = None
-                    away_penalties = None
-
-                auto_updates.append(
-                    {
-                        "match_id": match_id,
-                        "home_score": home_score,
-                        "away_score": away_score,
-                        "home_penalties": home_penalties,
-                        "away_penalties": away_penalties,
-                        "decided_winner_id": decided_winner_id,
-                        "referee_id": referee_id,
-                        "expected": {
-                            "home_score": original_home,
-                            "away_score": original_away,
-                            "home_penalties": original_hp,
-                            "away_penalties": original_ap,
-                            "decided_winner_id": original_decided,
-                            "referee_id": original_referee,
-                        },
-                    }
+        for update in saved_updates:
+            home_score = update["home_score"]
+            away_score = update["away_score"]
+            home_penalties = update["home_penalties"]
+            away_penalties = update["away_penalties"]
+            changed_match_id = update["match_id"]
+            if home_score is None or away_score is None:
+                continue
+            changed_match = original_match_by_id[changed_match_id]
+            description = f"{source_label(changed_match['home_source'])}–{source_label(changed_match['away_source'])} {home_score}–{away_score}"
+            if home_penalties is not None and away_penalties is not None:
+                description += f" ({home_penalties}–{away_penalties} str.)"
+            add_feed_item(tid, f"Slut: {description}", category="Resultat", related_match_id=changed_match_id)
+            for team_id in _match_team_ids(changed_match):
+                add_team_notification(
+                    tid, team_id, "Nytt resultat", description,
+                    event_key=f"result:{changed_match_id}:{home_score}:{away_score}:{home_penalties}:{away_penalties}",
                 )
 
-            for message in auto_errors:
-                st.error(message)
-            for message in auto_messages:
-                st.info(message)
+        st.session_state["_validation_dirty"] = True
+        st.session_state["bulk_result_message"] = (
+            "✓ Sparat automatiskt"
+            if not conflicted_updates
+            else "✓ Övriga resultat sparades. Konflikter lämnades orörda."
+        )
+        st.rerun()
 
-            if auto_updates:
-                for update in auto_updates:
-                    _match_for_push = original_match_by_id[update["match_id"]]
-                    update["_goal_push"] = _goal_push_kwargs(
-                        tid, _match_for_push, update["expected"],
-                        update["home_score"], update["away_score"],
-                    )
-                _saved_updates = []
-                _conflicted_updates = []
-                with db() as con:
-                    for update in auto_updates:
-                        saved = update_match_result_if_unchanged(
-                            con,
-                            update["match_id"],
-                            update["expected"],
-                            home_score=update["home_score"],
-                            away_score=update["away_score"],
-                            home_penalties=update["home_penalties"],
-                            away_penalties=update["away_penalties"],
-                            decided_winner_id=update["decided_winner_id"],
-                            referee_id=update["referee_id"],
-                        )
-                        (_saved_updates if saved else _conflicted_updates).append(update)
-                        if saved:
-                            enqueue_goal_push_events(con, **update["_goal_push"])
-                    if tournament["is_published"] and _saved_updates:
-                        con.executemany(
-                            "UPDATE matches SET schedule_published=1 WHERE id=? AND scheduled_start IS NOT NULL",
-                            [(int(update["match_id"]),) for update in _saved_updates],
-                        )
-                    con.commit()
-                _clear_render_query_cache()
-                if _conflicted_updates:
-                    st.session_state["bulk_result_conflict_message"] = (
-                        f"{len(_conflicted_updates)} match(er) hade ändrats av en annan användare och skrevs inte över. "
-                        "CupNavi har laddat om de senaste värdena."
-                    )
-                for update in _saved_updates:
-                    home_score = update["home_score"]
-                    away_score = update["away_score"]
-                    home_penalties = update["home_penalties"]
-                    away_penalties = update["away_penalties"]
-                    changed_match_id = update["match_id"]
-                    if home_score is None or away_score is None:
-                        continue
-                    changed_match = original_match_by_id[changed_match_id]
-                    description = f"{source_label(changed_match['home_source'])}–{source_label(changed_match['away_source'])} {home_score}–{away_score}"
-                    if home_penalties is not None and away_penalties is not None:
-                        description += f" ({home_penalties}–{away_penalties} str.)"
-                    add_feed_item(tid, f"Slut: {description}", category="Resultat", related_match_id=changed_match_id)
-                    for team_id in _match_team_ids(changed_match):
-                        add_team_notification(tid, team_id, "Nytt resultat", description,
-                                              event_key=f"result:{changed_match_id}:{home_score}:{away_score}:{home_penalties}:{away_penalties}")
-
-                st.session_state["_validation_dirty"] = True
-                st.session_state["bulk_result_message"] = (
-                    "✓ Sparat automatiskt"
-                    if not _conflicted_updates
-                    else "✓ Övriga resultat sparades. Konflikter lämnades orörda."
-                )
-                st.rerun()
-
-            st.caption("✓ Ändringar sparas automatiskt – ingen Spara-knapp behövs.")
+    render_admin_results_workspace(
+        tid,
+        tournament,
+        deps=AdminResultsDependencies(
+            st=st,
+            all_rows=all_rows,
+            match_result_label=match_result_label,
+            portal_match_label=_portal_match_label,
+            match_meta=match_meta,
+            source_label=source_label,
+            resolve_source=resolve_source,
+            render_centered_table=render_centered_table,
+            render_empty_state=render_empty_state,
+            save_result_updates=_save_admin_result_updates,
+        ),
+    )
 
 
 if admin_page == "Matchhändelser":
-    st.header("Matchhändelser")
-    st.caption("Välj en spelad match och registrera spelarnas händelser. Ändringar sparas automatiskt.")
-    played_matches = all_rows("SELECT * FROM matches WHERE tournament_id=? AND home_score IS NOT NULL AND away_score IS NOT NULL ORDER BY id DESC", (tid,))
-    playable_matches = [m for m in played_matches if resolve_source(m["home_source"]) and resolve_source(m["away_source"])]
-    if not playable_matches:
-        render_empty_state(
-            "Inga spelade matcher ännu",
-            "Registrera ett matchresultat först. Därefter kan mål, assist och kort läggas till.",
-            symbol="—",
-        )
-    else:
-        stat_match_id = st.selectbox(
-            "Välj match",
-            [m["id"] for m in playable_matches],
-            format_func=lambda x: match_result_label(next(m for m in playable_matches if m["id"] == x)),
-        )
-        stat_match = next(m for m in playable_matches if m["id"] == stat_match_id)
-        home_team_id = resolve_source(stat_match["home_source"])
-        away_team_id = resolve_source(stat_match["away_source"])
-        st.caption("Fyll bara i de händelser som inträffade.")
-        for selected_team_id in [home_team_id, away_team_id]:
-            selected_team = team(selected_team_id)
-            players = all_rows("SELECT * FROM players WHERE team_id=? ORDER BY player_number,name", (selected_team_id,))
-            st.markdown(f"#### {selected_team['name']}")
-            if not players:
-                st.warning("Laget saknar registrerade spelare.")
-                continue
-            existing = {
-                r["player_id"]: r
-                for r in all_rows("SELECT * FROM player_match_stats WHERE match_id=? AND player_id IN (SELECT id FROM players WHERE team_id=?)", (stat_match_id, selected_team_id))
-            }
-            data = pd.DataFrame([
-                {
-                    "player_id": p["id"],
-                    "Nr": p["player_number"],
-                    "Spelare": p["name"],
-                    "Mål": existing[p["id"]]["goals"] if p["id"] in existing else 0,
-                    "Assist": existing[p["id"]]["assists"] if p["id"] in existing else 0,
-                    "Varningar": existing[p["id"]]["yellow_cards"] if p["id"] in existing else 0,
-                    "Utvisningar": existing[p["id"]]["red_cards"] if p["id"] in existing else 0,
-                }
-                for p in players
-            ])
-            admin_event_columns = ["Nr", "Spelare", "Mål"]
-            if bool(_row_value(tournament, "enable_assist_leaderboard", 1)):
-                admin_event_columns.append("Assist")
-            if bool(_row_value(tournament, "enable_card_statistics", 1)):
-                admin_event_columns.extend(["Varningar", "Utvisningar"])
-            edited = st.data_editor(
-                data,
-                hide_index=True,
-                use_container_width=True,
-                disabled=["player_id", "Nr", "Spelare"],
-                column_order=admin_event_columns,
-                column_config={
-                    "Mål": st.column_config.NumberColumn(min_value=0, step=1),
-                    "Assist": st.column_config.NumberColumn(min_value=0, step=1),
-                    "Varningar": st.column_config.NumberColumn(min_value=0, step=1),
-                    "Utvisningar": st.column_config.NumberColumn(min_value=0, step=1),
-                },
-                key=f"stats_editor_{stat_match_id}_{selected_team_id}",
-            )
-            team_goals_in_match = int(
-                stat_match["home_score"] if selected_team_id == home_team_id else stat_match["away_score"]
-            )
-            entered_goals = int(edited["Mål"].fillna(0).sum())
-            entered_assists = int(edited["Assist"].fillna(0).sum())
-            event_validation = validate_match_event_totals(
-                team_goals_in_match, entered_goals, entered_assists
-            )
-            if event_validation["errors"] or entered_goals != team_goals_in_match:
-                with st.expander("Kontroll av mål & assist", expanded=bool(event_validation["errors"])):
-                    st.caption(
-                        f"Matchresultat: {team_goals_in_match} mål · registrerat: {entered_goals} mål / {entered_assists} assist."
-                    )
-                    for message in event_validation["errors"]:
-                        st.error(f"{selected_team['name']}: {message}")
+    def _save_admin_match_event_updates(*, match_id, team_id, updates):
+        saved_event_rows = []
+        conflicted_event_rows = []
+        with db() as con:
+            for event_update in updates:
+                saved = update_player_match_stats_if_unchanged(
+                    con,
+                    event_update["match_id"],
+                    event_update["player_id"],
+                    event_update["expected"],
+                    goals=event_update["goals"],
+                    assists=event_update["assists"],
+                    yellow_cards=event_update["yellow_cards"],
+                    red_cards=event_update["red_cards"],
+                )
+                (saved_event_rows if saved else conflicted_event_rows).append(event_update)
+            con.commit()
+        return {
+            "saved_count": len(saved_event_rows),
+            "conflict_count": len(conflicted_event_rows),
+        }
 
-            autosave_message_key = f"event_autosave_message_{stat_match_id}_{selected_team_id}"
-            if autosave_message_key in st.session_state:
-                st.success(st.session_state.pop(autosave_message_key), icon="✅")
-            event_conflict_key = f"event_autosave_conflict_{stat_match_id}_{selected_team_id}"
-            if event_conflict_key in st.session_state:
-                st.warning(st.session_state.pop(event_conflict_key), icon="⚠️")
-
-            # Händelser sparas automatiskt när ändringen är giltig.
-            # Endast faktiskt ändrade spelarrader skrivs till databasen.
-            changed_event_rows = prepare_changed_event_rows(
-                (row for _, row in edited.iterrows()),
-                existing,
-                match_id=stat_match_id,
-                is_na=pd.isna,
-            )
-
-            if changed_event_rows and event_validation["ok"]:
-                saved_event_rows = []
-                conflicted_event_rows = []
-                with db() as con:
-                    for event_update in changed_event_rows:
-                        saved = update_player_match_stats_if_unchanged(
-                            con,
-                            event_update["match_id"],
-                            event_update["player_id"],
-                            event_update["expected"],
-                            goals=event_update["goals"],
-                            assists=event_update["assists"],
-                            yellow_cards=event_update["yellow_cards"],
-                            red_cards=event_update["red_cards"],
-                        )
-                        (saved_event_rows if saved else conflicted_event_rows).append(event_update)
-                    con.commit()
-
-                if saved_event_rows:
-                    st.session_state[autosave_message_key] = "✓ Sparat automatiskt"
-                if conflicted_event_rows:
-                    st.session_state[
-                        f"event_autosave_conflict_{stat_match_id}_{selected_team_id}"
-                    ] = (
-                        f"{len(conflicted_event_rows)} spelarrad(er) hade ändrats av en annan "
-                        "användare och skrevs inte över. Senaste värden laddas om."
-                    )
-                st.rerun()
-
-            if changed_event_rows and not event_validation["ok"]:
-                st.caption("Ändringen sparas automatiskt så snart mål/assist stämmer med matchresultatet.")
-            else:
-                st.caption("✓ Händelser sparas automatiskt – ingen Spara-knapp behövs.")
-
-            registered_goals = int(edited["Mål"].sum())
-            expected_goals = stat_match["home_score"] if selected_team_id == home_team_id else stat_match["away_score"]
-            if registered_goals != expected_goals and not event_validation["errors"]:
-                st.caption(f"ℹ {expected_goals - registered_goals:+d} mål saknar spelarkoppling, exempelvis självmål.")
+    render_admin_match_events_workspace(
+        tid,
+        tournament,
+        deps=AdminMatchEventsDependencies(
+            st=st,
+            all_rows=all_rows,
+            resolve_source=resolve_source,
+            match_result_label=match_result_label,
+            team=team,
+            row_value=_row_value,
+            render_empty_state=render_empty_state,
+            save_event_updates=_save_admin_match_event_updates,
+        ),
+    )
 
 
 if admin_page == "Besöksstatistik":
@@ -17467,7 +13099,7 @@ if admin_page == "Erbjudanden":
 
 if admin_page == "Import":
     st.header("Import")
-    st.caption("Importera många lag eller spelare från CSV/Excel. CupNavi försöker matcha kolumnerna automatiskt.")
+    st.caption("Importera lag eller spelare från CSV/Excel med automatisk kolumnmatchning.")
 
     import_kind = st.segmented_control(
         "1. Vad vill du importera?",
@@ -17567,6 +13199,11 @@ if admin_page == "Import":
             st.error(f"Filen kunde inte läsas: {exc}")
 
     if import_df is not None:
+        from cupnavi_core.import_service import (
+            TEAM_FIELDS, PLAYER_FIELDS, auto_map_columns,
+            build_team_import_plan, build_player_import_plan,
+        )
+
         fields = TEAM_FIELDS if import_kind == "Lag" else PLAYER_FIELDS
         auto_mapping = auto_map_columns(import_df.columns, fields)
 
@@ -17859,7 +13496,7 @@ if admin_page == "Import":
 
 if admin_page == "Cupverktyg":
     st.header("Cupverktyg")
-    st.caption("Extra verktyg för cupdagen och felsituationer. Öppna det verktyg du behöver.")
+    st.caption("Verktyg för cupdagen, schemajusteringar och felsituationer.")
 
     tool_rules = one_row("SELECT * FROM schedule_rules WHERE tournament_id=?", (tid,))
     tool_teams = all_rows("SELECT * FROM teams WHERE tournament_id=? ORDER BY name", (tid,))
@@ -18398,477 +14035,5 @@ if view_mode == "Admin" and admin_page == "Adminöversikt":
 
 
 
-def inject_v198_visual_system():
-    st.markdown(
-        """<style>
-        /* ================================================================
-           CUPNAVI VISUAL SYSTEM v1.198
-           Final visual authority. Presentation only.
-           ================================================================ */
-
-        :root{
-          --cn98-primary:#176b3a;
-          --cn98-primary-hover:#12572f;
-          --cn98-primary-soft:#edf7f0;
-          --cn98-ink:#17221c;
-          --cn98-ink-2:#536159;
-          --cn98-ink-3:#768279;
-          --cn98-bg:#f5f7f6;
-          --cn98-surface:#ffffff;
-          --cn98-surface-2:#f9fbfa;
-          --cn98-border:#dbe3de;
-          --cn98-border-strong:#b9c7bf;
-          --cn98-focus:#72a887;
-          --cn98-success:#176b3a;
-          --cn98-warning:#8a5709;
-          --cn98-error:#b42318;
-          --cn98-info:#365f7c;
-
-          --cn98-r1:7px;
-          --cn98-r2:10px;
-          --cn98-r3:14px;
-          --cn98-shadow:0 1px 2px rgba(14,31,22,.04),0 5px 18px rgba(14,31,22,.045);
-
-          --cn98-s1:4px;
-          --cn98-s2:8px;
-          --cn98-s3:12px;
-          --cn98-s4:16px;
-          --cn98-s5:24px;
-          --cn98-s6:32px;
-          --cn98-s7:48px;
-
-          --cn98-control:40px;
-          --cn98-max:1240px;
-        }
-
-        html,body,.stApp{
-          background:var(--cn98-bg)!important;
-          color:var(--cn98-ink)!important;
-        }
-        .stApp .block-container{
-          max-width:var(--cn98-max)!important;
-          padding-left:clamp(12px,2.25vw,28px)!important;
-          padding-right:clamp(12px,2.25vw,28px)!important;
-          padding-bottom:40px!important;
-        }
-
-        /* TYPOGRAPHY — one restrained scale */
-        h1,h2,h3,h4,h5,h6{
-          font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif!important;
-          color:var(--cn98-ink)!important;
-          letter-spacing:-.015em!important;
-          text-wrap:balance;
-        }
-        h1{font-size:clamp(1.55rem,2vw,1.9rem)!important;line-height:1.12!important;font-weight:780!important}
-        h2{font-size:clamp(1.22rem,1.55vw,1.42rem)!important;line-height:1.2!important;font-weight:750!important}
-        h3{font-size:1.05rem!important;line-height:1.25!important;font-weight:720!important}
-        h4{font-size:.95rem!important;line-height:1.3!important;font-weight:700!important}
-        p,li,label,input,textarea,button{font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif!important}
-        p,li{line-height:1.48}
-        [data-testid="stCaptionContainer"],
-        [data-testid="stCaptionContainer"] p{
-          color:var(--cn98-ink-2)!important;
-          font-size:.81rem!important;
-          line-height:1.4!important;
-        }
-        [data-testid="stWidgetLabel"],
-        [data-testid="stWidgetLabel"] p{
-          color:var(--cn98-ink)!important;
-          font-size:.83rem!important;
-          font-weight:650!important;
-          opacity:1!important;
-        }
-
-        /* PAGE RHYTHM */
-        [data-testid="stVerticalBlock"]{gap:.62rem!important}
-        [data-testid="stHorizontalBlock"]{gap:.72rem!important}
-        hr{border-color:var(--cn98-border)!important;margin:20px 0!important}
-
-        /* BUTTONS */
-        [data-testid="stButton"] button,
-        [data-testid="stFormSubmitButton"] button,
-        [data-testid="stDownloadButton"] button,
-        [data-testid="stLinkButton"] a,
-        [data-testid="stPopover"] > button{
-          min-height:var(--cn98-control)!important;
-          border-radius:var(--cn98-r1)!important;
-          padding:7px 13px!important;
-          font-size:.83rem!important;
-          font-weight:680!important;
-          box-shadow:none!important;
-          transition:background-color .13s ease,border-color .13s ease,color .13s ease,transform .06s ease!important;
-        }
-        [data-testid="stButton"] button[kind="primary"],
-        [data-testid="stFormSubmitButton"] button[kind="primary"]{
-          background:var(--cn98-primary)!important;
-          border:1px solid var(--cn98-primary)!important;
-          color:#fff!important;
-        }
-        [data-testid="stButton"] button[kind="primary"] *,
-        [data-testid="stFormSubmitButton"] button[kind="primary"] *{color:#fff!important}
-        [data-testid="stButton"] button[kind="primary"]:hover,
-        [data-testid="stFormSubmitButton"] button[kind="primary"]:hover{
-          background:var(--cn98-primary-hover)!important;
-          border-color:var(--cn98-primary-hover)!important;
-        }
-        [data-testid="stButton"] button[kind="secondary"],
-        [data-testid="stDownloadButton"] button,
-        [data-testid="stLinkButton"] a,
-        [data-testid="stPopover"] > button{
-          background:var(--cn98-surface)!important;
-          border:1px solid var(--cn98-border-strong)!important;
-          color:#24342b!important;
-        }
-        [data-testid="stButton"] button[kind="secondary"]:hover,
-        [data-testid="stDownloadButton"] button:hover,
-        [data-testid="stLinkButton"] a:hover,
-        [data-testid="stPopover"] > button:hover{
-          background:#f0f4f2!important;
-          border-color:#8da096!important;
-        }
-        [data-testid="stButton"] button:active,
-        [data-testid="stFormSubmitButton"] button:active{transform:translateY(1px)!important}
-        button:disabled,[aria-disabled="true"]{opacity:.5!important;cursor:not-allowed!important}
-
-        /* FORMS */
-        [data-testid="stTextInput"] input,
-        [data-testid="stNumberInput"] input,
-        [data-testid="stTextArea"] textarea,
-        [data-testid="stDateInput"] input,
-        [data-baseweb="select"] > div{
-          min-height:var(--cn98-control)!important;
-          border-radius:var(--cn98-r1)!important;
-          border:1px solid var(--cn98-border-strong)!important;
-          background:var(--cn98-surface)!important;
-          color:var(--cn98-ink)!important;
-          box-shadow:none!important;
-        }
-        [data-testid="stTextInput"] input:hover,
-        [data-testid="stNumberInput"] input:hover,
-        [data-testid="stTextArea"] textarea:hover,
-        [data-testid="stDateInput"] input:hover,
-        [data-baseweb="select"] > div:hover{border-color:#879b90!important}
-        [data-testid="stTextInput"] input:focus,
-        [data-testid="stNumberInput"] input:focus,
-        [data-testid="stTextArea"] textarea:focus,
-        [data-testid="stDateInput"] input:focus,
-        [data-baseweb="select"] > div:focus-within{
-          border-color:var(--cn98-primary)!important;
-          box-shadow:0 0 0 3px rgba(23,107,58,.12)!important;
-          outline:none!important;
-        }
-        [data-testid="stForm"]{
-          border:1px solid var(--cn98-border)!important;
-          background:var(--cn98-surface)!important;
-          border-radius:var(--cn98-r2)!important;
-          box-shadow:none!important;
-        }
-
-        /* RADIO / CHECKBOX / TOGGLE */
-        [data-testid="stRadio"] label,
-        [data-testid="stCheckbox"] label{
-          color:var(--cn98-ink)!important;
-          font-size:.83rem!important;
-        }
-        [data-testid="stRadio"] > div{gap:6px!important;flex-wrap:wrap!important}
-        [data-testid="stRadio"] label{
-          padding:5px 9px!important;
-          border:1px solid var(--cn98-border)!important;
-          border-radius:999px!important;
-          background:var(--cn98-surface)!important;
-        }
-
-        /* CONTAINERS */
-        [data-testid="stVerticalBlockBorderWrapper"],
-        [data-testid="stExpander"],
-        [data-testid="stMetric"]{
-          background:var(--cn98-surface)!important;
-          border:1px solid var(--cn98-border)!important;
-          border-radius:var(--cn98-r2)!important;
-          box-shadow:none!important;
-        }
-        [data-testid="stMetric"]{padding:10px 12px!important}
-        [data-testid="stMetricLabel"]{color:var(--cn98-ink-2)!important}
-        [data-testid="stMetricValue"]{font-weight:760!important;letter-spacing:-.015em!important}
-        [data-testid="stExpander"] summary{
-          min-height:40px!important;
-          color:var(--cn98-ink)!important;
-          font-size:.84rem!important;
-          font-weight:680!important;
-        }
-
-        /* ALERTS */
-        [data-testid="stAlert"]{
-          border-radius:var(--cn98-r2)!important;
-          border-width:1px!important;
-          box-shadow:none!important;
-          padding:10px 12px!important;
-        }
-        [data-testid="stAlert"] p{font-size:.83rem!important;line-height:1.42!important}
-
-        /* NAVIGATION / TABS */
-        [data-testid="stTabs"] [role="tablist"]{
-          gap:2px!important;
-          border-bottom:1px solid var(--cn98-border)!important;
-        }
-        [data-testid="stTabs"] button[role="tab"]{
-          min-height:38px!important;
-          padding:6px 10px!important;
-          border-radius:var(--cn98-r1) var(--cn98-r1) 0 0!important;
-          color:var(--cn98-ink-2)!important;
-          font-size:.82rem!important;
-          font-weight:650!important;
-        }
-        [data-testid="stTabs"] button[role="tab"][aria-selected="true"]{
-          color:var(--cn98-primary)!important;
-          font-weight:730!important;
-        }
-        [data-testid="stButtonGroup"] button{
-          min-height:36px!important;
-          background:var(--cn98-surface)!important;
-          border-color:var(--cn98-border)!important;
-          color:var(--cn98-ink-2)!important;
-          font-size:.81rem!important;
-        }
-        [data-testid="stButtonGroup"] button[aria-pressed="true"],
-        [data-testid="stButtonGroup"] button[aria-checked="true"],
-        [data-testid="stButtonGroup"] [data-selected="true"]{
-          background:var(--cn98-primary-soft)!important;
-          color:#14552f!important;
-          border-color:#9dbdac!important;
-          font-weight:700!important;
-        }
-
-        /* SIDEBAR */
-        [data-testid="stSidebar"]{
-          background:#f0f4f1!important;
-          border-right:1px solid var(--cn98-border)!important;
-        }
-        [data-testid="stSidebar"] [data-testid="stVerticalBlock"]{gap:.42rem!important}
-        [data-testid="stSidebar"] [data-testid="stWidgetLabel"] p{
-          font-size:.75rem!important;
-          color:var(--cn98-ink-2)!important;
-          font-weight:700!important;
-        }
-
-        /* TABLES */
-        [data-testid="stDataFrame"],
-        .texttv-table-wrap{
-          border:1px solid var(--cn98-border)!important;
-          border-radius:var(--cn98-r2)!important;
-          background:var(--cn98-surface)!important;
-          overflow:auto!important;
-          box-shadow:none!important;
-        }
-        .texttv-table{
-          width:100%!important;
-          border-collapse:separate!important;
-          border-spacing:0!important;
-        }
-        .texttv-table th{
-          position:sticky!important;
-          top:0!important;
-          z-index:2!important;
-          background:#eef3f0!important;
-          color:var(--cn98-ink)!important;
-          font-size:.76rem!important;
-          font-weight:730!important;
-        }
-        .texttv-table td,.texttv-table th{
-          padding:8px 10px!important;
-          border:0!important;
-          border-bottom:1px solid #e7ece9!important;
-        }
-        .texttv-table tbody tr:last-child td{border-bottom:0!important}
-        .texttv-table tbody tr:hover td{background:#f8faf9!important}
-
-        /* PUBLIC EXPERIENCE */
-        .cup-hero{
-          background:#17324d!important;
-          background-image:none!important;
-          border:0!important;
-          border-radius:var(--cn98-r3)!important;
-          box-shadow:var(--cn98-shadow)!important;
-        }
-        .public-match-card,.cn-live-card,.public-metric{
-          border-color:var(--cn98-border)!important;
-          box-shadow:none!important;
-          border-radius:var(--cn98-r2)!important;
-        }
-        .public-match-card{background:var(--cn98-surface)!important}
-        .cn-public-top-nav + div [data-testid="stButton"] button{
-          min-height:38px!important;
-          font-size:.80rem!important;
-        }
-        .classic-bracket{
-          background:#fff!important;
-          border-color:var(--cn98-border)!important;
-          box-shadow:none!important;
-        }
-        .classic-match{
-          border-color:var(--cn98-border-strong)!important;
-          box-shadow:0 2px 8px rgba(18,34,25,.06)!important;
-        }
-
-        /* SHARE POPOVER — explicit light surface */
-        [data-baseweb="popover"]{
-          color:var(--cn98-ink)!important;
-        }
-        [data-baseweb="popover"] > div{
-          background:var(--cn98-surface)!important;
-          color:var(--cn98-ink)!important;
-          border:1px solid var(--cn98-border)!important;
-          border-radius:var(--cn98-r3)!important;
-          box-shadow:0 12px 34px rgba(15,23,42,.14)!important;
-        }
-        [data-baseweb="popover"] p,
-        [data-baseweb="popover"] span,
-        [data-baseweb="popover"] label{
-          color:var(--cn98-ink)!important;
-        }
-
-        /* EMPTY STATES */
-        .cn-empty-state{
-          background:var(--cn98-surface-2)!important;
-          border:1px dashed var(--cn98-border-strong)!important;
-          border-radius:var(--cn98-r2)!important;
-          padding:18px!important;
-          box-shadow:none!important;
-        }
-        .cn-empty-state p{color:var(--cn98-ink-2)!important}
-
-        /* ADMIN */
-        .cn-current-admin-page{
-          background:rgba(245,247,246,.98)!important;
-          border-color:var(--cn98-border)!important;
-          box-shadow:none!important;
-          backdrop-filter:none!important;
-          -webkit-backdrop-filter:none!important;
-        }
-        .cn-flow-context,.cn-status-card,.cn-step,.cn-recommend-card,.cn-progress-hero,.cn-attention-row{
-          border-color:var(--cn98-border)!important;
-          box-shadow:none!important;
-          border-radius:var(--cn98-r2)!important;
-        }
-
-        /* ACCESSIBILITY */
-        button:focus-visible,
-        a:focus-visible,
-        input:focus-visible,
-        textarea:focus-visible,
-        [role="combobox"]:focus-visible,
-        [role="tab"]:focus-visible,
-        [role="radio"]:focus-visible{
-          outline:3px solid rgba(23,107,58,.28)!important;
-          outline-offset:2px!important;
-        }
-
-        /* TABLET */
-        @media(max-width:1024px){
-          :root{--cn98-max:100%}
-          .stApp .block-container{
-            padding-left:16px!important;
-            padding-right:16px!important;
-          }
-        }
-
-        /* MOBILE */
-        @media(max-width:768px){
-          :root{--cn98-control:44px}
-          html,body,.stApp{max-width:100vw!important;overflow-x:hidden!important}
-          .stApp .block-container{
-            padding-left:10px!important;
-            padding-right:10px!important;
-            padding-bottom:88px!important;
-          }
-          [data-testid="stHorizontalBlock"]{gap:7px!important}
-          /* Admin forms/actions must not remain squeezed into desktop columns on phones. */
-          [data-testid="stHorizontalBlock"]{
-            flex-wrap:wrap!important;
-          }
-          [data-testid="stHorizontalBlock"] > [data-testid="stColumn"]{
-            flex:1 1 220px!important;
-            min-width:0!important;
-            width:auto!important;
-          }
-          .cn-flow-status{
-            display:flex!important;
-            flex-wrap:wrap!important;
-            gap:5px!important;
-          }
-          .cn-flow-pill{
-            white-space:normal!important;
-            line-height:1.25!important;
-          }
-          .cn-next-action{
-            min-height:auto!important;
-          }
-          [data-testid="stButton"] button,
-          [data-testid="stFormSubmitButton"] button,
-          [data-testid="stDownloadButton"] button,
-          [data-testid="stLinkButton"] a,
-          [data-testid="stPopover"] > button{
-            min-height:44px!important;
-          }
-          /* Tabs remain reachable on phones instead of shrinking/cutting off labels. */
-          [data-baseweb="tab-list"]{
-            overflow-x:auto!important;
-            overflow-y:hidden!important;
-            flex-wrap:nowrap!important;
-            -webkit-overflow-scrolling:touch;
-            scrollbar-width:thin;
-          }
-          [data-baseweb="tab"]{
-            flex:0 0 auto!important;
-            min-height:44px!important;
-            white-space:nowrap!important;
-          }
-          [data-testid="stDataFrame"],.texttv-table-wrap{
-            max-width:100%!important;
-            overflow-x:auto!important;
-            -webkit-overflow-scrolling:touch;
-          }
-          .texttv-table td,.texttv-table th{
-            padding:7px 8px!important;
-            white-space:nowrap!important;
-          }
-          [data-baseweb="popover"] > div{
-            max-width:calc(100vw - 20px)!important;
-            max-height:calc(100vh - 24px)!important;
-            overflow:auto!important;
-          }
-        }
-
-        @media(max-width:390px){
-          [data-testid="stHorizontalBlock"] > [data-testid="stColumn"]{
-            flex:1 1 100%!important;
-            width:100%!important;
-          }
-          .stApp .block-container{
-            padding-left:8px!important;
-            padding-right:8px!important;
-          }
-          [data-testid="stButton"] button,
-          [data-testid="stFormSubmitButton"] button{
-            padding-left:9px!important;
-            padding-right:9px!important;
-          }
-        }
-
-        @media(min-width:1440px){
-          :root{--cn98-max:1280px}
-        }
-
-        @media(prefers-reduced-motion:reduce){
-          *,*::before,*::after{
-            animation-duration:.01ms!important;
-            animation-iteration-count:1!important;
-            transition-duration:.01ms!important;
-            scroll-behavior:auto!important;
-          }
-        }
-        </style>""",
-        unsafe_allow_html=True,
-    )
 
 inject_v198_visual_system()

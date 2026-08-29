@@ -1,14 +1,12 @@
 
 from pathlib import Path
 
-APP=(Path(__file__).resolve().parents[1]/"app.py").read_text(encoding="utf-8")
+ROOT=Path(__file__).resolve().parents[1]
+SETUP=(ROOT/"cupnavi_core"/"initial_setup_view.py").read_text(encoding="utf-8")
 
 
 def _setup():
-    return APP[
-        APP.index("def render_initial_tournament_setup"):
-        APP.index("def _render_with_friendly_error")
-    ]
+    return SETUP
 
 
 def test_played_match_count_is_reused_for_class_lock():

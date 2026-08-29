@@ -1,6 +1,7 @@
 from pathlib import Path
 
 OVERVIEW = Path("cupnavi_core/public_match_overview.py").read_text(encoding="utf-8")
+SETUP = Path("cupnavi_core/initial_setup_view.py").read_text(encoding="utf-8")
 
 
 def app_text():
@@ -20,7 +21,7 @@ def test_testdata_has_variable_team_and_group_counts_and_gated_progress():
 
 
 def test_final_ranking_is_optional_at_creation_and_rendered():
-    text = app_text()
+    text = app_text() + SETUP
     assert 'setup_final_ranking_' in text
     assert 'enable_final_ranking' in text
     assert 'def final_ranking_rows' in text
@@ -36,7 +37,7 @@ def test_team_can_request_avoiding_latest_group_match():
 
 
 def test_new_tournament_enters_setup_wizard():
-    text = app_text()
+    text = app_text() + SETUP
     assert 'new_tournament_setup_id' in text
     assert 'def render_initial_tournament_setup' in text
     assert 'Fortsätt till Admin' in text

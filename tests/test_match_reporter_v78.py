@@ -24,18 +24,17 @@ def test_match_reporter_stops_before_admin_navigation():
 
 def test_match_reporter_stays_in_restricted_operational_workspace():
     text = app_text()
-    start = text.index("def render_match_reporter_view(")
-    end = text.index("init_db()", start)
-    block = text[start:end]
-    assert 'tr("CupNavi Score")' in block
-    assert 'tr("Matchhändelser")' in block
-    assert 'tr("Domarcentral")' in block
-    assert 'tr("Offlineutkast")' in block
-    assert "ADMIN_NAV_GROUPS" not in block
-    assert "update_match_result_if_unchanged" in block
-    assert "player_match_stats" in block
-    assert "SET referee_id=?" not in block
-    assert "Skapa ny turnering" not in block
+    workspace = Path("cupnavi_core/match_reporter_workspace_view.py").read_text(encoding="utf-8")
+    assert 'deps.translate("CupNavi Score")' in workspace
+    assert 'deps.translate("Matchhändelser")' in workspace
+    assert 'deps.translate("Domarcentral")' in workspace
+    assert 'deps.translate("Offlineutkast")' in workspace
+    assert "ADMIN_NAV_GROUPS" not in workspace
+    assert "save_quick_result" in workspace
+    assert "fetch_player_match_stats" in workspace
+    assert "SET referee_id=?" not in workspace
+    assert "Skapa ny turnering" not in workspace
+    assert "update_match_result_if_unchanged" in text
 
 def test_admin_password_and_reporter_password_are_separate():
     text = app_text()

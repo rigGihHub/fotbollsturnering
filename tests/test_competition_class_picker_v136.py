@@ -1,10 +1,12 @@
 from pathlib import Path
-APP = (Path(__file__).resolve().parents[1] / "app.py").read_text(encoding="utf-8")
+ROOT = Path(__file__).resolve().parents[1]
+APP = (ROOT / "app.py").read_text(encoding="utf-8")
+SETUP = (ROOT / "cupnavi_core" / "initial_setup_view.py").read_text(encoding="utf-8")
 
 def test_competition_classes_use_fixed_picker_not_free_text():
     # Class creation lives in setup/Admin overview and still uses fixed choices.
-    assert 'setup_class_category_' in APP
-    assert 'setup_class_year_' in APP
+    assert 'setup_class_category_' in SETUP
+    assert 'setup_class_year_' in SETUP
     assert 'YOUTH_CLASS_CATEGORIES' in APP
     assert 'YOUTH_CLASS_YEARS' in APP
     lag_start = APP.index('if admin_page == "Lag":')

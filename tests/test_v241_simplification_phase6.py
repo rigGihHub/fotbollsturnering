@@ -2,6 +2,7 @@ from pathlib import Path
 
 ROOT=Path(__file__).resolve().parents[1]
 APP=(ROOT/'app.py').read_text(encoding='utf-8')
+EVENT_VIEW=(ROOT/'cupnavi_core/admin_match_events_view.py').read_text(encoding='utf-8')
 
 
 def _block(start_marker,end_marker):
@@ -12,11 +13,12 @@ def _block(start_marker,end_marker):
 
 def test_match_events_remove_duplicate_heading_and_keep_editor_primary():
     block=_block('if admin_page == "Matchhändelser":','if admin_page == "Besöksstatistik":')
-    assert 'st.header("Matchhändelser")' in block
-    assert 'st.subheader("Registrera mål, assist, varningar och utvisningar")' not in block
-    assert 'st.data_editor(' in block
+    assert 'render_admin_match_events_workspace(' in block
+    assert 'st.header("Matchhändelser")' in EVENT_VIEW
+    assert 'st.subheader("Registrera mål, assist, varningar och utvisningar")' not in EVENT_VIEW
+    assert 'st.data_editor(' in EVENT_VIEW
     assert 'update_player_match_stats_if_unchanged(' in block
-    assert 'with st.expander("Kontroll av mål & assist"' in block
+    assert 'with st.expander("Kontroll av mål & assist"' in EVENT_VIEW
 
 
 def test_playoff_tree_precedes_secondary_match_list():
@@ -35,7 +37,6 @@ def test_tables_keep_tables_primary_and_hide_explanations():
 
 
 def test_match_event_autosave_contract_is_preserved():
-    block=_block('if admin_page == "Matchhändelser":','if admin_page == "Besöksstatistik":')
-    assert 'prepare_changed_event_rows(' in block
-    assert 'event_validation["ok"]' in block
-    assert '✓ Händelser sparas automatiskt – ingen Spara-knapp behövs.' in block
+    assert 'prepare_changed_event_rows(' in EVENT_VIEW
+    assert 'event_validation["ok"]' in EVENT_VIEW
+    assert '✓ Händelser sparas automatiskt – ingen Spara-knapp behövs.' in EVENT_VIEW

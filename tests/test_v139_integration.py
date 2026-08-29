@@ -1,17 +1,19 @@
 from pathlib import Path
 ROOT=Path(__file__).resolve().parents[1]
 APP=(ROOT/"app.py").read_text(encoding="utf-8")
+ADMIN_OVERVIEW=(ROOT/"cupnavi_core/admin_overview.py").read_text(encoding="utf-8")
 
 def test_v139_version_sync():
     v=(ROOT/"VERSION.txt").read_text().strip()
-    assert v=="2026.08.28-270-INCREMENTAL-PUBLIC-MATCHES"
+    assert v=="2026.08.29-291-ADMIN-PAGE-SIMPLIFICATION"
     assert v in APP
     assert v in (ROOT/"cupnavi_core/version.py").read_text()
 
 def test_admin_uses_task_based_organizer():
     assert 'with st.expander("Förberedelser i detalj", expanded=False)' in APP
     assert "Nästa steg" in APP
-    assert "organizer_workflow(" in APP
+    assert "build_organizer_overview(" in APP
+    assert "organizer_workflow(" in ADMIN_OVERVIEW
 
 def test_friendly_error_persists_sanitized_diagnostic():
     assert "safe_error_record(" in APP

@@ -4,6 +4,7 @@ APP = Path("app.py").read_text(encoding="utf-8")
 MIG = Path("cupnavi_core/migrations.py").read_text(encoding="utf-8")
 ABOUT = Path("cupnavi_core/about.py").read_text(encoding="utf-8")
 INFO = Path("cupnavi_core/public_info_view.py").read_text(encoding="utf-8")
+SETUP = Path("cupnavi_core/initial_setup_view.py").read_text(encoding="utf-8")
 
 def test_v131_schema_and_version():
     assert 'APP_BUILD_VERSION = ' in APP
@@ -18,8 +19,8 @@ def test_v131_schema_and_version():
 
 def test_competition_difficulty_levels_are_available():
     for label in ['Lätt','Medel','Svår','Extra svår']:
-        assert label in APP
-    assert 'difficulty' in APP
+        assert label in APP + SETUP
+    assert 'difficulty' in APP + SETUP
 
 def test_daily_windows_are_required_and_used_by_scheduler():
     assert 'pitch_day_windows' in APP
@@ -28,15 +29,13 @@ def test_daily_windows_are_required_and_used_by_scheduler():
     assert 'validation_windows' in APP
 
 def test_changing_rooms_and_prices_can_be_public():
-    assert 'Tillgång till omklädningsrum' in APP
-    assert 'Visa priser/avgifter publikt' in APP
+    assert 'Tillgång till omklädningsrum' in SETUP
+    assert 'Visa priser/avgifter publikt' in SETUP
     assert 'Priser/avgifter' in APP + INFO
     assert 'Omklädningsrum:' in INFO
 
 def test_regular_settings_autosave_without_save_button():
-    start = APP.index('def render_initial_tournament_setup')
-    end = APP.index('def _render_with_friendly_error', start)
-    block = APP[start:end]
+    block = SETUP
     assert 'Spara upplägg' not in block
     assert '_autosave_tournament_field' in block
     assert '_autosave_rule_field' in block

@@ -1,6 +1,8 @@
 from pathlib import Path
 
-APP=(Path(__file__).resolve().parents[1]/"app.py").read_text(encoding="utf-8")
+ROOT=Path(__file__).resolve().parents[1]
+APP=(ROOT/"app.py").read_text(encoding="utf-8")
+ADMIN_OVERVIEW=(ROOT/"cupnavi_core/admin_overview.py").read_text(encoding="utf-8")
 
 
 def test_admin_overview_flow_snapshot_is_reused_for_workflow_counts():
@@ -17,8 +19,8 @@ def test_admin_overview_does_not_fetch_all_matches_for_control_center():
     end=APP.index('if admin_page == "Cupinställningar":', start)
     block=APP[start:end]
     assert '_cc_matches = [dict(r) for r in all_rows(' not in block
-    assert '"upcoming": int(_v139_counts["upcoming_n"] or 0)' in block
-    assert '_v139_pitches = {"n": _v139_counts["pitches_n"]}' in block
+    assert "build_control_status(_v139_counts" in block
+    assert "pitches=_count(counts, \"pitches_n\")" in ADMIN_OVERVIEW
 
 
 def test_instruction_counts_are_batched():

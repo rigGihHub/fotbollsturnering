@@ -5,6 +5,7 @@ from cupnavi_core.public_highlights import competition_highlights, snapshot_tabl
 ROOT=Path(__file__).resolve().parents[1]
 APP=(ROOT/"app.py").read_text(encoding="utf-8")
 OVERVIEW=(ROOT/"cupnavi_core"/"public_match_overview.py").read_text(encoding="utf-8")
+MATCHES=(ROOT/"cupnavi_core"/"public_matches_view.py").read_text(encoding="utf-8")
 
 
 def _bundle():
@@ -48,7 +49,7 @@ def test_disabled_leaderboards_are_not_exposed():
 
 
 def test_public_match_summary_places_compact_highlights_beside_metrics():
-    block = APP[APP.index("_scorer_enabled = bool"):APP.index("requested_match_view =")]
+    block = MATCHES[MATCHES.index("scorer_enabled = bool"):MATCHES.index("requested_match_view =")]
     assert "build_summary_html" in block
     assert "build_highlights_html" in block
     assert "enable_scorer_leaderboard" in block
@@ -76,6 +77,6 @@ def test_snapshot_bundle_uses_loaded_data_without_group_queries():
 
 
 def test_public_highlights_do_not_reintroduce_group_db_queries_on_matches_page():
-    block = APP[APP.index("_scorer_enabled = bool"):APP.index("requested_match_view =")]
+    block = MATCHES[MATCHES.index("scorer_enabled = bool"):MATCHES.index("requested_match_view =")]
     assert "snapshot_table_bundle(" in block
     assert "calculate_all_group_tables(" not in block

@@ -2,7 +2,7 @@ from pathlib import Path
 
 
 def app_text():
-    return Path("app.py").read_text(encoding="utf-8")
+    return Path("app.py").read_text(encoding="utf-8") + Path("cupnavi_core/team_portal_view.py").read_text(encoding="utf-8")
 
 
 def test_schema_v10_adds_internal_team_messages():

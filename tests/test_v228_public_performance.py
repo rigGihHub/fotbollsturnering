@@ -4,6 +4,7 @@ import ast
 
 ROOT=Path(__file__).resolve().parents[1]
 APP=(ROOT/"app.py").read_text(encoding="utf-8")
+SCREEN=(ROOT/"cupnavi_core"/"public_shell_view.py").read_text(encoding="utf-8")
 
 
 def _fn(name):
@@ -15,8 +16,9 @@ def _fn(name):
 
 def test_screen_tables_use_batched_all_group_tables():
     public=_fn("render_public_view")
-    assert "_screen_table_bundle = calculate_all_group_tables(" in public
-    screen_block=public[public.index("_screen_table_bundle"):public.index("sponsors=all_rows",public.index("_screen_table_bundle"))]
+    assert "render_public_screen_mode(" in public
+    assert "table_bundle = calculate_all_group_tables(" in SCREEN
+    screen_block=SCREEN[SCREEN.index("table_bundle = calculate_all_group_tables"):SCREEN.index("sponsors = all_rows",SCREEN.index("table_bundle = calculate_all_group_tables"))]
     assert "calculate_table(" not in screen_block
 
 

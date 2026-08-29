@@ -16,7 +16,7 @@ def test_pitch_filter_matches_pitch_number():
     assert result == [rows[1]]
 
 def test_pitch_filter_keeps_next_match_overview_single_source():
-    text = Path("app.py").read_text(encoding="utf-8")
-    matcher=text[text.index('if public_page == "Matcher":'):text.index('if public_page == "Statistik":')]
+    matcher = Path('cupnavi_core/public_matches_view.py').read_text(encoding='utf-8')
+    feed = Path('cupnavi_core/public_match_feed_logic.py').read_text(encoding='utf-8')
     assert 'class="cn-next-match"' not in matcher
-    assert "Cupen just nu" in matcher
+    assert "Cupen just nu" in feed

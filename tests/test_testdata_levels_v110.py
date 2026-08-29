@@ -32,6 +32,6 @@ def test_demo_data_covers_portal_contacts_and_public_features():
 
 
 def test_completed_demo_level_marks_tournament_completed():
-    text = app_text()
-    assert "lifecycle_status='completed'" in text
-    assert 'Democupen är färdigspelad' in text
+    service = (Path('cupnavi_core') / 'demo_data_service.py').read_text(encoding='utf-8')
+    assert "lifecycle_status='completed'" in service
+    assert 'Democupen är färdigspelad' in service

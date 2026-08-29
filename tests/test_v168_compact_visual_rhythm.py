@@ -1,24 +1,26 @@
 from pathlib import Path
 ROOT=Path(__file__).resolve().parents[1]
 APP=(ROOT/"app.py").read_text(encoding="utf-8")
-R="2026.08.28-270-INCREMENTAL-PUBLIC-MATCHES"
+STYLE=(ROOT/"cupnavi_core/style_system.py").read_text(encoding="utf-8")
+UI=APP+"\n"+STYLE
+R="2026.08.29-291-ADMIN-PAGE-SIMPLIFICATION"
 
 def test_public_status_is_integrated_into_hero():
-    assert "cn-hero-status" in APP
+    assert "cn-hero-status" in UI
     assert 'st.info("🔴 Cupen pågår")' not in APP
-    assert "cn-hero-title-row" in APP
+    assert "cn-hero-title-row" in UI
 
 def test_redundant_mode_caption_is_removed():
     assert 'st.caption(tr("Välj läge"))' not in APP
 
 def test_desktop_density_is_tighter_but_mobile_rules_remain():
-    assert "padding-top:3.2rem !important;" in APP
-    assert ".stApp .block-container{padding-top:.75rem!important" in APP
-    assert '[data-testid="stVerticalBlock"]{gap:.42rem!important}' in APP
-    assert "@media(max-width:760px)" in APP
+    assert "padding-top:3.2rem !important;" in UI
+    assert ".stApp .block-container{padding-top:.75rem!important" in UI
+    assert '[data-testid="stVerticalBlock"]{gap:.42rem!important}' in UI
+    assert "@media(max-width:760px)" in UI
 
-def test_admin_heading_is_compact():
-    assert "cn-admin-section-label" in APP
+def test_redundant_admin_heading_is_removed():
+    assert "<div class='cn-admin-section-label'>" not in APP
     assert 'st.markdown(f"### {tr(\'Administration\')}")' not in APP
 
 def test_recommended_action_is_single_row():

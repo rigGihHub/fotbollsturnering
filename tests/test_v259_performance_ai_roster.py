@@ -85,7 +85,7 @@ def test_roster_page_loads_match_rosters_lazily_and_filters_in_sql():
 def test_expensive_secondary_tools_are_lazy():
     assert '_show_change_impact = st.toggle("Kontrollera konsekvens före större ändring"' in SOURCE
     assert '_show_deep_controls = st.toggle("Fördjupad kontroll"' in SOURCE
-    assert '_show_technical_health = st.toggle("Teknisk hälsa och backup"' in SOURCE
+    assert '_show_technical_health = st.toggle("Visa teknisk hälsa och backup"' in SOURCE
 
 
 def test_global_search_uses_one_union_query():

@@ -22,7 +22,7 @@ def test_admin_overview_hides_secondary_dashboard_detail():
         'with st.expander("Testverktyg", expanded=False)',
     ]:
         assert label in block
-    assert "next_step_title" in block
+    assert "next_step = recommend_next_step(" in block
     assert 'key=f"dashboard_next_step_{tid}"' in block
 
 
@@ -36,7 +36,7 @@ def test_admin_overview_live_drift_status_can_expand_automatically():
 def test_controls_put_domain_checks_before_technical_tools():
     block=_block('if admin_page == "Kontroller":','if admin_page == "Lag":')
     core=block.index('control_rules = one_row(')
-    technical=block.index('st.toggle("Teknisk hälsa och backup"')
+    technical=block.index('st.toggle("Visa teknisk hälsa och backup"')
     assert core < technical
     assert 'st.toggle("Fördjupad kontroll"' in block
 

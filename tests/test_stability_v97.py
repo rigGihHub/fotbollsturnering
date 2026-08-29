@@ -86,7 +86,9 @@ def test_v96_compat_schema_repairs_legacy_database_and_marks_migration():
 
 def test_public_view_uses_safe_sport_lookup_and_has_release_integrity_guard():
     text = Path("app.py").read_text(encoding="utf-8")
-    assert "_row_value(tournament, 'sport', 'Fotboll')" in text
-    assert '_row_value(tournament, "sport", "Fotboll")' in text
+    shell = Path('cupnavi_core/public_shell_view.py').read_text(encoding='utf-8')
+    matches = Path('cupnavi_core/public_matches_view.py').read_text(encoding='utf-8')
+    assert "row_value(tournament, 'sport', 'Fotboll')" in shell
+    assert 'row_value(tournament, "sport", "Fotboll")' in matches
     assert "RELEASE_FILES_MISMATCH = CORE_APP_VERSION != APP_BUILD_VERSION" in text
     assert "Kontrollen läser versionsfilen direkt från den deployade disken." in text

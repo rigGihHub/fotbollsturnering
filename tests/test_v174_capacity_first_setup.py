@@ -2,12 +2,11 @@ from pathlib import Path
 
 ROOT=Path(__file__).resolve().parents[1]
 APP=(ROOT/"app.py").read_text(encoding="utf-8")
-R="2026.08.28-270-INCREMENTAL-PUBLIC-MATCHES"
+SETUP=(ROOT/"cupnavi_core"/"initial_setup_view.py").read_text(encoding="utf-8")
+R="2026.08.29-291-ADMIN-PAGE-SIMPLIFICATION"
 
 def setup_block():
-    s=APP.index("def render_initial_tournament_setup")
-    e=APP.index("def _render_with_friendly_error",s)
-    return APP[s:e]
+    return SETUP
 
 def test_setup_order_is_capacity_first():
     block=setup_block()

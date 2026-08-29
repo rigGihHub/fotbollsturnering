@@ -28,14 +28,17 @@ def test_match_squad_deadline_locking():
 
 def test_app_contains_restricted_team_portal_flows():
     text = Path("app.py").read_text(encoding="utf-8")
+    portal = Path("cupnavi_core/team_portal_view.py").read_text(encoding="utf-8")
+    repo = Path("cupnavi_core/team_portal_repository.py").read_text(encoding="utf-8")
     assert '"Lagportal"' in text
     assert "def render_team_portal(" in text
-    assert "participant_access_credentials" in text
-    assert "match_rosters" in text
-    assert "Kopiera föregående matchtrupp" in text
-    assert "Matchtrupp ej registrerad" in text
-    assert "Endast dessa kan få matchhändelser" in text
-    assert "allow_team_public_contact" in text
+    assert "participant_access_credentials" in repo
+    assert "match_rosters" in repo
+    assert "Kopiera föregående matchtrupp" in portal
+    assert "Matchtrupp ej registrerad" in portal
+    reporter_workspace = Path("cupnavi_core/match_reporter_workspace_view.py").read_text(encoding="utf-8")
+    assert "Endast dessa kan få matchhändelser" in reporter_workspace
+    assert "allow_team_public_contact" in portal
 
 
 def test_schema_version_is_six_for_team_portal():

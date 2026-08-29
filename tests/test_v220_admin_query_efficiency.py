@@ -19,7 +19,7 @@ def test_schedule_status_reuses_flow_counts():
 
 def test_admin_overview_reuses_loaded_rules_and_workflow_counts():
     block=_admin_overview()
-    assert "_v139_rules = sidebar_rules" in block
+    assert "sidebar_rules=sidebar_rules" in block
     assert "ux_counts = _v139_counts" in block
     assert block.count("_admin_workflow_counts(tid)") == 1
 

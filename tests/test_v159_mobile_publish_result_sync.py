@@ -1,17 +1,22 @@
 from pathlib import Path
-APP=(Path(__file__).resolve().parents[1]/"app.py").read_text(encoding="utf-8")
+
+ROOT=Path(__file__).resolve().parents[1]
+APP=(ROOT/"app.py").read_text(encoding="utf-8")
+VIEW=(ROOT/"cupnavi_core"/"admin_publication_view.py").read_text(encoding="utf-8")
+RESULTS_VIEW=(ROOT/"cupnavi_core"/"admin_results_view.py").read_text(encoding="utf-8")
 
 
 def test_publish_control_exists_in_main_content_not_only_sidebar():
-    assert 'f"📣 {_publish_action_label}"' in APP
-    assert '_publish_action_label = "Uppdatera" if _has_been_published else "Publicera"' in APP
-    assert 'mobile_publish_from_admin_' in APP
-    assert '_publish_tournament_now()' in APP
+    assert 'f"📣 {action_label}"' in VIEW
+    assert 'action_label = publication_action_label(published_once=published_once)' in VIEW
+    assert 'mobile_publish_from_admin_' in VIEW
+    assert 'publish_now()' in VIEW
+    assert 'render_admin_publication_controls(' in APP
 
 
 def test_mobile_publish_uses_same_blocker_state():
-    block=APP[APP.index('# v159: Publicering'):APP.index('# Cupens livscykel')]
-    assert 'disabled=sidebar_publish_blocked' in block
+    block=VIEW[VIEW.index('# v159: Publicering'):VIEW.index('def render_admin_lifecycle_controls')]
+    assert 'disabled=publish_blocked' in block
     assert 'publish_blockers' in block
 
 
@@ -29,8 +34,9 @@ def test_publishing_marks_all_scheduled_matches_public():
 
 def test_admin_result_autosave_repairs_public_match_flag_when_cup_is_published():
     page=APP[APP.index('if admin_page == "Matcher och resultat"'):APP.index('if admin_page == "Matchhändelser"')]
-    assert 'if tournament["is_published"] and _saved_updates:' in page
+    assert 'if tournament["is_published"] and saved_updates:' in page
     assert 'UPDATE matches SET schedule_published=1 WHERE id=? AND scheduled_start IS NOT NULL' in page
+    assert 'save_result_updates=_save_admin_result_updates' in page
 
 
 def test_public_view_reads_scores_directly_from_published_match_rows():
@@ -42,5 +48,5 @@ def test_public_view_reads_scores_directly_from_published_match_rows():
 
 
 def test_draft_admin_explains_saved_results_are_not_public_yet():
-    assert 'Cupen är i utkast – resultaten sparas nu och blir publika när cupen publiceras.' in APP
-    assert '✓ Publika resultat uppdateras automatiskt.' in APP
+    assert 'Cupen är i utkast – resultaten sparas nu och blir publika när cupen publiceras.' in RESULTS_VIEW
+    assert '✓ Publika resultat uppdateras automatiskt.' in RESULTS_VIEW

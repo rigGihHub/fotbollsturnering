@@ -1,23 +1,21 @@
 
 from pathlib import Path
-import ast
 
 ROOT=Path(__file__).resolve().parents[1]
 APP=(ROOT/"app.py").read_text(encoding="utf-8")
+VIEW=(ROOT/"cupnavi_core/team_portal_view.py").read_text(encoding="utf-8")
+REPO=(ROOT/"cupnavi_core/team_portal_repository.py").read_text(encoding="utf-8")
 MIG=(ROOT/"cupnavi_core/migrations.py").read_text(encoding="utf-8")
 
 
 def _portal():
-    tree=ast.parse(APP)
-    node=next(n for n in tree.body if isinstance(n,ast.FunctionDef) and n.name=="render_team_portal")
-    lines=APP.splitlines()
-    return "\n".join(lines[node.lineno-1:node.end_lineno])
+    return VIEW
 
 
 def test_checkin_and_kit_use_conditional_helpers():
     portal=_portal()
-    assert "_set_team_checkin_if_unchanged(" in portal
-    assert "_confirm_team_kit_if_unchanged(" in portal
+    assert "deps.set_team_checkin_if_unchanged(" in portal
+    assert "deps.confirm_team_kit_if_unchanged(" in portal
     assert 'disabled=bool(team_row["kit_confirmed_at"])' in portal
 
 

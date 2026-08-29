@@ -1,7 +1,7 @@
 from pathlib import Path
 ROOT=Path(__file__).resolve().parents[1]
 APP=(ROOT/"app.py").read_text(encoding="utf-8")
-R="2026.08.28-270-INCREMENTAL-PUBLIC-MATCHES"
+R="2026.08.29-291-ADMIN-PAGE-SIMPLIFICATION"
 
 def test_placement_playoffs_have_distinct_classes():
     for token in ("qual-rank-1","qual-rank-2","qual-rank-3","qual-rank-4"):

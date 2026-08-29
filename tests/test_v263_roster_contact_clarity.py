@@ -4,7 +4,7 @@ APP = (Path(__file__).parents[1] / "app.py").read_text(encoding="utf-8")
 VERSION = (Path(__file__).parents[1] / "VERSION.txt").read_text(encoding="utf-8").strip()
 
 def test_v263_version():
-    assert VERSION == "2026.08.28-270-INCREMENTAL-PUBLIC-MATCHES"
+    assert VERSION == "2026.08.29-291-ADMIN-PAGE-SIMPLIFICATION"
 
 def test_team_contact_fields_identify_team_responsible():
     assert "Lagansvarig kontaktperson" in APP
@@ -16,5 +16,5 @@ def test_roster_navigation_is_clear_but_route_stays_compatible():
     assert '("Trupper", "Spelare & trupper")' in APP
     assert 'if admin_page == "Trupper":' in APP
     assert 'st.header("Spelare & trupper")' in APP
-    assert "Här lägger du in och hanterar spelarna i varje lag" in APP
+    assert "Välj lag och hantera spelare manuellt eller via AI-import." in APP
     assert "Deltagare → Spelare & trupper" in APP

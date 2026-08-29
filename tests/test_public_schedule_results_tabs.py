@@ -5,10 +5,11 @@ def app_text():
 
 def test_schedule_and_results_are_merged_into_matches():
     text = app_text()
+    view = Path('cupnavi_core/public_matches_view.py').read_text(encoding='utf-8')
     assert 'if public_page == "Matcher":' in text
-    assert 'tr("Kommande")' in text
-    assert 'tr("Spelade")' in text
-    assert 'show_results=None' in text
+    assert 'tr("Kommande")' in view
+    assert 'tr("Spelade")' in view
+    assert 'show_results=None' in view
 
 def test_played_matches_show_events_in_combined_match_cards():
     text = Path("cupnavi_core/public_match_cards.py").read_text(encoding="utf-8")

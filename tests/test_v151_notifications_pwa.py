@@ -5,6 +5,7 @@ from cupnavi_core.migrations import ensure_v21_schema_compat
 
 ROOT=Path(__file__).resolve().parents[1]
 APP=(ROOT/"app.py").read_text(encoding="utf-8")
+FOLLOW_VIEW=(ROOT/"cupnavi_core"/"public_team_follow_view.py").read_text(encoding="utf-8")
 
 def test_v21_schema_has_verified_subscriptions_and_delivery_log():
     con=sqlite3.connect(":memory:")
@@ -25,8 +26,8 @@ def test_notification_category_classification():
     assert classify_notification("Viktig information")=="messages"
 
 def test_public_follow_has_verified_email_optin():
-    assert "Få viktiga lagnotiser via e-post" in APP
-    assert "Skicka verifieringsmejl" in APP
+    assert "Få viktiga lagnotiser via e-post" in FOLLOW_VIEW
+    assert "Skicka verifieringsmejl" in FOLLOW_VIEW
     assert "confirm_notification_subscription" in APP
     assert "unsubscribe_notification_subscription" in APP
 

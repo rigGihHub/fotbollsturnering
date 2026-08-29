@@ -2,14 +2,15 @@ from pathlib import Path
 
 APP=Path("app.py").read_text(encoding="utf-8")
 MIG=Path("cupnavi_core/migrations.py").read_text(encoding="utf-8")
+SETUP=Path("cupnavi_core/initial_setup_view.py").read_text(encoding="utf-8")
 
 def test_named_pitches_are_schema_backed_and_autosaved():
     assert "LATEST_SCHEMA_VERSION = " in MIG
     assert "CREATE TABLE IF NOT EXISTS pitches" in MIG
     assert "ensure_v18_pitch_names_schema_compat" in MIG
     assert "def save_pitch_name" in APP
-    assert "Namnge planer/spelytor" in APP
-    assert "Planens nummer behålls bara som internt ID" in APP
+    assert "Namnge planer/spelytor" in SETUP
+    assert "Planens nummer behålls bara som internt ID" in SETUP
 
 def test_schedule_failures_offer_ranked_one_click_recovery():
     assert "def render_schedule_recovery_actions" in APP

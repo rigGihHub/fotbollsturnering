@@ -3,10 +3,11 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 APP = (ROOT / "app.py").read_text(encoding="utf-8")
 VERSION = (ROOT / "VERSION.txt").read_text(encoding="utf-8").strip()
+MATCHES = (ROOT / "cupnavi_core" / "public_matches_view.py").read_text(encoding="utf-8")
 
 
 def test_release_version_270():
-    assert VERSION == "2026.08.28-270-INCREMENTAL-PUBLIC-MATCHES"
+    assert VERSION == "2026.08.29-291-ADMIN-PAGE-SIMPLIFICATION"
 
 
 def test_public_match_paging_helper_batches_without_framework_state():
@@ -28,20 +29,20 @@ def test_public_match_paging_helper_batches_without_framework_state():
 
 
 def test_public_view_only_queries_events_for_rendered_batch():
-    start = APP.index('# v1.270: render the public schedule incrementally')
-    end = APP.index('_stage_timings["events_ms"]', start)
-    block = APP[start:end]
+    start = MATCHES.index('match_ids_signature = tuple(')
+    end = MATCHES.index('stage_timings["events_ms"]', start)
+    block = MATCHES[start:end]
     assert 'visible_match_batch(' in block
     assert 'visible_played_match_ids = [' in block
     assert 'for match_row in match_list' in block
-    assert 'for match_row in _all_filtered_matches' not in block[block.index('visible_played_match_ids = ['):]
+    assert 'for match_row in all_filtered_matches' not in block[block.index('visible_played_match_ids = ['):]
 
 
 def test_public_view_has_incremental_load_more_not_show_all():
-    start = APP.index('# v1.270: render the public schedule incrementally')
-    end = APP.index('_stage_timings["cards_weather_ms"]', start)
-    block = APP[start:end]
-    assert 'Visa {_next_batch_size} fler matcher' in block
+    start = MATCHES.index('match_ids_signature = tuple(')
+    end = MATCHES.index('stage_timings["cards_weather_ms"]', start)
+    block = MATCHES[start:end]
+    assert 'Visa {next_batch_size} fler matcher' in block
     assert 'next_visible_count(' in block
     assert 'Visa alla matcher' not in block
     assert 'PUBLIC_MATCH_BATCH_SIZE' in block

@@ -35,7 +35,7 @@ def test_recommended_next_step_only_renders_in_primary_flow():
     start=APP.index('if int(_flow_counts["teams_n"] or 0) == 0:')
     end=APP.index('current_schedule_dirty =',start)
     block=APP[start:end]
-    assert 'if _flow_index is not None and admin_page != _recommended_page:' in block
+    assert 'if _flow_index is not None and admin_page not in (_recommended_page, "Adminöversikt"):' in block
     assert '<b>Nästa steg</b>' in block
 
 

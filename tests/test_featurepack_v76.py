@@ -1,8 +1,10 @@
 from pathlib import Path
 
+ROOT = Path(__file__).resolve().parents[1]
+
 
 def app_text():
-    return Path("app.py").read_text(encoding="utf-8")
+    return (ROOT / "app.py").read_text(encoding="utf-8")
 
 
 def test_qr_sharing_uses_direct_cup_query_parameter():
@@ -16,7 +18,7 @@ def test_qr_sharing_uses_direct_cup_query_parameter():
 
 def test_sponsor_management_and_public_partners_exist():
     text = app_text()
-    info = Path("cupnavi_core/public_info_view.py").read_text(encoding="utf-8")
+    info = (ROOT / "cupnavi_core" / "public_info_view.py").read_text(encoding="utf-8")
     assert 'if admin_page == "Sponsorer":' in text
     assert "INSERT INTO sponsors(" in text
     assert "UPDATE sponsors SET" in text
@@ -35,10 +37,11 @@ def test_functionaries_can_be_administered_and_published_selectively():
 
 def test_drag_and_drop_schedule_adjustment_exists():
     text = app_text()
-    assert "sort_items(" in text
-    assert "Tillämpa drag-and-drop-ordningen" in text
-    assert "validate_schedule(tid, tournament, rules)" in text
-    assert "schedule_locked" in text
+    schedule_view = (ROOT / "cupnavi_core" / "schedule_workspace_view.py").read_text(encoding="utf-8")
+    assert "sort_items(" in text or "sort_items(" in schedule_view
+    assert "Tillämpa drag-and-drop-ordningen" in schedule_view
+    assert "validate_schedule(tid, tournament, rules)" in schedule_view
+    assert "schedule_locked" in schedule_view
 
 
 def test_import_supports_csv_and_xlsx_for_teams_and_players():

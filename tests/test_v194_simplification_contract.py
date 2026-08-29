@@ -23,4 +23,4 @@ def test_database_backend_is_not_normal_user_copy():
     assert 'st.sidebar.caption("Databas: Turso"' not in APP
 
 def test_release_v194():
-    assert 'Version v.1.266' in APP
+    assert 'release_ui_label(APP_BUILD_VERSION)' in APP

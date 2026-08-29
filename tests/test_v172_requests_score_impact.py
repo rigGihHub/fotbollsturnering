@@ -1,7 +1,8 @@
 from pathlib import Path
 ROOT=Path(__file__).resolve().parents[1]
 APP=(ROOT/"app.py").read_text(encoding="utf-8")
-R="2026.08.28-270-INCREMENTAL-PUBLIC-MATCHES"
+SCHEDULE=(ROOT/"cupnavi_core"/"schedule_workspace_view.py").read_text(encoding="utf-8")
+R="2026.08.29-291-ADMIN-PAGE-SIMPLIFICATION"
 
 def test_requests_center_exists():
     assert "CREATE TABLE IF NOT EXISTS schedule_requests" in APP
@@ -11,8 +12,8 @@ def test_requests_center_exists():
 
 def test_schedule_score_is_explainable():
     assert "def schedule_score_report" in APP
-    assert "Schema Score" in APP
-    assert "Varför fick schemat den här poängen?" in APP
+    assert "Schema Score" in SCHEDULE
+    assert "Varför fick schemat den här poängen?" in SCHEDULE
     assert "assess_schedule(" in APP
 
 def test_request_evaluation_covers_key_types():

@@ -67,8 +67,9 @@ def test_completed_cups_remain_public_and_admin_is_write_protected():
 
 def test_lifecycle_transitions_and_safe_trash_exist():
     text = app_text()
-    assert "Markera cupen som pågående" in text
-    assert "Avsluta cup" in text
+    publication_view = Path("cupnavi_core/admin_publication_view.py").read_text(encoding="utf-8")
+    assert "Markera cupen som pågående" in publication_view
+    assert "Avsluta cup" in publication_view
     assert "lifecycle_status='completed'" in text
     assert "Flytta cupen till papperskorgen" in text
     assert "Återställ cup" in text

@@ -1,18 +1,17 @@
 from pathlib import Path
 
 APP = Path("app.py").read_text(encoding="utf-8")
+VIEW = Path("cupnavi_core/initial_setup_view.py").read_text(encoding="utf-8")
 
 
 def setup_block():
-    start = APP.index("def render_initial_tournament_setup")
-    end = APP.index("def _render_with_friendly_error", start)
-    return APP[start:end]
+    return VIEW
 
 
 def test_pitch_capacity_is_part_of_early_venue_constraints():
     block = setup_block()
     capacity = block.index("Antal tillgängliga planer/spelytor")
-    windows = block.index("save_pitch_day_window")
+    windows = block.index("save_pitch_day_window(tournament_id")
     match_rules = block.index("### 5. Match- och schemaregler")
     assert capacity < windows < match_rules
     assert block.count("setup_pitches_{tournament_id}") == 1

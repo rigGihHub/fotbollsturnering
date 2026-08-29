@@ -1,5 +1,8 @@
 from pathlib import Path
-APP=(Path(__file__).resolve().parents[1]/"app.py").read_text(encoding="utf-8")
+ROOT=Path(__file__).resolve().parents[1]
+APP=(ROOT/"app.py").read_text(encoding="utf-8")
+STYLE=(ROOT/"cupnavi_core/style_system.py").read_text(encoding="utf-8")
+RESULTS_VIEW=(ROOT/"cupnavi_core"/"admin_results_view.py").read_text(encoding="utf-8")
 
 def test_admin_has_single_primary_flow():
     assert "ADMIN_PRIMARY_FLOW = [" in APP
@@ -23,11 +26,11 @@ def test_primary_flow_has_previous_next_navigation():
     assert "Nästa steg" in APP
 
 def test_results_page_has_progress_and_public_state():
-    block=APP[APP.index('if admin_page == "Matcher och resultat":'):APP.index('if admin_page == "Matchhändelser":')]
-    assert "Resultatstatus" in block
-    assert "cn-progress-track" in block
-    assert "✓ Publika resultat uppdateras automatiskt." in block
+    assert "Resultatstatus" in RESULTS_VIEW
+    assert "cn-progress-track" in RESULTS_VIEW
+    assert "✓ Publika resultat uppdateras automatiskt." in RESULTS_VIEW
+    assert "render_admin_results_workspace(" in APP
 
 def test_mobile_touch_targets_remain_accessible():
-    assert "min-height:46px !important" in APP
-    assert "button:focus-visible" in APP
+    assert "min-height:46px !important" in STYLE
+    assert "button:focus-visible" in STYLE

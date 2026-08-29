@@ -2,6 +2,7 @@
 from pathlib import Path
 ROOT=Path(__file__).resolve().parents[1]
 APP=(ROOT/"app.py").read_text(encoding="utf-8")
+RESULTS_VIEW=(ROOT/"cupnavi_core"/"admin_results_view.py").read_text(encoding="utf-8")
 
 def test_search_hit_carries_context_into_destination():
     assert "def _open_admin_search_hit(target_page, kind, entity_id, team_id=None):" in APP
@@ -24,5 +25,5 @@ def test_roster_page_auto_selects_player_team():
 def test_team_referee_and_match_search_targets_show_context():
     assert 'if _search_focus_kind == "Lag"' in APP
     assert 'if _focus_kind == "Domare"' in APP
-    assert 'if _focus_kind == "Match"' in APP
-    assert "Öppnad från Sök i cupen" in APP
+    assert 'if focus_kind == "Match"' in RESULTS_VIEW
+    assert "Öppnad från Sök i cupen" in RESULTS_VIEW

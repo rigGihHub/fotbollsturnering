@@ -67,7 +67,7 @@ def render_public_match_filters(
                     mode="age",
                     selected=selected_age,
                     team_rows=public_teams,
-                    source_team_id=_public_source_team_id,
+                    source_team_id=source_team_id,
                 )
             else:
                 filtered = []
@@ -87,7 +87,7 @@ def render_public_match_filters(
                     base_matches,
                     mode="group",
                     selected=selected_group,
-                    source_team_id=_public_source_team_id,
+                    source_team_id=source_team_id,
                 )
             else:
                 filtered = []
@@ -106,7 +106,7 @@ def render_public_match_filters(
                     base_matches,
                     mode="team",
                     selected=selected_team,
-                    source_team_id=_public_source_team_id,
+                    source_team_id=source_team_id,
                 )
             else:
                 filtered = []
@@ -129,7 +129,7 @@ def render_public_match_filters(
                     base_matches,
                     mode="pitch",
                     selected=selected_pitch,
-                    source_team_id=_public_source_team_id,
+                    source_team_id=source_team_id,
                 )
             else:
                 filtered = []

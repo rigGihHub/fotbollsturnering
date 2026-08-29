@@ -1,6 +1,10 @@
 from pathlib import Path
 
-APP=(Path(__file__).resolve().parents[1]/"app.py").read_text(encoding="utf-8")
+ROOT=Path(__file__).resolve().parents[1]
+APP=(ROOT/"app.py").read_text(encoding="utf-8")
+SCHEDULE_VIEW=(ROOT/"cupnavi_core"/"schedule_workspace_view.py").read_text(encoding="utf-8")
+RESULTS_VIEW=(ROOT/"cupnavi_core"/"admin_results_view.py").read_text(encoding="utf-8")
+RESULTS_REPO=(ROOT/"cupnavi_core"/"admin_results_repository.py").read_text(encoding="utf-8")
 
 
 def _block(start_marker, end_marker):
@@ -10,7 +14,7 @@ def _block(start_marker, end_marker):
 
 
 def test_schedule_quality_analysis_is_genuinely_lazy():
-    block=_block('if admin_page == "Skapa och publicera schema":','if admin_page == "Tabeller":')
+    block=SCHEDULE_VIEW
     toggle=block.index('_show_schedule_quality = st.toggle(')
     gate=block.index('if _show_schedule_quality:', toggle)
     score=block.index('schedule_score_report(tid,rules)', gate)
@@ -19,7 +23,7 @@ def test_schedule_quality_analysis_is_genuinely_lazy():
 
 
 def test_schedule_status_counts_are_batched_and_group_size_is_in_memory():
-    block=_block('if admin_page == "Skapa och publicera schema":','if admin_page == "Tabeller":')
+    block=SCHEDULE_VIEW
     assert 'AS group_match_n' in block
     assert 'AS unscheduled_group_n' in block
     assert 'AS scheduled_n' in block
@@ -30,7 +34,7 @@ def test_schedule_status_counts_are_batched_and_group_size_is_in_memory():
 
 
 def test_schedule_pdf_and_travel_are_lazy():
-    block=_block('if admin_page == "Skapa och publicera schema":','if admin_page == "Tabeller":')
+    block=SCHEDULE_VIEW
     assert '_show_schedule_export = st.toggle("Exportera schema"' in block
     assert 'if _show_schedule_export:' in block
     assert '_show_schedule_travel = st.toggle("Reseinformation"' in block
@@ -38,17 +42,17 @@ def test_schedule_pdf_and_travel_are_lazy():
 
 
 def test_results_reuse_loaded_matches_for_progress_and_focus():
-    block=_block('if admin_page == "Matcher och resultat":','if admin_page == "Matchhändelser":')
-    assert '_match_by_id = {int(row["id"]): row for row in matches}' in block
-    assert '_rp_total = len(matches)' in block
-    assert '_rp_played = sum(' in block
-    assert 'SELECT COUNT(*) AS total' not in block
-    assert 'SELECT * FROM matches WHERE tournament_id=? AND id=?' not in block
+    block=RESULTS_VIEW
+    assert 'match_by_id = {int(row["id"]): row for row in matches}' in block
+    assert 'total = len(matches)' in block
+    assert 'played = sum(' in block
+    assert 'SELECT COUNT(*) AS total' not in RESULTS_REPO
+    assert 'SELECT * FROM matches WHERE tournament_id=? AND id=?' not in RESULTS_REPO
 
 
 def test_results_full_schedule_is_lazy():
-    block=_block('if admin_page == "Matcher och resultat":','if admin_page == "Matchhändelser":')
-    gate=block.index('if _show_full_result_schedule:')
+    block=RESULTS_VIEW
+    gate=block.index('if show_full_result_schedule:')
     rows=block.index('all_match_rows = []',gate)
     assert gate < rows
 

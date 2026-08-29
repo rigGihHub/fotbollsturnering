@@ -2,6 +2,7 @@ from pathlib import Path
 
 APP = Path(__file__).resolve().parents[1] / "app.py"
 SOURCE = APP.read_text(encoding="utf-8")
+SCHEDULE_VIEW = (APP.parent / "cupnavi_core" / "schedule_workspace_view.py").read_text(encoding="utf-8")
 
 
 def test_flow_counts_only_load_for_primary_flow_pages():
@@ -22,13 +23,14 @@ def test_checkin_audit_is_batched_in_same_transaction():
 
 
 def test_bulk_result_save_skips_unchanged_matches_and_combines_publish_update():
-    start = SOURCE.index('if st.button("Spara alla resultat i schemat")')
-    end = SOURCE.index('st.caption("Målskyttar, assist', start)
-    block = SOURCE[start:end]
+    start = SCHEDULE_VIEW.index('if st.button("Spara alla resultat i schemat")')
+    end = SCHEDULE_VIEW.index('st.caption("Målskyttar, assist', start)
+    block = SCHEDULE_VIEW[start:end]
     assert "original_scores" in block
     assert "changed_scores" in block
     assert "if original_scores.get(match_id) != (home_score, away_score)" in block
-    assert "schedule_published=CASE WHEN scheduled_start IS NOT NULL THEN 1 ELSE schedule_published END" in block
+    assert "save_bulk_schedule_results(tid, changed_scores" in block
+    assert "schedule_published=CASE WHEN scheduled_start IS NOT NULL THEN 1 ELSE schedule_published END" in SOURCE
 
 
 def test_group_save_only_updates_changed_assignments():

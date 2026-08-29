@@ -15,16 +15,19 @@ def public_block():
 def test_public_competition_navigation_exists_and_has_active_state():
     from cupnavi_core.public_view_logic import public_navigation_specs
     block = public_block()
+    nav = Path('cupnavi_core/public_navigation_view.py').read_text(encoding='utf-8')
     assert len(public_navigation_specs()) == 5
     assert [item[0] for item in public_navigation_specs()] == ["Info","Matcher","Tabeller","Slutspel","Statistik"]
-    assert 'active_class = "active" if public_page == page_value else ""' in block
-    assert "role='button'" in block
+    assert 'active_class = "active" if current_page == page_value else ""' in nav
+    assert "role='button'" in nav
+    assert 'build_public_navigation_html(' in block
 
 
 def test_matches_merge_schedule_and_results_and_keep_filters():
     block = public_block()
+    matches_view = Path('cupnavi_core/public_matches_view.py').read_text(encoding='utf-8')
     assert 'if public_page == "Matcher":' in block
-    assert '[tr("Alla"), tr("Kommande"), tr("Spelade")]' in block
+    assert '[tr("Alla"), tr("Kommande"), tr("Spelade")]' in matches_view
     match_cards = Path("cupnavi_core/public_match_cards.py").read_text(encoding="utf-8")
     assert 'row_show_results = match_is_played if show_results is None' in match_cards
     filter_view = Path("cupnavi_core/public_match_filters_view.py").read_text(encoding="utf-8")

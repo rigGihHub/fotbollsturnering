@@ -51,7 +51,8 @@ def test_pdf_export_contains_expected_sections():
 
 
 def test_app_exposes_pdf_download():
-    text = Path("app.py").read_text(encoding="utf-8")
+    root = Path(__file__).resolve().parents[1]
+    text = (root / "cupnavi_core" / "schedule_workspace_view.py").read_text(encoding="utf-8")
     assert "Skapa komplett schemapaket som PDF" in text
     assert "Ladda ner alla scheman som PDF" in text
     assert 'mime="application/pdf"' in text

@@ -41,10 +41,12 @@ def test_public_view_batches_team_and_event_data():
     start = text.index("def render_public_view(")
     end = text.index("def render_match_reporter_view(", start)
     block = text[start:end]
+    matches_view = Path("cupnavi_core/public_matches_view.py").read_text(encoding="utf-8")
+    repository = Path("cupnavi_core/public_match_repository.py").read_text(encoding="utf-8")
     assert "public_team_by_id" in block
-    assert "public_events_by_match" in block
-    # v1.208 scopes event loading to the visible played matches instead of
-    # joining back through every tournament match.
-    assert "visible_played_match_ids" in block
-    assert "WHERE s.match_id IN ({event_placeholders})" in block
+    assert "public_events_by_match" in matches_view
+    # v1.277 keeps event loading scoped to visible played matches and moves SQL
+    # behind the read-only public repository boundary.
+    assert "visible_played_match_ids" in matches_view
+    assert "WHERE s.match_id IN ({placeholders})" in repository
     assert 'if public_page == "Matcher":' in block

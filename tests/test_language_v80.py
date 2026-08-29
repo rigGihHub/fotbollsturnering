@@ -14,8 +14,10 @@ def test_translation_layer_has_fallback():
     assert 'TRANSLATIONS["en"].get(value)' in text
 
 def test_public_navigation_is_translated():
-    text = app_text()
-    assert 'desktop_text = tr(desktop_label)' in text
+    nav_text = Path('cupnavi_core/public_navigation_view.py').read_text(encoding='utf-8')
+    assert 'translate(desktop_label)' in nav_text
+    assert 'translate(mobile_label)' in nav_text
+    assert 'translate=tr' in app_text()
     from cupnavi_core.public_view_logic import public_navigation_specs
     assert [item[2] for item in public_navigation_specs()[:4]] == [
         "Cupinfo","Schema & resultat","Tabeller","Slutspel"
@@ -27,7 +29,8 @@ def test_admin_nav_labels_are_translated():
     assert '("Besöksstatistik", tr("Besök"))' in text
 
 def test_reporter_tabs_are_translated():
-    text = app_text()
-    assert 'tr("Matchhändelser")' in text
-    assert 'tr("Domarcentral")' in text
-    assert 'tr("Offlineutkast")' in text
+    text = Path("cupnavi_core/match_reporter_workspace_view.py").read_text(encoding="utf-8")
+    assert 'deps.translate("Matchhändelser")' in text
+    assert 'deps.translate("Domarcentral")' in text
+    assert 'deps.translate("Offlineutkast")' in text
+    assert 'translate=tr' in app_text()

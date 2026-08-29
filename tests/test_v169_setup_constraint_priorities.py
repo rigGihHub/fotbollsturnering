@@ -1,7 +1,8 @@
 from pathlib import Path
 ROOT=Path(__file__).resolve().parents[1]
 APP=(ROOT/"app.py").read_text(encoding="utf-8")
-R="2026.08.28-270-INCREMENTAL-PUBLIC-MATCHES"
+SETUP=(ROOT/"cupnavi_core"/"initial_setup_view.py").read_text(encoding="utf-8")
+R="2026.08.29-291-ADMIN-PAGE-SIMPLIFICATION"
 
 def test_release_sync():
     assert f'APP_BUILD_VERSION = "{R}"' in APP
@@ -9,10 +10,10 @@ def test_release_sync():
     assert (ROOT/"VERSION.txt").read_text().strip()==R
 
 def test_setup_has_constraint_model_and_priorities():
-    assert "HÅRT KRAV = får aldrig brytas" in APP
-    assert "Schemaprioriteringar" in APP
-    assert "preference_order_json" in APP
-    assert "Turneringens tempo" in APP
+    assert "HÅRT KRAV = får aldrig brytas" in SETUP
+    assert "Schemaprioriteringar" in SETUP
+    assert "preference_order_json" in SETUP
+    assert "Turneringens tempo" in SETUP
 
 def test_team_requests_are_soft_ranked_preferences():
     assert "request_priority" in APP

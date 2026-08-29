@@ -1,8 +1,10 @@
 from pathlib import Path
-APP=(Path(__file__).resolve().parents[1]/"app.py").read_text(encoding="utf-8")
+ROOT=Path(__file__).resolve().parents[1]
+APP=(ROOT/"app.py").read_text(encoding="utf-8")
+STYLE=(ROOT/"cupnavi_core/style_system.py").read_text(encoding="utf-8")
 FILTER_VIEW=(Path(__file__).resolve().parents[1]/"cupnavi_core/public_match_filters_view.py").read_text(encoding="utf-8")
 def test_public_polish_contract():
-    assert ".cn-mode-nav-safezone{height:24px!important" in APP
+    assert ".cn-mode-nav-safezone{height:24px!important" in STYLE
     assert 'with st.popover("Dela"' in APP
     start=APP.index("def _filter_public_matches")
     end=APP.index("def _render_public_match_cards",start)

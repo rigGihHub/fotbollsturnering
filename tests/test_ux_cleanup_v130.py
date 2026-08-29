@@ -1,6 +1,7 @@
 from pathlib import Path
 
 APP = Path("app.py").read_text(encoding="utf-8")
+STYLE = Path("cupnavi_core/style_system.py").read_text(encoding="utf-8")
 
 
 def test_v130_version_and_dashboard_cleanup():
@@ -12,8 +13,8 @@ def test_v130_version_and_dashboard_cleanup():
 
 
 def test_next_step_uses_real_newlines_not_literal_escape_text():
-    assert 'st.info(f"**{next_step_title}**\\n\\n{next_step_text}")' in APP
-    assert 'st.info(f"**{next_step_title}**\\\\n\\\\n{next_step_text}")' not in APP
+    assert 'st.info(f"**{next_step.title}**\\n\\n{next_step.text}")' in APP
+    assert 'st.info(f"**{next_step.title}**\\\\n\\\\n{next_step.text}")' not in APP
 
 
 def test_optional_info_textareas_are_progressively_disclosed():
@@ -30,5 +31,5 @@ def test_optional_info_textareas_are_progressively_disclosed():
 
 
 def test_link_buttons_follow_light_design_system():
-    assert '[data-testid="stLinkButton"] a {' in APP
-    assert 'background:#FFFFFF !important;' in APP
+    assert '[data-testid="stLinkButton"] a {' in STYLE
+    assert 'background:#FFFFFF !important;' in STYLE

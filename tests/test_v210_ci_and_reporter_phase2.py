@@ -108,9 +108,10 @@ def test_lottery_playoff_can_store_explicit_winner():
 
 
 def test_app_keeps_optimistic_lock_outside_pure_helper():
-    assert "prepare_bulk_result_update(" in APP
+    workspace=(ROOT/"cupnavi_core/match_reporter_workspace_view.py").read_text(encoding="utf-8")
+    assert "prepare_bulk_result_update(" in workspace
     logic=(ROOT/"cupnavi_core/match_reporter_logic.py").read_text(encoding="utf-8")
-    assert "update_match_result_if_unchanged" not in logic
+    assert "update_match_result_if_unchanged" not in logic + workspace
     assert "update_match_result_if_unchanged(" in APP
 
 
