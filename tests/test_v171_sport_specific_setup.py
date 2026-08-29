@@ -2,7 +2,7 @@ from pathlib import Path
 ROOT=Path(__file__).resolve().parents[1]
 APP=(ROOT/"app.py").read_text(encoding="utf-8")
 SETUP=(ROOT/"cupnavi_core"/"initial_setup_view.py").read_text(encoding="utf-8")
-R="2026.08.29-301-E2E-PUBLIC-NAVIGATION-CONTRACT"
+R="2026.08.29-302-PUBLIC-MATCH-EVENT-ROBUSTNESS"
 
 def test_sport_setup_engine_exists():
     assert "def sport_setup_recommendation" in APP

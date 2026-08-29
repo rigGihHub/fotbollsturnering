@@ -6,7 +6,7 @@ VERSION = (ROOT / "VERSION.txt").read_text(encoding="utf-8").strip()
 
 
 def test_v301_release_and_navigation_contract():
-    assert VERSION == "2026.08.29-301-E2E-PUBLIC-NAVIGATION-CONTRACT"
+    assert VERSION == "2026.08.29-302-PUBLIC-MATCH-EVENT-ROBUSTNESS"
     assert "from urllib.parse import urljoin" in E2E
     assert 'href=button.get_attribute("href")' in E2E
     assert 'assert href and f"section={section}" in href' in E2E

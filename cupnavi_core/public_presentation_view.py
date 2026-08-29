@@ -311,7 +311,7 @@ def public_match_events_html(match_id, match_row=None, rows=None, team_names=Non
         team_data.setdefault(team_id, {"name": row["team_name"], "events": []})
         goals = int(row["goals"] or 0)
         reds = int(row["red_cards"] or 0)
-        public_player_name = "Skyddad spelare" if bool(row_value(row, "is_protected", 0)) else row["player_name"]
+        public_player_name = "Skyddad spelare" if bool(row_value(row, "is_protected", 0)) else str(row_value(row, "player_name", "") or "")
         if goals:
             suffix = f" ×{goals}" if goals > 1 else ""
             team_data[team_id]["events"].append(
@@ -328,10 +328,10 @@ def public_match_events_html(match_id, match_row=None, rows=None, team_names=Non
     for team_id in ordered_team_ids:
         data = team_data.get(team_id)
         if data:
-            name = data["name"]
+            name = str(data.get("name") or "")
             events = "".join(data["events"])
         else:
-            name = (team_names or {}).get(team_id, "")
+            name = str((team_names or {}).get(team_id, "") or "")
             events = "<span class='cn-no-events'>–</span>"
         team_blocks.append(
             "<div class='cn-event-team'>"
