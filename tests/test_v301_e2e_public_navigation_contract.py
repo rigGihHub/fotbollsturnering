@@ -6,9 +6,9 @@ VERSION = (ROOT / "VERSION.txt").read_text(encoding="utf-8").strip()
 
 
 def test_v301_release_and_navigation_contract():
-    assert VERSION == "2026.08.29-303-PUBLIC-MATCH-EVENT-ROW-NORMALIZATION"
-    assert "from urllib.parse import urljoin" in E2E
-    assert 'href=button.get_attribute("href")' in E2E
-    assert 'assert href and f"section={section}" in href' in E2E
-    assert 'page.goto(urljoin(BASE,href),wait_until="domcontentloaded",timeout=60000)' in E2E
-    assert 'button.click()' not in E2E[E2E.index("section_contracts = ["):E2E.index("overflow=page.evaluate")]
+    assert VERSION == "2026.08.30-320-PUBLIC-PLAYOFF-TEAM-BATCHING"
+    nav_block = E2E[E2E.index("section_contracts = ["):E2E.index("overflow=page.evaluate")]
+    assert 'button.click()' in nav_block
+    assert 'page.wait_for_url(re.compile(rf"[?&]section={re.escape(section)}(?:&|$)"),timeout=20000)' in nav_block
+    assert 'get_attribute("href")' not in nav_block
+    assert 'page.goto(urljoin(BASE,href)' not in nav_block

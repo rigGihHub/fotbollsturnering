@@ -12,7 +12,7 @@ def test_public_stats_button_updates_url_section():
     from cupnavi_core.public_view_logic import public_section_for_page
     assert public_section_for_page("Statistik") == "stats"
     assert 'href = f"?cup={cup_key}&section={quote(str(section))}{team_query}"' in PUBLIC_NAV
-    assert 'build_public_navigation_html(' in WORKSPACE
+    assert 'st.segmented_control(' in WORKSPACE
 
 def test_played_match_switch_is_url_backed_and_mobile_safe():
     assert 'st.query_params["matches"] = selected_match_view' in MATCHES

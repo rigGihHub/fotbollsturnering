@@ -4,7 +4,7 @@ ROOT = Path(__file__).resolve().parents[1]
 E2E = (ROOT / "e2e/test_streamlit_critical_journey.py").read_text()
 
 def test_release_version():
-    expected = "2026.08.29-303-PUBLIC-MATCH-EVENT-ROW-NORMALIZATION"
+    expected = "2026.08.30-320-PUBLIC-PLAYOFF-TEAM-BATCHING"
     assert (ROOT / "VERSION.txt").read_text().strip() == expected
     assert expected in (ROOT / "app.py").read_text()
 

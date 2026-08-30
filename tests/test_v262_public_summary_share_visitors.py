@@ -13,15 +13,17 @@ def test_cupinfo_is_leftmost_public_navigation_item():
     assert specs[0] == ("Info", "info", "Cupinfo", "Cupinfo")
 
 
-def test_public_summary_includes_active_visitors():
+def test_visitor_snapshot_capability_remains_but_is_not_on_primary_matches_summary():
     assert "def public_match_overview_db_snapshot(" in APP
-    assert "tr('Besökare nu')" in OVERVIEW
     assert "session_token<>?" in REPOSITORY
+    summary = OVERVIEW[OVERVIEW.index("def build_summary_html"): ]
+    assert "Besökare nu" not in summary
+    assert "active_visitors" not in summary
 
 
-def test_share_control_moved_below_public_metrics():
-    metrics_pos = MATCHES.index("active_visitors = overview_db[\"active_visitors\"]")
-    share_pos = MATCHES.index("render_share_control(tournament_id, tournament)", metrics_pos)
-    match_filter_pos = MATCHES.index("requested_match_view =", metrics_pos)
-    assert metrics_pos < share_pos < match_filter_pos
+def test_share_control_remains_below_compact_public_metrics():
+    summary_pos = MATCHES.index("summary_html = build_summary_html(")
+    share_pos = MATCHES.index("render_share_control(tournament_id, tournament)", summary_pos)
+    match_filter_pos = MATCHES.index("requested_match_view =", summary_pos)
+    assert summary_pos < share_pos < match_filter_pos
     assert "cn-share-inline-anchor" not in APP

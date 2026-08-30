@@ -16,7 +16,8 @@ def test_match_filters_and_weather_live_inside_fragment():
     assert "render_public_matches_fragment_module(" in public
     assert "st.segmented_control(" in MATCHES
     assert "filter_matches_view(" in MATCHES
-    assert 'st.toggle(' in MATCHES
+    filters = Path('cupnavi_core/public_match_filters_view.py').read_text(encoding='utf-8')
+    assert 'st.toggle(' in filters
     assert "render_match_cards(" in MATCHES
 
 def test_public_section_timings_are_recorded_per_session():

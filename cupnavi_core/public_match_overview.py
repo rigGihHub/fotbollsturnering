@@ -111,16 +111,18 @@ def build_summary_html(
     total_matches: int,
     total_score: int,
     score_label: str,
-    active_visitors: int,
-    highlights_html: str,
     tr: Callable[[str], str],
 ) -> str:
+    """Build the compact, already-loaded-data-only Matches summary.
+
+    v304 intentionally keeps leaderboard and visitor data away from the primary
+    match journey. Those secondary signals added visual density and required
+    extra DB/calculation work every time the public Matches fragment reran.
+    """
     return f"""<div class='cn-public-summary-row'>
       <div class='public-metric-grid'>
         <div class='public-metric'><div class='label'>{html.escape(tr('Lag'))}</div><div class='value'>{int(team_count)}</div></div>
         <div class='public-metric'><div class='label'>{html.escape(tr('Matcher spelade'))}</div><div class='value'>{int(played_count)} {html.escape(tr('av'))} {int(total_matches)}</div></div>
         <div class='public-metric'><div class='label'>{html.escape(str(score_label).capitalize())}</div><div class='value'>{int(total_score)}</div></div>
-        <div class='public-metric'><div class='label'>👥 {html.escape(tr('Besökare nu'))}</div><div class='value'>{int(active_visitors)}</div></div>
       </div>
-      {highlights_html}
     </div>"""

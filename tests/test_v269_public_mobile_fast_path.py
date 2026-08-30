@@ -5,13 +5,15 @@ APP = (ROOT / "app.py").read_text(encoding="utf-8")
 REPO = (ROOT / "cupnavi_core" / "public_match_repository.py").read_text(encoding="utf-8")
 VERSION = (ROOT / "VERSION.txt").read_text(encoding="utf-8").strip()
 MATCHES = (ROOT / "cupnavi_core" / "public_matches_view.py").read_text(encoding="utf-8")
+FILTERS = (ROOT / "cupnavi_core" / "public_match_filters_view.py").read_text(encoding="utf-8")
 
 
 def test_v269_version_and_weather_is_opt_in():
-    assert VERSION == "2026.08.29-303-PUBLIC-MATCH-EVENT-ROW-NORMALIZATION"
-    weather_block = MATCHES[MATCHES.index('show_match_weather = st.toggle('):]
+    assert VERSION == "2026.08.30-320-PUBLIC-PLAYOFF-TEAM-BATCHING"
+    weather_block = FILTERS[FILTERS.index('show_weather = st.toggle('):]
     weather_block = weather_block[:500]
     assert 'value=False' in weather_block
+    assert 'Filter & visning' in FILTERS
 
 
 def test_public_match_overview_uses_single_batched_sql_snapshot():

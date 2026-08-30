@@ -12,7 +12,8 @@ def test_streamlit_public_core_reuses_one_connection():
     assert "FROM matches m" in block
     assert "FROM teams WHERE tournament_id=?" in block
     public=WORKSPACE
-    assert "_public_core = public_core_snapshot(tournament_id)" in public
+    assert "_public_core = public_core_snapshot(" in public
+    assert "include_matches=_needs_public_matches" in public
 
 def test_public_api_snapshot_reuses_one_connection():
     block=REPO[REPO.index("def public_snapshot"): ]

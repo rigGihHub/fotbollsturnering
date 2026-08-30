@@ -8,7 +8,7 @@ MATCHES = (ROOT / "cupnavi_core" / "public_matches_view.py").read_text(encoding=
 
 
 def test_v268_version_and_pure_public_overview_module():
-    assert VERSION == "2026.08.29-303-PUBLIC-MATCH-EVENT-ROW-NORMALIZATION"
+    assert VERSION == "2026.08.30-320-PUBLIC-PLAYOFF-TEAM-BATCHING"
     assert "import streamlit" not in MODULE
     assert "SELECT " not in MODULE
     assert "build_live_feed_html" in MODULE

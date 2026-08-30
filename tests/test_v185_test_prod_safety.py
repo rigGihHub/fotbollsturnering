@@ -1,7 +1,7 @@
 from pathlib import Path
 ROOT=Path(__file__).resolve().parents[1]
 APP=(ROOT/"app.py").read_text(encoding="utf-8")
-R="2026.08.29-303-PUBLIC-MATCH-EVENT-ROW-NORMALIZATION"
+R="2026.08.30-320-PUBLIC-PLAYOFF-TEAM-BATCHING"
 def test_environment_persisted():
     assert '"environment_type": "TEXT NOT NULL DEFAULT \'production\'"' in APP
     assert "environment_type = st.radio(" in APP

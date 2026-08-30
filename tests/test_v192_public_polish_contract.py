@@ -10,5 +10,5 @@ def test_public_polish_contract():
     start=WORKSPACE.index("def _filter_public_matches")
     end=WORKSPACE.index("def _render_public_match_cards",start)
     assert "render_public_match_filters_module(" in WORKSPACE[start:end]
-    assert 'with st.expander("Fler filter", expanded=False):' in FILTER_VIEW
+    assert 'with st.expander("Filter & visning", expanded=False):' in FILTER_VIEW
     assert "PUBLIC VIEW POLISH V192" in APP

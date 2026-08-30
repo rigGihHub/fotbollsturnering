@@ -16,7 +16,7 @@ def test_admin_overview_hides_secondary_dashboard_detail():
     for label in [
         'with st.expander("Förberedelser i detalj", expanded=False)',
         'with st.expander("Genvägar & publik vy", expanded=False)',
-        'with st.expander("Direktredigera cupinställningar", expanded=False)',
+        'with st.expander("Direktredigera cupinställningar", expanded=True)',
         'with st.expander("Publicering & startkontroll", expanded=False)',
         'with st.expander("⚠️ Riskzon – Cup och papperskorg", expanded=False)',
         'with st.expander("Testverktyg", expanded=False)',

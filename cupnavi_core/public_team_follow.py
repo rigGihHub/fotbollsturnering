@@ -10,6 +10,8 @@ from datetime import datetime
 import html
 from typing import Any, Callable, Iterable, Mapping
 
+from cupnavi_core.public_competition import calculate_group_table
+
 
 def match_datetime(match_row: Mapping[str, Any], row_value: Callable[[Any, str, Any], Any]) -> datetime | None:
     value = row_value(match_row, "scheduled_start", None)
@@ -160,6 +162,49 @@ def favorite_team_group_id(
     except (TypeError, ValueError):
         return None
 
+
+
+def favorite_table_position_from_snapshot(
+    public_teams: Iterable[Mapping[str, Any]],
+    published_matches: Iterable[Mapping[str, Any]],
+    team_id: int,
+    tournament: Mapping[str, Any],
+    *,
+    row_value: Callable[[Any, str, Any], Any],
+) -> str:
+    """Calculate a followed team's table position from the already-loaded public snapshot.
+
+    This keeps the public team card responsive without issuing the two extra DB queries
+    used by ``calculate_table`` on every Streamlit rerun.
+    """
+    group_id = favorite_team_group_id(public_teams, team_id, row_value=row_value)
+    if group_id is None:
+        return "–"
+    group_teams = [
+        dict(row) for row in public_teams
+        if row_value(row, "group_id", None) is not None
+        and int(row_value(row, "group_id", 0)) == int(group_id)
+    ]
+    group_matches = [
+        dict(row) for row in published_matches
+        if row_value(row, "group_id", None) is not None
+        and int(row_value(row, "group_id", 0)) == int(group_id)
+        and str(row_value(row, "stage", "Gruppspel") or "Gruppspel") == "Gruppspel"
+        and row_value(row, "home_score", None) is not None
+        and row_value(row, "away_score", None) is not None
+    ]
+    rows = calculate_group_table(
+        group_teams,
+        group_matches,
+        points_win=int(row_value(tournament, "points_win", 0) or 0),
+        points_draw=int(row_value(tournament, "points_draw", 0) or 0),
+        points_loss=int(row_value(tournament, "points_loss", 0) or 0),
+        table_tiebreak=str(row_value(tournament, "table_tiebreak", "Målskillnad först") or "Målskillnad först"),
+    )
+    for row in rows:
+        if int(row.get("team_id", -1)) == int(team_id):
+            return f"{int(row.get('position', 0))}:a"
+    return "–"
 
 def favorite_table_position_label(table_rows: Iterable[Any], team_id: int) -> str:
     """Return Swedish ordinal label used by the public team card."""

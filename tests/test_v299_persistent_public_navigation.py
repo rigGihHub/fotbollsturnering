@@ -20,7 +20,7 @@ def test_existing_public_navigation_visual_contract_is_preserved():
 
 
 def test_v299_release_is_canonical():
-    expected = '2026.08.29-303-PUBLIC-MATCH-EVENT-ROW-NORMALIZATION'
+    expected = '2026.08.30-320-PUBLIC-PLAYOFF-TEAM-BATCHING'
     assert (ROOT / 'VERSION.txt').read_text(encoding='utf-8').strip() == expected
     assert expected in APP
     assert expected in (ROOT / 'cupnavi_core' / 'version.py').read_text(encoding='utf-8')

@@ -36,9 +36,8 @@ def render_public_match_filters(
         filter_label = public_team_names.get(forced_team_id, "Mitt lag")
         st.info(f"Visar matcher för **{filter_label}**.")
 
-    with st.expander("Fler filter", expanded=False):
+    with st.expander("Filter & visning", expanded=False):
         st.markdown("<span class='cn-public-filter-marker'></span>", unsafe_allow_html=True)
-        st.caption("Avgränsa matchlistan efter tävlingsklass, grupp, lag eller plan.")
         filter_mode = st.radio(
             tr("Vad vill du visa?"),
             [tr("Alla matcher"), "Tävlingsklass", tr("En grupp"), tr("Ett lag"), tr("En plan")],
@@ -138,8 +137,17 @@ def render_public_match_filters(
             filtered = list(base_matches)
             filter_label = "Alla matcher"
 
+        st.divider()
+        show_weather = st.toggle(
+            "🌦️ " + tr("Visa väderprognos"),
+            value=False,
+            key=f"public_matches_weather_{tournament_id}",
+            help="Hämtar prognos först när du väljer att visa den.",
+        )
+
     return (
         sort_public_matches(filtered),
         filter_mode,
         filter_label,
+        show_weather,
     )

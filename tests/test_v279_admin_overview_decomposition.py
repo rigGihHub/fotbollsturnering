@@ -15,7 +15,7 @@ ROOT = Path(__file__).resolve().parents[1]
 APP = (ROOT / "app.py").read_text(encoding="utf-8")
 MODULE = (ROOT / "cupnavi_core" / "admin_overview.py").read_text(encoding="utf-8")
 REPOSITORY = (ROOT / "cupnavi_core" / "admin_overview_repository.py").read_text(encoding="utf-8")
-VERSION = "2026.08.29-303-PUBLIC-MATCH-EVENT-ROW-NORMALIZATION"
+VERSION = "2026.08.30-320-PUBLIC-PLAYOFF-TEAM-BATCHING"
 
 
 def sample_counts(**overrides):

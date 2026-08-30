@@ -50,4 +50,4 @@ def test_workspace_uses_injected_persistence_callbacks():
 
 
 def test_release_version():
-    assert VERSION == "2026.08.29-303-PUBLIC-MATCH-EVENT-ROW-NORMALIZATION"
+    assert VERSION == "2026.08.30-320-PUBLIC-PLAYOFF-TEAM-BATCHING"

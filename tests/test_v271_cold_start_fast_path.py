@@ -8,7 +8,7 @@ SCHEDULE = (ROOT / "cupnavi_core" / "schedule_workspace_view.py").read_text(enco
 
 
 def test_v271_version_is_synchronized():
-    assert VERSION == "2026.08.29-303-PUBLIC-MATCH-EVENT-ROW-NORMALIZATION"
+    assert VERSION == "2026.08.30-320-PUBLIC-PLAYOFF-TEAM-BATCHING"
     assert f'APP_BUILD_VERSION = "{VERSION}"' in APP
     assert f'APP_VERSION = "{VERSION}"' in CORE_VERSION
 

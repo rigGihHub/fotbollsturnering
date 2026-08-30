@@ -48,17 +48,13 @@ def test_disabled_leaderboards_are_not_exposed():
     assert "assist" not in highlights
 
 
-def test_public_match_summary_places_compact_highlights_beside_metrics():
-    block = MATCHES[MATCHES.index("scorer_enabled = bool"):MATCHES.index("requested_match_view =")]
+def test_public_match_summary_is_compact_and_does_not_render_highlights():
+    block = MATCHES[MATCHES.index("summary_html = build_summary_html("):MATCHES.index("requested_match_view =")]
     assert "build_summary_html" in block
-    assert "build_highlights_html" in block
-    assert "enable_scorer_leaderboard" in block
-    assert "enable_assist_leaderboard" in block
+    assert "build_highlights_html" not in block
+    assert "enable_scorer_leaderboard" not in block
+    assert "enable_assist_leaderboard" not in block
     assert "cn-public-summary-row" in OVERVIEW
-    assert "Poängledare" in OVERVIEW
-    assert "Minst insläppta" in OVERVIEW
-    assert "Skytteligaledare" in OVERVIEW
-    assert "Assistledare" in OVERVIEW
 
 
 def test_snapshot_bundle_uses_loaded_data_without_group_queries():
@@ -76,7 +72,8 @@ def test_snapshot_bundle_uses_loaded_data_without_group_queries():
     assert bundle["tables"][7][0][1]["P"] == 3
 
 
-def test_public_highlights_do_not_reintroduce_group_db_queries_on_matches_page():
-    block = MATCHES[MATCHES.index("scorer_enabled = bool"):MATCHES.index("requested_match_view =")]
-    assert "snapshot_table_bundle(" in block
+def test_public_highlights_do_not_run_on_matches_page():
+    block = MATCHES[MATCHES.index("summary_html = build_summary_html("):MATCHES.index("requested_match_view =")]
+    assert "snapshot_table_bundle(" not in block
     assert "calculate_all_group_tables(" not in block
+    assert "competition_highlights(" not in block

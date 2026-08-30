@@ -9,9 +9,8 @@ from __future__ import annotations
 import time
 from typing import Any, Callable, Mapping, Sequence
 
-from cupnavi_core.public_highlights import competition_highlights, snapshot_table_bundle
 from cupnavi_core.public_match_feed_logic import classify_public_match_feed, public_match_feed_summary
-from cupnavi_core.public_match_overview import build_live_feed_html, build_highlights_html, build_summary_html
+from cupnavi_core.public_match_overview import build_live_feed_html, build_summary_html
 from cupnavi_core.public_match_paging import (
     PUBLIC_MATCH_BATCH_SIZE,
     PUBLIC_MATCH_INITIAL_BATCH,
@@ -40,7 +39,6 @@ def render_public_matches_fragment(
     source_label: Callable[[str], str],
     source_team_id: Callable[[str], int | None],
     pitch_label: Callable[[Any], str],
-    overview_snapshot: Callable[..., Mapping[str, Any]],
     render_share_control: Callable[[int, Any], Any],
     filter_matches_view: Callable[[Sequence[Any], str, str], tuple[Any, Any, str]],
     render_match_cards: Callable[..., Any],
@@ -83,36 +81,12 @@ def render_public_matches_fragment(
         st.markdown(feed_html, unsafe_allow_html=True)
     stage_timings["live_feed_ms"] = round((time.perf_counter() - stage_started) * 1000, 1)
 
-    stage_started = time.perf_counter()
-    scorer_enabled = bool(row_value(tournament, "enable_scorer_leaderboard", 1))
-    assist_enabled = bool(row_value(tournament, "enable_assist_leaderboard", 1))
-    overview_db = overview_snapshot(
-        tournament_id,
-        scorer_enabled=bool(played_matches) and scorer_enabled,
-        assist_enabled=bool(played_matches) and assist_enabled,
-    )
-    leader_rows = overview_db["leader_rows"]
-    active_visitors = overview_db["active_visitors"]
-    stage_timings["overview_db_ms"] = round((time.perf_counter() - stage_started) * 1000, 1)
-
-    stage_started = time.perf_counter()
-    highlight_tables = snapshot_table_bundle(
-        public_teams,
-        published_matches,
-        points_win=int(row_value(tournament, "points_win", 3) or 0),
-        points_draw=int(row_value(tournament, "points_draw", 1) or 0),
-        points_loss=int(row_value(tournament, "points_loss", 0) or 0),
-        table_tiebreak=str(row_value(tournament, "table_tiebreak", "Målskillnad först") or "Målskillnad först"),
-    )
-    highlights = competition_highlights(
-        highlight_tables,
-        leader_rows,
-        scorer_enabled=scorer_enabled,
-        assist_enabled=assist_enabled,
-    )
-    highlights_html = build_highlights_html(highlights, tr=tr)
-    stage_timings["highlights_ms"] = round((time.perf_counter() - stage_started) * 1000, 1)
-    # Compatibility field retained from the original profiler contract.
+    # v304: The Matches page now keeps its overview deliberately lightweight.
+    # Leaderboards and visitor telemetry belong on Statistics/analytics surfaces and
+    # previously forced an extra DB snapshot plus full table calculations on every
+    # Matches fragment rerun. Preserve profiler keys for historical comparability.
+    stage_timings["overview_db_ms"] = 0.0
+    stage_timings["highlights_ms"] = 0.0
     stage_timings["visitors_ms"] = 0.0
 
     stage_started = time.perf_counter()
@@ -122,8 +96,6 @@ def render_public_matches_fragment(
         total_matches=len(published_matches),
         total_score=total_goals,
         score_label=sport_profile(row_value(tournament, "sport", "Fotboll"))["score_label"],
-        active_visitors=active_visitors,
-        highlights_html=highlights_html,
         tr=tr,
     )
     st.markdown(summary_html, unsafe_allow_html=True)
@@ -191,7 +163,7 @@ def render_public_matches_fragment(
         st.info(f"📍 QR-länken visar Plan {requested_pitch_no}.")
 
     stage_started = time.perf_counter()
-    match_list, _match_filter_mode, match_filter_label = filter_matches_view(
+    match_list, _match_filter_mode, match_filter_label, show_match_weather = filter_matches_view(
         base_match_list,
         "public_matches",
         tr("Filtrera matcher"),
@@ -235,11 +207,6 @@ def render_public_matches_fragment(
     stage_timings["events_ms"] = round((time.perf_counter() - stage_started) * 1000, 1)
 
     stage_started = time.perf_counter()
-    show_match_weather = st.toggle(
-        "🌦️ " + tr("Visa väderprognos"),
-        value=False,
-        key=f"public_matches_weather_{tournament_id}",
-    )
     render_match_cards(
         match_list,
         show_results=None,

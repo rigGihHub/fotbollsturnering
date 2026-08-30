@@ -18,5 +18,6 @@ def test_share_qr_uses_cached_generator_inside_popover():
     assert 'with st.popover("Dela"' in block
     assert "share_qr = qr_png_bytes(share_url)" in block
 def test_weather_is_opt_in():
-    view = Path('cupnavi_core/public_matches_view.py').read_text(encoding='utf-8')
+    view = Path('cupnavi_core/public_match_filters_view.py').read_text(encoding='utf-8')
     assert 'tr("Visa väderprognos")' in view
+    assert 'value=False' in view

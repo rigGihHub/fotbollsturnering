@@ -116,9 +116,15 @@ def render_public_info_section(
         st.markdown("### ♿ Tillgänglighet")
         st.markdown(f"<div class='cn-custom-info-card'>{html.escape(row_value(tournament, 'accessibility_info', '')).replace(chr(10), '<br>')}</div>", unsafe_allow_html=True)
 
-    venue_rows = all_rows(
-        """SELECT * FROM venue_points WHERE tournament_id=? ORDER BY sort_order,id""",
-        (tournament_id,),
+    # v1.309: reuse the venue snapshot already loaded for the practical map section.
+    # The old Cupinfo path queried venue_points a second time solely for a different
+    # display order, adding an unnecessary network roundtrip on every render.
+    venue_rows = sorted(
+        venue_points_public,
+        key=lambda row: (
+            int(row_value(row, "sort_order", 0) or 0),
+            int(row_value(row, "id", 0) or 0),
+        ),
     )
     if venue_rows:
         st.markdown("### 🗺️ Cupkarta")
@@ -134,103 +140,125 @@ def render_public_info_section(
 
     all_public_matches = published_matches
     if all_public_matches and all(m["home_score"] is not None and m["away_score"] is not None for m in all_public_matches):
-        top_scorer_row = one_row(
-            """SELECT CASE WHEN COALESCE(players.is_protected,0)=1 THEN 'Skyddad spelare' ELSE players.name END AS player_name,
-                      teams.name AS team_name,SUM(s.goals) AS goals
-               FROM player_match_stats s JOIN players ON players.id=s.player_id
-               JOIN teams ON teams.id=players.team_id JOIN matches ON matches.id=s.match_id
-               WHERE matches.tournament_id=? GROUP BY players.id,players.name,players.is_protected,teams.name
-               ORDER BY goals DESC,player_name LIMIT 1""",
-            (tournament_id,),
+        # v1.309: a collapsed Streamlit expander still executes its body. The old
+        # Cupsummering therefore fetched teams and top-scorer data on every Cupinfo
+        # rerun after the cup was finished. Keep the feature, but make the expensive
+        # summary opt-in.
+        show_cup_summary = st.toggle(
+            "🏁 Visa cupsummering",
+            value=False,
+            key=f"public_cup_summary_{int(tournament_id)}",
+            help="Laddar slutlig cupsummering och toppscorer först när du vill se den.",
         )
-        summary_teams = all_rows("SELECT * FROM teams WHERE tournament_id=? ORDER BY name", (tournament_id,))
-        summary = cup_summary(tournament, summary_teams, all_public_matches, top_scorer_row)
-        with st.expander("🏁 Cupsummering", expanded=False):
-            st.markdown(
-                f"**{html.escape(summary['name'])}** · {summary['sport']}  \n"
-                f"{summary['teams']} deltagare/lag · {summary['played_matches']} spelade matcher · "
-                f"{summary['total_score']} registrerade {sport_profile(summary['sport'])['score_label']}"
+        if show_cup_summary:
+            top_scorer_row = one_row(
+                """SELECT CASE WHEN COALESCE(players.is_protected,0)=1 THEN 'Skyddad spelare' ELSE players.name END AS player_name,
+                          teams.name AS team_name,SUM(s.goals) AS goals
+                   FROM player_match_stats s JOIN players ON players.id=s.player_id
+                   JOIN teams ON teams.id=players.team_id JOIN matches ON matches.id=s.match_id
+                   WHERE matches.tournament_id=? GROUP BY players.id,players.name,players.is_protected,teams.name
+                   ORDER BY goals DESC,player_name LIMIT 1""",
+                (tournament_id,),
             )
-            if summary.get("top_scorer") and summary.get("top_scorer_score", 0) > 0:
-                st.caption(f"Toppscorer: {summary['top_scorer']} ({summary['top_scorer_team']}) – {summary['top_scorer_score']}")
+            summary_teams = all_rows("SELECT * FROM teams WHERE tournament_id=? ORDER BY name", (tournament_id,))
+            summary = cup_summary(tournament, summary_teams, all_public_matches, top_scorer_row)
+            with st.container(border=True):
+                st.markdown(
+                    f"**{html.escape(summary['name'])}** · {summary['sport']}  \n"
+                    f"{summary['teams']} deltagare/lag · {summary['played_matches']} spelade matcher · "
+                    f"{summary['total_score']} registrerade {sport_profile(summary['sport'])['score_label']}"
+                )
+                if summary.get("top_scorer") and summary.get("top_scorer_score", 0) > 0:
+                    st.caption(f"Toppscorer: {summary['top_scorer']} ({summary['top_scorer_team']}) – {summary['top_scorer_score']}")
 
-    public_team_contacts = []
-    if bool(row_value(tournament, "allow_team_public_contact", 0)):
-        public_team_contacts = all_rows(
-            """SELECT name,public_contact_name,public_contact_phone,public_contact_email
-               FROM teams WHERE tournament_id=? AND public_contact_enabled=1
-               AND (COALESCE(public_contact_name,'')<>'' OR COALESCE(public_contact_phone,'')<>'' OR COALESCE(public_contact_email,'')<>'')
-               ORDER BY name""",
+    # v1.310: secondary Cupinfo content is intentionally lazy. Streamlit expanders
+    # execute their bodies even while collapsed, so the old page performed up to
+    # four DB reads for contacts, functionaries, offers and sponsors on every
+    # Cupinfo rerun. One explicit gate keeps the default journey lightweight.
+    show_more_cup_details = st.toggle(
+        "Visa fler cupdetaljer",
+        value=False,
+        key=f"public_more_cup_details_{int(tournament_id)}",
+        help="Laddar lagkontakter, funktionärer, erbjudanden och partners först när du vill se dem.",
+    )
+    if show_more_cup_details:
+        public_team_contacts = []
+        if bool(row_value(tournament, "allow_team_public_contact", 0)):
+            public_team_contacts = all_rows(
+                """SELECT name,public_contact_name,public_contact_phone,public_contact_email
+                   FROM teams WHERE tournament_id=? AND public_contact_enabled=1
+                   AND (COALESCE(public_contact_name,'')<>'' OR COALESCE(public_contact_phone,'')<>'' OR COALESCE(public_contact_email,'')<>'')
+                   ORDER BY name""",
+                (tournament_id,),
+            )
+        if public_team_contacts:
+            with st.expander("📞 Lagkontakter"):
+                for contact in public_team_contacts:
+                    bits = [x for x in (contact["public_contact_name"], contact["public_contact_phone"], contact["public_contact_email"]) if x]
+                    st.markdown(f"**{html.escape(contact['name'])}** · " + " · ".join(html.escape(str(x)) for x in bits))
+
+        public_functionaries = all_rows(
+            """SELECT * FROM functionaries
+               WHERE tournament_id=? AND active=1 AND public_contact=1
+               ORDER BY role,name""",
             (tournament_id,),
         )
-    if public_team_contacts:
-        with st.expander("📞 Lagkontakter"):
-            for contact in public_team_contacts:
-                bits = [x for x in (contact["public_contact_name"], contact["public_contact_phone"], contact["public_contact_email"]) if x]
-                st.markdown(f"**{html.escape(contact['name'])}** · " + " · ".join(html.escape(str(x)) for x in bits))
-
-    public_functionaries = all_rows(
-        """SELECT * FROM functionaries
-           WHERE tournament_id=? AND active=1 AND public_contact=1
-           ORDER BY role,name""",
-        (tournament_id,),
-    )
-    if public_functionaries:
-        with st.expander("👥 " + tr("Funktionärer")):
-            for person in public_functionaries:
-                contact_bits = [bit for bit in (person["phone"], person["email"]) if bit]
-                pitch_text = f" · {tr('Plan')} {person['pitch_number']}" if person["pitch_number"] else ""
-                st.markdown(
-                    f"**{html.escape(person['role'])}: {html.escape(person['name'])}**"
-                    f"{pitch_text}"
-                    + (f" · {' · '.join(html.escape(x) for x in contact_bits)}" if contact_bits else "")
-                )
-
-    public_offers = all_rows(
-        """SELECT * FROM offers WHERE tournament_id=? AND active=1 ORDER BY sort_order,id""",
-        (tournament_id,),
-    )
-    if public_offers:
-        with st.expander("🎁 " + tr("Erbjudanden")):
-            for offer in public_offers:
-                business = f" · {offer['business_name']}" if offer["business_name"] else ""
-                st.markdown(f"**{html.escape(offer['title'])}**{html.escape(business)}")
-                if offer["description"]:
-                    st.write(offer["description"])
-                if offer["discount_code"]:
-                    st.caption(tr("Rabattkod"))
-                    st.code(offer["discount_code"], language=None)
-                if offer["valid_until"]:
-                    st.caption(f"{tr('Gäller t.o.m.')} {offer['valid_until']}")
-                if offer["url"]:
+        if public_functionaries:
+            with st.expander("👥 " + tr("Funktionärer")):
+                for person in public_functionaries:
+                    contact_bits = [bit for bit in (person["phone"], person["email"]) if bit]
+                    pitch_text = f" · {tr('Plan')} {person['pitch_number']}" if person["pitch_number"] else ""
                     st.markdown(
-                        f"<a href='{html.escape(offer['url'], quote=True)}' target='_blank' "
-                        f"rel='noopener noreferrer'><b>{html.escape(tr('Öppna erbjudandet'))} ↗</b></a>",
-                        unsafe_allow_html=True,
+                        f"**{html.escape(person['role'])}: {html.escape(person['name'])}**"
+                        f"{pitch_text}"
+                        + (f" · {' · '.join(html.escape(x) for x in contact_bits)}" if contact_bits else "")
                     )
 
-    public_sponsors = all_rows(
-        """SELECT * FROM sponsors WHERE tournament_id=? AND active=1 ORDER BY sort_order,id""",
-        (tournament_id,),
-    )
-    if public_sponsors:
-        with st.expander("🤝 " + tr("Partners")):
-            for sponsor in public_sponsors:
-                logo_html = (
-                    f"<img src='{sponsor['logo_data_uri']}' alt='' style='max-width:140px;max-height:70px;object-fit:contain;margin:4px 0 8px'>"
-                    if sponsor["logo_data_uri"] else ""
-                )
-                level_html = f"<div style='font-size:12px;font-weight:800;color:#166534'>{html.escape(sponsor['level'])}</div>" if sponsor["level"] else ""
-                website_html = (
-                    f"<div style='margin-top:7px'><a href='{html.escape(sponsor['website_url'], quote=True)}' target='_blank' rel='noopener noreferrer'>"
-                    f"{html.escape(tr('Besök partnern'))} ↗</a></div>"
-                    if sponsor["website_url"] else ""
-                )
-                description_html = f"<div style='margin-top:6px'>{html.escape(sponsor['description'])}</div>" if sponsor["description"] else ""
-                st.markdown(
-                    f"<div style='padding:10px 0'>{logo_html}{level_html}<b>{html.escape(sponsor['name'])}</b>{description_html}{website_html}</div>",
-                    unsafe_allow_html=True,
-                )
+        public_offers = all_rows(
+            """SELECT * FROM offers WHERE tournament_id=? AND active=1 ORDER BY sort_order,id""",
+            (tournament_id,),
+        )
+        if public_offers:
+            with st.expander("🎁 " + tr("Erbjudanden")):
+                for offer in public_offers:
+                    business = f" · {offer['business_name']}" if offer["business_name"] else ""
+                    st.markdown(f"**{html.escape(offer['title'])}**{html.escape(business)}")
+                    if offer["description"]:
+                        st.write(offer["description"])
+                    if offer["discount_code"]:
+                        st.caption(tr("Rabattkod"))
+                        st.code(offer["discount_code"], language=None)
+                    if offer["valid_until"]:
+                        st.caption(f"{tr('Gäller t.o.m.')} {offer['valid_until']}")
+                    if offer["url"]:
+                        st.markdown(
+                            f"<a href='{html.escape(offer['url'], quote=True)}' target='_blank' "
+                            f"rel='noopener noreferrer'><b>{html.escape(tr('Öppna erbjudandet'))} ↗</b></a>",
+                            unsafe_allow_html=True,
+                        )
+
+        public_sponsors = all_rows(
+            """SELECT * FROM sponsors WHERE tournament_id=? AND active=1 ORDER BY sort_order,id""",
+            (tournament_id,),
+        )
+        if public_sponsors:
+            with st.expander("🤝 " + tr("Partners")):
+                for sponsor in public_sponsors:
+                    logo_html = (
+                        f"<img src='{sponsor['logo_data_uri']}' alt='' style='max-width:140px;max-height:70px;object-fit:contain;margin:4px 0 8px'>"
+                        if sponsor["logo_data_uri"] else ""
+                    )
+                    level_html = f"<div style='font-size:12px;font-weight:800;color:#166534'>{html.escape(sponsor['level'])}</div>" if sponsor["level"] else ""
+                    website_html = (
+                        f"<div style='margin-top:7px'><a href='{html.escape(sponsor['website_url'], quote=True)}' target='_blank' rel='noopener noreferrer'>"
+                        f"{html.escape(tr('Besök partnern'))} ↗</a></div>"
+                        if sponsor["website_url"] else ""
+                    )
+                    description_html = f"<div style='margin-top:6px'>{html.escape(sponsor['description'])}</div>" if sponsor["description"] else ""
+                    st.markdown(
+                        f"<div style='padding:10px 0'>{logo_html}{level_html}<b>{html.escape(sponsor['name'])}</b>{description_html}{website_html}</div>",
+                        unsafe_allow_html=True,
+                    )
 
     with st.expander("💬 " + tr("Rapportera problem eller lämna synpunkt")):
         st.caption(tr("Feedbacken sparas till den här turneringen och kan läsas av administratören."))

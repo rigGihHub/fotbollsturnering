@@ -110,14 +110,28 @@ def render_group_table(table_rows, tournament, group_id=None, *, st, group_playo
         unsafe_allow_html=True,
     )
 
-def render_bracket_tree(bracket_id, public=False, *, st, all_rows, row_value, resolve_source, source_label, match_meta):
+def render_bracket_tree(
+    bracket_id,
+    public=False,
+    *,
+    st,
+    all_rows,
+    row_value,
+    resolve_source,
+    source_label,
+    match_meta,
+    team_by_id=None,
+):
     bracket_matches = all_rows("SELECT * FROM matches WHERE bracket_id=? ORDER BY round_no,match_no", (bracket_id,))
-    bracket_team_by_id = {}
-    if bracket_matches:
+    # v320: The public workspace already owns a compact team snapshot. Reuse it
+    # for bracket labels/colors instead of querying every team again for each
+    # displayed bracket. Admin and standalone callers keep the existing fallback.
+    bracket_team_by_id = {int(key): row for key, row in (team_by_id or {}).items()}
+    if not bracket_team_by_id and bracket_matches:
         bracket_tournament_id = int(row_value(bracket_matches[0], "tournament_id", 0) or 0)
         if bracket_tournament_id:
             bracket_team_rows = all_rows(
-                "SELECT * FROM teams WHERE tournament_id=? ORDER BY id",
+                "SELECT id,name,primary_color,secondary_color FROM teams WHERE tournament_id=? ORDER BY id",
                 (bracket_tournament_id,),
             )
             bracket_team_by_id = {int(row["id"]): row for row in bracket_team_rows}

@@ -10,7 +10,7 @@ WORKSPACE = (ROOT / "cupnavi_core" / "public_workspace_view.py").read_text(encod
 
 
 def test_release_version_v273():
-    assert VERSION == "2026.08.29-303-PUBLIC-MATCH-EVENT-ROW-NORMALIZATION"
+    assert VERSION == "2026.08.30-320-PUBLIC-PLAYOFF-TEAM-BATCHING"
 
 
 def test_navigation_builder_keeps_single_responsive_nav_and_active_page():
@@ -45,12 +45,12 @@ def test_navigation_builder_escapes_labels_and_encodes_slug():
     assert "&amp;team=" not in rendered
 
 
-def test_app_uses_builder_instead_of_inline_navigation_assembly():
+def test_navigation_builder_remains_framework_agnostic_and_native_workspace_owns_interaction():
     app = (ROOT / "app.py").read_text(encoding="utf-8")
     module = (ROOT / "cupnavi_core" / "public_navigation_view.py").read_text(encoding="utf-8")
-    assert "from cupnavi_core.public_navigation_view import build_public_navigation_html" in app
-    assert "build_public_navigation_html(" in WORKSPACE
     assert "nav_links = []" not in app
+    assert "st.segmented_control(" in WORKSPACE
+    assert "build_public_navigation_html(" not in WORKSPACE[WORKSPACE.index("if not screen_mode:"):WORKSPACE.index("_public_core = public_core_snapshot")]
     assert "import streamlit" not in module.lower()
     assert "sqlite" not in module.lower()
     assert ".execute(" not in module

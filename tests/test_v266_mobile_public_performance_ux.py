@@ -7,13 +7,13 @@ WORKSPACE = Path('cupnavi_core/public_workspace_view.py').read_text(encoding='ut
 CFG = Path('.streamlit/config.toml').read_text(encoding='utf-8')
 
 
-def test_public_nav_is_single_link_based_sticky_control():
+def test_public_nav_is_single_native_sticky_control():
     assert "cn-public-section-nav" in PUBLIC_NAV
     assert "role='button'" in PUBLIC_NAV
     assert 'st.columns(' not in PUBLIC_NAV
     assert '.button(' not in PUBLIC_NAV
     assert PUBLIC_NAV.count("cn-mobile-bottom-nav cn-public-section-nav") == 1
-    assert "build_public_navigation_html(" in WORKSPACE
+    assert "st.segmented_control(" in WORKSPACE
 
 
 def test_android_summary_uses_900px_responsive_breakpoint():

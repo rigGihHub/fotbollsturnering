@@ -17,7 +17,7 @@ def test_public_competition_navigation_exists_and_has_active_state():
     assert [item[0] for item in public_navigation_specs()] == ["Info","Matcher","Tabeller","Slutspel","Statistik"]
     assert 'active_class = "active" if current_page == page_value else ""' in nav
     assert "role='button'" in nav
-    assert 'build_public_navigation_html(' in block
+    assert 'st.segmented_control(' in block
 
 
 def test_matches_merge_schedule_and_results_and_keep_filters():
@@ -60,8 +60,10 @@ def test_statistics_include_goal_assist_cards_and_playoffs():
     assert 'st.subheader(tr("Skytteliga"))' in block
     assert 'st.subheader(tr("Assistliga"))' in block
     assert 'st.subheader(tr("Kortstatistik"))' in block
-    assert '"Gula": int(r["yellow_cards"] or 0)' in block
-    assert '"Röda": int(r["red_cards"] or 0)' in block
+    assert '"yellow_cards": int(r["yellow_cards"] or 0)' in block
+    assert '"red_cards": int(r["red_cards"] or 0)' in block
+    assert '"Gula": r["yellow_cards"]' in block
+    assert '"Röda": r["red_cards"]' in block
     assert 'if stats_section == tr("Slutspel"):' in block
 
 

@@ -1242,6 +1242,40 @@ def inject_v266_public_mobile_css(st):
         .cn-public-section-nav a.active{background:#ffffff !important;color:#14552f !important;box-shadow:0 1px 4px rgba(15,23,42,.16) !important}
         .cn-public-section-nav .cn-nav-mobile{display:none}
 
+        /* v315: native primary tournament navigation. A Streamlit widget keeps
+           clicks inside the active session instead of doing a full href page
+           navigation. The keyed container retains the same sticky green shell. */
+        [class*="st-key-cn_public_primary_nav_shell_"]{
+          position:sticky !important;top:0 !important;z-index:999995 !important;
+          width:100% !important;margin:4px 0 12px !important;padding:6px !important;
+          background:#1f6f4a !important;border:1px solid #195d3e !important;
+          border-radius:12px !important;box-shadow:0 5px 16px rgba(15,23,42,.14) !important;
+        }
+        [class*="st-key-cn_public_primary_nav_shell_"] [data-testid="stSegmentedControl"],
+        [class*="st-key-cn_public_primary_nav_shell_"] [data-testid="stButtonGroup"]{width:100% !important}
+        [class*="st-key-cn_public_primary_nav_shell_"] [data-testid="stSegmentedControl"] > div,
+        [class*="st-key-cn_public_primary_nav_shell_"] [data-testid="stButtonGroup"] > div{
+          display:grid !important;grid-template-columns:repeat(5,minmax(0,1fr)) !important;width:100% !important;gap:0 !important;
+        }
+        [class*="st-key-cn_public_primary_nav_shell_"] [data-testid="stSegmentedControl"] button,
+        [class*="st-key-cn_public_primary_nav_shell_"] [data-testid="stButtonGroup"] button{
+          min-width:0 !important;min-height:42px !important;padding:6px 7px !important;border-radius:8px !important;
+          background:transparent !important;color:#f8fffb !important;border-color:transparent !important;
+          font-size:13px !important;font-weight:800 !important;box-shadow:none !important;
+        }
+        [class*="st-key-cn_public_primary_nav_shell_"] [data-testid="stSegmentedControl"] button *,
+        [class*="st-key-cn_public_primary_nav_shell_"] [data-testid="stButtonGroup"] button *{color:#f8fffb !important}
+        [class*="st-key-cn_public_primary_nav_shell_"] [data-testid="stSegmentedControl"] button[aria-pressed="true"],
+        [class*="st-key-cn_public_primary_nav_shell_"] [data-testid="stButtonGroup"] button[aria-pressed="true"],
+        [class*="st-key-cn_public_primary_nav_shell_"] [data-testid="stSegmentedControl"] button[aria-checked="true"],
+        [class*="st-key-cn_public_primary_nav_shell_"] [data-testid="stButtonGroup"] button[aria-checked="true"]{
+          background:#fff !important;color:#14552f !important;border-color:#fff !important;box-shadow:0 1px 4px rgba(15,23,42,.16) !important;
+        }
+        [class*="st-key-cn_public_primary_nav_shell_"] [data-testid="stSegmentedControl"] button[aria-pressed="true"] *,
+        [class*="st-key-cn_public_primary_nav_shell_"] [data-testid="stButtonGroup"] button[aria-pressed="true"] *,
+        [class*="st-key-cn_public_primary_nav_shell_"] [data-testid="stSegmentedControl"] button[aria-checked="true"] *,
+        [class*="st-key-cn_public_primary_nav_shell_"] [data-testid="stButtonGroup"] button[aria-checked="true"] *{color:#14552f !important}
+
         @media(max-width:900px){
           /* Samma breakpoint som mobilnavigationen – tidigare gällde layoutfixen först
              under 760px, vilket gav sönderpressade rutor på vissa Android-viewports. */

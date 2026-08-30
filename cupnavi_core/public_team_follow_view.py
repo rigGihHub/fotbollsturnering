@@ -14,8 +14,7 @@ import streamlit as st
 from cupnavi_core.public_team_follow import (
     build_favorite_team_hero_html,
     build_favorite_team_snapshot,
-    favorite_table_position_label,
-    favorite_team_group_id,
+    favorite_table_position_from_snapshot,
     find_possible_playoff,
 )
 
@@ -36,7 +35,6 @@ def render_public_team_follow(
     public_pitch_label: Callable[[Mapping[str, Any]], str],
     pitch_label: Callable[[int, Any], str],
     swedish_datetime: Callable[[Any], str],
-    calculate_table: Callable[[int, Mapping[str, Any]], Sequence[Any]],
     one_row: Callable[..., Mapping[str, Any] | None],
     all_rows: Callable[..., Sequence[Mapping[str, Any]]],
     create_notification_subscription: Callable[..., tuple[bool, str | None]],
@@ -83,19 +81,17 @@ def render_public_team_follow(
         favorite_next = favorite_snapshot["next_match"]
 
         team_name = public_team_names.get(requested_team_id, "Lag")
-        table_position_text = "–"
-        favorite_group_id = favorite_team_group_id(
-            public_teams,
-            requested_team_id,
-            row_value=row_value,
-        )
-        if favorite_group_id:
-            try:
-                favorite_table = calculate_table(favorite_group_id, tournament)
-                table_position_text = favorite_table_position_label(favorite_table, requested_team_id)
-            except Exception:
-                # A missing/incomplete table must not block the public team page.
-                pass
+        try:
+            table_position_text = favorite_table_position_from_snapshot(
+                public_teams,
+                published_matches,
+                requested_team_id,
+                tournament,
+                row_value=row_value,
+            )
+        except Exception:
+            # A missing/incomplete table must not block the public team page.
+            table_position_text = "–"
 
         possible_playoff = find_possible_playoff(
             published_matches,
@@ -119,26 +115,6 @@ def render_public_team_follow(
         )
 
         team_action_1, team_action_2 = st.columns(2)
-        if favorite_next:
-            favorite_pitch_no = row_value(favorite_next, "pitch_number", None)
-            favorite_pitch_name = pitch_label(tournament_id, favorite_pitch_no) if favorite_pitch_no else None
-            venue_direction = one_row(
-                """SELECT url,label FROM venue_points
-                   WHERE tournament_id=? AND kind='Plan' AND url IS NOT NULL AND TRIM(url)<>''
-                     AND (LOWER(label)=LOWER(?) OR LOWER(label)=LOWER(?))
-                   ORDER BY id LIMIT 1""",
-                (
-                    tournament_id,
-                    str(favorite_pitch_name or ""),
-                    f"Plan {favorite_pitch_no}" if favorite_pitch_no else "",
-                ),
-            )
-            if venue_direction:
-                st.link_button(
-                    f"📍 Vägbeskrivning till {venue_direction['label']}",
-                    venue_direction["url"],
-                    use_container_width=True,
-                )
         if team_action_1.button(
             "🗓️ Visa mitt lags matcher",
             key=f"favorite_matches_btn_{tournament_id}",
@@ -159,6 +135,36 @@ def render_public_team_follow(
                 except KeyError:
                     pass
             st.rerun()
+
+        if favorite_next:
+            show_directions = st.toggle(
+                "📍 Visa vägbeskrivning till nästa match",
+                value=False,
+                key=f"public_team_directions_{tournament_id}_{requested_team_id}",
+                help="Hämtar planens vägbeskrivning först när du behöver den.",
+            )
+            if show_directions:
+                favorite_pitch_no = row_value(favorite_next, "pitch_number", None)
+                favorite_pitch_name = pitch_label(tournament_id, favorite_pitch_no) if favorite_pitch_no else None
+                venue_direction = one_row(
+                    """SELECT url,label FROM venue_points
+                       WHERE tournament_id=? AND kind='Plan' AND url IS NOT NULL AND TRIM(url)<>''
+                         AND (LOWER(label)=LOWER(?) OR LOWER(label)=LOWER(?))
+                       ORDER BY id LIMIT 1""",
+                    (
+                        tournament_id,
+                        str(favorite_pitch_name or ""),
+                        f"Plan {favorite_pitch_no}" if favorite_pitch_no else "",
+                    ),
+                )
+                if venue_direction:
+                    st.link_button(
+                        f"📍 Vägbeskrivning till {venue_direction['label']}",
+                        venue_direction["url"],
+                        use_container_width=True,
+                    )
+                else:
+                    st.caption("Ingen vägbeskrivningslänk finns för nästa plan ännu.")
 
         with st.expander("🔔 Få viktiga lagnotiser via e-post", expanded=False):
             st.caption("E-postadressen måste verifieras innan några notiser skickas.")
@@ -196,14 +202,23 @@ def render_public_team_follow(
                         except ValueError as exc:
                             st.error(str(exc))
 
-        notification_rows = all_rows(
-            """SELECT * FROM notifications WHERE tournament_id=? AND (team_id=? OR team_id IS NULL)
-               ORDER BY created_at DESC,id DESC LIMIT 5""",
-            (tournament_id, requested_team_id),
+        show_notification_history = st.toggle(
+            "🔔 Visa senaste lagnotiser",
+            value=False,
+            key=f"public_team_notifications_{tournament_id}_{requested_team_id}",
+            help="Hämtar de senaste notiserna för laget först när du vill läsa dem.",
         )
-        if notification_rows:
-            with st.expander(f"🔔 Viktigt för {team_name} ({len(notification_rows)})", expanded=False):
-                for note in notification_rows:
-                    st.markdown(f"**{note['title']}**  \n{note['message']}")
-                    st.caption(note["created_at"].replace("T", " "))
+        if show_notification_history:
+            notification_rows = all_rows(
+                """SELECT * FROM notifications WHERE tournament_id=? AND (team_id=? OR team_id IS NULL)
+                   ORDER BY created_at DESC,id DESC LIMIT 5""",
+                (tournament_id, requested_team_id),
+            )
+            if notification_rows:
+                with st.expander(f"🔔 Viktigt för {team_name} ({len(notification_rows)})", expanded=True):
+                    for note in notification_rows:
+                        st.markdown(f"**{note['title']}**  \n{note['message']}")
+                        st.caption(note["created_at"].replace("T", " "))
+            else:
+                st.caption("Inga lagnotiser har publicerats ännu.")
         st.caption("Bokmärk sidan – lagvalet ligger i länken och följer med nästa gång.")

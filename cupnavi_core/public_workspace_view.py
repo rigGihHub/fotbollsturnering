@@ -123,7 +123,105 @@ def render_public_workspace(tournament_id: int, tournament: Any, deps: PublicWor
                 del st.query_params["notify_unsubscribe"]
             except KeyError:
                 pass
-    _public_core = public_core_snapshot(tournament_id)
+    screen_mode = bool(hasattr(st, "query_params") and str(st.query_params.get("screen", "")) == "1")
+
+    # v314: render the normal public shell before the first core-data DB read.
+    # Navigation clicks used to wait behind matches/teams loading and the complete
+    # "Följ mitt lag" flow before the active menu could even be redrawn. The shell
+    # now reaches the browser first, while the same page content loads afterwards.
+    team_query = st.query_params.get("team") if hasattr(st, "query_params") else None
+    pitch_query = st.query_params.get("pitch") if hasattr(st, "query_params") else None
+    try:
+        requested_team_id = int(team_query) if team_query else None
+    except (TypeError, ValueError):
+        requested_team_id = None
+    try:
+        requested_pitch_no = int(pitch_query) if pitch_query else None
+    except (TypeError, ValueError):
+        requested_pitch_no = None
+
+    public_page_key = f"public_page_v167_{tournament_id}"
+    requested_section = str(st.query_params.get("section", "")) if hasattr(st, "query_params") else ""
+    public_page = resolve_public_page(requested_section, st.session_state.get(public_page_key))
+    st.session_state[public_page_key] = public_page
+    st.session_state["_cupnavi_current_public_page"] = public_page
+
+    if not screen_mode:
+        public_lifecycle = normalize_status(
+            _row_value(tournament, "lifecycle_status", None),
+            is_published=bool(tournament["is_published"]),
+        )
+        st.markdown(
+            build_public_hero_html(
+                tournament,
+                lifecycle_status=public_lifecycle,
+                cup_date_label=cup_date_label,
+                row_value=_row_value,
+                translate=tr,
+            ),
+            unsafe_allow_html=True,
+        )
+        inject_public_experience_styles(st)
+        # v315: use a native Streamlit segmented control for the five primary
+        # public sections. The old HTML <a href=...> navigation forced a full
+        # browser/query-string navigation on every click, which made switching
+        # Cupinfo / Schema / Tabeller / Slutspel / Statistik feel much slower
+        # than an in-session Streamlit widget rerun. Keep the canonical URL in
+        # sync so deep links/back-forward still work, but let the click itself
+        # stay on the existing Streamlit session.
+        nav_specs = public_navigation_specs()
+        nav_pages = [spec[0] for spec in nav_specs]
+        nav_labels = {spec[0]: (spec[2] if spec[2] == "Cupinfo" else tr(spec[2])) for spec in nav_specs}
+        nav_sections = {spec[0]: spec[1] for spec in nav_specs}
+        nav_key = f"cn_public_primary_nav_{tournament_id}"
+
+        # URL remains authoritative for direct links. The widget callback below
+        # updates the URL before Streamlit performs the normal widget rerun, so
+        # this synchronization does not overwrite a user's fresh click.
+        if st.session_state.get(nav_key) != public_page:
+            st.session_state[nav_key] = public_page
+
+        def _sync_public_primary_navigation():
+            selected_page = st.session_state.get(nav_key, public_page)
+            section = nav_sections.get(selected_page, "matches")
+            if hasattr(st, "query_params"):
+                st.query_params["section"] = section
+                # Preserve a valid team selection in the canonical deep link.
+                if requested_team_id is not None:
+                    st.query_params["team"] = str(requested_team_id)
+                else:
+                    try:
+                        del st.query_params["team"]
+                    except KeyError:
+                        pass
+
+        with st.container(key=f"cn_public_primary_nav_shell_{tournament_id}"):
+            st.segmented_control(
+                "Cup navigation",
+                nav_pages,
+                key=nav_key,
+                format_func=lambda page: nav_labels.get(page, page),
+                on_change=_sync_public_primary_navigation,
+                label_visibility="collapsed",
+            )
+
+    # v316: avoid loading the full published schedule on routes that do not use it.
+    # Statistics and Playoffs only need match rows when a followed team is active;
+    # Tables additionally needs them when final ranking is enabled so completion can
+    # be checked. Matches, Cupinfo and screen mode still load the schedule eagerly.
+    _needs_public_matches = bool(
+        screen_mode
+        or public_page in {"Matcher", "Info"}
+        or requested_team_id is not None
+        or (
+            public_page == "Tabeller"
+            and bool(_row_value(tournament, "enable_final_ranking", 0))
+        )
+    )
+    _public_core = public_core_snapshot(
+        tournament_id,
+        include_matches=_needs_public_matches,
+    )
     published_matches = _public_core["matches"]
     played_matches = [m for m in published_matches if m["home_score"] is not None and m["away_score"] is not None]
     public_teams = _public_core["teams"]
@@ -160,7 +258,6 @@ def render_public_workspace(tournament_id: int, tournament: Any, deps: PublicWor
             return public_team_names[team_id]
         return source_label(source)
 
-    screen_mode = bool(hasattr(st, "query_params") and str(st.query_params.get("screen", "")) == "1")
     if screen_mode:
         render_public_screen_mode(
             tournament_id,
@@ -175,6 +272,13 @@ def render_public_workspace(tournament_id: int, tournament: Any, deps: PublicWor
             all_rows=all_rows,
         )
         return
+
+    # Only now validate the optional team parameter against the freshly loaded team snapshot.
+    # The shell above intentionally does not wait for this DB read; an invalid team id is
+    # simply ignored by the interactive content exactly as before.
+    if requested_team_id not in public_team_names:
+        requested_team_id = None
+
     filtered_public_matches = published_matches
     next_match = next(
         (
@@ -185,35 +289,6 @@ def render_public_workspace(tournament_id: int, tournament: Any, deps: PublicWor
     )
     # Keep eager next-match calculation for parity with the existing public workspace contract.
     _ = next_match
-    public_lifecycle = normalize_status(
-        _row_value(tournament, "lifecycle_status", None),
-        is_published=bool(tournament["is_published"]),
-    )
-    st.markdown(
-        build_public_hero_html(
-            tournament,
-            lifecycle_status=public_lifecycle,
-            cup_date_label=cup_date_label,
-            row_value=_row_value,
-            translate=tr,
-        ),
-        unsafe_allow_html=True,
-    )
-
-    team_query = st.query_params.get("team") if hasattr(st, "query_params") else None
-    pitch_query = st.query_params.get("pitch") if hasattr(st, "query_params") else None
-    try:
-        requested_team_id = int(team_query) if team_query else None
-    except (TypeError, ValueError):
-        requested_team_id = None
-    try:
-        requested_pitch_no = int(pitch_query) if pitch_query else None
-    except (TypeError, ValueError):
-        requested_pitch_no = None
-    if requested_team_id not in public_team_names:
-        requested_team_id = None
-
-    inject_public_experience_styles(st)
 
     render_public_team_follow(
         tournament_id=tournament_id,
@@ -230,27 +305,9 @@ def render_public_workspace(tournament_id: int, tournament: Any, deps: PublicWor
         public_pitch_label=_public_pitch_label,
         pitch_label=pitch_label,
         swedish_datetime=swedish_datetime,
-        calculate_table=calculate_table,
         one_row=one_row,
         all_rows=all_rows,
         create_notification_subscription=create_notification_subscription,
-    )
-
-    public_page_key = f"public_page_v167_{tournament_id}"
-    requested_section = str(st.query_params.get("section", "")) if hasattr(st, "query_params") else ""
-    public_page = resolve_public_page(requested_section, st.session_state.get(public_page_key))
-    st.session_state[public_page_key] = public_page
-    st.session_state["_cupnavi_current_public_page"] = public_page
-
-    st.markdown(
-        build_public_navigation_html(
-            public_navigation_specs(),
-            current_page=public_page,
-            public_slug=_row_value(tournament, "public_slug", tournament_id) or tournament_id,
-            requested_team_id=requested_team_id,
-            translate=tr,
-        ),
-        unsafe_allow_html=True,
     )
 
     screen_url = public_cup_url(tournament_id) + ("&" if "?" in public_cup_url(tournament_id) else "?") + "screen=1"
@@ -323,7 +380,6 @@ def render_public_workspace(tournament_id: int, tournament: Any, deps: PublicWor
                 source_label=_public_source_label,
                 source_team_id=_public_source_team_id,
                 pitch_label=_public_pitch_label,
-                overview_snapshot=public_match_overview_db_snapshot,
                 render_share_control=render_public_share_control,
                 filter_matches_view=_filter_public_matches,
                 render_match_cards=_render_public_match_cards,
@@ -333,11 +389,11 @@ def render_public_workspace(tournament_id: int, tournament: Any, deps: PublicWor
         render_public_matches_fragment()
 
     if public_page == "Tabeller":
-        render_public_statistics_section(tournament_id, tournament, published_matches, played_matches, forced_section=tr("Tabeller"))
+        render_public_statistics_section(tournament_id, tournament, published_matches, played_matches, forced_section=tr("Tabeller"), public_team_by_id=public_team_by_id)
     if public_page == "Slutspel":
-        render_public_statistics_section(tournament_id, tournament, published_matches, played_matches, forced_section=tr("Slutspel"))
+        render_public_statistics_section(tournament_id, tournament, published_matches, played_matches, forced_section=tr("Slutspel"), public_team_by_id=public_team_by_id)
     if public_page == "Statistik":
-        render_public_statistics_section(tournament_id, tournament, published_matches, played_matches, forced_section=tr("Topplistor"))
+        render_public_statistics_section(tournament_id, tournament, published_matches, played_matches, forced_section=tr("Topplistor"), public_team_by_id=public_team_by_id)
     if public_page == "Info":
         render_public_info_section(tournament_id, tournament, published_matches)
 

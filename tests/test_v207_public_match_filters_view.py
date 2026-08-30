@@ -7,7 +7,7 @@ WORKSPACE=(ROOT/"cupnavi_core/public_workspace_view.py").read_text(encoding="utf
 
 def test_filter_ui_is_extracted():
     assert "def render_public_match_filters(" in FILTER_VIEW
-    assert 'with st.expander("Fler filter", expanded=False):' in FILTER_VIEW
+    assert 'with st.expander("Filter & visning", expanded=False):' in FILTER_VIEW
     assert 'tr("Välj grupp")' in FILTER_VIEW
     assert 'tr("Välj lag")' in FILTER_VIEW
     assert 'tr("Välj plan")' in FILTER_VIEW
