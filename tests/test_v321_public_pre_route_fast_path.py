@@ -6,7 +6,7 @@ VERSION = (ROOT / "VERSION.txt").read_text(encoding="utf-8").strip()
 
 
 def test_v321_version():
-    assert VERSION == "2026.08.31-353-GROUP-FLOW-PITCH-TIMING"
+    assert VERSION == "2026.08.31-354-ADDRESS-READINESS-FIX"
 
 
 def test_public_view_has_css_fast_path_branch():

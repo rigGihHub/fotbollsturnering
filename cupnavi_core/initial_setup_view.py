@@ -207,6 +207,7 @@ def render_initial_tournament_setup(tournament_id, tournament, *, deps: InitialS
     st.markdown("**Namnge planer/spelytor**")
     st.caption("Ge varje plan ett eget namn, exempelvis Huvudplan, Hall A eller Arena 2. Planens nummer behålls bara som internt ID.")
     pitch_names={}
+    _pitch_address_status=[]
     for pr in pitch_rows:
         pitch=int(pr["pitch_number"]); saved_name=str(pr["name"] or f"Plan {pitch}")
         nk=f"pitch_name_{tournament_id}_{pitch}"
@@ -250,18 +251,15 @@ def render_initial_tournament_setup(tournament_id, tournament, *, deps: InitialS
                 )
                 saved_address_verified=bool(verified)
                 st.session_state[f"autosave_notice_{tournament_id}"]="✓ Adresskontrollen sparades."
+            _pitch_address_status.append((address.strip(), bool(verified)))
         else:
             saved_address_verified=False
+            _pitch_address_status.append(("", False))
             st.caption("Lägg in en adress om deltagarna ska kunna navigera till spelplatsen.")
-    _pitch_rows_current=ensure_pitch_definitions(tournament_id,current_pitch_count)
-    _addresses_to_verify=[
-        row for row in _pitch_rows_current
-        if str(_row_value(row,"address","") or "").strip()
-        and not bool(_row_value(row,"address_verified",0))
-    ]
+    _addresses_to_verify=[address for address, verified in _pitch_address_status if address and not verified]
     if _addresses_to_verify:
         st.warning(f"{len(_addresses_to_verify)} planadress(er) behöver fortfarande verifieras i Google Maps.")
-    elif any(str(_row_value(row,"address","") or "").strip() for row in _pitch_rows_current):
+    elif any(address for address, _verified in _pitch_address_status):
         st.success("✓ Inlagda planadresser är verifierade i Google Maps.")
 
     st.caption("Kapacitetssteget anger vad som är möjligt. CupNavi förklarar senare hur prioriteringarna påverkar schemat.")

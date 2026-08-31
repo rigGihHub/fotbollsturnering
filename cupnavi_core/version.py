@@ -1,4 +1,4 @@
-APP_VERSION = "2026.08.31-353-GROUP-FLOW-PITCH-TIMING"
+APP_VERSION = "2026.08.31-354-ADDRESS-READINESS-FIX"
 
 
 def release_ui_label(version: str) -> str:

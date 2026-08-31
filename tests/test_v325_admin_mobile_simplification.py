@@ -6,7 +6,7 @@ VERSION = Path('VERSION.txt').read_text().strip()
 
 
 def test_v325_version():
-    assert VERSION == '2026.08.31-353-GROUP-FLOW-PITCH-TIMING'
+    assert VERSION == '2026.08.31-354-ADDRESS-READINESS-FIX'
 
 
 def test_admin_main_area_uses_one_segmented_selector_not_five_columns():

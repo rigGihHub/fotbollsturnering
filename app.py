@@ -80,7 +80,7 @@ from cupnavi_core.schedule_quality import assess_schedule
 from cupnavi_core.public_competition import calculate_group_table
 from cupnavi_core.initial_setup_view import InitialSetupDependencies, render_initial_tournament_setup as render_initial_tournament_setup_module
 from cupnavi_core.home_away import orientation_balance_score
-from cupnavi_core.migrations import apply_migrations, LATEST_SCHEMA_VERSION, ensure_competition_class_schema_compat, ensure_v16_setup_schema_compat, ensure_v18_pitch_names_schema_compat, ensure_v19_schema_compat, ensure_v20_schema_compat, ensure_v21_schema_compat
+from cupnavi_core.migrations import apply_migrations, LATEST_SCHEMA_VERSION, ensure_competition_class_schema_compat, ensure_v16_setup_schema_compat, ensure_v18_pitch_names_schema_compat, ensure_v19_schema_compat, ensure_v20_schema_compat, ensure_v21_schema_compat, ensure_v26_schema_compat
 from cupnavi_core.health import collect_database_health
 from cupnavi_core.backup import build_backup_bytes, validate_backup_bytes, restore_backup_as_new_tournament
 from cupnavi_core.rate_limit import consume_rate_limit
@@ -190,7 +190,7 @@ def inject_v198_visual_system():
     return _inject_v198_visual_system_impl(st)
 
 
-APP_BUILD_VERSION = "2026.08.31-353-GROUP-FLOW-PITCH-TIMING"
+APP_BUILD_VERSION = "2026.08.31-354-ADDRESS-READINESS-FIX"
 APP_VERSION = APP_BUILD_VERSION
 
 def read_core_version_from_disk():
@@ -551,7 +551,7 @@ def pitch_definitions(tournament_id, pitch_count=None):
     Never let that compatibility state crash Match/Result views.
     """
     params=[int(tournament_id)]
-    sql="SELECT tournament_id,pitch_number,name,address FROM pitches WHERE tournament_id=?"
+    sql="SELECT tournament_id,pitch_number,name,address,address_verified FROM pitches WHERE tournament_id=?"
     if pitch_count is not None:
         sql += " AND pitch_number<=?"; params.append(int(pitch_count))
     sql += " ORDER BY pitch_number"
@@ -564,6 +564,7 @@ def pitch_definitions(tournament_id, pitch_count=None):
         with db() as con:
             ensure_v18_pitch_names_schema_compat(con)
             ensure_v19_schema_compat(con)
+            ensure_v26_schema_compat(con)
             con.commit()
         _clear_render_query_cache()
         return all_rows(sql, tuple(params))

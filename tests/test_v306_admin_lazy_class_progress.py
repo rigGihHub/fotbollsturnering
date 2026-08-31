@@ -12,7 +12,7 @@ def _overview_block():
 
 
 def test_release_version():
-    assert VERSION == "2026.08.31-353-GROUP-FLOW-PITCH-TIMING"
+    assert VERSION == "2026.08.31-354-ADDRESS-READINESS-FIX"
 
 
 def test_class_progress_query_removed_from_default_overview():

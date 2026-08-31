@@ -4,7 +4,7 @@ APP=(ROOT/"app.py").read_text()
 VERSION=(ROOT/"VERSION.txt").read_text().strip()
 
 def test_version():
-    assert VERSION=="2026.08.31-353-GROUP-FLOW-PITCH-TIMING"
+    assert VERSION=="2026.08.31-354-ADDRESS-READINESS-FIX"
     assert f'APP_BUILD_VERSION = "{VERSION}"' in APP
 
 def test_global_admin_navigation_has_four_real_groups():
