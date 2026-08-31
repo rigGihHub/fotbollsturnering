@@ -6,7 +6,7 @@ VERSION = (ROOT / 'VERSION.txt').read_text(encoding='utf-8').strip()
 
 
 def test_v324_version():
-    assert VERSION == '2026.08.31-348-GUIDED-CUP-SETUP'
+    assert VERSION == '2026.08.31-349-BEGINNER-FIRST-RUN'
 
 
 def test_reporter_uses_lazy_section_selector_instead_of_tabs():

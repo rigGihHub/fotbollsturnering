@@ -6,7 +6,7 @@ VERSION = (ROOT / "VERSION.txt").read_text(encoding="utf-8").strip()
 
 
 def test_release_version():
-    assert VERSION == "2026.08.31-348-GUIDED-CUP-SETUP"
+    assert VERSION == "2026.08.31-349-BEGINNER-FIRST-RUN"
 
 
 def test_admin_can_switch_tournament_without_sidebar():

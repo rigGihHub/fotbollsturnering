@@ -2,7 +2,7 @@ from pathlib import Path
 ROOT=Path(__file__).resolve().parents[1]
 APP=(ROOT/"app.py").read_text(encoding="utf-8")
 UX=(ROOT/"cupnavi_core/ux2.py").read_text(encoding="utf-8")
-VERSION="2026.08.31-348-GUIDED-CUP-SETUP"
+VERSION="2026.08.31-349-BEGINNER-FIRST-RUN"
 
 def overview_block():
     start=APP.index('elif admin_page == "Adminöversikt":'); end=APP.index('if admin_page == "Cupinställningar":', start); return APP[start:end]
@@ -21,7 +21,7 @@ def test_admin_has_five_simplified_top_groups():
 def test_overview_has_one_primary_next_step_and_compact_flow():
     block=overview_block()
     assert block.count('key=f"dashboard_next_step_{tid}"')==1
-    assert 'st.markdown("#### Cupflöde")' in block
+    assert 'st.markdown("#### Din väg till en färdig cup")' in block
     assert '("Lag", teams_n > 0)' in block
     assert '("Publicerad", bool(tournament["is_published"]))' in block
 

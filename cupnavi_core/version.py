@@ -1,4 +1,4 @@
-APP_VERSION = "2026.08.31-348-GUIDED-CUP-SETUP"
+APP_VERSION = "2026.08.31-349-BEGINNER-FIRST-RUN"
 
 
 def release_ui_label(version: str) -> str:

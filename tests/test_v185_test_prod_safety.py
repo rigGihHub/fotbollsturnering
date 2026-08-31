@@ -1,7 +1,7 @@
 from pathlib import Path
 ROOT=Path(__file__).resolve().parents[1]
 APP=(ROOT/"app.py").read_text(encoding="utf-8")
-R="2026.08.31-348-GUIDED-CUP-SETUP"
+R="2026.08.31-349-BEGINNER-FIRST-RUN"
 def test_environment_persisted():
     assert '"environment_type": "TEXT NOT NULL DEFAULT \'production\'"' in APP
     assert "environment_type = st.radio(" in APP

@@ -2,7 +2,7 @@ from pathlib import Path
 ROOT=Path(__file__).resolve().parents[1]
 APP=(ROOT/"app.py").read_text(encoding="utf-8")
 SCHEDULE=(ROOT/"cupnavi_core"/"schedule_workspace_view.py").read_text(encoding="utf-8")
-R="2026.08.31-348-GUIDED-CUP-SETUP"
+R="2026.08.31-349-BEGINNER-FIRST-RUN"
 
 def test_requests_center_exists():
     assert "CREATE TABLE IF NOT EXISTS schedule_requests" in APP

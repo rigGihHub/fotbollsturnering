@@ -39,5 +39,5 @@ def test_core_components_are_normalized():
         assert token in STYLE
 
 def test_release_is_v198():
-    assert VERSION == "2026.08.31-348-GUIDED-CUP-SETUP"
+    assert VERSION == "2026.08.31-349-BEGINNER-FIRST-RUN"
     assert "release_ui_label(APP_BUILD_VERSION)" in APP

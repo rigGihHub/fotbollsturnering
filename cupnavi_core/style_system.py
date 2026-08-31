@@ -287,6 +287,38 @@ def inject_custom_css(st):
             outline-offset:-2px !important;
           }
 
+          /* v349: Streamlit/BaseWeb kan rendera månads-/årsnavigering och
+             filler/header-rader utanför själva gridrollen. De får inte ärva
+             appens mörka button/popover-bakgrund. */
+          [data-baseweb="calendar"] header,
+          [data-baseweb="calendar"] header *,
+          [data-baseweb="calendar"] [role="presentation"],
+          [data-baseweb="calendar"] [role="presentation"] *,
+          [data-baseweb="calendar"] [data-baseweb="button"],
+          [data-baseweb="calendar"] [data-baseweb="button"] *,
+          [data-baseweb="calendar"] [role="button"],
+          [data-baseweb="calendar"] [role="button"] * {
+            color:#0f172a !important;
+          }
+          [data-baseweb="calendar"] header,
+          [data-baseweb="calendar"] [role="presentation"] {
+            background:#ffffff !important;
+          }
+          [data-baseweb="calendar"] [data-baseweb="button"],
+          [data-baseweb="calendar"] [role="button"] {
+            background:#ffffff !important;
+            border-color:#cbd5e1 !important;
+          }
+          [data-baseweb="calendar"] [data-baseweb="button"]:hover,
+          [data-baseweb="calendar"] [role="button"]:hover {
+            background:#f1f5f9 !important;
+          }
+          [data-baseweb="calendar"] [aria-selected="true"][role="gridcell"],
+          [data-baseweb="calendar"] [aria-selected="true"][role="gridcell"] * {
+            background:#166534 !important;
+            color:#ffffff !important;
+          }
+
           /* ---------- Checkbox, radio och toggles ---------- */
           [data-testid="stCheckbox"] label,
           [data-testid="stRadio"] label,

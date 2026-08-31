@@ -190,7 +190,7 @@ def inject_v198_visual_system():
     return _inject_v198_visual_system_impl(st)
 
 
-APP_BUILD_VERSION = "2026.08.31-348-GUIDED-CUP-SETUP"
+APP_BUILD_VERSION = "2026.08.31-349-BEGINNER-FIRST-RUN"
 APP_VERSION = APP_BUILD_VERSION
 
 def read_core_version_from_disk():
@@ -8396,9 +8396,20 @@ if _flow_index is not None:
     _flow_played = int(_flow_counts["played_n"] or 0)
     _flow_scheduled = int(_flow_counts["scheduled_n"] or 0)
 
+# v349: a brand-new cup is not "broken" just because no schedule exists yet.
+# Keep system-status/publishing noise away until the organiser has actually
+# started the participant journey.
+_first_run_new_cup = bool(
+    _flow_index is not None
+    and int(_flow_counts["teams_n"] or 0) == 0
+    and int(_flow_counts["groups_n"] or 0) == 0
+    and int(_flow_counts["matches_n"] or 0) == 0
+    and not bool(tournament["is_published"])
+)
+
 # Sidornas egna rubriker beskriver redan syftet. Globalt visar vi bara flödesläge
 # och cupstatus på huvudflödets sidor, så att samma information inte upprepas.
-if _flow_index is not None:
+if _flow_index is not None and not _first_run_new_cup:
     _publish_class = "good" if tournament["is_published"] else "warn"
     _publish_text = "Publicerad" if tournament["is_published"] else "Utkast"
     _schedule_class = "warn" if tournament["schedule_dirty"] else ("good" if _flow_scheduled else "")
@@ -8520,18 +8531,19 @@ def _unpublish_tournament_now():
     )
 
 
-render_admin_publication_controls(
-    tournament_id=tid,
-    is_published=bool(tournament["is_published"]),
-    published_once=bool(_row_value(tournament, "published_once", 0)),
-    playoff_model_confirmed=bool(tournament["playoff_model_confirmed"]),
-    scheduled_matches=sidebar_scheduled,
-    schedule_dirty=bool(tournament["schedule_dirty"]),
-    schedule_errors=sidebar_errors,
-    schedule_warnings=sidebar_warnings,
-    publish_now=_publish_tournament_now,
-    unpublish_now=_unpublish_tournament_now,
-)
+if not _first_run_new_cup:
+    render_admin_publication_controls(
+        tournament_id=tid,
+        is_published=bool(tournament["is_published"]),
+        published_once=bool(_row_value(tournament, "published_once", 0)),
+        playoff_model_confirmed=bool(tournament["playoff_model_confirmed"]),
+        scheduled_matches=sidebar_scheduled,
+        schedule_dirty=bool(tournament["schedule_dirty"]),
+        schedule_errors=sidebar_errors,
+        schedule_warnings=sidebar_warnings,
+        publish_now=_publish_tournament_now,
+        unpublish_now=_unpublish_tournament_now,
+    )
 
 # Cupens livscykel: publicerad -> pågår -> avslutad. Avslutad cup blir skrivskyddad
 # i admin men ligger kvar publikt tills admin uttryckligen flyttar den till papperskorgen.
@@ -8845,18 +8857,16 @@ if admin_page == "Instruktioner":
 
 
 elif admin_page == "Adminöversikt":
-    st.header("Adminöversikt")
-    current_admin_mode = admin_mode(tournament["start_date"], tournament["end_date"], tournament_lifecycle)
-    mode_labels = {
-        "planning": "Planeringsläge",
-        "live": "🔴 Cupdagsläge",
-        "after": "🏆 Efter cupen",
-    }
-
-    # v337: one status line, one next action, only real blockers, one compact flow.
-    # The grouped navigation above remains the normal way to move between workspaces.
     workflow_counts = _admin_workflow_counts(tid)
     expected_teams = int(tournament["expected_team_count"] or 0)
+    teams_n = int(workflow_counts["teams_n"] or 0)
+    groups_n = int(workflow_counts["groups_n"] or 0)
+    matches_n = int(workflow_counts["matches_n"] or 0)
+    played_n = int(workflow_counts["played_n"] or 0)
+    first_run_new_cup = bool(
+        teams_n == 0 and groups_n == 0 and matches_n == 0 and not bool(tournament["is_published"])
+    )
+
     readiness = build_readiness(
         workflow_counts,
         expected_teams=expected_teams,
@@ -8868,27 +8878,69 @@ elif admin_page == "Adminöversikt":
         schedule_dirty=bool(tournament["schedule_dirty"]),
     )
 
-    teams_n = int(workflow_counts["teams_n"] or 0)
-    groups_n = int(workflow_counts["groups_n"] or 0)
-    matches_n = int(workflow_counts["matches_n"] or 0)
-    played_n = int(workflow_counts["played_n"] or 0)
-    publication_label = "Publicerad" if bool(tournament["is_published"]) else "Utkast"
-    st.caption(
-        f"**{mode_labels.get(current_admin_mode, 'Planeringsläge')}** · "
-        f"{teams_n} lag · {groups_n} grupper · {played_n}/{matches_n} resultat · {publication_label}"
-    )
-
-    with st.container(border=True):
-        st.markdown(f"### {next_step.title}")
-        st.write(next_step.text)
-        st.button(
-            f"Fortsätt → {next_step.title.replace('Nästa steg: ', '')}",
-            key=f"dashboard_next_step_{tid}",
-            type="primary",
-            use_container_width=True,
-            on_click=_set_admin_page,
-            args=(next_step.target,),
+    if first_run_new_cup:
+        st.markdown(f"## 🎉 {html.escape(tournament['name'])} är skapad!")
+        st.write(
+            "Nu hjälper CupNavi dig att göra cupen spelklar. "
+            "Du behöver inte kunna hur en cup ska planeras – vi guidar dig steg för steg."
         )
+        with st.container(border=True):
+            st.markdown("### Din väg till en färdig cup")
+            st.markdown(
+                """
+                **① Lägg till lagen** ← **Du är här**  
+                Berätta vilka lag som ska delta.
+
+                **② Dela in lagen i grupper**  
+                CupNavi kan föreslå en bra gruppindelning.
+
+                **③ Kontrollera cupens upplägg**  
+                CupNavi hjälper dig med matchtid, vila och slutspel.
+
+                **④ Skapa spelschemat**  
+                CupNavi räknar ut tider och planer.
+
+                **⑤ Kontrollera och publicera**  
+                Vi kontrollerar att allt fungerar innan cupen blir publik.
+                """
+            )
+            st.button(
+                "Lägg till första laget →",
+                type="primary",
+                use_container_width=True,
+                key=f"v349_first_team_{tid}",
+                on_click=_set_admin_page,
+                args=("Lag",),
+            )
+            st.caption("Det mesta går att ändra senare. Du behöver inte göra alla avancerade inställningar nu.")
+        st.info(
+            "CupNavi visar publicering, schemavarningar och avancerade driftverktyg först när de blir relevanta."
+        )
+    else:
+        st.header("Adminöversikt")
+        current_admin_mode = admin_mode(tournament["start_date"], tournament["end_date"], tournament_lifecycle)
+        mode_labels = {
+            "planning": "Planeringsläge",
+            "live": "🔴 Cupdagsläge",
+            "after": "🏆 Efter cupen",
+        }
+        publication_label = "Publicerad" if bool(tournament["is_published"]) else "Utkast"
+        st.caption(
+            f"**{mode_labels.get(current_admin_mode, 'Planeringsläge')}** · "
+            f"{teams_n} lag · {groups_n} grupper · {played_n}/{matches_n} resultat · {publication_label}"
+        )
+
+        with st.container(border=True):
+            st.markdown(f"### {next_step.title}")
+            st.write(next_step.text)
+            st.button(
+                f"Fortsätt → {next_step.title.replace('Nästa steg: ', '')}",
+                key=f"dashboard_next_step_{tid}",
+                type="primary",
+                use_container_width=True,
+                on_click=_set_admin_page,
+                args=(next_step.target,),
+            )
 
     checkin_enabled = bool(_row_value(tournament, "enable_team_checkin", 1))
     _progress_unused, attention = build_progress_and_attention(
@@ -8899,7 +8951,7 @@ elif admin_page == "Adminöversikt":
     )
     # Publiceringsstatus is already visible above and is handled by the primary next step.
     attention = [item for item in attention if item["target"] != "Kontroller"]
-    if attention:
+    if attention and not first_run_new_cup:
         st.markdown("#### Kräver din uppmärksamhet")
         for attention_index, item in enumerate(attention[:3]):
             attention_cols = st.columns([5, 2])
@@ -8920,10 +8972,11 @@ elif admin_page == "Adminöversikt":
         ("Resultat", matches_n > 0 and played_n == matches_n),
         ("Publicerad", bool(tournament["is_published"])),
     ]
-    st.markdown("#### Cupflöde")
-    st.markdown(" · ".join(f"{'✓' if done else '○'} {label}" for label, done in flow_items))
+    if not first_run_new_cup:
+        st.markdown("#### Din väg till en färdig cup")
+        st.markdown(" → ".join(f"{'✓' if done else '○'} {label}" for label, done in flow_items))
 
-    show_overview_advanced = st.toggle(
+    show_overview_advanced = False if first_run_new_cup else st.toggle(
         "Visa fler verktyg på översikten",
         value=False,
         key=f"show_overview_advanced_{tid}",

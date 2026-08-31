@@ -1,7 +1,7 @@
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-RELEASE = "2026.08.31-348-GUIDED-CUP-SETUP"
+RELEASE = "2026.08.31-349-BEGINNER-FIRST-RUN"
 
 
 def test_health_contract_testclient_dependency_is_declared():

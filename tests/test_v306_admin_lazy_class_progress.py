@@ -12,7 +12,7 @@ def _overview_block():
 
 
 def test_release_version():
-    assert VERSION == "2026.08.31-348-GUIDED-CUP-SETUP"
+    assert VERSION == "2026.08.31-349-BEGINNER-FIRST-RUN"
 
 
 def test_class_progress_query_removed_from_default_overview():

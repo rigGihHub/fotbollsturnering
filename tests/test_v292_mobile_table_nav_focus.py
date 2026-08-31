@@ -23,7 +23,7 @@ def test_public_navigation_has_full_row_brand_background_and_active_contrast():
 
 
 def test_v292_release_is_canonical():
-    expected = "2026.08.31-348-GUIDED-CUP-SETUP"
+    expected = "2026.08.31-349-BEGINNER-FIRST-RUN"
     assert (ROOT / "VERSION.txt").read_text(encoding="utf-8").strip() == expected
     assert expected in APP
     assert expected in (ROOT / "cupnavi_core" / "version.py").read_text(encoding="utf-8")

@@ -4,7 +4,7 @@ ROOT = Path(__file__).resolve().parents[1]
 APP = (ROOT / "app.py").read_text(encoding="utf-8")
 STYLE = (ROOT / "cupnavi_core" / "style_system.py").read_text(encoding="utf-8")
 VERSION_PY = (ROOT / "cupnavi_core" / "version.py").read_text(encoding="utf-8")
-RELEASE = "2026.08.31-348-GUIDED-CUP-SETUP"
+RELEASE = "2026.08.31-349-BEGINNER-FIRST-RUN"
 
 
 def test_v289_release_is_synced():
