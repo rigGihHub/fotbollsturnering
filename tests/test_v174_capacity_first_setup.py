@@ -3,7 +3,7 @@ from pathlib import Path
 ROOT=Path(__file__).resolve().parents[1]
 APP=(ROOT/"app.py").read_text(encoding="utf-8")
 SETUP=(ROOT/"cupnavi_core"/"initial_setup_view.py").read_text(encoding="utf-8")
-R="2026.08.31-347-SCHEDULE-READINESS-POLISH"
+R="2026.08.31-348-GUIDED-CUP-SETUP"
 
 def setup_block():
     return SETUP
@@ -11,8 +11,8 @@ def setup_block():
 def test_setup_order_is_capacity_first():
     block=setup_block()
     positions=[
-        block.index("### 1. Tävlingsklasser"),
-        block.index("### 2. Kapacitet"),
+        block.index("### 1. Vilka ska spela?"),
+        block.index("### 2. Vad har ni tillgång till?"),
         block.index("### 3. Rekommenderat tävlingsformat"),
         block.index("### 4. Tävlingsregler"),
         block.index("### 5. Schemaprioriteringar"),
@@ -24,7 +24,7 @@ def test_setup_order_is_capacity_first():
 def test_capacity_summary_precedes_format_recommendation():
     block=setup_block()
     assert block.index("Uppskattade matchslotar") < block.index("### 3. Rekommenderat tävlingsformat")
-    assert "avgör hur många matcher och vilket slutspel som faktiskt ryms" in block
+    assert "CupNavi använder detta för att räkna ut ett rimligt upplägg." in block
 
 def test_service_questions_are_not_in_sidebar_creation():
     create_start=APP.index('def render_new_tournament_creator')

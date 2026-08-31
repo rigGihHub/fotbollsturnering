@@ -1,4 +1,4 @@
-APP_VERSION = "2026.08.31-347-SCHEDULE-READINESS-POLISH"
+APP_VERSION = "2026.08.31-348-GUIDED-CUP-SETUP"
 
 
 def release_ui_label(version: str) -> str:

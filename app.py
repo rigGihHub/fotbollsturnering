@@ -190,7 +190,7 @@ def inject_v198_visual_system():
     return _inject_v198_visual_system_impl(st)
 
 
-APP_BUILD_VERSION = "2026.08.31-347-SCHEDULE-READINESS-POLISH"
+APP_BUILD_VERSION = "2026.08.31-348-GUIDED-CUP-SETUP"
 APP_VERSION = APP_BUILD_VERSION
 
 def read_core_version_from_disk():

@@ -101,7 +101,7 @@ def render_initial_tournament_setup(tournament_id, tournament, *, deps: InitialS
         """,
         unsafe_allow_html=True,
     )
-    st.caption("Standardvägen är enkel: tävlingsklasser → kapacitet → lag. CupNavi använder standardvärden för resten.")
+    st.caption("Du behöver inte kunna cupregler i förväg. Ange vilka som ska spela och vad ni har för planer/tider – CupNavi föreslår resten.")
     rules = one_row("SELECT * FROM schedule_rules WHERE tournament_id=?", (tournament_id,))
     if rules is None:
         run("INSERT INTO schedule_rules(tournament_id) VALUES(?)", (tournament_id,))
@@ -114,8 +114,8 @@ def render_initial_tournament_setup(tournament_id, tournament, *, deps: InitialS
     )["n"] or 0)
 
     # Legacy QA anchor: ### 1. Tävlingsklasser och svårighetsgrad
-    st.markdown("### 1. Tävlingsklasser")
-    st.caption("Lägg till de klasser som ska spela och ungefär hur många lag du räknar med i varje klass.")
+    st.markdown("### 1. Vilka ska spela?")
+    st.caption("Välj åldersklass/kategori och ungefär hur många lag du tror kommer delta. Exempel: P2014 betyder pojkar födda 2014.")
     _class_played_count=_played_setup
     _class_locked=_class_played_count > 0
     if _class_locked:
@@ -127,11 +127,11 @@ def render_initial_tournament_setup(tournament_id, tournament, *, deps: InitialS
     # compressed labels and touch targets on phones before the organiser had
     # even added a first class. Keep it open only while the setup still needs one.
     _existing_class_rows = competition_classes(tournament_id)
-    with st.expander("➕ Lägg till tävlingsklass", expanded=not _existing_class_rows and not _class_locked):
-        setup_category = st.selectbox("Kategori", list(YOUTH_CLASS_CATEGORIES), key=f"setup_class_category_{tournament_id}", disabled=_class_locked)
-        setup_year = st.selectbox("Födelseår", YOUTH_CLASS_YEARS, index=YOUTH_CLASS_YEARS.index(2014) if 2014 in YOUTH_CLASS_YEARS else 0, key=f"setup_class_year_{tournament_id}", disabled=_class_locked)
-        setup_class_teams = st.number_input("Planerade lag", 2, 200, 8, key=f"setup_class_teams_new_{tournament_id}", disabled=_class_locked)
-        if st.button("Lägg till tävlingsklass", key=f"setup_add_class_{tournament_id}", use_container_width=True, disabled=_class_locked):
+    with st.expander("➕ Lägg till åldersklass / kategori", expanded=not _existing_class_rows and not _class_locked):
+        setup_category = st.selectbox("Vilka spelar?", list(YOUTH_CLASS_CATEGORIES), key=f"setup_class_category_{tournament_id}", disabled=_class_locked)
+        setup_year = st.selectbox("Spelarnas födelseår", YOUTH_CLASS_YEARS, index=YOUTH_CLASS_YEARS.index(2014) if 2014 in YOUTH_CLASS_YEARS else 0, key=f"setup_class_year_{tournament_id}", disabled=_class_locked)
+        setup_class_teams = st.number_input("Ungefär hur många lag?", 2, 200, 8, key=f"setup_class_teams_new_{tournament_id}", disabled=_class_locked)
+        if st.button("Lägg till klassen", key=f"setup_add_class_{tournament_id}", use_container_width=True, disabled=_class_locked):
             ok, message = add_competition_class(tournament_id, setup_category, setup_year, setup_class_teams)
             (st.success if ok else st.info)(message)
             st.rerun()
@@ -191,11 +191,11 @@ def render_initial_tournament_setup(tournament_id, tournament, *, deps: InitialS
         st.caption(f"Planerat totalt antal lag: **{_planned_total}** · detta är summan av klasserna och kan ändras fram till första registrerade resultat.")
 
     # Legacy QA anchor: ### 2. Planer och öppettider per dag
-    st.markdown("### 2. Kapacitet")
-    st.caption("Detta kommer före tävlingsformatet eftersom antal planer och tillgängliga timmar avgör hur många matcher och vilket slutspel som faktiskt ryms.")
+    st.markdown("### 2. Vad har ni tillgång till?")
+    st.caption("Ange antal planer/spelytor och när de går att använda. CupNavi använder detta för att räkna ut ett rimligt upplägg.")
     pitch_key=f"setup_pitches_{tournament_id}"
     st.number_input(
-        "Antal tillgängliga planer/spelytor",
+        "Hur många planer/spelytor kan användas samtidigt?",
         1, 50, int(rules["pitch_count"]),
         key=pitch_key,
         on_change=_autosave_rule_field,
@@ -266,18 +266,91 @@ def render_initial_tournament_setup(tournament_id, tournament, *, deps: InitialS
     cap2.metric("Tillgängliga plantimmar",f"{_capacity_minutes/60:.1f}" if _capacity_minutes else "–")
     cap3.metric("Uppskattade matchslotar",_capacity_slots or "–")
 
-    # v326: the minimum viable setup ends here. Sport-specific defaults already
-    # exist for format, rules and priorities, so a new organiser should not be
-    # forced through every advanced setup section before registering teams.
+    # v348: Guided Cup Setup turns the existing recommendation engine into a
+    # novice-facing assistant. It explains the proposed setup in plain language
+    # and applies only safe recommendation/default fields when explicitly accepted.
+    _guided_ready = bool(class_rows) and _planned_total > 0 and valid_windows
+    _guided_format_rec = None
+    if _guided_ready:
+        _guided_available_minutes = available_pitch_minutes(windows, row_value=_row_value) or 480
+        _guided_match_minutes = estimated_match_length_minutes(rules, row_value=_row_value)
+        _guided_format_rec = recommend_tournament_format(
+            sport=_row_value(tournament, "sport", "Fotboll"),
+            team_count=max(2, _planned_total, _actual_team_count),
+            pitch_count=current_pitch_count,
+            available_minutes=_guided_available_minutes,
+            match_minutes=_guided_match_minutes,
+            compactness=int(_row_value(rules, "compactness_level", 50) or 50),
+        )
+
+    st.markdown("### CupNavis förslag")
+    with st.container(border=True):
+        if not _guided_ready:
+            st.caption("När du har lagt till minst en klass och giltiga plantider visar CupNavi ett rekommenderat grundupplägg här.")
+        else:
+            _guided_group_sizes = ", ".join(str(size) for size in _guided_format_rec["group_sizes"])
+            _guided_capacity_text = (
+                f"Ryms inom den uppskattade kapaciteten på cirka {_guided_format_rec['capacity_matches']} matchslotar."
+                if _guided_format_rec["fits_capacity"]
+                else f"Behöver cirka {_guided_format_rec['total_matches']} matcher men nuvarande kapacitet uppskattas till cirka {_guided_format_rec['capacity_matches']} matchslotar."
+            )
+            st.success("Vi har räknat fram ett enkelt startförslag utifrån antal lag, sport, planer och tillgängliga tider.")
+            st.markdown(
+                f"**Vi rekommenderar:** {_guided_format_rec['group_count']} grupper · "
+                f"{_guided_group_sizes} lag i grupperna · {_guided_format_rec['playoff_format_label']}."
+            )
+            st.caption(
+                f"Det ger cirka {_guided_format_rec['group_matches']} gruppspelsmatcher och "
+                f"{_guided_format_rec['playoff_matches']} slutspelsmatcher. {_guided_capacity_text}"
+            )
+            st.markdown(
+                f"**Matchtid:** {_sport_rec['periods']} {_sport_rec['period_label']} × "
+                f"{_sport_rec['minutes_per_period']} min · **rekommenderad lagvila:** minst {_sport_rec['minimum_rest_minutes']} min."
+            )
+            with st.expander("Varför rekommenderar CupNavi detta?", expanded=False):
+                st.write("• Grupperna gör att lagen får flera matcher innan ett eventuellt slutspel.")
+                st.write("• Gruppstorleken väljs för att balansera antal matcher mot hur mycket plantid som finns.")
+                st.write("• Matchtid och vila kommer från CupNavis standardprofil för den valda sporten.")
+                st.write("• Du kan ändra allt senare. CupNavi ändrar inget automatiskt utan ditt godkännande.")
+            if not _guided_format_rec["fits_capacity"]:
+                st.warning("Förslaget ryms inte bekvämt i nuvarande plantid. Öka plantiden/antalet planer eller finjustera upplägget innan schema skapas.")
+            if st.button(
+                "Använd CupNavis rekommenderade upplägg",
+                type="primary",
+                use_container_width=True,
+                key=f"v348_accept_guided_setup_{tournament_id}",
+            ):
+                run(
+                    """UPDATE schedule_rules
+                       SET halves=?,minutes_per_half=?,halftime_minutes=?,minimum_team_rest_minutes=?,
+                           recommended_group_count=?,recommended_group_size=?,recommended_playoff_size=?
+                       WHERE tournament_id=?""",
+                    (
+                        _sport_rec["periods"],
+                        _sport_rec["minutes_per_period"],
+                        _sport_rec["break_minutes"],
+                        _sport_rec["minimum_rest_minutes"],
+                        _guided_format_rec["group_count"],
+                        _guided_format_rec["group_size"],
+                        _guided_format_rec["playoff_size"],
+                        tournament_id,
+                    ),
+                )
+                st.session_state[f"autosave_notice_{tournament_id}"] = "✓ CupNavis rekommenderade grundupplägg är sparat."
+                st.rerun()
+            st.caption("Knappen sparar rekommenderade match- och gruppvärden. Den skapar inte grupper, matcher eller schema.")
+
+    # v326/v348: the minimum viable setup ends here. The guided recommendation
+    # makes the defaults understandable before the organiser starts adding teams.
     _fast_track_ready = bool(class_rows) and _planned_total > 0 and valid_windows
     with st.container(border=True):
-        st.markdown("#### ⚡ Snabbstart")
+        st.markdown("#### Redo att lägga till lag")
         if _fast_track_ready:
-            st.success("Grunden är klar. Du kan börja lägga in lag nu och finjustera format, regler och prioriteringar senare under Admin → Inställningar.")
+            st.success("Grunden är klar. Nu kan du lägga till deltagande lag. Regler och specialval kan ändras senare.")
         else:
             st.caption("Lägg till minst en tävlingsklass och kontrollera plantiderna för att aktivera snabbstart.")
         if st.button(
-            "Fortsätt snabbstart → Lägg till lag",
+            "Fortsätt → Lägg till lag",
             type="primary",
             use_container_width=True,
             disabled=not _fast_track_ready,
@@ -290,7 +363,7 @@ def render_initial_tournament_setup(tournament_id, tournament, *, deps: InitialS
         st.caption("Format, poäng, pauser, prioriteringar och publik statistik kan finjusteras senare under Inställningar.")
 
     _show_advanced_setup = st.toggle(
-        "Visa avancerade inställningar",
+        "Finjustera regler och format (valfritt)",
         value=False,
         key=f"show_advanced_initial_setup_{tournament_id}",
         help="Öppnar tävlingsformat, matchregler, schemaprioriteringar, service och publik statistik. Detta behövs normalt inte för att komma igång.",

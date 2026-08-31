@@ -7,12 +7,12 @@ VERSION = (ROOT / "VERSION.txt").read_text(encoding="utf-8").strip()
 
 
 def test_v326_version():
-    assert VERSION == "2026.08.31-347-SCHEDULE-READINESS-POLISH"
+    assert VERSION == "2026.08.31-348-GUIDED-CUP-SETUP"
 
 
 def test_setup_has_fast_track_to_teams_after_minimum_setup():
-    assert "⚡ Snabbstart" in SETUP
-    assert "Fortsätt snabbstart → Lägg till lag" in SETUP
+    assert "Redo att lägga till lag" in SETUP
+    assert "Fortsätt → Lägg till lag" in SETUP
     assert '_fast_track_ready = bool(class_rows) and _planned_total > 0 and valid_windows' in SETUP
     assert 'st.session_state[f"admin_page_{tournament_id}"] = "Lag"' in SETUP
 

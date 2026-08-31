@@ -6,7 +6,7 @@ VERSION = (ROOT / "VERSION.txt").read_text(encoding="utf-8").strip()
 
 
 def test_v340_version_marker():
-    assert VERSION == "2026.08.31-347-SCHEDULE-READINESS-POLISH"
+    assert VERSION == "2026.08.31-348-GUIDED-CUP-SETUP"
 
 
 def test_standard_setup_is_three_step_fast_track():
@@ -14,11 +14,11 @@ def test_standard_setup_is_three_step_fast_track():
     assert "Tävlingsklasser" in SETUP
     assert "Kapacitet" in SETUP
     assert "Lägg till lag" in SETUP
-    assert "Fortsätt snabbstart → Lägg till lag" in SETUP
+    assert "Fortsätt → Lägg till lag" in SETUP
 
 
 def test_advanced_setup_is_explicitly_opt_in():
-    toggle = SETUP.index('"Visa avancerade inställningar"')
+    toggle = SETUP.index('"Finjustera regler och format (valfritt)"')
     advanced = SETUP.index('st.markdown("### 3. Rekommenderat tävlingsformat")')
     assert toggle < advanced
     assert "if _show_advanced_setup:" in SETUP

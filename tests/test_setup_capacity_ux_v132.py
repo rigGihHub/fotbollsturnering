@@ -10,7 +10,7 @@ def setup_block():
 
 def test_pitch_capacity_is_part_of_early_venue_constraints():
     block = setup_block()
-    capacity = block.index("Antal tillgängliga planer/spelytor")
+    capacity = block.index("Hur många planer/spelytor kan användas samtidigt?")
     windows = block.index("save_pitch_day_window(tournament_id")
     match_rules = block.index("### 5. Match- och schemaregler")
     assert capacity < windows < match_rules

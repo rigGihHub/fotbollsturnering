@@ -8,7 +8,7 @@ MATCHES = (ROOT / "cupnavi_core" / "public_matches_view.py").read_text(encoding=
 
 
 def test_v268_version_and_pure_public_overview_module():
-    assert VERSION == "2026.08.31-347-SCHEDULE-READINESS-POLISH"
+    assert VERSION == "2026.08.31-348-GUIDED-CUP-SETUP"
     assert "import streamlit" not in MODULE
     assert "SELECT " not in MODULE
     assert "build_live_feed_html" in MODULE

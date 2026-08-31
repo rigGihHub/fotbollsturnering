@@ -6,7 +6,7 @@ VERSION=(ROOT/"VERSION.txt").read_text().strip()
 APP=(ROOT/"app.py").read_text()
 
 def test_version():
- assert VERSION=="2026.08.31-347-SCHEDULE-READINESS-POLISH"
+ assert VERSION=="2026.08.31-348-GUIDED-CUP-SETUP"
  assert f'APP_BUILD_VERSION = "{VERSION}"' in APP
 
 def test_visual_continuity():
@@ -17,9 +17,9 @@ def test_visual_continuity():
 def test_standard_path_is_core_only():
  before=VIEW[:VIEW.index('_show_advanced_setup = st.toggle(')]
  assert 'st.markdown("### Sportprofil")' not in before
- assert 'st.markdown("### 1. Tävlingsklasser")' in before
- assert 'st.markdown("### 2. Kapacitet")' in before
- assert 'Fortsätt snabbstart → Lägg till lag' in before
+ assert 'st.markdown("### 1. Vilka ska spela?")' in before
+ assert 'st.markdown("### 2. Vad har ni tillgång till?")' in before
+ assert 'Fortsätt → Lägg till lag' in before
 
 def test_sport_profile_is_retained_advanced():
  advanced=VIEW[VIEW.index('if _show_advanced_setup:'):]

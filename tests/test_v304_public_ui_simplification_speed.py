@@ -9,7 +9,7 @@ VERSION = (ROOT / "VERSION.txt").read_text().strip()
 
 
 def test_release_version_is_v304():
-    assert VERSION == "2026.08.31-347-SCHEDULE-READINESS-POLISH"
+    assert VERSION == "2026.08.31-348-GUIDED-CUP-SETUP"
 
 
 def test_matches_page_avoids_secondary_overview_db_and_highlight_work():

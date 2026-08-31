@@ -6,7 +6,7 @@ VERSION = Path('VERSION.txt').read_text().strip()
 
 
 def test_v325_version():
-    assert VERSION == '2026.08.31-347-SCHEDULE-READINESS-POLISH'
+    assert VERSION == '2026.08.31-348-GUIDED-CUP-SETUP'
 
 
 def test_admin_main_area_uses_one_segmented_selector_not_five_columns():
@@ -16,7 +16,7 @@ def test_admin_main_area_uses_one_segmented_selector_not_five_columns():
 
 
 def test_initial_class_creation_is_progressive_and_vertical():
-    assert 'with st.expander("➕ Lägg till tävlingsklass"' in SETUP
+    assert 'with st.expander("➕ Lägg till åldersklass / kategori"' in SETUP
     assert 'add_c1, add_c2, add_c3, add_c4 = st.columns' not in SETUP
 
 

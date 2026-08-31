@@ -6,7 +6,7 @@ VIEW = (ROOT / "cupnavi_core" / "initial_setup_view.py").read_text(encoding="utf
 
 
 def test_v284_release_and_extracted_setup_module_exist():
-    assert "2026.08.31-347-SCHEDULE-READINESS-POLISH" in APP
+    assert "2026.08.31-348-GUIDED-CUP-SETUP" in APP
     assert "class InitialSetupDependencies" in VIEW
     assert "def render_initial_tournament_setup" in VIEW
 
@@ -25,8 +25,8 @@ def test_app_keeps_thin_setup_wrapper_and_injects_existing_services():
 def test_extracted_view_owns_complete_guided_setup_flow():
     for marker in (
         "cn-setup-hero",
-        "### 1. Tävlingsklasser",
-        "### 2. Kapacitet",
+        "### 1. Vilka ska spela?",
+        "### 2. Vad har ni tillgång till?",
         'with st.expander("Sportprofil", expanded=False):',
         "### 3. Rekommenderat tävlingsformat",
         "### 4. Matchregler och hårda begränsningar",

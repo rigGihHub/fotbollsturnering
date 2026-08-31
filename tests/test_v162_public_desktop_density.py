@@ -9,7 +9,7 @@ MATCH=(ROOT/"cupnavi_core/public_match_cards.py").read_text(encoding="utf-8")
 FEED=(ROOT/"cupnavi_core/public_match_feed_logic.py").read_text(encoding="utf-8")
 MATCHES=(ROOT/"cupnavi_core/public_matches_view.py").read_text(encoding="utf-8")
 WORKSPACE=(ROOT/"cupnavi_core/public_workspace_view.py").read_text(encoding="utf-8")
-RELEASE="2026.08.31-347-SCHEDULE-READINESS-POLISH"
+RELEASE="2026.08.31-348-GUIDED-CUP-SETUP"
 
 def test_release_version_is_hard_synced():
     assert RELEASE in APP
