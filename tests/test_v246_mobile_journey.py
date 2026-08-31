@@ -16,7 +16,7 @@ def test_mobile_flow_status_wraps_instead_of_overflowing():
     assert 'white-space:normal!important;' in STYLE
 
 def test_creation_explains_next_step_without_new_form_step():
-    assert 'När cupen är skapad guidar CupNavi dig vidare genom tävlingsklasser, kapacitet och regler.' in APP
+    assert 'När cupen är skapad guidar CupNavi dig vidare genom vilka som ska spela, planer/tider och lag.' in APP
 
 def test_team_count_is_normal_status_not_alert():
     start=APP.index('if admin_page == "Lag":')

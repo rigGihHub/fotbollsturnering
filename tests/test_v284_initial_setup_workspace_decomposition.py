@@ -6,7 +6,7 @@ VIEW = (ROOT / "cupnavi_core" / "initial_setup_view.py").read_text(encoding="utf
 
 
 def test_v284_release_and_extracted_setup_module_exist():
-    assert "2026.08.31-349-BEGINNER-FIRST-RUN" in APP
+    assert "2026.08.31-351-SETUP-COMPLETION-HANDOFF" in APP
     assert "class InitialSetupDependencies" in VIEW
     assert "def render_initial_tournament_setup" in VIEW
 
@@ -30,10 +30,10 @@ def test_extracted_view_owns_complete_guided_setup_flow():
         'with st.expander("Sportprofil", expanded=False):',
         "### 3. Rekommenderat tävlingsformat",
         "### 4. Matchregler och hårda begränsningar",
-        "### 5. Schemaprioriteringar",
+        "### 5. Vad är viktigast i schemat?",
         "### 6. Arrangemang & deltagarservice",
-        "### 7. Kontroll & skapa",
-        "Fortsätt till Admin",
+        "### 7. Redo att fortsätta",
+        "Fortsätt → Lägg till lag",
     ):
         assert marker in VIEW
 

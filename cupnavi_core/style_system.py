@@ -313,9 +313,24 @@ def inject_custom_css(st):
           [data-baseweb="calendar"] [role="button"]:hover {
             background:#f1f5f9 !important;
           }
+          /* v350: isolate every calendar surface, including BaseWeb's blank
+             leading/trailing week fillers which otherwise inherit dark theme
+             backgrounds and appear as black rectangles. */
+          [data-baseweb="calendar"] div,
+          [data-baseweb="calendar"] span,
+          [data-baseweb="calendar"] table,
+          [data-baseweb="calendar"] tbody,
+          [data-baseweb="calendar"] thead,
+          [data-baseweb="calendar"] tr,
+          [data-baseweb="calendar"] th,
+          [data-baseweb="calendar"] td {
+            background-color:#ffffff !important;
+          }
+          [data-baseweb="calendar"] [aria-selected="true"],
+          [data-baseweb="calendar"] [aria-selected="true"] *,
           [data-baseweb="calendar"] [aria-selected="true"][role="gridcell"],
           [data-baseweb="calendar"] [aria-selected="true"][role="gridcell"] * {
-            background:#166534 !important;
+            background-color:#166534 !important;
             color:#ffffff !important;
           }
 

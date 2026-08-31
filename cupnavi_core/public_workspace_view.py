@@ -387,12 +387,22 @@ def render_public_workspace(tournament_id: int, tournament: Any, deps: PublicWor
 
         render_public_matches_fragment()
 
+    _results_counted = bool(_row_value(tournament, "results_counted", 1))
     if public_page == "Tabeller":
-        render_public_statistics_section(tournament_id, tournament, published_matches, played_matches, forced_section=tr("Tabeller"), public_team_by_id=public_team_by_id)
+        if _results_counted:
+            render_public_statistics_section(tournament_id, tournament, published_matches, played_matches, forced_section=tr("Tabeller"), public_team_by_id=public_team_by_id)
+        else:
+            st.info("Den här cupen spelas utan resultaträkning. Därför visas ingen tabell.")
     if public_page == "Slutspel":
-        render_public_statistics_section(tournament_id, tournament, published_matches, played_matches, forced_section=tr("Slutspel"), public_team_by_id=public_team_by_id)
+        if _results_counted:
+            render_public_statistics_section(tournament_id, tournament, published_matches, played_matches, forced_section=tr("Slutspel"), public_team_by_id=public_team_by_id)
+        else:
+            st.info("Den här cupen spelas utan resultaträkning och har därför inget resultatbaserat slutspel.")
     if public_page == "Statistik":
-        render_public_statistics_section(tournament_id, tournament, published_matches, played_matches, forced_section=tr("Topplistor"), public_team_by_id=public_team_by_id)
+        if _results_counted:
+            render_public_statistics_section(tournament_id, tournament, published_matches, played_matches, forced_section=tr("Topplistor"), public_team_by_id=public_team_by_id)
+        else:
+            st.info("Resultat och topplistor räknas inte i den här cupen.")
     if public_page == "Info":
         render_public_info_section(tournament_id, tournament, published_matches)
 

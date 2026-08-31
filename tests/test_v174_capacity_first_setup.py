@@ -3,7 +3,7 @@ from pathlib import Path
 ROOT=Path(__file__).resolve().parents[1]
 APP=(ROOT/"app.py").read_text(encoding="utf-8")
 SETUP=(ROOT/"cupnavi_core"/"initial_setup_view.py").read_text(encoding="utf-8")
-R="2026.08.31-349-BEGINNER-FIRST-RUN"
+R="2026.08.31-351-SETUP-COMPLETION-HANDOFF"
 
 def setup_block():
     return SETUP
@@ -15,9 +15,9 @@ def test_setup_order_is_capacity_first():
         block.index("### 2. Vad har ni tillgång till?"),
         block.index("### 3. Rekommenderat tävlingsformat"),
         block.index("### 4. Tävlingsregler"),
-        block.index("### 5. Schemaprioriteringar"),
+        block.index("### 5. Vad är viktigast i schemat?"),
         block.index("### 6. Arrangemang & deltagarservice"),
-        block.index("### 7. Kontroll & skapa"),
+        block.index("### 7. Redo att fortsätta"),
     ]
     assert positions==sorted(positions)
 

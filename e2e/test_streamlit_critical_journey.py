@@ -175,7 +175,7 @@ def _submit_create_tournament_form(page, cup_name, attempts=2):
             if row is not None:
                 return row
             try:
-                if page.get_by_role("button",name="Fortsätt till Admin",exact=True).count():
+                if page.get_by_role("button",name="Fortsätt → Lägg till lag",exact=True).count():
                     # The UI accepted the submit; allow the DB commit a little longer.
                     return wait_for_persisted_tournament(cup_name,timeout_ms=12000)
                 last_body=page.locator("body").inner_text()
@@ -235,7 +235,7 @@ def create_test_tournament_through_ui(page, cup_name):
     wait_app(page)
     assert row[1] == "test"
 
-    continue_button=page.get_by_role("button",name="Fortsätt till Admin",exact=True)
+    continue_button=page.get_by_role("button",name="Fortsätt → Lägg till lag",exact=True)
     if continue_button.count():
         continue_button.wait_for(state="visible",timeout=20000)
         assert continue_button.is_enabled()

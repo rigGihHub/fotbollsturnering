@@ -40,5 +40,5 @@ def test_new_tournament_enters_setup_wizard():
     text = app_text() + SETUP
     assert 'new_tournament_setup_id' in text
     assert 'def render_initial_tournament_setup' in text
-    assert 'Fortsätt till Admin' in text
+    assert 'Fortsätt → Lägg till lag' in text
     assert 'sparas automatiskt' in text

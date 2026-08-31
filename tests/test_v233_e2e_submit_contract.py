@@ -27,5 +27,5 @@ def test_create_flow_waits_for_acceptance_signal_before_long_persist_wait():
     end=E2E.index("def wait_for_persisted_tournament",start)
     block=E2E[start:end]
     assert "_persisted_tournament_row(cup_name)" in block
-    assert 'name="Fortsätt till Admin"' in block
+    assert 'name="Fortsätt → Lägg till lag"' in block
     assert "submit was not accepted" in block

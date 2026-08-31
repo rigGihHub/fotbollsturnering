@@ -6,7 +6,7 @@ VERSION = (ROOT / 'VERSION.txt').read_text(encoding='utf-8').strip()
 
 
 def test_release_version_is_v308():
-    assert VERSION == '2026.08.31-349-BEGINNER-FIRST-RUN'
+    assert VERSION == '2026.08.31-351-SETUP-COMPLETION-HANDOFF'
 
 
 def test_direct_edit_is_opt_in_before_queries():

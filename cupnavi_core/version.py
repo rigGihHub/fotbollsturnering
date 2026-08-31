@@ -1,4 +1,4 @@
-APP_VERSION = "2026.08.31-349-BEGINNER-FIRST-RUN"
+APP_VERSION = "2026.08.31-351-SETUP-COMPLETION-HANDOFF"
 
 
 def release_ui_label(version: str) -> str:

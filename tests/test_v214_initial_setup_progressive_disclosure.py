@@ -15,7 +15,7 @@ def test_changing_room_details_only_render_when_enabled():
 
 def test_price_details_only_render_when_enabled():
     start=SETUP.index('pshow=f"setup_show_prices_')
-    end=SETUP.index('st.markdown("### 7. Kontroll & skapa")',start)
+    end=SETUP.index('st.markdown("### 7. Redo att fortsätta")',start)
     block=SETUP[start:end]
     assert "show_prices_enabled=st.checkbox(" in block
     assert "if show_prices_enabled:" in block

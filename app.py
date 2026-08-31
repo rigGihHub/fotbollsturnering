@@ -190,7 +190,7 @@ def inject_v198_visual_system():
     return _inject_v198_visual_system_impl(st)
 
 
-APP_BUILD_VERSION = "2026.08.31-349-BEGINNER-FIRST-RUN"
+APP_BUILD_VERSION = "2026.08.31-351-SETUP-COMPLETION-HANDOFF"
 APP_VERSION = APP_BUILD_VERSION
 
 def read_core_version_from_disk():
@@ -591,7 +591,7 @@ def save_pitch_name(tournament_id,pitch_number,name):
     return clean
 
 def save_pitch_address(tournament_id,pitch_number,address):
-    run("UPDATE pitches SET address=? WHERE tournament_id=? AND pitch_number=?",
+    run("UPDATE pitches SET address=?,address_verified=0 WHERE tournament_id=? AND pitch_number=?",
         (str(address or "").strip() or None,int(tournament_id),int(pitch_number)))
 
 def pitch_travel_matrix(tournament_id):
@@ -2965,7 +2965,7 @@ def _schema_fast_path_ready(con):
         row = con.execute(
             """SELECT
                    COALESCE((SELECT MAX(version) FROM cupnavi_schema_migrations),0) AS schema_version,
-                   EXISTS(SELECT 1 FROM pragma_table_info('tournaments') WHERE name='enable_final_ranking') AS tournaments_ok,
+                   EXISTS(SELECT 1 FROM pragma_table_info('tournaments') WHERE name='results_counted') AS tournaments_ok,
                    EXISTS(SELECT 1 FROM pragma_table_info('teams') WHERE name='home_pattern') AS teams_ok,
                    EXISTS(SELECT 1 FROM pragma_table_info('notification_subscriptions') WHERE name='disabled_at') AS notifications_ok,
                    EXISTS(SELECT 1 FROM pragma_table_info('competition_classes') WHERE name='name') AS classes_ok
@@ -3020,7 +3020,8 @@ def init_db():
                 playoff_tie_rule TEXT NOT NULL DEFAULT 'Straffar direkt',
                 extra_time_minutes INTEGER NOT NULL DEFAULT 0,
                 playoff_model_confirmed INTEGER NOT NULL DEFAULT 0,
-                schedule_dirty INTEGER NOT NULL DEFAULT 1
+                schedule_dirty INTEGER NOT NULL DEFAULT 1,
+                results_counted INTEGER NOT NULL DEFAULT 1
             );
             CREATE TABLE IF NOT EXISTS feedback (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -7292,7 +7293,7 @@ def render_new_tournament_creator(*, key_prefix="sidebar"):
         create_final_ranking = False
         create_changing_rooms = False
         create_show_prices = False
-        st.caption("När cupen är skapad guidar CupNavi dig vidare genom tävlingsklasser, kapacitet och regler.")
+        st.caption("När cupen är skapad guidar CupNavi dig vidare genom vilka som ska spela, planer/tider och lag.")
         expected_teams = 0
         # Antal lag anges per tävlingsklass i den guidade setupen; inget globalt lagantal här.
         if st.form_submit_button("Skapa cup", type="primary", use_container_width=True):
@@ -7348,8 +7349,16 @@ def render_new_tournament_creator(*, key_prefix="sidebar"):
                      defaults["halftime_minutes"], defaults["minimum_team_rest_minutes"]),
                 )
                 add_feed_item(new_tournament_id, f"{n.strip()} skapad", f"Sport: {sport}", category="Cup")
+                # v350: the newly created cup becomes active immediately. The
+                # selector widget is instantiated later in the rerun, so it is
+                # safe to seed both desktop and mobile selector state here.
                 st.session_state["new_tournament_setup_id"] = int(new_tournament_id)
                 st.session_state["preferred_tournament_id"] = int(new_tournament_id)
+                # The creator exists both before and after the canonical selector
+                # depending on desktop/mobile layout. Defer widget-key mutation to
+                # the next rerun so Streamlit never sees a post-instantiation write.
+                st.session_state["pending_new_tournament_id"] = int(new_tournament_id)
+                st.session_state["pending_new_tournament_slug"] = str(public_slug or new_tournament_id)
                 st.session_state["show_mobile_tournament_creator"] = False
                 st.rerun()
 
@@ -7523,6 +7532,18 @@ if cup_query_text and requested_cup_id is None:
 
 tournament_ids = [int(t["id"]) for t in tournaments]
 preferred_tournament_id = st.session_state.get("preferred_tournament_id")
+
+# v350: consume a just-created tournament before either selector widget is
+# instantiated. This makes new cups active immediately on desktop and mobile.
+_pending_new_tournament_id = st.session_state.pop("pending_new_tournament_id", None)
+_pending_new_tournament_slug = st.session_state.pop("pending_new_tournament_slug", None)
+if _pending_new_tournament_id in tournament_ids:
+    st.session_state["active_tournament_selector"] = int(_pending_new_tournament_id)
+    st.session_state["main_active_tournament_selector"] = int(_pending_new_tournament_id)
+    st.session_state["preferred_tournament_id"] = int(_pending_new_tournament_id)
+    preferred_tournament_id = int(_pending_new_tournament_id)
+    if hasattr(st, "query_params"):
+        st.query_params["cup"] = str(_pending_new_tournament_slug or _pending_new_tournament_id)
 
 # Resolve the initial selector seed in pure, regression-tested UI logic.
 # URL wins only when the widget has no valid current selection; a deliberate
@@ -12126,6 +12147,11 @@ if admin_page == "Skapa och publicera schema":
 
 
 if admin_page == "Matcher och resultat":
+    if not bool(_row_value(tournament, "results_counted", 1)):
+        st.header("Matcher")
+        st.info("Den här cupen är inställd på spel utan resultaträkning. Matcherna genomförs enligt schemat men resultat registreras inte och ingen tabell räknas.")
+        st.button("Öppna Schema", use_container_width=True, on_click=_set_admin_page, args=("Skapa och publicera schema",), key=f"v350_no_results_to_schedule_{tid}")
+        st.stop()
     def _save_admin_result_updates(auto_updates, original_match_by_id):
         for update in auto_updates:
             match_for_push = original_match_by_id[update["match_id"]]
@@ -13525,6 +13551,10 @@ if admin_page == "Cupverktyg":
 
 
 if admin_page == "Tabeller":
+    if not bool(_row_value(tournament, "results_counted", 1)):
+        st.header("Tabeller")
+        st.info("Resultat räknas inte i den här cupen, därför skapas ingen tabell eller slutlig ranking.")
+        st.stop()
     st.button(
         "← Till Resultat",
         key=f"v339_tables_back_to_results_{tid}",

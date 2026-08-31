@@ -7,4 +7,4 @@ def test_contract_tracks_workspace():
     assert '_public_core = public_core_snapshot(' in WORKSPACE
     assert 'include_matches=_needs_public_matches' in WORKSPACE
 def test_release_version():
-    assert (ROOT/"VERSION.txt").read_text(encoding="utf-8").strip()=="2026.08.31-349-BEGINNER-FIRST-RUN"
+    assert (ROOT/"VERSION.txt").read_text(encoding="utf-8").strip()=="2026.08.31-351-SETUP-COMPLETION-HANDOFF"

@@ -39,7 +39,7 @@ def test_regular_settings_autosave_without_save_button():
     assert 'Spara upplägg' not in block
     assert '_autosave_tournament_field' in block
     assert '_autosave_rule_field' in block
-    assert 'Fortsätt till Admin' in block
+    assert 'Fortsätt → Lägg till lag' in block
 
 def test_about_page_catalog_tracks_new_capabilities():
     assert 'competition_difficulty' in ABOUT

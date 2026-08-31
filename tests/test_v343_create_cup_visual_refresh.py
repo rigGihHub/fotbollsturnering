@@ -9,7 +9,7 @@ def creation_block():
     return APP[start:end]
 
 def test_v343_version():
-    assert VERSION == '2026.08.31-349-BEGINNER-FIRST-RUN'
+    assert VERSION == '2026.08.31-351-SETUP-COMPLETION-HANDOFF'
     assert f'APP_BUILD_VERSION = "{VERSION}"' in APP
     assert f'APP_VERSION = "{VERSION}"' in (ROOT/'cupnavi_core/version.py').read_text(encoding='utf-8')
 
@@ -36,7 +36,7 @@ def test_creator_has_polished_guided_visual_structure():
 def test_creator_copy_is_corrected():
     block=creation_block()
     assert 'Efter Skapa guidar CupNavi' not in block
-    assert 'När cupen är skapad guidar CupNavi dig vidare genom tävlingsklasser, kapacitet och regler.' in block
+    assert 'När cupen är skapad guidar CupNavi dig vidare genom vilka som ska spela, planer/tider och lag.' in block
 
 def test_creation_write_path_is_preserved():
     block=creation_block()

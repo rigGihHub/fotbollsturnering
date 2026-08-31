@@ -9,7 +9,7 @@ Regel:
 from dataclasses import dataclass
 from datetime import datetime, timezone
 
-LATEST_SCHEMA_VERSION = 25
+LATEST_SCHEMA_VERSION = 26
 
 
 @dataclass(frozen=True)
@@ -502,8 +502,13 @@ MIGRATIONS = (
         ),
     ),
 
-)
+    Migration(
+        26,
+        "beginner_setup_modes_v350",
+        (),
+    ),
 
+)
 
 def _execute(con, sql, params=()):
     return con.execute(sql, params)
@@ -760,6 +765,34 @@ def ensure_v21_schema_compat(con):
     con.execute("CREATE INDEX IF NOT EXISTS idx_notification_deliveries_status ON notification_deliveries(status,created_at)")
 
 
+def ensure_v26_schema_compat(con):
+    """Idempotent v350 fields for no-results mode and verified pitch addresses."""
+    def cols(table):
+        try:
+            return {row[1] for row in con.execute(f"PRAGMA table_info({table})").fetchall()}
+        except Exception:
+            return set()
+
+    if not cols("tournaments"):
+        con.execute("CREATE TABLE tournaments(id INTEGER PRIMARY KEY)")
+    tc = cols("tournaments")
+    if "results_counted" not in tc:
+        con.execute("ALTER TABLE tournaments ADD COLUMN results_counted INTEGER NOT NULL DEFAULT 1")
+
+    if not cols("pitches"):
+        con.execute(
+            "CREATE TABLE pitches("
+            "tournament_id INTEGER NOT NULL,"
+            "pitch_number INTEGER NOT NULL,"
+            "name TEXT NOT NULL,"
+            "address TEXT,"
+            "PRIMARY KEY(tournament_id,pitch_number))"
+        )
+    pc = cols("pitches")
+    if "address_verified" not in pc:
+        con.execute("ALTER TABLE pitches ADD COLUMN address_verified INTEGER NOT NULL DEFAULT 0")
+
+
 def apply_migrations(con):
     """Applicera alla saknade migreringar och returnera nya versionsnummer."""
     ensure_migration_table(con)
@@ -777,6 +810,8 @@ def apply_migrations(con):
             ensure_v21_schema_compat(con)
         if migration.version == 22:
             ensure_competition_class_schema_compat(con)
+        if migration.version == 26:
+            ensure_v26_schema_compat(con)
         for statement in migration.statements:
             _execute(con, statement)
         _execute(

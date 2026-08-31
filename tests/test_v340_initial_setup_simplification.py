@@ -6,7 +6,7 @@ VERSION = (ROOT / "VERSION.txt").read_text(encoding="utf-8").strip()
 
 
 def test_v340_version_marker():
-    assert VERSION == "2026.08.31-349-BEGINNER-FIRST-RUN"
+    assert VERSION == "2026.08.31-351-SETUP-COMPLETION-HANDOFF"
 
 
 def test_standard_setup_is_three_step_fast_track():
@@ -18,11 +18,11 @@ def test_standard_setup_is_three_step_fast_track():
 
 
 def test_advanced_setup_is_explicitly_opt_in():
-    toggle = SETUP.index('"Finjustera regler och format (valfritt)"')
+    toggle = SETUP.index('"Visa och ändra alla regler & format"')
     advanced = SETUP.index('st.markdown("### 3. Rekommenderat tävlingsformat")')
     assert toggle < advanced
     assert "if _show_advanced_setup:" in SETUP
-    assert "Detta behövs normalt inte för att komma igång." in SETUP
+    assert "Här kan du alltid se och ändra CupNavis förslag" in SETUP
 
 
 def test_advanced_capabilities_are_retained():
@@ -30,10 +30,10 @@ def test_advanced_capabilities_are_retained():
         "### 3. Rekommenderat tävlingsformat",
         "### 4. Tävlingsregler",
         "### 4. Matchregler och hårda begränsningar",
-        "### 5. Schemaprioriteringar",
+        "### 5. Vad är viktigast i schemat?",
         "### 6. Arrangemang & deltagarservice",
-        "### 7. Kontroll & skapa",
-        "### Publik statistik och drift",
+        "### 7. Redo att fortsätta",
+        "Valfria statistik- och driftfunktioner",
     ):
         assert marker in SETUP
 

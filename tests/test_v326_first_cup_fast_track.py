@@ -7,13 +7,13 @@ VERSION = (ROOT / "VERSION.txt").read_text(encoding="utf-8").strip()
 
 
 def test_v326_version():
-    assert VERSION == "2026.08.31-349-BEGINNER-FIRST-RUN"
+    assert VERSION == "2026.08.31-351-SETUP-COMPLETION-HANDOFF"
 
 
 def test_setup_has_fast_track_to_teams_after_minimum_setup():
     assert "Redo att lägga till lag" in SETUP
     assert "Fortsätt → Lägg till lag" in SETUP
-    assert '_fast_track_ready = bool(class_rows) and _planned_total > 0 and valid_windows' in SETUP
+    assert '_fast_track_ready = bool(class_rows) and _planned_total > 0 and valid_windows and not _addresses_to_verify' in SETUP
     assert 'st.session_state[f"admin_page_{tournament_id}"] = "Lag"' in SETUP
 
 
@@ -26,5 +26,5 @@ def test_admin_overview_replaces_duplicate_fast_track_with_one_next_step():
 
 def test_advanced_setup_remains_available():
     assert 'st.markdown("### 3. Rekommenderat tävlingsformat")' in SETUP
-    assert 'st.markdown("### 5. Schemaprioriteringar")' in SETUP
+    assert 'st.markdown("### 5. Vad är viktigast i schemat?")' in SETUP
     assert 'st.markdown("### 6. Arrangemang & deltagarservice")' in SETUP

@@ -2,7 +2,7 @@ from pathlib import Path
 ROOT=Path(__file__).resolve().parents[1]
 APP=(ROOT/"app.py").read_text(encoding="utf-8")
 SETUP=(ROOT/"cupnavi_core"/"initial_setup_view.py").read_text(encoding="utf-8")
-R="2026.08.31-349-BEGINNER-FIRST-RUN"
+R="2026.08.31-351-SETUP-COMPLETION-HANDOFF"
 
 def test_release_sync():
     assert f'APP_BUILD_VERSION = "{R}"' in APP
@@ -11,9 +11,9 @@ def test_release_sync():
 
 def test_setup_has_constraint_model_and_priorities():
     assert "HÅRT KRAV = får aldrig brytas" in SETUP
-    assert "Schemaprioriteringar" in SETUP
+    assert "Vad är viktigast i schemat?" in SETUP
     assert "preference_order_json" in SETUP
-    assert "Turneringens tempo" in SETUP
+    assert "Hur kompakt ska speldagen vara?" in SETUP
 
 def test_team_requests_are_soft_ranked_preferences():
     assert "request_priority" in APP
