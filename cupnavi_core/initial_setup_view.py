@@ -82,76 +82,40 @@ def render_initial_tournament_setup(tournament_id, tournament, *, deps: InitialS
     DIFFICULTY_LEVELS = deps.difficulty_levels
     date_with_weekday = deps.date_with_weekday
     """Första konfigurationssidan efter skapande. Vanliga fält autosparas."""
-    st.title("Kom igång med turneringen")
-    st.caption("Börja med det som krävs för att lägga in lag och skapa schema. Övriga inställningar kan finjusteras senare.")
-    st.info(f"**{tournament['name']}** · {tournament['sport']} · {cup_date_label(tournament)}")
+    _setup_environment = str(_row_value(tournament, "environment_type", "test") or "test")
+    _setup_environment_label = "🧪 Testmiljö" if _setup_environment == "test" else "● Riktig cup"
     st.markdown(
-        "<div class='cn-setup-flow'><b>1 Grund</b><span>→</span><b>2 Kapacitet</b><span>→</span><b>3 Lägg till lag</b></div>",
+        f"""
+        <div class="cn-setup-hero">
+          <div class="cn-setup-eyebrow">Cup skapad · fortsätt setupen</div>
+          <div class="cn-setup-title">Kom igång med {tournament['name']}</div>
+          <p class="cn-setup-copy">Lägg bara in det CupNavi behöver för att kunna planera cupen. Avancerade regler kan vänta tills senare.</p>
+          <div class="cn-setup-progress-grid">
+            <div class="cn-setup-step done"><strong>✓</strong>Grund</div>
+            <div class="cn-setup-step active"><strong>2</strong>Tävlingsklasser</div>
+            <div class="cn-setup-step"><strong>3</strong>Kapacitet</div>
+            <div class="cn-setup-step"><strong>4</strong>Lägg till lag</div>
+          </div>
+          <div class="cn-setup-meta">{tournament['sport']} · {cup_date_label(tournament)} · {_setup_environment_label}</div>
+        </div>
+        """,
         unsafe_allow_html=True,
     )
-    st.caption("Det räcker normalt att ange tävlingsklasser, planerat lagantal och när planerna är tillgängliga. CupNavi har standardvärden för resten.")
+    st.caption("Standardvägen är enkel: tävlingsklasser → kapacitet → lag. CupNavi använder standardvärden för resten.")
     rules = one_row("SELECT * FROM schedule_rules WHERE tournament_id=?", (tournament_id,))
     if rules is None:
         run("INSERT INTO schedule_rules(tournament_id) VALUES(?)", (tournament_id,))
         rules = one_row("SELECT * FROM schedule_rules WHERE tournament_id=?", (tournament_id,))
 
     _sport_rec=sport_setup_recommendation(_row_value(tournament,"sport","Fotboll"))
-    st.markdown("### Sportprofil")
-    # v325: keep the recommendation useful without four narrow metric cards on mobile.
-    st.markdown(
-        f'**{_sport_rec["display_name"]}** · {_sport_rec["periods"]} {_sport_rec["period_label"]} · '
-        f'{_sport_rec["minutes_per_period"]} min/{_sport_rec["period_label"].rstrip("er")} · '
-        f'min. lagvila {_sport_rec["minimum_rest_minutes"]} min'
-    )
-    st.caption(
-        f'{_sport_rec["match_note"]} {_sport_rec["rest_note"]} '
-        f'Relevant statistik: {", ".join(_sport_rec["relevant_stats"])}. '
-        f'Slutspel: {_sport_rec["playoff_note"]}'
-    )
-
     _played_setup=int(one_row(
         "SELECT COUNT(*) AS n FROM matches WHERE tournament_id=? AND home_score IS NOT NULL AND away_score IS NOT NULL",
         (tournament_id,),
     )["n"] or 0)
-    if _played_setup:
-        st.info("Sportprofilens standardvärden visas som referens. De kan inte appliceras efter att resultat har registrerats.")
-    elif st.button(
-        f'Använd rekommenderade {_sport_rec["display_name"].lower()}-värden',
-        key=f"apply_sport_defaults_{tournament_id}",
-        use_container_width=True,
-    ):
-        run(
-            """UPDATE schedule_rules
-               SET halves=?,minutes_per_half=?,halftime_minutes=?,minimum_team_rest_minutes=?
-               WHERE tournament_id=?""",
-            (
-                _sport_rec["periods"],
-                _sport_rec["minutes_per_period"],
-                _sport_rec["break_minutes"],
-                _sport_rec["minimum_rest_minutes"],
-                tournament_id,
-            ),
-        )
-        # Public stat defaults follow what the sport actually tracks.
-        run(
-            """UPDATE tournaments
-               SET enable_scorer_leaderboard=?,
-                   enable_assist_leaderboard=?,
-                   enable_card_statistics=?
-               WHERE id=?""",
-            (
-                1 if _sport_rec["score_label"] in ("mål","goals") else 0,
-                1 if _sport_rec["tracks_assists"] else 0,
-                1 if _sport_rec["discipline_mode"] in ("cards","two_minute_and_cards") else 0,
-                tournament_id,
-            ),
-        )
-        st.session_state[f"autosave_notice_{tournament_id}"]=f'✓ {_sport_rec["display_name"]}-profilen applicerades.'
-        st.rerun()
 
     # Legacy QA anchor: ### 1. Tävlingsklasser och svårighetsgrad
-    st.markdown("### 1. Grunduppgifter")
-    st.caption("Definiera varje tävlingsklass och hur många lag du planerar i just den klassen. Summan används som cupens totala planeringsantal.")
+    st.markdown("### 1. Tävlingsklasser")
+    st.caption("Lägg till de klasser som ska spela och ungefär hur många lag du räknar med i varje klass.")
     _class_played_count=_played_setup
     _class_locked=_class_played_count > 0
     if _class_locked:
@@ -227,7 +191,7 @@ def render_initial_tournament_setup(tournament_id, tournament, *, deps: InitialS
         st.caption(f"Planerat totalt antal lag: **{_planned_total}** · detta är summan av klasserna och kan ändras fram till första registrerade resultat.")
 
     # Legacy QA anchor: ### 2. Planer och öppettider per dag
-    st.markdown("### 2. Kapacitet & speltider")
+    st.markdown("### 2. Kapacitet")
     st.caption("Detta kommer före tävlingsformatet eftersom antal planer och tillgängliga timmar avgör hur många matcher och vilket slutspel som faktiskt ryms.")
     pitch_key=f"setup_pitches_{tournament_id}"
     st.number_input(
@@ -335,6 +299,39 @@ def render_initial_tournament_setup(tournament_id, tournament, *, deps: InitialS
         st.markdown("### Avancerad setup")
         st.caption("Finjustera endast sådant som avviker från CupNavis standardvärden. Alla inställningar autosparas som tidigare.")
         st.caption("HÅRT KRAV = får aldrig brytas · ÖNSKEMÅL = försöker uppfyllas · OPTIMERING = avgör vilket av flera giltiga scheman som är bäst.")
+
+        with st.expander("Sportprofil", expanded=False):
+            st.markdown(
+                f'**{_sport_rec["display_name"]}** · {_sport_rec["periods"]} {_sport_rec["period_label"]} · '
+                f'{_sport_rec["minutes_per_period"]} min/{_sport_rec["period_label"].rstrip("er")} · '
+                f'min. lagvila {_sport_rec["minimum_rest_minutes"]} min'
+            )
+            st.caption(
+                f'{_sport_rec["match_note"]} {_sport_rec["rest_note"]} '
+                f'Relevant statistik: {", ".join(_sport_rec["relevant_stats"])}. '
+                f'Slutspel: {_sport_rec["playoff_note"]}'
+            )
+            if _played_setup:
+                st.info("Sportprofilens standardvärden visas som referens. De kan inte appliceras efter att resultat har registrerats.")
+            elif st.button(
+                f'Använd rekommenderade {_sport_rec["display_name"].lower()}-värden',
+                key=f"apply_sport_defaults_{tournament_id}",
+                use_container_width=True,
+            ):
+                run(
+                    """UPDATE schedule_rules
+                       SET halves=?,minutes_per_half=?,halftime_minutes=?,minimum_team_rest_minutes=?
+                       WHERE tournament_id=?""",
+                    (_sport_rec["periods"], _sport_rec["minutes_per_period"], _sport_rec["break_minutes"], _sport_rec["minimum_rest_minutes"], tournament_id),
+                )
+                run(
+                    """UPDATE tournaments
+                       SET enable_scorer_leaderboard=?, enable_assist_leaderboard=?, enable_card_statistics=?
+                       WHERE id=?""",
+                    (1 if _sport_rec["score_label"] in ("mål","goals") else 0, 1 if _sport_rec["tracks_assists"] else 0, 1 if _sport_rec["discipline_mode"] in ("cards","two_minute_and_cards") else 0, tournament_id),
+                )
+                st.session_state[f"autosave_notice_{tournament_id}"]=f'✓ {_sport_rec["display_name"]}-profilen applicerades.'
+                st.rerun()
 
         st.markdown("### 3. Rekommenderat tävlingsformat")
         st.caption("Nu känner CupNavi till sport, antal lag och faktisk plankapacitet. Därför kan formatförslaget bedömas mot vad som verkligen ryms. Inget ändras förrän du accepterar.")

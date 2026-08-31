@@ -6,14 +6,14 @@ VERSION = (ROOT / "VERSION.txt").read_text(encoding="utf-8").strip()
 
 
 def test_v340_version_marker():
-    assert VERSION == "2026.08.31-342-POST-SIMPLIFICATION-AUDIT"
+    assert VERSION == "2026.08.31-347-SCHEDULE-READINESS-POLISH"
 
 
 def test_standard_setup_is_three_step_fast_track():
-    assert "<b>1 Grund</b>" in SETUP
-    assert "<b>2 Kapacitet</b>" in SETUP
-    assert "<b>3 Lägg till lag</b>" in SETUP
-    assert "<b>7 Kontroll</b>" not in SETUP
+    assert "cn-setup-step done" in SETUP
+    assert "Tävlingsklasser" in SETUP
+    assert "Kapacitet" in SETUP
+    assert "Lägg till lag" in SETUP
     assert "Fortsätt snabbstart → Lägg till lag" in SETUP
 
 

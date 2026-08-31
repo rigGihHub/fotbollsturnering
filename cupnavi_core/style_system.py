@@ -909,6 +909,16 @@ def inject_ux2_css(st, components):
         .cn-setup-flow{display:flex;align-items:center;gap:8px;flex-wrap:wrap;background:#fff;border:1px solid #d7e0ea;border-radius:12px;padding:10px 12px;margin:4px 0 10px}
         .cn-setup-flow b{background:#eef7f0;color:#166534;border:1px solid #bbdfc5;border-radius:999px;padding:5px 9px;font-size:12px}
         .cn-setup-flow span{color:#94a3b8;font-weight:800}
+        .cn-setup-hero{background:linear-gradient(135deg,#ffffff 0%,#f6fbf7 100%);border:1px solid #dfe8e2;border-radius:18px;padding:20px 22px;margin:4px 0 14px;box-shadow:0 8px 24px rgba(15,23,42,.045)}
+        .cn-setup-eyebrow{font-size:.76rem;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:#178342;margin-bottom:5px}
+        .cn-setup-title{font-size:1.42rem;font-weight:850;color:#142019;line-height:1.2;margin-bottom:6px}
+        .cn-setup-copy{font-size:.93rem;line-height:1.5;color:#59665e;margin:0 0 14px}
+        .cn-setup-progress-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+        .cn-setup-step{border:1px solid #e1e7e3;border-radius:12px;padding:9px 10px;background:#fff;color:#69746d;font-size:.78rem;font-weight:700}
+        .cn-setup-step strong{display:inline-flex;width:21px;height:21px;align-items:center;justify-content:center;border-radius:999px;background:#eef2ef;color:#667169;margin-right:5px}
+        .cn-setup-step.done{background:#f3faf5;border-color:#b9dec5;color:#28613c}.cn-setup-step.done strong{background:#dff3e5;color:#176b38}
+        .cn-setup-step.active{background:#edf8f0;border-color:#8ecba1;color:#154f2d;box-shadow:inset 0 0 0 1px rgba(23,131,66,.08)}.cn-setup-step.active strong{background:#178342;color:#fff}
+        .cn-setup-meta{margin-top:10px;color:#738078;font-size:.8rem;font-weight:650}
         .cn-rule-type{font-size:11px;font-weight:900;letter-spacing:.05em;text-transform:uppercase}
         .cn-flow-context{background:#fff;border:1px solid var(--cn-border);border-radius:16px;padding:14px 16px;margin:8px 0 12px;box-shadow:0 4px 14px rgba(15,23,42,.045)}
         .cn-flow-kicker{font-size:11px;font-weight:900;text-transform:uppercase;letter-spacing:.07em;color:#64748b;margin-bottom:3px}
@@ -922,6 +932,7 @@ def inject_ux2_css(st, components):
         .cn-next-action b{color:#14532d}.cn-next-action span{color:#475569;font-size:13px}
 
         @media(max-width:760px){
+          .cn-setup-hero{padding:16px}.cn-setup-title{font-size:1.22rem}.cn-setup-progress-grid{grid-template-columns:1fr 1fr}
           .cn-mobile-bottom-nav{display:grid;grid-template-columns:repeat(4,1fr);position:fixed;left:8px;right:8px;bottom:8px;z-index:999996;background:rgba(255,255,255,.97);border:1px solid #dbe4ea;border-radius:18px;box-shadow:0 10px 28px rgba(15,23,42,.16);padding:6px;-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px)}
           .cn-mobile-bottom-nav a{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;min-height:52px;text-decoration:none!important;color:#475569!important;font-size:17px;border-radius:12px}.cn-mobile-bottom-nav a span{font-size:10px;font-weight:800}.cn-mobile-bottom-nav a.active{background:#eef8f1;color:#14532d!important}
           .stApp .block-container{padding-bottom:5.8rem!important}.cn-schedule-grid{min-width:640px}.cn-current-admin-page{top:70px} [data-testid="stButton"] button{min-height:46px !important}

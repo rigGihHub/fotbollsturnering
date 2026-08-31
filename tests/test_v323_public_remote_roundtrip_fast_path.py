@@ -6,7 +6,7 @@ VERSION = (ROOT / 'VERSION.txt').read_text().strip()
 
 
 def test_v323_version():
-    assert VERSION == '2026.08.31-342-POST-SIMPLIFICATION-AUDIT'
+    assert VERSION == '2026.08.31-347-SCHEDULE-READINESS-POLISH'
 
 
 def test_schema_fast_path_is_one_execute_statement():

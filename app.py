@@ -190,7 +190,7 @@ def inject_v198_visual_system():
     return _inject_v198_visual_system_impl(st)
 
 
-APP_BUILD_VERSION = "2026.08.31-342-POST-SIMPLIFICATION-AUDIT"
+APP_BUILD_VERSION = "2026.08.31-347-SCHEDULE-READINESS-POLISH"
 APP_VERSION = APP_BUILD_VERSION
 
 def read_core_version_from_disk():
@@ -7147,39 +7147,114 @@ if view_mode == "Admin":
 
 def render_new_tournament_creator(*, key_prefix="sidebar"):
     """Render the same safe creation flow in sidebar or main content/mobile."""
-    template_id = st.selectbox(
-        "Startmall",
-        list(TOURNAMENT_TEMPLATES),
-        format_func=lambda key: TOURNAMENT_TEMPLATES[key]["label_sv"],
-        key=f"{key_prefix}_new_tournament_template",
-        help="Mallen sätter bara bra startvärden. Du kan justera övriga regler efter att cupen skapats.",
-    )
-    selected_template = template_definition(template_id)
-    st.caption(selected_template["description_sv"])
+    creator_compact = key_prefix == "sidebar"
+
+    if not creator_compact:
+        st.markdown(
+            """
+            <style>
+              .cn-create-hero {
+                border: 1px solid #e4e9e6; border-radius: 18px; padding: 18px 20px;
+                background: linear-gradient(180deg,#ffffff 0%,#fbfdfc 100%);
+                box-shadow: 0 8px 30px rgba(20,45,30,.06); margin: 4px 0 16px 0;
+              }
+              .cn-create-eyebrow {font-size:.78rem;font-weight:750;letter-spacing:.06em;text-transform:uppercase;color:#178342;margin-bottom:5px;}
+              .cn-create-title {font-size:1.48rem;font-weight:800;color:#142019;line-height:1.15;margin:0 0 6px 0;}
+              .cn-create-copy {color:#56635b;font-size:.94rem;line-height:1.5;margin:0;}
+              .cn-create-steps {display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:14px 0 4px 0;}
+              .cn-create-step {border:1px solid #e3e8e5;border-radius:12px;padding:9px 10px;background:#fff;color:#68736c;font-size:.78rem;font-weight:650;}
+              .cn-create-step strong {display:inline-flex;width:20px;height:20px;align-items:center;justify-content:center;border-radius:999px;background:#edf7f0;color:#14783b;margin-right:5px;}
+              .cn-create-step.active {border-color:#a9d7b8;background:#f4fbf6;color:#174d2c;}
+              .cn-test-banner {border:1px solid #a9d7b8;border-radius:14px;padding:13px 15px;background:#f2fbf5;margin:8px 0 14px 0;}
+              .cn-test-banner-title {font-weight:800;color:#126b34;margin-bottom:3px;}
+              .cn-test-banner-copy {color:#486052;font-size:.88rem;line-height:1.42;}
+              @media(max-width:640px){.cn-create-steps{grid-template-columns:1fr 1fr}.cn-create-hero{padding:15px}.cn-create-title{font-size:1.25rem}}
+            </style>
+            <div class="cn-create-hero">
+              <div class="cn-create-eyebrow">Ny turnering</div>
+              <div class="cn-create-title">Skapa ny cup</div>
+              <p class="cn-create-copy">Börja med grunderna. CupNavi guidar dig vidare och låter avancerade val vänta tills de faktiskt behövs.</p>
+              <div class="cn-create-steps">
+                <div class="cn-create-step active"><strong>1</strong>Grund</div>
+                <div class="cn-create-step"><strong>2</strong>Tävlingsklasser</div>
+                <div class="cn-create-step"><strong>3</strong>Kapacitet</div>
+                <div class="cn-create-step"><strong>4</strong>Regler</div>
+              </div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+    # Startmall is useful for power users, but should not visually compete with
+    # the four fields needed to start a normal cup.
+    if creator_compact:
+        template_id = st.selectbox(
+            "Startmall",
+            list(TOURNAMENT_TEMPLATES),
+            format_func=lambda key: TOURNAMENT_TEMPLATES[key]["label_sv"],
+            key=f"{key_prefix}_new_tournament_template",
+            help="Mallen sätter bara bra startvärden. Du kan justera övriga regler efter att cupen skapats.",
+        )
+        selected_template = template_definition(template_id)
+        st.caption(selected_template["description_sv"])
+    else:
+        with st.expander("Startmall · valfritt", expanded=False):
+            template_id = st.selectbox(
+                "Startmall",
+                list(TOURNAMENT_TEMPLATES),
+                format_func=lambda key: TOURNAMENT_TEMPLATES[key]["label_sv"],
+                key=f"{key_prefix}_new_tournament_template",
+                help="Mallen sätter bara bra startvärden. Du kan justera övriga regler efter att cupen skapats.",
+            )
+            selected_template = template_definition(template_id)
+            st.caption(selected_template["description_sv"])
+
     with st.form(f"{key_prefix}_new_tournament", clear_on_submit=True):
-        n = st.text_input("Namn")
-        place = st.text_input("Spelort")
         sports_list = list(SPORT_PROFILES)
         suggested_sport = selected_template["sport"] if selected_template["sport"] in sports_list else sports_list[0]
-        sport = st.selectbox(
-            "Sport",
-            sports_list,
-            index=sports_list.index(suggested_sport),
-            key=f"{key_prefix}_new_tournament_sport",
-            help="Sport väljs när cupen skapas och låses därefter, eftersom den styr matchmodell, terminologi och sportregler.",
-        )
+
+        if creator_compact:
+            n = st.text_input("Namn")
+            place = st.text_input("Spelort")
+            sport = st.selectbox(
+                "Sport",
+                sports_list,
+                index=sports_list.index(suggested_sport),
+                key=f"{key_prefix}_new_tournament_sport",
+                help="Sport väljs när cupen skapas och låses därefter, eftersom den styr matchmodell, terminologi och sportregler.",
+            )
+            start_date = st.date_input("Cupdag")
+        else:
+            create_col1, create_col2 = st.columns(2)
+            with create_col1:
+                n = st.text_input("Namn på cup *", placeholder="Exempel: Sommarcupen 2026")
+                sport = st.selectbox(
+                    "Sport *",
+                    sports_list,
+                    index=sports_list.index(suggested_sport),
+                    key=f"{key_prefix}_new_tournament_sport",
+                    help="Sport väljs när cupen skapas och låses därefter, eftersom den styr matchmodell, terminologi och sportregler.",
+                )
+            with create_col2:
+                place = st.text_input("Spelort", placeholder="Exempel: Örebro")
+                start_date = st.date_input("Cupdag")
+
+        multi_day = st.checkbox("Cupen pågår flera dagar", value=False, key=f"{key_prefix}_new_tournament_multi_day")
+        end_date = st.date_input("Sista cupdag", value=start_date) if multi_day else start_date
+
         # De flesta arrangörer behöver aldrig ändra dessa grundvärden.
-        # Behåll funktionaliteten, men låt normalflödet vara Namn → Spelort → Sport → Datum → Skapa.
+        # Testmiljö är medvetet standard för alla nya cuper. Produktion väljs
+        # aktivt först när arrangören verkligen vill skapa en riktig cup.
         with st.expander("Fler alternativ", expanded=os.environ.get("CUPNAVI_E2E") == "1"):
-            st.caption("Internationell grund och testläge. Standardvärdena fungerar för en vanlig svensk cup.")
+            st.caption("Internationell grund och miljöval. Testmiljö är standard för nya cuper.")
             environment_type = st.radio(
                 "Miljö",
                 ["production", "test"],
-                index=1 if os.environ.get("CUPNAVI_E2E") == "1" else 0,
+                index=1,
                 format_func=lambda value: "Riktig cup" if value == "production" else "Testmiljö",
                 horizontal=True,
                 key=f"{key_prefix}_new_tournament_environment",
-                help="Använd Testmiljö endast när du vill skapa demodata eller prova funktioner.",
+                help="Testmiljö är standard. Välj Riktig cup först när cupen ska användas skarpt.",
             )
             create_locale = st.selectbox(
                 "Språk/region",
@@ -7202,18 +7277,25 @@ def render_new_tournament_creator(*, key_prefix="sidebar"):
             if environment_type == "test":
                 st.caption("Testmiljö märks tydligt och kan fyllas med demodata.")
             st.caption("Sport, språk/region, tidszon och land är grundegenskaper och kan inte ändras efter skapandet.")
+
+        if not creator_compact:
+            if environment_type == "test":
+                st.markdown(
+                    """<div class="cn-test-banner"><div class="cn-test-banner-title">🧪 Testmiljö · standard</div><div class="cn-test-banner-copy">Den nya cupen skapas säkert som testmiljö. Du kan arbeta klart upplägget innan den används skarpt.</div></div>""",
+                    unsafe_allow_html=True,
+                )
+            else:
+                st.info("Riktig cup vald. Den här cupen är avsedd för skarp användning.")
+
         # Service-/arrangemangsval görs senare i den guidade setupen.
         create_team_checkin = False
         create_final_ranking = False
         create_changing_rooms = False
         create_show_prices = False
-        start_date = st.date_input("Cupdag")
-        multi_day = st.checkbox("Cupen pågår flera dagar", value=False, key=f"{key_prefix}_new_tournament_multi_day")
-        end_date = st.date_input("Sista cupdag", value=start_date) if multi_day else start_date
-        st.caption("Efter Skapa guidar CupNavi dig genom tävlingsklasser, kapacitet och regler.")
+        st.caption("När cupen är skapad guidar CupNavi dig vidare genom tävlingsklasser, kapacitet och regler.")
         expected_teams = 0
         # Antal lag anges per tävlingsklass i den guidade setupen; inget globalt lagantal här.
-        if st.form_submit_button("Skapa", type="primary", use_container_width=True):
+        if st.form_submit_button("Skapa cup", type="primary", use_container_width=True):
             normalized_timezone = valid_timezone(create_timezone)
             if not n.strip():
                 st.error("Ange ett namn.")
@@ -7300,6 +7382,7 @@ if view_mode == "Admin":
             clone_environment = st.radio(
                 "Ny miljö",
                 ["production", "test"],
+                index=1,
                 format_func=lambda value: "Riktig cup" if value == "production" else "Testkopia",
                 horizontal=True,
                 key="clone_environment",
@@ -8278,6 +8361,7 @@ if _flow_index is not None:
             """SELECT
                  (SELECT COUNT(*) FROM teams WHERE tournament_id=?) AS teams_n,
                  (SELECT COUNT(*) FROM groups WHERE tournament_id=?) AS groups_n,
+                 (SELECT COUNT(*) FROM teams WHERE tournament_id=? AND group_id IS NULL) AS unassigned_n,
                  (SELECT COUNT(*) FROM players p JOIN teams t ON t.id=p.team_id WHERE t.tournament_id=?) AS players_n,
                  (SELECT COUNT(*) FROM referees WHERE tournament_id=?) AS refs_n,
                  (SELECT COUNT(*) FROM matches WHERE tournament_id=?) AS matches_n,
@@ -8294,7 +8378,7 @@ if _flow_index is not None:
                     AND (home_score IS NULL OR away_score IS NULL)) AS missing_results_n,
                  (SELECT COUNT(*) FROM matches WHERE tournament_id=? AND scheduled_start IS NOT NULL AND scheduled_start<?
                     AND (home_score IS NULL OR away_score IS NULL)) AS delayed_n""",
-            (tid,tid,tid,tid,tid,tid,tid,tid,tid,tid,tid,tid,tid,_now_iso,tid,_now_iso,tid,_delayed_cutoff_iso),
+            (tid,tid,tid,tid,tid,tid,tid,tid,tid,tid,tid,tid,tid,tid,_now_iso,tid,_now_iso,tid,_delayed_cutoff_iso),
         )
         _DERIVED_RENDER_CACHE[("admin-workflow-counts", int(tid))] = _flow_counts
     else:
@@ -8302,10 +8386,11 @@ if _flow_index is not None:
             """SELECT
                  (SELECT COUNT(*) FROM teams WHERE tournament_id=?) AS teams_n,
                  (SELECT COUNT(*) FROM groups WHERE tournament_id=?) AS groups_n,
+                 (SELECT COUNT(*) FROM teams WHERE tournament_id=? AND group_id IS NULL) AS unassigned_n,
                  (SELECT COUNT(*) FROM matches WHERE tournament_id=?) AS matches_n,
                  (SELECT COUNT(*) FROM matches WHERE tournament_id=? AND scheduled_start IS NOT NULL) AS scheduled_n,
                  (SELECT COUNT(*) FROM matches WHERE tournament_id=? AND home_score IS NOT NULL AND away_score IS NOT NULL) AS played_n""",
-            (tid,tid,tid,tid,tid),
+            (tid,tid,tid,tid,tid,tid),
         )
     _flow_total = int(_flow_counts["matches_n"] or 0)
     _flow_played = int(_flow_counts["played_n"] or 0)
@@ -8332,10 +8417,19 @@ if _flow_index is not None:
     )
 
 if _flow_index is not None:
-    if int(_flow_counts["teams_n"] or 0) == 0:
-        _recommended_page, _recommended_label = "Lag", "Lägg till lag"
+    _journey_teams_n = int(_flow_counts["teams_n"] or 0)
+    _journey_expected_n = int(tournament["expected_team_count"] or 0)
+    _journey_unassigned_n = int(_flow_counts["unassigned_n"] or 0)
+    _journey_teams_ready = _journey_teams_n > 0 and (not _journey_expected_n or _journey_teams_n >= _journey_expected_n)
+    if not _journey_teams_ready:
+        if _journey_expected_n:
+            _recommended_page, _recommended_label = "Lag", f"Lägg till lag ({_journey_teams_n}/{_journey_expected_n})"
+        else:
+            _recommended_page, _recommended_label = "Lag", "Lägg till lag"
     elif int(_flow_counts["groups_n"] or 0) == 0:
         _recommended_page, _recommended_label = "Grupper", "Skapa grupper"
+    elif _journey_unassigned_n > 0:
+        _recommended_page, _recommended_label = "Grupper", f"Placera { _journey_unassigned_n } lag i grupp" if _journey_unassigned_n == 1 else f"Placera {_journey_unassigned_n} lag i grupper"
     elif _flow_scheduled == 0 or bool(tournament["schedule_dirty"]):
         _recommended_page, _recommended_label = "Skapa och publicera schema", "Skapa eller uppdatera schemat"
     elif _flow_total and _flow_played < _flow_total:
@@ -10524,9 +10618,31 @@ if admin_page == "Lag":
     max_teams = int(tournament["expected_team_count"] or 0)
     registered_team_count = one_row("SELECT COUNT(*) AS n FROM teams WHERE tournament_id=?", (tid,))["n"]
     team_limit_reached = bool(max_teams and registered_team_count >= max_teams)
+    participant_registration_complete = bool(
+        registered_team_count > 0 and (not max_teams or registered_team_count >= max_teams)
+    )
     if max_teams:
-        status_icon = "✓" if team_limit_reached else "👥"
-        st.caption(f"{status_icon} {registered_team_count} av {max_teams} lag/deltagare registrerade." + (" Maxantalet är uppnått." if team_limit_reached else ""))
+        progress_value = min(1.0, registered_team_count / max_teams) if max_teams else 0.0
+        st.progress(progress_value)
+        status_icon = "✓" if participant_registration_complete else "👥"
+        st.caption(f"{status_icon} {registered_team_count} av {max_teams} lag/deltagare registrerade." + (" Deltagarlistan är komplett." if participant_registration_complete else ""))
+        if registered_team_count and not participant_registration_complete:
+            st.info(f"Fortsätt lägga till lag. CupNavi väntar med gruppindelningen tills {max_teams} lag är registrerade.")
+    elif registered_team_count:
+        st.caption(f"✓ {registered_team_count} lag/deltagare registrerade.")
+
+    if participant_registration_complete:
+        with st.container(border=True):
+            st.markdown("### ✓ Deltagarna är klara")
+            st.caption("Nästa naturliga steg är att skapa grupper och placera lagen.")
+            st.button(
+                "Fortsätt till Grupper →",
+                type="primary",
+                use_container_width=True,
+                key=f"v346_teams_to_groups_{tid}",
+                on_click=_set_admin_page,
+                args=("Grupper",),
+            )
     if registered_team_count:
         st.caption("Spelare och trupper hanteras via **Fler lagverktyg** ovan.")
     if team_limit_reached:
@@ -11115,8 +11231,38 @@ if admin_page == "Grupper":
         )
     st.caption("Skapa grupper och placera lagen. CupNavi visar rekommendation när sådan finns.")
     teams = all_rows("SELECT * FROM teams WHERE tournament_id=? ORDER BY name", (tid,))
+    _expected_group_team_count = int(tournament["expected_team_count"] or 0)
+    _participant_registration_complete = bool(
+        teams and (not _expected_group_team_count or len(teams) >= _expected_group_team_count)
+    )
+    _unassigned_teams_now = sum(1 for team_row in teams if team_row["group_id"] is None)
     if not teams:
-        st.warning("Lägg först till lagen under fliken Lag innan du skapar grupper.")
+        st.warning("Lägg först till lagen under Lag innan du skapar grupper.")
+        st.button(
+            "Till Lag →",
+            type="primary",
+            use_container_width=True,
+            key=f"v346_groups_empty_to_teams_{tid}",
+            on_click=_set_admin_page,
+            args=("Lag",),
+        )
+    elif not _participant_registration_complete:
+        st.warning(
+            f"Deltagarlistan är inte klar ännu: {len(teams)} av {_expected_group_team_count} lag är registrerade. "
+            "CupNavi väntar med automatisk gruppindelning tills alla lag finns med."
+        )
+        st.button(
+            "Fortsätt lägga till lag",
+            type="primary",
+            use_container_width=True,
+            key=f"v346_groups_back_to_teams_{tid}",
+            on_click=_set_admin_page,
+            args=("Lag",),
+        )
+    elif _unassigned_teams_now:
+        assigned_now = len(teams) - _unassigned_teams_now
+        st.progress(assigned_now / len(teams) if teams else 0.0)
+        st.caption(f"{assigned_now} av {len(teams)} lag placerade · {_unassigned_teams_now} återstår. Schema blir nästa steg när alla lag är placerade.")
     class_rows = competition_classes(tid)
     class_ids = [row["id"] for row in class_rows]
     _group_rules=one_row("SELECT * FROM schedule_rules WHERE tournament_id=?",(tid,))
@@ -11160,7 +11306,11 @@ if admin_page == "Grupper":
         return plan
 
     _existing_groups_count=int(one_row("SELECT COUNT(*) AS n FROM groups WHERE tournament_id=?",(tid,))["n"] or 0)
-    _smart_plan = _smart_group_plan(teams, class_rows) if teams and _existing_groups_count == 0 else []
+    _smart_plan = (
+        _smart_group_plan(teams, class_rows)
+        if teams and _participant_registration_complete and _existing_groups_count == 0
+        else []
+    )
     if _smart_plan:
         st.markdown("### ⚡ Smart gruppindelning")
         st.caption("CupNavi föreslår jämnstora grupper inom respektive tävlingsklass. Förslaget är bara en förhandsvisning tills du väljer Skapa.")
@@ -11226,7 +11376,7 @@ if admin_page == "Grupper":
 
     if _recommended_groups > 0 and not _smart_plan:
         st.caption(f"Rekommendation: **{_recommended_groups} grupper** · cirka **{int(_row_value(_group_rules,'recommended_group_size',0) or 0)} lag per grupp**.")
-        if _existing_groups_count == 0 and teams:
+        if _existing_groups_count == 0 and teams and _participant_registration_complete:
             if st.button(f"Skapa {_recommended_groups} rekommenderade grupper",type="primary",use_container_width=True,key=f"create_recommended_groups_{tid}"):
                 class_default=class_rows[0] if len(class_rows)==1 else None
                 class_id=_row_value(class_default,"id",None) if class_default else None
@@ -11330,6 +11480,24 @@ if admin_page == "Grupper":
                 if not _group_history_locked:
                     run("UPDATE teams SET group_id=? WHERE id=?", (new_group, t["id"]))
                 st.rerun()
+
+    # v346: once every registered team has a group, make the next step explicit.
+    _groups_after_assignment = all_rows("SELECT id FROM groups WHERE tournament_id=?", (tid,))
+    _unassigned_after_assignment = int(
+        (one_row("SELECT COUNT(*) AS n FROM teams WHERE tournament_id=? AND group_id IS NULL", (tid,)) or {"n": 0})["n"] or 0
+    )
+    if teams and _participant_registration_complete and _groups_after_assignment and _unassigned_after_assignment == 0:
+        with st.container(border=True):
+            st.markdown("### ✓ Gruppindelningen är klar")
+            st.caption("Alla registrerade lag har en grupp. Nu kan du skapa spelschemat.")
+            st.button(
+                "Fortsätt till Schema →",
+                type="primary",
+                use_container_width=True,
+                key=f"v346_groups_to_schedule_{tid}",
+                on_click=_set_admin_page,
+                args=("Skapa och publicera schema",),
+            )
 
     st.divider()
     with st.expander("Redigera eller ta bort grupp"):

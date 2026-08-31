@@ -11,5 +11,5 @@ def test_tokens():
 def test_accessibility_responsive():
  for t in ["focus-visible","@media(prefers-reduced-motion:reduce)","--cn-control-h:44px","overflow-x:hidden!important","@media(max-width:390px)","@media(min-width:1440px)"]: assert t in STYLE
 def test_release():
- assert VERSION=="2026.08.31-342-POST-SIMPLIFICATION-AUDIT"
+ assert VERSION=="2026.08.31-347-SCHEDULE-READINESS-POLISH"
  assert "release_ui_label(APP_BUILD_VERSION)" in APP

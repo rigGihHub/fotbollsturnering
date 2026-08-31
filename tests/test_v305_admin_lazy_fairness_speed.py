@@ -23,4 +23,4 @@ def test_control_center_shares_lazy_match_snapshot():
 
 
 def test_release_version_305():
-    assert '2026.08.31-342-POST-SIMPLIFICATION-AUDIT' in APP
+    assert '2026.08.31-347-SCHEDULE-READINESS-POLISH' in APP

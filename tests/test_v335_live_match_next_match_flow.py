@@ -2,7 +2,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 WORKSPACE = (ROOT / "cupnavi_core" / "match_reporter_workspace_view.py").read_text()
-VERSION = "2026.08.31-342-POST-SIMPLIFICATION-AUDIT"
+VERSION = "2026.08.31-347-SCHEDULE-READINESS-POLISH"
 
 
 def test_version_markers_are_current():

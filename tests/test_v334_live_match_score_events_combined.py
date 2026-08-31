@@ -6,7 +6,7 @@ VERSION = (ROOT / "VERSION.txt").read_text(encoding="utf-8").strip()
 
 
 def test_v334_release_version():
-    assert VERSION == "2026.08.31-342-POST-SIMPLIFICATION-AUDIT"
+    assert VERSION == "2026.08.31-347-SCHEDULE-READINESS-POLISH"
 
 
 def test_score_view_renders_events_for_persisted_result_in_same_workspace():

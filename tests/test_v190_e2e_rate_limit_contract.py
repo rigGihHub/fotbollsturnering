@@ -4,7 +4,7 @@ APP=(ROOT/"app.py").read_text(encoding="utf-8")
 INFO=(ROOT/"cupnavi_core/public_info_view.py").read_text(encoding="utf-8")
 MIG=(ROOT/"cupnavi_core/migrations.py").read_text(encoding="utf-8")
 WF=(ROOT/".github/workflows/cross-browser.yml").read_text(encoding="utf-8")
-R="2026.08.31-342-POST-SIMPLIFICATION-AUDIT"
+R="2026.08.31-347-SCHEDULE-READINESS-POLISH"
 
 def test_server_side_rate_limits_cover_login_and_feedback():
     assert '_rate_allowed("admin-login", 8, 600)' in APP

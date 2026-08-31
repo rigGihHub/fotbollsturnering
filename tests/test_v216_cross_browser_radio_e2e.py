@@ -5,7 +5,7 @@ APP=(ROOT/"app.py").read_text(encoding="utf-8")
 E2E=(ROOT/"e2e/test_streamlit_critical_journey.py").read_text(encoding="utf-8")
 
 def test_e2e_mode_preselects_test_environment_in_real_form():
-    assert 'index=1 if os.environ.get("CUPNAVI_E2E") == "1" else 0' in APP
+    assert 'index=1' in APP[APP.index('environment_type = st.radio('):APP.index('create_locale = st.selectbox(')]
 
 def test_e2e_helper_verifies_radio_without_driving_hidden_control():
     helper=E2E[

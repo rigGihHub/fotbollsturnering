@@ -29,5 +29,5 @@ def test_business_helpers_are_injected_not_reimplemented():
     assert "sport_profile=sport_profile" in APP
 
 def test_release_is_v202():
-    assert VERSION=="2026.08.31-342-POST-SIMPLIFICATION-AUDIT"
+    assert VERSION=="2026.08.31-347-SCHEDULE-READINESS-POLISH"
     assert "release_ui_label(APP_BUILD_VERSION)" in APP

@@ -27,7 +27,7 @@ def test_primary_navigation_labels_are_shorter_and_consistent():
 
 
 def test_flow_context_no_longer_duplicates_page_title_and_copy():
-    block=APP[APP.index('_flow_index = _primary_flow_index(admin_page)'):APP.index('if int(_flow_counts["teams_n"] or 0) == 0:')]
+    block=APP[APP.index('_flow_index = _primary_flow_index(admin_page)'):APP.index('_journey_teams_n = int(_flow_counts["teams_n"] or 0)')]
     assert "cn-flow-context-compact" in block
     assert "cn-flow-title" not in block
     assert "cn-flow-copy" not in block
@@ -35,7 +35,7 @@ def test_flow_context_no_longer_duplicates_page_title_and_copy():
 
 
 def test_recommended_next_step_only_renders_in_primary_flow():
-    start=APP.index('if int(_flow_counts["teams_n"] or 0) == 0:')
+    start=APP.index('_journey_teams_n = int(_flow_counts["teams_n"] or 0)')
     end=APP.index('current_schedule_dirty =',start)
     block=APP[start:end]
     assert 'if _flow_index is not None and admin_page not in (_recommended_page, "Adminöversikt"):' in block

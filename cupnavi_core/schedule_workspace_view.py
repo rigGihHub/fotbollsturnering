@@ -139,6 +139,12 @@ def render_schedule_workspace(tid, tournament, *, deps: ScheduleWorkspaceDepende
         render_schedule_recovery_actions(tid,tournament,rules,st.session_state.get("schedule_recovery"))
     schedule_groups = all_rows("SELECT id,name FROM groups WHERE tournament_id=? ORDER BY name", (tid,))
     schedule_teams = all_rows("SELECT id,group_id FROM teams WHERE tournament_id=?", (tid,))
+    expected_team_count = int(tournament["expected_team_count"] or 0)
+    registered_team_count = len(schedule_teams)
+    participant_list_complete = bool(
+        registered_team_count > 0
+        and (not expected_team_count or registered_team_count >= expected_team_count)
+    )
     unassigned_count = sum(1 for team_row in schedule_teams if team_row["group_id"] is None)
     _schedule_team_counts = {}
     for _team_row in schedule_teams:
@@ -176,12 +182,57 @@ def render_schedule_workspace(tid, tournament, *, deps: ScheduleWorkspaceDepende
         status2.metric("Schemalagda matcher", scheduled_total)
         status3.metric("Ej publicerade", unpublished_total)
         create_disabled = (
-            not schedule_groups
+            not participant_list_complete
+            or not schedule_groups
             or unassigned_count > 0
             or bool(too_small_groups)
             or not playoff_model_ready
             or bool(playoff_setup_error)
         )
+
+        # v347: a compact readiness contract before the destructive/expensive
+        # schedule action. The generator should never look "ready" while the
+        # participant list or group structure is still incomplete.
+        readiness_checks = [
+            (
+                participant_list_complete,
+                "Deltagarlista",
+                (
+                    f"{registered_team_count}/{expected_team_count} lag registrerade"
+                    if expected_team_count
+                    else f"{registered_team_count} lag registrerade"
+                ),
+            ),
+            (
+                bool(schedule_groups),
+                "Grupper",
+                f"{len(schedule_groups)} grupper skapade" if schedule_groups else "inga grupper skapade",
+            ),
+            (
+                bool(schedule_teams) and unassigned_count == 0,
+                "Gruppplacering",
+                "alla lag placerade" if schedule_teams and unassigned_count == 0 else f"{unassigned_count} lag saknar grupp",
+            ),
+            (
+                bool(schedule_groups) and not too_small_groups,
+                "Gruppstorlek",
+                "minst två lag i varje grupp" if schedule_groups and not too_small_groups else "grupp med färre än två lag finns",
+            ),
+            (
+                playoff_model_ready and not playoff_setup_error,
+                "Slutspelsmodell",
+                "klar" if playoff_model_ready and not playoff_setup_error else "behöver slutföras",
+            ),
+        ]
+        ready_count = sum(1 for ok, _, _ in readiness_checks if ok)
+        st.progress(ready_count / len(readiness_checks))
+        st.caption(f"Förkontroll · {ready_count}/{len(readiness_checks)} steg klara")
+        _readiness_cols = st.columns(2)
+        for idx, (is_ready, label, detail) in enumerate(readiness_checks):
+            icon = "✓" if is_ready else "○"
+            _readiness_cols[idx % 2].markdown(f"**{icon} {label}**  \\n{detail}")
+        if ready_count == len(readiness_checks):
+            st.success("Redo att skapa spelschema. CupNavi har allt grundunderlag som behövs.")
         if tournament["playoff_format"] != "Inget slutspel":
             if playoff_setup_error:
                 st.error(f"Slutspel kan inte genereras: {playoff_setup_error}")
@@ -255,6 +306,11 @@ def render_schedule_workspace(tid, tournament, *, deps: ScheduleWorkspaceDepende
             )
         if create_disabled:
             problems = []
+            if not participant_list_complete:
+                if expected_team_count:
+                    problems.append(f"registrera alla lag ({registered_team_count}/{expected_team_count})")
+                else:
+                    problems.append("registrera minst ett lag")
             if not schedule_groups:
                 problems.append("skapa minst en grupp")
             if unassigned_count:

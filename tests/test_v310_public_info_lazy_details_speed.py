@@ -5,7 +5,7 @@ SRC = (ROOT / "cupnavi_core" / "public_info_view.py").read_text(encoding="utf-8"
 VERSION = (ROOT / "VERSION.txt").read_text(encoding="utf-8").strip()
 
 def test_release_version():
-    assert VERSION == "2026.08.31-342-POST-SIMPLIFICATION-AUDIT"
+    assert VERSION == "2026.08.31-347-SCHEDULE-READINESS-POLISH"
 
 def test_secondary_public_info_is_explicitly_lazy():
     gate = SRC.index('show_more_cup_details = st.toggle(')
