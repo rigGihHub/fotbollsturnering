@@ -27,6 +27,7 @@ class AdminResultsDependencies:
     render_centered_table: Callable[..., Any]
     render_empty_state: Callable[..., Any]
     save_result_updates: Callable[..., Any]
+    open_admin_page: Callable[[str], Any] | None = None
 
 
 def _optional_int(value):
@@ -149,6 +150,27 @@ def render_admin_results_workspace(tid, tournament, *, deps: AdminResultsDepende
 
     st.header("Resultat")
     st.caption("Registrera resultat. Domare kan justeras direkt i samma tabell.")
+
+    # v339: detailed event editing and statistics are still available, but they
+    # are contextual result tools rather than global match destinations.
+    if deps.open_admin_page is not None:
+        with st.expander("Fler resultatverktyg", expanded=False):
+            st.caption("Öppna bara när du behöver detaljredigera händelser eller följa tabeller och topplistor.")
+            tool_col1, tool_col2 = st.columns(2)
+            tool_col1.button(
+                "Detaljerade matchhändelser",
+                key=f"v339_result_events_{tid}",
+                use_container_width=True,
+                on_click=deps.open_admin_page,
+                args=("Matchhändelser",),
+            )
+            tool_col2.button(
+                "Tabeller & topplistor",
+                key=f"v339_result_stats_{tid}",
+                use_container_width=True,
+                on_click=deps.open_admin_page,
+                args=("Tabeller",),
+            )
 
     match_by_id = {int(row["id"]): row for row in matches}
     focus_kind = st.session_state.get(f"admin_search_focus_kind_{tid}")

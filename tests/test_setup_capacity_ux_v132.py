@@ -18,7 +18,7 @@ def test_pitch_capacity_is_part_of_early_venue_constraints():
 
 
 def test_start_template_has_no_cupnavi_recommendation_panel():
-    start = APP.index('with st.sidebar.expander("Skapa ny turnering")')
+    start = APP.index('def render_new_tournament_creator')
     end = APP.index('if view_mode == "Admin":\n    clone_sources', start)
     assert "CupNavi rekommenderar" not in APP[start:end]
 

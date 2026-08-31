@@ -3,7 +3,7 @@ from pathlib import Path
 ROOT=Path(__file__).resolve().parents[1]
 APP=(ROOT/"app.py").read_text(encoding="utf-8")
 SETUP=(ROOT/"cupnavi_core"/"initial_setup_view.py").read_text(encoding="utf-8")
-R="2026.08.30-320-PUBLIC-PLAYOFF-TEAM-BATCHING"
+R="2026.08.31-342-POST-SIMPLIFICATION-AUDIT"
 
 def setup_block():
     return SETUP
@@ -27,7 +27,7 @@ def test_capacity_summary_precedes_format_recommendation():
     assert "avgör hur många matcher och vilket slutspel som faktiskt ryms" in block
 
 def test_service_questions_are_not_in_sidebar_creation():
-    create_start=APP.index('with st.sidebar.expander("Skapa ny turnering")')
+    create_start=APP.index('def render_new_tournament_creator')
     create_end=APP.index('if view_mode == "Matchrapportör"',create_start)
     create=APP[create_start:create_end]
     assert 'st.checkbox("Använd lagincheckning"' not in create

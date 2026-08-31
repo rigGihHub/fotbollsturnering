@@ -156,7 +156,7 @@ def render_public_matches_fragment(
                 except KeyError:
                     pass
                 st.query_params["section"] = "matches"
-            st.rerun()
+            st.rerun(scope="fragment")
 
     if requested_pitch_no:
         base_match_list = [m for m in base_match_list if int(m["pitch_number"] or 0) == requested_pitch_no]

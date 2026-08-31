@@ -1,7 +1,8 @@
 from pathlib import Path
 
-APP = Path('app.py').read_text()
-VERSION = Path('VERSION.txt').read_text().strip()
+ROOT = Path(__file__).resolve().parents[1]
+APP = (ROOT / "app.py").read_text(encoding="utf-8")
+VERSION = (ROOT / "VERSION.txt").read_text(encoding="utf-8").strip()
 
 
 def _overview_block():
@@ -10,20 +11,18 @@ def _overview_block():
     return APP[start:end]
 
 
-def test_release_version_is_v306():
-    assert VERSION == '2026.08.30-320-PUBLIC-PLAYOFF-TEAM-BATCHING'
-    assert f'APP_BUILD_VERSION = "{VERSION}"' in APP
+def test_release_version():
+    assert VERSION == "2026.08.31-342-POST-SIMPLIFICATION-AUDIT"
 
 
-def test_class_progress_query_is_user_gated():
+def test_class_progress_query_removed_from_default_overview():
     block = _overview_block()
-    toggle = block.index('"Visa lagfördelning per klass"')
-    gate = block.index('if _show_class_progress:', toggle)
-    query = block.index('SELECT competition_class_id, COUNT(*) AS n', gate)
-    assert toggle < gate < query
+    advanced = block.index('if show_overview_advanced:')
+    assert '"Visa lagfördelning per klass"' not in block[:advanced]
+    assert 'GROUP BY competition_class_id' not in block[:advanced]
 
 
-def test_class_progress_detail_remains_available():
-    block = _overview_block()
-    assert 'class_progress_caption(_v139_class_rows, _class_team_counts, competition_class_label)' in block
-    assert 'admin_overview_class_progress_{tid}' in block
+def test_class_progress_detail_remains_available_in_core_helper():
+    core = (ROOT / "cupnavi_core" / "admin_overview.py").read_text(encoding="utf-8")
+    assert 'def class_progress_caption(' in core
+    assert 'Lag per tävlingsklass' in core

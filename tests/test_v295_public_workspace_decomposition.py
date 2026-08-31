@@ -7,7 +7,7 @@ VERSION = (ROOT / "VERSION.txt").read_text(encoding="utf-8").strip()
 
 
 def test_release_and_public_workspace_boundary():
-    assert VERSION == "2026.08.30-320-PUBLIC-PLAYOFF-TEAM-BATCHING"
+    assert VERSION == "2026.08.31-342-POST-SIMPLIFICATION-AUDIT"
     assert "from cupnavi_core.public_workspace_view import PublicWorkspaceDependencies, render_public_workspace" in APP
     start = APP.index("def render_public_view(")
     end = APP.index("def _reporter_save_quick_result", start)
@@ -32,10 +32,10 @@ def test_workspace_owns_public_orchestration_without_database_connection_ownersh
     assert "DELETE FROM" not in WORKSPACE
 
 
-def test_public_navigation_and_match_fragment_stay_in_workspace():
+def test_public_navigation_and_match_rendering_stay_in_outer_fragment_workspace():
     assert "public_page = resolve_public_page(" in WORKSPACE
     assert "st.segmented_control(" in WORKSPACE
-    assert "@st.fragment" in WORKSPACE
+    assert "@st.fragment\ndef render_public_view" in APP
     assert "render_public_matches_fragment_module(" in WORKSPACE
     assert WORKSPACE.index("public_page = resolve_public_page(") < WORKSPACE.index('if public_page == "Matcher":')
 

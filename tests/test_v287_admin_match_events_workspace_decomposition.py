@@ -14,7 +14,7 @@ VERSION = (ROOT / "VERSION.txt").read_text(encoding="utf-8").strip()
 
 
 def test_release_and_boundary():
-    assert VERSION == "2026.08.30-320-PUBLIC-PLAYOFF-TEAM-BATCHING"
+    assert VERSION == "2026.08.31-342-POST-SIMPLIFICATION-AUDIT"
     block = APP[APP.index('if admin_page == "Matchhändelser":'):APP.index('if admin_page == "Besöksstatistik":')]
     assert "render_admin_match_events_workspace(" in block
     assert "update_player_match_stats_if_unchanged(" in block

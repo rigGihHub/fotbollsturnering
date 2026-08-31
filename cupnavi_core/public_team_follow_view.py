@@ -58,7 +58,7 @@ def render_public_team_follow(
             if hasattr(st, "query_params"):
                 st.query_params["team"] = str(favorite_team_id)
                 st.query_params["cup"] = str(tournament_id)
-            st.rerun()
+            st.rerun(scope="fragment")
         if favorite_team_id is None and requested_team_id is not None:
             if hasattr(st, "query_params"):
                 try:
@@ -66,7 +66,7 @@ def render_public_team_follow(
                 except KeyError:
                     pass
                 st.query_params["cup"] = str(tournament_id)
-            st.rerun()
+            st.rerun(scope="fragment")
 
         if not requested_team_id:
             return
@@ -122,8 +122,11 @@ def render_public_team_follow(
             type="primary",
         ):
             st.session_state[f"public_force_team_filter_{tournament_id}"] = requested_team_id
-            st.session_state[f"public_page_v92_{tournament_id}"] = "Matcher"
-            st.rerun()
+            st.session_state[f"public_page_v167_{tournament_id}"] = "Matcher"
+            if hasattr(st, "query_params"):
+                st.query_params["section"] = "matches"
+                st.query_params["team"] = str(requested_team_id)
+            st.rerun(scope="fragment")
         if team_action_2.button(
             tr("Visa alla lag"),
             key=f"clear_favorite_team_{tournament_id}",
@@ -134,7 +137,7 @@ def render_public_team_follow(
                     del st.query_params["team"]
                 except KeyError:
                     pass
-            st.rerun()
+            st.rerun(scope="fragment")
 
         if favorite_next:
             show_directions = st.toggle(

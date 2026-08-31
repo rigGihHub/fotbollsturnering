@@ -22,7 +22,7 @@ def test_ux2_design_system_and_mobile_nav_present():
 
 def test_admin_information_architecture_is_reduced():
     text = app_text()
-    for label in ("Översikt", "Deltagare", "Matcher", "Organisation", "Kommunikation"):
+    for label in ("Översikt", "Deltagare", "Matcher", "Organisation", "Mer"):
         assert label in text
 
 def test_public_views_use_friendly_error_boundary():
@@ -39,8 +39,8 @@ def test_schedule_has_visual_board():
 
 def test_onboarding_start_template_is_clean_without_recommendation_card():
     text = app_text()
-    start = text.index('with st.sidebar.expander("Skapa ny turnering")')
-    end = text.index('if view_mode == "Admin":\n    clone_sources', start)
+    start = text.index('def render_new_tournament_creator')
+    end = text.index('if view_mode == "Admin":\n    st.sidebar.caption', start)
     block = text[start:end]
     assert "Startmall" in block
     assert "CupNavi rekommenderar" not in block

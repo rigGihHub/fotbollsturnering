@@ -2,7 +2,7 @@ from pathlib import Path
 ROOT=Path(__file__).resolve().parents[1]
 APP=(ROOT/"app.py").read_text(encoding="utf-8")
 CONFIG=(ROOT/".streamlit/config.toml").read_text(encoding="utf-8")
-R="2026.08.30-320-PUBLIC-PLAYOFF-TEAM-BATCHING"
+R="2026.08.31-342-POST-SIMPLIFICATION-AUDIT"
 
 def test_fingerprint_runs_before_core_imports():
     fingerprint=APP.index("ACTIVE_SOURCE_FINGERPRINT, SOURCE_PACKAGE_REFRESHED")
@@ -15,10 +15,11 @@ def test_package_cache_is_invalidated_on_source_change():
     assert "sys.modules.pop(module_name, None)" in APP
     assert "importlib.invalidate_caches()" in APP
 
-def test_source_fingerprint_covers_core_files():
-    assert 'core_root.rglob("*.py")' in APP
-    assert 'root / "app.py"' in APP
-    assert 'root / "requirements.txt"' in APP
+def test_source_fingerprint_uses_release_marker_instead_of_core_tree_scan():
+    block = APP[APP.index('def _compute_source_fingerprint'):APP.index('def _refresh_cupnavi_imports_if_sources_changed')]
+    assert 'VERSION.txt' in block
+    assert 'rglob(' not in block
+    assert 'root / "app.py"' in block
 
 def test_streamlit_uses_poll_file_watcher():
     assert 'fileWatcherType = "poll"' in CONFIG

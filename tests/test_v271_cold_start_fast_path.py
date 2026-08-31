@@ -8,7 +8,7 @@ SCHEDULE = (ROOT / "cupnavi_core" / "schedule_workspace_view.py").read_text(enco
 
 
 def test_v271_version_is_synchronized():
-    assert VERSION == "2026.08.30-320-PUBLIC-PLAYOFF-TEAM-BATCHING"
+    assert VERSION == "2026.08.31-342-POST-SIMPLIFICATION-AUDIT"
     assert f'APP_BUILD_VERSION = "{VERSION}"' in APP
     assert f'APP_VERSION = "{VERSION}"' in CORE_VERSION
 
@@ -17,7 +17,8 @@ def test_source_fingerprint_uses_metadata_not_source_file_contents():
     start = APP.index("def _compute_source_fingerprint")
     end = APP.index("def _refresh_cupnavi_imports_if_sources_changed")
     block = APP[start:end]
-    assert "path.stat()" in block
+    assert ".stat()" in block
+    assert "rglob(" not in block
     assert "stat.st_size" in block
     assert "stat.st_mtime_ns" in block
     assert 'root / "VERSION.txt"' in block

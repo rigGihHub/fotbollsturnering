@@ -6,7 +6,7 @@ VERSION = (ROOT / "VERSION.txt").read_text(encoding="utf-8").strip()
 
 
 def test_v318_version():
-    assert VERSION == "2026.08.30-320-PUBLIC-PLAYOFF-TEAM-BATCHING"
+    assert VERSION == "2026.08.31-342-POST-SIMPLIFICATION-AUDIT"
 
 
 def test_toplists_filter_zero_aggregate_rows_in_sql():

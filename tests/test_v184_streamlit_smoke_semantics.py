@@ -2,7 +2,7 @@ from pathlib import Path
 ROOT=Path(__file__).resolve().parents[1]
 SMOKE=(ROOT/"e2e/test_streamlit_browser_smoke.py").read_text(encoding="utf-8")
 APP=(ROOT/"app.py").read_text(encoding="utf-8")
-R="2026.08.30-320-PUBLIC-PLAYOFF-TEAM-BATCHING"
+R="2026.08.31-342-POST-SIMPLIFICATION-AUDIT"
 def test_smoke_does_not_depend_on_exact_product_copy():
     assert 'any(token in body for token in' not in SMOKE
 def test_smoke_verifies_visible_streamlit_root():

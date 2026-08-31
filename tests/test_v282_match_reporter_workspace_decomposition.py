@@ -16,8 +16,10 @@ def _function_source(source: str, name: str) -> str:
 
 def test_workspace_owns_reporter_streamlit_orchestration():
     assert "def render_match_reporter_workspace(" in WORKSPACE
-    assert 'st.tabs([' in WORKSPACE
-    assert 'key=f"quick_score_match_{tournament_id}"' in WORKSPACE
+    assert 'st.segmented_control(' in WORKSPACE
+    assert 'reporter_workspace_section_' in WORKSPACE
+    assert 'quick_score_widget_key = f"quick_score_match_{tournament_id}"' in WORKSPACE
+    assert 'key=quick_score_widget_key' in WORKSPACE
     assert 'key=f"reporter_results_{tournament_id}"' in WORKSPACE
     assert 'key=f"reporter_stats_{match_id}_{selected_team_id}"' in WORKSPACE
     assert "build_offline_draft_html" in WORKSPACE
@@ -50,4 +52,4 @@ def test_workspace_uses_injected_persistence_callbacks():
 
 
 def test_release_version():
-    assert VERSION == "2026.08.30-320-PUBLIC-PLAYOFF-TEAM-BATCHING"
+    assert VERSION == "2026.08.31-342-POST-SIMPLIFICATION-AUDIT"

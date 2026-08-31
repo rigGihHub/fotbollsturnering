@@ -8,7 +8,7 @@ CORE_VERSION = (ROOT / "cupnavi_core" / "version.py").read_text(encoding="utf-8"
 
 
 def test_v285_version_is_synchronized():
-    expected = "2026.08.30-320-PUBLIC-PLAYOFF-TEAM-BATCHING"
+    expected = "2026.08.31-342-POST-SIMPLIFICATION-AUDIT"
     assert VERSION == expected
     assert f'APP_VERSION = "{expected}"' in CORE_VERSION
     assert f'APP_BUILD_VERSION = "{expected}"' in APP

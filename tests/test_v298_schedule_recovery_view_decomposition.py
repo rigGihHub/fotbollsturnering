@@ -7,7 +7,7 @@ VERSION = (ROOT / "VERSION.txt").read_text(encoding="utf-8").strip()
 
 
 def test_v298_release_and_module_boundary():
-    assert VERSION == "2026.08.30-320-PUBLIC-PLAYOFF-TEAM-BATCHING"
+    assert VERSION == "2026.08.31-342-POST-SIMPLIFICATION-AUDIT"
     assert "class ScheduleRecoveryDependencies" in VIEW
     assert "def render_schedule_recovery_actions" in VIEW
     assert "render_schedule_recovery_actions_module" in APP

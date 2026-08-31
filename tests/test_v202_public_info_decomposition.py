@@ -13,9 +13,9 @@ def test_public_info_has_dedicated_view_module():
     assert "SELECT * FROM sponsors" in INFO
     assert "public_feedback_" in INFO
 
-def test_app_keeps_thin_fragment_adapter():
-    start=APP.index("@st.fragment\ndef render_public_info_section")
-    end=APP.index("def render_public_view",start)
+def test_app_keeps_thin_info_adapter_inside_outer_public_fragment():
+    start=APP.index("def render_public_info_section")
+    end=APP.index("@st.fragment\ndef render_public_view",start)
     block=APP[start:end]
     assert "render_public_info_section_module(" in block
     assert "rate_allowed=_rate_allowed" in block
@@ -29,5 +29,5 @@ def test_business_helpers_are_injected_not_reimplemented():
     assert "sport_profile=sport_profile" in APP
 
 def test_release_is_v202():
-    assert VERSION=="2026.08.30-320-PUBLIC-PLAYOFF-TEAM-BATCHING"
+    assert VERSION=="2026.08.31-342-POST-SIMPLIFICATION-AUDIT"
     assert "release_ui_label(APP_BUILD_VERSION)" in APP

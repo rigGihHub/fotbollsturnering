@@ -7,7 +7,7 @@ def app_text():
 
 def test_sport_and_international_foundation_are_selected_at_creation():
     text = app_text()
-    creation = text[text.index('with st.form("new_tournament"'):text.index('if view_mode in ("Admin", "Matchrapportör", "Lagportal")') ]
+    creation = text[text.index('def render_new_tournament_creator'):text.index('if view_mode == "Admin":\n    st.sidebar.caption', text.index('def render_new_tournament_creator'))]
     assert '"Sport"' in creation
     assert '"Språk/region"' in creation
     assert '"Tidszon"' in creation

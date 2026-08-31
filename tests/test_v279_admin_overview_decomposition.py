@@ -15,7 +15,7 @@ ROOT = Path(__file__).resolve().parents[1]
 APP = (ROOT / "app.py").read_text(encoding="utf-8")
 MODULE = (ROOT / "cupnavi_core" / "admin_overview.py").read_text(encoding="utf-8")
 REPOSITORY = (ROOT / "cupnavi_core" / "admin_overview_repository.py").read_text(encoding="utf-8")
-VERSION = "2026.08.30-320-PUBLIC-PLAYOFF-TEAM-BATCHING"
+VERSION = "2026.08.31-342-POST-SIMPLIFICATION-AUDIT"
 
 
 def sample_counts(**overrides):
@@ -45,11 +45,12 @@ def test_version_and_app_delegate_contract():
     assert VERSION in APP
     assert VERSION in (ROOT / "cupnavi_core" / "version.py").read_text()
     assert "fetch_admin_workflow_counts(one_row, int(tournament_id))" in APP
-    assert "build_organizer_overview(" in APP
     assert "build_readiness(" in APP
-    assert "build_status_cards_html(" in APP
-    assert "build_workflow_html(" in APP
     assert "recommend_next_step(" in APP
+    overview = APP[APP.index('elif admin_page == "Adminöversikt":'):APP.index('if admin_page == "Cupinställningar":')]
+    assert "build_organizer_overview(" not in overview
+    assert "build_status_cards_html(" not in overview
+    assert "build_workflow_html(" not in overview
     assert "organizer_workflow(" not in APP
 
 

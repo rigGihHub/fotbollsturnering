@@ -5,14 +5,15 @@ ADMIN_OVERVIEW=(ROOT/"cupnavi_core/admin_overview.py").read_text(encoding="utf-8
 
 def test_v139_version_sync():
     v=(ROOT/"VERSION.txt").read_text().strip()
-    assert v=="2026.08.30-320-PUBLIC-PLAYOFF-TEAM-BATCHING"
+    assert v=="2026.08.31-342-POST-SIMPLIFICATION-AUDIT"
     assert v in APP
     assert v in (ROOT/"cupnavi_core/version.py").read_text()
 
 def test_admin_uses_task_based_organizer():
-    assert 'with st.expander("Förberedelser i detalj", expanded=False)' in APP
-    assert "Nästa steg" in APP
-    assert "build_organizer_overview(" in APP
+    block=APP[APP.index('elif admin_page == "Adminöversikt":'):APP.index('if admin_page == "Cupinställningar":')]
+    assert "Nästa steg" in block
+    assert "recommend_next_step(" in block
+    assert "build_readiness(" in block
     assert "organizer_workflow(" in ADMIN_OVERVIEW
 
 def test_friendly_error_persists_sanitized_diagnostic():

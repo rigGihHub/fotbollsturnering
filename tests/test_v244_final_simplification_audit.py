@@ -17,10 +17,13 @@ def test_primary_navigation_labels_are_shorter_and_consistent():
     nav=APP[APP.index("ADMIN_NAV_GROUPS = ["):APP.index("ADMIN_NAV = [")]
     assert '("Cupinställningar", "Inställningar")' in nav
     assert '("Matcher och resultat", "Resultat")' in nav
-    assert '("Önskemålscentral", "Önskemål")' in nav
-    assert '("Cupverktyg", "Verktyg")' in nav
-    assert '("Problem & lösningar", "Problem")' in nav
-    assert '("Instruktioner", "Guide")' in nav
+    assert '("Önskemålscentral", "Önskemål")' not in nav
+    assert '("Cupverktyg", "Cupverktyg")' not in nav
+    assert 'args=("Cupverktyg",)' in APP
+    assert '("Problem & lösningar", "Problem")' not in nav
+    assert '("Instruktioner", "Guide")' not in nav
+    assert '"Kontrollera inför publicering"' in APP
+    assert '"Öppna steg-för-steg-guide"' in APP
 
 
 def test_flow_context_no_longer_duplicates_page_title_and_copy():

@@ -29,7 +29,7 @@ class Con:
 
 
 def test_release_and_public_matches_fragment_are_extracted():
-    assert VERSION == "2026.08.30-320-PUBLIC-PLAYOFF-TEAM-BATCHING"
+    assert VERSION == "2026.08.31-342-POST-SIMPLIFICATION-AUDIT"
     assert "from cupnavi_core.public_matches_view import render_public_matches_fragment" in APP
     assert "render_public_matches_fragment_module(" in WORKSPACE
     assert 'f"Visa {next_batch_size} fler matcher"' not in APP
@@ -64,9 +64,9 @@ def test_event_repository_skips_empty_input_without_query():
     assert con.calls == []
 
 
-def test_app_keeps_fragment_boundary_and_db_timing_service():
+def test_app_keeps_outer_fragment_boundary_and_db_timing_service():
     block = WORKSPACE[WORKSPACE.index('if public_page == "Matcher":'):WORKSPACE.index('if public_page == "Tabeller":')]
-    assert "@st.fragment" in block
+    assert "@st.fragment\ndef render_public_view" in APP
     assert "render_public_matches_fragment_module(" in block
     db_block = APP[APP.index("def public_match_events_db_snapshot("):APP.index("def render_public_share_control")]
     assert "fetch_public_match_events" in db_block

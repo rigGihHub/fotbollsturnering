@@ -5,12 +5,10 @@ from cupnavi_core.performance import build_performance_snapshot, performance_log
 APP = Path('app.py').read_text(encoding='utf-8')
 
 
-def test_public_info_has_only_one_fragment_decorator():
-    marker='def render_public_info_section'
-    prefix=APP[:APP.index(marker)]
-    decorators=prefix.rstrip().splitlines()[-1:]
-    assert decorators == ['@st.fragment']
-    assert '@st.fragment\n@st.fragment\ndef render_public_info_section' not in APP
+def test_public_workspace_has_only_the_outer_fragment_boundary():
+    assert '@st.fragment\ndef render_public_view' in APP
+    assert '@st.fragment\ndef render_public_info_section' not in APP
+    assert '@st.fragment\ndef render_public_statistics_section' not in APP
 
 
 def test_performance_snapshot_classifies_route_and_first_render():

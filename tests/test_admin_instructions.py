@@ -1,9 +1,11 @@
 from pathlib import Path
 
-def test_instructions_are_admin_navigation_page():
+def test_instructions_are_contextual_admin_help():
     text=Path("app.py").read_text(encoding="utf-8")
     assert '"Instruktioner", "Adminöversikt"' in text
-    assert '("Instruktioner", "Guide")' in text
+    assert '("Instruktioner", "Guide")' not in text
+    assert '"Öppna steg-för-steg-guide"' in text
+    assert 'args=("Instruktioner",)' in text
     assert 'if admin_page == "Instruktioner":' in text
 
 def test_guide_is_dynamic():

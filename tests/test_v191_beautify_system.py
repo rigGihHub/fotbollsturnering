@@ -6,7 +6,7 @@ STYLE=(ROOT/"cupnavi_core/style_system.py").read_text(encoding="utf-8")
 PWA=(ROOT/"public_pwa/styles.css").read_text(encoding="utf-8")
 STATS=(ROOT/"cupnavi_core/public_statistics_view.py").read_text(encoding="utf-8")
 MATCH=(ROOT/"cupnavi_core/public_match_cards.py").read_text(encoding="utf-8")
-R="2026.08.30-320-PUBLIC-PLAYOFF-TEAM-BATCHING"
+R="2026.08.31-342-POST-SIMPLIFICATION-AUDIT"
 
 def test_design_system_has_functional_tokens():
     for token in (

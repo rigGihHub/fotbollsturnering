@@ -10,10 +10,10 @@ def _block(start_name, end_name):
     end=APP.index(end_name,start)
     return APP[start:end]
 
-def test_statistics_and_info_are_streamlit_fragments():
-    stats_prefix=APP[APP.index("@st.fragment\ndef render_public_statistics_section")-1:]
-    assert "@st.fragment\ndef render_public_statistics_section" in APP
-    assert "@st.fragment\ndef render_public_info_section" in APP
+def test_public_workspace_uses_one_outer_streamlit_fragment():
+    assert "@st.fragment\ndef render_public_view" in APP
+    assert "@st.fragment\ndef render_public_statistics_section" not in APP
+    assert "@st.fragment\ndef render_public_info_section" not in APP
 
 def test_main_public_renderer_delegates_heavy_sections():
     public=WORKSPACE

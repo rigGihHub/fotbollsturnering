@@ -9,7 +9,7 @@ VERSION = (ROOT / "VERSION.txt").read_text().strip()
 
 
 def test_release_version_is_v304():
-    assert VERSION == "2026.08.30-320-PUBLIC-PLAYOFF-TEAM-BATCHING"
+    assert VERSION == "2026.08.31-342-POST-SIMPLIFICATION-AUDIT"
 
 
 def test_matches_page_avoids_secondary_overview_db_and_highlight_work():

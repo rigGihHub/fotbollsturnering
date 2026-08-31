@@ -19,7 +19,8 @@ def test_admin_overview_does_not_fetch_all_matches_for_control_center():
     end=APP.index('if admin_page == "Cupinställningar":', start)
     block=APP[start:end]
     assert '_cc_matches = [dict(r) for r in all_rows(' not in block
-    assert "build_control_status(_v139_counts" in block
+    assert "build_control_status(" not in block
+    assert "show_overview_advanced" in block
     assert "pitches=_count(counts, \"pitches_n\")" in ADMIN_OVERVIEW
 
 

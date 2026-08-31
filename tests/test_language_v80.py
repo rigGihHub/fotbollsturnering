@@ -26,7 +26,7 @@ def test_public_navigation_is_translated():
 def test_admin_nav_labels_are_translated():
     text = app_text()
     assert '("Adminöversikt", tr("Översikt"))' in text
-    assert '("Besöksstatistik", tr("Besök"))' in text
+    assert 'args=("Besöksstatistik",)' in text
 
 def test_reporter_tabs_are_translated():
     text = Path("cupnavi_core/match_reporter_workspace_view.py").read_text(encoding="utf-8")

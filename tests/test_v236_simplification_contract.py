@@ -6,7 +6,7 @@ TEXT=(ROOT/"app.py").read_text(encoding="utf-8")
 
 
 def _creation_block():
-    start=TEXT.index('with st.sidebar.expander("Skapa ny turnering")')
+    start=TEXT.index('def render_new_tournament_creator')
     end=TEXT.index('if view_mode == "Admin":\n    clone_sources', start)
     return TEXT[start:end]
 

@@ -9,11 +9,11 @@ import hashlib
 from datetime import datetime
 
 ADMIN_SECTIONS = [
-    ("Översikt", ["Adminöversikt", "Kontroller", "Instruktioner"]),
-    ("Deltagare", ["Lag", "Grupper", "Trupper", "Import"]),
-    ("Matcher", ["Skapa och publicera schema", "Matcher och resultat", "Matchhändelser", "Tabeller", "Slutspel", "Skytteligor"]),
-    ("Organisation", ["Domare", "Funktionärer", "Cupverktyg"]),
-    ("Kommunikation", ["Erbjudanden", "Sponsorer", "Besöksstatistik"]),
+    ("Översikt", ["Adminöversikt", "Cupinställningar"]),
+    ("Deltagare", ["Lag", "Grupper", "Trupper", "Önskemålscentral", "Import"]),
+    ("Matcher", ["Skapa och publicera schema", "Matcher och resultat", "Slutspel", "Matchhändelser", "Tabeller", "Skytteligor"]),
+    ("Organisation", ["Domare", "Funktionärer", "Sponsorer", "Erbjudanden"]),
+    ("Mer", []),
 ]
 
 

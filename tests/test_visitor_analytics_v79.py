@@ -21,7 +21,7 @@ def test_visitor_analytics_does_not_store_ip_address():
 
 def test_admin_has_detailed_visitor_statistics_page():
     text = app_text()
-    assert '("Besöksstatistik", tr("Besök"))' in text
+    assert 'args=("Besöksstatistik",)' in text
     assert 'if admin_page == "Besöksstatistik":' in text
     assert '"Unika sessioner"' in text
     assert '"Sidvisningar"' in text

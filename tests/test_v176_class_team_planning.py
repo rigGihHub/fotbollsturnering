@@ -3,11 +3,11 @@ ROOT=Path(__file__).resolve().parents[1]
 APP=(ROOT/"app.py").read_text(encoding="utf-8")
 SETUP=(ROOT/"cupnavi_core"/"initial_setup_view.py").read_text(encoding="utf-8")
 MIG=(ROOT/"cupnavi_core/migrations.py").read_text(encoding="utf-8")
-R="2026.08.30-320-PUBLIC-PLAYOFF-TEAM-BATCHING"
+R="2026.08.31-342-POST-SIMPLIFICATION-AUDIT"
 
 def test_sidebar_no_longer_asks_global_team_count():
-    start=APP.index('with st.sidebar.expander("Skapa ny turnering")')
-    end=APP.index('if view_mode == "Admin":\n    clone_sources',start)
+    start=APP.index('def render_new_tournament_creator')
+    end=APP.index('if view_mode == "Admin":\n    st.sidebar.caption',start)
     block=APP[start:end]
     assert 'number_input("Planerat antal lag/deltagare"' not in block
     assert "Antal lag anges per tävlingsklass" in block

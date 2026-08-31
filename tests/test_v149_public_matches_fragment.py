@@ -5,9 +5,9 @@ STATS=(Path(__file__).resolve().parents[1]/"cupnavi_core/public_statistics_view.
 MATCHES=(Path(__file__).resolve().parents[1]/"cupnavi_core/public_matches_view.py").read_text(encoding="utf-8")
 WORKSPACE=(Path(__file__).resolve().parents[1]/"cupnavi_core/public_workspace_view.py").read_text(encoding="utf-8")
 
-def test_matches_are_isolated_in_fragment():
+def test_matches_are_isolated_inside_outer_public_fragment():
     public=WORKSPACE
-    assert "@st.fragment" in public
+    assert "@st.fragment\ndef render_public_view" in APP
     assert "def render_public_matches_fragment" in public
     assert "render_public_matches_fragment()" in public
 

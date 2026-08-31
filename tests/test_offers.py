@@ -12,7 +12,7 @@ def test_offers_have_database_table():
 def test_offers_exist_in_admin_and_public_navigation():
     text=app_text()
     info=Path("cupnavi_core/public_info_view.py").read_text(encoding="utf-8")
-    assert '("Erbjudanden", tr("Erbjudanden"))' in text
+    assert 'args=("Erbjudanden",)' in text
     assert 'tr("Slutspel")' in text
     assert 'if admin_page == "Erbjudanden":' in text
     assert 'with st.expander("🎁 " + tr("Erbjudanden")):' in info

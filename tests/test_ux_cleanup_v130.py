@@ -9,12 +9,12 @@ def test_v130_version_and_dashboard_cleanup():
     assert 'Kopiera/öppna publik länk' not in APP
     assert 'Delning sköts via den integrerade Dela cupen-knappen' not in APP
     assert 'Här ställer du in cupens grunduppgifter' not in APP
-    assert '🔗 Öppna publik vy' in APP
+    assert 'Genvägar & publik vy' not in APP
 
 
-def test_next_step_uses_real_newlines_not_literal_escape_text():
-    assert 'st.info(f"**{next_step.title}**\\n\\n{next_step.text}")' in APP
-    assert 'st.info(f"**{next_step.title}**\\\\n\\\\n{next_step.text}")' not in APP
+def test_next_step_uses_compact_primary_card():
+    assert 'st.markdown(f"### {next_step.title}")' in APP
+    assert 'st.write(next_step.text)' in APP
 
 
 def test_optional_info_textareas_are_progressively_disclosed():

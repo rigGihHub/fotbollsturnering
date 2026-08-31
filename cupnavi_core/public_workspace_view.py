@@ -359,7 +359,6 @@ def render_public_workspace(tournament_id: int, tournament: Any, deps: PublicWor
         )
 
     if public_page == "Matcher":
-        @st.fragment
         def render_public_matches_fragment():
             return render_public_matches_fragment_module(
                 st=st,

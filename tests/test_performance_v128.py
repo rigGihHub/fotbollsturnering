@@ -10,7 +10,8 @@ def test_admin_dashboard_reuses_single_workflow_count_query():
     start = text.index('elif admin_page == "Adminöversikt":')
     end = text.index('if admin_page == "Kontroller":', start + 10)
     block = text[start:end]
-    assert 'workflow_counts = ux_counts' in block
+    assert block.count('_admin_workflow_counts(tid)') == 1
+    assert 'workflow_counts = _admin_workflow_counts(tid)' in block
     assert 'overview_counts = one_row(' not in block
 
 
@@ -24,9 +25,11 @@ def test_dashboard_navigation_uses_callbacks_without_manual_rerun():
     start = text.index('elif admin_page == "Adminöversikt":')
     block = text[start:start+18000]
     assert 'on_click=_set_admin_page' in block
-    # The quick actions must not perform the old second explicit rerun.
-    quick = block[block.index('quick_actions ='):block.index('preview_cols =')]
-    assert 'st.rerun()' not in quick
+    # v337 replaces the duplicate quick-action grid with one primary next-step callback.
+    assert 'quick_actions =' not in block
+    primary = block[block.index('with st.container(border=True):'):block.index('checkin_enabled =')]
+    assert 'on_click=_set_admin_page' in primary
+    assert 'st.rerun()' not in primary
 
 
 def test_public_tracking_is_throttled_to_reduce_cloud_writes():

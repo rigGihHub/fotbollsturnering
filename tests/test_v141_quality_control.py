@@ -42,4 +42,5 @@ def test_v141_admin_contains_control_center():
     from pathlib import Path
     text=(Path(__file__).resolve().parents[1]/"app.py").read_text()
     assert "Cup Control Center" in text
-    assert "Kraftigt försenade" in text
+    assert "Öppna incidenter" in text
+    assert "Rapportera incident / avvikelse" in text
