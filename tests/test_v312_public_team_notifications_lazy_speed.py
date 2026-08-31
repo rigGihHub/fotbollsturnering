@@ -6,7 +6,7 @@ VERSION = (ROOT / "VERSION.txt").read_text(encoding="utf-8").strip()
 
 
 def test_release_version():
-    assert VERSION == "2026.08.31-351-SETUP-COMPLETION-HANDOFF"
+    assert VERSION == "2026.08.31-353-GROUP-FLOW-PITCH-TIMING"
 
 
 def test_notification_history_query_is_explicitly_lazy():

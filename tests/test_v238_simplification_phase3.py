@@ -14,14 +14,14 @@ def _block(start_marker,end_marker):
 def test_team_page_hides_secondary_operations():
     block=_block('if admin_page == "Lag":','if admin_page == "Grupper":')
     for label in [
-        'with st.expander("Fler laguppgifter", expanded=False)',
+        'with st.expander("Valfria laguppgifter", expanded=False)',
         'with st.expander("Digital lagincheckning", expanded=False)',
         'with st.expander("Lagportal – koder", expanded=False)',
         'with st.expander("Lagmeddelanden", expanded=False)',
         'with st.expander("Redigera eller ta bort lag", expanded=False)',
     ]:
         assert label in block
-    assert 'if st.button("Lägg till lag", type="primary"' in block
+    assert 'if st.button("Lägg till laget", type="primary"' in block
 
 
 def test_groups_page_removes_duplicate_heading_and_keeps_main_flow():

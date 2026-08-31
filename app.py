@@ -190,7 +190,7 @@ def inject_v198_visual_system():
     return _inject_v198_visual_system_impl(st)
 
 
-APP_BUILD_VERSION = "2026.08.31-351-SETUP-COMPLETION-HANDOFF"
+APP_BUILD_VERSION = "2026.08.31-353-GROUP-FLOW-PITCH-TIMING"
 APP_VERSION = APP_BUILD_VERSION
 
 def read_core_version_from_disk():
@@ -3194,6 +3194,7 @@ def init_db():
                 consecutive_match_break_minutes INTEGER NOT NULL DEFAULT 15,
                 pitch_count INTEGER NOT NULL DEFAULT 2,
                 referee_mode TEXT NOT NULL DEFAULT 'Automatisk',
+                synchronized_pitch_times INTEGER NOT NULL DEFAULT 0,
                 latest_kickoff_time TEXT NOT NULL DEFAULT '18:00'
             );
             DROP TRIGGER IF EXISTS prevent_team_limit_overflow;
@@ -3321,6 +3322,8 @@ def init_db():
             con.execute("ALTER TABLE schedule_rules ADD COLUMN recommended_group_size INTEGER NOT NULL DEFAULT 0")
         if "recommended_playoff_size" not in rule_cols:
             con.execute("ALTER TABLE schedule_rules ADD COLUMN recommended_playoff_size INTEGER NOT NULL DEFAULT 0")
+        if "synchronized_pitch_times" not in rule_cols:
+            con.execute("ALTER TABLE schedule_rules ADD COLUMN synchronized_pitch_times INTEGER NOT NULL DEFAULT 0")
         if "request_priority" not in team_cols:
             con.execute("ALTER TABLE teams ADD COLUMN request_priority INTEGER NOT NULL DEFAULT 100")
         con.execute("UPDATE tournaments SET start_date=COALESCE(start_date,tournament_date), end_date=COALESCE(end_date,tournament_date)")
@@ -4874,6 +4877,8 @@ def generate_schedule(tournament_id, tournament, rules, preserve_existing=False)
     latest_kickoff = schedule_window.latest_pitch_time
     duration = schedule_window.group_match_duration
     pitch_windows = {(str(r["play_date"]), int(r["pitch_number"])): (datetime.strptime(r["start_time"], "%H:%M").time(), datetime.strptime(r["end_time"], "%H:%M").time()) for r in ensure_pitch_day_windows(tournament_id, tournament, rules["pitch_count"], rules["first_match_time"], rules["latest_kickoff_time"])}
+    synchronized_pitch_times = bool(_row_value(rules, "synchronized_pitch_times", 0))
+    synchronized_slot_minutes = max(1, int(schedule_window.group_match_duration.total_seconds() // 60) + int(rules["pitch_break_minutes"] or 0))
 
     def pitch_bounds(day,pitch):
         return pitch_windows.get((day.isoformat(),int(pitch)),(start.time(),latest_kickoff))
@@ -4888,6 +4893,18 @@ def generate_schedule(tournament_id, tournament, rules, preserve_existing=False)
             day_limit = datetime.combine(candidate.date(), day_end_time)
             if candidate < day_start:
                 candidate = day_start
+            if synchronized_pitch_times:
+                common_day_start = datetime.combine(candidate.date(), start.time())
+                if candidate <= common_day_start:
+                    candidate = common_day_start
+                else:
+                    elapsed = max(0, int((candidate-common_day_start).total_seconds() // 60))
+                    wave = (elapsed + synchronized_slot_minutes - 1) // synchronized_slot_minutes
+                    candidate = common_day_start + timedelta(minutes=wave * synchronized_slot_minutes)
+                if candidate < day_start:
+                    elapsed = max(0, int((day_start-common_day_start).total_seconds() // 60))
+                    wave = (elapsed + synchronized_slot_minutes - 1) // synchronized_slot_minutes
+                    candidate = common_day_start + timedelta(minutes=wave * synchronized_slot_minutes)
             if candidate + match_duration <= day_limit:
                 return candidate
             next_day=candidate.date()+timedelta(days=1)
@@ -9333,6 +9350,18 @@ elif admin_page == "Adminöversikt":
                     br4, br5 = st.columns(2)
                     edited_halftime = br4.number_input("Paus mellan perioder/halvlekar (minuter)", 0, 60, int(overview_rules["halftime_minutes"]), disabled=_prod_history_locked)
                     edited_pitch_break = br5.number_input("Paus mellan matcher på samma plan", 0, 120, int(overview_rules["pitch_break_minutes"]), disabled=_prod_history_locked)
+                    st.markdown("##### Tider på flera planer")
+                    with st.container(border=True):
+                        edited_sync_pitch_times = st.checkbox(
+                            "Samma avsparkstider på alla planer",
+                            value=bool(_row_value(overview_rules, "synchronized_pitch_times", 0)),
+                            disabled=_prod_history_locked,
+                            help="När detta är ett krav använder CupNavi gemensamma startvågor, till exempel 09:00, 09:45 och 10:30 på alla planer. Om det är avstängt får varje plan använda nästa möjliga tid och schemat blir mer dynamiskt.",
+                        )
+                        if edited_sync_pitch_times:
+                            st.caption("Krav: planerna följer gemensamma avsparkstider. Det blir enklare att kommunicera schemat men kan ge något lägre kapacitetsutnyttjande.")
+                        else:
+                            st.caption("Dynamiskt: varje plan kan starta nästa match så snart regler, vila och plantid tillåter. Det ger CupNavi större frihet att optimera schemat.")
                     st.markdown("##### Följdmatcher för samma lag")
                     with st.container(border=True):
                         follow1, follow2 = st.columns(2)
@@ -9369,6 +9398,7 @@ elif admin_page == "Adminöversikt":
                         int(edited_minutes_half) != int(overview_rules["minutes_per_half"]),
                         int(edited_halftime) != int(overview_rules["halftime_minutes"]),
                         int(edited_pitch_break) != int(overview_rules["pitch_break_minutes"]),
+                        bool(edited_sync_pitch_times) != bool(_row_value(overview_rules, "synchronized_pitch_times", 0)),
                         bool(edited_avoid_consecutive) != bool(overview_rules["avoid_consecutive_matches"]),
                         int(edited_consecutive_break) != int(overview_rules["consecutive_match_break_minutes"]),
                         edited_referee_mode != overview_rules["referee_mode"],
@@ -9390,7 +9420,7 @@ elif admin_page == "Adminöversikt":
                         bool(edited_accessibility_info) != bool(_row_value(tournament,"enable_accessibility_info",0)), edited_accessibility_text.strip() != (_row_value(tournament,"accessibility_info","") or ""),
             int(edited_halves) != int(overview_rules["halves"]),
                         int(edited_minutes_half) != int(overview_rules["minutes_per_half"]), int(edited_halftime) != int(overview_rules["halftime_minutes"]),
-                        int(edited_pitch_break) != int(overview_rules["pitch_break_minutes"]), bool(edited_avoid_consecutive) != bool(overview_rules["avoid_consecutive_matches"]),
+                        int(edited_pitch_break) != int(overview_rules["pitch_break_minutes"]), bool(edited_sync_pitch_times) != bool(_row_value(overview_rules, "synchronized_pitch_times", 0)), bool(edited_avoid_consecutive) != bool(overview_rules["avoid_consecutive_matches"]),
                         int(edited_consecutive_break) != int(overview_rules["consecutive_match_break_minutes"]), edited_referee_mode != overview_rules["referee_mode"]
                     ])
                     if overview_autosave_changed:
@@ -9411,6 +9441,7 @@ elif admin_page == "Adminöversikt":
                                 edited_minutes_half != overview_rules["minutes_per_half"],
                                 edited_halftime != overview_rules["halftime_minutes"],
                                 edited_pitch_break != overview_rules["pitch_break_minutes"],
+                                int(edited_sync_pitch_times) != int(_row_value(overview_rules, "synchronized_pitch_times", 0) or 0),
                                 int(edited_avoid_consecutive) != overview_rules["avoid_consecutive_matches"],
                                 edited_consecutive_break != overview_rules["consecutive_match_break_minutes"],
                                 edited_referee_mode != overview_rules["referee_mode"],
@@ -9440,9 +9471,9 @@ elif admin_page == "Adminöversikt":
                                 )
                                 con.execute(
                                     """UPDATE schedule_rules SET halves=?,minutes_per_half=?,halftime_minutes=?,pitch_break_minutes=?,
-                                    avoid_consecutive_matches=?,consecutive_match_break_minutes=?,referee_mode=? WHERE tournament_id=?""",
+                                    synchronized_pitch_times=?,avoid_consecutive_matches=?,consecutive_match_break_minutes=?,referee_mode=? WHERE tournament_id=?""",
                                     (edited_halves, edited_minutes_half, edited_halftime, edited_pitch_break,
-                                     int(edited_avoid_consecutive), edited_consecutive_break, edited_referee_mode, tid),
+                                     int(edited_sync_pitch_times), int(edited_avoid_consecutive), edited_consecutive_break, edited_referee_mode, tid),
                                 )
                                 if scheduling_changed:
                                     con.execute("UPDATE matches SET schedule_published=0 WHERE tournament_id=?", (tid,))
@@ -10615,32 +10646,9 @@ if admin_page == "Önskemålscentral":
 
 
 if admin_page == "Lag":
-    st.header("Lag")
-    st.caption("Lägg till och administrera deltagande lag här. Gruppindelning görs sedan under Grupper.")
-
-    with st.expander("Fler lagverktyg", expanded=False):
-        st.caption("Öppna bara det du behöver. Spelare, önskemål och import hör till lagen men behöver inte ligga i huvudnavigationen.")
-        st.button(
-            "Spelare & trupper",
-            key=f"participant_rosters_{tid}",
-            use_container_width=True,
-            on_click=_set_admin_page,
-            args=("Trupper",),
-        )
-        st.button(
-            "Schemakrav & önskemål",
-            key=f"participant_requests_{tid}",
-            use_container_width=True,
-            on_click=_set_admin_page,
-            args=("Önskemålscentral",),
-        )
-        st.button(
-            "Importera lag eller spelare",
-            key=f"participant_import_{tid}",
-            use_container_width=True,
-            on_click=_set_admin_page,
-            args=("Import",),
-        )
+    st.header("Lägg till lag")
+    st.caption("Registrera lagen som ska delta. CupNavi håller reda på när du är klar och guidar dig vidare till grupperna.")
+    st.markdown("**① Lägg till lag** → ② Grupper → ③ Schema → ④ Kontroll → ⑤ Publicera")
 
     _search_focus_kind = st.session_state.get(f"admin_search_focus_kind_{tid}")
     _search_focus_entity = st.session_state.get(f"admin_search_focus_entity_{tid}")
@@ -10673,22 +10681,6 @@ if admin_page == "Lag":
                     st.rerun()
     class_rows = sync_competition_classes(tid)
     current_classes = [competition_class_label(row) for row in class_rows]
-    with st.expander("Tävlingsklasser", expanded=False):
-        if class_rows:
-            _class_summary = " · ".join(
-                f"**{competition_class_label(row)}** ({_row_value(row, 'difficulty', 'Medel') or 'Medel'})"
-                for row in class_rows
-            )
-            st.markdown(_class_summary)
-        else:
-            st.warning("Ingen tävlingsklass finns ännu.")
-        if st.button(
-            "Hantera tävlingsklasser",
-            key=f"go_manage_classes_{tid}",
-            use_container_width=True,
-        ):
-            st.session_state[admin_page_key] = "Adminöversikt"
-            st.rerun()
     max_teams = int(tournament["expected_team_count"] or 0)
     registered_team_count = one_row("SELECT COUNT(*) AS n FROM teams WHERE tournament_id=?", (tid,))["n"]
     team_limit_reached = bool(max_teams and registered_team_count >= max_teams)
@@ -10699,26 +10691,25 @@ if admin_page == "Lag":
         progress_value = min(1.0, registered_team_count / max_teams) if max_teams else 0.0
         st.progress(progress_value)
         status_icon = "✓" if participant_registration_complete else "👥"
-        st.caption(f"{status_icon} {registered_team_count} av {max_teams} lag/deltagare registrerade." + (" Deltagarlistan är komplett." if participant_registration_complete else ""))
-        if registered_team_count and not participant_registration_complete:
-            st.info(f"Fortsätt lägga till lag. CupNavi väntar med gruppindelningen tills {max_teams} lag är registrerade.")
+        st.markdown(f"### {status_icon} {registered_team_count} av {max_teams} lag registrerade")
+        if not participant_registration_complete:
+            remaining_teams = max_teams - registered_team_count
+            st.caption(f"{remaining_teams} lag kvar. Lägg till {'nästa lag' if registered_team_count else 'det första laget'} nedan.")
     elif registered_team_count:
         st.caption(f"✓ {registered_team_count} lag/deltagare registrerade.")
 
     if participant_registration_complete:
         with st.container(border=True):
-            st.markdown("### ✓ Deltagarna är klara")
-            st.caption("Nästa naturliga steg är att skapa grupper och placera lagen.")
+            st.markdown(f"### ✓ Alla {registered_team_count} lag är registrerade")
+            st.caption("Bra. Lagregistreringen är klar. Nästa steg är att skapa grupper och placera lagen.")
             st.button(
-                "Fortsätt till Grupper →",
+                "Fortsätt → Skapa grupper",
                 type="primary",
                 use_container_width=True,
                 key=f"v346_teams_to_groups_{tid}",
                 on_click=_set_admin_page,
                 args=("Grupper",),
             )
-    if registered_team_count:
-        st.caption("Spelare och trupper hanteras via **Fler lagverktyg** ovan.")
     if team_limit_reached:
         if st.button("Ändra maxantal lag", key=f"change_team_limit_{tid}", use_container_width=True):
             st.session_state[admin_page_key] = "Adminöversikt"
@@ -10726,7 +10717,9 @@ if admin_page == "Lag":
         st.caption("Formuläret för att lägga till lag är dolt eftersom maxantalet är uppnått.")
     else:
       with st.container(border=True):
-        team_name = st.text_input("Lagnamn")
+        st.markdown(f"### {'Lägg till nästa lag' if registered_team_count else 'Lägg till första laget'}")
+        st.caption("**Obligatoriskt:** lagnamn. Tävlingsklass väljs automatiskt om cupen bara har en klass. Övriga uppgifter kan fyllas i senare.")
+        team_name = st.text_input("Lagnamn *", placeholder="Exempel: Örebro SK")
         class_rows = competition_classes(tid)
         class_ids = [row["id"] for row in class_rows]
         class_options = class_ids if len(class_ids) == 1 else ([None] + class_ids)
@@ -10740,8 +10733,8 @@ if admin_page == "Lag":
             help="När cupen bara har en tävlingsklass väljs den automatiskt. Lag i olika klasser hålls sportsligt separerade.",
         )
         team_age_class = next((competition_class_label(row) for row in class_rows if row["id"] == team_class_id), "")
-        with st.expander("Fler laguppgifter", expanded=False):
-            st.caption("Matchställ, kontaktperson och reseönskemål. Standardvärden fungerar om du vill fylla i detta senare.")
+        with st.expander("Valfria laguppgifter", expanded=False):
+            st.caption("Matchställ, kontaktperson och reseönskemål. Du kan hoppa över detta nu och komplettera senare.")
             hc1, hc2, hc3 = st.columns([1.2, 1, 1])
             home_pattern = hc1.selectbox("Mönster hemma", KIT_PATTERNS, key="new_home_pattern")
             primary = hc2.color_picker("Hemma – färg 1", "#111827")
@@ -10765,7 +10758,7 @@ if admin_page == "Lag":
             late_first_match = st.checkbox("Önskar senare första match", help="Använd detta exempelvis för lag med lång resväg.")
             earliest_first_time = st.time_input("Första match tidigast", value=datetime.strptime("10:00", "%H:%M").time(), help="Tiden används bara om Önskar senare första match är markerat.")
             avoid_late_group_match = st.checkbox("Undvik senaste gruppspelsmatchen", help="CupNavi försöker undvika dagens sista gruppspelstid för laget när schemat tillåter det.")
-        if st.button("Lägg till lag", type="primary", disabled=team_limit_reached, key=f"add_team_{tid}"):
+        if st.button("Lägg till laget", type="primary", disabled=team_limit_reached, key=f"add_team_{tid}", use_container_width=True):
             current_count = one_row("SELECT COUNT(*) AS n FROM teams WHERE tournament_id=?", (tid,))["n"]
             if max_teams and current_count >= max_teams:
                 st.error(f"Det går inte att lägga till fler än {max_teams} lag i den här turneringen.")
@@ -10805,8 +10798,20 @@ if admin_page == "Lag":
                 st.error("Ange ett lagnamn.")
 
     teams = all_rows("SELECT * FROM teams WHERE tournament_id=? ORDER BY name", (tid,))
+
+    with st.expander("Fler lagverktyg", expanded=False):
+        st.caption("Valfria verktyg. De behövs inte för att slutföra den vanliga lagregistreringen.")
+        st.button("Spelare & trupper", key=f"participant_rosters_{tid}", use_container_width=True, on_click=_set_admin_page, args=("Trupper",))
+        st.button("Schemakrav & önskemål", key=f"participant_requests_{tid}", use_container_width=True, on_click=_set_admin_page, args=("Önskemålscentral",))
+        st.button("Importera flera lag eller spelare", key=f"participant_import_{tid}", use_container_width=True, on_click=_set_admin_page, args=("Import",))
+        if class_rows:
+            st.caption("Tävlingsklasser: " + " · ".join(current_classes))
+        if st.button("Hantera tävlingsklasser", key=f"go_manage_classes_{tid}", use_container_width=True):
+            st.session_state[admin_page_key] = "Adminöversikt"
+            st.rerun()
+
     st.divider()
-    st.subheader("Skapade lag")
+    st.subheader(f"Registrerade lag ({len(teams)}{f'/{max_teams}' if max_teams else ''})")
     if teams:
         group_names = {
             row["id"]: row["name"]
@@ -11297,13 +11302,15 @@ if admin_page == "Lag":
 
 if admin_page == "Grupper":
     st.header("Grupper")
+    st.markdown("### Skapa grupper")
+    st.caption("Steg 2 av 5 · Lägg till lag → **Grupper** → Schema → Kontroll → Publicera")
     _group_history_locked = production_history_locked(tid, tournament)
     if _group_history_locked:
         st.warning(
             "🔒 Gruppstrukturen är låst efter första resultatet i en riktig cup. "
             "Testmiljöer kan fortfarande ändra grupper fritt."
         )
-    st.caption("Skapa grupper och placera lagen. CupNavi visar rekommendation när sådan finns.")
+    st.caption("Fördela lagen i grupper. CupNavi föreslår en enkel gruppindelning först; du kan alltid välja att göra den själv.")
     teams = all_rows("SELECT * FROM teams WHERE tournament_id=? ORDER BY name", (tid,))
     _expected_group_team_count = int(tournament["expected_team_count"] or 0)
     _participant_registration_complete = bool(
@@ -11336,7 +11343,8 @@ if admin_page == "Grupper":
     elif _unassigned_teams_now:
         assigned_now = len(teams) - _unassigned_teams_now
         st.progress(assigned_now / len(teams) if teams else 0.0)
-        st.caption(f"{assigned_now} av {len(teams)} lag placerade · {_unassigned_teams_now} återstår. Schema blir nästa steg när alla lag är placerade.")
+        st.markdown(f"### {assigned_now} av {len(teams)} lag placerade")
+        st.caption(f"{_unassigned_teams_now} lag återstår. Placera alla lag innan du går vidare till Schema. Schema blir nästa steg när alla lag är placerade.")
     class_rows = competition_classes(tid)
     class_ids = [row["id"] for row in class_rows]
     _group_rules=one_row("SELECT * FROM schedule_rules WHERE tournament_id=?",(tid,))
@@ -11386,8 +11394,9 @@ if admin_page == "Grupper":
         else []
     )
     if _smart_plan:
-        st.markdown("### ⚡ Smart gruppindelning")
-        st.caption("CupNavi föreslår jämnstora grupper inom respektive tävlingsklass. Förslaget är bara en förhandsvisning tills du väljer Skapa.")
+        st.markdown("### CupNavis förslag")
+        st.caption("Smart gruppindelning")
+        st.caption("Rekommenderad snabbväg: jämnstora grupper inom respektive tävlingsklass. Granska förslaget och skapa det med ett klick, eller välj manuell indelning längre ned.")
         for item in _smart_plan:
             names = ", ".join(str(team_row["name"]) for team_row in item["teams"])
             st.markdown(f"**{item['name']}** · {len(item['teams'])} lag")
@@ -11467,23 +11476,24 @@ if admin_page == "Grupper":
                 st.success("Rekommenderade grupper skapades. Dra nu lagen till rätt grupp.")
                 st.rerun()
 
-    with st.form("new_group", clear_on_submit=True):
-        group_name = st.text_input("Gruppnamn", placeholder="Grupp A")
-        group_class_options = class_ids if len(class_ids) == 1 else ([None] + class_ids)
-        group_class_id = st.selectbox(
-            "Tävlingsklass",
-            group_class_options or [None],
-            format_func=lambda value: "Ingen särskild tävlingsklass" if value is None else next(competition_class_label(row) for row in class_rows if row["id"] == value),
-            disabled=not bool(class_rows),
-            key=f"new_group_competition_class_{tid}",
-        )
-        group_class_name = next((competition_class_label(row) for row in class_rows if row["id"] == group_class_id), "")
-        if st.form_submit_button("Lägg till grupp", type="primary", disabled=_group_history_locked or not bool(teams)):
-            if group_name.strip():
-                run("INSERT INTO groups(tournament_id,name,age_class,competition_class_id) VALUES(?,?,?,?)", (tid, group_name.strip(), group_class_name or None, group_class_id))
-                st.rerun()
-            st.error("Ange ett gruppnamn.")
-
+    with st.expander("Jag vill skapa grupper manuellt", expanded=not bool(_smart_plan) and _existing_groups_count == 0):
+      with st.form("new_group", clear_on_submit=True):
+            group_name = st.text_input("Gruppnamn", placeholder="Grupp A")
+            group_class_options = class_ids if len(class_ids) == 1 else ([None] + class_ids)
+            group_class_id = st.selectbox(
+                "Tävlingsklass",
+                group_class_options or [None],
+                format_func=lambda value: "Ingen särskild tävlingsklass" if value is None else next(competition_class_label(row) for row in class_rows if row["id"] == value),
+                disabled=not bool(class_rows),
+                key=f"new_group_competition_class_{tid}",
+            )
+            group_class_name = next((competition_class_label(row) for row in class_rows if row["id"] == group_class_id), "")
+            if st.form_submit_button("Lägg till grupp", type="primary", disabled=_group_history_locked or not bool(teams)):
+                if group_name.strip():
+                    run("INSERT INTO groups(tournament_id,name,age_class,competition_class_id) VALUES(?,?,?,?)", (tid, group_name.strip(), group_class_name or None, group_class_id))
+                    st.rerun()
+                st.error("Ange ett gruppnamn.")
+    
     groups = all_rows("SELECT * FROM groups WHERE tournament_id=? ORDER BY name", (tid,))
     tournament_age_classes = [competition_class_label(row) for row in class_rows]  # compatibility for existing branch conditions
 
@@ -11563,7 +11573,7 @@ if admin_page == "Grupper":
     if teams and _participant_registration_complete and _groups_after_assignment and _unassigned_after_assignment == 0:
         with st.container(border=True):
             st.markdown("### ✓ Gruppindelningen är klar")
-            st.caption("Alla registrerade lag har en grupp. Nu kan du skapa spelschemat.")
+            st.caption("Alla lag är placerade. Nästa steg är att skapa spelschemat.")
             st.button(
                 "Fortsätt till Schema →",
                 type="primary",

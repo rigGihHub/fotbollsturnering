@@ -17,7 +17,7 @@ def test_team_page_does_not_duplicate_class_crud():
     assert '"Hantera tävlingsklasser"' in block
     assert 'key=f"manage_add_class_{tid}"' not in block
     assert 'key=f"remove_class_' not in block
-    assert 'with st.expander("Tävlingsklasser", expanded=False)' in block
+    assert 'with st.expander("Fler lagverktyg", expanded=False)' in block
 
 def test_secondary_text_has_explicit_contrast():
     assert '[data-testid="stCaptionContainer"]' in APP

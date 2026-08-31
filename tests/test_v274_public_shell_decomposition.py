@@ -9,7 +9,7 @@ WORKSPACE = (ROOT / "cupnavi_core" / "public_workspace_view.py").read_text(encod
 
 
 def test_release_version_v274():
-    assert VERSION == "2026.08.31-351-SETUP-COMPLETION-HANDOFF"
+    assert VERSION == "2026.08.31-353-GROUP-FLOW-PITCH-TIMING"
 
 
 def test_public_hero_builder_preserves_status_and_escapes_content():

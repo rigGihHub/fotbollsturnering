@@ -9,7 +9,7 @@ VERSION = (ROOT / "VERSION.txt").read_text(encoding="utf-8").strip()
 
 
 def test_v322_version():
-    assert VERSION == "2026.08.31-351-SETUP-COMPLETION-HANDOFF"
+    assert VERSION == "2026.08.31-353-GROUP-FLOW-PITCH-TIMING"
 
 
 def test_public_workspace_is_one_outer_fragment_without_nested_public_adapters():

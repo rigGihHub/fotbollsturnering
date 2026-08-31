@@ -564,6 +564,23 @@ def render_initial_tournament_setup(tournament_id, tournament, *, deps: InitialS
         r6.number_input("Minsta lagvila",0,300,int(rules["minimum_team_rest_minutes"]),key=restk,on_change=_autosave_rule_field,args=(tournament_id,"minimum_team_rest_minutes",restk,int))
 
         st.markdown("### 5. Vad är viktigast i schemat?")
+        st.markdown("**Tider på flera planer**")
+        _sync_key=f"setup_sync_pitch_times_{tournament_id}"
+        _sync_pitch_times=st.checkbox(
+            "Kräv samma avsparkstider på alla planer",
+            value=bool(_row_value(rules,"synchronized_pitch_times",0)),
+            key=_sync_key,
+            help="Påslaget ger gemensamma startvågor på alla planer. Avstängt låter varje plan använda nästa möjliga tid.",
+        )
+        if _sync_pitch_times:
+            st.info("Synkroniserat: enklare för lag, publik och sekretariat att komma ihåg tiderna, men kan lämna viss plantid oanvänd.")
+        else:
+            st.info("Dynamiskt: CupNavi kan utnyttja planerna friare och få in matcher tidigare när förutsättningarna skiljer sig mellan planerna.")
+        if int(_sync_pitch_times)!=int(_row_value(rules,"synchronized_pitch_times",0) or 0):
+            run("UPDATE schedule_rules SET synchronized_pitch_times=? WHERE tournament_id=?",(int(_sync_pitch_times),int(tournament_id)))
+            rules=one_row("SELECT * FROM schedule_rules WHERE tournament_id=?",(int(tournament_id),))
+
+        st.markdown("**Prioritera schemamålen**")
         st.caption("Rangordna målen. **1 = viktigast.** CupNavi använder ordningen när flera olika scheman klarar alla obligatoriska regler.")
         st.info("Exempel: Om två scheman båda är giltiga väljer CupNavi hellre det som uppfyller prioritet 1 än prioritet 4.")
         _core_priorities = [

@@ -52,4 +52,4 @@ def test_workspace_uses_injected_persistence_callbacks():
 
 
 def test_release_version():
-    assert VERSION == "2026.08.31-351-SETUP-COMPLETION-HANDOFF"
+    assert VERSION == "2026.08.31-353-GROUP-FLOW-PITCH-TIMING"

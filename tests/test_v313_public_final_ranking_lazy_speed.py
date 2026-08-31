@@ -1,6 +1,6 @@
 from pathlib import Path
 
-VERSION = "2026.08.31-351-SETUP-COMPLETION-HANDOFF"
+VERSION = "2026.08.31-353-GROUP-FLOW-PITCH-TIMING"
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE = (ROOT / "cupnavi_core" / "public_statistics_view.py").read_text(encoding="utf-8")
 

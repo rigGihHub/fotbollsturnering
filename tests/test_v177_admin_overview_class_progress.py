@@ -2,7 +2,7 @@ from pathlib import Path
 ROOT=Path(__file__).resolve().parents[1]
 APP=(ROOT/"app.py").read_text(encoding="utf-8")
 ADMIN=(ROOT/"cupnavi_core/admin_overview.py").read_text(encoding="utf-8")
-R="2026.08.31-351-SETUP-COMPLETION-HANDOFF"
+R="2026.08.31-353-GROUP-FLOW-PITCH-TIMING"
 
 def test_duplicate_next_button_is_suppressed():
     assert "v160_next_" not in APP

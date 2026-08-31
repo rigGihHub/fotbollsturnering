@@ -7,7 +7,7 @@ VERSION = (ROOT / "VERSION.txt").read_text(encoding="utf-8").strip()
 
 
 def test_v326_version():
-    assert VERSION == "2026.08.31-351-SETUP-COMPLETION-HANDOFF"
+    assert VERSION == "2026.08.31-353-GROUP-FLOW-PITCH-TIMING"
 
 
 def test_setup_has_fast_track_to_teams_after_minimum_setup():

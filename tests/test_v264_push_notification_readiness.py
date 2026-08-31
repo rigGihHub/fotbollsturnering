@@ -21,12 +21,12 @@ def _db_at_v24():
 
 def test_v264_schema_is_push_provider_neutral():
     con = _db_at_v24()
-    assert apply_migrations(con) == [25, 26]
+    assert apply_migrations(con) == [25, 26, 27]
     tables = {r[0] for r in con.execute("SELECT name FROM sqlite_master WHERE type='table'")}
     assert {"web_push_subscriptions", "push_notification_outbox"} <= tables
     cols = {r[1] for r in con.execute("PRAGMA table_info(web_push_subscriptions)")}
     assert {"endpoint", "endpoint_hash", "p256dh", "auth", "notify_goals"} <= cols
-    assert LATEST_SCHEMA_VERSION == 26
+    assert LATEST_SCHEMA_VERSION == 27
 
 
 def test_goal_event_targets_only_scoring_team_and_is_idempotent():

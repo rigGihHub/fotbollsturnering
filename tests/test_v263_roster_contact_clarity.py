@@ -4,7 +4,7 @@ APP = (Path(__file__).parents[1] / "app.py").read_text(encoding="utf-8")
 VERSION = (Path(__file__).parents[1] / "VERSION.txt").read_text(encoding="utf-8").strip()
 
 def test_v263_version():
-    assert VERSION == "2026.08.31-351-SETUP-COMPLETION-HANDOFF"
+    assert VERSION == "2026.08.31-353-GROUP-FLOW-PITCH-TIMING"
 
 def test_team_contact_fields_identify_team_responsible():
     assert "Lagansvarig kontaktperson" in APP
@@ -17,4 +17,5 @@ def test_roster_navigation_is_clear_but_route_stays_compatible():
     assert 'if admin_page == "Trupper":' in APP
     assert 'st.header("Spelare & trupper")' in APP
     assert "Välj lag och hantera spelare manuellt eller via AI-import." in APP
-    assert "Spelare och trupper hanteras via **Fler lagverktyg** ovan." in APP
+    assert 'with st.expander("Fler lagverktyg", expanded=False):' in APP
+    assert "Valfria verktyg. De behövs inte för att slutföra den vanliga lagregistreringen." in APP

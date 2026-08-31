@@ -5,12 +5,12 @@ APP=(ROOT/"app.py").read_text(encoding="utf-8")
 VERSION=(ROOT/"VERSION.txt").read_text(encoding="utf-8").strip()
 
 def test_version():
-    assert VERSION=="2026.08.31-351-SETUP-COMPLETION-HANDOFF"
+    assert VERSION=="2026.08.31-353-GROUP-FLOW-PITCH-TIMING"
     assert f'APP_BUILD_VERSION = "{VERSION}"' in APP
 
 def test_team_registration_has_real_progress_and_group_handoff():
     assert "participant_registration_complete" in APP
-    assert '"Fortsätt till Grupper →"' in APP
+    assert '"Fortsätt → Skapa grupper"' in APP
     assert 'key=f"v346_teams_to_groups_{tid}"' in APP
 
 def test_group_automation_waits_for_complete_participant_list():

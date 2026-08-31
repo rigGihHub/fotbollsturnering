@@ -21,7 +21,7 @@ def test_creation_explains_next_step_without_new_form_step():
 def test_team_count_is_normal_status_not_alert():
     start=APP.index('if admin_page == "Lag":')
     block=APP[start:start+12000]
-    assert 'st.caption(f"{status_icon} {registered_team_count} av {max_teams}' in block
+    assert 'st.markdown(f"### {status_icon} {registered_team_count} av {max_teams} lag registrerade")' in block
 
 def test_schedule_primary_action_is_short_and_mobile_friendly():
     block=SCHEDULE_VIEW

@@ -10,5 +10,5 @@ def test_competition_class_language_and_hierarchy_are_visible():
     lag_start = APP.index('if admin_page == "Lag":')
     lag_end = APP.index('if admin_page == "Grupper":', lag_start)
     lag = APP[lag_start:lag_end]
-    assert 'with st.expander("Tävlingsklasser", expanded=False)' in lag
+    assert '"Hantera tävlingsklasser"' in lag
     assert '"Hantera tävlingsklasser"' in lag

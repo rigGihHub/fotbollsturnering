@@ -9,7 +9,7 @@ Regel:
 from dataclasses import dataclass
 from datetime import datetime, timezone
 
-LATEST_SCHEMA_VERSION = 26
+LATEST_SCHEMA_VERSION = 27
 
 
 @dataclass(frozen=True)
@@ -507,6 +507,11 @@ MIGRATIONS = (
         "beginner_setup_modes_v350",
         (),
     ),
+    Migration(
+        27,
+        "pitch_timing_mode_v353",
+        (),
+    ),
 
 )
 
@@ -793,6 +798,19 @@ def ensure_v26_schema_compat(con):
         con.execute("ALTER TABLE pitches ADD COLUMN address_verified INTEGER NOT NULL DEFAULT 0")
 
 
+
+def ensure_v27_schema_compat(con):
+    """Idempotent v353 field for synchronized versus dynamic pitch kickoff times."""
+    try:
+        cols = {row[1] for row in con.execute("PRAGMA table_info(schedule_rules)").fetchall()}
+    except Exception:
+        cols = set()
+    if not cols:
+        con.execute("CREATE TABLE schedule_rules(tournament_id INTEGER PRIMARY KEY)")
+        cols = {"tournament_id"}
+    if "synchronized_pitch_times" not in cols:
+        con.execute("ALTER TABLE schedule_rules ADD COLUMN synchronized_pitch_times INTEGER NOT NULL DEFAULT 0")
+
 def apply_migrations(con):
     """Applicera alla saknade migreringar och returnera nya versionsnummer."""
     ensure_migration_table(con)
@@ -812,6 +830,8 @@ def apply_migrations(con):
             ensure_competition_class_schema_compat(con)
         if migration.version == 26:
             ensure_v26_schema_compat(con)
+        if migration.version == 27:
+            ensure_v27_schema_compat(con)
         for statement in migration.statements:
             _execute(con, statement)
         _execute(
