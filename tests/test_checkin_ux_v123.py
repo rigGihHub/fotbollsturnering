@@ -7,4 +7,4 @@ def test_team_page_cleanup_contract():
     block = APP[start:end]
     assert '"Hantera tävlingsklasser"' in block
     assert '"Hantera tävlingsklasser"' in block
-    assert 'with st.expander("Digital lagincheckning", expanded=False)' in block
+    assert 'if st.toggle("Digital lagincheckning", value=False, key=f"lazy_team_checkin_{tid}"' in block

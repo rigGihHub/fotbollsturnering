@@ -6,13 +6,14 @@ VERSION = (ROOT / "VERSION.txt").read_text(encoding="utf-8").strip()
 
 
 def test_release_version():
-    assert VERSION == "2026.08.31-354-ADDRESS-READINESS-FIX"
+    assert VERSION == "2026.09.02-388-ADMIN-CORE-FLOW-CLEANUP"
 
 
 def test_venue_snapshot_is_reused_instead_of_second_query():
-    assert "venue_rows = sorted(" in INFO
-    assert "venue_points_public," in INFO
+    assert "venue_points_public = all_rows(" in INFO
+    assert INFO.count("SELECT * FROM venue_points WHERE tournament_id=?") == 1
     assert 'SELECT * FROM venue_points WHERE tournament_id=? ORDER BY sort_order,id' not in INFO
+    assert 'Do not repeat the same places' in INFO
 
 
 def test_finished_cup_summary_is_explicitly_lazy():

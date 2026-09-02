@@ -17,7 +17,7 @@ def test_matcher_only_metrics_live_inside_matcher_branch():
     before=PUBLIC[:PUBLIC.index('if public_page == "Matcher":')]
     assert "total_goals =" not in before
     assert "team_count = len(public_teams)" not in before
-    matcher=PUBLIC[PUBLIC.index('if public_page == "Matcher":'):PUBLIC.index('if public_page == "Statistik":')]
+    matcher=PUBLIC[PUBLIC.index('if public_page == "Matcher":'):PUBLIC.index('if public_page == "Tabeller":')]
     assert "render_public_matches_fragment_module(" in matcher
     assert "total_goals =" in MATCHES
     assert "team_count = len(public_teams)" in MATCHES

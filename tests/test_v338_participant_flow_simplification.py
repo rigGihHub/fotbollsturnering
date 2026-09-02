@@ -2,7 +2,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 APP = (ROOT / "app.py").read_text(encoding="utf-8")
-VERSION = "2026.08.31-354-ADDRESS-READINESS-FIX"
+VERSION = "2026.09.02-388-ADMIN-CORE-FLOW-CLEANUP"
 
 
 def test_release_version_is_v338():
@@ -22,7 +22,7 @@ def test_global_participant_navigation_only_exposes_teams_and_groups():
 
 
 def test_secondary_participant_tools_remain_available_from_teams():
-    assert 'with st.expander("Fler lagverktyg", expanded=False):' in APP
+    assert 'if st.toggle("Fler lagverktyg", value=False, key=f"lazy_team_tools_{tid}"' in APP
     assert 'args=("Trupper",)' in APP
     assert 'args=("Önskemålscentral",)' in APP
     assert 'args=("Import",)' in APP

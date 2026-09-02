@@ -15,7 +15,7 @@ ROOT = Path(__file__).resolve().parents[1]
 APP = (ROOT / "app.py").read_text(encoding="utf-8")
 MODULE = (ROOT / "cupnavi_core" / "admin_overview.py").read_text(encoding="utf-8")
 REPOSITORY = (ROOT / "cupnavi_core" / "admin_overview_repository.py").read_text(encoding="utf-8")
-VERSION = "2026.08.31-354-ADDRESS-READINESS-FIX"
+VERSION = "2026.09.02-388-ADMIN-CORE-FLOW-CLEANUP"
 
 
 def sample_counts(**overrides):

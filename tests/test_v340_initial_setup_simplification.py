@@ -6,7 +6,7 @@ VERSION = (ROOT / "VERSION.txt").read_text(encoding="utf-8").strip()
 
 
 def test_v340_version_marker():
-    assert VERSION == "2026.08.31-354-ADDRESS-READINESS-FIX"
+    assert VERSION == "2026.09.02-388-ADMIN-CORE-FLOW-CLEANUP"
 
 
 def test_standard_setup_is_three_step_fast_track():

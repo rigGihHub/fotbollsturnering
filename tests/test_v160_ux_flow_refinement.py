@@ -26,8 +26,8 @@ def test_primary_flow_has_previous_next_navigation():
     assert "Nästa steg" in APP
 
 def test_results_page_has_progress_and_public_state():
-    assert "Resultatstatus" in RESULTS_VIEW
-    assert "cn-progress-track" in RESULTS_VIEW
+    assert "Resultat registrerade" in RESULTS_VIEW
+    assert "cn-result-progress" in RESULTS_VIEW
     assert "✓ Publika resultat uppdateras automatiskt." in RESULTS_VIEW
     assert "render_admin_results_workspace(" in APP
 

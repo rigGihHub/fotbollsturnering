@@ -9,7 +9,7 @@ MATCH=(ROOT/"cupnavi_core/public_match_cards.py").read_text(encoding="utf-8")
 FEED=(ROOT/"cupnavi_core/public_match_feed_logic.py").read_text(encoding="utf-8")
 MATCHES=(ROOT/"cupnavi_core/public_matches_view.py").read_text(encoding="utf-8")
 WORKSPACE=(ROOT/"cupnavi_core/public_workspace_view.py").read_text(encoding="utf-8")
-RELEASE="2026.08.31-354-ADDRESS-READINESS-FIX"
+RELEASE="2026.09.02-388-ADMIN-CORE-FLOW-CLEANUP"
 
 def test_release_version_is_hard_synced():
     assert RELEASE in APP

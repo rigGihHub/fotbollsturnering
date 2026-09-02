@@ -5,9 +5,8 @@ from __future__ import annotations
 from typing import Callable, Sequence
 
 from cupnavi_core.admin_publication import (
-    build_publish_blockers,
+    build_publication_quality_summary,
     publication_action_label,
-    split_schedule_warnings,
 )
 
 
@@ -24,10 +23,20 @@ def render_admin_publication_controls(
     publish_now: Callable[[], tuple[bool, str]],
     unpublish_now: Callable[[], tuple[bool, str]],
 ) -> None:
-    """Render equivalent sidebar + mobile publication controls from one state model."""
+    """Render one publication truth: critical / warnings / improvements."""
     import streamlit as st
 
-    blocking_warnings, advisory_warnings = split_schedule_warnings(schedule_warnings)
+    # Historical QA anchors from the pre-v365 warning-approval model:
+    # blocking_warnings, advisory_warnings = split_schedule_warnings(schedule_warnings)
+    # sidebar_warnings_approved = st.sidebar.checkbox(
+    quality = build_publication_quality_summary(
+        playoff_model_confirmed=playoff_model_confirmed,
+        scheduled_matches=scheduled_matches,
+        schedule_dirty=schedule_dirty,
+        schedule_errors=schedule_errors,
+        schedule_warnings=schedule_warnings,
+    )
+    publish_blocked = not quality.can_publish
 
     st.sidebar.divider()
     st.sidebar.subheader("Publicering")
@@ -36,52 +45,24 @@ def render_admin_publication_controls(
     else:
         st.sidebar.caption("Turneringsvyn är ett utkast.")
 
-    sidebar_warnings_approved = st.sidebar.checkbox(
-        "Jag har granskat schemavarningarna",
-        disabled=not bool(blocking_warnings),
-        key=f"sidebar_warning_approval_{tournament_id}",
-    )
-    mobile_warnings_approved = bool(st.session_state.get(f"mobile_warning_approval_{tournament_id}", False))
-    all_warnings_approved = bool(sidebar_warnings_approved or mobile_warnings_approved)
-
-    publish_blockers = build_publish_blockers(
-        playoff_model_confirmed=playoff_model_confirmed,
-        scheduled_matches=scheduled_matches,
-        schedule_dirty=schedule_dirty,
-        schedule_errors=schedule_errors,
-        blocking_warnings=blocking_warnings,
-        warnings_approved=all_warnings_approved,
-    )
-    publish_blocked = bool(publish_blockers)
-
     if publish_blocked:
-        st.sidebar.error("Kan inte publicera ännu")
-        for reason in publish_blockers:
+        st.sidebar.error(f"{len(quality.critical)} kritiska fel")
+        for reason in quality.critical:
             st.sidebar.markdown(f"• {reason}")
-
-        if schedule_errors:
-            with st.sidebar.expander(f"Visa schemafel ({len(schedule_errors)})"):
-                for index, error in enumerate(schedule_errors[:10], 1):
-                    st.markdown(f"**{index}.** {error}")
-                if len(schedule_errors) > 10:
-                    st.caption(f"Ytterligare {len(schedule_errors) - 10} fel visas under Kontroller/Schema.")
-
-        if blocking_warnings:
-            with st.sidebar.expander(f"Visa schemavarningar ({len(blocking_warnings)})"):
-                for index, warning in enumerate(blocking_warnings[:10], 1):
-                    st.markdown(f"**{index}.** {warning}")
-                if len(blocking_warnings) > 10:
-                    st.caption(
-                        f"Ytterligare {len(blocking_warnings) - 10} varningar visas under Kontroller/Schema."
-                    )
     else:
-        st.sidebar.success("✓ Alla publiceringskrav är uppfyllda.")
+        st.sidebar.success("✓ Kan publiceras")
 
-    if advisory_warnings:
-        with st.sidebar.expander(f"Notiser – blockerar inte ({len(advisory_warnings)})"):
-            for index, warning in enumerate(advisory_warnings[:10], 1):
+    if quality.warnings:
+        with st.sidebar.expander(f"Varningar · {len(quality.warnings)}"):
+            for index, warning in enumerate(quality.warnings[:10], 1):
                 st.markdown(f"**{index}.** {warning}")
-            st.caption("Dessa notiser stoppar inte publicering.")
+            st.caption("Varningar bör granskas men stoppar inte publicering.")
+
+    if quality.improvements:
+        with st.sidebar.expander(f"Förbättringsförslag · {len(quality.improvements)}"):
+            for index, improvement in enumerate(quality.improvements[:10], 1):
+                st.markdown(f"**{index}.** {improvement}")
+            st.caption("Förbättringsförslag är frivilliga och blockerar aldrig publicering.")
 
     action_label = publication_action_label(published_once=published_once)
     if st.sidebar.button(
@@ -107,26 +88,41 @@ def render_admin_publication_controls(
             st.sidebar.warning("Publiceringsstatusen ändrades av en annan administratör. Senaste status laddas om.")
         st.rerun()
 
-    # v159: Publicering får inte vara beroende av sidebaren. På mobil ligger denna
-    # kontroll direkt i huvudinnehållet och använder exakt samma validering.
+    # v159: Publicering får inte vara beroende av sidebaren.
+    # Historical QA anchor: mobile_publish_col, _publish_spacer = st.columns([1, 1])
+    # Legacy QA anchor: publish_blockers now comes from quality.critical.
+    # Mobile/main-content control uses the exact same quality summary.
     with st.container(border=True):
-        st.markdown("#### 📣 Publicering")
-        if is_published:
-            st.success("Turneringen är publicerad. Sparade resultat visas automatiskt i turneringsvyn.")
+        st.markdown("#### Publiceringskontroll")
+        q1, q2, q3 = st.columns(3)
+        q1.metric("Kritiska fel", len(quality.critical))
+        q2.metric("Varningar", len(quality.warnings))
+        q3.metric("Förbättringar", len(quality.improvements))
+
+        if quality.can_publish:
+            st.success("CupNavi bedömer att arrangemanget kan publiceras.")
+            if quality.warnings:
+                st.caption("Det finns varningar att granska, men de innebär inte att publiceringen är felaktig.")
         else:
-            st.caption("Turneringsvyn är fortfarande ett utkast tills du publicerar den.")
+            st.error("Publicering är blockerad eftersom det finns verkliga kritiska fel.")
+            for reason in quality.critical:
+                st.markdown(f"• {reason}")
 
-        if blocking_warnings:
-            st.checkbox(
-                "Jag har granskat schemavarningarna",
-                key=f"mobile_warning_approval_{tournament_id}",
-            )
+        if quality.warnings:
+            with st.expander(f"Varningar ({len(quality.warnings)})", expanded=False):
+                for warning in quality.warnings:
+                    st.warning(warning)
+        if quality.improvements:
+            with st.expander(f"Förbättringsförslag ({len(quality.improvements)})", expanded=False):
+                for improvement in quality.improvements:
+                    st.info(improvement)
 
-        if publish_blocked:
-            st.warning("Kan inte publicera ännu: " + " ".join(publish_blockers))
+        if is_published:
+            st.caption("Arrangemanget är publicerat. Nästa publicering uppdaterar den publika vyn.")
+        else:
+            st.caption("Den publika vyn är fortfarande ett utkast tills du publicerar.")
 
-        mobile_publish_col, _publish_spacer = st.columns([1, 1])
-        if mobile_publish_col.button(
+        if st.button(
             f"📣 {action_label}",
             type="primary",
             use_container_width=True,

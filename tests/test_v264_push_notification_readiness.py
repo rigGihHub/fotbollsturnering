@@ -21,19 +21,19 @@ def _db_at_v24():
 
 def test_v264_schema_is_push_provider_neutral():
     con = _db_at_v24()
-    assert apply_migrations(con) == [25, 26, 27]
+    assert apply_migrations(con) == [25, 26, 27, 28, 29, 30]
     tables = {r[0] for r in con.execute("SELECT name FROM sqlite_master WHERE type='table'")}
     assert {"web_push_subscriptions", "push_notification_outbox"} <= tables
     cols = {r[1] for r in con.execute("PRAGMA table_info(web_push_subscriptions)")}
     assert {"endpoint", "endpoint_hash", "p256dh", "auth", "notify_goals"} <= cols
-    assert LATEST_SCHEMA_VERSION == 27
+    assert LATEST_SCHEMA_VERSION == 30
 
 
 def test_goal_event_targets_only_scoring_team_and_is_idempotent():
     con = _db_at_v24(); apply_migrations(con)
     con.execute("INSERT INTO tournaments(id) VALUES(1)")
     con.executemany("INSERT INTO teams VALUES(?,1)", [(10,), (20,)])
-    con.execute("INSERT INTO matches VALUES(99,1)")
+    con.execute("INSERT INTO matches(id,tournament_id) VALUES(99,1)")
     kwargs = dict(
         tournament_id=1, match_id=99,
         home_team_id=10, away_team_id=20,

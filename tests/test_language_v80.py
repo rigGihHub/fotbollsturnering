@@ -19,8 +19,8 @@ def test_public_navigation_is_translated():
     assert 'translate(mobile_label)' in nav_text
     assert 'translate=tr' in app_text()
     from cupnavi_core.public_view_logic import public_navigation_specs
-    assert [item[2] for item in public_navigation_specs()[:4]] == [
-        "Cupinfo","Schema & resultat","Tabeller","Slutspel"
+    assert [item[2] for item in public_navigation_specs()] == [
+        "Matcher","Mitt lag","Tabell","Slutspel","Information"
     ]
 
 def test_admin_nav_labels_are_translated():

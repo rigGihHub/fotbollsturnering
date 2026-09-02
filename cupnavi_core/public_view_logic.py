@@ -5,14 +5,17 @@ navigation behavior independently testable.
 """
 
 PUBLIC_PAGE_SPECS = (
-    ("Info", "info", "Cupinfo", "Cupinfo"),
-    ("Matcher", "matches", "Schema & resultat", "Schema"),
-    ("Tabeller", "tables", "Tabeller", "Tabeller"),
+    ("Matcher", "matches", "Matcher", "Matcher"),
+    ("Mitt lag", "team", "Mitt lag", "Mitt lag"),
+    ("Tabeller", "tables", "Tabell", "Tabell"),
     ("Slutspel", "playoffs", "Slutspel", "Slutspel"),
-    ("Statistik", "stats", "Statistik", "Statistik"),
+    ("Info", "info", "Information", "Info"),
 )
 
 PUBLIC_SECTION_TO_PAGE = {section: page for page, section, _, _ in PUBLIC_PAGE_SPECS}
+# Existing shared links using ?section=stats remain useful after Statistik moved
+# under Tabell; route them to the nearest surviving public destination.
+PUBLIC_SECTION_TO_PAGE["stats"] = "Tabeller"
 PUBLIC_PAGE_TO_SECTION = {page: section for page, section, _, _ in PUBLIC_PAGE_SPECS}
 
 

@@ -5,16 +5,16 @@ STYLE=(ROOT/"cupnavi_core"/"style_system.py").read_text(encoding="utf-8")
 VERSION=(ROOT/"VERSION.txt").read_text().strip()
 
 def test_version():
-    assert VERSION=="2026.08.31-354-ADDRESS-READINESS-FIX"
+    assert VERSION=="2026.09.02-388-ADMIN-CORE-FLOW-CLEANUP"
     assert VERSION in APP
 
 def test_empty_cup_gets_beginner_first_run():
     assert "first_run_new_cup = bool(" in APP
     assert "är skapad!" in APP
     assert "Du behöver inte kunna hur en cup ska planeras" in APP
-    assert "### Din väg till en färdig cup" in APP
-    assert "① Lägg till lagen" in APP
-    assert "⑤ Kontrollera och publicera" in APP
+    assert 'class="cn-first-run-steps"' in APP
+    assert "1 · Lägg till lag" in APP
+    assert "5 · Publicera" in APP
     assert '"Lägg till första laget →"' in APP
 
 def test_empty_cup_hides_premature_system_noise():

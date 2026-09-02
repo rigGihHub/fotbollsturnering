@@ -6,13 +6,13 @@ VERSION = (ROOT / "VERSION.txt").read_text(encoding="utf-8").strip()
 
 
 def test_v334_release_version():
-    assert VERSION == "2026.08.31-354-ADDRESS-READINESS-FIX"
+    assert VERSION == "2026.09.02-388-ADMIN-CORE-FLOW-CLEANUP"
 
 
 def test_score_view_renders_events_for_persisted_result_in_same_workspace():
     assert 'persisted_result = quick_match["home_score"] is not None' in VIEW
     assert 'st.markdown("### ⚽ Livehändelser")' in VIEW
-    assert '_render_match_event_entry(\n                    tournament_id, tournament, int(quick_match_id), quick_match, deps' in VIEW
+    assert '_render_match_event_entry(\n                        tournament_id, tournament, int(quick_match_id), quick_match, deps' in VIEW
 
 
 def test_event_entry_is_shared_not_duplicated():

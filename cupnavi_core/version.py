@@ -1,4 +1,4 @@
-APP_VERSION = "2026.08.31-354-ADDRESS-READINESS-FIX"
+APP_VERSION = "2026.09.02-388-ADMIN-CORE-FLOW-CLEANUP"
 
 
 def release_ui_label(version: str) -> str:

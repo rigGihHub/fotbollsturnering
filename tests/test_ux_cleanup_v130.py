@@ -13,8 +13,9 @@ def test_v130_version_and_dashboard_cleanup():
 
 
 def test_next_step_uses_compact_primary_card():
-    assert 'st.markdown(f"### {next_step.title}")' in APP
-    assert 'st.write(next_step.text)' in APP
+    assert 'class="cn-overview-next"' in APP
+    assert "Rekommenderat nästa steg" in APP
+    assert "html.escape(next_step.text)" in APP
 
 
 def test_optional_info_textareas_are_progressively_disclosed():

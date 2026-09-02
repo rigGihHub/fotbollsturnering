@@ -5,7 +5,7 @@ ROOT = Path(__file__).resolve().parents[1]
 APP = (ROOT / "app.py").read_text(encoding="utf-8")
 STYLE = (ROOT / "cupnavi_core" / "style_system.py").read_text(encoding="utf-8")
 VERSION = (ROOT / "VERSION.txt").read_text(encoding="utf-8").strip()
-RELEASE = "2026.08.31-354-ADDRESS-READINESS-FIX"
+RELEASE = "2026.09.02-388-ADMIN-CORE-FLOW-CLEANUP"
 
 
 def test_v288_release_is_synced():

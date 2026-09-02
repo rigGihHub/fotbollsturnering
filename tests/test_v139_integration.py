@@ -5,7 +5,7 @@ ADMIN_OVERVIEW=(ROOT/"cupnavi_core/admin_overview.py").read_text(encoding="utf-8
 
 def test_v139_version_sync():
     v=(ROOT/"VERSION.txt").read_text().strip()
-    assert v=="2026.08.31-354-ADDRESS-READINESS-FIX"
+    assert v=="2026.09.02-388-ADMIN-CORE-FLOW-CLEANUP"
     assert v in APP
     assert v in (ROOT/"cupnavi_core/version.py").read_text()
 

@@ -12,7 +12,7 @@ VERSION = (ROOT / "VERSION.txt").read_text(encoding="utf-8").strip()
 
 
 def test_release_and_module_boundary():
-    assert VERSION == "2026.08.31-354-ADDRESS-READINESS-FIX"
+    assert VERSION == "2026.09.02-388-ADMIN-CORE-FLOW-CLEANUP"
     assert "render_admin_results_workspace(" in APP
     app_block = APP[APP.index('if admin_page == "Matcher och resultat":'):APP.index('if admin_page == "Matchhändelser":')]
     assert 'st.data_editor(' not in app_block
@@ -22,11 +22,12 @@ def test_release_and_module_boundary():
 
 
 def test_view_owns_results_ui_and_repository_owns_read_queries():
-    assert 'st.header("Resultat")' in VIEW
+    assert '<div class="title">Resultat</div>' in VIEW
     assert 'st.data_editor(' in VIEW
     assert '"Visa hela matchschemat"' in VIEW
     assert '"bulk_result_conflict_message"' in VIEW
-    assert 'fetch_admin_results_data(' in VIEW
+    assert 'fetch_admin_results_matches(' in VIEW
+    assert 'fetch_admin_results_auxiliary(' in VIEW
     assert 'SELECT * FROM matches WHERE tournament_id=? ORDER BY CASE stage' in REPO
     assert 'SELECT * FROM referees WHERE tournament_id=? ORDER BY name' in REPO
     assert 'SELECT id,name FROM teams WHERE tournament_id=? ORDER BY name' in REPO

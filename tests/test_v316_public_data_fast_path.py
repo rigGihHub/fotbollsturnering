@@ -7,7 +7,7 @@ VERSION = (ROOT / "VERSION.txt").read_text(encoding="utf-8").strip()
 
 
 def test_release_version():
-    assert VERSION == "2026.08.31-354-ADDRESS-READINESS-FIX"
+    assert VERSION == "2026.09.02-388-ADMIN-CORE-FLOW-CLEANUP"
 
 
 def test_public_snapshot_can_skip_match_query_and_cache_modes_separately():
@@ -25,8 +25,8 @@ def test_public_team_snapshot_uses_compact_public_projection():
         assert field in block
 
 
-def test_workspace_skips_matches_for_stats_and_playoffs_without_followed_team():
-    assert 'public_page in {"Matcher", "Info"}' in WORKSPACE
+def test_workspace_loads_matches_only_for_pages_that_need_them():
+    assert 'public_page in {"Matcher", "Mitt lag", "Info"}' in WORKSPACE
     assert 'requested_team_id is not None' in WORKSPACE
     assert 'public_page == "Tabeller"' in WORKSPACE
     assert 'enable_final_ranking' in WORKSPACE

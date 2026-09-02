@@ -12,7 +12,10 @@ from typing import Any, Callable
 
 import pandas as pd
 
-from cupnavi_core.admin_results_repository import fetch_admin_results_data
+from cupnavi_core.admin_results_repository import (
+    fetch_admin_results_auxiliary,
+    fetch_admin_results_matches,
+)
 
 
 @dataclass(frozen=True)
@@ -146,10 +149,18 @@ def prepare_admin_result_updates(
 
 def render_admin_results_workspace(tid, tournament, *, deps: AdminResultsDependencies):
     st = deps.st
-    matches, refs, all_result_teams = fetch_admin_results_data(deps.all_rows, tid)
+    matches = fetch_admin_results_matches(deps.all_rows, tid)
 
-    st.header("Resultat")
-    st.caption("Registrera resultat. Domare kan justeras direkt i samma tabell.")
+    st.markdown(
+        """<div class="cn-workspace-head">
+          <div>
+            <div class="kicker">Matchadministration</div>
+            <div class="title">Resultat</div>
+            <div class="subtitle">Registrera resultat snabbt och justera domare i samma arbetsflöde. Detaljerade matchhändelser ligger kvar som ett separat verktyg.</div>
+          </div>
+        </div>""",
+        unsafe_allow_html=True,
+    )
 
     # v339: detailed event editing and statistics are still available, but they
     # are contextual result tools rather than global match destinations.
@@ -190,8 +201,11 @@ def render_admin_results_workspace(tid, tournament, *, deps: AdminResultsDepende
     played = sum(1 for row in matches if row["home_score"] is not None and row["away_score"] is not None)
     pct = int(round((played / total) * 100)) if total else 0
     st.markdown(
-        f"<div class='cn-progress-hero'><div><span>Resultatstatus</span><strong>{played}/{total}</strong></div>"
-        f"<div class='cn-progress-track'><i style='width:{pct}%'></i></div></div>",
+        f"""<div class="cn-result-progress">
+          <span class="label">Resultat registrerade</span>
+          <span class="track"><i style="width:{pct}%"></i></span>
+          <span class="value">{played}/{total}</span>
+        </div>""",
         unsafe_allow_html=True,
     )
     st.caption(
@@ -199,7 +213,6 @@ def render_admin_results_workspace(tid, tournament, *, deps: AdminResultsDepende
         if tournament["is_published"]
         else "Cupen är i utkast – resultaten sparas nu och blir publika när cupen publiceras."
     )
-    st.caption("Registrera resultat match för match eller använd massinmatning när det passar.")
     if "bulk_result_message" in st.session_state:
         st.success(st.session_state.pop("bulk_result_message"), icon="✅")
     if "bulk_result_conflict_message" in st.session_state:
@@ -254,6 +267,26 @@ def render_admin_results_workspace(tid, tournament, *, deps: AdminResultsDepende
         st.info("Det finns ännu inga matcher med två klara lag.")
         return
 
+    refs, all_result_teams = fetch_admin_results_auxiliary(deps.all_rows, tid)
+
+    result_scope = st.segmented_control(
+        "Vilka matcher vill du visa?",
+        ["Att rapportera", "Alla matcher"],
+        default="Att rapportera",
+        key=f"result_scope_{tid}",
+        label_visibility="collapsed",
+    ) or "Att rapportera"
+    pending_result_matches = [
+        row for row in playable_matches
+        if row["home_score"] is None or row["away_score"] is None
+    ]
+    editor_matches = pending_result_matches if result_scope == "Att rapportera" else playable_matches
+    if result_scope == "Att rapportera":
+        if pending_result_matches:
+            st.caption(f"{len(pending_result_matches)} matcher saknar resultat.")
+        else:
+            st.success("Alla matcher med klara lag har resultat. Välj Alla matcher om du behöver korrigera något.")
+
     referee_names = {row["id"]: row["name"] for row in refs}
     referee_ids_by_name = {row["name"]: row["id"] for row in refs}
     referee_options = ["Ej tillsatt"] + [row["name"] for row in refs]
@@ -262,7 +295,7 @@ def render_admin_results_workspace(tid, tournament, *, deps: AdminResultsDepende
     decision_options = ["–"] + [row["name"] for row in all_result_teams]
 
     result_rows = []
-    for match_row in playable_matches:
+    for match_row in editor_matches:
         schedule_text, _ = deps.match_meta(match_row)
         result_rows.append({
             "match_id": match_row["id"],
@@ -278,22 +311,26 @@ def render_admin_results_workspace(tid, tournament, *, deps: AdminResultsDepende
             "Domare": referee_names.get(match_row["referee_id"], "Ej tillsatt"),
         })
 
-    edited_results = st.data_editor(
-        pd.DataFrame(result_rows),
-        hide_index=True,
-        use_container_width=True,
-        disabled=["match_id", "Match", "Fas", "Hemmalag", "Bortalag"],
-        column_order=["Match", "Fas", "Hemmalag", "Hemmamål", "Bortamål", "Bortalag", "Hemmastraffar", "Bortastraffar", "Avgörande vinnare", "Domare"],
-        column_config={
-            "Hemmamål": st.column_config.NumberColumn(min_value=0, max_value=99, step=1),
-            "Bortamål": st.column_config.NumberColumn(min_value=0, max_value=99, step=1),
-            "Hemmastraffar": st.column_config.NumberColumn("Straffar hemma", min_value=0, max_value=99, step=1),
-            "Bortastraffar": st.column_config.NumberColumn("Straffar borta", min_value=0, max_value=99, step=1),
-            "Avgörande vinnare": st.column_config.SelectboxColumn(options=decision_options),
-            "Domare": st.column_config.SelectboxColumn(options=referee_options),
-        },
-        key=f"bulk_results_{tid}",
-    )
+    if editor_matches:
+        edited_results = st.data_editor(
+            pd.DataFrame(result_rows),
+            hide_index=True,
+            use_container_width=True,
+            disabled=["match_id", "Match", "Fas", "Hemmalag", "Bortalag"],
+            column_order=["Match", "Fas", "Hemmalag", "Hemmamål", "Bortamål", "Bortalag", "Hemmastraffar", "Bortastraffar", "Avgörande vinnare", "Domare"],
+            column_config={
+                "Hemmamål": st.column_config.NumberColumn(min_value=0, max_value=99, step=1),
+                "Bortamål": st.column_config.NumberColumn(min_value=0, max_value=99, step=1),
+                "Hemmastraffar": st.column_config.NumberColumn("Straffar hemma", min_value=0, max_value=99, step=1),
+                "Bortastraffar": st.column_config.NumberColumn("Straffar borta", min_value=0, max_value=99, step=1),
+                "Avgörande vinnare": st.column_config.SelectboxColumn(options=decision_options),
+                "Domare": st.column_config.SelectboxColumn(options=referee_options),
+            },
+            key=f"bulk_results_{tid}",
+        )
+
+    elif result_scope == "Att rapportera":
+        st.caption("Ingen resultatregistrering behövs just nu.")
 
     if any(match_row["stage"] != "Gruppspel" for match_row in playable_matches):
         with st.expander("Regler vid oavgjort i slutspel", expanded=False):
@@ -304,19 +341,20 @@ def render_admin_results_workspace(tid, tournament, *, deps: AdminResultsDepende
             else:
                 st.caption("Vid oavgjort avgörs slutspelsmatchen med straffar direkt. Registrera straffresultatet.")
 
-    auto_updates, auto_messages, auto_errors, original_match_by_id = prepare_admin_result_updates(
-        edited_results,
-        playable_matches=playable_matches,
-        referee_ids_by_name=referee_ids_by_name,
-        result_team_id_by_name=result_team_id_by_name,
-        playoff_tie_rule=tournament["playoff_tie_rule"],
-    )
-    for message in auto_errors:
-        st.error(message)
-    for message in auto_messages:
-        st.info(message)
+    if editor_matches:
+        auto_updates, auto_messages, auto_errors, original_match_by_id = prepare_admin_result_updates(
+            edited_results,
+            playable_matches=editor_matches,
+            referee_ids_by_name=referee_ids_by_name,
+            result_team_id_by_name=result_team_id_by_name,
+            playoff_tie_rule=tournament["playoff_tie_rule"],
+        )
+        for message in auto_errors:
+            st.error(message)
+        for message in auto_messages:
+            st.info(message)
 
-    if auto_updates:
-        deps.save_result_updates(auto_updates, original_match_by_id)
+        if auto_updates:
+            deps.save_result_updates(auto_updates, original_match_by_id)
 
-    st.caption("✓ Ändringar sparas automatiskt – ingen Spara-knapp behövs.")
+        st.caption("✓ Ändringar sparas automatiskt – ingen Spara-knapp behövs.")

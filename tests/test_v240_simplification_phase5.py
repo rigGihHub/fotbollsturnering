@@ -14,12 +14,12 @@ def _block(start_marker,end_marker):
 
 def test_results_page_prioritizes_result_editor():
     block=RESULTS_VIEW
-    assert 'st.header("Resultat")' in block
-    assert 'st.caption("Registrera resultat match för match eller använd massinmatning när det passar.")' in block
+    assert '<div class="title">Resultat</div>' in block
+    assert '"Att rapportera", "Alla matcher"' in block
     assert 'st.data_editor(' in block
     assert 'show_full_result_schedule = st.toggle(' in block
     assert '"Visa hela matchschemat"' in block
-    assert block.index('st.caption("Registrera resultat match för match eller använd massinmatning när det passar.")') < block.index('show_full_result_schedule = st.toggle(')
+    assert block.index('"Att rapportera", "Alla matcher"') > block.index('show_full_result_schedule = st.toggle(')
 
 
 def test_results_page_keeps_auto_save_and_concurrency_guards():

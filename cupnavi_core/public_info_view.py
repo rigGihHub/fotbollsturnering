@@ -32,13 +32,21 @@ def render_public_info_section(
     _db_calls_before = perf["db_calls"]
     _db_ms_before = perf["db_ms"]
     info_rules = one_row("SELECT * FROM schedule_rules WHERE tournament_id=?", (tournament_id,))
-    st.markdown(f"### 📘 {tr('Cupens regler')}")
+    st.markdown(
+        """<div class="cn-info-guide-head">
+          <div class="kicker">Cupguide</div>
+          <div class="title">Allt praktiskt på ett ställe</div>
+          <div class="copy">Hitta planer, kontaktuppgifter, kiosk, regler och annan viktig information inför och under cupdagen.</div>
+        </div>""",
+        unsafe_allow_html=True,
+    )
+    st.markdown(f"<div class='cn-info-section-title'>📘 {tr('Cupens regler')}</div>", unsafe_allow_html=True)
     rules_html = public_rules_html(tournament, info_rules)
     if rules_html:
         st.markdown(rules_html, unsafe_allow_html=True)
 
     if tournament["public_information"]:
-        st.markdown(f"### ✍️ {tr('Information från arrangören')}")
+        st.markdown(f"<div class='cn-info-section-title'>✍️ {tr('Information från arrangören')}</div>", unsafe_allow_html=True)
         public_text = html.escape(tournament["public_information"]).replace("\n", "<br>")
         st.markdown(f"<div class='cn-custom-info-card'>{public_text}</div>", unsafe_allow_html=True)
 
@@ -50,37 +58,41 @@ def render_public_info_section(
         (tournament_id,),
     )
     if venue_points_public:
-        st.markdown("### 🗺️ Hitta på cupområdet")
+        st.markdown("<div class='cn-info-section-title'>🗺️ Hitta på cupområdet</div>", unsafe_allow_html=True)
         st.caption("Planer och praktiska platser från arrangören.")
         for point in venue_points_public:
             icon = {"Plan":"⚽","Parkering":"🅿️","Sekretariat":"ℹ️","Sjukvård":"➕","Toalett":"🚻","Kiosk":"☕"}.get(point["kind"],"📍")
+            point_kind = str(point["kind"] or "Plats").lower().replace("å","a").replace("ä","a").replace("ö","o")
             st.markdown(
-                f"<div class='cn-venue-card'><strong>{icon} {html.escape(point['label'])}</strong>"
-                f"<br><span>{html.escape(point['detail'] or '')}</span></div>",
+                f"<div class='cn-venue-card kind-{html.escape(point_kind)}'>"
+                f"<div class='cn-venue-icon'>{icon}</div><div class='cn-venue-copy'>"
+                f"<strong>{html.escape(point['label'])}</strong>"
+                f"<small>{html.escape(point['kind'] or 'Plats')}</small>"
+                f"<span>{html.escape(point['detail'] or '')}</span></div></div>",
                 unsafe_allow_html=True,
             )
             if point["url"]:
                 st.link_button(f"Vägbeskrivning · {point['label']}", point["url"], use_container_width=True)
 
-    st.markdown(f"### 📍 {tr('Praktisk information')}")
+    st.markdown(f"<div class='cn-info-section-title'>📍 {tr('Praktisk information')}</div>", unsafe_allow_html=True)
     practical_rows = []
     if tournament["arena_address"]:
-        practical_rows.append(f"<div><b>📍 {html.escape(tr('Arena'))}:</b> {html.escape(tournament['arena_address'])}</div>")
+        practical_rows.append(f"<div class='cn-practical-item'><span class='icon'>📍</span><div><small>{html.escape(tr('Arena'))}</small><strong>{html.escape(tournament['arena_address'])}</strong></div></div>")
     if tournament["kiosk_information"]:
-        practical_rows.append(f"<div><b>☕ {html.escape(tr('Kiosk'))}:</b> {html.escape(tournament['kiosk_information'])}</div>")
+        practical_rows.append(f"<div class='cn-practical-item'><span class='icon'>☕</span><div><small>{html.escape(tr('Kiosk'))}</small><strong>{html.escape(tournament['kiosk_information'])}</strong></div></div>")
     if bool(row_value(tournament, "changing_rooms_available", 0)):
         room_info = (row_value(tournament, "changing_room_info", "") or "").strip() or "Omklädningsrum finns tillgängliga."
-        practical_rows.append(f"<div><b>🚿 Omklädningsrum:</b> {html.escape(room_info)}</div>")
+        practical_rows.append(f"<div class='cn-practical-item'><span class='icon'>🚿</span><div><small>Omklädningsrum</small><strong>{html.escape(room_info)}</strong></div></div>")
     if bool(row_value(tournament, "show_price_information", 0)) and (row_value(tournament, "price_information", "") or "").strip():
-        practical_rows.append(f"<div><b>💳 Priser/avgifter:</b> {html.escape(row_value(tournament, 'price_information', ''))}</div>")
+        practical_rows.append(f"<div class='cn-practical-item'><span class='icon'>💳</span><div><small>Priser/avgifter</small><strong>{html.escape(row_value(tournament, 'price_information', ''))}</strong></div></div>")
     if tournament["organizer_phone"]:
         phone_display = html.escape(tournament["organizer_phone"])
         phone_href = re.sub(r"[^0-9+]", "", tournament["organizer_phone"])
-        practical_rows.append(f"<div><b>📞 {html.escape(tr('Kontakt'))}:</b> <a href='tel:{html.escape(phone_href)}'>{phone_display}</a></div>")
+        practical_rows.append(f"<div class='cn-practical-item'><span class='icon'>📞</span><div><small>{html.escape(tr('Kontakt'))}</small><strong><a href='tel:{html.escape(phone_href)}'>{phone_display}</a></strong></div></div>")
     if tournament["feedback_email"]:
         email_display = html.escape(tournament["feedback_email"])
         email_href = html.escape(tournament["feedback_email"], quote=True)
-        practical_rows.append(f"<div><b>✉️ E-post:</b> <a href='mailto:{email_href}'>{email_display}</a></div>")
+        practical_rows.append(f"<div class='cn-practical-item'><span class='icon'>✉️</span><div><small>E-post</small><strong><a href='mailto:{email_href}'>{email_display}</a></strong></div></div>")
     if tournament["instagram_url"]:
         instagram_raw = tournament["instagram_url"].strip()
         if instagram_raw.startswith("@"):
@@ -96,9 +108,9 @@ def render_public_info_section(
             instagram_href = f"https://www.instagram.com/{instagram_handle}/"
             instagram_label = f"@{instagram_handle}"
         practical_rows.append(
-            f"<div><b>📷 {html.escape(tr('Instagram'))}:</b> "
+            f"<div class='cn-practical-item'><span class='icon'>📷</span><div><small>{html.escape(tr('Instagram'))}</small><strong>"
             f"<a href='{html.escape(instagram_href, quote=True)}' target='_blank' rel='noopener noreferrer'>"
-            f"{html.escape(instagram_label)}</a></div>"
+            f"{html.escape(instagram_label)}</a></strong></div></div>"
         )
 
     if practical_rows:
@@ -107,36 +119,18 @@ def render_public_info_section(
         st.info(tr("Ingen praktisk information har publicerats ännu."))
 
     if bool(row_value(tournament, "enable_medical_info", 0)) and (row_value(tournament, "medical_info", "") or "").strip():
-        st.markdown("### 🩹 Medicinsk beredskap")
+        st.markdown("<div class='cn-info-section-title'>🩹 Medicinsk beredskap</div>", unsafe_allow_html=True)
         st.markdown(f"<div class='cn-custom-info-card'>{html.escape(row_value(tournament, 'medical_info', '')).replace(chr(10), '<br>')}</div>", unsafe_allow_html=True)
     if bool(row_value(tournament, "enable_lost_found", 0)) and (row_value(tournament, "lost_found_info", "") or "").strip():
-        st.markdown("### 🧳 Lost & found / hittegods")
+        st.markdown("<div class='cn-info-section-title'>🧳 Lost & found / hittegods</div>", unsafe_allow_html=True)
         st.markdown(f"<div class='cn-custom-info-card'>{html.escape(row_value(tournament, 'lost_found_info', '')).replace(chr(10), '<br>')}</div>", unsafe_allow_html=True)
     if bool(row_value(tournament, "enable_accessibility_info", 0)) and (row_value(tournament, "accessibility_info", "") or "").strip():
-        st.markdown("### ♿ Tillgänglighet")
+        st.markdown("<div class='cn-info-section-title'>♿ Tillgänglighet</div>", unsafe_allow_html=True)
         st.markdown(f"<div class='cn-custom-info-card'>{html.escape(row_value(tournament, 'accessibility_info', '')).replace(chr(10), '<br>')}</div>", unsafe_allow_html=True)
 
-    # v1.309: reuse the venue snapshot already loaded for the practical map section.
-    # The old Cupinfo path queried venue_points a second time solely for a different
-    # display order, adding an unnecessary network roundtrip on every render.
-    venue_rows = sorted(
-        venue_points_public,
-        key=lambda row: (
-            int(row_value(row, "sort_order", 0) or 0),
-            int(row_value(row, "id", 0) or 0),
-        ),
-    )
-    if venue_rows:
-        st.markdown("### 🗺️ Cupkarta")
-        venue_icon = {"Plan": "🏟️", "Kiosk": "☕", "Toalett": "🚻", "Parkering": "🚗", "Sjukvård": "🩹", "Sekretariat": "ℹ️"}
-        for point in venue_rows:
-            icon = venue_icon.get(point["kind"], "📍")
-            line = f"**{icon} {point['label']}**"
-            if point["detail"]:
-                line += f"  \n{point['detail']}"
-            st.markdown(line)
-            if point["url"]:
-                st.markdown(f"[Öppna karta/länk]({point['url']})")
+    # v382: venue_points_public is already presented once above with directions.
+    # Do not repeat the same places as a second "Cupkarta" list on the same page.
+    # The already loaded snapshot remains available without an extra DB roundtrip.
 
     all_public_matches = published_matches
     if all_public_matches and all(m["home_score"] is not None and m["away_score"] is not None for m in all_public_matches):

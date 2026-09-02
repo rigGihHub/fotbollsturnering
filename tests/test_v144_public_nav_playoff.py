@@ -8,9 +8,10 @@ FEED=(ROOT/"cupnavi_core/public_match_feed_logic.py").read_text(encoding="utf-8"
 SCHEDULE=(ROOT/"cupnavi_core/schedule_workspace_view.py").read_text(encoding="utf-8")
 WORKSPACE=(ROOT/"cupnavi_core/public_workspace_view.py").read_text(encoding="utf-8")
 
-def test_public_stats_button_updates_url_section():
-    from cupnavi_core.public_view_logic import public_section_for_page
-    assert public_section_for_page("Statistik") == "stats"
+def test_public_navigation_updates_url_section_and_legacy_stats_survives():
+    from cupnavi_core.public_view_logic import public_section_for_page, resolve_public_page
+    assert public_section_for_page("Mitt lag") == "team"
+    assert resolve_public_page("stats") == "Tabeller"
     assert 'href = f"?cup={cup_key}&section={quote(str(section))}{team_query}"' in PUBLIC_NAV
     assert 'st.segmented_control(' in WORKSPACE
 

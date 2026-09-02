@@ -5,7 +5,7 @@ from cupnavi_core.demo_data_service import DemoDataDeps, DemoDataService
 ROOT = Path(__file__).resolve().parents[1]
 APP = (ROOT / "app.py").read_text(encoding="utf-8")
 SERVICE = (ROOT / "cupnavi_core" / "demo_data_service.py").read_text(encoding="utf-8")
-VERSION = "2026.08.31-354-ADDRESS-READINESS-FIX"
+VERSION = "2026.09.02-388-ADMIN-CORE-FLOW-CLEANUP"
 
 
 def _noop(*args, **kwargs):

@@ -1,13 +1,16 @@
+from cupnavi_core.admin_publication import build_publish_blockers
+
+
 def publication_blockers(playoff_confirmed, scheduled_count, schedule_dirty, error_count, warning_count, warnings_approved):
-    blockers = []
-    if not playoff_confirmed:
-        blockers.append("Slutspelsmodell och cupregler måste sparas på Översikt.")
-    if not scheduled_count:
-        blockers.append("Spelschema saknas. Generera schemat under Schema.")
-    if schedule_dirty and scheduled_count:
-        blockers.append("Schemat är inaktuellt eftersom förutsättningarna har ändrats. Regenerera schemat.")
-    if error_count:
-        blockers.append(f"{error_count} blockerande schemafel måste åtgärdas.")
-    if warning_count and not warnings_approved:
-        blockers.append(f"{warning_count} schemavarningar måste granskas och godkännas.")
-    return blockers
+    """Compatibility wrapper around the single publication blocker model.
+
+    warning_count/warnings_approved remain in the signature for older callers,
+    but warnings no longer block publication in v365.
+    """
+    errors = ["schemafel"] * max(0, int(error_count or 0))
+    return build_publish_blockers(
+        playoff_model_confirmed=bool(playoff_confirmed),
+        scheduled_matches=int(scheduled_count or 0),
+        schedule_dirty=bool(schedule_dirty),
+        schedule_errors=errors,
+    )

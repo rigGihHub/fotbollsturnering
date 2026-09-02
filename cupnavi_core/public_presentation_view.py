@@ -62,11 +62,15 @@ def render_group_table(table_rows, tournament, group_id=None, *, st, group_playo
     st.markdown(
         f"""
         <style>
-        .texttv-wrap{{overflow-x:auto;border:2px solid #172554;border-radius:8px;background:#07111f;padding:6px}}
-        .texttv-table{{width:100%;border-collapse:collapse;font-family:ui-monospace,SFMono-Regular,Consolas,monospace;color:#f8fafc}}
-        .texttv-table th,.texttv-table td{{text-align:center!important;padding:8px 9px;border-bottom:1px solid #334155}}
-        .texttv-table th{{background:#172554;color:#facc15;font-weight:900}}
-        .texttv-table td.team{{text-align:left!important;font-weight:800}}
+        .texttv-wrap{{overflow-x:auto;border:1px solid #dbe4de;border-radius:12px;background:#fff;padding:0}}
+        .texttv-table{{width:100%;border-collapse:collapse;font-family:inherit;color:#172033}}
+        .texttv-table th,.texttv-table td{{text-align:center!important;padding:9px 8px;border-bottom:1px solid #e6ece8}}
+        .texttv-table th{{background:#f3f7f4;color:#64748b;font-size:11px;letter-spacing:.04em;text-transform:uppercase;font-weight:800}}
+        .texttv-table td{{font-size:13px;color:#334155}}
+        .texttv-table td:first-child{{font-weight:850;color:#64748b}}
+        .texttv-table td.team{{text-align:left!important;font-weight:800;color:#172033}}
+        .texttv-table td:nth-child(10){{font-size:15px;color:#172033}}
+        .texttv-table tr:last-child td{{border-bottom:0}}
         .texttv-table tr.qual-a td{{background:#dcfce7!important;color:#14532d!important}}
         .texttv-table tr.qual-b td{{background:#dbeafe!important;color:#1e3a8a!important}}
         .texttv-table tr.qual-rank-1 td{{background:#dcfce7!important;color:#14532d!important}}
@@ -87,20 +91,26 @@ def render_group_table(table_rows, tournament, group_id=None, *, st, group_playo
         .texttv-legend i{{width:13px;height:13px;border-radius:2px;display:inline-block}}
         .qualifier-mobile{{display:none}}
         @media(max-width:600px){{
-          .texttv-wrap{{overflow-x:hidden;padding:3px;border-width:1px;border-radius:10px}}
+          .texttv-wrap{{overflow-x:hidden;border-width:1px;border-radius:11px}}
           .texttv-table{{table-layout:fixed;font-size:12px}}
-          .texttv-table th,.texttv-table td{{padding:7px 3px;white-space:nowrap}}
-          .texttv-table th:nth-child(1),.texttv-table td:nth-child(1){{width:28px}}
-          .texttv-table th:nth-child(2),.texttv-table td:nth-child(2){{width:34%;text-align:left!important;overflow:hidden;text-overflow:ellipsis}}
+          .texttv-table th,.texttv-table td{{padding:8px 4px;white-space:nowrap}}
+          .texttv-table th:nth-child(1),.texttv-table td:nth-child(1){{width:27px}}
+          .texttv-table th:nth-child(2),.texttv-table td:nth-child(2){{width:42%;text-align:left!important;overflow:hidden;text-overflow:ellipsis}}
+          .texttv-table th:nth-child(4),.texttv-table td:nth-child(4),
+          .texttv-table th:nth-child(5),.texttv-table td:nth-child(5),
+          .texttv-table th:nth-child(6),.texttv-table td:nth-child(6),
           .texttv-table th:nth-child(7),.texttv-table td:nth-child(7),
           .texttv-table th:nth-child(8),.texttv-table td:nth-child(8){{display:none}}
-          .texttv-table th:nth-child(11),.texttv-table td:nth-child(11){{width:54px}}
+          .texttv-table th:nth-child(3),.texttv-table td:nth-child(3){{width:28px}}
+          .texttv-table th:nth-child(9),.texttv-table td:nth-child(9){{width:34px}}
+          .texttv-table th:nth-child(10),.texttv-table td:nth-child(10){{width:34px;font-weight:900}}
+          .texttv-table th:nth-child(11),.texttv-table td:nth-child(11){{width:52px}}
           .texttv-table th:nth-child(11){{font-size:0}}
-          .texttv-table th:nth-child(11)::after{{content:'Vidare';font-size:11px}}
-          .qualifier{{min-width:30px!important;width:auto!important;height:24px!important;padding:0 5px!important;font-size:11px!important;line-height:1!important}}
+          .texttv-table th:nth-child(11)::after{{content:'Vidare';font-size:10px}}
+          .qualifier{{min-width:28px!important;width:auto!important;height:22px!important;padding:0 5px!important;font-size:10px!important;line-height:1!important}}
           .qualifier-desktop{{display:none}}
           .qualifier-mobile{{display:inline}}
-          .texttv-legend{{gap:10px;font-size:11px;flex-wrap:wrap}}
+          .texttv-legend{{gap:9px;font-size:10px;flex-wrap:wrap}}
         }}
         </style>
         <div class="texttv-wrap"><table class="texttv-table">
@@ -246,6 +256,34 @@ def render_bracket_tree(
             target_y = header_height + next_center
             connectors.append(f"<span class='line horizontal' style='left:{middle_x}px;top:{target_y:.1f}px;width:{end_x-middle_x}px'></span>")
 
+    mobile_rounds = []
+    for stage_name, stage_matches in main_stages:
+        mobile_cards = []
+        for match_row in stage_matches:
+            home_id = resolve_source(match_row["home_source"])
+            away_id = resolve_source(match_row["away_source"])
+            home = bracket_team_by_id.get(int(home_id)) if home_id else None
+            away = bracket_team_by_id.get(int(away_id)) if away_id else None
+            home_name = html.escape(home["name"] if home is not None else source_label(match_row["home_source"]))
+            away_name = html.escape(away["name"] if away is not None else source_label(match_row["away_source"]))
+            home_score = "–" if match_row["home_score"] is None else str(match_row["home_score"])
+            away_score = "–" if match_row["away_score"] is None else str(match_row["away_score"])
+            if public and not match_row["schedule_published"]:
+                mobile_meta = "Tid och plan ej publicerade"
+            else:
+                mobile_meta, _ = match_meta(match_row)
+            mobile_cards.append(
+                "<div class='cn-playoff-mobile-match'>"
+                f"<div class='meta'>{html.escape(mobile_meta)}</div>"
+                f"<div class='team'><span>{home_name}</span><b>{home_score}</b></div>"
+                f"<div class='team'><span>{away_name}</span><b>{away_score}</b></div>"
+                "</div>"
+            )
+        mobile_rounds.append(
+            f"<section class='cn-playoff-mobile-round'><h4>{html.escape(stage_name)}</h4>{''.join(mobile_cards)}</section>"
+        )
+    mobile_bracket_html = f"<div class='cn-playoff-mobile'>{''.join(mobile_rounds)}</div>"
+
     bronze_matches = [m for m in bracket_matches if m["stage"] == "Bronsmatch"]
     bronze_html = ""
     if bronze_matches:
@@ -285,6 +323,21 @@ def render_bracket_tree(
           .classic-bronze span {{font-size:13px}}
           .classic-bronze b {{text-align:center}}
         </style>
+        <style>
+          .cn-playoff-mobile {{display:none}}
+          @media(max-width:680px){{
+            .classic-bracket-scroll {{display:none}}
+            .cn-playoff-mobile {{display:block}}
+            .cn-playoff-mobile-round {{margin:0 0 14px}}
+            .cn-playoff-mobile-round h4 {{margin:0 0 6px;font-size:12px;letter-spacing:.05em;text-transform:uppercase;color:#64748b}}
+            .cn-playoff-mobile-match {{border:1px solid #dbe4de;border-radius:10px;background:#fff;margin:0 0 7px;overflow:hidden}}
+            .cn-playoff-mobile-match .meta {{padding:6px 9px;background:#f3f7f4;color:#475569;font-size:10px;font-weight:700}}
+            .cn-playoff-mobile-match .team {{display:grid;grid-template-columns:1fr 28px;gap:8px;align-items:center;padding:7px 9px;border-top:1px solid #edf1ee;font-size:13px}}
+            .cn-playoff-mobile-match .team span {{font-weight:760;color:#172033;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}}
+            .cn-playoff-mobile-match .team b {{font-size:15px;text-align:center;color:#172033}}
+          }}
+        </style>
+        {mobile_bracket_html}
         <div class="classic-bracket-scroll">
           <div class="classic-bracket">{''.join(connectors)}{''.join(headers)}{''.join(cards)}</div>
           {bronze_html}

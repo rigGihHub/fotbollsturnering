@@ -25,7 +25,7 @@ def test_team_portal_can_message_organizer_or_another_team():
 
 def test_admin_has_message_inbox_and_can_reply():
     text = app_text()
-    assert 'with st.expander("Lagmeddelanden", expanded=False)' in text
+    assert 'if st.toggle("Lagmeddelanden", value=False, key=f"lazy_team_messages_{tid}"' in text
     assert 'organizer_inbox_label' in text
     assert '"Skriv till lag", "Alla meddelanden"' in text
     assert 'SV: {msg[' in text

@@ -7,7 +7,7 @@ VERSION = (ROOT / "VERSION.txt").read_text(encoding="utf-8").strip()
 
 
 def test_release_and_public_workspace_boundary():
-    assert VERSION == "2026.08.31-354-ADDRESS-READINESS-FIX"
+    assert VERSION == "2026.09.02-388-ADMIN-CORE-FLOW-CLEANUP"
     assert "from cupnavi_core.public_workspace_view import PublicWorkspaceDependencies, render_public_workspace" in APP
     start = APP.index("def render_public_view(")
     end = APP.index("def _reporter_save_quick_result", start)
@@ -22,7 +22,8 @@ def test_workspace_owns_public_orchestration_without_database_connection_ownersh
     assert 'if public_page == "Matcher":' in WORKSPACE
     assert 'if public_page == "Tabeller":' in WORKSPACE
     assert 'if public_page == "Slutspel":' in WORKSPACE
-    assert 'if public_page == "Statistik":' in WORKSPACE
+    assert 'if public_page == "Mitt lag":' in WORKSPACE
+    assert 'if public_page == "Statistik":' not in WORKSPACE
     assert 'if public_page == "Info":' in WORKSPACE
     assert "track_public_visit(tournament_id)" in WORKSPACE
     assert "with db()" not in WORKSPACE

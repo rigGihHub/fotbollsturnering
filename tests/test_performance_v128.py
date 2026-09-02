@@ -27,7 +27,7 @@ def test_dashboard_navigation_uses_callbacks_without_manual_rerun():
     assert 'on_click=_set_admin_page' in block
     # v337 replaces the duplicate quick-action grid with one primary next-step callback.
     assert 'quick_actions =' not in block
-    primary = block[block.index('with st.container(border=True):'):block.index('checkin_enabled =')]
+    primary = block[block.index('class="cn-overview-next"'):block.index('checkin_enabled =')]
     assert 'on_click=_set_admin_page' in primary
     assert 'st.rerun()' not in primary
 

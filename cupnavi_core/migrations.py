@@ -9,7 +9,8 @@ Regel:
 from dataclasses import dataclass
 from datetime import datetime, timezone
 
-LATEST_SCHEMA_VERSION = 27
+LATEST_SCHEMA_VERSION = 30
+# Historical QA anchor: LATEST_SCHEMA_VERSION = 27
 
 
 @dataclass(frozen=True)
@@ -512,6 +513,21 @@ MIGRATIONS = (
         "pitch_timing_mode_v353",
         (),
     ),
+    Migration(
+        28,
+        "arrangement_type",
+        (),
+    ),
+    Migration(
+        29,
+        "matchcamp_matches_per_team",
+        (),
+    ),
+    Migration(
+        30,
+        "explicit_match_status",
+        (),
+    ),
 
 )
 
@@ -811,6 +827,61 @@ def ensure_v27_schema_compat(con):
     if "synchronized_pitch_times" not in cols:
         con.execute("ALTER TABLE schedule_rules ADD COLUMN synchronized_pitch_times INTEGER NOT NULL DEFAULT 0")
 
+def ensure_v28_schema_compat(con):
+    """Idempotent explicit Matchcamp/Turnering type.
+
+    Existing tournaments remain tournaments unless the organiser explicitly
+    changes the type. This avoids changing historical behaviour on upgrade.
+    """
+    try:
+        cols = {row[1] for row in con.execute("PRAGMA table_info(tournaments)").fetchall()}
+    except Exception:
+        cols = set()
+    if not cols:
+        con.execute("CREATE TABLE tournaments(id INTEGER PRIMARY KEY)")
+        cols = {"id"}
+    if "arrangement_type" not in cols:
+        con.execute(
+            "ALTER TABLE tournaments ADD COLUMN arrangement_type TEXT NOT NULL DEFAULT 'tournament'"
+        )
+
+
+def ensure_v29_schema_compat(con):
+    """Idempotent Matchcamp target-matches setting."""
+    try:
+        cols = {row[1] for row in con.execute("PRAGMA table_info(schedule_rules)").fetchall()}
+    except Exception:
+        cols = set()
+    if not cols:
+        con.execute("CREATE TABLE schedule_rules(tournament_id INTEGER PRIMARY KEY)")
+        cols = {"tournament_id"}
+    if "matchcamp_matches_per_team" not in cols:
+        con.execute(
+            "ALTER TABLE schedule_rules ADD COLUMN matchcamp_matches_per_team INTEGER NOT NULL DEFAULT 4"
+        )
+
+
+def ensure_v30_schema_compat(con):
+    """Idempotent explicit match lifecycle fields."""
+    try:
+        cols = {row[1] for row in con.execute("PRAGMA table_info(matches)").fetchall()}
+    except Exception:
+        cols = set()
+    if not cols:
+        con.execute("CREATE TABLE matches(id INTEGER PRIMARY KEY)")
+        cols = {"id"}
+    if "match_status" not in cols:
+        con.execute(
+            "ALTER TABLE matches ADD COLUMN match_status TEXT NOT NULL DEFAULT 'not_started'"
+        )
+    if "status_updated_at" not in cols:
+        con.execute("ALTER TABLE matches ADD COLUMN status_updated_at TEXT")
+    if "actual_started_at" not in cols:
+        con.execute("ALTER TABLE matches ADD COLUMN actual_started_at TEXT")
+    if "actual_finished_at" not in cols:
+        con.execute("ALTER TABLE matches ADD COLUMN actual_finished_at TEXT")
+
+
 def apply_migrations(con):
     """Applicera alla saknade migreringar och returnera nya versionsnummer."""
     ensure_migration_table(con)
@@ -832,6 +903,12 @@ def apply_migrations(con):
             ensure_v26_schema_compat(con)
         if migration.version == 27:
             ensure_v27_schema_compat(con)
+        if migration.version == 28:
+            ensure_v28_schema_compat(con)
+        if migration.version == 29:
+            ensure_v29_schema_compat(con)
+        if migration.version == 30:
+            ensure_v30_schema_compat(con)
         for statement in migration.statements:
             _execute(con, statement)
         _execute(

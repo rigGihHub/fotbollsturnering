@@ -211,7 +211,7 @@ def render_public_workspace(tournament_id: int, tournament: Any, deps: PublicWor
     # be checked. Matches, Cupinfo and screen mode still load the schedule eagerly.
     _needs_public_matches = bool(
         screen_mode
-        or public_page in {"Matcher", "Info"}
+        or public_page in {"Matcher", "Mitt lag", "Info"}
         or requested_team_id is not None
         or (
             public_page == "Tabeller"
@@ -290,25 +290,26 @@ def render_public_workspace(tournament_id: int, tournament: Any, deps: PublicWor
     # Keep eager next-match calculation for parity with the existing public workspace contract.
     _ = next_match
 
-    render_public_team_follow(
-        tournament_id=tournament_id,
-        tournament=tournament,
-        requested_team_id=requested_team_id,
-        public_teams=public_teams,
-        public_team_names=public_team_names,
-        published_matches=published_matches,
-        now=now,
-        tr=tr,
-        source_team_id=_public_source_team_id,
-        source_label=_public_source_label,
-        row_value=_row_value,
-        public_pitch_label=_public_pitch_label,
-        pitch_label=pitch_label,
-        swedish_datetime=swedish_datetime,
-        one_row=one_row,
-        all_rows=all_rows,
-        create_notification_subscription=create_notification_subscription,
-    )
+    if public_page == "Mitt lag":
+        render_public_team_follow(
+            tournament_id=tournament_id,
+            tournament=tournament,
+            requested_team_id=requested_team_id,
+            public_teams=public_teams,
+            public_team_names=public_team_names,
+            published_matches=published_matches,
+            now=now,
+            tr=tr,
+            source_team_id=_public_source_team_id,
+            source_label=_public_source_label,
+            row_value=_row_value,
+            public_pitch_label=_public_pitch_label,
+            pitch_label=pitch_label,
+            swedish_datetime=swedish_datetime,
+            one_row=one_row,
+            all_rows=all_rows,
+            create_notification_subscription=create_notification_subscription,
+        )
 
     screen_url = public_cup_url(tournament_id) + ("&" if "?" in public_cup_url(tournament_id) else "?") + "screen=1"
     if public_page == "Info":
@@ -390,7 +391,36 @@ def render_public_workspace(tournament_id: int, tournament: Any, deps: PublicWor
     _results_counted = bool(_row_value(tournament, "results_counted", 1))
     if public_page == "Tabeller":
         if _results_counted:
-            render_public_statistics_section(tournament_id, tournament, published_matches, played_matches, forced_section=tr("Tabeller"), public_team_by_id=public_team_by_id)
+            render_public_statistics_section(
+                tournament_id,
+                tournament,
+                published_matches,
+                played_matches,
+                forced_section=tr("Tabeller"),
+                public_team_by_id=public_team_by_id,
+            )
+            _has_public_toplists = any([
+                bool(_row_value(tournament, "enable_scorer_leaderboard", 1)),
+                bool(_row_value(tournament, "enable_assist_leaderboard", 1)),
+                bool(_row_value(tournament, "enable_card_statistics", 1)),
+            ])
+            if _has_public_toplists:
+                show_public_toplists = st.toggle(
+                    "Visa individuella topplistor",
+                    value=False,
+                    key=f"public_toplists_under_tables_{int(tournament_id)}",
+                    help="Visar skytteliga, assistliga och kortstatistik som arrangören har aktiverat.",
+                )
+                if show_public_toplists:
+                    st.markdown('<div class="cn-section-head">Topplistor</div>', unsafe_allow_html=True)
+                    render_public_statistics_section(
+                        tournament_id,
+                        tournament,
+                        published_matches,
+                        played_matches,
+                        forced_section=tr("Topplistor"),
+                        public_team_by_id=public_team_by_id,
+                    )
         else:
             st.info("Den här cupen spelas utan resultaträkning. Därför visas ingen tabell.")
     if public_page == "Slutspel":
@@ -398,11 +428,6 @@ def render_public_workspace(tournament_id: int, tournament: Any, deps: PublicWor
             render_public_statistics_section(tournament_id, tournament, published_matches, played_matches, forced_section=tr("Slutspel"), public_team_by_id=public_team_by_id)
         else:
             st.info("Den här cupen spelas utan resultaträkning och har därför inget resultatbaserat slutspel.")
-    if public_page == "Statistik":
-        if _results_counted:
-            render_public_statistics_section(tournament_id, tournament, published_matches, played_matches, forced_section=tr("Topplistor"), public_team_by_id=public_team_by_id)
-        else:
-            st.info("Resultat och topplistor räknas inte i den här cupen.")
     if public_page == "Info":
         render_public_info_section(tournament_id, tournament, published_matches)
 

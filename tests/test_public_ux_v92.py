@@ -14,7 +14,7 @@ def test_public_competition_navigation_exists_and_has_active_state():
     block = public_block()
     nav = Path('cupnavi_core/public_navigation_view.py').read_text(encoding='utf-8')
     assert len(public_navigation_specs()) == 5
-    assert [item[0] for item in public_navigation_specs()] == ["Info","Matcher","Tabeller","Slutspel","Statistik"]
+    assert [item[0] for item in public_navigation_specs()] == ["Matcher","Mitt lag","Tabeller","Slutspel","Info"]
     assert 'active_class = "active" if current_page == page_value else ""' in nav
     assert "role='button'" in nav
     assert 'st.segmented_control(' in block

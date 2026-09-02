@@ -2,7 +2,7 @@ from pathlib import Path
 ROOT=Path(__file__).resolve().parents[1]
 APP=(ROOT/"app.py").read_text(encoding="utf-8")
 PRESENTATION=(ROOT/"cupnavi_core"/"public_presentation_view.py").read_text(encoding="utf-8")
-R="2026.08.31-354-ADDRESS-READINESS-FIX"
+R="2026.09.02-388-ADMIN-CORE-FLOW-CLEANUP"
 
 def test_placement_playoffs_have_distinct_classes():
     for token in ("qual-rank-1","qual-rank-2","qual-rank-3","qual-rank-4"):

@@ -10,7 +10,7 @@ WORKSPACE = (ROOT / "cupnavi_core" / "public_workspace_view.py").read_text(encod
 
 
 def test_release_version_v273():
-    assert VERSION == "2026.08.31-354-ADDRESS-READINESS-FIX"
+    assert VERSION == "2026.09.02-388-ADMIN-CORE-FLOW-CLEANUP"
 
 
 def test_navigation_builder_keeps_single_responsive_nav_and_active_page():
@@ -26,8 +26,8 @@ def test_navigation_builder_keeps_single_responsive_nav_and_active_page():
     assert "class='active' href='?cup=test-cup&amp;section=matches&amp;team=42'" in rendered
     assert "cn-nav-desktop" in rendered
     assert "cn-nav-mobile" in rendered
-    assert "Cupinfo" in rendered
-    assert "T:Schema &amp; resultat" in rendered
+    assert "Information" in rendered
+    assert "T:Matcher" in rendered
 
 
 def test_navigation_builder_escapes_labels_and_encodes_slug():

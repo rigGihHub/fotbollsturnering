@@ -11,6 +11,7 @@ import html
 from typing import Any, Callable, Iterable, Mapping
 
 from cupnavi_core.public_competition import calculate_group_table
+from cupnavi_core.match_status import MATCH_HALFTIME, MATCH_LIVE, normalize_match_status
 
 
 def match_datetime(match_row: Mapping[str, Any], row_value: Callable[[Any, str, Any], Any]) -> datetime | None:
@@ -47,8 +48,13 @@ def build_favorite_team_snapshot(
             match for match in matches
             if row_value(match, "home_score", None) is None
             and row_value(match, "away_score", None) is None
-            and match_datetime(match, row_value) is not None
-            and match_datetime(match, row_value) >= now
+            and (
+                normalize_match_status(row_value(match, "match_status", None)) in {MATCH_LIVE, MATCH_HALFTIME}
+                or (
+                    match_datetime(match, row_value) is not None
+                    and match_datetime(match, row_value) >= now
+                )
+            )
         ),
         None,
     )
@@ -80,6 +86,58 @@ def build_favorite_team_snapshot(
     }
 
 
+def favorite_team_day_context(
+    snapshot: Mapping[str, Any],
+    *,
+    now: datetime,
+    row_value: Callable[[Any, str, Any], Any],
+) -> dict[str, Any]:
+    """Derive mobile match-day context from the already loaded team snapshot."""
+    next_match = snapshot.get("next_match")
+    latest_match = snapshot.get("latest_match")
+    next_dt = match_datetime(next_match, row_value) if next_match else None
+    latest_dt = match_datetime(latest_match, row_value) if latest_match else None
+
+    minutes_until = None
+    if next_dt is not None:
+        minutes_until = max(0, int((next_dt - now).total_seconds() // 60))
+
+    rest_minutes = None
+    if next_dt is not None and latest_dt is not None and latest_dt <= next_dt:
+        rest_minutes = max(0, int((next_dt - latest_dt).total_seconds() // 60))
+
+    return {
+        "minutes_until": minutes_until,
+        "rest_minutes": rest_minutes,
+        "next_match": next_match,
+        "latest_match": latest_match,
+    }
+
+
+def favorite_team_match_sections(
+    snapshot: Mapping[str, Any],
+    *,
+    now: datetime,
+    row_value: Callable[[Any, str, Any], Any],
+) -> dict[str, list[Mapping[str, Any]]]:
+    """Split a followed team's matches into compact recent/upcoming sections."""
+    recent = []
+    upcoming = []
+    for match in snapshot.get("matches") or []:
+        dt = match_datetime(match, row_value)
+        played = (
+            row_value(match, "home_score", None) is not None
+            and row_value(match, "away_score", None) is not None
+        )
+        if played:
+            recent.append(match)
+        elif dt is not None and dt >= now:
+            upcoming.append(match)
+    recent.sort(key=lambda m: match_datetime(m, row_value) or datetime.min, reverse=True)
+    upcoming.sort(key=lambda m: match_datetime(m, row_value) or datetime.max)
+    return {"recent": recent[:2], "upcoming": upcoming[:3]}
+
+
 def build_favorite_team_hero_html(
     *,
     team_name: str,
@@ -91,6 +149,7 @@ def build_favorite_team_hero_html(
     source_label: Callable[[Any], str],
     pitch_label: Callable[[Any], str],
     swedish_datetime: Callable[[Any], str],
+    show_competition_status: bool = True,
 ) -> str:
     next_match = snapshot.get("next_match")
     latest_match = snapshot.get("latest_match")
@@ -103,8 +162,15 @@ def build_favorite_team_hero_html(
     )
     if next_match:
         next_dt = match_datetime(next_match, row_value)
-        minutes_until = max(0, int((next_dt - now).total_seconds() // 60)) if next_dt else None
-        if minutes_until is None:
+        day_context = favorite_team_day_context(snapshot, now=now, row_value=row_value)
+        minutes_until = day_context["minutes_until"]
+        rest_minutes = day_context["rest_minutes"]
+        explicit_status = normalize_match_status(row_value(next_match, "match_status", None))
+        if explicit_status == MATCH_LIVE:
+            relative_text = " · PÅGÅR"
+        elif explicit_status == MATCH_HALFTIME:
+            relative_text = " · PAUS"
+        elif minutes_until is None:
             relative_text = ""
         elif minutes_until < 60:
             relative_text = f" · om {minutes_until} min"
@@ -113,12 +179,17 @@ def build_favorite_team_hero_html(
         else:
             relative_text = ""
         content += (
-            f"<div class='cn-next-card'><div class='cn-next-meta'>Nästa match · "
-            f"{html.escape(swedish_datetime(next_match['scheduled_start']))} · "
-            f"{html.escape(pitch_label(next_match))}{html.escape(relative_text)}</div>"
+            f"<div class='cn-next-card'><div class='cn-next-meta'>Nästa match{html.escape(relative_text)}</div>"
             f"<div class='cn-next-teams'><div>{html.escape(source_label(next_match['home_source']))}</div>"
             f"<div class='cn-next-vs'>VS</div>"
-            f"<div class='away'>{html.escape(source_label(next_match['away_source']))}</div></div></div>"
+            f"<div class='away'>{html.escape(source_label(next_match['away_source']))}</div></div>"
+            f"<div class='cn-next-meta'>{html.escape(swedish_datetime(next_match['scheduled_start']))} · "
+            f"{html.escape(pitch_label(next_match))}</div>"
+            + (
+                f"<div class='cn-next-meta'>⏱ {rest_minutes} min sedan förra matchens avspark</div>"
+                if rest_minutes is not None else ""
+            )
+            + "</div>"
         )
     else:
         content += "<div class='cn-next-card'><div class='cn-next-meta'>Ingen kommande match är schemalagd just nu.</div></div>"
@@ -133,8 +204,10 @@ def build_favorite_team_hero_html(
         f"<div><span>Spelade</span><strong>{played_count}</strong></div>"
         f"<div><span>Senaste</span><strong>{html.escape(str(latest_text))}</strong></div>"
         "</div>"
-        f"<div class='cn-my-status'><span class='cn-my-pill'>📊 Tabell: {html.escape(table_position_text)}</span>"
     )
+    if not show_competition_status:
+        return content + "</div>"
+    content += f"<div class='cn-my-status'><span class='cn-my-pill'>📊 Tabell: {html.escape(table_position_text)}</span>"
     if possible_playoff and row_value(possible_playoff, "scheduled_start", None):
         content += (
             f"<span class='cn-my-pill'>🏆 {html.escape(str(row_value(possible_playoff, 'stage', 'Slutspel')))} · "

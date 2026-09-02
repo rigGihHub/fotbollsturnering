@@ -41,6 +41,7 @@ from cupnavi_core.match_reporter_view import (
     referee_assignment_markdown,
 )
 from cupnavi_core.rules import validate_match_event_totals
+from cupnavi_core.match_status import MATCH_FINISHED, MATCH_HALFTIME, MATCH_LIVE, MATCH_NOT_STARTED, match_status_label, normalize_match_status
 
 
 @dataclass(frozen=True)
@@ -58,6 +59,7 @@ class MatchReporterWorkspaceDeps:
     save_bulk_results: Callable[[int, dict[int, Any], list[dict[str, Any]]], dict[str, Any]]
     save_event_rows: Callable[[list[dict[str, Any]]], dict[str, int]]
     acknowledge_referee: Callable[[int, int, int], None]
+    set_match_status: Callable[[int, Any, str], bool]
 
 
 
@@ -394,6 +396,22 @@ def render_match_reporter_workspace(tournament_id: int, tournament: Any, deps: M
             st.info("Det finns ännu inga schemalagda matcher med två klara lag.")
         else:
             st.markdown("### ⚡ CupNavi Score")
+            _reporting_mode = st.segmented_control(
+                "Rapporteringsläge",
+                ["Enkel", "Avancerad"],
+                default="Enkel",
+                key=f"reporter_mode_{tournament_id}",
+                help=(
+                    "Enkel: välj match, ange slutresultat och spara. "
+                    "Avancerad: lägg även till matchstatus, mål, assist, kort och slutspelsavgöranden."
+                ),
+            ) or "Enkel"
+            _advanced_reporting = _reporting_mode == "Avancerad"
+            st.caption(
+                "Snabbast möjligt: välj match → ange resultat → spara."
+                if not _advanced_reporting
+                else "Avancerat läge: matchstatus, matchhändelser och specialfall visas i samma arbetsflöde."
+            )
             by_id = {int(row["id"]): row for row in playable_matches}
             match_queue = _reporter_match_queue(playable_matches)
             queue_ids = [int(row["id"]) for row in match_queue]
@@ -421,6 +439,46 @@ def render_match_reporter_workspace(tournament_id: int, tournament: Any, deps: M
                 key=quick_score_widget_key,
             )
             quick_match = by_id[int(quick_match_id)]
+            _current_status = normalize_match_status(
+                deps.row_value(quick_match, "match_status", MATCH_NOT_STARTED),
+                has_result=(
+                    deps.row_value(quick_match, "home_score", None) is not None
+                    and deps.row_value(quick_match, "away_score", None) is not None
+                ),
+            )
+            if _advanced_reporting:
+                st.markdown(f"**Matchstatus: {match_status_label(_current_status)}**")
+                _status_cols = st.columns(4)
+                _status_actions = [
+                    (MATCH_NOT_STARTED, "Ej startad"),
+                    (MATCH_LIVE, "▶ Pågår"),
+                    (MATCH_HALFTIME, "⏸ Paus"),
+                    (MATCH_FINISHED, "■ Slut"),
+                ]
+                for _status_col, (_status_value, _status_label) in zip(_status_cols, _status_actions):
+                    if _status_col.button(
+                        _status_label,
+                        key=f"reporter_status_{quick_match_id}_{_status_value}",
+                        use_container_width=True,
+                        type="primary" if _current_status == _status_value else "secondary",
+                        disabled=(
+                            _current_status == _status_value
+                            or (
+                                _status_value == MATCH_NOT_STARTED
+                                and _current_status == MATCH_FINISHED
+                            )
+                        ),
+                    ):
+                        if not deps.set_match_status(tournament_id, quick_match, _status_value):
+                            st.warning("Matchstatusen ändrades av någon annan. Sidan laddas om.")
+                        st.rerun()
+                if _current_status == MATCH_FINISHED and not (
+                    deps.row_value(quick_match, "home_score", None) is not None
+                    and deps.row_value(quick_match, "away_score", None) is not None
+                ):
+                    st.caption("Matchen är markerad som slut. Lägg till resultat om resultat används i arrangemanget.")
+            elif _current_status in {MATCH_LIVE, MATCH_HALFTIME}:
+                st.caption(f"Matchstatus: {match_status_label(_current_status)}")
             quick_home_name = deps.source_label(quick_match["home_source"])
             quick_away_name = deps.source_label(quick_match["away_source"])
             draft_key = f"quick_score_draft_{quick_match_id}"
@@ -464,51 +522,61 @@ def render_match_reporter_workspace(tournament_id: int, tournament: Any, deps: M
                     )
                 else:
                     st.caption("✓ Inga fler orapporterade matcher senare i schemat.")
-                st.divider()
-                st.markdown("### ⚽ Livehändelser")
-                st.caption(
-                    "Registrera mål, assist och kort för samma match här. Händelserna valideras mot det senast sparade resultatet."
-                )
-                _render_match_event_entry(
-                    tournament_id, tournament, int(quick_match_id), quick_match, deps
-                )
+                if _advanced_reporting:
+                    st.divider()
+                    st.markdown("### ⚽ Livehändelser")
+                    st.caption(
+                        "Registrera mål, assist och kort för samma match här. Händelserna valideras mot det senast sparade resultatet."
+                    )
+                    _render_match_event_entry(
+                        tournament_id, tournament, int(quick_match_id), quick_match, deps
+                    )
             if playoff_tie_needs_detail:
-                st.info("Oavgjord slutspelsmatch behöver avgörande uppgifter. Använd tabellen nedan för straffar/lottning.")
-            st.divider(); st.caption("Tabellen nedan finns kvar för massinmatning och slutspelsavgöranden.")
+                st.info(
+                    "Oavgjord slutspelsmatch behöver straffar eller annat avgörande. "
+                    "Byt till Avancerad rapportering för att registrera det."
+                )
 
-            team_rows = fetch_teams(deps.query_all, tournament_id)
-            team_name_by_id = {row["id"]: row["name"] for row in team_rows}
-            team_id_by_name = {row["name"]: row["id"] for row in team_rows}
-            decision_options = ["–"] + [row["name"] for row in team_rows]
-            result_rows = build_bulk_result_rows(playable_matches, source_label=deps.source_label, swedish_datetime=deps.swedish_datetime, team_name_by_id=team_name_by_id)
-            edited_results = st.data_editor(
-                pd.DataFrame(result_rows), hide_index=True, use_container_width=True,
-                disabled=["match_id", "Match", "Plan", "Fas", "Hemmalag", "Bortalag"],
-                column_order=["Match", "Plan", "Fas", "Hemmalag", "Hemmamål", "Bortamål", "Bortalag", "Hemmastraffar", "Bortastraffar", "Avgörande vinnare"],
-                column_config={
-                    "Hemmamål": st.column_config.NumberColumn(min_value=0, max_value=99, step=1),
-                    "Bortamål": st.column_config.NumberColumn(min_value=0, max_value=99, step=1),
-                    "Hemmastraffar": st.column_config.NumberColumn("Straffar hemma", min_value=0, max_value=99, step=1),
-                    "Bortastraffar": st.column_config.NumberColumn("Straffar borta", min_value=0, max_value=99, step=1),
-                    "Avgörande vinnare": st.column_config.SelectboxColumn(options=decision_options),
-                }, key=f"reporter_results_{tournament_id}",
-            )
-            original_by_id = {int(row["id"]): row for row in playable_matches}
-            updates, info_messages, error_messages = [], [], []
-            for _, row in edited_results.iterrows():
-                match_id = int(row["match_id"]); original = original_by_id[match_id]
-                prepared = prepare_bulk_result_update(row, original, team_id_by_name=team_id_by_name, playoff_tie_rule=tournament["playoff_tie_rule"], is_na=pd.isna)
-                info_messages.extend(prepared["info"]); error_messages.extend(prepared["errors"])
-                if prepared["update"] is not None: updates.append(prepared["update"])
-            for message in error_messages: st.error(message)
-            for message in info_messages: st.info(message)
-            if updates:
-                outcome = deps.save_bulk_results(tournament_id, original_by_id, updates)
-                if outcome["saved"]: st.session_state["reporter_result_message"] = "Sparat automatiskt"
-                if outcome["conflicts"]:
-                    st.session_state["reporter_conflict_message"] = f"{outcome['conflicts']} match(er) hade ändrats av en annan rapportör och skrevs inte över. De senaste värdena har laddats om."
-                st.rerun()
-            st.caption("✓ Kompletta resultat sparas automatiskt.")
+            if not _advanced_reporting:
+                st.caption("Behöver du målskyttar, assist, kort, straffar eller massinmatning? Välj Avancerad ovan.")
+            if _advanced_reporting:
+                st.divider()
+                with st.expander("Fler resultatfält & massinmatning", expanded=playoff_tie_needs_detail):
+                    st.caption("Använd för straffar, avgörande vinnare eller när flera resultat ska registreras samtidigt.")
+
+                    team_rows = fetch_teams(deps.query_all, tournament_id)
+                    team_name_by_id = {row["id"]: row["name"] for row in team_rows}
+                    team_id_by_name = {row["name"]: row["id"] for row in team_rows}
+                    decision_options = ["–"] + [row["name"] for row in team_rows]
+                    result_rows = build_bulk_result_rows(playable_matches, source_label=deps.source_label, swedish_datetime=deps.swedish_datetime, team_name_by_id=team_name_by_id)
+                    edited_results = st.data_editor(
+                        pd.DataFrame(result_rows), hide_index=True, use_container_width=True,
+                        disabled=["match_id", "Match", "Plan", "Fas", "Hemmalag", "Bortalag"],
+                        column_order=["Match", "Plan", "Fas", "Hemmalag", "Hemmamål", "Bortamål", "Bortalag", "Hemmastraffar", "Bortastraffar", "Avgörande vinnare"],
+                        column_config={
+                            "Hemmamål": st.column_config.NumberColumn(min_value=0, max_value=99, step=1),
+                            "Bortamål": st.column_config.NumberColumn(min_value=0, max_value=99, step=1),
+                            "Hemmastraffar": st.column_config.NumberColumn("Straffar hemma", min_value=0, max_value=99, step=1),
+                            "Bortastraffar": st.column_config.NumberColumn("Straffar borta", min_value=0, max_value=99, step=1),
+                            "Avgörande vinnare": st.column_config.SelectboxColumn(options=decision_options),
+                        }, key=f"reporter_results_{tournament_id}",
+                    )
+                    original_by_id = {int(row["id"]): row for row in playable_matches}
+                    updates, info_messages, error_messages = [], [], []
+                    for _, row in edited_results.iterrows():
+                        match_id = int(row["match_id"]); original = original_by_id[match_id]
+                        prepared = prepare_bulk_result_update(row, original, team_id_by_name=team_id_by_name, playoff_tie_rule=tournament["playoff_tie_rule"], is_na=pd.isna)
+                        info_messages.extend(prepared["info"]); error_messages.extend(prepared["errors"])
+                        if prepared["update"] is not None: updates.append(prepared["update"])
+                    for message in error_messages: st.error(message)
+                    for message in info_messages: st.info(message)
+                    if updates:
+                        outcome = deps.save_bulk_results(tournament_id, original_by_id, updates)
+                        if outcome["saved"]: st.session_state["reporter_result_message"] = "Sparat automatiskt"
+                        if outcome["conflicts"]:
+                            st.session_state["reporter_conflict_message"] = f"{outcome['conflicts']} match(er) hade ändrats av en annan rapportör och skrevs inte över. De senaste värdena har laddats om."
+                        st.rerun()
+                    st.caption("✓ Kompletta resultat sparas automatiskt.")
 
     if reporter_section == reporter_sections[1]:
         played_matches = fetch_completed_matches(deps.query_all, tournament_id)

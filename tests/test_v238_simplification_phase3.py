@@ -15,10 +15,10 @@ def test_team_page_hides_secondary_operations():
     block=_block('if admin_page == "Lag":','if admin_page == "Grupper":')
     for label in [
         'with st.expander("Valfria laguppgifter", expanded=False)',
-        'with st.expander("Digital lagincheckning", expanded=False)',
-        'with st.expander("Lagportal – koder", expanded=False)',
-        'with st.expander("Lagmeddelanden", expanded=False)',
-        'with st.expander("Redigera eller ta bort lag", expanded=False)',
+        'if st.toggle("Digital lagincheckning", value=False, key=f"lazy_team_checkin_{tid}"',
+        'if st.toggle("Lagportal – koder", value=False, key=f"lazy_team_codes_{tid}"',
+        'if st.toggle("Lagmeddelanden", value=False, key=f"lazy_team_messages_{tid}"',
+        'if st.toggle("Redigera eller ta bort lag", value=False, key=f"lazy_team_edit_{tid}"',
     ]:
         assert label in block
     assert 'if st.button("Lägg till laget", type="primary"' in block
@@ -26,10 +26,10 @@ def test_team_page_hides_secondary_operations():
 
 def test_groups_page_removes_duplicate_heading_and_keeps_main_flow():
     block=_block('if admin_page == "Grupper":','if admin_page == "Trupper":')
-    assert block.count('st.header("Grupper")') == 1
+    assert block.count('<div class="title">Grupper</div>') == 1
     assert 'st.subheader("Grupper")' not in block
     assert 'st.subheader("Placera lagen i rätt grupp")' in block
-    assert 'with st.expander("Redigera eller ta bort grupp")' in block
+    assert 'key=f"lazy_edit_groups_{tid}"' in block
 
 
 def test_roster_page_keeps_player_creation_primary():

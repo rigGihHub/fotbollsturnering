@@ -4,7 +4,7 @@ APP=(ROOT/'app.py').read_text(encoding='utf-8')
 VERSION=(ROOT/'VERSION.txt').read_text(encoding='utf-8').strip()
 
 def test_v345_version_sync():
-    assert VERSION == '2026.08.31-354-ADDRESS-READINESS-FIX'
+    assert VERSION == '2026.09.02-388-ADMIN-CORE-FLOW-CLEANUP'
     assert f'APP_BUILD_VERSION = "{VERSION}"' in APP
     assert f'APP_VERSION = "{VERSION}"' in (ROOT/'cupnavi_core/version.py').read_text(encoding='utf-8')
 
@@ -20,7 +20,7 @@ def test_expected_team_count_blocks_premature_group_recommendation():
 def test_unassigned_teams_block_premature_schedule_recommendation():
     assert 'elif _journey_unassigned_n > 0:' in APP
     assert '"Grupper", f"Placera' in APP
-    assert "Schema blir nästa steg när alla lag är placerade." in APP
+    assert "{_unassigned_teams_now} lag återstår att placera." in APP
 
 def test_no_schema_or_database_contract_change():
     assert 'ALTER TABLE' not in APP[APP.index('if _flow_index is not None:'):APP.index('current_schedule_dirty =')]

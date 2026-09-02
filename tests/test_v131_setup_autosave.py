@@ -32,7 +32,7 @@ def test_changing_rooms_and_prices_can_be_public():
     assert 'Tillgång till omklädningsrum' in SETUP
     assert 'Visa priser/avgifter publikt' in SETUP
     assert 'Priser/avgifter' in APP + INFO
-    assert 'Omklädningsrum:' in INFO
+    assert 'Omklädningsrum' in INFO
 
 def test_regular_settings_autosave_without_save_button():
     block = SETUP

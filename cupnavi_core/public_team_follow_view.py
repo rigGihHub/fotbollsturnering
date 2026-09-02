@@ -15,6 +15,7 @@ from cupnavi_core.public_team_follow import (
     build_favorite_team_hero_html,
     build_favorite_team_snapshot,
     favorite_table_position_from_snapshot,
+    favorite_team_match_sections,
     find_possible_playoff,
 )
 
@@ -40,7 +41,13 @@ def render_public_team_follow(
     create_notification_subscription: Callable[..., tuple[bool, str | None]],
 ) -> None:
     """Render team selection, favorite-team overview, actions and notifications."""
-    st.markdown("<div class='cn-public-follow-anchor'></div>", unsafe_allow_html=True)
+    st.markdown(
+        """<div class='cn-public-follow-anchor'>
+          <div class='cn-public-follow-label'>Mitt lag</div>
+          <div class='cn-public-follow-hint'>Välj lag för att få nästa match, plan och viktig laginformation först.</div>
+        </div>""",
+        unsafe_allow_html=True,
+    )
     with st.container():
         all_teams_value = "__all__"
         favorite_options = [all_teams_value] + [row["id"] for row in public_teams]
@@ -81,23 +88,35 @@ def render_public_team_follow(
         favorite_next = favorite_snapshot["next_match"]
 
         team_name = public_team_names.get(requested_team_id, "Lag")
+        from cupnavi_core.arrangement_type import ARRANGEMENT_MATCHCAMP, normalize_arrangement_type
+        _is_matchcamp = normalize_arrangement_type(
+            row_value(tournament, "arrangement_type", "tournament")
+        ) == ARRANGEMENT_MATCHCAMP
         try:
-            table_position_text = favorite_table_position_from_snapshot(
+            table_position_text = (
+                "–"
+                if _is_matchcamp
+                else favorite_table_position_from_snapshot(
                 public_teams,
                 published_matches,
                 requested_team_id,
                 tournament,
                 row_value=row_value,
+                )
             )
         except Exception:
             # A missing/incomplete table must not block the public team page.
             table_position_text = "–"
 
-        possible_playoff = find_possible_playoff(
-            published_matches,
-            requested_team_id,
-            source_team_id=source_team_id,
-            row_value=row_value,
+        possible_playoff = (
+            None
+            if _is_matchcamp
+            else find_possible_playoff(
+                published_matches,
+                requested_team_id,
+                source_team_id=source_team_id,
+                row_value=row_value,
+            )
         )
         st.markdown(
             build_favorite_team_hero_html(
@@ -110,9 +129,34 @@ def render_public_team_follow(
                 source_label=source_label,
                 pitch_label=public_pitch_label,
                 swedish_datetime=swedish_datetime,
+                show_competition_status=not _is_matchcamp,
             ),
             unsafe_allow_html=True,
         )
+
+        _team_sections = favorite_team_match_sections(
+            favorite_snapshot,
+            now=now,
+            row_value=row_value,
+        )
+        _recent = _team_sections["recent"]
+        _upcoming = _team_sections["upcoming"]
+        if _recent:
+            _last = _recent[0]
+            st.markdown("**Senaste resultat**")
+            st.caption(
+                f"{source_label(_last['home_source'])} "
+                f"{row_value(_last, 'home_score', '–')}–{row_value(_last, 'away_score', '–')} "
+                f"{source_label(_last['away_source'])}"
+            )
+        if _upcoming:
+            st.markdown("**Kommande för mitt lag**")
+            for _match in _upcoming:
+                st.caption(
+                    f"{swedish_datetime(_match['scheduled_start'])} · "
+                    f"{public_pitch_label(_match)} · "
+                    f"{source_label(_match['home_source'])} – {source_label(_match['away_source'])}"
+                )
 
         team_action_1, team_action_2 = st.columns(2)
         if team_action_1.button(

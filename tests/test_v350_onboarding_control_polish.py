@@ -10,7 +10,7 @@ MIG=(ROOT/"cupnavi_core"/"migrations.py").read_text(encoding="utf-8")
 VERSION=(ROOT/"VERSION.txt").read_text().strip()
 
 def test_version():
-    assert VERSION=="2026.08.31-354-ADDRESS-READINESS-FIX"
+    assert VERSION=="2026.09.02-388-ADMIN-CORE-FLOW-CLEANUP"
     assert VERSION in APP
 
 def test_new_cup_becomes_active_via_pending_selector_before_widget():

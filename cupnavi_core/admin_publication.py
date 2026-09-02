@@ -30,10 +30,16 @@ def build_publish_blockers(
     scheduled_matches: int,
     schedule_dirty: bool,
     schedule_errors: Sequence[str],
-    blocking_warnings: Sequence[str],
-    warnings_approved: bool,
+    blocking_warnings: Sequence[str] = (),
+    warnings_approved: bool = False,
 ) -> list[str]:
-    """Build the user-facing reasons that currently prevent publication."""
+    """Return only conditions that make publication unsafe.
+
+    Schedule warnings are intentionally not blockers. validate_schedule already
+    separates hard errors from warnings; forcing an extra acknowledgement made
+    ordinary warnings behave like errors and created two competing severity
+    systems in the UI. The legacy warning arguments remain for API compatibility.
+    """
     blockers: list[str] = []
     if not playoff_model_confirmed:
         blockers.append("Slutspelsmodell och cupregler måste sparas på Översikt.")
@@ -43,9 +49,39 @@ def build_publish_blockers(
         blockers.append("Schemat är inaktuellt eftersom förutsättningarna har ändrats. Regenerera schemat.")
     if schedule_errors:
         blockers.append(f"{len(schedule_errors)} blockerande schemafel måste åtgärdas.")
-    if blocking_warnings and not warnings_approved:
-        blockers.append(f"{len(blocking_warnings)} schemavarningar måste granskas och godkännas.")
     return blockers
+
+
+@dataclass(frozen=True)
+class PublicationQualitySummary:
+    critical: tuple[str, ...]
+    warnings: tuple[str, ...]
+    improvements: tuple[str, ...]
+    can_publish: bool
+
+
+def build_publication_quality_summary(
+    *,
+    playoff_model_confirmed: bool,
+    scheduled_matches: int,
+    schedule_dirty: bool,
+    schedule_errors: Sequence[str],
+    schedule_warnings: Sequence[str],
+) -> PublicationQualitySummary:
+    """Create one severity model shared by publication and Kontroller."""
+    critical = build_publish_blockers(
+        playoff_model_confirmed=playoff_model_confirmed,
+        scheduled_matches=scheduled_matches,
+        schedule_dirty=schedule_dirty,
+        schedule_errors=schedule_errors,
+    )
+    warning_items, improvement_items = split_schedule_warnings(schedule_warnings)
+    return PublicationQualitySummary(
+        critical=tuple(critical),
+        warnings=tuple(warning_items),
+        improvements=tuple(improvement_items),
+        can_publish=not bool(critical),
+    )
 
 
 def publication_action_label(*, published_once: bool) -> str:

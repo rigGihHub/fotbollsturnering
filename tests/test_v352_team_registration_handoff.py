@@ -5,14 +5,14 @@ VERSION = Path("VERSION.txt").read_text(encoding="utf-8").strip()
 
 
 def test_v352_release_version():
-    assert VERSION == "2026.08.31-354-ADDRESS-READINESS-FIX"
+    assert VERSION == "2026.09.02-388-ADMIN-CORE-FLOW-CLEANUP"
 
 
 def test_team_page_starts_with_guided_primary_task():
     block = APP.split('if admin_page == "Lag":', 1)[1].split('if admin_page == "Grupper":', 1)[0]
     assert 'st.header("Lägg till lag")' in block
     assert '**① Lägg till lag** → ② Grupper → ③ Schema → ④ Kontroll → ⑤ Publicera' in block
-    assert block.index('max_teams = int(tournament["expected_team_count"] or 0)') < block.index('with st.expander("Fler lagverktyg", expanded=False):')
+    assert block.index('max_teams = int(tournament["expected_team_count"] or 0)') < block.index('if st.toggle("Fler lagverktyg", value=False, key=f"lazy_team_tools_{tid}"')
 
 
 def test_team_progress_and_handoff_are_explicit():

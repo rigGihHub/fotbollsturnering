@@ -39,7 +39,6 @@ def test_publish_blockers_preserve_existing_admin_rules():
         "Slutspelsmodell och cupregler måste sparas på Översikt.",
         "Schemat är inaktuellt eftersom förutsättningarna har ändrats. Regenerera schemat.",
         "1 blockerande schemafel måste åtgärdas.",
-        "1 schemavarningar måste granskas och godkännas.",
     ]
 
 

@@ -20,7 +20,7 @@ def test_overview_does_not_duplicate_publication_dashboard():
     assert "Publiceringsstatus och publiceringsknapp finns i vänsterspalten." in block
 
 def test_results_page_uses_navigation_terminology():
-    assert 'st.header("Resultat")' in RESULTS
+    assert '<div class="title">Resultat</div>' in RESULTS
     assert 'st.header("Matcher & resultat")' not in RESULTS
     assert 'render_admin_results_workspace(' in APP
 

@@ -2,6 +2,8 @@
 
 from datetime import datetime, timedelta
 
+from cupnavi_core.match_status import MATCH_FINISHED, MATCH_HALFTIME, MATCH_LIVE, normalize_match_status
+
 
 def _value(row, key, default=None):
     try:
@@ -27,9 +29,21 @@ def classify_public_match_feed(matches, *, now, match_duration_minutes, max_next
     for match in matches:
         start=_parse_start(match)
         played=_value(match,"home_score",None) is not None and _value(match,"away_score",None) is not None
-        if played:
-            recent_results.append(match)
+        try:
+            has_explicit_status = "match_status" in match.keys()
+        except AttributeError:
+            has_explicit_status = isinstance(match, dict) and "match_status" in match
+        status=normalize_match_status(_value(match,"match_status",None), has_result=played)
+        if status == MATCH_FINISHED:
+            if played:
+                recent_results.append(match)
+        elif status in {MATCH_LIVE, MATCH_HALFTIME}:
+            live_now.append(match)
+        elif start and has_explicit_status:
+            if start > now:
+                next_matches.append(match)
         elif start:
+            # Compatibility for snapshots created before v371.
             if start <= now <= start + duration:
                 live_now.append(match)
             elif start > now:
@@ -42,7 +56,7 @@ def classify_public_match_feed(matches, *, now, match_duration_minutes, max_next
 
 def public_match_feed_summary(live_now, next_matches, *, max_cards=3):
     if live_now:
-        return {"items":list(live_now[:max_cards]),"is_live":True,"title":"Pågår just nu","subtitle":"Matcher som pågår enligt aktuellt schema.","status":f"{len(live_now)} pågår"}
+        return {"items":list(live_now[:max_cards]),"is_live":True,"title":"Pågår just nu","subtitle":"Matcher med aktiv matchstatus.","status":f"{len(live_now)} pågår"}
     if next_matches:
         return {"items":list(next_matches[:max_cards]),"is_live":False,"title":"Cupen just nu","subtitle":"Nästa matcher i turneringen.","status":f"{len(next_matches)} kommande"}
     return {"items":[],"is_live":False,"title":"","subtitle":"","status":""}

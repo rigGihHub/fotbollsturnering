@@ -6,7 +6,7 @@ APP=(ROOT/"app.py").read_text(encoding="utf-8")
 VERSION=(ROOT/"VERSION.txt").read_text(encoding="utf-8").strip()
 
 def test_version():
-    assert VERSION=="2026.08.31-354-ADDRESS-READINESS-FIX"
+    assert VERSION=="2026.09.02-388-ADMIN-CORE-FLOW-CLEANUP"
     assert VERSION in APP
 
 def test_setup_uses_beginner_language():

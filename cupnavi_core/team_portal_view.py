@@ -12,6 +12,7 @@ import streamlit as st
 
 from cupnavi_core.notification_service import new_token
 from cupnavi_core.team_portal import verify_access_code, squad_deadline_at, squad_is_locked
+from cupnavi_core.team_portal_readiness import build_team_portal_readiness, readiness_icon
 from cupnavi_core.team_portal_repository import (
     fetch_match_rosters,
     fetch_portal_credential,
@@ -100,6 +101,50 @@ def render_team_portal_workspace(tournament_id, tournament, deps: TeamPortalDepe
     received_messages = fetch_received_messages(deps.all_rows, tournament_id, team_id)
     unread_team_count = sum(1 for row in received_messages if not row["read_at"])
     message_tab_label = f"🔴 Meddelanden ({unread_team_count})" if unread_team_count else "Meddelanden"
+
+    # v373: fetch the core team-day snapshot once and reuse it in all tabs.
+    players = fetch_team_players(deps.all_rows, team_id)
+    team_matches = fetch_portal_matches(
+        deps.all_rows, tournament_id, team_id, deps.match_team_ids
+    )
+    roster_rows = fetch_match_rosters(deps.all_rows, team_id)
+    _portal_readiness = build_team_portal_readiness(
+        team_row,
+        players=players,
+        team_matches=team_matches,
+        roster_rows=roster_rows,
+        enable_team_checkin=bool(deps.row_value(tournament, "enable_team_checkin", 1)),
+        now=datetime.now(),
+    )
+
+    st.markdown("### Redo för cupdagen")
+    if _portal_readiness["ready"]:
+        st.success(
+            f"Klart · {_portal_readiness['ready_count']} av {_portal_readiness['actionable_count']} punkter färdiga.",
+            icon="✅",
+        )
+    else:
+        st.progress(
+            _portal_readiness["ready_count"] / max(1, _portal_readiness["actionable_count"])
+        )
+        st.caption(
+            f"{_portal_readiness['ready_count']} av {_portal_readiness['actionable_count']} klara"
+        )
+        if _portal_readiness["next_item"]:
+            _next = _portal_readiness["next_item"]
+            st.info(
+                f"Nästa steg: {_next['label']} · {_next['detail']} "
+                f"Gå till fliken **{_next['tab']}**."
+            )
+
+    _readiness_cols = st.columns(2)
+    for _index, _item in enumerate(_portal_readiness["items"]):
+        _col = _readiness_cols[_index % 2]
+        _col.markdown(
+            f"**{readiness_icon(_item['state'])} {_item['label']}**  \n"
+            f"{_item['detail']}"
+        )
+
     portal_tabs = st.tabs(["Lag & matcher", "Trupp", "Matchtrupper", message_tab_label])
 
     with portal_tabs[0]:
@@ -159,8 +204,13 @@ def render_team_portal_workspace(tournament_id, tournament, deps: TeamPortalDepe
             st.rerun()
 
         st.subheader("Mina matcher")
-        matches = fetch_portal_matches(
-            deps.all_rows, tournament_id, team_id, deps.match_team_ids, order_by_pitch=True
+        matches = sorted(
+            team_matches,
+            key=lambda row: (
+                str(row["scheduled_start"] or ""),
+                int(row["pitch_number"] or 0),
+                int(row["id"]),
+            ),
         )
         if matches:
             for match_row in matches:
@@ -218,7 +268,6 @@ def render_team_portal_workspace(tournament_id, tournament, deps: TeamPortalDepe
     with portal_tabs[1]:
         st.subheader("Hantera truppen")
         max_roster = int(deps.row_value(tournament, "max_roster_size", 0) or 0)
-        players = fetch_team_players(deps.all_rows, team_id)
         st.caption(f"{len(players)} registrerade spelare" + (f" · max {max_roster}" if max_roster else " · ingen maxgräns satt"))
         with st.form(f"portal_add_player_{team_id}", clear_on_submit=True):
             pc1, pc2 = st.columns(2)
@@ -305,14 +354,10 @@ def render_team_portal_workspace(tournament_id, tournament, deps: TeamPortalDepe
         st.subheader("Matchtrupper")
         deadline_minutes = int(deps.row_value(tournament, "squad_deadline_minutes", 30) or 0)
         st.caption(f"Matchtruppen låses {deadline_minutes} minuter före matchstart. Admin kan alltid ändra den.")
-        team_matches = fetch_portal_matches(
-            deps.all_rows, tournament_id, team_id, deps.match_team_ids
-        )
         if not team_matches:
             st.info("Inga matcher att registrera matchtrupp för ännu.")
         else:
             team_match_by_id = {int(row["id"]): row for row in team_matches}
-            roster_rows = fetch_match_rosters(deps.all_rows, team_id)
             roster_ids_by_match = {}
             for roster_row in roster_rows:
                 roster_ids_by_match.setdefault(int(roster_row["match_id"]), []).append(int(roster_row["player_id"]))

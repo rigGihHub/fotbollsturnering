@@ -12,7 +12,7 @@ def test_admin_overview_hides_secondary_dashboard_detail():
         assert removed not in block
     assert 'next_step = recommend_next_step(' in block
     assert 'key=f"dashboard_next_step_{tid}"' in block
-    assert '"Visa fler verktyg på översikten"' in block
+    assert '"Fler verktyg"' in block
 
 def test_admin_overview_advanced_tools_are_explicit_opt_in():
     block=_block('elif admin_page == "Adminöversikt":','if admin_page == "Cupinställningar":')

@@ -8,9 +8,9 @@ OVERVIEW = Path("cupnavi_core/public_match_overview.py").read_text(encoding="utf
 MATCHES = Path("cupnavi_core/public_matches_view.py").read_text(encoding="utf-8")
 
 
-def test_cupinfo_is_leftmost_public_navigation_item():
+def test_matches_is_leftmost_public_navigation_item():
     specs = public_navigation_specs()
-    assert specs[0] == ("Info", "info", "Cupinfo", "Cupinfo")
+    assert specs[0] == ("Matcher", "matches", "Matcher", "Matcher")
 
 
 def test_visitor_snapshot_capability_remains_but_is_not_on_primary_matches_summary():
