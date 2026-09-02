@@ -391,36 +391,46 @@ def render_public_workspace(tournament_id: int, tournament: Any, deps: PublicWor
     _results_counted = bool(_row_value(tournament, "results_counted", 1))
     if public_page == "Tabeller":
         if _results_counted:
-            render_public_statistics_section(
-                tournament_id,
-                tournament,
-                published_matches,
-                played_matches,
-                forced_section=tr("Tabeller"),
-                public_team_by_id=public_team_by_id,
-            )
             _has_public_toplists = any([
                 bool(_row_value(tournament, "enable_scorer_leaderboard", 1)),
                 bool(_row_value(tournament, "enable_assist_leaderboard", 1)),
                 bool(_row_value(tournament, "enable_card_statistics", 1)),
             ])
+            # v390: Topplistor were moved out of the main navigation in v386, but
+            # the remaining toggle sat *below* all group tables. In a tournament
+            # with several groups it was effectively hidden. Keep the clean main
+            # navigation, but make Tabell / Topplistor an obvious secondary choice
+            # before any expensive table/statistics rendering starts. This also
+            # avoids calculating group tables when the visitor only wants scorers.
             if _has_public_toplists:
-                show_public_toplists = st.toggle(
-                    "Visa individuella topplistor",
-                    value=False,
-                    key=f"public_toplists_under_tables_{int(tournament_id)}",
-                    help="Visar skytteliga, assistliga och kortstatistik som arrangören har aktiverat.",
+                competition_view = st.segmented_control(
+                    "Resultatvy",
+                    [tr("Tabeller"), tr("Topplistor")],
+                    default=tr("Tabeller"),
+                    key=f"public_competition_view_{int(tournament_id)}",
+                    help="Växla mellan lagtabeller och individuella topplistor som skytteliga och assistliga.",
+                ) or tr("Tabeller")
+            else:
+                competition_view = tr("Tabeller")
+
+            if competition_view == tr("Topplistor"):
+                render_public_statistics_section(
+                    tournament_id,
+                    tournament,
+                    published_matches,
+                    played_matches,
+                    forced_section=tr("Topplistor"),
+                    public_team_by_id=public_team_by_id,
                 )
-                if show_public_toplists:
-                    st.markdown('<div class="cn-section-head">Topplistor</div>', unsafe_allow_html=True)
-                    render_public_statistics_section(
-                        tournament_id,
-                        tournament,
-                        published_matches,
-                        played_matches,
-                        forced_section=tr("Topplistor"),
-                        public_team_by_id=public_team_by_id,
-                    )
+            else:
+                render_public_statistics_section(
+                    tournament_id,
+                    tournament,
+                    published_matches,
+                    played_matches,
+                    forced_section=tr("Tabeller"),
+                    public_team_by_id=public_team_by_id,
+                )
         else:
             st.info("Den här cupen spelas utan resultaträkning. Därför visas ingen tabell.")
     if public_page == "Slutspel":

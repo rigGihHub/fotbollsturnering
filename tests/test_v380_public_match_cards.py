@@ -6,7 +6,7 @@ STYLE=(ROOT/"cupnavi_core/style_system.py").read_text(encoding="utf-8")
 VERSION=(ROOT/"VERSION.txt").read_text().strip()
 
 def test_release_version():
-    assert VERSION=="2026.09.02-388-ADMIN-CORE-FLOW-CLEANUP"
+    assert VERSION=="2026.09.02-390-PUBLIC-SHARE-TOPLIST-UX"
 
 def test_match_card_prioritizes_time_pitch_and_status():
     assert 'class="cn-match-time"' in CARD

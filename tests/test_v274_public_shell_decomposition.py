@@ -9,7 +9,7 @@ WORKSPACE = (ROOT / "cupnavi_core" / "public_workspace_view.py").read_text(encod
 
 
 def test_release_version_v274():
-    assert VERSION == "2026.09.02-388-ADMIN-CORE-FLOW-CLEANUP"
+    assert VERSION == "2026.09.02-390-PUBLIC-SHARE-TOPLIST-UX"
 
 
 def test_public_hero_builder_preserves_status_and_escapes_content():

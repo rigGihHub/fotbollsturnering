@@ -11,7 +11,7 @@ WORKSPACE=(ROOT/"cupnavi_core/public_workspace_view.py").read_text(encoding="utf
 VERSION=(ROOT/"VERSION.txt").read_text().strip()
 
 def test_release_version():
-    assert VERSION=="2026.09.02-388-ADMIN-CORE-FLOW-CLEANUP"
+    assert VERSION=="2026.09.02-390-PUBLIC-SHARE-TOPLIST-UX"
 
 def test_primary_public_navigation_matches_user_tasks():
     assert [row[0] for row in PUBLIC_PAGE_SPECS] == [
@@ -35,8 +35,10 @@ def test_team_follow_is_not_rendered_globally_anymore():
     assert WORKSPACE.count("render_public_team_follow(") == 1
 
 def test_toplists_are_secondary_under_tables():
-    assert '"Visa individuella topplistor"' in WORKSPACE
-    assert 'key=f"public_toplists_under_tables_{int(tournament_id)}"' in WORKSPACE
+    # v390 keeps v386's IA decision (no top-level Statistik tab) but upgrades
+    # the buried toggle to a visible secondary segmented choice under Tabell.
+    assert '[tr("Tabeller"), tr("Topplistor")]' in WORKSPACE
+    assert 'public_competition_view_' in WORKSPACE
     assert 'forced_section=tr("Topplistor")' in WORKSPACE
     assert 'if public_page == "Statistik":' not in WORKSPACE
 

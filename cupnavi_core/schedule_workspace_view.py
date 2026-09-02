@@ -1263,13 +1263,33 @@ def render_schedule_workspace(tid, tournament, *, deps: ScheduleWorkspaceDepende
                         st.rerun()
         st.divider()
         st.subheader("Matchschema")
-        refs = all_rows("SELECT * FROM referees WHERE tournament_id=? ORDER BY name", (tid,))
+        # v389: the detail workspace already loaded every scheduled match above.
+        # Reuse that snapshot instead of issuing the same matches query twice.
+        refs = adjustable_refs if "adjustable_refs" in locals() else all_rows(
+            "SELECT * FROM referees WHERE tournament_id=? ORDER BY name", (tid,)
+        )
         referee_names = {r["id"]: r["name"] for r in refs}
         schedule_pitch_names = pitch_name_map(tid,int(rules["pitch_count"]))
-        scheduled_matches = all_rows("SELECT * FROM matches WHERE tournament_id=? AND scheduled_start IS NOT NULL ORDER BY scheduled_start,pitch_number,id", (tid,))
+        scheduled_matches = adjustable_matches
         if not scheduled_matches:
             st.info("Klicka på Skapa matcher och generera spelschema ovan.")
         else:
+            # v389: player statistics used to be fetched once per match (N+1).
+            # Fetch the complete tournament snapshot once and group it in memory.
+            event_rows_by_match = {}
+            for event_row in all_rows(
+                """
+                SELECT player_match_stats.match_id, players.name, player_match_stats.*
+                FROM player_match_stats
+                JOIN players ON players.id=player_match_stats.player_id
+                JOIN matches ON matches.id=player_match_stats.match_id
+                WHERE matches.tournament_id=?
+                ORDER BY player_match_stats.match_id, players.name
+                """,
+                (tid,),
+            ):
+                event_rows_by_match.setdefault(int(event_row["match_id"]), []).append(event_row)
+
             schedule_rows = []
             for index, m in enumerate(scheduled_matches, 1):
                 home_id = resolve_source(m["home_source"])
@@ -1277,14 +1297,7 @@ def render_schedule_workspace(tid, tournament, *, deps: ScheduleWorkspaceDepende
                 home = team(home_id)
                 away = team(away_id)
                 start_dt = datetime.fromisoformat(m["scheduled_start"])
-                event_rows = all_rows(
-                    """
-                    SELECT players.name, player_match_stats.* FROM player_match_stats
-                    JOIN players ON players.id=player_match_stats.player_id
-                    WHERE player_match_stats.match_id=? ORDER BY players.name
-                    """,
-                    (m["id"],),
-                )
+                event_rows = event_rows_by_match.get(int(m["id"]), [])
                 goals_text = ", ".join(f"{e['name']} ({e['goals']})" for e in event_rows if e["goals"]) or "–"
                 assists_text = ", ".join(f"{e['name']} ({e['assists']})" for e in event_rows if e["assists"]) or "–"
                 yellow_text = ", ".join(f"{e['name']} ({e['yellow_cards']})" for e in event_rows if e["yellow_cards"]) or "–"

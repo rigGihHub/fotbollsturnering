@@ -24,7 +24,7 @@ def test_public_navigation_has_full_row_brand_background_and_active_contrast():
 
 
 def test_v292_release_is_canonical():
-    expected = "2026.09.02-388-ADMIN-CORE-FLOW-CLEANUP"
+    expected = "2026.09.02-390-PUBLIC-SHARE-TOPLIST-UX"
     assert (ROOT / "VERSION.txt").read_text(encoding="utf-8").strip() == expected
     assert expected in APP
     assert expected in (ROOT / "cupnavi_core" / "version.py").read_text(encoding="utf-8")

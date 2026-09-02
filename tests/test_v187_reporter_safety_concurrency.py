@@ -2,7 +2,7 @@ from pathlib import Path
 ROOT=Path(__file__).resolve().parents[1]
 APP=(ROOT/"app.py").read_text(encoding="utf-8")
 WORKSPACE=(ROOT/"cupnavi_core/match_reporter_workspace_view.py").read_text(encoding="utf-8")
-R="2026.09.02-388-ADMIN-CORE-FLOW-CLEANUP"
+R="2026.09.02-390-PUBLIC-SHARE-TOPLIST-UX"
 
 def test_no_production_reporter_123_fallback():
     assert 'reporter_password = setting("MATCH_REPORTER_PASSWORD") or "123"' not in APP

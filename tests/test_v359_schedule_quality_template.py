@@ -54,4 +54,4 @@ def test_quality_is_loaded_only_inside_explicit_quality_view():
 
 
 def test_version():
-    assert 'APP_BUILD_VERSION = "2026.09.02-388-ADMIN-CORE-FLOW-CLEANUP"' in APP
+    assert 'APP_BUILD_VERSION = "2026.09.02-390-PUBLIC-SHARE-TOPLIST-UX"' in APP

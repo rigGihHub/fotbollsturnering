@@ -9,7 +9,7 @@ VERSION = (ROOT / "VERSION.txt").read_text().strip()
 
 
 def test_release_version():
-    assert VERSION == "2026.09.02-388-ADMIN-CORE-FLOW-CLEANUP"
+    assert VERSION == "2026.09.02-390-PUBLIC-SHARE-TOPLIST-UX"
 
 
 def test_clear_kits_need_no_action():

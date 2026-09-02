@@ -190,7 +190,7 @@ def inject_v198_visual_system():
     return _inject_v198_visual_system_impl(st)
 
 
-APP_BUILD_VERSION = "2026.09.02-388-ADMIN-CORE-FLOW-CLEANUP"
+APP_BUILD_VERSION = "2026.09.02-390-PUBLIC-SHARE-TOPLIST-UX"
 APP_VERSION = APP_BUILD_VERSION
 
 def read_core_version_from_disk():
@@ -1081,6 +1081,11 @@ def render_public_share_control(tournament_id, tournament):
     )
     st.markdown("<div class='cn-share-metrics-anchor'></div>", unsafe_allow_html=True)
     with st.popover("Dela", help=tr("Dela cupen")):
+        # v390: The global dialog contrast layer also affects Streamlit popovers.
+        # Emit the marker that the existing share-specific light-theme CSS targets,
+        # otherwise the share body inherits the dark dialog surface and white button
+        # labels become nearly invisible (as seen in the live mobile/desktop capture).
+        st.markdown("<span class='cn-share-popover-marker' aria-hidden='true'></span>", unsafe_allow_html=True)
         st.markdown(f"### {tr('Dela cupen')}")
         st.caption(tr("Dela länken eller QR-koden till den här cupen."))
         st.code(share_url, language=None)

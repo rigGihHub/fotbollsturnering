@@ -12,7 +12,7 @@ def _groups():
     return APP[start:end]
 
 def test_release_version():
-    assert VERSION=="2026.09.02-388-ADMIN-CORE-FLOW-CLEANUP"
+    assert VERSION=="2026.09.02-390-PUBLIC-SHARE-TOPLIST-UX"
 
 def test_manual_group_tools_are_true_lazy():
     block=_groups()

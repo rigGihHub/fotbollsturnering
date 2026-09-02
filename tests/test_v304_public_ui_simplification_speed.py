@@ -9,7 +9,7 @@ VERSION = (ROOT / "VERSION.txt").read_text().strip()
 
 
 def test_release_version_is_v304():
-    assert VERSION == "2026.09.02-388-ADMIN-CORE-FLOW-CLEANUP"
+    assert VERSION == "2026.09.02-390-PUBLIC-SHARE-TOPLIST-UX"
 
 
 def test_matches_page_avoids_secondary_overview_db_and_highlight_work():

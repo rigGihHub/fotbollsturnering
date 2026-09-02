@@ -9,7 +9,7 @@ def creation_block():
     return APP[start:end]
 
 def test_v343_version():
-    assert VERSION == '2026.09.02-388-ADMIN-CORE-FLOW-CLEANUP'
+    assert VERSION == '2026.09.02-390-PUBLIC-SHARE-TOPLIST-UX'
     assert f'APP_BUILD_VERSION = "{VERSION}"' in APP
     assert f'APP_VERSION = "{VERSION}"' in (ROOT/'cupnavi_core/version.py').read_text(encoding='utf-8')
 

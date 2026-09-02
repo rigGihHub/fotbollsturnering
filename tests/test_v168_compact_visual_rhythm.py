@@ -3,7 +3,7 @@ ROOT=Path(__file__).resolve().parents[1]
 APP=(ROOT/"app.py").read_text(encoding="utf-8")
 STYLE=(ROOT/"cupnavi_core/style_system.py").read_text(encoding="utf-8")
 UI=APP+"\n"+STYLE
-R="2026.09.02-388-ADMIN-CORE-FLOW-CLEANUP"
+R="2026.09.02-390-PUBLIC-SHARE-TOPLIST-UX"
 
 def test_public_status_is_integrated_into_hero():
     assert "cn-hero-status" in UI

@@ -36,7 +36,7 @@ RULES = {
 
 
 def test_release_version():
-    assert VERSION == "2026.09.02-388-ADMIN-CORE-FLOW-CLEANUP"
+    assert VERSION == "2026.09.02-390-PUBLIC-SHARE-TOPLIST-UX"
 
 
 def test_gap_absorption_moves_fewer_matches_than_full_cascade():

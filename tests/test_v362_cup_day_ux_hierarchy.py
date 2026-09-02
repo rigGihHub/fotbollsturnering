@@ -61,4 +61,4 @@ def test_live_and_upcoming_cards_are_mobile_first_without_side_column_buttons():
 
 
 def test_version():
-    assert 'APP_BUILD_VERSION = "2026.09.02-388-ADMIN-CORE-FLOW-CLEANUP"' in APP
+    assert 'APP_BUILD_VERSION = "2026.09.02-390-PUBLIC-SHARE-TOPLIST-UX"' in APP

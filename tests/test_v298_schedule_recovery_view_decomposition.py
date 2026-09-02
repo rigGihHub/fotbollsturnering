@@ -7,7 +7,7 @@ VERSION = (ROOT / "VERSION.txt").read_text(encoding="utf-8").strip()
 
 
 def test_v298_release_and_module_boundary():
-    assert VERSION == "2026.09.02-388-ADMIN-CORE-FLOW-CLEANUP"
+    assert VERSION == "2026.09.02-390-PUBLIC-SHARE-TOPLIST-UX"
     assert "class ScheduleRecoveryDependencies" in VIEW
     assert "def render_schedule_recovery_actions" in VIEW
     assert "render_schedule_recovery_actions_module" in APP

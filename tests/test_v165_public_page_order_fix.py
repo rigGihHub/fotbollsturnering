@@ -4,7 +4,7 @@ from cupnavi_core.observability import error_id
 ROOT=Path(__file__).resolve().parents[1]
 APP=(ROOT/"app.py").read_text(encoding="utf-8")
 WORKSPACE=(ROOT/"cupnavi_core"/"public_workspace_view.py").read_text(encoding="utf-8")
-RELEASE="2026.09.02-388-ADMIN-CORE-FLOW-CLEANUP"
+RELEASE="2026.09.02-390-PUBLIC-SHARE-TOPLIST-UX"
 
 def test_cn_aabcb9_matches_public_page_unboundlocalerror():
     exc=UnboundLocalError("cannot access local variable 'public_page' where it is not associated with a value")

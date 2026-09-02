@@ -1,4 +1,4 @@
-APP_VERSION = "2026.09.02-388-ADMIN-CORE-FLOW-CLEANUP"
+APP_VERSION = "2026.09.02-390-PUBLIC-SHARE-TOPLIST-UX"
 
 
 def release_ui_label(version: str) -> str:

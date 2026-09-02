@@ -58,4 +58,4 @@ def test_cup_day_has_direct_operational_actions():
 
 
 def test_version():
-    assert 'APP_BUILD_VERSION = "2026.09.02-388-ADMIN-CORE-FLOW-CLEANUP"' in APP
+    assert 'APP_BUILD_VERSION = "2026.09.02-390-PUBLIC-SHARE-TOPLIST-UX"' in APP

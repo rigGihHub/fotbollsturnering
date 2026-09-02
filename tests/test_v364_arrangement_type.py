@@ -69,4 +69,4 @@ def test_matchcamp_can_opt_in_to_results_without_enabling_playoffs():
 
 def test_schema_and_version():
     assert "LATEST_SCHEMA_VERSION = 30" in MIGRATIONS
-    assert 'APP_BUILD_VERSION = "2026.09.02-388-ADMIN-CORE-FLOW-CLEANUP"' in APP
+    assert 'APP_BUILD_VERSION = "2026.09.02-390-PUBLIC-SHARE-TOPLIST-UX"' in APP

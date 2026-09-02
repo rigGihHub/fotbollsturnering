@@ -29,7 +29,7 @@ class Con:
 
 
 def test_release_and_public_matches_fragment_are_extracted():
-    assert VERSION == "2026.09.02-388-ADMIN-CORE-FLOW-CLEANUP"
+    assert VERSION == "2026.09.02-390-PUBLIC-SHARE-TOPLIST-UX"
     assert "from cupnavi_core.public_matches_view import render_public_matches_fragment" in APP
     assert "render_public_matches_fragment_module(" in WORKSPACE
     assert 'f"Visa {next_batch_size} fler matcher"' not in APP
