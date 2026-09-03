@@ -1,6 +1,6 @@
 from pathlib import Path
 
-RELEASE = "2026.09.03-424-PUBLIC-INFO-ROUNDTRIP-CUT"
+RELEASE = "2026.09.03-427-TRAVEL-RULES-FLOW"
 
 
 def test_v389_batches_schedule_match_events_and_reuses_match_snapshot():

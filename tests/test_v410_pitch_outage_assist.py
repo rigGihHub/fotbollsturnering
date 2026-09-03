@@ -13,7 +13,7 @@ def _resolve(source):
 
 
 def test_release_version_and_note():
-    assert APP_VERSION == "2026.09.03-424-PUBLIC-INFO-ROUNDTRIP-CUT"
+    assert APP_VERSION == "2026.09.03-427-TRAVEL-RULES-FLOW"
     assert (ROOT / "PITCH_OUTAGE_ASSIST_V410.md").exists()
 
 

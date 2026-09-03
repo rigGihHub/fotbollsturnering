@@ -8,7 +8,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def test_v409_version_and_release_note():
-    assert APP_VERSION == "2026.09.03-424-PUBLIC-INFO-ROUNDTRIP-CUT"
+    assert APP_VERSION == "2026.09.03-427-TRAVEL-RULES-FLOW"
     assert (ROOT / "TEAM_NO_SHOW_IMPACT_V409.md").exists()
 
 

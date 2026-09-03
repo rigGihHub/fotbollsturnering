@@ -6,7 +6,7 @@ APP=(ROOT/"app.py").read_text(encoding="utf-8")
 VERSION=(ROOT/"VERSION.txt").read_text().strip()
 
 def test_release_version():
-    assert VERSION=="2026.09.03-424-PUBLIC-INFO-ROUNDTRIP-CUT"
+    assert VERSION=="2026.09.03-427-TRAVEL-RULES-FLOW"
 
 def test_global_typography_has_final_authority():
     assert "/* v383 — Global polish authority */" in STYLE

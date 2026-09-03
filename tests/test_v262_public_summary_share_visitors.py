@@ -21,9 +21,9 @@ def test_visitor_snapshot_capability_remains_but_is_not_on_primary_matches_summa
     assert "active_visitors" not in summary
 
 
-def test_share_control_remains_below_compact_public_metrics():
-    summary_pos = MATCHES.index("summary_html = build_summary_html(")
-    share_pos = MATCHES.index("render_share_control(tournament_id, tournament)", summary_pos)
-    match_filter_pos = MATCHES.index("requested_match_view =", summary_pos)
-    assert summary_pos < share_pos < match_filter_pos
+def test_share_control_is_in_persistent_public_left_rail():
+    assert "render_share_control(tournament_id, tournament)" not in MATCHES
+    workspace = Path("cupnavi_core/public_workspace_view.py").read_text(encoding="utf-8")
+    assert "with st.sidebar:" in workspace
+    assert "render_public_share_control(tournament_id, tournament, in_sidebar=True)" in workspace
     assert "cn-share-inline-anchor" not in APP

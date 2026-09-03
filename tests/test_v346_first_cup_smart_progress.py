@@ -5,7 +5,7 @@ APP=(ROOT/"app.py").read_text(encoding="utf-8")
 VERSION=(ROOT/"VERSION.txt").read_text(encoding="utf-8").strip()
 
 def test_version():
-    assert VERSION=="2026.09.03-424-PUBLIC-INFO-ROUNDTRIP-CUT"
+    assert VERSION=="2026.09.03-427-TRAVEL-RULES-FLOW"
     assert f'APP_BUILD_VERSION = "{VERSION}"' in APP
 
 def test_team_registration_has_real_progress_and_group_handoff():

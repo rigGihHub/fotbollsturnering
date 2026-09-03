@@ -69,6 +69,6 @@ def test_app_uses_arrangement_aware_generation_and_preserves_tournament_round_ro
 
 
 def test_schema_v29_adds_safe_default():
-    assert "LATEST_SCHEMA_VERSION = 31" in MIGRATIONS
+    assert "LATEST_SCHEMA_VERSION = 32" in MIGRATIONS
     assert "def ensure_v29_schema_compat" in MIGRATIONS
     assert "matchcamp_matches_per_team INTEGER NOT NULL DEFAULT 4" in MIGRATIONS

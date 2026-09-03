@@ -98,7 +98,7 @@ def test_result_save_marks_match_finished():
 
 
 def test_schema_v30_has_lifecycle_fields():
-    assert "LATEST_SCHEMA_VERSION = 31" in MIGRATIONS
+    assert "LATEST_SCHEMA_VERSION = 32" in MIGRATIONS
     assert "def ensure_v30_schema_compat" in MIGRATIONS
     assert "match_status TEXT NOT NULL DEFAULT 'not_started'" in MIGRATIONS
     assert "actual_started_at" in MIGRATIONS

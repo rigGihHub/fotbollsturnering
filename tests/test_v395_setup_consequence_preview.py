@@ -1,7 +1,7 @@
 from pathlib import Path
 from cupnavi_core.initial_setup_logic import setup_consequence_preview
 
-VERSION = "2026.09.03-424-PUBLIC-INFO-ROUNDTRIP-CUT"
+VERSION = "2026.09.03-427-TRAVEL-RULES-FLOW"
 
 
 def test_release_version():

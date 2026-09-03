@@ -9,7 +9,7 @@ WORKSPACE = (ROOT / "cupnavi_core" / "public_workspace_view.py").read_text(encod
 
 
 def test_release_version_v274():
-    assert VERSION == "2026.09.03-424-PUBLIC-INFO-ROUNDTRIP-CUT"
+    assert VERSION == "2026.09.03-427-TRAVEL-RULES-FLOW"
 
 
 def test_public_hero_builder_preserves_status_and_escapes_content():

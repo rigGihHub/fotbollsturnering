@@ -36,7 +36,7 @@ RULES = {
 
 
 def test_release_version():
-    assert VERSION == "2026.09.03-424-PUBLIC-INFO-ROUNDTRIP-CUT"
+    assert VERSION == "2026.09.03-427-TRAVEL-RULES-FLOW"
 
 
 def test_gap_absorption_moves_fewer_matches_than_full_cascade():

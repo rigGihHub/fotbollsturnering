@@ -136,7 +136,6 @@ def render_public_matches_fragment(
         highlights_html=highlights_html,
     )
     st.markdown(summary_html, unsafe_allow_html=True)
-    render_share_control(tournament_id, tournament)
     stage_timings["summary_share_ms"] = round((time.perf_counter() - stage_started) * 1000, 1)
 
     requested_match_view = str(st.query_params.get("matches", "all")) if hasattr(st, "query_params") else "all"

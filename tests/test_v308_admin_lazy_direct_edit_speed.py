@@ -6,7 +6,7 @@ VERSION = (ROOT / 'VERSION.txt').read_text(encoding='utf-8').strip()
 
 
 def test_release_version_is_v308():
-    assert VERSION == '2026.09.03-424-PUBLIC-INFO-ROUNDTRIP-CUT'
+    assert VERSION == '2026.09.03-427-TRAVEL-RULES-FLOW'
 
 
 def test_direct_edit_is_opt_in_before_queries_and_reuses_counts():

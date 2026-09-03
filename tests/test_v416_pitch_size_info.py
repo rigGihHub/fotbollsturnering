@@ -20,5 +20,5 @@ def test_redundant_matchcamp_recommendation_copy_is_removed():
     assert "Sätt {recommendation['matches_per_team']} matcher per lag" in WIZARD
 
 def test_schema_has_v31_pitch_size_migration():
-    assert "LATEST_SCHEMA_VERSION = 31" in MIGRATIONS
+    assert "LATEST_SCHEMA_VERSION = 32" in MIGRATIONS
     assert "ensure_v31_schema_compat" in MIGRATIONS

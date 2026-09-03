@@ -51,4 +51,4 @@ def test_quick_quality_does_not_require_expensive_score_analysis():
 
 
 def test_version():
-    assert 'APP_BUILD_VERSION = "2026.09.03-424-PUBLIC-INFO-ROUNDTRIP-CUT"' in APP
+    assert 'APP_BUILD_VERSION = "2026.09.03-427-TRAVEL-RULES-FLOW"' in APP

@@ -23,7 +23,7 @@ def _finished_without_score():
 
 
 def test_version_and_release_note():
-    assert VERSION == "2026.09.03-424-PUBLIC-INFO-ROUNDTRIP-CUT"
+    assert VERSION == "2026.09.03-427-TRAVEL-RULES-FLOW"
     assert (ROOT / "CUPDAY_PITCH_FOCUS_V404.md").exists()
 
 

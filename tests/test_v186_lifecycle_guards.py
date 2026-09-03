@@ -1,7 +1,7 @@
 from pathlib import Path
 ROOT=Path(__file__).resolve().parents[1]
 APP=(ROOT/"app.py").read_text(encoding="utf-8")
-R="2026.09.03-424-PUBLIC-INFO-ROUNDTRIP-CUT"
+R="2026.09.03-427-TRAVEL-RULES-FLOW"
 
 def test_central_environment_history_helpers_exist():
     assert "def is_test_environment" in APP

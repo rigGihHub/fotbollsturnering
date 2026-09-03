@@ -11,7 +11,7 @@ WORKSPACE=(ROOT/"cupnavi_core/public_workspace_view.py").read_text(encoding="utf
 VERSION=(ROOT/"VERSION.txt").read_text().strip()
 
 def test_release_version():
-    assert VERSION=="2026.09.03-424-PUBLIC-INFO-ROUNDTRIP-CUT"
+    assert VERSION=="2026.09.03-427-TRAVEL-RULES-FLOW"
 
 def test_primary_public_navigation_matches_user_tasks():
     assert [row[0] for row in PUBLIC_PAGE_SPECS] == [

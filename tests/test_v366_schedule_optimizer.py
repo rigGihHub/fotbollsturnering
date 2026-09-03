@@ -42,4 +42,4 @@ def test_ui_is_preview_first_and_explicit_apply():
     assert 'Inget ändras förrän du godkänner det.' in VIEW
 
 def test_version():
-    assert 'APP_BUILD_VERSION = "2026.09.03-424-PUBLIC-INFO-ROUNDTRIP-CUT"' in APP
+    assert 'APP_BUILD_VERSION = "2026.09.03-427-TRAVEL-RULES-FLOW"' in APP

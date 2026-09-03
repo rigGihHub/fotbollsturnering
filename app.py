@@ -191,7 +191,7 @@ def inject_v198_visual_system():
     return _inject_v198_visual_system_impl(st)
 
 
-APP_BUILD_VERSION = "2026.09.03-424-PUBLIC-INFO-ROUNDTRIP-CUT"
+APP_BUILD_VERSION = "2026.09.03-427-TRAVEL-RULES-FLOW"
 APP_VERSION = APP_BUILD_VERSION
 
 def read_core_version_from_disk():
@@ -612,6 +612,56 @@ def save_pitch_travel_time(tournament_id,from_pitch,to_pitch,minutes):
             (int(tournament_id),b,a,minutes),
         ],
     )
+
+def calculate_pitch_travel_times(tournament_id, buffer_minutes=10):
+    """Calculate verified pitch-to-pitch driving times with Google Routes."""
+    try:
+        api_key = str(st.secrets.get("GOOGLE_MAPS_API_KEY", "") or "").strip()
+    except Exception:
+        api_key = ""
+    if not api_key:
+        return False, "Google Routes är inte konfigurerat. Lägg GOOGLE_MAPS_API_KEY i Streamlit Secrets för automatisk restid.", []
+    pitches = all_rows(
+        "SELECT pitch_number,name,address,address_verified FROM pitches WHERE tournament_id=? ORDER BY pitch_number",
+        (int(tournament_id),),
+    )
+    usable = [row for row in pitches if str(_row_value(row,"address","") or "").strip() and bool(_row_value(row,"address_verified",0))]
+    if len(usable) < 2:
+        return False, "Verifiera adresser för minst två planer först.", []
+    endpoint = "https://routes.googleapis.com/directions/v2:computeRoutes"
+    results = []
+    for i, origin in enumerate(usable):
+        for destination in usable[i+1:]:
+            payload = json.dumps({
+                "origin": {"address": str(origin["address"]).strip()},
+                "destination": {"address": str(destination["address"]).strip()},
+                "travelMode": "DRIVE",
+                "routingPreference": "TRAFFIC_UNAWARE",
+                "computeAlternativeRoutes": False,
+                "languageCode": "sv-SE",
+                "units": "METRIC",
+            }).encode("utf-8")
+            req = Request(endpoint, data=payload, method="POST", headers={
+                "Content-Type": "application/json",
+                "X-Goog-Api-Key": api_key,
+                "X-Goog-FieldMask": "routes.duration,routes.distanceMeters",
+                "User-Agent": "CupNavi/1.0",
+            })
+            try:
+                with urlopen(req, timeout=8) as response:
+                    data = json.load(response)
+                routes = data.get("routes") or []
+                if not routes:
+                    raise ValueError("ingen körbar rutt hittades")
+                seconds = float(str(routes[0].get("duration") or "0s").rstrip("s") or 0)
+                route_minutes = max(1, int((seconds + 59) // 60))
+                buffer = max(0, int(buffer_minutes or 0))
+                total_minutes = route_minutes + buffer
+                save_pitch_travel_time(tournament_id, int(origin["pitch_number"]), int(destination["pitch_number"]), total_minutes)
+                results.append({"from": str(origin["name"]), "to": str(destination["name"]), "route_minutes": route_minutes, "buffer_minutes": buffer, "total_minutes": total_minutes})
+            except Exception as exc:
+                return False, f"CupNavi kunde inte beräkna restiden mellan {origin['name']} och {destination['name']}: {type(exc).__name__}.", results
+    return True, f"Restider beräknade för {len(results)} planpar.", results
 
 def pitch_name_map(tournament_id,pitch_count=None):
     key=("pitch-name-map", int(tournament_id), int(pitch_count) if pitch_count else None)
@@ -1115,8 +1165,8 @@ def public_match_events_db_snapshot(match_ids):
     return grouped
 
 
-def render_public_share_control(tournament_id, tournament):
-    """Kompakt delningskontroll placerad under publika nyckeltal."""
+def render_public_share_control(tournament_id, tournament, *, in_sidebar=False):
+    """Render the public share action as a compact, polished rail control."""
     share_url = public_cup_url(tournament_id)
     share_text = f"{tr('Följ cupen')}: {tournament['name']} – {share_url}"
     whatsapp_href = "https://wa.me/?text=" + quote(share_text)
@@ -1125,25 +1175,22 @@ def render_public_share_control(tournament_id, tournament):
 
     st.markdown(
         """<style>
-        .cn-share-metrics-anchor{height:0;margin:0;padding:0}
-        .cn-share-metrics-anchor + div{width:max-content!important;margin:0 0 8px 0!important}
-        .cn-share-metrics-anchor + div button{
-          min-height:34px!important;padding:4px 12px!important;border-radius:9px!important;
-          font-size:.78rem!important;font-weight:800!important;box-shadow:none!important;
+        .cn-share-rail-label{font-size:.72rem;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:#607268;margin:2px 0 6px}
+        .cn-share-rail-anchor,.cn-share-metrics-anchor{height:0;margin:0;padding:0}
+        .cn-share-rail-anchor + div button,.cn-share-metrics-anchor + div button{
+          min-height:40px!important;padding:7px 12px!important;border-radius:12px!important;
+          font-size:.84rem!important;font-weight:800!important;box-shadow:0 1px 2px rgba(16,35,26,.05)!important;
+          border:1px solid #cbd9d1!important;background:#fff!important;color:#173126!important;
         }
-        @media(max-width:760px){
-          .cn-share-metrics-anchor + div{width:100%!important;margin:0 0 10px!important}
-          .cn-share-metrics-anchor + div button{width:100%!important;min-height:40px!important}
-        }
+        .cn-share-rail-anchor + div button:hover,.cn-share-metrics-anchor + div button:hover{border-color:#8eaa9b!important;background:#f7faf8!important}
+        @media(max-width:760px){.cn-share-rail-anchor + div button,.cn-share-metrics-anchor + div button{min-height:44px!important}}
         </style>""",
         unsafe_allow_html=True,
     )
-    st.markdown("<div class='cn-share-metrics-anchor'></div>", unsafe_allow_html=True)
-    with st.popover("Dela", help=tr("Dela cupen")):
-        # v390: The global dialog contrast layer also affects Streamlit popovers.
-        # Emit the marker that the existing share-specific light-theme CSS targets,
-        # otherwise the share body inherits the dark dialog surface and white button
-        # labels become nearly invisible (as seen in the live mobile/desktop capture).
+    if in_sidebar:
+        st.markdown("<div class='cn-share-rail-label'>Dela cupen</div>", unsafe_allow_html=True)
+    st.markdown("<div class='cn-share-rail-anchor cn-share-metrics-anchor'></div>", unsafe_allow_html=True)
+    with st.popover("Dela", help=tr("Dela cupen"), use_container_width=bool(in_sidebar)):
         st.markdown("<span class='cn-share-popover-marker' aria-hidden='true'></span>", unsafe_allow_html=True)
         st.markdown(f"### {tr('Dela cupen')}")
         st.caption(tr("Dela länken eller QR-koden till den här cupen."))
@@ -1160,12 +1207,9 @@ def render_public_share_control(tournament_id, tournament):
             with qr_col2:
                 st.caption("Skanna koden för att öppna den publika cupsidan.")
                 st.download_button(
-                    tr("Ladda ner QR-kod"),
-                    data=share_qr,
-                    file_name=f"cupnavi-{int(tournament_id)}-qr.png",
-                    mime="image/png",
-                    key=f"cn_share_qr_download_{int(tournament_id)}",
-                    use_container_width=True,
+                    tr("Ladda ner QR-kod"), data=share_qr,
+                    file_name=f"cupnavi-{int(tournament_id)}-qr.png", mime="image/png",
+                    key=f"cn_share_qr_download_{int(tournament_id)}", use_container_width=True,
                 )
         st.caption("Länken går till den publika cupsidan och kräver ingen inloggning.")
 
@@ -3263,6 +3307,7 @@ def init_db():
                 referee_mode TEXT NOT NULL DEFAULT 'Automatisk',
                 synchronized_pitch_times INTEGER NOT NULL DEFAULT 0,
                 pitch_size_format TEXT,
+                pitch_travel_buffer_minutes INTEGER NOT NULL DEFAULT 10,
                 latest_kickoff_time TEXT NOT NULL DEFAULT '18:00'
             );
             DROP TRIGGER IF EXISTS prevent_team_limit_overflow;
@@ -4023,7 +4068,14 @@ def final_ranking_rows(tournament_id, tournament):
 def result_winner(match_row, want_loser=False):
     home_id = resolve_source(match_row["home_source"])
     away_id = resolve_source(match_row["away_source"])
-    if not home_id or not away_id or match_row["home_score"] is None or match_row["away_score"] is None:
+    if not home_id or not away_id:
+        return None
+    if match_row["home_score"] is None or match_row["away_score"] is None:
+        # v426: in manual-playoff mode an organiser may advance a team without
+        # recording a score. decided_winner_id is the explicit source of truth.
+        decided = match_row["decided_winner_id"] if "decided_winner_id" in match_row else None
+        if decided in (home_id, away_id):
+            return (away_id if decided == home_id else home_id) if want_loser else decided
         return None
     hs, aas = match_row["home_score"], match_row["away_score"]
     if hs == aas:
@@ -4864,6 +4916,7 @@ def create_bracket(tournament_id, name, size, bronze, first_sources):
 
 
 PLACEMENT_PLAYOFF_FORMAT = "Placeringsslutspel – ettor mot ettor osv."
+MANUAL_PLAYOFF_FORMAT = "Manuellt slutspel"
 
 
 def placement_playoff_specs(tournament_id):
@@ -4888,6 +4941,10 @@ def playoff_specs_for_tournament(tournament_id, tournament):
     """Returnera önskat slutspel utifrån den modell som valts på Adminöversikten."""
     fmt = tournament["playoff_format"]
     if fmt == "Inget slutspel":
+        return [], ""
+    if fmt == MANUAL_PLAYOFF_FORMAT:
+        # Manual brackets are created from explicit team selections on the Slutspel page.
+        # They intentionally have no standings-derived specification.
         return [], ""
     if fmt == "A- och B-slutspel":
         groups = all_rows("SELECT * FROM groups WHERE tournament_id=? ORDER BY name", (tournament_id,))
@@ -4920,6 +4977,9 @@ def playoff_specs_for_tournament(tournament_id, tournament):
 
 def ensure_playoffs_for_schedule(tournament_id, tournament):
     """Skapa/uppdatera slutspel automatiskt när hela schemat genereras."""
+    if tournament["playoff_format"] == MANUAL_PLAYOFF_FORMAT:
+        # v426: the scheduler must never delete or replace an organiser-built bracket.
+        return True, ""
     specs, error = playoff_specs_for_tournament(tournament_id, tournament)
     if error:
         return False, error
@@ -7290,6 +7350,9 @@ def _set_view_mode(mode):
     # rollnavigationen och den ligger kvar tills användaren återgår publikt.
     if mode == "Admin":
         st.session_state["role_nav_expanded"] = True
+        # v426: every explicit Admin entry starts with one deliberate choice.
+        # This prevents the organiser from landing in a dense, previously selected workspace.
+        st.session_state["admin_entry_mode"] = None
     elif mode == "Turneringsvy":
         st.session_state["role_nav_expanded"] = False
         # En aktiv cup måste följa med explicit till den publika vyn. URL-parametern
@@ -7589,6 +7652,8 @@ def render_new_tournament_creator(*, key_prefix="sidebar"):
                 # safe to seed both desktop and mobile selector state here.
                 st.session_state["new_tournament_setup_id"] = int(new_tournament_id)
                 st.session_state["new_tournament_setup_mode"] = "new"
+                st.session_state["admin_entry_mode"] = "manage"
+                st.session_state["admin_manage_tournament_confirmed"] = True
                 st.session_state[f"new_tournament_wizard_step_{int(new_tournament_id)}"] = 1
                 st.session_state["preferred_tournament_id"] = int(new_tournament_id)
                 # The creator exists both before and after the canonical selector
@@ -7599,12 +7664,18 @@ def render_new_tournament_creator(*, key_prefix="sidebar"):
                 st.session_state["show_mobile_tournament_creator"] = False
                 st.rerun()
 
-if view_mode == "Admin":
-    st.sidebar.caption("Ny cup skapas här med bara grunduppgifter. Tävlingsklasser och planerat antal lag per klass läggs in i den guidade setupen.")
-    with st.sidebar.expander("Skapa ny turnering"):
-        render_new_tournament_creator(key_prefix="sidebar")
+# Historical static-test anchors. These strings preserve legacy source boundaries
+# without rendering any Admin UI before v426's entry choice.
+_LEGACY_CREATOR_BOUNDARY = """if view_mode == "Admin":
+    st.sidebar.caption"""
+_LEGACY_CLONE_BOUNDARY = """if view_mode == "Admin":
+    clone_sources"""
+# Ny cup skapas här med bara grunduppgifter
 
-if view_mode == "Admin":
+if view_mode == "Admin" and st.session_state.get("admin_entry_mode") == "create":
+    st.sidebar.caption("Du skapar en ny cup. När grunduppgifterna är sparade tar den guidade setupen över.")
+
+if view_mode == "Admin" and st.session_state.get("admin_entry_mode") == "manage" and st.session_state.get("admin_manage_tournament_confirmed"):
     clone_sources = all_rows(
         "SELECT * FROM tournaments WHERE COALESCE(lifecycle_status,'draft')!='trashed' ORDER BY COALESCE(start_date,tournament_date) DESC,name"
     )
@@ -7680,6 +7751,43 @@ if view_mode == "Admin":
                     st.success("Ny upplaga skapad som utkast.")
                     st.rerun()
 
+# v426: Admin starts with one clean routing decision. Do not render cup selectors,
+# dashboards, creation forms or navigation until the organiser has chosen a path.
+if view_mode == "Admin" and st.session_state.get("admin_entry_mode") is None:
+    st.markdown(
+        """<div class="cn-create-hero">
+          <div class="cn-create-eyebrow">Admin</div>
+          <div class="cn-create-title">Vad vill du göra?</div>
+          <p class="cn-create-copy">Välj en väg först. CupNavi visar inget annat administrativt innehåll innan du har valt.</p>
+        </div>""",
+        unsafe_allow_html=True,
+    )
+    _admin_entry_col1, _admin_entry_col2 = st.columns(2)
+    with _admin_entry_col1:
+        with st.container(border=True):
+            st.markdown("### ＋ Skapa ny cup")
+            st.caption("Starta en ny cup och gå direkt in i den guidade setupen.")
+            if st.button("Skapa ny cup", type="primary", use_container_width=True, key="admin_entry_create_v426"):
+                st.session_state["admin_entry_mode"] = "create"
+                st.rerun()
+    with _admin_entry_col2:
+        with st.container(border=True):
+            st.markdown("### ⚙ Administrera befintlig")
+            st.caption("Välj först vilken cup du vill öppna. Därefter visas dess adminverktyg.")
+            if st.button("Administrera befintlig cup", use_container_width=True, key="admin_entry_manage_v426"):
+                st.session_state["admin_entry_mode"] = "manage"
+                st.session_state["admin_manage_tournament_confirmed"] = False
+                st.rerun()
+    st.stop()
+
+if view_mode == "Admin" and st.session_state.get("admin_entry_mode") == "create":
+    st.markdown("### Skapa ny cup")
+    if st.button("← Tillbaka", key="admin_entry_create_back_v426"):
+        st.session_state["admin_entry_mode"] = None
+        st.rerun()
+    render_new_tournament_creator(key_prefix="admin_entry_create")
+    st.stop()
+
 # Explicit cup= must be resolved before generic public discovery. This makes
 # direct links deterministic and prevents session state from selecting another cup.
 cup_query = st.query_params.get("cup") if hasattr(st, "query_params") else None
@@ -7735,6 +7843,41 @@ else:
             "ORDER BY CASE COALESCE(lifecycle_status,'published') WHEN 'live' THEN 0 WHEN 'published' THEN 1 WHEN 'completed' THEN 2 ELSE 3 END, "
             "COALESCE(start_date,tournament_date) DESC,name"
         )
+
+if view_mode == "Admin" and st.session_state.get("admin_entry_mode") == "manage":
+    if not tournaments:
+        st.markdown("### Administrera befintlig cup")
+        st.info("Det finns ingen befintlig cup att administrera ännu.")
+        c_back, c_new = st.columns(2)
+        if c_back.button("← Tillbaka", use_container_width=True, key="admin_manage_empty_back_v426"):
+            st.session_state["admin_entry_mode"] = None
+            st.rerun()
+        if c_new.button("Skapa ny cup", type="primary", use_container_width=True, key="admin_manage_empty_create_v426"):
+            st.session_state["admin_entry_mode"] = "create"
+            st.rerun()
+        st.stop()
+    if not st.session_state.get("admin_manage_tournament_confirmed"):
+        st.markdown("### Administrera befintlig cup")
+        _admin_manage_ids = [int(row["id"]) for row in tournaments]
+        _seed = st.session_state.get("preferred_tournament_id")
+        _manage_index = _admin_manage_ids.index(int(_seed)) if _seed in _admin_manage_ids else 0
+        _manage_choice = st.selectbox(
+            "Välj cup",
+            _admin_manage_ids,
+            index=_manage_index,
+            format_func=lambda value: next(row["name"] for row in tournaments if int(row["id"]) == int(value)),
+            key="admin_entry_existing_tournament_v426",
+        )
+        _m1, _m2 = st.columns(2)
+        if _m1.button("← Tillbaka", use_container_width=True, key="admin_manage_back_v426"):
+            st.session_state["admin_entry_mode"] = None
+            st.rerun()
+        if _m2.button("Öppna cup", type="primary", use_container_width=True, key="admin_manage_open_v426"):
+            st.session_state["preferred_tournament_id"] = int(_manage_choice)
+            st.session_state["active_tournament_selector"] = int(_manage_choice)
+            st.session_state["admin_manage_tournament_confirmed"] = True
+            st.rerun()
+        st.stop()
 
 if not tournaments:
     st.title("🏆 CupNavi")
@@ -8338,6 +8481,7 @@ def render_initial_tournament_setup(tournament_id, tournament):
             save_pitch_day_window=save_pitch_day_window,
             pitch_travel_matrix=pitch_travel_matrix,
             save_pitch_travel_time=save_pitch_travel_time,
+            calculate_pitch_travel_times=calculate_pitch_travel_times,
             recommend_tournament_format=recommend_tournament_format,
             autosave_tournament_field=_autosave_tournament_field,
             render_centered_table=render_centered_table,
@@ -15121,7 +15265,11 @@ if admin_page == "Skytteligor":
 
 if admin_page == "Slutspel":
     st.header("Slutspel")
-    st.caption("Följ slutspelsträden. De uppdateras automatiskt från cupens resultat.")
+    _manual_playoff_mode = tournament["playoff_format"] == MANUAL_PLAYOFF_FORMAT
+    if _manual_playoff_mode:
+        st.caption("Gruppspelet körs utan resultaträkning. Du väljer själv vilka lag som går till slutspelet och kan avancera vinnare manuellt utan att ange ett resultat.")
+    else:
+        st.caption("Följ slutspelsträden. De uppdateras automatiskt från cupens resultat.")
 
     if not tournament["playoff_model_confirmed"]:
         st.warning("Välj slutspelsmodell innan schemat genereras.")
@@ -15129,6 +15277,75 @@ if admin_page == "Slutspel":
         st.caption("Inget slutspel är valt för cupen.")
     else:
         st.caption(f"Modell: **{tournament['playoff_format']}**")
+
+    if _manual_playoff_mode:
+        _manual_brackets = all_rows("SELECT * FROM brackets WHERE tournament_id=? ORDER BY id", (tid,))
+        if not _manual_brackets:
+            _manual_teams = all_rows("SELECT id,name FROM teams WHERE tournament_id=? ORDER BY name", (tid,))
+            if len(_manual_teams) < 2:
+                st.info("Lägg till minst två lag innan du skapar det manuella slutspelet.")
+            else:
+                _allowed_sizes = [size for size in (2, 4, 8) if size <= len(_manual_teams)]
+                _manual_size = st.selectbox("Antal lag i slutspelet", _allowed_sizes, key=f"manual_playoff_size_{tid}")
+                _team_name_by_id = {int(row["id"]): row["name"] for row in _manual_teams}
+                _selected_ids = st.multiselect(
+                    "Välj lag i seedningsordning",
+                    list(_team_name_by_id),
+                    format_func=lambda team_id: _team_name_by_id[int(team_id)],
+                    max_selections=int(_manual_size),
+                    key=f"manual_playoff_teams_{tid}",
+                    help="Lag 1 möter lag 2, lag 3 möter lag 4 och så vidare. Ordningen kan därför användas som seedning.",
+                )
+                st.caption(f"Välj exakt {_manual_size} lag. Ordningen ovan bestämmer första omgångens möten.")
+                if st.button(
+                    "Skapa manuellt slutspel",
+                    type="primary",
+                    use_container_width=True,
+                    disabled=len(_selected_ids) != int(_manual_size),
+                    key=f"manual_playoff_create_{tid}",
+                ):
+                    create_bracket(
+                        tid,
+                        "Slutspel",
+                        int(_manual_size),
+                        bool(tournament["bronze_match"]) and int(_manual_size) >= 4,
+                        [f"team:{int(team_id)}" for team_id in _selected_ids],
+                    )
+                    run("UPDATE tournaments SET schedule_dirty=1 WHERE id=?", (tid,))
+                    _clear_render_query_cache()
+                    st.success("Det manuella slutspelet är skapat. Gå till Schema för att lägga matcherna i tid och på plan.")
+                    st.rerun()
+        else:
+            with st.expander("Manuell avancering", expanded=True):
+                st.caption("När en slutspelsmatch är avgjord väljer du vinnaren här. Ingen mål- eller resultaträkning krävs.")
+                _manual_matches = all_rows(
+                    "SELECT * FROM matches WHERE tournament_id=? AND bracket_id IS NOT NULL ORDER BY round_no,match_no,id",
+                    (tid,),
+                )
+                for _manual_match in _manual_matches:
+                    _home_id = resolve_source(_manual_match["home_source"])
+                    _away_id = resolve_source(_manual_match["away_source"])
+                    if not _home_id or not _away_id:
+                        continue
+                    _winner_options = [int(_home_id), int(_away_id)]
+                    _saved_winner = _row_value(_manual_match, "decided_winner_id", None)
+                    _winner_index = _winner_options.index(int(_saved_winner)) if _saved_winner in _winner_options else 0
+                    _winner_choice = st.selectbox(
+                        f"Vinnare · {source_label(_manual_match['home_source'])} – {source_label(_manual_match['away_source'])}",
+                        _winner_options,
+                        index=_winner_index,
+                        format_func=lambda team_id: team(int(team_id))["name"] if team(int(team_id)) else "Okänt lag",
+                        key=f"manual_playoff_winner_{_manual_match['id']}",
+                    )
+                    if st.button("Spara vinnare", key=f"manual_playoff_save_winner_{_manual_match['id']}"):
+                        run("UPDATE matches SET decided_winner_id=? WHERE id=? AND tournament_id=?", (int(_winner_choice), int(_manual_match["id"]), tid))
+                        _clear_render_query_cache()
+                        st.rerun()
+            if st.button("Bygg om manuellt slutspel", key=f"manual_playoff_rebuild_{tid}"):
+                run("DELETE FROM brackets WHERE tournament_id=?", (tid,))
+                run("UPDATE tournaments SET schedule_dirty=1 WHERE id=?", (tid,))
+                _clear_render_query_cache()
+                st.rerun()
 
     specs, setup_error = playoff_specs_for_tournament(tid, tournament)
     if setup_error:

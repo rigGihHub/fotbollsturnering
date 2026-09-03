@@ -22,7 +22,7 @@ def _match(mid, start, status="not_started"):
 
 
 def test_version_and_release_note():
-    assert VERSION == "2026.09.03-424-PUBLIC-INFO-ROUNDTRIP-CUT"
+    assert VERSION == "2026.09.03-427-TRAVEL-RULES-FLOW"
     assert (ROOT / "FIRST_CUP_DAY_HANDOFF_V403.md").exists()
 
 

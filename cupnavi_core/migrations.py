@@ -9,7 +9,7 @@ Regel:
 from dataclasses import dataclass
 from datetime import datetime, timezone
 
-LATEST_SCHEMA_VERSION = 31
+LATEST_SCHEMA_VERSION = 32
 # Historical QA anchor: LATEST_SCHEMA_VERSION = 27
 
 
@@ -533,6 +533,11 @@ MIGRATIONS = (
         "pitch_size_format",
         (),
     ),
+    Migration(
+        32,
+        "pitch_travel_buffer",
+        (),
+    ),
 
 )
 
@@ -900,6 +905,19 @@ def ensure_v31_schema_compat(con):
     if "pitch_size_format" not in cols:
         con.execute("ALTER TABLE schedule_rules ADD COLUMN pitch_size_format TEXT")
 
+
+def ensure_v32_schema_compat(con):
+    """Idempotent extra buffer added on top of automatically calculated pitch travel."""
+    try:
+        cols = {row[1] for row in con.execute("PRAGMA table_info(schedule_rules)").fetchall()}
+    except Exception:
+        cols = set()
+    if not cols:
+        con.execute("CREATE TABLE schedule_rules(tournament_id INTEGER PRIMARY KEY)")
+        cols = {"tournament_id"}
+    if "pitch_travel_buffer_minutes" not in cols:
+        con.execute("ALTER TABLE schedule_rules ADD COLUMN pitch_travel_buffer_minutes INTEGER NOT NULL DEFAULT 10")
+
 def apply_migrations(con):
     """Applicera alla saknade migreringar och returnera nya versionsnummer."""
     ensure_migration_table(con)
@@ -929,6 +947,8 @@ def apply_migrations(con):
             ensure_v30_schema_compat(con)
         if migration.version == 31:
             ensure_v31_schema_compat(con)
+        if migration.version == 32:
+            ensure_v32_schema_compat(con)
         for statement in migration.statements:
             _execute(con, statement)
         _execute(

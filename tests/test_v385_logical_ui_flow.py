@@ -7,7 +7,7 @@ STYLE=(ROOT/"cupnavi_core/style_system.py").read_text(encoding="utf-8")
 VERSION=(ROOT/"VERSION.txt").read_text().strip()
 
 def test_release_version():
-    assert VERSION=="2026.09.03-424-PUBLIC-INFO-ROUNDTRIP-CUT"
+    assert VERSION=="2026.09.03-427-TRAVEL-RULES-FLOW"
 
 def test_workspace_headers_keep_step_context_without_duplicate_trail():
     assert "Planeringsflöde · Deltagare" in APP

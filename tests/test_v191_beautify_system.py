@@ -6,7 +6,7 @@ STYLE=(ROOT/"cupnavi_core/style_system.py").read_text(encoding="utf-8")
 PWA=(ROOT/"public_pwa/styles.css").read_text(encoding="utf-8")
 STATS=(ROOT/"cupnavi_core/public_statistics_view.py").read_text(encoding="utf-8")
 MATCH=(ROOT/"cupnavi_core/public_match_cards.py").read_text(encoding="utf-8")
-R="2026.09.03-424-PUBLIC-INFO-ROUNDTRIP-CUT"
+R="2026.09.03-427-TRAVEL-RULES-FLOW"
 
 def test_design_system_has_functional_tokens():
     for token in (

@@ -67,4 +67,4 @@ def test_v411_ui_is_lazy_and_read_only():
 
 
 def test_v411_version():
-    assert Path("VERSION.txt").read_text().strip() == "2026.09.03-424-PUBLIC-INFO-ROUNDTRIP-CUT"
+    assert Path("VERSION.txt").read_text().strip() == "2026.09.03-427-TRAVEL-RULES-FLOW"

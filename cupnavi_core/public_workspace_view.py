@@ -105,6 +105,12 @@ def render_public_workspace(tournament_id: int, tournament: Any, deps: PublicWor
     swedish_datetime = deps.swedish_datetime
     tr = deps.tr
     track_public_visit = deps.track_public_visit
+
+    # v425: Sharing belongs to the persistent left rail, not inside Matcher's
+    # content hierarchy. This keeps the action available on every public page
+    # without interrupting the summary-card flow.
+    with st.sidebar:
+        render_public_share_control(tournament_id, tournament, in_sidebar=True)
     unsubscribe_notification_subscription = deps.unsubscribe_notification_subscription
     weather_for_match = deps.weather_for_match
     weather_label = deps.weather_label
@@ -442,10 +448,11 @@ def render_public_workspace(tournament_id: int, tournament: Any, deps: PublicWor
         else:
             st.info("Den här cupen spelas utan resultaträkning. Därför visas ingen tabell.")
     if public_page == "Slutspel":
-        if _results_counted:
+        _manual_playoff = str(_row_value(tournament, "playoff_format", "") or "") == "Manuellt slutspel"
+        if _results_counted or _manual_playoff:
             render_public_statistics_section(tournament_id, tournament, published_matches, played_matches, forced_section=tr("Slutspel"), public_team_by_id=public_team_by_id)
         else:
-            st.info("Den här cupen spelas utan resultaträkning och har därför inget resultatbaserat slutspel.")
+            st.info("Den här cupen spelas utan resultaträkning och har därför inget slutspel.")
     if public_page == "Info":
         # v424: the Info renderer combines rules + completion counters into one
         # fresh DB read. Avoid a separate aggregate query before rendering.

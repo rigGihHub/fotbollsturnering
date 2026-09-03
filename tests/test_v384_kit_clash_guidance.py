@@ -9,7 +9,7 @@ VERSION = (ROOT / "VERSION.txt").read_text().strip()
 
 
 def test_release_version():
-    assert VERSION == "2026.09.03-424-PUBLIC-INFO-ROUNDTRIP-CUT"
+    assert VERSION == "2026.09.03-427-TRAVEL-RULES-FLOW"
 
 
 def test_clear_kits_need_no_action():

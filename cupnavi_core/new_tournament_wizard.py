@@ -28,6 +28,7 @@ def render_new_tournament_wizard(tournament_id, tournament, *, deps):
     save_pitch_day_window = deps.save_pitch_day_window
     recommend_tournament_format = deps.recommend_tournament_format
     all_rows = deps.all_rows
+    calculate_pitch_travel_times = deps.calculate_pitch_travel_times
     date_with_weekday = deps.date_with_weekday
     YOUTH_CLASS_CATEGORIES = deps.youth_class_categories
     YOUTH_CLASS_YEARS = deps.youth_class_years
@@ -93,13 +94,36 @@ def render_new_tournament_wizard(tournament_id, tournament, *, deps):
             arrangement_type = choice
         is_matchcamp = choice == ARRANGEMENT_MATCHCAMP
         saved_results = bool(_row_value(tournament, "results_counted", 1))
-        result_options = ["Utan resultat", "Registrera resultat"] if is_matchcamp else ["Resultat, tabell och placeringar", "Spela utan resultaträkning"]
-        current_index = (1 if saved_results else 0) if is_matchcamp else (0 if saved_results else 1)
+        saved_playoff = str(_row_value(tournament, "playoff_format", "Inget slutspel") or "Inget slutspel")
+        result_options = (
+            ["Utan resultat", "Registrera resultat"]
+            if is_matchcamp
+            else [
+                "Resultat, tabell och placeringar",
+                "Spela utan resultaträkning",
+                "Spela utan resultat · skapa slutspel manuellt",
+            ]
+        )
+        if is_matchcamp:
+            current_index = 1 if saved_results else 0
+        elif saved_results:
+            current_index = 0
+        elif saved_playoff == "Manuellt slutspel":
+            current_index = 2
+        else:
+            current_index = 1
         mode = st.radio("Ska resultat registreras?", result_options, index=current_index, key=f"wizard_results_{tournament_id}")
         results_now = mode == "Registrera resultat" if is_matchcamp else mode == "Resultat, tabell och placeringar"
-        if results_now != saved_results:
+        manual_playoff_now = (not is_matchcamp) and mode == "Spela utan resultat · skapa slutspel manuellt"
+        desired_playoff = (
+            "Inget slutspel"
+            if is_matchcamp or (not results_now and not manual_playoff_now)
+            else ("Manuellt slutspel" if manual_playoff_now else saved_playoff)
+        )
+        desired_confirmed = 1 if (is_matchcamp or not results_now) else int(_row_value(tournament,"playoff_model_confirmed",0))
+        if results_now != saved_results or desired_playoff != saved_playoff:
             run("UPDATE tournaments SET results_counted=?,playoff_format=?,playoff_model_confirmed=?,schedule_dirty=1 WHERE id=?",
-                (1 if results_now else 0, "Inget slutspel" if (is_matchcamp or not results_now) else _row_value(tournament,"playoff_format","Inget slutspel"), 1 if (is_matchcamp or not results_now) else int(_row_value(tournament,"playoff_model_confirmed",0)), tournament_id))
+                (1 if results_now else 0, desired_playoff, desired_confirmed, tournament_id))
         nav(back=False)
         return
 
@@ -123,14 +147,26 @@ def render_new_tournament_wizard(tournament_id, tournament, *, deps):
         planned_total = 0
         for row in class_rows:
             actual = int(team_count_by_class.get(int(row["id"]), 0))
-            saved = max(actual, int(_row_value(row,"planned_team_count",0) or 0))
+            saved = max(actual, int(_row_value(row,"planned_team_count",0) or 0), 2)
+            planned_total += int(saved)
             with st.container(border=True):
-                st.markdown(f"**{competition_class_label(row)}**")
-                n = st.number_input("Planerade lag", min_value=max(2,actual), max_value=200, value=max(2,saved or 8), key=f"wizard_class_count_{row['id']}")
-                planned_total += int(n)
-                if int(n) != int(_row_value(row,"planned_team_count",0) or 0):
-                    run("UPDATE competition_classes SET planned_team_count=? WHERE id=?", (int(n), int(row["id"])))
-                    sync_expected_team_count_from_classes(tournament_id)
+                st.markdown(f"**{competition_class_label(row)}** · {saved} planerade lag")
+                st.caption(f"{actual} lag är registrerade hittills." if actual else "Lagantalet sparades när klassen lades till.")
+                _edit_key = f"wizard_edit_class_count_{row['id']}"
+                if st.button("Ändra lagantal", key=f"wizard_toggle_class_count_{row['id']}"):
+                    st.session_state[_edit_key] = not bool(st.session_state.get(_edit_key, False))
+                if st.session_state.get(_edit_key, False):
+                    n = st.number_input(
+                        "Nytt planerat lagantal",
+                        min_value=max(2,actual),
+                        max_value=200,
+                        value=int(saved),
+                        key=f"wizard_class_count_{row['id']}",
+                    )
+                    if int(n) != int(_row_value(row,"planned_team_count",0) or 0):
+                        run("UPDATE competition_classes SET planned_team_count=? WHERE id=?", (int(n), int(row["id"])))
+                        sync_expected_team_count_from_classes(tournament_id)
+                        st.rerun()
                 if st.button("Ta bort", key=f"wizard_remove_class_{row['id']}"):
                     ok, message = remove_competition_class(tournament_id, int(row["id"]))
                     (st.success if ok else st.error)(message)
@@ -219,6 +255,24 @@ def render_new_tournament_wizard(tournament_id, tournament, *, deps):
                 if checked != verified:
                     run("UPDATE pitches SET address_verified=? WHERE tournament_id=? AND pitch_number=?", (1 if checked else 0,tournament_id,pitch))
                 if not checked: unverified += 1
+        if pitch_count > 1:
+            st.markdown("**Restid mellan planer**")
+            _travel_saved=bool(_row_value(rules,"consider_pitch_travel",0))
+            _travel_on=st.checkbox("Ta hänsyn till restid mellan planerna",value=_travel_saved,key=f"wizard_consider_travel_{tournament_id}",help="CupNavi beräknar faktisk körtid från verifierade planadresser och lägger på din marginal.")
+            if _travel_on != _travel_saved:
+                run("UPDATE schedule_rules SET consider_pitch_travel=? WHERE tournament_id=?",(1 if _travel_on else 0,int(tournament_id)))
+            if _travel_on:
+                _saved_buffer=int(_row_value(rules,"pitch_travel_buffer_minutes",10) or 0)
+                _buffer=st.number_input("Extra tid utöver den faktiska restiden",0,60,_saved_buffer,key=f"wizard_travel_buffer_{tournament_id}",help="Exempel: 12 min körtid + 8 min marginal = minst 20 min mellan planerna.")
+                if int(_buffer)!=_saved_buffer:
+                    run("UPDATE schedule_rules SET pitch_travel_buffer_minutes=? WHERE tournament_id=?",(int(_buffer),int(tournament_id)))
+                st.caption("Du anger bara marginalen. CupNavi räknar själva körtiden mellan de verifierade adresserna.")
+                if st.button("Beräkna restider med CupNavi",use_container_width=True,key=f"wizard_calc_travel_{tournament_id}"):
+                    _ok,_message,_rows=calculate_pitch_travel_times(tournament_id,int(_buffer))
+                    (st.success if _ok else st.warning)(_message)
+                    for _row in _rows:
+                        st.caption(f"{_row['from']} → {_row['to']}: {_row['route_minutes']} min + {_row['buffer_minutes']} min marginal = {_row['total_minutes']} min")
+
         windows = ensure_pitch_day_windows(tournament_id, tournament, pitch_count, rules["first_match_time"], rules["latest_kickoff_time"])
         valid = True
         by_day = {}
@@ -259,13 +313,16 @@ def render_new_tournament_wizard(tournament_id, tournament, *, deps):
                     use_container_width=True,
                     key=f"wizard_manual_setup_{tournament_id}",
                 ):
-                    st.session_state["new_tournament_setup_mode"] = "edit"
+                    st.session_state["new_tournament_setup_mode"] = "rules"
                     st.session_state["new_tournament_setup_id"] = int(tournament_id)
                     st.session_state["preferred_tournament_id"] = int(tournament_id)
                     st.rerun()
             with assist_col:
                 st.markdown("**Låt CupNavi föreslå**")
                 st.caption("Ett snabbspår om du vill få ett rimligt grundupplägg utifrån lag, planer och tillgänglig tid.")
+                if st.button("Visa CupNavis förslag",use_container_width=True,key=f"wizard_show_rec_{tournament_id}"):
+                    st.session_state[f"wizard_rec_visible_{tournament_id}"]=True
+                    st.rerun()
 
         available = available_pitch_minutes(windows, row_value=_row_value) or 480
         match_minutes = estimated_match_length_minutes(rules, row_value=_row_value)
@@ -303,6 +360,10 @@ def render_new_tournament_wizard(tournament_id, tournament, *, deps):
                 st.warning(f"Upplägget behöver ungefär {shortage} fler planminuter. Minska matcher per lag, lägg till plantid eller använd fler planer.")
             st.info("CupNavi skapar senare själva matchcamp-schemat och försöker ge lagen jämnt motstånd, jämn speltid och bra vila.")
         else:
+            if not st.session_state.get(f"wizard_rec_visible_{tournament_id}",False):
+                st.info("Välj **Ställ in regler och upplägg själv** eller **Visa CupNavis förslag** ovan.")
+                nav(next_label="Kontrollera setupen")
+                return
             st.caption("CupNavis frivilliga snabbförslag")
             rec = recommend_tournament_format(
                 sport=_row_value(tournament,"sport","Fotboll"), team_count=max(2,planned_total), pitch_count=pitch_count,
@@ -332,7 +393,12 @@ def render_new_tournament_wizard(tournament_id, tournament, *, deps):
     st.markdown("### Klart att lägga till lag")
     st.caption("Här ser du vad du har valt innan du går vidare. CupNavi kontrollerar bara sådant som faktiskt behövs för nästa steg.")
     summary_type = arrangement_label(arrangement_type)
-    summary_results = "Resultat registreras" if bool(_row_value(tournament, "results_counted", 1)) else "Utan resultaträkning"
+    _summary_playoff = str(_row_value(tournament, "playoff_format", "Inget slutspel") or "Inget slutspel")
+    summary_results = (
+        "Resultat registreras"
+        if bool(_row_value(tournament, "results_counted", 1))
+        else ("Utan gruppresultat · manuellt slutspel" if _summary_playoff == "Manuellt slutspel" else "Utan resultaträkning")
+    )
     _timing_summary = "synkroniserade avsparkstider" if bool(_row_value(rules, "synchronized_pitch_times", 0)) else "dynamiska plantider"
     _pitch_size_summary = str(_row_value(rules, "pitch_size_format", "") or "").strip()
     _pitch_size_part = f" · **{_pitch_size_summary}**" if _pitch_size_summary else ""

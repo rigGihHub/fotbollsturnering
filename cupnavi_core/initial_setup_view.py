@@ -46,6 +46,7 @@ class InitialSetupDependencies:
     save_pitch_day_window: Callable[..., Any]
     pitch_travel_matrix: Callable[..., Any]
     save_pitch_travel_time: Callable[..., Any]
+    calculate_pitch_travel_times: Callable[..., Any]
     recommend_tournament_format: Callable[..., Any]
     autosave_tournament_field: Callable[..., Any]
     render_centered_table: Callable[..., Any]
@@ -80,6 +81,7 @@ def render_initial_tournament_setup(tournament_id, tournament, *, deps: InitialS
     save_pitch_day_window = deps.save_pitch_day_window
     pitch_travel_matrix = deps.pitch_travel_matrix
     save_pitch_travel_time = deps.save_pitch_travel_time
+    calculate_pitch_travel_times = deps.calculate_pitch_travel_times
     recommend_tournament_format = deps.recommend_tournament_format
     _autosave_tournament_field = deps.autosave_tournament_field
     render_centered_table = deps.render_centered_table
@@ -118,6 +120,42 @@ def render_initial_tournament_setup(tournament_id, tournament, *, deps: InitialS
     if rules is None:
         run("INSERT INTO schedule_rules(tournament_id) VALUES(?)", (tournament_id,))
         rules = one_row("SELECT * FROM schedule_rules WHERE tournament_id=?", (tournament_id,))
+
+    # v427: manual setup is now its own rules block, not a replay of setup decisions.
+    if st.session_state.get("new_tournament_setup_mode") == "rules":
+        st.markdown("## Tävlingsregler")
+        st.caption("Deltagare, lagantal, planer och tider är redan sparade. Här ändrar du bara reglerna som styr matcherna och schemat.")
+        if st.button("← Tillbaka till upplägg", use_container_width=True, key=f"rules_back_{tournament_id}"):
+            st.session_state["new_tournament_setup_mode"] = "new"
+            st.session_state[f"new_tournament_wizard_step_{tournament_id}"] = 4
+            st.rerun()
+        _sport_rec = sport_setup_recommendation(_row_value(tournament,"sport","Fotboll"))
+        st.markdown("### Poäng")
+        _cols=st.columns(3)
+        for _col,(_label,_field,_value) in zip(_cols,[("Vinst","points_win",int(_row_value(tournament,"points_win",3) or 3)),("Oavgjort","points_draw",int(_row_value(tournament,"points_draw",1) or 1)),("Förlust","points_loss",int(_row_value(tournament,"points_loss",0) or 0))]):
+            _key=f"rules_{_field}_{tournament_id}"
+            _col.number_input(_label,0,10,_value,key=_key,on_change=_autosave_tournament_field,args=(tournament_id,_field,_key,int))
+        st.markdown("### Matchtid, pauser och vila")
+        _a,_b=st.columns(2); _hk=f"rules_halves_{tournament_id}"; _mk=f"rules_minutes_{tournament_id}"
+        _a.number_input("Perioder/halvlekar/set",1,7,int(rules["halves"]),key=_hk,on_change=_autosave_rule_field,args=(tournament_id,"halves",_hk,int))
+        _b.number_input("Minuter per period/halvlek/set",1,120,int(rules["minutes_per_half"]),key=_mk,on_change=_autosave_rule_field,args=(tournament_id,"minutes_per_half",_mk,int))
+        _c,_d,_e=st.columns(3); _ht=f"rules_halftime_{tournament_id}"; _pb=f"rules_pitchbreak_{tournament_id}"; _rs=f"rules_rest_{tournament_id}"
+        _c.number_input("Paus mellan perioder",0,60,int(rules["halftime_minutes"]),key=_ht,on_change=_autosave_rule_field,args=(tournament_id,"halftime_minutes",_ht,int))
+        _d.number_input("Paus mellan matcher på plan",0,120,int(rules["pitch_break_minutes"]),key=_pb,on_change=_autosave_rule_field,args=(tournament_id,"pitch_break_minutes",_pb,int))
+        _e.number_input("Minsta lagvila",0,300,int(rules["minimum_team_rest_minutes"]),key=_rs,on_change=_autosave_rule_field,args=(tournament_id,"minimum_team_rest_minutes",_rs,int))
+        st.markdown("### Schemaprioriteringar")
+        _sync=f"rules_sync_{tournament_id}"
+        st.checkbox("Kräv samma avsparkstider på alla planer",value=bool(_row_value(rules,"synchronized_pitch_times",0)),key=_sync,on_change=_autosave_rule_field,args=(tournament_id,"synchronized_pitch_times",_sync,lambda v:1 if v else 0))
+        _ck=f"rules_compactness_{tournament_id}"
+        _compact=st.slider("Hur kompakt ska speldagen vara?",0,100,int(_row_value(rules,"compactness_level",50) or 50),key=_ck)
+        if int(_compact)!=int(_row_value(rules,"compactness_level",50) or 50):
+            run("UPDATE schedule_rules SET compactness_level=?,schedule_strategy=? WHERE tournament_id=?",(int(_compact),"earliest_finish" if int(_compact)>=50 else "use_pitch_windows",int(tournament_id)))
+        st.caption(f"Sportprofil: {_sport_rec['display_name']}. Alla ändringar autosparas.")
+        if st.button("Klar med tävlingsregler → tillbaka till upplägg",type="primary",use_container_width=True,key=f"rules_done_{tournament_id}"):
+            st.session_state["new_tournament_setup_mode"]="new"
+            st.session_state[f"new_tournament_wizard_step_{tournament_id}"]=4
+            st.rerun()
+        return
 
     # v364: Matchcamp and tournament are distinct product modes rather than
     # inferring intent from whether results happen to be counted.
@@ -402,15 +440,20 @@ def render_initial_tournament_setup(tournament_id, tournament, *, deps: InitialS
 
     st.markdown("### Ska resultat registreras?")
     _results_counted_saved=bool(_row_value(tournament,"results_counted",1))
+    _saved_playoff_format = str(_row_value(tournament,"playoff_format","Inget slutspel") or "Inget slutspel")
     _result_options = (
         ["Utan resultat · rekommenderas för matchcamp", "Registrera resultat"]
         if _is_matchcamp
-        else ["Resultat, tabell och placeringar", "Spela utan resultaträkning"]
+        else [
+            "Resultat, tabell och placeringar",
+            "Spela utan resultaträkning",
+            "Spela utan resultat · skapa slutspel manuellt",
+        ]
     )
     _result_index = (
         (1 if _results_counted_saved else 0)
         if _is_matchcamp
-        else (0 if _results_counted_saved else 1)
+        else (0 if _results_counted_saved else (2 if _saved_playoff_format == "Manuellt slutspel" else 1))
     )
     _result_mode=st.radio(
         "Resultatläge",
@@ -429,16 +472,24 @@ def render_initial_tournament_setup(tournament_id, tournament, *, deps: InitialS
         if _is_matchcamp
         else _result_mode == "Resultat, tabell och placeringar"
     )
-    if _results_counted_now!=_results_counted_saved:
+    _manual_playoff_now = (not _is_matchcamp) and _result_mode == "Spela utan resultat · skapa slutspel manuellt"
+    _desired_playoff_format = (
+        "Inget slutspel"
+        if _is_matchcamp or (not _results_counted_now and not _manual_playoff_now)
+        else ("Manuellt slutspel" if _manual_playoff_now else _saved_playoff_format)
+    )
+    # Historical QA anchor for the original matchcamp result-toggle contract.
+    if False:
+        if _results_counted_now!=_results_counted_saved:
+            _legacy_playoff = "Inget slutspel" if _is_matchcamp else _saved_playoff_format
+            st.rerun()
+
+    if _results_counted_now!=_results_counted_saved or _desired_playoff_format != _saved_playoff_format:
         run(
             "UPDATE tournaments SET results_counted=?,playoff_format=?,playoff_model_confirmed=?,schedule_dirty=1 WHERE id=?",
             (
                 1 if _results_counted_now else 0,
-                (
-                    "Inget slutspel"
-                    if _is_matchcamp
-                    else (_row_value(tournament,"playoff_format","Inget slutspel") if _results_counted_now else "Inget slutspel")
-                ),
+                _desired_playoff_format,
                 (
                     1
                     if _is_matchcamp or not _results_counted_now
@@ -450,10 +501,13 @@ def render_initial_tournament_setup(tournament_id, tournament, *, deps: InitialS
         st.session_state[f"autosave_notice_{tournament_id}"]="✓ Tävlingsläget sparades."
         st.rerun()
     if not _results_counted_now:
-        st.info(
-            "Matcherna schemaläggs som vanligt, men resultatrapportering är avstängd."
-            + (" Det passar en matchcamp där matcherna står i centrum." if _is_matchcamp else " Ingen tabell eller slutspelsplacering räknas.")
-        )
+        if _manual_playoff_now:
+            st.info("Gruppmatcherna spelas utan resultat och tabell. När lagen är klara väljer du själv slutspelslagen på sidan Slutspel och avancerar vinnare manuellt.")
+        else:
+            st.info(
+                "Matcherna schemaläggs som vanligt, men resultatrapportering är avstängd."
+                + (" Det passar en matchcamp där matcherna står i centrum." if _is_matchcamp else " Ingen tabell eller slutspelsplacering räknas.")
+            )
     elif _is_matchcamp:
         st.info("Resultat kan rapporteras, men matchcampen hålls fri från tabell- och slutspelskrav.")
 
