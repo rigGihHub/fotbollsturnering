@@ -31,6 +31,7 @@ class PublicWorkspaceDependencies:
     pitch_label: Callable[..., str]
     public_core_snapshot: Callable[..., Any]
     public_cup_url: Callable[..., str]
+    public_match_completion_db_snapshot: Callable[..., Any]
     public_match_events_db_snapshot: Callable[..., Any]
     public_match_events_html: Callable[..., str]
     public_match_overview_db_snapshot: Callable[..., Any]
@@ -82,6 +83,7 @@ def render_public_workspace(tournament_id: int, tournament: Any, deps: PublicWor
     pitch_label = deps.pitch_label
     public_core_snapshot = deps.public_core_snapshot
     public_cup_url = deps.public_cup_url
+    public_match_completion_db_snapshot = deps.public_match_completion_db_snapshot
     public_match_events_db_snapshot = deps.public_match_events_db_snapshot
     public_match_events_html = deps.public_match_events_html
     public_match_overview_db_snapshot = deps.public_match_overview_db_snapshot
@@ -211,16 +213,21 @@ def render_public_workspace(tournament_id: int, tournament: Any, deps: PublicWor
     # be checked. Matches, Cupinfo and screen mode still load the schedule eagerly.
     _needs_public_matches = bool(
         screen_mode
-        or public_page in {"Matcher", "Mitt lag", "Info"}
+        or public_page in {"Matcher", "Mitt lag"}
         or requested_team_id is not None
         or (
             public_page == "Tabeller"
             and bool(_row_value(tournament, "enable_final_ranking", 0))
         )
     )
+    # v423: Info is the default landing page and does not need the team list or
+    # full schedule for its first paint. Avoid those remote reads entirely; the
+    # optional cup summary loads the schedule only on demand.
+    _needs_public_teams = public_page != "Info"
     _public_core = public_core_snapshot(
         tournament_id,
         include_matches=_needs_public_matches,
+        include_teams=_needs_public_teams,
     )
     published_matches = _public_core["matches"]
     played_matches = [m for m in published_matches if m["home_score"] is not None and m["away_score"] is not None]
@@ -440,7 +447,22 @@ def render_public_workspace(tournament_id: int, tournament: Any, deps: PublicWor
         else:
             st.info("Den här cupen spelas utan resultaträkning och har därför inget resultatbaserat slutspel.")
     if public_page == "Info":
-        render_public_info_section(tournament_id, tournament, published_matches)
+        completion = public_match_completion_db_snapshot(tournament_id)
+
+        def _load_info_published_matches():
+            return public_core_snapshot(
+                tournament_id,
+                include_matches=True,
+                include_teams=False,
+            )["matches"]
+
+        render_public_info_section(
+            tournament_id,
+            tournament,
+            published_matches,
+            match_completion=completion,
+            load_published_matches=_load_info_published_matches,
+        )
 
     # Icke-kritisk analytics sist: ett långsamt Turso-write ska inte fördröja innehållet.
     track_public_visit(tournament_id)

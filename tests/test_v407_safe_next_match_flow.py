@@ -9,7 +9,7 @@ RESULTS = (ROOT / "cupnavi_core" / "admin_results_view.py").read_text()
 APP = (ROOT / "app.py").read_text()
 
 def test_v408_version():
-    assert VERSION == "2026.09.03-414-PITCH-TIMING-MODE"
+    assert VERSION == "2026.09.03-423-PUBLIC-INFO-COLD-START"
 
 def test_safe_start_window():
     row={"scheduled_start":"2026-09-03T10:00:00","match_status":"not_started"}

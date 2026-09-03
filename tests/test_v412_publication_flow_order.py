@@ -4,7 +4,7 @@ from pathlib import Path
 def test_v412_main_publication_card_renders_after_control_header():
     source = Path("app.py").read_text(encoding="utf-8")
     control_page = source.index('if admin_page == "Kontroller":')
-    header = source.index('Steg 4 av 5 · Kontroll', control_page)
+    header = source.index('Planeringsflöde · Kvalitetskontroll', control_page)
     main_call = source.index('show_main_control=True', control_page)
     assert header < main_call
 
@@ -33,4 +33,4 @@ def test_v412_publication_view_can_render_main_without_sidebar():
 
 
 def test_v412_version():
-    assert Path("VERSION.txt").read_text().strip() == "2026.09.03-414-PITCH-TIMING-MODE"
+    assert Path("VERSION.txt").read_text().strip() == "2026.09.03-423-PUBLIC-INFO-COLD-START"

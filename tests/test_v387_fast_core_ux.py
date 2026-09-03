@@ -12,12 +12,12 @@ def _lag_block():
     return APP[start:end]
 
 def test_release_version():
-    assert VERSION=="2026.09.03-414-PITCH-TIMING-MODE"
+    assert VERSION=="2026.09.03-423-PUBLIC-INFO-COLD-START"
 
 def test_team_secondary_tools_are_true_lazy_gates():
     lag=_lag_block()
     for key in (
-        "lazy_photo_roster_",
+        "lag_ai_roster_upload_",
         "lazy_team_tools_",
         "lazy_team_checkin_",
         "lazy_team_codes_",

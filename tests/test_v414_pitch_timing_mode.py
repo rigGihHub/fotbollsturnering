@@ -19,4 +19,4 @@ def test_v414_scheduler_honors_saved_choice():
 
 
 def test_v414_version():
-    assert VERSION == "2026.09.03-414-PITCH-TIMING-MODE"
+    assert VERSION == "2026.09.03-423-PUBLIC-INFO-COLD-START"

@@ -21,7 +21,8 @@ def test_main_public_renderer_delegates_heavy_sections():
     assert 'forced_section=tr("Tabeller")' in public
     assert 'forced_section=tr("Slutspel")' in public
     assert 'forced_section=tr("Topplistor")' in public
-    assert "render_public_info_section(tournament_id, tournament, published_matches)" in public
+    assert "render_public_info_section(" in public
+    assert "load_published_matches=_load_info_published_matches" in public
     # Screen mode intentionally keeps a tiny LIMIT 8 sponsor query.
     assert 'SELECT * FROM offers WHERE tournament_id=?' not in public
     assert 'SELECT * FROM functionaries' not in public
@@ -43,6 +44,6 @@ def test_info_queries_are_isolated_from_matches_and_statistics():
 
 def test_info_summary_teams_are_loaded_only_for_completed_summary():
     info=INFO
-    condition=info.index("if all_public_matches and all(")
+    condition=info.index("if cup_is_complete:")
     teams_query=info.index('summary_teams = all_rows("SELECT * FROM teams')
     assert teams_query > condition

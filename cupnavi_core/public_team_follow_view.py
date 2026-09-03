@@ -42,9 +42,9 @@ def render_public_team_follow(
 ) -> None:
     """Render team selection, favorite-team overview, actions and notifications."""
     st.markdown(
-        """<div class='cn-public-follow-anchor'>
-          <div class='cn-public-follow-label'>Mitt lag</div>
-          <div class='cn-public-follow-hint'>Välj lag för att få nästa match, plan och viktig laginformation först.</div>
+        """<div class='cn-public-follow-intro'>
+          <div class='title'>Mitt lag</div>
+          <div class='copy'>Följ mitt lag genom att välja lag. Då visas nästa match, plan och viktig laginformation först.</div>
         </div>""",
         unsafe_allow_html=True,
     )
@@ -53,7 +53,7 @@ def render_public_team_follow(
         favorite_options = [all_teams_value] + [row["id"] for row in public_teams]
         favorite_index = favorite_options.index(requested_team_id) if requested_team_id in favorite_options else 0
         favorite_selection = st.selectbox(
-            "⭐ Följ mitt lag",
+            "Välj lag",
             favorite_options,
             index=favorite_index,
             format_func=lambda team_id: tr("Alla lag") if team_id == all_teams_value else public_team_names.get(team_id, "Lag"),

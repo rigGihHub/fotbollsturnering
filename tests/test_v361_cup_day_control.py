@@ -58,4 +58,4 @@ def test_cup_day_has_direct_operational_actions():
 
 
 def test_version():
-    assert 'APP_BUILD_VERSION = "2026.09.03-414-PITCH-TIMING-MODE"' in APP
+    assert 'APP_BUILD_VERSION = "2026.09.03-423-PUBLIC-INFO-COLD-START"' in APP

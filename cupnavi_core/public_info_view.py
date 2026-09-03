@@ -16,6 +16,8 @@ def render_public_info_section(
     tournament,
     published_matches,
     *,
+    match_completion=None,
+    load_published_matches=None,
     perf,
     tr,
     row_value,
@@ -76,6 +78,11 @@ def render_public_info_section(
 
     st.markdown(f"<div class='cn-info-section-title'>📍 {tr('Praktisk information')}</div>", unsafe_allow_html=True)
     practical_rows = []
+    pitch_size_format = str(row_value(info_rules, "pitch_size_format", "") or "").strip() if info_rules else ""
+    if pitch_size_format:
+        practical_rows.append(
+            f"<div class='cn-practical-item'><span class='icon'>⚽</span><div><small>Planstorlek</small><strong>{html.escape(pitch_size_format)}</strong></div></div>"
+        )
     if tournament["arena_address"]:
         practical_rows.append(f"<div class='cn-practical-item'><span class='icon'>📍</span><div><small>{html.escape(tr('Arena'))}</small><strong>{html.escape(tournament['arena_address'])}</strong></div></div>")
     if tournament["kiosk_information"]:
@@ -133,7 +140,10 @@ def render_public_info_section(
     # The already loaded snapshot remains available without an extra DB roundtrip.
 
     all_public_matches = published_matches
-    if all_public_matches and all(m["home_score"] is not None and m["away_score"] is not None for m in all_public_matches):
+    total_public_matches = int((match_completion or {}).get("total_matches", len(all_public_matches or [])) or 0)
+    open_public_matches = int((match_completion or {}).get("open_matches", 0) or 0)
+    cup_is_complete = total_public_matches > 0 and open_public_matches == 0
+    if cup_is_complete:
         # v1.309: a collapsed Streamlit expander still executes its body. The old
         # Cupsummering therefore fetched teams and top-scorer data on every Cupinfo
         # rerun after the cup was finished. Keep the feature, but make the expensive
@@ -145,6 +155,8 @@ def render_public_info_section(
             help="Laddar slutlig cupsummering och toppscorer först när du vill se den.",
         )
         if show_cup_summary:
+            if not all_public_matches and load_published_matches is not None:
+                all_public_matches = load_published_matches()
             top_scorer_row = one_row(
                 """SELECT CASE WHEN COALESCE(players.is_protected,0)=1 THEN 'Skyddad spelare' ELSE players.name END AS player_name,
                           teams.name AS team_name,SUM(s.goals) AS goals

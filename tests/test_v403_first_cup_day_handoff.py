@@ -22,7 +22,7 @@ def _match(mid, start, status="not_started"):
 
 
 def test_version_and_release_note():
-    assert VERSION == "2026.09.03-414-PITCH-TIMING-MODE"
+    assert VERSION == "2026.09.03-423-PUBLIC-INFO-COLD-START"
     assert (ROOT / "FIRST_CUP_DAY_HANDOFF_V403.md").exists()
 
 

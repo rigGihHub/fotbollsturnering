@@ -22,11 +22,11 @@ def test_team_name_can_trigger_cautious_ai_kit_suggestion():
 
 
 def test_photo_roster_import_is_discoverable_from_team_registration():
-    assert "📷 Importera laguppställning från foto" in APP
-    assert "Öppna fotoimport för valt lag" in APP
+    assert "### ✨ Lägg in spelare från bild" in APP
+    assert "Läs av bilden med AI" in APP
     assert 'st.session_state[admin_page_key] = "Trupper"' in APP
     assert "AI-import från foto eller skärmdump" in APP
 
 
 def test_version():
-    assert 'APP_BUILD_VERSION = "2026.09.03-414-PITCH-TIMING-MODE"' in APP
+    assert 'APP_BUILD_VERSION = "2026.09.03-423-PUBLIC-INFO-COLD-START"' in APP

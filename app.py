@@ -191,7 +191,7 @@ def inject_v198_visual_system():
     return _inject_v198_visual_system_impl(st)
 
 
-APP_BUILD_VERSION = "2026.09.03-414-PITCH-TIMING-MODE"
+APP_BUILD_VERSION = "2026.09.03-423-PUBLIC-INFO-COLD-START"
 APP_VERSION = APP_BUILD_VERSION
 
 def read_core_version_from_disk():
@@ -1020,8 +1020,21 @@ def track_public_visit(tournament_id):
 
 
 def public_match_overview_db_snapshot(tournament_id, *, scorer_enabled=True, assist_enabled=True, active_minutes=5):
-    """Load fresh public overview data while keeping Streamlit/session concerns in the UI layer."""
+    """Load public overview data with a very short session cache.
+
+    Leader data does not need a fresh Turso roundtrip on every widget rerun. A
+    15-second cache keeps the public page responsive while still making live
+    competition changes visible quickly.
+    """
     from cupnavi_core.public_match_repository import fetch_public_match_overview
+
+    cache_key = f"_cupnavi_public_overview_v415_{int(tournament_id)}_{int(bool(scorer_enabled))}_{int(bool(assist_enabled))}"
+    cached = st.session_state.get(cache_key)
+    if cached:
+        cached_at, cached_value = cached
+        if (time.monotonic() - float(cached_at)) < 15.0:
+            _PERF["cache_hits"] += 1
+            return cached_value
 
     session_key = f"_cupnavi_visitor_session_{tournament_id}"
     token = st.session_state.get(session_key)
@@ -1037,9 +1050,35 @@ def public_match_overview_db_snapshot(tournament_id, *, scorer_enabled=True, ass
             scorer_enabled=scorer_enabled, assist_enabled=assist_enabled,
         )
     _record_db_call(started)
-    return {
+    value = {
         "active_visitors": int(snapshot["visitor_count"]) + 1,
         "leader_rows": snapshot["leader_rows"],
+    }
+    st.session_state[cache_key] = (time.monotonic(), value)
+    return value
+
+
+def public_match_completion_db_snapshot(tournament_id):
+    """Return only the completion counters needed by the public Info page.
+
+    The Info page is the default public landing page. It should not fetch the
+    complete published schedule merely to decide whether the optional final
+    cup summary can be offered. A single aggregate row is much cheaper over
+    remote Turso connections and scales independently of cup size.
+    """
+    started = time.perf_counter()
+    row = one_row(
+        """SELECT COUNT(*) AS total_matches,
+                  SUM(CASE WHEN home_score IS NULL OR away_score IS NULL THEN 1 ELSE 0 END) AS open_matches
+           FROM matches
+           WHERE tournament_id=? AND scheduled_start IS NOT NULL AND schedule_published=1""",
+        (int(tournament_id),),
+    )
+    # one_row already records DB timing; keep this helper intentionally thin.
+    _ = started
+    return {
+        "total_matches": int(_row_value(row, "total_matches", 0) or 0),
+        "open_matches": int(_row_value(row, "open_matches", 0) or 0),
     }
 
 
@@ -3204,6 +3243,7 @@ def init_db():
                 pitch_count INTEGER NOT NULL DEFAULT 2,
                 referee_mode TEXT NOT NULL DEFAULT 'Automatisk',
                 synchronized_pitch_times INTEGER NOT NULL DEFAULT 0,
+                pitch_size_format TEXT,
                 latest_kickoff_time TEXT NOT NULL DEFAULT '18:00'
             );
             DROP TRIGGER IF EXISTS prevent_team_limit_overflow;
@@ -3333,6 +3373,8 @@ def init_db():
             con.execute("ALTER TABLE schedule_rules ADD COLUMN recommended_playoff_size INTEGER NOT NULL DEFAULT 0")
         if "synchronized_pitch_times" not in rule_cols:
             con.execute("ALTER TABLE schedule_rules ADD COLUMN synchronized_pitch_times INTEGER NOT NULL DEFAULT 0")
+        if "pitch_size_format" not in rule_cols:
+            con.execute("ALTER TABLE schedule_rules ADD COLUMN pitch_size_format TEXT")
         if "request_priority" not in team_cols:
             con.execute("ALTER TABLE teams ADD COLUMN request_priority INTEGER NOT NULL DEFAULT 100")
         con.execute("UPDATE tournaments SET start_date=COALESCE(start_date,tournament_date), end_date=COALESCE(end_date,tournament_date)")
@@ -3509,7 +3551,7 @@ def run(sql, params=()):
 
 
 
-def public_core_snapshot(tournament_id, *, include_matches=True):
+def public_core_snapshot(tournament_id, *, include_matches=True, include_teams=True):
     """Load only the public core rows needed by the current public route.
 
     The public team selector is present on every normal route, so a compact team
@@ -3517,7 +3559,7 @@ def public_core_snapshot(tournament_id, *, include_matches=True):
     do not need the full published schedule unless a followed team (or another
     route-specific feature) requires it. Results remain fresh per Streamlit rerun.
     """
-    cache_key=("public-core-snapshot", int(tournament_id), bool(include_matches))
+    cache_key=("public-core-snapshot", int(tournament_id), bool(include_matches), bool(include_teams))
     if cache_key in _DERIVED_RENDER_CACHE:
         _PERF["derived_hits"] += 1
         return _DERIVED_RENDER_CACHE[cache_key]
@@ -3540,12 +3582,15 @@ def public_core_snapshot(tournament_id, *, include_matches=True):
             ))
         else:
             matches=[]
-        teams=_rows_from_cursor(con.execute(
-            """SELECT id,name,group_id,age_class,
-                      primary_color,secondary_color,home_pattern,home_color_2,away_pattern,away_color_2
-               FROM teams WHERE tournament_id=? ORDER BY name""",
-            (int(tournament_id),),
-        ))
+        if include_teams:
+            teams=_rows_from_cursor(con.execute(
+                """SELECT id,name,group_id,age_class,
+                          primary_color,secondary_color,home_pattern,home_color_2,away_pattern,away_color_2
+                   FROM teams WHERE tournament_id=? ORDER BY name""",
+                (int(tournament_id),),
+            ))
+        else:
+            teams=[]
     _record_db_call(started)
     value={"matches":matches,"teams":teams}
     _DERIVED_RENDER_CACHE[cache_key]=value
@@ -5558,12 +5603,14 @@ def render_public_statistics_section(tournament_id, tournament, published_matche
     )
 
 
-def render_public_info_section(tournament_id, tournament, published_matches):
+def render_public_info_section(tournament_id, tournament, published_matches, *, match_completion=None, load_published_matches=None):
     """Thin application adapter for the extracted Cupinfo view."""
     return render_public_info_section_module(
         tournament_id,
         tournament,
         published_matches,
+        match_completion=match_completion,
+        load_published_matches=load_published_matches,
         perf=_PERF,
         tr=tr,
         row_value=_row_value,
@@ -5617,6 +5664,7 @@ def render_public_view(tournament_id, tournament):
             pitch_label=pitch_label,
             public_core_snapshot=public_core_snapshot,
             public_cup_url=public_cup_url,
+            public_match_completion_db_snapshot=public_match_completion_db_snapshot,
             public_match_events_db_snapshot=public_match_events_db_snapshot,
             public_match_events_html=public_match_events_html,
             public_match_overview_db_snapshot=public_match_overview_db_snapshot,
@@ -10344,16 +10392,34 @@ if admin_page == "Cupinställningar":
 if admin_page == "Kontroller":
     # Historical QA anchor: st.header("Kontroll före publicering")
     # Historical QA anchor: Endast kritiska fel stoppar publicering
+    # v421: Kontroll is part of the same six-step planning journey as the
+    # preceding setup pages. Keep the organiser oriented and provide a direct
+    # route back to Schema instead of reverting to the old isolated 4/5 label.
     st.markdown(
         """<div class="cn-workspace-head">
           <div>
-            <div class="kicker">Steg 4 av 5 · Kontroll</div>
-            <div class="title">Kontroll före publicering</div>
-            <div class="subtitle">CupNavi samlar det som behöver kontrolleras innan steg 5: publicering. Endast kritiska fel stoppar dig.</div>
+            <div class="kicker">Planeringsflöde · Kvalitetskontroll</div>
+            <div class="title">Kontroll</div>
+            <div class="subtitle">Kontrollera kritiska fel, varningar och förbättringar. När kontrollen är klar kan cupen publiceras direkt nedan.</div>
           </div>
         </div>""",
         unsafe_allow_html=True,
     )
+    _control_flow_steps = ["Grundsetup", "Lag", "Grupper", "Schema", "Kontroll", "Publicera"]
+    _control_flow_html = "".join(
+        f'<div class="cn-setup-step {"done" if idx < 5 else "active" if idx == 5 else ""}"><strong>{"✓" if idx < 5 else idx}</strong>{label}</div>'
+        for idx, label in enumerate(_control_flow_steps, start=1)
+    )
+    st.markdown(f'<div class="cn-setup-progress-grid">{_control_flow_html}</div>', unsafe_allow_html=True)
+    _control_flow_back, _control_flow_next = st.columns(2)
+    _control_flow_back.button(
+        "← Till Schema",
+        use_container_width=True,
+        key=f"control_flow_back_to_schedule_{tid}",
+        on_click=_set_admin_page,
+        args=("Schema",),
+    )
+    _control_flow_next.caption("Nästa steg: Publicera nedan")
 
     # Historical QA anchor: control_rules = one_row(
     # v412: the global publication snapshot above already loaded rules, schedule
@@ -10965,16 +11031,32 @@ if admin_page == "Lag":
     # "**Obligatoriskt:** lagnamn."
     # with st.expander("Valfria laguppgifter", expanded=False)
     # "Fortsätt → Skapa grupper"
+    # v418: keep the first-cup journey visible when the wizard hands off to Lag.
+    # The team page is part of the same planning flow, not a disconnected admin page.
     st.markdown(
         """<div class="cn-workspace-head">
           <div>
-            <div class="kicker">Steg 1 av 5 · Deltagare</div>
+            <div class="kicker">Planeringsflöde · Deltagare</div>
             <div class="title">Lag</div>
-            <div class="subtitle">Lägg in deltagarna. Börja med lagnamnet; matchställ, kontaktperson och reseönskemål kan kompletteras senare.</div>
+            <div class="subtitle">Lägg in lagen och fortsätt sedan till grupper, schema, kontroll och publicering.</div>
           </div>
         </div>""",
         unsafe_allow_html=True,
     )
+    _flow_steps = ["Grundsetup", "Lag", "Grupper", "Schema", "Kontroll", "Publicera"]
+    _flow_html = "".join(
+        f'<div class="cn-setup-step {"done" if idx < 2 else "active" if idx == 2 else ""}"><strong>{"✓" if idx < 2 else idx}</strong>{label}</div>'
+        for idx, label in enumerate(_flow_steps, start=1)
+    )
+    st.markdown(f'<div class="cn-setup-progress-grid">{_flow_html}</div>', unsafe_allow_html=True)
+    _flow_back, _flow_next = st.columns(2)
+    if _flow_back.button("← Till grundsetup", use_container_width=True, key=f"teams_back_to_setup_{tid}"):
+        st.session_state["new_tournament_setup_mode"] = "new"
+        st.session_state["new_tournament_setup_id"] = int(tid)
+        st.session_state["preferred_tournament_id"] = int(tid)
+        st.session_state[f"new_tournament_wizard_step_{tid}"] = 5
+        st.rerun()
+    _flow_next.caption("Nästa steg: Grupper")
 
     _search_focus_kind = st.session_state.get(f"admin_search_focus_kind_{tid}")
     _search_focus_entity = st.session_state.get(f"admin_search_focus_entity_{tid}")
@@ -11186,26 +11268,143 @@ if admin_page == "Lag":
 
     # v397: teams är redan laddade ovan. Alla skrivningar på sidan följs av
     # st.rerun(), så listan är färsk på nästa render utan en andra DB-läsning.
-    if teams:
-        if st.toggle("📷 Importera laguppställning från foto", value=False, key=f"lazy_photo_roster_{tid}", help="Laddas först när du öppnar verktyget."):
-            st.caption(
-                "Välj laget och öppna fotoimporten. Där kan du skicka foto eller skärmdump av en "
-                "laguppställning/spelarlista, granska AI-avläsningen och först därefter importera spelarna."
-            )
+    # v418: AI roster import is a first-class participant input, not hidden behind
+    # another page. The organiser can drop a team sheet here, review the extracted
+    # name/number/birth-year rows and only then write them to CupNavi.
+    with st.container(border=True):
+        st.markdown("### ✨ Lägg in spelare från bild")
+        st.caption("Dra in ett foto eller en skärmdump av en laguppställning/spelarlista. CupNavi läser namn, nummer och födelseår. Du granskar alltid resultatet innan import.")
+        if not teams:
+            st.info("Lägg till laget först. Därefter kan bilden kopplas till rätt lag.")
+        else:
             _photo_team_ids = [int(row["id"]) for row in teams]
+            _team_name_by_id_lag = {int(row["id"]): row["name"] for row in teams}
             _last_added_team = st.session_state.get(f"last_added_team_{tid}")
             _photo_default = _photo_team_ids.index(int(_last_added_team)) if _last_added_team in _photo_team_ids else 0
             _photo_team_id = st.selectbox(
                 "Vilket lag gäller bilden?",
                 _photo_team_ids,
                 index=_photo_default,
-                format_func=lambda team_id: next(row["name"] for row in teams if int(row["id"]) == int(team_id)),
+                format_func=lambda team_id: _team_name_by_id_lag.get(int(team_id), "Okänt lag"),
                 key=f"photo_roster_team_{tid}",
             )
-            if st.button("Öppna fotoimport för valt lag", key=f"open_photo_roster_{tid}", type="primary", use_container_width=True):
-                st.session_state[f"admin_search_focus_team_{tid}"] = int(_photo_team_id)
-                st.session_state[admin_page_key] = "Trupper"
-                st.rerun()
+            _lag_ai_key = f"lag_ai_roster_rows_{tid}_{_photo_team_id}"
+            _lag_ai_model = setting("CUPNAVI_AI_ROSTER_MODEL") or "gpt-5.6-luna"
+            _lag_ai_api_key = setting("OPENAI_API_KEY")
+            _lag_ai_files = st.file_uploader(
+                "Dra hit foto eller skärmdump",
+                type=["png", "jpg", "jpeg", "webp"],
+                accept_multiple_files=True,
+                key=f"lag_ai_roster_upload_{tid}_{_photo_team_id}",
+                help="Flera bilder går bra om laglistan finns på flera sidor.",
+            )
+            if not _lag_ai_api_key:
+                st.info("AI-importen behöver OPENAI_API_KEY i Streamlit Secrets för att kunna läsa bilden.")
+            if st.button(
+                "Läs av bilden med AI",
+                type="primary",
+                use_container_width=True,
+                disabled=not bool(_lag_ai_files) or not bool(_lag_ai_api_key),
+                key=f"lag_ai_roster_analyse_{tid}_{_photo_team_id}",
+            ):
+                _lag_ai_rows = []
+                _lag_seen_names = set()
+                try:
+                    with st.spinner("Läser laguppställningen…"):
+                        from cupnavi_core.ai_roster_import import extract_roster_from_image
+                        for _uploaded in _lag_ai_files:
+                            _mime = str(getattr(_uploaded, "type", None) or "image/png")
+                            for _row in extract_roster_from_image(_uploaded.getvalue(), _mime, _lag_ai_api_key, model=_lag_ai_model):
+                                _folded = str(_row.get("name") or "").strip().casefold()
+                                if _folded and _folded not in _lag_seen_names:
+                                    _lag_seen_names.add(_folded)
+                                    _lag_ai_rows.append(_row)
+                    st.session_state[_lag_ai_key] = _lag_ai_rows
+                    if _lag_ai_rows:
+                        st.success(f"Hittade {len(_lag_ai_rows)} spelare. Kontrollera listan innan du importerar.")
+                    else:
+                        st.warning("AI:n hittade inga säkra spelarrader i bilden.")
+                except Exception as exc:
+                    st.error(str(exc))
+
+            _lag_ai_rows = st.session_state.get(_lag_ai_key, [])
+            if _lag_ai_rows:
+                from cupnavi_core.ai_roster_import import ALLOWED_POSITIONS
+                _existing_lag_names = {
+                    str(row["name"]).strip().casefold()
+                    for row in all_rows("SELECT name FROM players WHERE team_id=?", (_photo_team_id,))
+                }
+                _lag_editor_source = pd.DataFrame([
+                    {
+                        "Importera": str(row.get("name") or "").strip().casefold() not in _existing_lag_names,
+                        "Spelare": row.get("name") or "",
+                        "Tröjnummer": row.get("player_number"),
+                        "Födelseår": row.get("birth_year"),
+                        "Position": row.get("position") or "Ej angiven",
+                    }
+                    for row in _lag_ai_rows
+                ])
+                _lag_edited_ai = st.data_editor(
+                    _lag_editor_source,
+                    hide_index=True,
+                    use_container_width=True,
+                    num_rows="dynamic",
+                    key=f"lag_ai_roster_editor_{tid}_{_photo_team_id}",
+                    column_config={
+                        "Importera": st.column_config.CheckboxColumn("Importera"),
+                        "Spelare": st.column_config.TextColumn("Spelare", required=True),
+                        "Tröjnummer": st.column_config.NumberColumn("Tröjnummer", min_value=0, max_value=999, step=1),
+                        "Födelseår": st.column_config.NumberColumn("Födelseår", min_value=1900, max_value=2100, step=1),
+                        "Position": st.column_config.SelectboxColumn("Position", options=ALLOWED_POSITIONS),
+                    },
+                )
+                _lag_selected_ai = []
+                _lag_seen_selected = set(_existing_lag_names)
+                for _row in _lag_edited_ai.to_dict("records"):
+                    if not bool(_row.get("Importera")):
+                        continue
+                    _name = " ".join(str(_row.get("Spelare") or "").strip().split())
+                    _folded = _name.casefold()
+                    if not _name or _folded in _lag_seen_selected:
+                        continue
+                    _lag_seen_selected.add(_folded)
+                    def _lag_editor_int(value, minimum, maximum):
+                        if value is None or pd.isna(value):
+                            return None
+                        try:
+                            number = int(value)
+                        except (TypeError, ValueError):
+                            return None
+                        return number if minimum <= number <= maximum else None
+                    _lag_selected_ai.append((
+                        int(_photo_team_id),
+                        _lag_editor_int(_row.get("Tröjnummer"), 0, 999),
+                        _name,
+                        _lag_editor_int(_row.get("Födelseår"), 1900, 2100),
+                        _row.get("Position") if _row.get("Position") in ALLOWED_POSITIONS else "Ej angiven",
+                    ))
+                if st.button(
+                    f"Importera {len(_lag_selected_ai)} spelare till {_team_name_by_id_lag[int(_photo_team_id)]}",
+                    type="primary",
+                    disabled=not bool(_lag_selected_ai),
+                    use_container_width=True,
+                    key=f"lag_ai_roster_import_{tid}_{_photo_team_id}",
+                ):
+                    run_many(
+                        "INSERT INTO players(team_id,player_number,name,birth_year,position) VALUES(?,?,?,?,?)",
+                        _lag_selected_ai,
+                    )
+                    record_audit(
+                        tid,
+                        "ai_roster_imported",
+                        "team",
+                        f"AI-importerade {len(_lag_selected_ai)} spelare till {_team_name_by_id_lag[int(_photo_team_id)]}",
+                        entity_id=int(_photo_team_id),
+                        actor="Admin",
+                    )
+                    st.session_state.pop(_lag_ai_key, None)
+                    st.success(f"{len(_lag_selected_ai)} spelare importerades.")
+                    st.rerun()
 
     if st.toggle("Fler lagverktyg", value=False, key=f"lazy_team_tools_{tid}", help="Spelare, önskemål, import och tävlingsklasser."):
         st.caption("Valfria verktyg. De behövs inte för att slutföra den vanliga lagregistreringen.")
@@ -11720,16 +11919,34 @@ if admin_page == "Grupper":
     # Skapa föreslagen gruppindelning
     # st.subheader("Placera lagen i rätt grupp")
     # Smart gruppindelning
+    # v419: Grupper is part of the same guided planning journey as Grundsetup and Lag.
+    # Keep location, back-navigation and the next step visible instead of dropping the
+    # organiser into a disconnected admin workspace.
     st.markdown(
         """<div class="cn-workspace-head">
           <div>
-            <div class="kicker">Steg 2 av 5 · Tävlingsstruktur</div>
+            <div class="kicker">Planeringsflöde · Tävlingsstruktur</div>
             <div class="title">Grupper</div>
-            <div class="subtitle">Fördela lagen och kontrollera strukturen. CupNavis förslag är snabbaste vägen vidare och går alltid att justera.</div>
+            <div class="subtitle">Fördela lagen i grupper på det sätt som passar cupen. CupNavis förslag är frivilligt och kan justeras.</div>
           </div>
         </div>""",
         unsafe_allow_html=True,
     )
+    _group_flow_steps = ["Grundsetup", "Lag", "Grupper", "Schema", "Kontroll", "Publicera"]
+    _group_flow_html = "".join(
+        f'<div class="cn-setup-step {"done" if idx < 3 else "active" if idx == 3 else ""}"><strong>{"✓" if idx < 3 else idx}</strong>{label}</div>'
+        for idx, label in enumerate(_group_flow_steps, start=1)
+    )
+    st.markdown(f'<div class="cn-setup-progress-grid">{_group_flow_html}</div>', unsafe_allow_html=True)
+    _group_flow_back, _group_flow_next = st.columns(2)
+    _group_flow_back.button(
+        "← Till Lag",
+        use_container_width=True,
+        key=f"groups_flow_back_to_teams_{tid}",
+        on_click=_set_admin_page,
+        args=("Lag",),
+    )
+    _group_flow_next.caption("Nästa steg: Schema")
     _group_history_locked = production_history_locked(tid, tournament)
     if _group_history_locked:
         st.warning(
@@ -11822,7 +12039,7 @@ if admin_page == "Grupper":
         else []
     )
     if _smart_plan:
-        st.markdown("### CupNavi rekommenderar")
+        st.markdown("### Förslag från CupNavi · valfritt")
         with st.container(border=True):
             _smart_sizes = [len(item["teams"]) for item in _smart_plan]
             _sg1, _sg2, _sg3 = st.columns(3)
@@ -11837,7 +12054,7 @@ if admin_page == "Grupper":
                     st.caption(names)
         if st.button(
             "Använd CupNavis gruppindelning",
-            type="primary",
+            type="secondary",
             use_container_width=True,
             disabled=_group_history_locked,
             key=f"smart_group_create_{tid}",
@@ -12642,6 +12859,7 @@ if admin_page == "Skapa och publicera schema":
             setting=setting,
             apply_schedule_improvement=_apply_schedule_improvement,
             apply_matchcamp_structure_improvement=_apply_matchcamp_structure_improvement,
+            navigate_admin_page=_set_admin_page,
         ),
     )
 

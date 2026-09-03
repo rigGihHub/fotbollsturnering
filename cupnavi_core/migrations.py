@@ -9,7 +9,7 @@ Regel:
 from dataclasses import dataclass
 from datetime import datetime, timezone
 
-LATEST_SCHEMA_VERSION = 30
+LATEST_SCHEMA_VERSION = 31
 # Historical QA anchor: LATEST_SCHEMA_VERSION = 27
 
 
@@ -528,6 +528,11 @@ MIGRATIONS = (
         "explicit_match_status",
         (),
     ),
+    Migration(
+        31,
+        "pitch_size_format",
+        (),
+    ),
 
 )
 
@@ -882,6 +887,19 @@ def ensure_v30_schema_compat(con):
         con.execute("ALTER TABLE matches ADD COLUMN actual_finished_at TEXT")
 
 
+
+def ensure_v31_schema_compat(con):
+    """Idempotent planstorlek/spelform for setup and public cup information."""
+    try:
+        cols = {row[1] for row in con.execute("PRAGMA table_info(schedule_rules)").fetchall()}
+    except Exception:
+        cols = set()
+    if not cols:
+        con.execute("CREATE TABLE schedule_rules(tournament_id INTEGER PRIMARY KEY)")
+        cols = {"tournament_id"}
+    if "pitch_size_format" not in cols:
+        con.execute("ALTER TABLE schedule_rules ADD COLUMN pitch_size_format TEXT")
+
 def apply_migrations(con):
     """Applicera alla saknade migreringar och returnera nya versionsnummer."""
     ensure_migration_table(con)
@@ -909,6 +927,8 @@ def apply_migrations(con):
             ensure_v29_schema_compat(con)
         if migration.version == 30:
             ensure_v30_schema_compat(con)
+        if migration.version == 31:
+            ensure_v31_schema_compat(con)
         for statement in migration.statements:
             _execute(con, statement)
         _execute(

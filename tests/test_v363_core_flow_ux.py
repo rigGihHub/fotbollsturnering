@@ -8,14 +8,14 @@ SCHEDULE = (ROOT / "cupnavi_core" / "schedule_workspace_view.py").read_text(enco
 
 def test_team_page_prioritizes_minimum_required_action():
     assert '<div class="title">Lag</div>' in APP
-    assert "Börja med lagnamnet" in APP
+    assert "Lägg in lagen och fortsätt sedan" in APP
     assert "Skriv lagnamnet och spara. Resten kan kompletteras senare." in APP
     assert "Komplettera laget (valfritt)" in APP
     assert "Fortsätt till Grupper →" in APP
 
 
 def test_group_page_shows_summary_before_details():
-    assert "CupNavi rekommenderar" in APP
+    assert "Förslag från CupNavi · valfritt" in APP
     assert 'metric("Grupper"' in APP
     assert "Visa vilka lag som hamnar i varje grupp" in APP
     assert "Använd CupNavis gruppindelning" in APP
@@ -40,4 +40,4 @@ def test_setup_uses_progressive_disclosure_wording():
 
 
 def test_version():
-    assert 'APP_BUILD_VERSION = "2026.09.03-414-PITCH-TIMING-MODE"' in APP
+    assert 'APP_BUILD_VERSION = "2026.09.03-423-PUBLIC-INFO-COLD-START"' in APP

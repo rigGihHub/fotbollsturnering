@@ -67,4 +67,4 @@ def test_v411_ui_is_lazy_and_read_only():
 
 
 def test_v411_version():
-    assert Path("VERSION.txt").read_text().strip() == "2026.09.03-414-PITCH-TIMING-MODE"
+    assert Path("VERSION.txt").read_text().strip() == "2026.09.03-423-PUBLIC-INFO-COLD-START"

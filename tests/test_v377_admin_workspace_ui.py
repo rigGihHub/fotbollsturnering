@@ -9,25 +9,25 @@ VERSION = (ROOT / "VERSION.txt").read_text(encoding="utf-8").strip()
 
 
 def test_release_version():
-    assert VERSION == "2026.09.03-414-PITCH-TIMING-MODE"
+    assert VERSION == "2026.09.03-423-PUBLIC-INFO-COLD-START"
 
 
 def test_lag_and_groups_use_shared_workspace_headers_without_duplicate_trails():
     lag = APP[APP.index('if admin_page == "Lag":'):APP.index('if admin_page == "Grupper":')]
     groups = APP[APP.index('if admin_page == "Grupper":'):APP.index('if admin_page == "Trupper":')]
     assert 'class="cn-workspace-head"' in lag
-    assert "Steg 1 av 5 · Deltagare" in lag
+    assert "Planeringsflöde · Deltagare" in lag
     assert 'class="cn-step-trail"' not in lag
     assert 'class="cn-workspace-head"' in groups
-    assert "Steg 2 av 5 · Tävlingsstruktur" in groups
+    assert "Planeringsflöde · Tävlingsstruktur" in groups
     assert 'class="cn-step-trail"' not in groups
 
 
 def test_schedule_uses_same_step_language_without_duplicate_trail():
     assert 'class="cn-workspace-head"' in SCHEDULE
-    assert "Steg 3 av 5 · Schema" in SCHEDULE
+    assert "Planeringsflöde · Spelschema" in SCHEDULE
     assert 'class="cn-step-trail"' not in SCHEDULE
-    assert "Bygg spelschemat" in SCHEDULE
+    assert '<div class="title">Schema</div>' in SCHEDULE
 
 
 def test_results_header_and_progress_are_compact():

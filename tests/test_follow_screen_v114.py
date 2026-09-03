@@ -19,7 +19,7 @@ def test_public_follow_team_and_screen_mode_exist():
     app = app_text()
     screen = screen_text()
     workspace = workspace_text()
-    assert '"⭐ Följ mitt lag"' in follow_view_text()
+    assert '"Välj lag"' in follow_view_text()
     assert 'screen_mode = bool' in workspace
     assert 'render_public_screen_mode(' in workspace
     assert 'Informationsskärm' in screen

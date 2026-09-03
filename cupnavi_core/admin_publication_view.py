@@ -100,38 +100,29 @@ def render_admin_publication_controls(
     if not show_main_control:
         return
 
+    # v422: Publicering är det sjätte och sista steget i planeringsflödet.
+    # Kontrollsidan ovan visar redan alla fel, varningar och förbättringar; upprepa
+    # inte samma dashboard en gång till här. Finalsteget ska i första hand svara
+    # på en enda fråga: kan jag publicera nu?
     # Historical QA anchor: st.markdown("#### Publiceringskontroll")
     with st.container(border=True):
-        st.markdown("##### Steg 5 av 5 · Publicera")
+        st.markdown("##### Steg 6 av 6 · Publicera")
         st.markdown("### Publicera cupen")
-        st.caption("När kontrollen är godkänd gör du cupen synlig för deltagare och publik här.")
-        q1, q2, q3 = st.columns(3)
-        q1.metric("Kritiska fel", len(quality.critical))
-        q2.metric("Varningar", len(quality.warnings))
-        q3.metric("Förbättringar", len(quality.improvements))
 
         if quality.can_publish:
-            st.success("CupNavi bedömer att arrangemanget kan publiceras.")
-            if quality.warnings:
-                st.caption("Det finns varningar att granska, men de innebär inte att publiceringen är felaktig.")
+            st.success("✓ Kontroll klar – cupen är redo att publiceras")
+            if quality.warnings or quality.improvements:
+                st.caption("Varningar och frivilliga förbättringar finns kvar i Kontroll ovan, men inget blockerar publiceringen.")
         else:
-            st.error("Publicering är blockerad eftersom det finns verkliga kritiska fel.")
+            st.error("Publicering är blockerad")
+            st.caption("Gå tillbaka till Kontroll ovan och åtgärda de kritiska felen innan cupen publiceras.")
             for reason in quality.critical:
                 st.markdown(f"• {reason}")
 
-        if quality.warnings:
-            with st.expander(f"Varningar ({len(quality.warnings)})", expanded=False):
-                for warning in quality.warnings:
-                    st.warning(warning)
-        if quality.improvements:
-            with st.expander(f"Förbättringsförslag ({len(quality.improvements)})", expanded=False):
-                for improvement in quality.improvements:
-                    st.info(improvement)
-
         if is_published:
-            st.caption("Arrangemanget är publicerat. Nästa publicering uppdaterar den publika vyn.")
+            st.caption("Cupen är redan publicerad. Publicera igen för att uppdatera den publika vyn med de senaste ändringarna.")
         else:
-            st.caption("Den publika vyn är fortfarande ett utkast tills du publicerar.")
+            st.caption("När du publicerar blir cupen synlig för deltagare och publik.")
 
         if st.button(
             f"📣 {action_label}",

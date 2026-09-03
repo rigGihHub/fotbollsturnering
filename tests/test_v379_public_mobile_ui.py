@@ -8,21 +8,21 @@ STYLE=(ROOT/"cupnavi_core/style_system.py").read_text(encoding="utf-8")
 VERSION=(ROOT/"VERSION.txt").read_text().strip()
 
 def test_release_version():
-    assert VERSION=="2026.09.03-414-PITCH-TIMING-MODE"
+    assert VERSION=="2026.09.03-423-PUBLIC-INFO-COLD-START"
 
 def test_public_navigation_is_task_first_and_short():
     specs=public_navigation_specs()
-    assert [x[0] for x in specs]==["Matcher","Mitt lag","Tabeller","Slutspel","Info"]
-    assert [x[2] for x in specs]==["Matcher","Mitt lag","Tabell","Slutspel","Information"]
-    assert [x[1] for x in specs]==["matches","team","tables","playoffs","info"]
+    assert [x[0] for x in specs]==["Info","Matcher","Mitt lag","Tabeller","Slutspel"]
+    assert [x[2] for x in specs]==["Info","Matcher","Mitt lag","Tabell","Slutspel"]
+    assert [x[1] for x in specs]==["info","matches","team","tables","playoffs"]
 
 def test_public_navigation_keeps_native_fast_rerun():
     assert "st.segmented_control(" in WORKSPACE
     assert "on_change=_sync_public_primary_navigation" in WORKSPACE
 
 def test_mitt_lag_is_visually_explained_without_new_queries():
-    assert "cn-public-follow-label" in FOLLOW
-    assert "Välj lag för att få nästa match, plan och viktig laginformation först." in FOLLOW
+    assert "cn-public-follow-intro" in FOLLOW
+    assert "Följ mitt lag genom att välja lag. Då visas nästa match, plan och viktig laginformation först." in FOLLOW
     assert 'favorite_selection = st.selectbox(' in FOLLOW
 
 def test_mobile_navigation_and_team_card_have_responsive_styles():

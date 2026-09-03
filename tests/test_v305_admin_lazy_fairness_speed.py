@@ -23,4 +23,4 @@ def test_control_center_shares_lazy_match_snapshot():
 
 
 def test_release_version_305():
-    assert '2026.09.03-414-PITCH-TIMING-MODE' in APP
+    assert '2026.09.03-423-PUBLIC-INFO-COLD-START' in APP

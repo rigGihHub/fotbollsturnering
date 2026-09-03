@@ -1,7 +1,7 @@
 from pathlib import Path
 from cupnavi_core.initial_setup_logic import setup_consequence_preview
 
-VERSION = "2026.09.03-414-PITCH-TIMING-MODE"
+VERSION = "2026.09.03-423-PUBLIC-INFO-COLD-START"
 
 
 def test_release_version():

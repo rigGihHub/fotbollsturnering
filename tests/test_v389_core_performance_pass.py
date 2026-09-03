@@ -1,6 +1,6 @@
 from pathlib import Path
 
-RELEASE = "2026.09.03-414-PITCH-TIMING-MODE"
+RELEASE = "2026.09.03-423-PUBLIC-INFO-COLD-START"
 
 
 def test_v389_batches_schedule_match_events_and_reuses_match_snapshot():

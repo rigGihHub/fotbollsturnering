@@ -1,4 +1,4 @@
-APP_VERSION = "2026.09.03-414-PITCH-TIMING-MODE"
+APP_VERSION = "2026.09.03-423-PUBLIC-INFO-COLD-START"
 
 
 def release_ui_label(version: str) -> str:

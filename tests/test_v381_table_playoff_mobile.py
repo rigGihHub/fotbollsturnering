@@ -5,7 +5,7 @@ PRESENTATION=(ROOT/"cupnavi_core/public_presentation_view.py").read_text(encodin
 VERSION=(ROOT/"VERSION.txt").read_text().strip()
 
 def test_release_version():
-    assert VERSION=="2026.09.03-414-PITCH-TIMING-MODE"
+    assert VERSION=="2026.09.03-423-PUBLIC-INFO-COLD-START"
 
 def test_group_table_uses_light_product_ui():
     assert ".texttv-wrap{{overflow-x:auto;border:1px solid #dbe4de" in PRESENTATION

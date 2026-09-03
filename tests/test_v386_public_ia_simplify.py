@@ -11,21 +11,21 @@ WORKSPACE=(ROOT/"cupnavi_core/public_workspace_view.py").read_text(encoding="utf
 VERSION=(ROOT/"VERSION.txt").read_text().strip()
 
 def test_release_version():
-    assert VERSION=="2026.09.03-414-PITCH-TIMING-MODE"
+    assert VERSION=="2026.09.03-423-PUBLIC-INFO-COLD-START"
 
 def test_primary_public_navigation_matches_user_tasks():
     assert [row[0] for row in PUBLIC_PAGE_SPECS] == [
-        "Matcher", "Mitt lag", "Tabeller", "Slutspel", "Info"
+        "Info", "Matcher", "Mitt lag", "Tabeller", "Slutspel"
     ]
     assert [row[2] for row in public_navigation_specs()] == [
-        "Matcher", "Mitt lag", "Tabell", "Slutspel", "Information"
+        "Info", "Matcher", "Mitt lag", "Tabell", "Slutspel"
     ]
     assert all(row[0] != "Statistik" for row in PUBLIC_PAGE_SPECS)
 
 def test_mitt_lag_is_a_real_route():
     assert resolve_public_page("team") == "Mitt lag"
     assert 'if public_page == "Mitt lag":' in WORKSPACE
-    assert 'or public_page in {"Matcher", "Mitt lag", "Info"}' in WORKSPACE
+    assert 'or public_page in {"Matcher", "Mitt lag"}' in WORKSPACE
 
 def test_team_follow_is_not_rendered_globally_anymore():
     team_route = WORKSPACE.index('if public_page == "Mitt lag":')

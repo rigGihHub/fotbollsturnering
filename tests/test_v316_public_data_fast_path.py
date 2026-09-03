@@ -7,12 +7,12 @@ VERSION = (ROOT / "VERSION.txt").read_text(encoding="utf-8").strip()
 
 
 def test_release_version():
-    assert VERSION == "2026.09.03-414-PITCH-TIMING-MODE"
+    assert VERSION == "2026.09.03-423-PUBLIC-INFO-COLD-START"
 
 
 def test_public_snapshot_can_skip_match_query_and_cache_modes_separately():
     block = APP[APP.index("def public_core_snapshot"):APP.index("def run_many")]
-    assert "def public_core_snapshot(tournament_id, *, include_matches=True):" in block
+    assert "def public_core_snapshot(tournament_id, *, include_matches=True, include_teams=True):" in block
     assert "bool(include_matches)" in block
     assert "if include_matches:" in block
     assert "matches=[]" in block
@@ -26,7 +26,8 @@ def test_public_team_snapshot_uses_compact_public_projection():
 
 
 def test_workspace_loads_matches_only_for_pages_that_need_them():
-    assert 'public_page in {"Matcher", "Mitt lag", "Info"}' in WORKSPACE
+    assert 'public_page in {"Matcher", "Mitt lag"}' in WORKSPACE
+    assert '_needs_public_teams = public_page != "Info"' in WORKSPACE
     assert 'requested_team_id is not None' in WORKSPACE
     assert 'public_page == "Tabeller"' in WORKSPACE
     assert 'enable_final_ranking' in WORKSPACE

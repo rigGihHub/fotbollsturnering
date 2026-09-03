@@ -6,7 +6,7 @@ VERSION = (ROOT / "VERSION.txt").read_text().strip()
 
 
 def test_v319_version():
-    assert VERSION == "2026.09.03-414-PITCH-TIMING-MODE"
+    assert VERSION == "2026.09.03-423-PUBLIC-INFO-COLD-START"
 
 
 def test_existing_brackets_are_loaded_before_setup_validation():

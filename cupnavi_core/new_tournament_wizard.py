@@ -152,6 +152,25 @@ def render_new_tournament_wizard(tournament_id, tournament, *, deps):
                         on_change=_autosave_rule_field, args=(tournament_id,"pitch_count",pitch_key,int))
         pitch_count = int(st.session_state.get(pitch_key, rules["pitch_count"]))
 
+        # v416: planstorlek/spelform är grundläggande cupinformation, inte en
+        # avancerad schemaregel. Fråga efter den tillsammans med planer och tider.
+        _pitch_size_saved = str(_row_value(rules, "pitch_size_format", "") or "").strip()
+        _pitch_size_options = ["Välj planstorlek", "5-manna", "7-manna", "9-manna", "11-manna"]
+        _pitch_size_index = _pitch_size_options.index(_pitch_size_saved) if _pitch_size_saved in _pitch_size_options else 0
+        _pitch_size = st.selectbox(
+            "Planstorlek / spelform",
+            _pitch_size_options,
+            index=_pitch_size_index,
+            key=f"wizard_pitch_size_{tournament_id}",
+            help="Visas i cupinformationen så att lag och besökare direkt ser vilken spelform som gäller.",
+        )
+        if _pitch_size != "Välj planstorlek" and _pitch_size != _pitch_size_saved:
+            run(
+                "UPDATE schedule_rules SET pitch_size_format=? WHERE tournament_id=?",
+                (_pitch_size, int(tournament_id)),
+            )
+            rules = one_row("SELECT * FROM schedule_rules WHERE tournament_id=?", (int(tournament_id),))
+
         if pitch_count > 1:
             st.markdown("**Hur ska matchtiderna fördelas mellan planerna?**")
             _current_sync = bool(_row_value(rules, "synchronized_pitch_times", 0))
@@ -219,14 +238,35 @@ def render_new_tournament_wizard(tournament_id, tournament, *, deps):
                     save_pitch_day_window(tournament_id,pitch,play_date,sv.strftime("%H:%M"),ev.strftime("%H:%M"),True)
         if unverified:
             st.warning(f"{unverified} adress(er) behöver verifieras innan du fortsätter.")
-        nav(can_next=valid and unverified == 0)
+        nav(can_next=valid and unverified == 0 and _pitch_size != "Välj planstorlek")
         return
 
     pitch_count = int(_row_value(rules,"pitch_count",1) or 1)
     windows = ensure_pitch_day_windows(tournament_id, tournament, pitch_count, rules["first_match_time"], rules["latest_kickoff_time"])
 
     if step == 4:
-        st.markdown("### CupNavis förslag")
+        st.markdown("### Bestäm upplägget")
+        st.caption("Du väljer hur cupen ska spelas. CupNavi kan ge ett snabbförslag, men det är alltid frivilligt.")
+
+        if arrangement_type != ARRANGEMENT_MATCHCAMP:
+            manual_col, assist_col = st.columns(2)
+            with manual_col:
+                st.markdown("**Ställ in själv**")
+                st.caption("För dig som vill bestämma gruppformat, poäng, matchtid, pauser, vila, slutspel och schemaprioriteringar själv.")
+                if st.button(
+                    "Ställ in regler och upplägg själv",
+                    type="primary",
+                    use_container_width=True,
+                    key=f"wizard_manual_setup_{tournament_id}",
+                ):
+                    st.session_state["new_tournament_setup_mode"] = "edit"
+                    st.session_state["new_tournament_setup_id"] = int(tournament_id)
+                    st.session_state["preferred_tournament_id"] = int(tournament_id)
+                    st.rerun()
+            with assist_col:
+                st.markdown("**Låt CupNavi föreslå**")
+                st.caption("Ett snabbspår om du vill få ett rimligt grundupplägg utifrån lag, planer och tillgänglig tid.")
+
         available = available_pitch_minutes(windows, row_value=_row_value) or 480
         match_minutes = estimated_match_length_minutes(rules, row_value=_row_value)
 
@@ -235,16 +275,9 @@ def render_new_tournament_wizard(tournament_id, tournament, *, deps):
             recommendation = recommend_matchcamp_matches_per_team(
                 team_count=max(2, planned_total), available_minutes=available, match_minutes=match_minutes
             )
-            st.markdown(
-                f"**CupNavi rekommenderar {recommendation['matches_per_team']} matcher per lag.** "
-                f"Det motsvarar cirka {recommendation['estimated_matches']} matcher och använder ungefär "
-                f"{recommendation['utilization_percent']} % av plantiden."
-            )
-            if recommendation["matches_per_team"] <= 1:
-                st.warning("Plantiden är mycket knapp. CupNavi kan bara rekommendera omkring en match per lag med rimlig marginal.")
             match_key = f"wizard_matchcamp_target_{tournament_id}"
             saved_target = int(_row_value(rules,"matchcamp_matches_per_team",4) or 4)
-            if st.button("Använd CupNavis rekommendation", type="primary", use_container_width=True, key=f"wizard_matchcamp_accept_{tournament_id}"):
+            if st.button(f"Sätt {recommendation['matches_per_team']} matcher per lag", type="primary", use_container_width=True, key=f"wizard_matchcamp_accept_{tournament_id}"):
                 run("UPDATE schedule_rules SET matchcamp_matches_per_team=? WHERE tournament_id=?", (int(recommendation["matches_per_team"]), tournament_id))
                 st.session_state[match_key] = int(recommendation["matches_per_team"])
                 st.rerun()
@@ -270,7 +303,7 @@ def render_new_tournament_wizard(tournament_id, tournament, *, deps):
                 st.warning(f"Upplägget behöver ungefär {shortage} fler planminuter. Minska matcher per lag, lägg till plantid eller använd fler planer.")
             st.info("CupNavi skapar senare själva matchcamp-schemat och försöker ge lagen jämnt motstånd, jämn speltid och bra vila.")
         else:
-            st.caption("Nu har CupNavi tillräckligt med information för att föreslå ett turneringsupplägg. Du kan finjustera senare.")
+            st.caption("CupNavis frivilliga snabbförslag")
             rec = recommend_tournament_format(
                 sport=_row_value(tournament,"sport","Fotboll"), team_count=max(2,planned_total), pitch_count=pitch_count,
                 available_minutes=available, match_minutes=match_minutes, compactness=int(_row_value(rules,"compactness_level",50) or 50),
@@ -285,12 +318,12 @@ def render_new_tournament_wizard(tournament_id, tournament, *, deps):
                 st.success("✓ Förslaget ryms inom den plantid du har angett.")
             else:
                 st.warning("Förslaget ser trångt ut med nuvarande plantid. Du kan ändå fortsätta och justera efter att lagen är inlagda.")
-            if st.button("Använd CupNavis förslag", type="primary", use_container_width=True, key=f"wizard_accept_rec_{tournament_id}"):
+            if st.button("Använd CupNavis snabbförslag", use_container_width=True, key=f"wizard_accept_rec_{tournament_id}"):
                 run("UPDATE schedule_rules SET recommended_group_count=?,recommended_group_size=?,recommended_playoff_size=? WHERE tournament_id=?",
                     (rec["group_count"],rec["group_size"],rec["playoff_size"],tournament_id))
                 st.session_state[f"wizard_rec_accepted_{tournament_id}"] = True
                 st.success("Förslaget är sparat.")
-            st.info("Poängregler, pauser och slutspelsdetaljer finns kvar under Cupinställningar. De behöver inte stoppa dig nu.")
+            st.caption("Vill du styra detaljerna själv använder du den fullständiga setupen ovan. CupNavi ändrar inget förrän du väljer att använda snabbförslaget.")
 
         nav(next_label="Kontrollera setupen")
         return
@@ -301,7 +334,9 @@ def render_new_tournament_wizard(tournament_id, tournament, *, deps):
     summary_type = arrangement_label(arrangement_type)
     summary_results = "Resultat registreras" if bool(_row_value(tournament, "results_counted", 1)) else "Utan resultaträkning"
     _timing_summary = "synkroniserade avsparkstider" if bool(_row_value(rules, "synchronized_pitch_times", 0)) else "dynamiska plantider"
-    st.markdown(f"**{summary_type}** · {summary_results} · cirka **{planned_total} lag** · **{pitch_count} plan(er)** · **{_timing_summary}**")
+    _pitch_size_summary = str(_row_value(rules, "pitch_size_format", "") or "").strip()
+    _pitch_size_part = f" · **{_pitch_size_summary}**" if _pitch_size_summary else ""
+    st.markdown(f"**{summary_type}** · {summary_results} · cirka **{planned_total} lag** · **{pitch_count} plan(er)**{_pitch_size_part} · **{_timing_summary}**")
 
     # v396: the consequence preview now lives in the actual first-run wizard,
     # not only in the later full setup editor. Reuse the already loaded rules

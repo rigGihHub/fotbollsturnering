@@ -52,13 +52,12 @@ def test_dirty_or_missing_schedule_are_critical():
     assert not dirty.can_publish
 
 
-def test_main_control_page_and_publish_widget_share_same_language():
+def test_main_control_page_and_publish_widget_share_same_quality_model():
     assert 'st.header("Kontroll före publicering")' in APP
     assert 'build_publication_quality_summary(' in APP
     assert 'st.markdown("#### Publiceringskontroll")' in VIEW
-    assert 'q1.metric("Kritiska fel"' in VIEW
-    assert 'q2.metric("Varningar"' in VIEW
-    assert 'q3.metric("Förbättringar"' in VIEW
+    assert 'build_publication_quality_summary(' in VIEW
+    assert '✓ Kontroll klar – cupen är redo att publiceras' in VIEW
     assert "Endast kritiska fel stoppar publicering" in APP
 
 
@@ -68,4 +67,4 @@ def test_warning_approval_checkbox_is_removed():
 
 
 def test_version():
-    assert 'APP_BUILD_VERSION = "2026.09.03-414-PITCH-TIMING-MODE"' in APP
+    assert 'APP_BUILD_VERSION = "2026.09.03-423-PUBLIC-INFO-COLD-START"' in APP

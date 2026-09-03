@@ -1,6 +1,6 @@
 from pathlib import Path
 
-VERSION = "2026.09.03-414-PITCH-TIMING-MODE"
+VERSION = "2026.09.03-423-PUBLIC-INFO-COLD-START"
 
 
 def test_release_version():

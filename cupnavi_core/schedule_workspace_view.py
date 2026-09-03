@@ -53,6 +53,7 @@ class ScheduleWorkspaceDependencies:
     setting: Callable[..., Any] | None = None
     apply_schedule_improvement: Callable[..., Any] | None = None
     apply_matchcamp_structure_improvement: Callable[..., Any] | None = None
+    navigate_admin_page: Callable[[str], Any] | None = None
 
 
 
@@ -176,17 +177,39 @@ def render_schedule_workspace(tid, tournament, *, deps: ScheduleWorkspaceDepende
     setting = deps.setting or (lambda _key: None)
     apply_schedule_improvement = deps.apply_schedule_improvement
     apply_matchcamp_structure_improvement = deps.apply_matchcamp_structure_improvement
+    navigate_admin_page = deps.navigate_admin_page
 
+    # v420: Schema is part of the same six-step planning journey as Lag and Grupper.
+    # Keep location and backwards navigation visible instead of reverting to the old
+    # isolated "Steg 3 av 5" schedule workspace.
     st.markdown(
         """<div class="cn-workspace-head">
           <div>
-            <div class="kicker">Steg 3 av 5 · Schema</div>
-            <div class="title">Bygg spelschemat</div>
-            <div class="subtitle">CupNavi fördelar matcher, tider, planer och domare utifrån era lag, grupper och regler.</div>
+            <div class="kicker">Planeringsflöde · Spelschema</div>
+            <div class="title">Schema</div>
+            <div class="subtitle">Skapa och justera matchschemat. När det är klart fortsätter du till kontroll före publicering.</div>
           </div>
         </div>""",
         unsafe_allow_html=True,
     )
+    _schedule_flow_steps = ["Grundsetup", "Lag", "Grupper", "Schema", "Kontroll", "Publicera"]
+    _schedule_flow_html = "".join(
+        f'<div class="cn-setup-step {"done" if idx < 4 else "active" if idx == 4 else ""}"><strong>{"✓" if idx < 4 else idx}</strong>{label}</div>'
+        for idx, label in enumerate(_schedule_flow_steps, start=1)
+    )
+    st.markdown(f'<div class="cn-setup-progress-grid">{_schedule_flow_html}</div>', unsafe_allow_html=True)
+    _schedule_flow_back, _schedule_flow_next = st.columns(2)
+    if navigate_admin_page is not None:
+        _schedule_flow_back.button(
+            "← Till Grupper",
+            use_container_width=True,
+            key=f"schedule_flow_back_to_groups_{tid}",
+            on_click=navigate_admin_page,
+            args=("Grupper",),
+        )
+    else:
+        _schedule_flow_back.caption("Föregående steg: Grupper")
+    _schedule_flow_next.caption("Nästa steg: Kontroll")
     if "schedule_message" in st.session_state:
         message_type, message_text = st.session_state.pop("schedule_message")
         getattr(st, message_type)(message_text)

@@ -36,7 +36,7 @@ RULES = {
 
 
 def test_release_version():
-    assert VERSION == "2026.09.03-414-PITCH-TIMING-MODE"
+    assert VERSION == "2026.09.03-423-PUBLIC-INFO-COLD-START"
 
 
 def test_gap_absorption_moves_fewer_matches_than_full_cascade():

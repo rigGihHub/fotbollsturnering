@@ -7,7 +7,7 @@ VERSION = (ROOT / "VERSION.txt").read_text(encoding="utf-8").strip()
 
 
 def test_v402_version_consistency():
-    expected = "2026.09.03-414-PITCH-TIMING-MODE"
+    expected = "2026.09.03-423-PUBLIC-INFO-COLD-START"
     assert VERSION == expected
     assert expected in (ROOT / "cupnavi_core" / "version.py").read_text(encoding="utf-8")
     assert f'APP_BUILD_VERSION = "{expected}"' in APP
@@ -19,10 +19,10 @@ def test_main_publication_control_only_renders_on_control_page():
     assert 'show_main_control=(admin_page == "Kontroller")' in APP
 
 
-def test_publication_is_explicit_step_five():
-    assert 'Steg 5 av 5 · Publicera' in VIEW
+def test_publication_is_explicit_final_step():
+    assert 'Steg 6 av 6 · Publicera' in VIEW
     assert 'Publicera cupen' in VIEW
-    assert 'gör du cupen synlig för deltagare och publik här' in VIEW
+    assert 'blir cupen synlig för deltagare och publik' in VIEW
 
 
 def test_sidebar_publish_control_remains_available():

@@ -13,7 +13,7 @@ def _resolve(source):
 
 
 def test_release_version_and_note():
-    assert APP_VERSION == "2026.09.03-414-PITCH-TIMING-MODE"
+    assert APP_VERSION == "2026.09.03-423-PUBLIC-INFO-COLD-START"
     assert (ROOT / "PITCH_OUTAGE_ASSIST_V410.md").exists()
 
 
