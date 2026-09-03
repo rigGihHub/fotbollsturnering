@@ -1,7 +1,7 @@
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-RELEASE = "2026.09.03-423-PUBLIC-INFO-COLD-START"
+RELEASE = "2026.09.03-424-PUBLIC-INFO-ROUNDTRIP-CUT"
 
 
 def test_health_contract_testclient_dependency_is_declared():

@@ -1,6 +1,6 @@
 from pathlib import Path
 
-VERSION = "2026.09.03-423-PUBLIC-INFO-COLD-START"
+VERSION = "2026.09.03-424-PUBLIC-INFO-ROUNDTRIP-CUT"
 
 
 def test_release_version():

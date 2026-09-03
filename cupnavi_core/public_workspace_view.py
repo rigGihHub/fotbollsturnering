@@ -447,8 +447,8 @@ def render_public_workspace(tournament_id: int, tournament: Any, deps: PublicWor
         else:
             st.info("Den här cupen spelas utan resultaträkning och har därför inget resultatbaserat slutspel.")
     if public_page == "Info":
-        completion = public_match_completion_db_snapshot(tournament_id)
-
+        # v424: the Info renderer combines rules + completion counters into one
+        # fresh DB read. Avoid a separate aggregate query before rendering.
         def _load_info_published_matches():
             return public_core_snapshot(
                 tournament_id,
@@ -460,7 +460,7 @@ def render_public_workspace(tournament_id: int, tournament: Any, deps: PublicWor
             tournament_id,
             tournament,
             published_matches,
-            match_completion=completion,
+            match_completion=None,
             load_published_matches=_load_info_published_matches,
         )
 

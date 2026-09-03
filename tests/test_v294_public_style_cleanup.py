@@ -8,7 +8,7 @@ VERSION = (ROOT / "VERSION.txt").read_text(encoding="utf-8").strip()
 
 
 def test_v294_release_and_public_style_boundary():
-    assert VERSION == "2026.09.03-423-PUBLIC-INFO-COLD-START"
+    assert VERSION == "2026.09.03-424-PUBLIC-INFO-ROUNDTRIP-CUT"
     assert "inject_public_experience_styles(st)" in WORKSPACE
     assert ".cn-follow-shell" not in APP
     assert "def inject_public_experience_styles(st):" in STYLE

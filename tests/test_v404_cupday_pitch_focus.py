@@ -23,7 +23,7 @@ def _finished_without_score():
 
 
 def test_version_and_release_note():
-    assert VERSION == "2026.09.03-423-PUBLIC-INFO-COLD-START"
+    assert VERSION == "2026.09.03-424-PUBLIC-INFO-ROUNDTRIP-CUT"
     assert (ROOT / "CUPDAY_PITCH_FOCUS_V404.md").exists()
 
 

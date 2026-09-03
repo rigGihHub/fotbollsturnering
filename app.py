@@ -191,7 +191,7 @@ def inject_v198_visual_system():
     return _inject_v198_visual_system_impl(st)
 
 
-APP_BUILD_VERSION = "2026.09.03-423-PUBLIC-INFO-COLD-START"
+APP_BUILD_VERSION = "2026.09.03-424-PUBLIC-INFO-ROUNDTRIP-CUT"
 APP_VERSION = APP_BUILD_VERSION
 
 def read_core_version_from_disk():
@@ -1081,6 +1081,25 @@ def public_match_completion_db_snapshot(tournament_id):
         "open_matches": int(_row_value(row, "open_matches", 0) or 0),
     }
 
+
+
+def public_info_boot_db_snapshot(tournament_id):
+    """Load Cupinfo rules and completion counters in one remote DB roundtrip."""
+    row = one_row(
+        """SELECT sr.*,
+                  (SELECT COUNT(*) FROM matches m
+                   WHERE m.tournament_id=? AND m.scheduled_start IS NOT NULL AND m.schedule_published=1) AS _total_matches,
+                  (SELECT COUNT(*) FROM matches m
+                   WHERE m.tournament_id=? AND m.scheduled_start IS NOT NULL AND m.schedule_published=1
+                     AND (m.home_score IS NULL OR m.away_score IS NULL)) AS _open_matches
+           FROM (SELECT 1 AS singleton) seed
+           LEFT JOIN schedule_rules sr ON sr.tournament_id=?""",
+        (int(tournament_id), int(tournament_id), int(tournament_id)),
+    )
+    return row, {
+        "total_matches": int(_row_value(row, "_total_matches", 0) or 0),
+        "open_matches": int(_row_value(row, "_open_matches", 0) or 0),
+    }
 
 def public_match_events_db_snapshot(match_ids):
     """Load visible public match events with DB timing kept in the app service layer."""
@@ -5605,22 +5624,14 @@ def render_public_statistics_section(tournament_id, tournament, published_matche
 
 def render_public_info_section(tournament_id, tournament, published_matches, *, match_completion=None, load_published_matches=None):
     """Thin application adapter for the extracted Cupinfo view."""
+    info_rules, combined_completion = public_info_boot_db_snapshot(tournament_id)
     return render_public_info_section_module(
-        tournament_id,
-        tournament,
-        published_matches,
-        match_completion=match_completion,
-        load_published_matches=load_published_matches,
-        perf=_PERF,
-        tr=tr,
-        row_value=_row_value,
-        one_row=one_row,
-        all_rows=all_rows,
-        public_rules_html=public_rules_html,
-        cup_summary=cup_summary,
-        sport_profile=sport_profile,
-        rate_allowed=_rate_allowed,
-        run=run,
+        tournament_id, tournament, published_matches,
+        info_rules=info_rules, match_completion=match_completion or combined_completion,
+        load_published_matches=load_published_matches, perf=_PERF, tr=tr,
+        row_value=_row_value, one_row=one_row, all_rows=all_rows,
+        public_rules_html=public_rules_html, cup_summary=cup_summary,
+        sport_profile=sport_profile, rate_allowed=_rate_allowed, run=run,
     )
 
 

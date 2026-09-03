@@ -6,7 +6,7 @@ VERSION = (ROOT / "VERSION.txt").read_text(encoding="utf-8").strip()
 
 
 def test_v400_mobile_setup_progress_is_compact_and_five_step_desktop():
-    assert VERSION == "2026.09.03-423-PUBLIC-INFO-COLD-START"
+    assert VERSION == "2026.09.03-424-PUBLIC-INFO-ROUNDTRIP-CUT"
     assert ".cn-setup-progress-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px}" in STYLE
     assert ".cn-setup-progress-grid{display:flex!important;gap:5px!important;overflow:hidden!important}" in STYLE
     assert ".cn-setup-step.active{flex:2.45 1 0!important;font-size:.7rem!important" in STYLE

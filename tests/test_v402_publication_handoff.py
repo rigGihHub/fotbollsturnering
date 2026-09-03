@@ -7,7 +7,7 @@ VERSION = (ROOT / "VERSION.txt").read_text(encoding="utf-8").strip()
 
 
 def test_v402_version_consistency():
-    expected = "2026.09.03-423-PUBLIC-INFO-COLD-START"
+    expected = "2026.09.03-424-PUBLIC-INFO-ROUNDTRIP-CUT"
     assert VERSION == expected
     assert expected in (ROOT / "cupnavi_core" / "version.py").read_text(encoding="utf-8")
     assert f'APP_BUILD_VERSION = "{expected}"' in APP

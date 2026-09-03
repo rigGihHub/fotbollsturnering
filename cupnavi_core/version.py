@@ -1,4 +1,4 @@
-APP_VERSION = "2026.09.03-423-PUBLIC-INFO-COLD-START"
+APP_VERSION = "2026.09.03-424-PUBLIC-INFO-ROUNDTRIP-CUT"
 
 
 def release_ui_label(version: str) -> str:

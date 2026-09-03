@@ -13,7 +13,7 @@ class Con:
     def execute(self, sql, params): self.calls.append((sql, params)); return Cursor(self.row)
 
 def test_release_and_repository_boundary():
-    assert VERSION == "2026.09.03-423-PUBLIC-INFO-COLD-START"
+    assert VERSION == "2026.09.03-424-PUBLIC-INFO-ROUNDTRIP-CUT"
     block=APP[APP.index('def public_match_overview_db_snapshot('):APP.index('def render_public_share_control')]
     assert 'fetch_public_match_overview' in block
     assert 'WITH agg AS (' not in block

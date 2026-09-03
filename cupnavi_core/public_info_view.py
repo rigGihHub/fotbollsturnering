@@ -16,6 +16,7 @@ def render_public_info_section(
     tournament,
     published_matches,
     *,
+    info_rules=None,
     match_completion=None,
     load_published_matches=None,
     perf,
@@ -33,7 +34,8 @@ def render_public_info_section(
     _fragment_started = time.perf_counter()
     _db_calls_before = perf["db_calls"]
     _db_ms_before = perf["db_ms"]
-    info_rules = one_row("SELECT * FROM schedule_rules WHERE tournament_id=?", (tournament_id,))
+    if info_rules is None:
+        info_rules = one_row("SELECT * FROM schedule_rules WHERE tournament_id=?", (tournament_id,))
     st.markdown(
         """<div class="cn-info-guide-head">
           <div class="kicker">Cupguide</div>

@@ -6,7 +6,7 @@ APP = Path("app.py").read_text(encoding="utf-8")
 
 
 def test_v421_version():
-    assert APP_VERSION == "2026.09.03-423-PUBLIC-INFO-COLD-START"
+    assert APP_VERSION == "2026.09.03-424-PUBLIC-INFO-ROUNDTRIP-CUT"
 
 
 def test_control_page_uses_shared_six_step_flow():

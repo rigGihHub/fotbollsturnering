@@ -10,4 +10,4 @@ def test_v413_team_portal_session_binds_to_credential_hash():
 
 
 def test_v413_version():
-    assert Path("VERSION.txt").read_text().strip() == "2026.09.03-423-PUBLIC-INFO-COLD-START"
+    assert Path("VERSION.txt").read_text().strip() == "2026.09.03-424-PUBLIC-INFO-ROUNDTRIP-CUT"

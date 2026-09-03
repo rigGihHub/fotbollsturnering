@@ -5,7 +5,7 @@ ADMIN_OVERVIEW=(ROOT/"cupnavi_core/admin_overview.py").read_text(encoding="utf-8
 
 def test_v139_version_sync():
     v=(ROOT/"VERSION.txt").read_text().strip()
-    assert v=="2026.09.03-423-PUBLIC-INFO-COLD-START"
+    assert v=="2026.09.03-424-PUBLIC-INFO-ROUNDTRIP-CUT"
     assert v in APP
     assert v in (ROOT/"cupnavi_core/version.py").read_text()
 
