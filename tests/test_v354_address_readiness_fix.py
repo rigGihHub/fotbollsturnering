@@ -6,7 +6,7 @@ SETUP=(ROOT/"cupnavi_core"/"initial_setup_view.py").read_text(encoding="utf-8")
 VERSION=(ROOT/"VERSION.txt").read_text(encoding="utf-8").strip()
 
 def test_v354_version():
-    assert VERSION == "2026.09.02-390-PUBLIC-SHARE-TOPLIST-UX"
+    assert VERSION == "2026.09.03-414-PITCH-TIMING-MODE"
     assert VERSION in APP
 
 def test_pitch_metadata_reads_saved_address_verification():

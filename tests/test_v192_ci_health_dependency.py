@@ -1,7 +1,7 @@
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-RELEASE = "2026.09.02-390-PUBLIC-SHARE-TOPLIST-UX"
+RELEASE = "2026.09.03-414-PITCH-TIMING-MODE"
 
 
 def test_health_contract_testclient_dependency_is_declared():

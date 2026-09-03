@@ -151,22 +151,33 @@ def class_progress_caption(class_rows: Iterable[Any], team_counts: Mapping[int, 
     return "Lag per tävlingsklass · " + " · ".join(parts)
 
 
-def recommend_next_step(readiness: AdminReadiness, counts: Any, *, schedule_dirty: bool) -> AdminNextStep:
+def recommend_next_step(
+    readiness: AdminReadiness,
+    counts: Any,
+    *,
+    schedule_dirty: bool,
+    published: bool = False,
+) -> AdminNextStep:
+    """Recommend the next action in the organiser's core journey.
+
+    v401 keeps optional enrichment (rosters/referees) out of the mandatory first
+    path. Those tools still exist and can surface as attention items, but a new
+    organiser should experience the same promise as setup: Lag → Grupper →
+    Schema → Kontroll → Publicera, then move into live result work.
+    """
     if not readiness.teams_ready:
         return AdminNextStep("Nästa steg: registrera lag", "Lag", "Lägg in samtliga deltagande lag innan gruppindelning.")
     if not readiness.groups_ready:
         return AdminNextStep("Nästa steg: skapa grupper", "Grupper", "Skapa grupper och placera lagen innan schemat genereras.")
-    if not readiness.players_ready:
-        return AdminNextStep("Nästa steg: lägg till trupper", "Trupper", "Trupper behövs för mål, assist och kortstatistik.")
-    if not readiness.referees_ready:
-        return AdminNextStep("Nästa steg: lägg till domare", "Domare", "Lägg till domare innan automatisk domartillsättning används.")
     if _count(counts, "matches_n") == 0:
         return AdminNextStep("Nästa steg: generera schema", "Skapa och publicera schema", "Grunddata är på plats. Generera gruppspel och slutspel.")
     if schedule_dirty:
         return AdminNextStep("Nästa steg: regenerera schema", "Skapa och publicera schema", "Förutsättningarna har ändrats sedan schemat skapades.")
+    if not published:
+        return AdminNextStep("Nästa steg: kontrollera och publicera", "Kontroller", "Schemat är klart. Kontrollera kritiska fel och publicera när allt ser rätt ut.")
     if not readiness.results_ready:
-        return AdminNextStep("Nästa steg: registrera resultat", "Matcher och resultat", "Schemat är klart. Registrera matchresultaten när turneringen spelas.")
-    return AdminNextStep("Nästa steg: granska och publicera", "Kontroller", "Grundflödet är klart. Kontrollera varningar och publiceringsstatus.")
+        return AdminNextStep("Nästa steg: registrera resultat", "Matcher och resultat", "Cupen är publicerad. Registrera resultaten när matcherna spelas.")
+    return AdminNextStep("Nästa steg: granska tävlingsläget", "Tabeller", "Resultaten är registrerade. Granska tabell och slutspel.")
 
 
 def workflow_step_html(title: str, state: str, meta: str) -> str:

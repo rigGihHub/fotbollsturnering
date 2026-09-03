@@ -27,7 +27,7 @@ def row(mid, start, pitch, home, away, status="not_started", actual=None):
 
 
 def test_release_version():
-    assert VERSION == "2026.09.02-390-PUBLIC-SHARE-TOPLIST-UX"
+    assert VERSION == "2026.09.03-414-PITCH-TIMING-MODE"
 
 
 def test_delay_uses_explicit_live_and_actual_start():

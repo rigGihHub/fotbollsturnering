@@ -960,7 +960,7 @@ def inject_ux2_css(st, components):
         .cn-setup-eyebrow{font-size:.76rem;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:#178342;margin-bottom:5px}
         .cn-setup-title{font-size:1.42rem;font-weight:850;color:#142019;line-height:1.2;margin-bottom:6px}
         .cn-setup-copy{font-size:.93rem;line-height:1.5;color:#59665e;margin:0 0 14px}
-        .cn-setup-progress-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+        .cn-setup-progress-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px}
         .cn-setup-step{border:1px solid #e1e7e3;border-radius:12px;padding:9px 10px;background:#fff;color:#69746d;font-size:.78rem;font-weight:700}
         .cn-setup-step strong{display:inline-flex;width:21px;height:21px;align-items:center;justify-content:center;border-radius:999px;background:#eef2ef;color:#667169;margin-right:5px}
         .cn-setup-step.done{background:#f3faf5;border-color:#b9dec5;color:#28613c}.cn-setup-step.done strong{background:#dff3e5;color:#176b38}
@@ -979,7 +979,15 @@ def inject_ux2_css(st, components):
         .cn-next-action b{color:#14532d}.cn-next-action span{color:#475569;font-size:13px}
 
         @media(max-width:760px){
-          .cn-setup-hero{padding:16px}.cn-setup-title{font-size:1.22rem}.cn-setup-progress-grid{grid-template-columns:1fr 1fr}
+          .cn-setup-hero{padding:14px 14px 12px;margin-bottom:9px}.cn-setup-title{font-size:1.16rem}.cn-setup-copy{font-size:.86rem;line-height:1.4;margin-bottom:10px}.cn-setup-progress-grid{grid-template-columns:1fr 1fr}
+          /* v400: keep all five wizard steps visible in one compact mobile row.
+             Only the current step keeps its text label, which removes a large
+             progress block without hiding where the user is in the flow. */
+          .cn-setup-progress-grid{display:flex!important;gap:5px!important;overflow:hidden!important}
+          .cn-setup-step{flex:1 1 0!important;min-width:0!important;padding:6px 3px!important;text-align:center!important;font-size:0!important;border-radius:10px!important;white-space:nowrap!important}
+          .cn-setup-step strong{width:22px!important;height:22px!important;margin:0!important;font-size:.72rem!important}
+          .cn-setup-step.active{flex:2.45 1 0!important;font-size:.7rem!important;padding-left:6px!important;padding-right:6px!important}
+          .cn-setup-step.active strong{margin-right:4px!important}
           .cn-mobile-bottom-nav{display:grid;grid-template-columns:repeat(4,1fr);position:fixed;left:8px;right:8px;bottom:8px;z-index:999996;background:rgba(255,255,255,.97);border:1px solid #dbe4ea;border-radius:18px;box-shadow:0 10px 28px rgba(15,23,42,.16);padding:6px;-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px)}
           .cn-mobile-bottom-nav a{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;min-height:52px;text-decoration:none!important;color:#475569!important;font-size:17px;border-radius:12px}.cn-mobile-bottom-nav a span{font-size:10px;font-weight:800}.cn-mobile-bottom-nav a.active{background:#eef8f1;color:#14532d!important}
           .stApp .block-container{padding-bottom:5.8rem!important}.cn-schedule-grid{min-width:640px}.cn-current-admin-page{top:70px} [data-testid="stButton"] button{min-height:46px !important}
@@ -1786,6 +1794,23 @@ def inject_v198_visual_system(st):
         }
         .cn-day-kpi.is-live .value{color:#b42318}
         .cn-day-kpi.is-attention .value{color:var(--cn98-warning)}
+        .cn-pitch-focus-grid{
+          display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px;margin:0 0 8px;
+        }
+        .cn-pitch-focus{
+          min-width:0;background:var(--cn98-surface);border:1px solid var(--cn98-border);
+          border-radius:11px;padding:9px 10px;position:relative;overflow:hidden;
+        }
+        .cn-pitch-focus::before{
+          content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:#8aa79a;
+        }
+        .cn-pitch-focus.is-live::before{background:#d33b31}
+        .cn-pitch-focus.is-attention::before{background:var(--cn98-warning)}
+        .cn-pitch-focus .pitch{font-size:.66rem;font-weight:820;color:var(--cn98-ink-3);text-transform:uppercase;letter-spacing:.06em}
+        .cn-pitch-focus .when{font-size:1rem;font-weight:830;color:var(--cn98-ink);margin-top:2px}
+        .cn-pitch-focus .teams{font-size:.76rem;font-weight:690;color:var(--cn98-ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+        .cn-pitch-focus .status{font-size:.67rem;color:var(--cn98-ink-3);margin-top:2px}
+        .cn-pitch-focus-head{margin-top:13px}
         .cn-section-head{
           display:flex;align-items:center;gap:8px;margin:18px 0 7px;
           font-size:.74rem;font-weight:820;letter-spacing:.065em;text-transform:uppercase;color:var(--cn98-ink-2);
@@ -1824,12 +1849,16 @@ def inject_v198_visual_system(st):
           .cn-day-kpi{padding:9px 10px;border-radius:10px}
           .cn-day-kpi .label{font-size:.66rem}
           .cn-day-kpi .value{font-size:1.25rem}
+          .cn-pitch-focus-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}
+          .cn-pitch-focus{padding:8px 9px}
           .cn-section-head{margin-top:15px}
         }
         @media(max-width:390px){
           .cn-day-kpis{grid-template-columns:repeat(3,minmax(0,1fr))}
           .cn-day-kpi{padding:8px}
           .cn-day-kpi .label{font-size:.62rem}
+          .cn-pitch-focus-grid{grid-template-columns:1fr}
+          .cn-pitch-focus .teams{white-space:normal}
         }
 
         /* v377 — Shared admin workspace language */

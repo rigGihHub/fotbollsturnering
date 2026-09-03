@@ -7,7 +7,7 @@ STYLE=(ROOT/"cupnavi_core/style_system.py").read_text(encoding="utf-8")
 VERSION=(ROOT/"VERSION.txt").read_text().strip()
 
 def test_release_version():
-    assert VERSION=="2026.09.02-390-PUBLIC-SHARE-TOPLIST-UX"
+    assert VERSION=="2026.09.03-414-PITCH-TIMING-MODE"
 
 def test_workspace_headers_keep_step_context_without_duplicate_trail():
     assert "Steg 1 av 5 · Deltagare" in APP

@@ -384,6 +384,7 @@ def render_public_workspace(tournament_id: int, tournament: Any, deps: PublicWor
                 filter_matches_view=_filter_public_matches,
                 render_match_cards=_render_public_match_cards,
                 load_match_events=public_match_events_db_snapshot,
+                load_overview=public_match_overview_db_snapshot,
             )
 
         render_public_matches_fragment()

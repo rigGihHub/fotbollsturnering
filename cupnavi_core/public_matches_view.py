@@ -10,7 +10,7 @@ import time
 from typing import Any, Callable, Mapping, Sequence
 
 from cupnavi_core.public_match_feed_logic import classify_public_match_feed, public_match_feed_summary
-from cupnavi_core.public_match_overview import build_live_feed_html, build_summary_html
+from cupnavi_core.public_match_overview import build_highlights_html, build_live_feed_html, build_summary_html
 from cupnavi_core.public_match_paging import (
     PUBLIC_MATCH_BATCH_SIZE,
     PUBLIC_MATCH_INITIAL_BATCH,
@@ -43,6 +43,7 @@ def render_public_matches_fragment(
     filter_matches_view: Callable[[Sequence[Any], str, str], tuple[Any, Any, str]],
     render_match_cards: Callable[..., Any],
     load_match_events: Callable[[Sequence[int]], Mapping[int, Sequence[Any]]],
+    load_overview: Callable[..., Mapping[str, Any]],
 ) -> dict[str, Any]:
     """Render the public Matches page and return its measured performance snapshot."""
     fragment_started = time.perf_counter()
@@ -81,13 +82,48 @@ def render_public_matches_fragment(
         st.markdown(feed_html, unsafe_allow_html=True)
     stage_timings["live_feed_ms"] = round((time.perf_counter() - stage_started) * 1000, 1)
 
-    # v304: The Matches page now keeps its overview deliberately lightweight.
-    # Leaderboards and visitor telemetry belong on Statistics/analytics surfaces and
-    # previously forced an extra DB snapshot plus full table calculations on every
-    # Matches fragment rerun. Preserve profiler keys for historical comparability.
-    stage_timings["overview_db_ms"] = 0.0
-    stage_timings["highlights_ms"] = 0.0
+    # v391: Use the intentionally empty desktop space beside the core metrics for
+    # three useful competition signals. Team attack/defence are calculated only
+    # from the already-loaded played matches; only the scorer needs one compact
+    # batched overview query. This keeps the information visible without restoring
+    # a heavy statistics dashboard to the primary match journey.
+    overview_started = time.perf_counter()
+    scorer_enabled = bool(row_value(tournament, "enable_scorer_leaderboard", 1))
+    overview = load_overview(tournament_id, scorer_enabled=scorer_enabled, assist_enabled=False) if scorer_enabled else {"leader_rows": []}
+    stage_timings["overview_db_ms"] = round((time.perf_counter() - overview_started) * 1000, 1)
     stage_timings["visitors_ms"] = 0.0
+
+    highlights_started = time.perf_counter()
+    team_totals: dict[int, dict[str, int]] = {}
+    for match in played_matches:
+        home_id = source_team_id(match["home_source"])
+        away_id = source_team_id(match["away_source"])
+        if home_id is None or away_id is None:
+            continue
+        home_score = int(match["home_score"] or 0)
+        away_score = int(match["away_score"] or 0)
+        home_stats = team_totals.setdefault(int(home_id), {"gf": 0, "ga": 0, "played": 0})
+        away_stats = team_totals.setdefault(int(away_id), {"gf": 0, "ga": 0, "played": 0})
+        home_stats["gf"] += home_score; home_stats["ga"] += away_score; home_stats["played"] += 1
+        away_stats["gf"] += away_score; away_stats["ga"] += home_score; away_stats["played"] += 1
+
+    highlights: dict[str, Any] = {}
+    if team_totals:
+        max_goals = max(stats["gf"] for stats in team_totals.values())
+        min_conceded = min(stats["ga"] for stats in team_totals.values() if stats["played"] > 0)
+        attack_names = sorted(public_team_names[team_id] for team_id, stats in team_totals.items() if stats["gf"] == max_goals and team_id in public_team_names)
+        defence_names = sorted(public_team_names[team_id] for team_id, stats in team_totals.items() if stats["ga"] == min_conceded and stats["played"] > 0 and team_id in public_team_names)
+        if attack_names:
+            highlights["attack"] = {"names": attack_names, "value": max_goals}
+        if defence_names:
+            highlights["defence"] = {"names": defence_names, "value": min_conceded}
+    leader_rows = list(overview.get("leader_rows", []))
+    if leader_rows:
+        leader = leader_rows[0]
+        if int(leader.get("goals") or 0) > 0:
+            highlights["scorer"] = {"player": str(leader.get("player_name") or ""), "team": str(leader.get("team_name") or ""), "value": int(leader.get("goals") or 0)}
+    highlights_html = build_highlights_html(highlights, tr=tr)
+    stage_timings["highlights_ms"] = round((time.perf_counter() - highlights_started) * 1000, 1)
 
     stage_started = time.perf_counter()
     summary_html = build_summary_html(
@@ -97,6 +133,7 @@ def render_public_matches_fragment(
         total_score=total_goals,
         score_label=sport_profile(row_value(tournament, "sport", "Fotboll"))["score_label"],
         tr=tr,
+        highlights_html=highlights_html,
     )
     st.markdown(summary_html, unsafe_allow_html=True)
     render_share_control(tournament_id, tournament)

@@ -288,3 +288,129 @@ def compare_pitch_delay_recovery_options(
     for index, option in enumerate(options):
         option["recommended"] = index == 0 and option["conflicts"] == 0 and option["unresolved_delay"] == 0
     return options
+
+
+def compare_pitch_outage_recovery_options(
+    matches: Sequence[Mapping[str, object]],
+    *,
+    pitch_number: int,
+    now: datetime,
+    rules: Mapping[str, object] | None,
+    resolve_team_id: Callable[[str], int | None],
+) -> list[dict]:
+    """Preview conservative alternatives when one pitch becomes unavailable.
+
+    The helper is read-only. It first tries to keep every remaining kickoff time
+    unchanged and move affected matches to other pitches. If that cannot be done
+    conflict-free, it also returns the best partial redistribution plus a baseline
+    that leaves the schedule untouched for manual review.
+    """
+    rows = [dict(row) for row in matches]
+    target_pitch = int(pitch_number)
+    affected = sorted(
+        (
+            row for row in rows
+            if int(row.get("pitch_number") or 0) == target_pitch
+            and _dt(row.get("scheduled_start")) is not None
+            and _dt(row.get("scheduled_start")) >= now
+            and not (
+                row.get("home_score") is not None
+                and row.get("away_score") is not None
+            )
+        ),
+        key=lambda row: (_dt(row.get("scheduled_start")), int(row.get("id") or 0)),
+    )
+    if not affected:
+        return []
+
+    all_pitches = sorted({
+        int(row.get("pitch_number"))
+        for row in rows
+        if row.get("pitch_number") is not None and int(row.get("pitch_number") or 0) != target_pitch
+    })
+    by_id = {int(row.get("id") or 0): row for row in rows}
+
+    placed = []
+    unresolved = []
+    working_changes = []
+    for row in affected:
+        found = None
+        for alt_pitch in all_pitches:
+            candidate = {
+                "match_id": int(row["id"]),
+                "scheduled_start": str(row.get("scheduled_start")),
+                "pitch_number": int(alt_pitch),
+            }
+            trial_changes = working_changes + [candidate]
+            _issues, conflicts, _warnings = _validate_changes(
+                rows, trial_changes, rules or {}, resolve_team_id
+            )
+            if conflicts == 0:
+                found = candidate
+                working_changes = trial_changes
+                placed.append(candidate)
+                break
+        if found is None:
+            unresolved.append(int(row["id"]))
+
+    options = []
+    changed, teams, shifted = _changed_summary(placed, by_id, resolve_team_id) if placed else (0, 0, 0)
+    issues, conflicts, warnings = _validate_changes(rows, placed, rules or {}, resolve_team_id) if placed else ([], 0, 0)
+    if placed:
+        complete = not unresolved
+        options.append({
+            "kind": "redistribute_same_times" if complete else "redistribute_partial",
+            "title": (
+                "Flytta matcherna till andra planer utan att ändra tider"
+                if complete
+                else "Flytta de matcher som får plats direkt"
+            ),
+            "detail": (
+                f"Alla {len(affected)} berörda matcher kan behålla sina avsparkstider på andra planer."
+                if complete
+                else f"{len(placed)} av {len(affected)} matcher kan flyttas utan tidsändring; {len(unresolved)} kräver fortsatt planering."
+            ),
+            "changes": placed,
+            "changed_matches": changed,
+            "affected_teams": teams,
+            "shifted_minutes": shifted,
+            "conflicts": conflicts,
+            "warnings": warnings,
+            "issues": issues,
+            "unresolved_matches": unresolved,
+            "unresolved_count": len(unresolved),
+        })
+
+    affected_team_ids = set()
+    for row in affected:
+        affected_team_ids |= _team_ids(row, resolve_team_id)
+    options.append({
+        "kind": "manual_hold",
+        "title": "Frys de berörda matcherna och planera om manuellt",
+        "detail": (
+            f"{len(affected)} återstående match(er) på Plan {target_pitch} berörs. "
+            "Inga tider ändras förrän arrangören har valt lösning."
+        ),
+        "changes": [],
+        "changed_matches": 0,
+        "affected_teams": len(affected_team_ids),
+        "shifted_minutes": 0,
+        "conflicts": 0,
+        "warnings": 0,
+        "issues": [],
+        "unresolved_matches": [int(row["id"]) for row in affected],
+        "unresolved_count": len(affected),
+    })
+
+    def score(option):
+        return (
+            int(option.get("conflicts") or 0) * 100_000
+            + int(option.get("unresolved_count") or 0) * 10_000
+            + int(option.get("changed_matches") or 0) * 100
+            + int(option.get("affected_teams") or 0) * 10
+        )
+
+    options.sort(key=lambda option: (score(option), option["kind"]))
+    for idx, option in enumerate(options):
+        option["recommended"] = idx == 0 and int(option.get("conflicts") or 0) == 0
+    return options

@@ -10,14 +10,15 @@ def _block() -> str:
     return text[start:end]
 
 
-def test_start_control_is_opt_in_before_heavy_queries():
+def test_start_control_is_opt_in_and_avoids_heavy_queries():
     block = _block()
     toggle = block.index('st.toggle(')
     guard = block.index('if _show_start_control:')
-    groups_query = block.index('SELECT * FROM groups WHERE tournament_id=?')
-    teams_query = block.index('SELECT * FROM teams WHERE tournament_id=?')
-    matches_query = block.index('SELECT * FROM matches WHERE tournament_id=?')
-    assert toggle < guard < groups_query < teams_query < matches_query
+    assert toggle < guard
+    assert 'workflow_counts["scheduled_n"]' in block[guard:]
+    assert 'SELECT * FROM groups WHERE tournament_id=?' not in block[guard:]
+    assert 'SELECT * FROM teams WHERE tournament_id=?' not in block[guard:]
+    assert 'SELECT * FROM matches WHERE tournament_id=?' not in block[guard:]
 
 
 def test_start_control_preserves_existing_readiness_checks():
@@ -35,4 +36,4 @@ def test_start_control_preserves_existing_readiness_checks():
 
 def test_release_version_is_v307():
     version = (APP.parent / "VERSION.txt").read_text(encoding="utf-8").strip()
-    assert version == "2026.09.02-390-PUBLIC-SHARE-TOPLIST-UX"
+    assert version == "2026.09.03-414-PITCH-TIMING-MODE"

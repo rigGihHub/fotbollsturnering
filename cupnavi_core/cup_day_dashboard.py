@@ -41,8 +41,13 @@ def build_cup_day_snapshot(
     match_duration_minutes=45,
     reporting_grace_minutes=10,
     upcoming_window_minutes=45,
+    require_results=False,
 ):
-    """Classify today's scheduled matches without mutating tournament data."""
+    """Classify today's scheduled matches without mutating tournament data.
+
+    ``require_results`` keeps a finished match in the action queue until a score
+    exists. Result-free matchcamps can still treat explicit finished status as complete.
+    """
     now = now or datetime.now()
     duration = timedelta(minutes=max(1, int(match_duration_minutes or 1)))
     grace = timedelta(minutes=max(0, int(reporting_grace_minutes or 0)))
@@ -51,6 +56,7 @@ def build_cup_day_snapshot(
     today_matches = []
     live = []
     upcoming = []
+    start_overdue = []
     reporting_due = []
     completed = []
     by_pitch = defaultdict(list)
@@ -74,7 +80,10 @@ def build_cup_day_snapshot(
             has_result=_complete(row),
         )
         if explicit_status == MATCH_FINISHED:
-            completed.append(item)
+            if require_results and not _complete(row):
+                reporting_due.append(item)
+            else:
+                completed.append(item)
             continue
         if explicit_status in {MATCH_LIVE, MATCH_HALFTIME}:
             live.append(item)
@@ -91,13 +100,21 @@ def build_cup_day_snapshot(
             elif now < start:
                 upcoming.append(item)
         elif now > start:
-            reporting_due.append(item)
+            # v403: A match with explicit status "not_started" must not be called
+            # a missing result the instant kickoff time passes. During the normal
+            # match window the organiser needs a start action; only after the
+            # expected duration + reporting grace do we escalate to result follow-up.
+            if now <= end + grace:
+                start_overdue.append(item)
+            else:
+                reporting_due.append(item)
         else:
             upcoming.append(item)
 
     today_matches.sort(key=lambda row: (_start(row) or datetime.max, int(_value(row, "pitch_number", 999) or 999)))
     live.sort(key=lambda row: _start(row) or datetime.max)
     upcoming.sort(key=lambda row: _start(row) or datetime.max)
+    start_overdue.sort(key=lambda row: _start(row) or datetime.max)
     reporting_due.sort(key=lambda row: _start(row) or datetime.max)
     completed.sort(key=lambda row: _start(row) or datetime.max)
 
@@ -111,10 +128,13 @@ def build_cup_day_snapshot(
         rows.sort(key=lambda row: _start(row) or datetime.max)
         current = next((row for row in rows if row in live), None)
         next_match = next((row for row in rows if _start(row) and _start(row) > now and not _complete(row)), None)
+        overdue_starts = [row for row in rows if row in start_overdue]
         overdue = [row for row in rows if row in reporting_due]
         if current:
             current_status = normalize_match_status(_value(current, "match_status", None))
             status = "Paus" if current_status == MATCH_HALFTIME else "Spelar nu"
+        elif overdue_starts:
+            status = "Starttid passerad"
         elif overdue:
             status = "Resultat saknas"
         elif next_match:
@@ -126,10 +146,18 @@ def build_cup_day_snapshot(
             "status": status,
             "current": current,
             "next": next_match,
+            "start_overdue_count": len(overdue_starts),
             "overdue_count": len(overdue),
         })
 
     attention = []
+    if start_overdue:
+        attention.append({
+            "severity": "warning",
+            "title": f"{len(start_overdue)} match(er) har passerat starttid",
+            "detail": "Bekräfta att matchen har startat eller öppna matchen för att rätta status.",
+            "target": "Cupdagen",
+        })
     if reporting_due:
         attention.append({
             "severity": "error",
@@ -151,6 +179,7 @@ def build_cup_day_snapshot(
         "live": live,
         "upcoming": upcoming,
         "next_window": next_window,
+        "start_overdue": start_overdue,
         "reporting_due": reporting_due,
         "completed": completed,
         "pitch_states": pitch_states,
@@ -178,6 +207,7 @@ def cup_day_primary_guidance(snapshot, *, now=None):
     now = now or datetime.now()
     snapshot = snapshot or {}
     due = list(snapshot.get("reporting_due") or [])
+    start_overdue = list(snapshot.get("start_overdue") or [])
     live = list(snapshot.get("live") or [])
     next_window = list(snapshot.get("next_window") or [])
     upcoming = list(snapshot.get("upcoming") or [])
@@ -191,6 +221,16 @@ def cup_day_primary_guidance(snapshot, *, now=None):
             "detail": "Matchtiden och rapporteringsmarginalen har passerat.",
             "button": "Öppna resultat",
             "target": "Matcher och resultat",
+        }
+    if start_overdue:
+        count = len(start_overdue)
+        return {
+            "state": "action",
+            "eyebrow": "Starttid passerad",
+            "title": f"Starta {count} matcher" if count > 1 else "Starta matchen",
+            "detail": "Planerad avspark har passerat, men matchen står fortfarande som ej startad.",
+            "button": "Visa matchen",
+            "target": None,
         }
     if live:
         count = len(live)

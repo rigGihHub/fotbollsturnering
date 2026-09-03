@@ -3,7 +3,7 @@ ROOT=Path(__file__).resolve().parents[1]
 APP=(ROOT/"app.py").read_text(encoding="utf-8")
 SETUP=(ROOT/"cupnavi_core"/"initial_setup_view.py").read_text(encoding="utf-8")
 MIG=(ROOT/"cupnavi_core/migrations.py").read_text(encoding="utf-8")
-R="2026.09.02-390-PUBLIC-SHARE-TOPLIST-UX"
+R="2026.09.03-414-PITCH-TIMING-MODE"
 
 def test_sidebar_no_longer_asks_global_team_count():
     start=APP.index('def render_new_tournament_creator')

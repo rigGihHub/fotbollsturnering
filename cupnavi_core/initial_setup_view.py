@@ -20,6 +20,7 @@ from cupnavi_core.initial_setup_logic import (
     estimated_match_length_minutes,
     normalized_priority_order,
     priority_order_changed,
+    setup_consequence_preview,
 )
 
 
@@ -55,6 +56,7 @@ class InitialSetupDependencies:
     youth_class_years: Any
     difficulty_levels: Any
     date_with_weekday: Callable[..., Any]
+
 
 
 def render_initial_tournament_setup(tournament_id, tournament, *, deps: InitialSetupDependencies):
@@ -544,9 +546,47 @@ def render_initial_tournament_setup(tournament_id, tournament, *, deps: InitialS
     _fast_track_ready = bool(class_rows) and _planned_total > 0 and valid_windows and not _addresses_to_verify
     _setup_ready = _fast_track_ready
     with st.container(border=True):
-        st.markdown("#### Nästa steg")
+        st.markdown("#### Kontroll innan du går vidare")
         if _fast_track_ready:
-            st.success("Grunden är klar. Lägg in lagen nu; specialinställningar kan vänta.")
+            _preview_match_minutes = estimated_match_length_minutes(rules, row_value=_row_value)
+            _preview_available_minutes = available_pitch_minutes(windows, row_value=_row_value)
+            if _is_matchcamp:
+                _preview_matches_per_team = int(st.session_state.get(
+                    f"setup_matchcamp_matches_per_team_{tournament_id}",
+                    _row_value(rules, "matchcamp_matches_per_team", 4) or 4,
+                ))
+                _preview_unique_target = max(1, min(_preview_matches_per_team, max(1, _planned_total - 1)))
+                _preview_total_matches = (_planned_total * _preview_unique_target + 1) // 2
+            else:
+                _preview_total_matches = int((_guided_format_rec or {}).get("total_matches", 0) or 0)
+            _preview = setup_consequence_preview(
+                team_count=_planned_total,
+                total_matches=_preview_total_matches,
+                match_minutes=_preview_match_minutes,
+                available_minutes=_preview_available_minutes,
+            )
+            _preview_hours, _preview_mins = divmod(_preview["pitch_time_minutes"], 60)
+            _preview_time_label = (
+                f"{_preview_hours} h {_preview_mins} min" if _preview_hours and _preview_mins
+                else f"{_preview_hours} h" if _preview_hours
+                else f"{_preview_mins} min"
+            )
+            p1,p2,p3,p4=st.columns(4)
+            p1.metric("Lag", _preview["team_count"])
+            p2.metric("Planer", current_pitch_count)
+            p3.metric("Cirka matcher", _preview["total_matches"] or "–")
+            p4.metric("Matchtid på plan", _preview_time_label if _preview["total_matches"] else "–")
+            if _preview["utilization_percent"] is not None and _preview["total_matches"]:
+                _margin_copy = f"{_preview['margin_label']} · cirka {_preview['utilization_percent']} % av den angivna plantiden används av matchslotarna."
+                if _preview["margin_tone"] == "over":
+                    st.error(_margin_copy)
+                elif _preview["margin_tone"] == "tight":
+                    st.warning(_margin_copy + " CupNavi kan behöva mer tid för vila, förseningar och ett bra schema.")
+                else:
+                    st.success(_margin_copy)
+            else:
+                st.success("Grunden är klar. Lägg in lagen nu; specialinställningar kan vänta.")
+            st.caption("Detta är en konsekvenskontroll, inte det färdiga schemat. Exakta start- och sluttider bestäms först när CupNavi bygger schemat.")
         else:
             st.caption("Lägg till minst en tävlingsklass och kontrollera plantiderna för att aktivera snabbstart.")
         if st.button(

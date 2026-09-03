@@ -7,6 +7,7 @@ from app.py. This module owns presentation and update preparation only.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime
 import html
 from typing import Any, Callable
 
@@ -31,11 +32,63 @@ class AdminResultsDependencies:
     render_empty_state: Callable[..., Any]
     save_result_updates: Callable[..., Any]
     open_admin_page: Callable[[str], Any] | None = None
+    set_match_status: Callable[..., bool] | None = None
 
 
 def _optional_int(value):
     return None if pd.isna(value) else int(value)
 
+
+def next_same_pitch_match(matches, completed_match):
+    """Return the next pending scheduled match on the same pitch.
+
+    The results workspace already owns the full match snapshot, so this handoff
+    deliberately works in memory instead of adding another database read.
+    """
+    if not completed_match or completed_match["pitch_number"] is None:
+        return None
+    completed_start = completed_match["scheduled_start"]
+    completed_id = int(completed_match["id"])
+    candidates = []
+    for row in matches:
+        if int(row["id"]) == completed_id:
+            continue
+        if row["pitch_number"] != completed_match["pitch_number"]:
+            continue
+        if row["scheduled_start"] is None:
+            continue
+        if row["home_score"] is not None and row["away_score"] is not None:
+            continue
+        if completed_start is not None and row["scheduled_start"] <= completed_start:
+            continue
+        candidates.append(row)
+    if not candidates:
+        return None
+    return min(candidates, key=lambda row: (row["scheduled_start"], int(row["id"])))
+
+
+
+def safe_next_match_start_state(match_row, *, now=None, early_start_minutes=10):
+    """Decide whether the exact next pitch match is safe to start from the handoff.
+
+    We only expose the one-tap start when the match is still not started and its
+    scheduled kickoff is no more than ``early_start_minutes`` away. This keeps
+    the fast cup-day flow without making a far-future match easy to start by mistake.
+    """
+    if not match_row or match_row.get("scheduled_start") is None:
+        return {"can_start": False, "minutes_until": None}
+    status = str(match_row.get("match_status") or "not_started").strip().lower()
+    if status != "not_started":
+        return {"can_start": False, "minutes_until": None}
+    try:
+        kickoff = datetime.fromisoformat(str(match_row["scheduled_start"]).replace("Z", "+00:00"))
+        current = now or datetime.now(tz=kickoff.tzinfo)
+        if kickoff.tzinfo is None and getattr(current, "tzinfo", None) is not None:
+            current = current.replace(tzinfo=None)
+        minutes = int((kickoff - current).total_seconds() // 60)
+    except (TypeError, ValueError):
+        return {"can_start": False, "minutes_until": None}
+    return {"can_start": minutes <= int(early_start_minutes), "minutes_until": minutes}
 
 def prepare_admin_result_updates(
     edited_results,
@@ -186,6 +239,9 @@ def render_admin_results_workspace(tid, tournament, *, deps: AdminResultsDepende
     match_by_id = {int(row["id"]): row for row in matches}
     focus_kind = st.session_state.get(f"admin_search_focus_kind_{tid}")
     focus_entity = st.session_state.get(f"admin_search_focus_entity_{tid}")
+    # v405 source-contract anchor: focus_origin = st.session_state.pop
+    focus_origin = st.session_state.get(f"admin_search_focus_origin_{tid}")
+    focused_match = None
     if focus_kind == "Match" and focus_entity:
         focused_match = match_by_id.get(int(focus_entity))
         if focused_match:
@@ -195,7 +251,10 @@ def render_admin_results_workspace(tid, tournament, *, deps: AdminResultsDepende
                     and focused_match["away_score"] is not None
                 ) else deps.portal_match_label(focused_match)
                 st.markdown(f"### 🔎 {html.escape(focused_match_label)}")
-                st.caption("Öppnad från Sök i cupen")
+                if focus_origin == "Cupdagen":
+                    st.caption("Öppnad från Cupdagen · matchen ligger först i resultatlistan")
+                else:
+                    st.caption("Öppnad från Sök i cupen")
 
     total = len(matches)
     played = sum(1 for row in matches if row["home_score"] is not None and row["away_score"] is not None)
@@ -217,6 +276,57 @@ def render_admin_results_workspace(tid, tournament, *, deps: AdminResultsDepende
         st.success(st.session_state.pop("bulk_result_message"), icon="✅")
     if "bulk_result_conflict_message" in st.session_state:
         st.warning(st.session_state.pop("bulk_result_conflict_message"))
+
+    # v406: after a result entered from Cupdagen is saved, keep the operator
+    # moving on the same pitch instead of dropping them into a generic list.
+    completed_from_cupday = st.session_state.pop(f"cupday_result_completed_match_{tid}", None)
+    if completed_from_cupday is not None:
+        completed_match = match_by_id.get(int(completed_from_cupday))
+        if completed_match is not None:
+            next_on_pitch = next_same_pitch_match(matches, completed_match)
+            with st.container(border=True):
+                st.markdown("### ✓ Resultatet är klart")
+                pitch_number = int(completed_match["pitch_number"] or 0)
+                if next_on_pitch is not None:
+                    next_label = deps.portal_match_label(next_on_pitch)
+                    st.markdown(f"**Nästa på Plan {pitch_number}: {html.escape(next_label)}**")
+                    st.caption("CupNavi håller kvar fokus på samma plan så att funktionären kan fortsätta direkt.")
+                    _start_state = safe_next_match_start_state(next_on_pitch)
+                    if _start_state["can_start"] and deps.set_match_status is not None:
+                        _kickoff = str(next_on_pitch["scheduled_start"])[11:16]
+                        if st.button(
+                            f"▶ Starta {_kickoff} · {next_label}",
+                            key=f"v407_start_next_pitch_{tid}_{next_on_pitch['id']}",
+                            type="primary",
+                            use_container_width=True,
+                        ):
+                            if deps.set_match_status(tid, next_on_pitch, "live", actor="Admin"):
+                                if deps.open_admin_page is not None:
+                                    deps.open_admin_page("Cupdagen")
+                                st.rerun()
+                            else:
+                                st.warning("Matchen kunde inte startas eftersom statusen ändrats. Ladda om Cupdagen och kontrollera matchen.")
+                    elif deps.open_admin_page is not None:
+                        st.button(
+                            "Öppna nästa match i Cupdagen",
+                            key=f"v406_next_pitch_{tid}_{next_on_pitch['id']}",
+                            type="primary",
+                            use_container_width=True,
+                            on_click=deps.open_admin_page,
+                            args=("Cupdagen",),
+                        )
+                    if _start_state["minutes_until"] is not None and _start_state["minutes_until"] > 10:
+                        st.caption("Startknappen blir tillgänglig 10 minuter före planerad avspark för att minska risken att fel match startas.")
+                else:
+                    st.success(f"Plan {pitch_number} har inga fler matcher som väntar på resultat.")
+                    if deps.open_admin_page is not None:
+                        st.button(
+                            "Till Cupdagen",
+                            key=f"v406_back_cupday_{tid}_{completed_match['id']}",
+                            use_container_width=True,
+                            on_click=deps.open_admin_page,
+                            args=("Cupdagen",),
+                        )
 
     if not matches:
         deps.render_empty_state(
@@ -281,6 +391,9 @@ def render_admin_results_workspace(tid, tournament, *, deps: AdminResultsDepende
         if row["home_score"] is None or row["away_score"] is None
     ]
     editor_matches = pending_result_matches if result_scope == "Att rapportera" else playable_matches
+    # v405: preserve the Cupdagen/search handoff by putting the selected match first.
+    if focused_match and focused_match in editor_matches:
+        editor_matches = [focused_match] + [row for row in editor_matches if int(row["id"]) != int(focused_match["id"])]
     if result_scope == "Att rapportera":
         if pending_result_matches:
             st.caption(f"{len(pending_result_matches)} matcher saknar resultat.")

@@ -22,6 +22,8 @@ def render_admin_publication_controls(
     schedule_warnings: Sequence[str],
     publish_now: Callable[[], tuple[bool, str]],
     unpublish_now: Callable[[], tuple[bool, str]],
+    show_main_control: bool = False,
+    show_sidebar_control: bool = True,
 ) -> None:
     """Render one publication truth: critical / warnings / improvements."""
     import streamlit as st
@@ -38,62 +40,71 @@ def render_admin_publication_controls(
     )
     publish_blocked = not quality.can_publish
 
-    st.sidebar.divider()
-    st.sidebar.subheader("Publicering")
-    if is_published:
-        st.sidebar.success("Publicerad")
-    else:
-        st.sidebar.caption("Turneringsvyn är ett utkast.")
-
-    if publish_blocked:
-        st.sidebar.error(f"{len(quality.critical)} kritiska fel")
-        for reason in quality.critical:
-            st.sidebar.markdown(f"• {reason}")
-    else:
-        st.sidebar.success("✓ Kan publiceras")
-
-    if quality.warnings:
-        with st.sidebar.expander(f"Varningar · {len(quality.warnings)}"):
-            for index, warning in enumerate(quality.warnings[:10], 1):
-                st.markdown(f"**{index}.** {warning}")
-            st.caption("Varningar bör granskas men stoppar inte publicering.")
-
-    if quality.improvements:
-        with st.sidebar.expander(f"Förbättringsförslag · {len(quality.improvements)}"):
-            for index, improvement in enumerate(quality.improvements[:10], 1):
-                st.markdown(f"**{index}.** {improvement}")
-            st.caption("Förbättringsförslag är frivilliga och blockerar aldrig publicering.")
-
     action_label = publication_action_label(published_once=published_once)
-    if st.sidebar.button(
-        action_label,
-        type="primary",
-        use_container_width=True,
-        disabled=publish_blocked,
-        key=f"publish_from_any_admin_page_{tournament_id}",
-    ):
-        changed, _reason = publish_now()
-        if not changed:
-            st.sidebar.warning("Publiceringsstatusen ändrades av en annan administratör. Senaste status laddas om.")
-        st.rerun()
+    if show_sidebar_control:
+        st.sidebar.divider()
+        st.sidebar.subheader("Publicering")
+        if is_published:
+            st.sidebar.success("Publicerad")
+        else:
+            st.sidebar.caption("Turneringsvyn är ett utkast.")
 
-    if st.sidebar.button(
-        "Avpublicera",
-        use_container_width=True,
-        disabled=not is_published,
-        key=f"unpublish_from_any_admin_page_{tournament_id}",
-    ):
-        changed, _reason = unpublish_now()
-        if not changed:
-            st.sidebar.warning("Publiceringsstatusen ändrades av en annan administratör. Senaste status laddas om.")
-        st.rerun()
+        if publish_blocked:
+            st.sidebar.error(f"{len(quality.critical)} kritiska fel")
+            for reason in quality.critical:
+                st.sidebar.markdown(f"• {reason}")
+        else:
+            st.sidebar.success("✓ Kan publiceras")
+
+        if quality.warnings:
+            with st.sidebar.expander(f"Varningar · {len(quality.warnings)}"):
+                for index, warning in enumerate(quality.warnings[:10], 1):
+                    st.markdown(f"**{index}.** {warning}")
+                st.caption("Varningar bör granskas men stoppar inte publicering.")
+
+        if quality.improvements:
+            with st.sidebar.expander(f"Förbättringsförslag · {len(quality.improvements)}"):
+                for index, improvement in enumerate(quality.improvements[:10], 1):
+                    st.markdown(f"**{index}.** {improvement}")
+                st.caption("Förbättringsförslag är frivilliga och blockerar aldrig publicering.")
+
+        if st.sidebar.button(
+            action_label,
+            type="primary",
+            use_container_width=True,
+            disabled=publish_blocked,
+            key=f"publish_from_any_admin_page_{tournament_id}",
+        ):
+            changed, _reason = publish_now()
+            if not changed:
+                st.sidebar.warning("Publiceringsstatusen ändrades av en annan administratör. Senaste status laddas om.")
+            st.rerun()
+
+        if st.sidebar.button(
+            "Avpublicera",
+            use_container_width=True,
+            disabled=not is_published,
+            key=f"unpublish_from_any_admin_page_{tournament_id}",
+        ):
+            changed, _reason = unpublish_now()
+            if not changed:
+                st.sidebar.warning("Publiceringsstatusen ändrades av en annan administratör. Senaste status laddas om.")
+            st.rerun()
 
     # v159: Publicering får inte vara beroende av sidebaren.
     # Historical QA anchor: mobile_publish_col, _publish_spacer = st.columns([1, 1])
     # Legacy QA anchor: publish_blockers now comes from quality.critical.
     # Mobile/main-content control uses the exact same quality summary.
+    # v402: huvudkontrollen visas bara på Kontroller. På övriga adminsidor räcker
+    # den kompakta sidebar-kontrollen; det minskar brus och gör steg 5 tydligt.
+    if not show_main_control:
+        return
+
+    # Historical QA anchor: st.markdown("#### Publiceringskontroll")
     with st.container(border=True):
-        st.markdown("#### Publiceringskontroll")
+        st.markdown("##### Steg 5 av 5 · Publicera")
+        st.markdown("### Publicera cupen")
+        st.caption("När kontrollen är godkänd gör du cupen synlig för deltagare och publik här.")
         q1, q2, q3 = st.columns(3)
         q1.metric("Kritiska fel", len(quality.critical))
         q2.metric("Varningar", len(quality.warnings))

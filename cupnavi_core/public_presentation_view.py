@@ -256,6 +256,28 @@ def render_bracket_tree(
             target_y = header_height + next_center
             connectors.append(f"<span class='line horizontal' style='left:{middle_x}px;top:{target_y:.1f}px;width:{end_x-middle_x}px'></span>")
 
+    def _winner_flags(match_row, home_id, away_id):
+        home_winner = away_winner = False
+        if match_row["home_score"] is not None and match_row["away_score"] is not None:
+            if match_row["home_score"] > match_row["away_score"]:
+                home_winner = True
+            elif match_row["away_score"] > match_row["home_score"]:
+                away_winner = True
+            elif match_row["decided_winner_id"] in (home_id, away_id):
+                home_winner = match_row["decided_winner_id"] == home_id
+                away_winner = match_row["decided_winner_id"] == away_id
+            elif match_row["home_penalties"] is not None and match_row["away_penalties"] is not None:
+                home_winner = match_row["home_penalties"] > match_row["away_penalties"]
+                away_winner = match_row["away_penalties"] > match_row["home_penalties"]
+        return home_winner, away_winner
+
+    def _decider_text(match_row):
+        if match_row["decided_winner_id"]:
+            return "Avgjord genom lottning"
+        if match_row["home_penalties"] is not None and match_row["away_penalties"] is not None:
+            return f"Straffar {match_row['home_penalties']}–{match_row['away_penalties']}"
+        return ""
+
     mobile_rounds = []
     for stage_name, stage_matches in main_stages:
         mobile_cards = []
@@ -268,6 +290,8 @@ def render_bracket_tree(
             away_name = html.escape(away["name"] if away is not None else source_label(match_row["away_source"]))
             home_score = "–" if match_row["home_score"] is None else str(match_row["home_score"])
             away_score = "–" if match_row["away_score"] is None else str(match_row["away_score"])
+            home_winner, away_winner = _winner_flags(match_row, home_id, away_id)
+            decider = _decider_text(match_row)
             if public and not match_row["schedule_published"]:
                 mobile_meta = "Tid och plan ej publicerade"
             else:
@@ -275,9 +299,10 @@ def render_bracket_tree(
             mobile_cards.append(
                 "<div class='cn-playoff-mobile-match'>"
                 f"<div class='meta'>{html.escape(mobile_meta)}</div>"
-                f"<div class='team'><span>{home_name}</span><b>{home_score}</b></div>"
-                f"<div class='team'><span>{away_name}</span><b>{away_score}</b></div>"
-                "</div>"
+                f"<div class='team{' winner' if home_winner else ''}'><span>{home_name}</span><b>{home_score}</b></div>"
+                f"<div class='team{' winner' if away_winner else ''}'><span>{away_name}</span><b>{away_score}</b></div>"
+                + (f"<div class='decider'>{html.escape(decider)}</div>" if decider else "")
+                + "</div>"
             )
         mobile_rounds.append(
             f"<section class='cn-playoff-mobile-round'><h4>{html.escape(stage_name)}</h4>{''.join(mobile_cards)}</section>"
@@ -288,13 +313,22 @@ def render_bracket_tree(
     bronze_html = ""
     if bronze_matches:
         bronze = bronze_matches[0]
+        bronze_home_id = resolve_source(bronze["home_source"])
+        bronze_away_id = resolve_source(bronze["away_source"])
+        bronze_home_team = bracket_team_by_id.get(int(bronze_home_id)) if bronze_home_id else None
+        bronze_away_team = bracket_team_by_id.get(int(bronze_away_id)) if bronze_away_id else None
+        bronze_home_name = html.escape(bronze_home_team["name"] if bronze_home_team is not None else source_label(bronze["home_source"]))
+        bronze_away_name = html.escape(bronze_away_team["name"] if bronze_away_team is not None else source_label(bronze["away_source"]))
         bronze_home = "–" if bronze["home_score"] is None else bronze["home_score"]
         bronze_away = "–" if bronze["away_score"] is None else bronze["away_score"]
+        bronze_home_winner, bronze_away_winner = _winner_flags(bronze, bronze_home_id, bronze_away_id)
+        bronze_decider = _decider_text(bronze)
         bronze_html = f"""
           <div class='classic-bronze'>
             <div><strong>🥉 Bronsmatch</strong><small>Placeringsmatch</small></div>
-            <span>{html.escape(source_label(bronze['home_source']))}</span><b>{bronze_home}</b>
-            <span>{html.escape(source_label(bronze['away_source']))}</span><b>{bronze_away}</b>
+            <span class='{'winner' if bronze_home_winner else ''}'>{bronze_home_name}</span><b>{bronze_home}</b>
+            <span class='{'winner' if bronze_away_winner else ''}'>{bronze_away_name}</span><b>{bronze_away}</b>
+            {f"<em>{html.escape(bronze_decider)}</em>" if bronze_decider else ""}
           </div>
         """
     st.markdown(
@@ -321,7 +355,9 @@ def render_bracket_tree(
           .classic-bronze div {{grid-column:1 / 3;display:flex;justify-content:space-between;margin-bottom:4px;color:#92400e}}
           .classic-bronze small {{color:#a16207}}
           .classic-bronze span {{font-size:13px}}
+          .classic-bronze span.winner {{font-weight:850;color:#065f46}}
           .classic-bronze b {{text-align:center}}
+          .classic-bronze em {{grid-column:1 / 3;font-style:normal;font-size:10px;font-weight:750;color:#9a3412}}
         </style>
         <style>
           .cn-playoff-mobile {{display:none}}
@@ -335,13 +371,19 @@ def render_bracket_tree(
             .cn-playoff-mobile-match .team {{display:grid;grid-template-columns:1fr 28px;gap:8px;align-items:center;padding:7px 9px;border-top:1px solid #edf1ee;font-size:13px}}
             .cn-playoff-mobile-match .team span {{font-weight:760;color:#172033;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}}
             .cn-playoff-mobile-match .team b {{font-size:15px;text-align:center;color:#172033}}
+            .cn-playoff-mobile-match .team.winner {{background:#ecfdf5}}
+            .cn-playoff-mobile-match .team.winner span,
+            .cn-playoff-mobile-match .team.winner b {{color:#047857;font-weight:850}}
+            .cn-playoff-mobile-match .team.winner span::after {{content:'Vinnare';display:inline-block;margin-left:6px;padding:1px 5px;border-radius:999px;background:#d1fae5;color:#065f46;font-size:8px;font-weight:850;vertical-align:1px}}
+            .cn-playoff-mobile-match .decider {{padding:5px 9px;border-top:1px solid #edf1ee;background:#fff7ed;color:#9a3412;font-size:10px;font-weight:750}}
+            .classic-bronze {{max-width:none;margin-top:10px}}
           }}
         </style>
         {mobile_bracket_html}
         <div class="classic-bracket-scroll">
           <div class="classic-bracket">{''.join(connectors)}{''.join(headers)}{''.join(cards)}</div>
-          {bronze_html}
         </div>
+        {bronze_html}
         """,
         unsafe_allow_html=True,
     )

@@ -42,4 +42,4 @@ def test_ui_is_preview_first_and_explicit_apply():
     assert 'Inget ändras förrän du godkänner det.' in VIEW
 
 def test_version():
-    assert 'APP_BUILD_VERSION = "2026.09.02-390-PUBLIC-SHARE-TOPLIST-UX"' in APP
+    assert 'APP_BUILD_VERSION = "2026.09.03-414-PITCH-TIMING-MODE"' in APP

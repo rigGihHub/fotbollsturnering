@@ -1,6 +1,6 @@
 from pathlib import Path
 
-VERSION = "2026.09.02-390-PUBLIC-SHARE-TOPLIST-UX"
+VERSION = "2026.09.03-414-PITCH-TIMING-MODE"
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE = (ROOT / "cupnavi_core" / "public_statistics_view.py").read_text(encoding="utf-8")
 

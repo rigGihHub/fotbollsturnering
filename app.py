@@ -79,6 +79,7 @@ from cupnavi_core.performance import build_performance_snapshot, performance_log
 from cupnavi_core.schedule_quality import assess_schedule
 from cupnavi_core.public_competition import calculate_group_table
 from cupnavi_core.initial_setup_view import InitialSetupDependencies, render_initial_tournament_setup as render_initial_tournament_setup_module
+from cupnavi_core.new_tournament_wizard import render_new_tournament_wizard as render_new_tournament_wizard_module
 from cupnavi_core.home_away import orientation_balance_score
 from cupnavi_core.migrations import apply_migrations, LATEST_SCHEMA_VERSION, ensure_competition_class_schema_compat, ensure_v16_setup_schema_compat, ensure_v18_pitch_names_schema_compat, ensure_v19_schema_compat, ensure_v20_schema_compat, ensure_v21_schema_compat, ensure_v26_schema_compat
 from cupnavi_core.health import collect_database_health
@@ -190,7 +191,7 @@ def inject_v198_visual_system():
     return _inject_v198_visual_system_impl(st)
 
 
-APP_BUILD_VERSION = "2026.09.02-390-PUBLIC-SHARE-TOPLIST-UX"
+APP_BUILD_VERSION = "2026.09.03-414-PITCH-TIMING-MODE"
 APP_VERSION = APP_BUILD_VERSION
 
 def read_core_version_from_disk():
@@ -7528,6 +7529,8 @@ def render_new_tournament_creator(*, key_prefix="sidebar"):
                 # selector widget is instantiated later in the rerun, so it is
                 # safe to seed both desktop and mobile selector state here.
                 st.session_state["new_tournament_setup_id"] = int(new_tournament_id)
+                st.session_state["new_tournament_setup_mode"] = "new"
+                st.session_state[f"new_tournament_wizard_step_{int(new_tournament_id)}"] = 1
                 st.session_state["preferred_tournament_id"] = int(new_tournament_id)
                 # The creator exists both before and after the canonical selector
                 # depending on desktop/mobile layout. Defer widget-key mutation to
@@ -8254,11 +8257,8 @@ label[data-testid="stWidgetLabel"] {
 """, unsafe_allow_html=True)
 
 def render_initial_tournament_setup(tournament_id, tournament):
-    """Render the guided setup via the extracted presentation/orchestration layer."""
-    return render_initial_tournament_setup_module(
-        tournament_id,
-        tournament,
-        deps=InitialSetupDependencies(
+    """Render first-run wizard for a new cup; keep the full editor for later changes."""
+    deps = InitialSetupDependencies(
             st=st,
             one_row=one_row,
             run=run,
@@ -8289,8 +8289,10 @@ def render_initial_tournament_setup(tournament_id, tournament):
             youth_class_years=YOUTH_CLASS_YEARS,
             difficulty_levels=DIFFICULTY_LEVELS,
             date_with_weekday=date_with_weekday,
-        ),
-    )
+        )
+    if st.session_state.get("new_tournament_setup_mode") == "new":
+        return render_new_tournament_wizard_module(tournament_id, tournament, deps=deps)
+    return render_initial_tournament_setup_module(tournament_id, tournament, deps=deps)
 
 
 def _render_with_friendly_error(renderer, *args):
@@ -8674,7 +8676,12 @@ if _flow_index is not None and not _first_run_new_cup:
     _result_text = f"Resultat {_flow_played}/{_flow_total}" if _flow_total else "Inga matcher"
     st.markdown(
         f"<div class='cn-flow-context cn-flow-context-compact'>"
-        f"<div class='cn-flow-kicker'>Steg {_flow_index + 1} av {len(ADMIN_PRIMARY_FLOW)}</div>"
+        f"<div class='cn-flow-kicker'>{html.escape({
+            'Lag': 'Steg 1 av 5 · Deltagare',
+            'Grupper': 'Steg 2 av 5 · Tävlingsstruktur',
+            'Skapa och publicera schema': 'Steg 3 av 5 · Schema',
+            'Kontroller': 'Steg 4 av 5 · Kontroll',
+        }.get(admin_page, 'Cupflöde'))}</div>"
         f"<div class='cn-flow-status'>"
         f"<span class='cn-flow-pill {_publish_class}'>● {html.escape(_publish_text)}</span>"
         f"<span class='cn-flow-pill {_schedule_class}'>🗓 {html.escape(_schedule_text)}</span>"
@@ -8699,8 +8706,26 @@ if _flow_index is not None:
         _recommended_page, _recommended_label = "Grupper", f"Placera { _journey_unassigned_n } lag i grupp" if _journey_unassigned_n == 1 else f"Placera {_journey_unassigned_n} lag i grupper"
     elif _flow_scheduled == 0 or bool(tournament["schedule_dirty"]):
         _recommended_page, _recommended_label = "Skapa och publicera schema", "Skapa eller uppdatera schemat"
+    elif not bool(tournament["is_published"]):
+        # v401: setup-guiden lovar Lag → Grupper → Schema → Kontroll → Publicera.
+        # Låt därför inte första cupflödet hoppa direkt från ett färdigt schema
+        # till resultatrapportering innan arrangören har gjort publiceringskontrollen.
+        _recommended_page, _recommended_label = "Kontroller", "Kontrollera och publicera"
     elif _flow_total and _flow_played < _flow_total:
-        _recommended_page, _recommended_label = "Matcher och resultat", "Registrera och följ resultat"
+        # v403: Once a published cup reaches its tournament day, the organiser
+        # should land in the operational Cupdagen view instead of a generic
+        # result editor. Before/after the tournament date we keep the calmer
+        # result path. No extra DB read is needed; dates are already on tournament.
+        _today = datetime.now().date()
+        try:
+            _cup_start = datetime.fromisoformat(str(tournament["start_date"])).date() if tournament["start_date"] else None
+            _cup_end = datetime.fromisoformat(str(tournament["end_date"])).date() if tournament["end_date"] else _cup_start
+        except (TypeError, ValueError):
+            _cup_start = _cup_end = None
+        if _cup_start and _cup_end and _cup_start <= _today <= _cup_end:
+            _recommended_page, _recommended_label = "Cupdagen", "Öppna cupdagen"
+        else:
+            _recommended_page, _recommended_label = "Matcher och resultat", "Registrera och följ resultat"
     else:
         _recommended_page, _recommended_label = "Tabeller", "Granska tabell och slutspel"
 else:
@@ -8787,6 +8812,7 @@ def _unpublish_tournament_now():
     )
 
 
+# Historical QA anchor: show_main_control=(admin_page == "Kontroller")
 if not _first_run_new_cup:
     render_admin_publication_controls(
         tournament_id=tid,
@@ -8799,6 +8825,8 @@ if not _first_run_new_cup:
         schedule_warnings=sidebar_warnings,
         publish_now=_publish_tournament_now,
         unpublish_now=_unpublish_tournament_now,
+        show_main_control=False,
+        show_sidebar_control=True,
     )
 
 # Cupens livscykel: publicerad -> pågår -> avslutad. Avslutad cup blir skrivskyddad
@@ -9132,6 +9160,7 @@ elif admin_page == "Adminöversikt":
         readiness,
         workflow_counts,
         schedule_dirty=bool(tournament["schedule_dirty"]),
+        published=bool(tournament["is_published"]),
     )
 
     if first_run_new_cup:
@@ -9301,7 +9330,10 @@ elif admin_page == "Adminöversikt":
             missing_refs = sum(1 for m in control_matches if m["referee_id"] is None and m["home_score"] is None)
             unplayed = sum(1 for m in control_matches if m["home_score"] is None or m["away_score"] is None)
             checkin_enabled = bool(_row_value(tournament, "enable_team_checkin", 1))
-            unchecked = one_row("SELECT COUNT(*) AS n FROM teams WHERE tournament_id=? AND COALESCE(checked_in,0)=0", (tid,))["n"] if checkin_enabled else 0
+            # v398: Adminöversiktens workflow-snapshot innehåller redan antalet ej
+            # incheckade lag. Återanvänd det i Control Center i stället för ett
+            # extra remote COUNT-anrop när verktyget öppnas.
+            unchecked = int(workflow_counts["unchecked_n"] or 0) if checkin_enabled else 0
             open_incidents = all_rows("SELECT * FROM control_incidents WHERE tournament_id=? AND status='open' ORDER BY created_at DESC", (tid,))
             cc1, cc2, cc3, cc4 = st.columns(4)
             cc1.metric("Matcher kvar", unplayed)
@@ -9353,8 +9385,10 @@ elif admin_page == "Adminöversikt":
                 saved_format = stored_format if stored_format in format_options else "Inget slutspel"
                 if not tournament["playoff_model_confirmed"]:
                     st.warning("Välj och spara slutspelsmodell innan spelschemat kan genereras.")
-                current_team_count_for_limit = one_row("SELECT COUNT(*) AS n FROM teams WHERE tournament_id=?", (tid,))["n"]
-                _prod_history_locked = production_history_locked(tid, tournament)
+                # v398: team- och resultatantal finns redan i samma workflow-snapshot
+                # som driver Adminöversikten. Undvik två extra COUNT-frågor här.
+                current_team_count_for_limit = teams_n
+                _prod_history_locked = (not is_test_environment(tournament)) and played_n > 0
                 if _prod_history_locked:
                     st.warning(
                         "🔒 Historikskydd aktivt: cupen är en riktig cup med registrerade resultat. "
@@ -9710,32 +9744,37 @@ elif admin_page == "Adminöversikt":
                 key=f"admin_start_control_{tid}",
             )
             if _show_start_control:
-                admin_groups = all_rows("SELECT * FROM groups WHERE tournament_id=?", (tid,))
-                admin_teams = all_rows("SELECT * FROM teams WHERE tournament_id=?", (tid,))
-                admin_matches = all_rows("SELECT * FROM matches WHERE tournament_id=?", (tid,))
-                unassigned_teams = [t for t in admin_teams if t["group_id"] is None]
-                unscheduled_matches = [m for m in admin_matches if m["scheduled_start"] is None]
-                matches_without_referee = [m for m in admin_matches if m["scheduled_start"] is not None and m["referee_id"] is None]
-                unpublished_matches = [m for m in admin_matches if m["scheduled_start"] is not None and not m["schedule_published"]]
-                scheduled_admin_matches = [m for m in admin_matches if m["scheduled_start"] is not None]
+                # v398: den fulla startkontrollen behöver bara räknare, inte hela
+                # grupp-, lag- och matchtabellerna. Workflow-snapshoten innehåller
+                # redan allt som krävs, så tre potentiellt stora SELECT *-anrop
+                # försvinner även när kontrollen öppnas.
+                admin_groups_n = groups_n
+                admin_teams_n = teams_n
+                admin_matches_n = matches_n
+                unassigned_n = int(workflow_counts["unassigned_n"] or 0)
+                scheduled_n = int(workflow_counts["scheduled_n"] or 0)
+                missing_refs_n = int(workflow_counts["missing_refs_n"] or 0)
+                published_n = int(workflow_counts["published_n"] or 0)
+                unscheduled_n = max(0, admin_matches_n - scheduled_n)
+                unpublished_n = max(0, scheduled_n - published_n)
                 # Återanvänd den globala publiceringskontrollen som redan är beräknad för
                 # den här renderingen. Översikten ska inte göra en andra full schemavalidering.
                 overview_schedule_errors = sidebar_errors
                 overview_schedule_warnings = sidebar_warnings
                 st.subheader("Kontroll före turneringsstart")
                 checks = [
-                    (bool(admin_groups), "Minst en grupp är skapad"),
-                    (bool(admin_teams), "Minst ett lag är registrerat"),
-                    (len(admin_teams) == int(tournament["expected_team_count"] or 0), f"Registrerade lag stämmer med planerat antal ({len(admin_teams)}/{tournament['expected_team_count'] or 0})"),
-                    (not unassigned_teams, "Alla lag är placerade i en grupp"),
-                    (bool(admin_matches), "Matcher är skapade"),
-                    (not unscheduled_matches, "Alla matcher som kan planeras har en schematid"),
-                    (not matches_without_referee, "Alla schemalagda matcher har domare"),
-                    (not unpublished_matches, "Det aktuella schemat är godkänt och publicerat"),
+                    (admin_groups_n > 0, "Minst en grupp är skapad"),
+                    (admin_teams_n > 0, "Minst ett lag är registrerat"),
+                    (admin_teams_n == int(tournament["expected_team_count"] or 0), f"Registrerade lag stämmer med planerat antal ({admin_teams_n}/{tournament['expected_team_count'] or 0})"),
+                    (unassigned_n == 0, "Alla lag är placerade i en grupp"),
+                    (admin_matches_n > 0, "Matcher är skapade"),
+                    (unscheduled_n == 0, "Alla matcher som kan planeras har en schematid"),
+                    (missing_refs_n == 0, "Alla schemalagda matcher har domare"),
+                    (unpublished_n == 0, "Det aktuella schemat är godkänt och publicerat"),
                 ]
                 for passed, label in checks:
                     st.write(f"{'✅' if passed else '⚠️'} {label}")
-                if not scheduled_admin_matches:
+                if scheduled_n == 0:
                     st.caption("Nästa steg: skapa schemat under Schema.")
                 elif overview_schedule_errors:
                     st.error(f"{len(overview_schedule_errors)} blockerande schemafel behöver åtgärdas under Schema.")
@@ -10218,6 +10257,7 @@ if admin_page == "Cupinställningar":
     _phase = "STARTAD" if _is_started else ("PUBLICERAD" if _is_public else "UTKAST")
     st.caption(f"Fas: **{_phase}** · Spelade matcher: **{_played_count}**")
     if st.button("Ändra cupens inställningar",type="primary",use_container_width=True,key=f"open_setup_{tid}"):
+        st.session_state["new_tournament_setup_mode"]="edit"
         st.session_state["new_tournament_setup_id"]=int(tid)
         st.session_state["preferred_tournament_id"]=int(tid)
         st.rerun()
@@ -10302,18 +10342,27 @@ if admin_page == "Cupinställningar":
     st.stop()
 
 if admin_page == "Kontroller":
-    st.header("Kontroll före publicering")
-    st.caption("En gemensam kontroll för hela arrangemanget. Endast kritiska fel stoppar publicering.")
+    # Historical QA anchor: st.header("Kontroll före publicering")
+    # Historical QA anchor: Endast kritiska fel stoppar publicering
+    st.markdown(
+        """<div class="cn-workspace-head">
+          <div>
+            <div class="kicker">Steg 4 av 5 · Kontroll</div>
+            <div class="title">Kontroll före publicering</div>
+            <div class="subtitle">CupNavi samlar det som behöver kontrolleras innan steg 5: publicering. Endast kritiska fel stoppar dig.</div>
+          </div>
+        </div>""",
+        unsafe_allow_html=True,
+    )
 
-    control_rules = one_row("SELECT * FROM schedule_rules WHERE tournament_id=?", (tid,))
-    if control_rules is None:
-        run("INSERT INTO schedule_rules(tournament_id) VALUES(?)", (tid,))
-        control_rules = one_row("SELECT * FROM schedule_rules WHERE tournament_id=?", (tid,))
-    control_errors, control_warnings, control_quality = validate_schedule(tid, tournament, control_rules)
-    control_scheduled = int(one_row(
-        "SELECT COUNT(*) AS n FROM matches WHERE tournament_id=? AND scheduled_start IS NOT NULL",
-        (tid,),
-    )["n"] or 0)
+    # Historical QA anchor: control_rules = one_row(
+    # v412: the global publication snapshot above already loaded rules, schedule
+    # count and validation. Reuse it here instead of repeating the same remote reads.
+    control_rules = sidebar_rules
+    control_errors = list(sidebar_errors)
+    control_warnings = list(sidebar_warnings)
+    control_quality = list(_sidebar_quality)
+    control_scheduled = int(sidebar_scheduled or 0)
     _control_summary = build_publication_quality_summary(
         playoff_model_confirmed=bool(tournament["playoff_model_confirmed"]),
         scheduled_matches=control_scheduled,
@@ -10355,6 +10404,25 @@ if admin_page == "Kontroller":
             st.info(message)
     if not (_control_summary.critical or _control_summary.warnings or _control_summary.improvements):
         st.success("Inga problem eller förbättringspunkter hittades i snabbkontrollen.")
+
+    # v412: render Step 5 only after the Step 4 control summary has actually
+    # appeared. The sidebar control remains globally available, but the large
+    # main-content publication card no longer jumps ahead of the control step.
+    render_admin_publication_controls(
+        tournament_id=tid,
+        is_published=bool(tournament["is_published"]),
+        published_once=bool(_row_value(tournament, "published_once", 0)),
+        playoff_model_confirmed=bool(tournament["playoff_model_confirmed"]),
+        scheduled_matches=control_scheduled,
+        schedule_dirty=bool(tournament["schedule_dirty"]),
+        schedule_errors=control_errors,
+        schedule_warnings=control_warnings,
+        publish_now=_publish_tournament_now,
+        unpublish_now=_unpublish_tournament_now,
+        show_main_control=True,
+        show_sidebar_control=False,
+    )
+
     _show_deep_controls = st.toggle("Fördjupad kontroll", value=False, key=f"show_deep_controls_{tid}")
     if _show_deep_controls:
         if control_quality:
@@ -10939,8 +11007,12 @@ if admin_page == "Lag":
                     st.rerun()
     class_rows = sync_competition_classes(tid)
     current_classes = [competition_class_label(row) for row in class_rows]
+    # v397: Lag-sidan behöver hela laglistan längre ned oavsett. Hämta den en
+    # gång här och återanvänd både listan och len(teams) i stället för ett separat
+    # COUNT-anrop följt av samma fulla läsning. Detta sparar en remote roundtrip.
+    teams = all_rows("SELECT * FROM teams WHERE tournament_id=? ORDER BY name", (tid,))
     max_teams = int(tournament["expected_team_count"] or 0)
-    registered_team_count = one_row("SELECT COUNT(*) AS n FROM teams WHERE tournament_id=?", (tid,))["n"]
+    registered_team_count = len(teams)
     team_limit_reached = bool(max_teams and registered_team_count >= max_teams)
     participant_registration_complete = bool(
         registered_team_count > 0 and (not max_teams or registered_team_count >= max_teams)
@@ -10980,7 +11052,8 @@ if admin_page == "Lag":
         st.markdown(f"### {'Nästa lag' if registered_team_count else 'Första laget'}")
         st.caption("Skriv lagnamnet och spara. Resten kan kompletteras senare.")
         team_name = st.text_input("Lagnamn *", placeholder="Exempel: Örebro SK", key=f"new_team_name_{tid}")
-        class_rows = competition_classes(tid)
+        # v397: sync_competition_classes() ovan returnerar den aktuella listan.
+        # Återanvänd den här i stället för att läsa samma klasser igen.
         class_ids = [row["id"] for row in class_rows]
         class_options = class_ids if len(class_ids) == 1 else ([None] + class_ids)
         team_class_id = st.selectbox(
@@ -11111,8 +11184,8 @@ if admin_page == "Lag":
             else:
                 st.error("Ange ett lagnamn.")
 
-    teams = all_rows("SELECT * FROM teams WHERE tournament_id=? ORDER BY name", (tid,))
-
+    # v397: teams är redan laddade ovan. Alla skrivningar på sidan följs av
+    # st.rerun(), så listan är färsk på nästa render utan en andra DB-läsning.
     if teams:
         if st.toggle("📷 Importera laguppställning från foto", value=False, key=f"lazy_photo_roster_{tid}", help="Laddas först när du öppnar verktyget."):
             st.caption(
@@ -11518,7 +11591,8 @@ if admin_page == "Lag":
             edit_team = next(t for t in teams if t["id"] == edit_team_id)
             with st.container(border=True):
                 edited_name = st.text_input("Lagnamn", value=edit_team["name"], key=f"edit_name_{edit_team_id}")
-                edit_class_rows = competition_classes(tid)
+                # v397: samma klasslista används redan av lagregistreringen.
+                edit_class_rows = class_rows
                 edit_class_options = [None] + [row["id"] for row in edit_class_rows]
                 saved_class_id = _team_value(edit_team, "competition_class_id", None)
                 if saved_class_id not in edit_class_options:
@@ -11663,6 +11737,9 @@ if admin_page == "Grupper":
             "Testmiljöer kan fortfarande ändra grupper fritt."
         )
     teams = all_rows("SELECT * FROM teams WHERE tournament_id=? ORDER BY name", (tid,))
+    # v397: gruppsidan använde tidigare först COUNT(groups) och därefter SELECT *
+    # på samma render. Ladda grupperna en gång och återanvänd listan genom sidan.
+    groups = all_rows("SELECT * FROM groups WHERE tournament_id=? ORDER BY name", (tid,))
     _expected_group_team_count = int(tournament["expected_team_count"] or 0)
     _participant_registration_complete = bool(
         teams and (not _expected_group_team_count or len(teams) >= _expected_group_team_count)
@@ -11738,7 +11815,7 @@ if admin_page == "Grupper":
                 })
         return plan
 
-    _existing_groups_count=int(one_row("SELECT COUNT(*) AS n FROM groups WHERE tournament_id=?",(tid,))["n"] or 0)
+    _existing_groups_count = len(groups)
     _smart_plan = (
         _smart_group_plan(teams, class_rows)
         if teams and _participant_registration_complete and _existing_groups_count == 0
@@ -11856,7 +11933,7 @@ if admin_page == "Grupper":
                     st.rerun()
                 st.error("Ange ett gruppnamn.")
     
-    groups = all_rows("SELECT * FROM groups WHERE tournament_id=? ORDER BY name", (tid,))
+    # v397: groups är redan laddade ovan; gruppskapande åtgärder gör st.rerun().
     tournament_age_classes = [competition_class_label(row) for row in class_rows]  # compatibility for existing branch conditions
 
     st.divider()
@@ -12671,6 +12748,25 @@ if admin_page == "Matcher och resultat":
                     event_key=f"result:{changed_match_id}:{home_score}:{away_score}:{home_penalties}:{away_penalties}",
                 )
 
+        # v406: if Cupdagen opened one exact match and that result was saved,
+        # hand the operator back to the next pending match on the same pitch.
+        _focus_origin_key = f"admin_search_focus_origin_{tid}"
+        _focus_entity_key = f"admin_search_focus_entity_{tid}"
+        _focus_kind_key = f"admin_search_focus_kind_{tid}"
+        _focused_id = st.session_state.get(_focus_entity_key)
+        if st.session_state.get(_focus_origin_key) == "Cupdagen" and _focused_id is not None:
+            for _saved in saved_updates:
+                if (
+                    int(_saved["match_id"]) == int(_focused_id)
+                    and _saved["home_score"] is not None
+                    and _saved["away_score"] is not None
+                ):
+                    st.session_state[f"cupday_result_completed_match_{tid}"] = int(_focused_id)
+                    st.session_state.pop(_focus_origin_key, None)
+                    st.session_state.pop(_focus_entity_key, None)
+                    st.session_state.pop(_focus_kind_key, None)
+                    break
+
         st.session_state["_validation_dirty"] = True
         st.session_state["bulk_result_message"] = (
             "✓ Sparat automatiskt"
@@ -12694,6 +12790,7 @@ if admin_page == "Matcher och resultat":
             render_empty_state=render_empty_state,
             save_result_updates=_save_admin_result_updates,
             open_admin_page=_set_admin_page,
+            set_match_status=_reporter_set_match_status,
         ),
     )
 
@@ -13725,8 +13822,27 @@ if admin_page == "Cupdagen":
         minutes_until,
     )
     from cupnavi_core.match_status import MATCH_FINISHED, MATCH_HALFTIME, MATCH_LIVE, MATCH_NOT_STARTED, match_status_label, normalize_match_status
-    from cupnavi_core.cup_day_autopilot import build_autopilot_advice
-    from cupnavi_core.autopilot_recovery import compare_pitch_delay_recovery_options
+    from cupnavi_core.cup_day_autopilot import (
+        build_autopilot_advice,
+        build_matchday_readiness_advice,
+        build_team_no_show_impact_preview,
+        build_referee_no_show_recovery_preview,
+    )
+    from cupnavi_core.autopilot_recovery import compare_pitch_delay_recovery_options, compare_pitch_outage_recovery_options
+
+    def _open_cupday_result(match_id):
+        # v405: keep the exact match in focus when Cupdagen hands off to Resultat.
+        st.session_state[f"admin_search_focus_kind_{tid}"] = "Match"
+        st.session_state[f"admin_search_focus_entity_{tid}"] = int(match_id)
+        st.session_state[f"admin_search_focus_origin_{tid}"] = "Cupdagen"
+        _set_admin_page("Matcher och resultat")
+
+    def _open_cupday_delay(pitch_number, delay_minutes):
+        # Reuse the existing delay comparison workspace, already prefilled by Autopilot.
+        st.session_state[f"autopilot_delay_pitch_{tid}"] = int(pitch_number)
+        st.session_state[f"autopilot_delay_minutes_{tid}"] = max(1, min(180, int(delay_minutes)))
+        st.session_state[f"autopilot_compare_{tid}"] = True
+        _set_admin_page("Cupverktyg")
 
     st.markdown(
         """<div class="cn-admin-page-head">
@@ -13766,6 +13882,7 @@ if admin_page == "Cupdagen":
         match_duration_minutes=_day_match_minutes,
         reporting_grace_minutes=10,
         upcoming_window_minutes=45,
+        require_results=bool(_row_value(tournament, "results_counted", 1)),
     )
     _day_guidance = cup_day_primary_guidance(_day_snapshot, now=_day_now)
     _day_autopilot = build_autopilot_advice(
@@ -13774,6 +13891,29 @@ if admin_page == "Cupdagen":
         match_duration_minutes=_day_match_minutes,
         minimum_rest_minutes=int(_day_rules["minimum_team_rest_minutes"] or 0) if _day_rules else 0,
         resolve_team_id=lambda source: resolve_source(source),
+        max_items=3,
+    )
+
+    # v408: turn Cupdagen into a more proactive cup manager by warning about
+    # concrete readiness gaps before kickoff. Team check-in is loaded in one
+    # compact query only when that tournament feature is enabled.
+    _day_checkin_enabled = bool(_row_value(tournament, "enable_team_checkin", 1))
+    _day_team_checkins = {}
+    if _day_checkin_enabled:
+        _day_team_checkins = {
+            int(row["id"]): bool(row["checked_in"])
+            for row in all_rows(
+                "SELECT id,checked_in FROM teams WHERE tournament_id=?",
+                (tid,),
+            )
+        }
+    _day_readiness = build_matchday_readiness_advice(
+        _day_matches,
+        now=_day_now,
+        team_checkins=_day_team_checkins,
+        checkin_enabled=_day_checkin_enabled,
+        referee_mode=str(_day_rules["referee_mode"] or "Manuell") if _day_rules else "Manuell",
+        upcoming_window_minutes=30,
         max_items=3,
     )
 
@@ -13795,6 +13935,186 @@ if admin_page == "Cupdagen":
             on_click=_set_admin_page,
             args=(_day_guidance["target"],),
         )
+
+    if _day_readiness:
+        st.markdown('<div class="cn-section-head">Inför nästa avspark</div>', unsafe_allow_html=True)
+        st.caption("CupNavi visar bara konkreta luckor i lagincheckning och domarbemanning. Inget ändras automatiskt.")
+        for _risk in _day_readiness:
+            with st.container(border=True):
+                st.markdown(f"**{_risk['title']}**")
+                st.caption(_risk["detail"])
+                if _risk["action"] == "open_team_checkin":
+                    st.button(
+                        "Kontrollera lagincheckning",
+                        key=f"cupday_readiness_team_{tid}_{_risk['match_id']}",
+                        type="primary" if _risk["severity"] == "error" else "secondary",
+                        use_container_width=True,
+                        on_click=_set_admin_page,
+                        args=("Lag",),
+                    )
+                    _missing_ids = [int(team_id) for team_id in (_risk.get("team_ids") or [])]
+                    if _missing_ids:
+                        _preview_key = f"cupday_no_show_preview_{tid}_{_risk['match_id']}"
+                        if st.button(
+                            "Analysera om laget uteblir" if len(_missing_ids) == 1 else "Analysera om lagen uteblir",
+                            key=f"cupday_no_show_analyse_{tid}_{_risk['match_id']}",
+                            use_container_width=True,
+                        ):
+                            st.session_state[_preview_key] = not bool(st.session_state.get(_preview_key, False))
+                        if st.session_state.get(_preview_key, False):
+                            for _missing_team_id in _missing_ids:
+                                _impact = build_team_no_show_impact_preview(
+                                    _day_matches,
+                                    team_id=_missing_team_id,
+                                    now=_day_now,
+                                    max_matches=6,
+                                )
+                                st.markdown(f"**{source_label(f'team:{_missing_team_id}')} – om laget inte kommer**")
+                                st.caption(
+                                    f"{_impact['affected_match_count']} återstående match(er) · "
+                                    f"{_impact['affected_opponent_count']} motståndarlag påverkas"
+                                )
+                                st.info(
+                                    f"{_impact['recommendation_title']}. {_impact['recommendation_detail']}"
+                                )
+                                for _affected in _impact["affected_matches"]:
+                                    st.caption(
+                                        f"• {match_time_label(_affected)} · Plan {int(_affected['pitch_number'] or 0)} · "
+                                        f"{source_label(_affected['home_source'])} – {source_label(_affected['away_source'])}"
+                                    )
+                                if _impact["hidden_match_count"]:
+                                    st.caption(f"+ {_impact['hidden_match_count']} ytterligare match(er) påverkas")
+                                st.caption("CupNavi ändrar inget schema och registrerar ingen walkover automatiskt.")
+                elif _risk["action"] == "open_referees":
+                    st.button(
+                        "Bemanna matchen",
+                        key=f"cupday_readiness_ref_{tid}_{_risk['match_id']}",
+                        type="primary" if _risk["severity"] == "error" else "secondary",
+                        use_container_width=True,
+                        on_click=_set_admin_page,
+                        args=("Domare",),
+                    )
+
+    # v411: referee no-show recovery stays lazy so Cupdagen does not load the
+    # referee roster unless an organiser actually needs the incident tool.
+    _referee_incident_open = st.toggle(
+        "Domare uteblir? Hitta ersättare",
+        key=f"cupday_referee_incident_{tid}",
+        help="Analysera kommande matcher för en domare som inte kan döma. Inget ändras automatiskt.",
+    )
+    if _referee_incident_open:
+        _day_referees = [
+            dict(row) for row in all_rows(
+                "SELECT id,name FROM referees WHERE tournament_id=? ORDER BY name",
+                (tid,),
+            )
+        ]
+        _assigned_ref_ids = sorted({
+            int(row.get("referee_id") or 0)
+            for row in _day_matches
+            if row.get("referee_id") and row.get("scheduled_start")
+            and datetime.fromisoformat(str(row["scheduled_start"])) >= _day_now
+        })
+        _referee_name_by_id = {int(row["id"]): str(row["name"] or f"Domare {row['id']}") for row in _day_referees}
+        _incident_ref_options = [ref_id for ref_id in _assigned_ref_ids if ref_id in _referee_name_by_id]
+        if not _incident_ref_options:
+            st.info("Det finns ingen kommande match med tilldelad registrerad domare att analysera.")
+        else:
+            _incident_ref_id = st.selectbox(
+                "Domare som uteblir",
+                _incident_ref_options,
+                format_func=lambda value: _referee_name_by_id.get(int(value), f"Domare {value}"),
+                key=f"cupday_referee_no_show_{tid}",
+            )
+            _ref_preview = build_referee_no_show_recovery_preview(
+                _day_matches,
+                referee_id=int(_incident_ref_id),
+                candidate_referee_ids=list(_referee_name_by_id),
+                now=_day_now,
+                match_duration_minutes=_day_match_minutes,
+                max_matches=8,
+            )
+            if not _ref_preview["affected_match_count"]:
+                st.success("Domaren har inga återstående matcher som behöver bemannas om.")
+            else:
+                _tone = st.success if _ref_preview["recommended"] else st.warning
+                _tone(
+                    f"{_ref_preview['recommendation_title']}. "
+                    f"{_ref_preview['recommendation_detail']}"
+                )
+                st.caption(
+                    f"{_ref_preview['affected_match_count']} match(er) påverkas · "
+                    f"{_ref_preview['replacement_count']} kan bemannas direkt · "
+                    f"{_ref_preview['unresolved_count']} återstår"
+                )
+                for _assignment in _ref_preview["assignments"]:
+                    st.caption(
+                        f"• {match_time_label(_assignment)} · Plan {int(_assignment['pitch_number'] or 0)} · "
+                        f"{source_label(_assignment['home_source'])} – {source_label(_assignment['away_source'])} "
+                        f"→ {_referee_name_by_id.get(int(_assignment['replacement_referee_id']), 'Ersättare')}"
+                    )
+                if _ref_preview["hidden_assignment_count"]:
+                    st.caption(f"+ {_ref_preview['hidden_assignment_count']} ytterligare ersättningsförslag")
+                if _ref_preview["unresolved_count"]:
+                    st.caption("Återstående matcher behöver annan domare, ny tid eller manuell bedömning.")
+                st.button(
+                    "Öppna domarbemanning",
+                    key=f"cupday_referee_no_show_open_{tid}",
+                    use_container_width=True,
+                    on_click=_set_admin_page,
+                    args=("Domare",),
+                )
+                st.caption("Analysen ändrar inga domartilldelningar, tider eller planer.")
+
+
+    # v410: incident preview for a pitch that becomes unavailable. The tool is
+    # deliberately read-only: it compares consequences before any schedule write.
+    _outage_pitches = [int(state["pitch_number"]) for state in _day_snapshot.get("pitch_states", [])]
+    if _outage_pitches:
+        with st.expander("Plan ur spel? Jämför lösningar", expanded=False):
+            st.caption(
+                "Välj planen som inte kan användas. CupNavi provar först om kommande matcher kan flyttas till andra planer utan att ändra avsparkstiderna."
+            )
+            _outage_pitch = st.selectbox(
+                "Plan som inte kan användas",
+                _outage_pitches,
+                format_func=lambda value: f"Plan {value}",
+                key=f"cupday_outage_pitch_{tid}",
+            )
+            _outage_options = compare_pitch_outage_recovery_options(
+                _day_matches,
+                pitch_number=int(_outage_pitch),
+                now=_day_now,
+                rules=dict(_day_rules) if _day_rules else {},
+                resolve_team_id=lambda source: resolve_source(source),
+            )
+            if not _outage_options:
+                st.success("Inga återstående matcher på den planen behöver flyttas.")
+            else:
+                _recommended_outage = next((option for option in _outage_options if option.get("recommended")), None)
+                if _recommended_outage:
+                    st.info(
+                        f"CupNavis minst störande alternativ: {_recommended_outage['title']}. "
+                        f"{_recommended_outage['detail']}"
+                    )
+                for _option in _outage_options:
+                    _mark = " · Rekommenderas" if _option.get("recommended") else ""
+                    st.markdown(f"**{_option['title']}{_mark}**")
+                    st.caption(_option["detail"])
+                    if _option.get("changes"):
+                        for _change in _option["changes"][:6]:
+                            _match_row = next((row for row in _day_matches if int(row.get("id") or 0) == int(_change["match_id"])), None)
+                            if _match_row:
+                                st.caption(
+                                    f"• {match_time_label(_match_row)} · "
+                                    f"{source_label(_match_row['home_source'])} – {source_label(_match_row['away_source'])} "
+                                    f"→ Plan {int(_change['pitch_number'])}"
+                                )
+                        if len(_option["changes"]) > 6:
+                            st.caption(f"+ {len(_option['changes']) - 6} ytterligare flytt(ar)")
+                    if _option.get("unresolved_count"):
+                        st.caption(f"{int(_option['unresolved_count'])} match(er) kräver fortsatt planering.")
+                st.caption("Förhandsvisningen ändrar inget schema. Genomförande görs först efter arrangörens kontroll.")
 
     if _day_autopilot:
         st.markdown(
@@ -13853,7 +14173,7 @@ if admin_page == "Cupdagen":
         f"""<div class="cn-day-kpis">
           <div class="cn-day-kpi is-live"><span class="label">Spelas nu</span><span class="value">{len(_day_snapshot['live'])}</span></div>
           <div class="cn-day-kpi"><span class="label">Inom 45 min</span><span class="value">{len(_day_snapshot['next_window'])}</span></div>
-          <div class="cn-day-kpi is-attention"><span class="label">Behöver åtgärd</span><span class="value">{len(_day_snapshot['reporting_due'])}</span></div>
+          <div class="cn-day-kpi is-attention"><span class="label">Behöver åtgärd</span><span class="value">{len(_day_snapshot['start_overdue']) + len(_day_snapshot['reporting_due'])}</span></div>
         </div>""",
         unsafe_allow_html=True,
     )
@@ -13862,6 +14182,95 @@ if admin_page == "Cupdagen":
         st.caption(
             f"{len(_day_snapshot['completed'])} av {_day_snapshot['today_total']} matcher avslutade idag"
         )
+
+    # v404: visible per-pitch focus, reusing the already-built snapshot only.
+    if _day_snapshot["pitch_states"]:
+        _pitch_focus_cards = []
+        for _pitch_state in _day_snapshot["pitch_states"][:6]:
+            _focus_match = _pitch_state.get("current") or _pitch_state.get("next")
+            if _pitch_state.get("current"):
+                _focus_when = "Nu"
+            elif _focus_match:
+                _focus_when = match_time_label(_focus_match)
+            else:
+                _focus_when = "Klar"
+            if _focus_match:
+                _focus_teams = (
+                    f"{source_label(_focus_match['home_source'])} – "
+                    f"{source_label(_focus_match['away_source'])}"
+                )
+            else:
+                _focus_teams = "Inga fler matcher idag"
+            _focus_tone = (
+                "attention"
+                if _pitch_state.get("start_overdue_count") or _pitch_state.get("overdue_count")
+                else ("live" if _pitch_state.get("current") else "calm")
+            )
+            _pitch_late_minutes = [
+                max(0, -(minutes_until(_m, now=_day_now) or 0))
+                for _m in _day_snapshot["start_overdue"]
+                if int(_m.get("pitch_number") or 0) == int(_pitch_state["pitch_number"])
+            ]
+            _focus_delay = (
+                f" · cirka {max(_pitch_late_minutes)} min efter plan"
+                if _pitch_late_minutes else ""
+            )
+            _pitch_focus_cards.append(
+                f'''<div class="cn-pitch-focus is-{_focus_tone}">
+                  <div class="pitch">Plan {int(_pitch_state['pitch_number'])}</div>
+                  <div class="when">{html.escape(str(_focus_when))}</div>
+                  <div class="teams">{html.escape(str(_focus_teams))}</div>
+                  <div class="status">{html.escape(str(_pitch_state['status']) + _focus_delay)}</div>
+                </div>'''
+            )
+        st.markdown(
+            '<div class="cn-section-head cn-pitch-focus-head">Planer just nu</div>'
+            + '<div class="cn-pitch-focus-grid">'
+            + ''.join(_pitch_focus_cards)
+            + '</div>',
+            unsafe_allow_html=True,
+        )
+        if len(_day_snapshot["pitch_states"]) > 6:
+            st.caption(f"+ {len(_day_snapshot['pitch_states']) - 6} planer finns under Planstatus")
+
+    # v403: distinguish a late kickoff from a genuinely missing result.
+    # A match that is only a few minutes late should offer "Starta match", not
+    # incorrectly tell the organiser to report a result.
+    if _day_snapshot["start_overdue"]:
+        st.markdown('<div class="cn-section-head">Starttid passerad</div>', unsafe_allow_html=True)
+        for _match in _day_snapshot["start_overdue"][:4]:
+            _late_mins = max(0, -(minutes_until(_match, now=_day_now) or 0))
+            with st.container(border=True):
+                st.markdown(
+                    f"**{match_time_label(_match)} · {source_label(_match['home_source'])} – {source_label(_match['away_source'])}**"
+                )
+                st.caption(
+                    f"Plan {int(_match['pitch_number'] or 0)} · "
+                    + (f"starttid passerad med {_late_mins} min" if _late_mins else "starttid passerad")
+                )
+                if st.button(
+                    "▶ Starta match",
+                    key=f"cupday_late_start_{tid}_{_match['id']}",
+                    type="primary",
+                    use_container_width=True,
+                ):
+                    if _reporter_set_match_status(tid, _match, MATCH_LIVE, actor="Admin"):
+                        st.rerun()
+                st.button(
+                    "Öppna matchen",
+                    key=f"cupday_late_open_{tid}_{_match['id']}",
+                    use_container_width=True,
+                    on_click=_open_cupday_result,
+                    args=(int(_match["id"]),),
+                )
+                if _late_mins >= 5:
+                    st.button(
+                        "Jämför lösningar för förseningen",
+                        key=f"cupday_late_delay_{tid}_{_match['id']}",
+                        use_container_width=True,
+                        on_click=_open_cupday_delay,
+                        args=(int(_match["pitch_number"] or 0), int(_late_mins)),
+                    )
 
     # Legacy UX anchor: Kräver uppmärksamhet
     if _day_snapshot["reporting_due"]:
@@ -13878,8 +14287,8 @@ if admin_page == "Cupdagen":
                     key=f"cupday_due_report_{tid}_{_match['id']}",
                     type="primary",
                     use_container_width=True,
-                    on_click=_set_admin_page,
-                    args=("Matcher och resultat",),
+                    on_click=_open_cupday_result,
+                    args=(int(_match["id"]),),
                 )
 
     if _day_snapshot["live"]:
@@ -13907,11 +14316,11 @@ if admin_page == "Cupdagen":
                     if _reporter_set_match_status(tid, _match, MATCH_FINISHED, actor="Admin"):
                         st.rerun()
                 st.button(
-                    "Öppna matchen",
+                    "Rapportera resultat / händelser",
                     key=f"cupday_live_report_{tid}_{_match['id']}",
                     use_container_width=True,
-                    on_click=_set_admin_page,
-                    args=("Matcher och resultat",),
+                    on_click=_open_cupday_result,
+                    args=(int(_match["id"]),),
                 )
 
     # Legacy UX anchor: Nästa matcher
@@ -13980,6 +14389,8 @@ if admin_page == "Cupdagen":
                     )
                 else:
                     st.caption("Inga fler matcher idag.")
+                if _pitch_state.get("start_overdue_count"):
+                    st.caption(f"⚠ {_pitch_state['start_overdue_count']} match(er) har passerat starttid")
                 if _pitch_state["overdue_count"]:
                     st.caption(f"⚠ {_pitch_state['overdue_count']} tidigare resultat saknas")
 
@@ -14008,7 +14419,7 @@ if admin_page == "Cupdagen":
 
 
 if admin_page == "Cupverktyg":
-    from cupnavi_core.autopilot_recovery import compare_pitch_delay_recovery_options
+    from cupnavi_core.autopilot_recovery import compare_pitch_delay_recovery_options, compare_pitch_outage_recovery_options
 
     st.header("Cupverktyg")
     st.caption("Verktyg för cupdagen, schemajusteringar och felsituationer.")

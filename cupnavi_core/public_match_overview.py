@@ -73,12 +73,12 @@ def _team_names(names: Iterable[Any]) -> str:
 
 def build_highlights_html(highlights: Mapping[str, Any], *, tr: Callable[[str], str]) -> str:
     cards: list[str] = []
-    if "points" in highlights:
-        item = highlights["points"]
+    if "attack" in highlights:
+        item = highlights["attack"]
         cards.append(
-            f"<div class='cn-public-highlight'><div class='label'>🏆 {html.escape(tr('Poängledare'))}</div>"
+            f"<div class='cn-public-highlight'><div class='label'>⚽ {html.escape(tr('Flest gjorda mål'))}</div>"
             f"<div class='value'>{html.escape(_team_names(item['names']))}</div>"
-            f"<div class='sub'>{int(item['value'])} {html.escape(tr('poäng'))}</div></div>"
+            f"<div class='sub'>{int(item['value'])} {html.escape(tr('Mål').lower())}</div></div>"
         )
     if "defence" in highlights:
         item = highlights["defence"]
@@ -112,12 +112,13 @@ def build_summary_html(
     total_score: int,
     score_label: str,
     tr: Callable[[str], str],
+    highlights_html: str = "",
 ) -> str:
-    """Build the compact, already-loaded-data-only Matches summary.
+    """Build the compact Matches summary with optional lightweight highlights.
 
-    v304 intentionally keeps leaderboard and visitor data away from the primary
-    match journey. Those secondary signals added visual density and required
-    extra DB/calculation work every time the public Matches fragment reran.
+    The core metrics still use already-loaded data. v391 allows a small highlight
+    strip in the otherwise empty desktop space without restoring the full statistics
+    dashboard to the Matches page.
     """
     return f"""<div class='cn-public-summary-row'>
       <div class='public-metric-grid'>
@@ -125,4 +126,5 @@ def build_summary_html(
         <div class='public-metric'><div class='label'>{html.escape(tr('Matcher spelade'))}</div><div class='value'>{int(played_count)} {html.escape(tr('av'))} {int(total_matches)}</div></div>
         <div class='public-metric'><div class='label'>{html.escape(str(score_label).capitalize())}</div><div class='value'>{int(total_score)}</div></div>
       </div>
+      {highlights_html}
     </div>"""

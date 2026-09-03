@@ -77,4 +77,4 @@ def test_matchcamp_apply_skips_home_away_rebalance():
 
 
 def test_version():
-    assert 'APP_BUILD_VERSION = "2026.09.02-390-PUBLIC-SHARE-TOPLIST-UX"' in APP
+    assert 'APP_BUILD_VERSION = "2026.09.03-414-PITCH-TIMING-MODE"' in APP

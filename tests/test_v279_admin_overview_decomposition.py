@@ -15,7 +15,7 @@ ROOT = Path(__file__).resolve().parents[1]
 APP = (ROOT / "app.py").read_text(encoding="utf-8")
 MODULE = (ROOT / "cupnavi_core" / "admin_overview.py").read_text(encoding="utf-8")
 REPOSITORY = (ROOT / "cupnavi_core" / "admin_overview_repository.py").read_text(encoding="utf-8")
-VERSION = "2026.09.02-390-PUBLIC-SHARE-TOPLIST-UX"
+VERSION = "2026.09.03-414-PITCH-TIMING-MODE"
 
 
 def sample_counts(**overrides):
@@ -87,7 +87,7 @@ def test_readiness_and_next_step_follow_existing_priority():
     counts = sample_counts(played_n=12)
     readiness = build_readiness(counts, expected_teams=8, schedule_dirty=False)
     assert readiness.results_ready is True
-    assert recommend_next_step(readiness, counts, schedule_dirty=False).target == "Kontroller"
+    assert recommend_next_step(readiness, counts, schedule_dirty=False, published=True).target == "Tabeller"
 
 
 def test_control_status_and_organizer_model_are_pure():

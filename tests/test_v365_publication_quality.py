@@ -68,4 +68,4 @@ def test_warning_approval_checkbox_is_removed():
 
 
 def test_version():
-    assert 'APP_BUILD_VERSION = "2026.09.02-390-PUBLIC-SHARE-TOPLIST-UX"' in APP
+    assert 'APP_BUILD_VERSION = "2026.09.03-414-PITCH-TIMING-MODE"' in APP

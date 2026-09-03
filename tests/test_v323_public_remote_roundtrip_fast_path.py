@@ -6,7 +6,7 @@ VERSION = (ROOT / 'VERSION.txt').read_text().strip()
 
 
 def test_v323_version():
-    assert VERSION == '2026.09.02-390-PUBLIC-SHARE-TOPLIST-UX'
+    assert VERSION == '2026.09.03-414-PITCH-TIMING-MODE'
 
 
 def test_schema_fast_path_is_one_execute_statement():

@@ -70,6 +70,20 @@ def render_team_portal_workspace(tournament_id, tournament, deps: TeamPortalDepe
     if authenticated_team_id not in valid_team_ids:
         authenticated_team_id = None
 
+    # v413: a regenerated team code must revoke sessions created with the old
+    # credential. UI hiding is not an authorization boundary; validate the
+    # credential hash again before any team-scoped reads or writes are exposed.
+    if authenticated_team_id:
+        current_credential = fetch_portal_credential(
+            deps.one_row, tournament_id, authenticated_team_id
+        )
+        authenticated_hash = str(auth.get("credential_hash", ""))
+        current_hash = str(current_credential["code_hash"]) if current_credential else ""
+        if not authenticated_hash or not current_hash or authenticated_hash != current_hash:
+            st.session_state.pop("participant_portal_auth", None)
+            st.warning("Lagkoden har ändrats. Logga in med den nya koden.")
+            st.rerun()
+
     if not authenticated_team_id:
         with st.form(f"participant_login_{tournament_id}"):
             selected_team_id = st.selectbox(
@@ -83,7 +97,9 @@ def render_team_portal_workspace(tournament_id, tournament, deps: TeamPortalDepe
             credential = fetch_portal_credential(deps.one_row, tournament_id, selected_team_id)
             if credential and verify_access_code(code, credential["code_salt"], credential["code_hash"]):
                 st.session_state["participant_portal_auth"] = {
-                    "tournament_id": int(tournament_id), "team_id": int(selected_team_id)
+                    "tournament_id": int(tournament_id),
+                    "team_id": int(selected_team_id),
+                    "credential_hash": str(credential["code_hash"]),
                 }
                 st.rerun()
             st.error("Fel kod, eller så har laget ännu ingen kod. Kontakta cupadministratören.")

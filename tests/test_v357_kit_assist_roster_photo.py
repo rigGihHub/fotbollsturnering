@@ -29,4 +29,4 @@ def test_photo_roster_import_is_discoverable_from_team_registration():
 
 
 def test_version():
-    assert 'APP_BUILD_VERSION = "2026.09.02-390-PUBLIC-SHARE-TOPLIST-UX"' in APP
+    assert 'APP_BUILD_VERSION = "2026.09.03-414-PITCH-TIMING-MODE"' in APP

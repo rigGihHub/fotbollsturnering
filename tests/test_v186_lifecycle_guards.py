@@ -1,7 +1,7 @@
 from pathlib import Path
 ROOT=Path(__file__).resolve().parents[1]
 APP=(ROOT/"app.py").read_text(encoding="utf-8")
-R="2026.09.02-390-PUBLIC-SHARE-TOPLIST-UX"
+R="2026.09.03-414-PITCH-TIMING-MODE"
 
 def test_central_environment_history_helpers_exist():
     assert "def is_test_environment" in APP
@@ -14,7 +14,7 @@ def test_production_team_delete_is_guarded():
     assert "disabled=_team_delete_locked or not confirm_team_delete" in APP
 
 def test_production_rules_are_guarded_in_ui_and_write_path():
-    assert "_prod_history_locked = production_history_locked(tid, tournament)" in APP
+    assert "_prod_history_locked = (not is_test_environment(tournament)) and played_n > 0" in APP
     assert "protected_rules_changed = any([" in APP
     assert "_prod_history_locked and protected_rules_changed" in APP
     assert "Historikskyddet stoppade ändringen." in APP

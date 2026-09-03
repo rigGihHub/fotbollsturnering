@@ -12,7 +12,7 @@ def _overview_block():
 
 
 def test_release_version():
-    assert VERSION == "2026.09.02-390-PUBLIC-SHARE-TOPLIST-UX"
+    assert VERSION == "2026.09.03-414-PITCH-TIMING-MODE"
 
 
 def test_class_progress_query_removed_from_default_overview():

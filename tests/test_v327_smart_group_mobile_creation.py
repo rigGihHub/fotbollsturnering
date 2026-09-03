@@ -4,7 +4,7 @@ APP=(ROOT/'app.py').read_text(encoding='utf-8')
 VERSION=(ROOT/'VERSION.txt').read_text(encoding='utf-8').strip()
 
 def test_release_version():
-    assert VERSION == '2026.09.02-390-PUBLIC-SHARE-TOPLIST-UX'
+    assert VERSION == '2026.09.03-414-PITCH-TIMING-MODE'
 
 def test_mobile_creation_not_sidebar_only():
     assert 'def render_new_tournament_creator' in APP

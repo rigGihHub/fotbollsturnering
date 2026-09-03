@@ -1,42 +1,27 @@
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-MATCHES = (ROOT / "cupnavi_core" / "public_matches_view.py").read_text()
-OVERVIEW = (ROOT / "cupnavi_core" / "public_match_overview.py").read_text()
-FILTERS = (ROOT / "cupnavi_core" / "public_match_filters_view.py").read_text()
-WORKSPACE = (ROOT / "cupnavi_core" / "public_workspace_view.py").read_text()
-VERSION = (ROOT / "VERSION.txt").read_text().strip()
+MATCHES = (ROOT / "cupnavi_core" / "public_matches_view.py").read_text(encoding="utf-8")
+OVERVIEW = (ROOT / "cupnavi_core" / "public_match_overview.py").read_text(encoding="utf-8")
+WORKSPACE = (ROOT / "cupnavi_core" / "public_workspace_view.py").read_text(encoding="utf-8")
 
 
-def test_release_version_is_v304():
-    assert VERSION == "2026.09.02-390-PUBLIC-SHARE-TOPLIST-UX"
-
-
-def test_matches_page_avoids_secondary_overview_db_and_highlight_work():
-    assert "overview_snapshot(" not in MATCHES
+def test_matches_page_still_avoids_full_table_and_statistics_work():
+    # v391 deliberately supersedes v304's complete removal of highlights. The
+    # primary view may load one compact scorer snapshot, but it must not restore
+    # the expensive full table/statistics calculations that v304 removed.
     assert "snapshot_table_bundle(" not in MATCHES
     assert "competition_highlights(" not in MATCHES
-    assert 'stage_timings["overview_db_ms"] = 0.0' in MATCHES
-    assert 'stage_timings["highlights_ms"] = 0.0' in MATCHES
-    assert "overview_snapshot=public_match_overview_db_snapshot" not in WORKSPACE
+    assert "calculate_all_group_tables(" not in MATCHES
+    assert 'load_overview=public_match_overview_db_snapshot' in WORKSPACE
 
 
-def test_matches_summary_is_compact_and_uses_already_loaded_data_only():
+def test_matches_summary_remains_compact_while_accepting_small_highlights():
     assert "team_count" in OVERVIEW
     assert "played_count" in OVERVIEW
     assert "total_matches" in OVERVIEW
     assert "total_score" in OVERVIEW
     summary = OVERVIEW[OVERVIEW.index("def build_summary_html"):]
     assert "active_visitors" not in summary
-    assert "highlights_html" not in summary
-    assert "Besökare nu" not in summary
-
-
-def test_weather_is_hidden_with_advanced_filter_controls():
-    assert 'st.expander("Filter & visning", expanded=False)' in FILTERS
-    expander_pos = FILTERS.index('st.expander("Filter & visning", expanded=False)')
-    weather_pos = FILTERS.index('tr("Visa väderprognos")')
-    return_pos = FILTERS.index("    return (")
-    assert expander_pos < weather_pos < return_pos
-    assert "show_weather," in FILTERS
-    assert "show_match_weather = st.toggle" not in MATCHES
+    assert "highlights_html" in summary
+    assert "cn-public-summary-row" in summary

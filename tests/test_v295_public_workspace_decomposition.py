@@ -7,7 +7,7 @@ VERSION = (ROOT / "VERSION.txt").read_text(encoding="utf-8").strip()
 
 
 def test_release_and_public_workspace_boundary():
-    assert VERSION == "2026.09.02-390-PUBLIC-SHARE-TOPLIST-UX"
+    assert VERSION == "2026.09.03-414-PITCH-TIMING-MODE"
     assert "from cupnavi_core.public_workspace_view import PublicWorkspaceDependencies, render_public_workspace" in APP
     start = APP.index("def render_public_view(")
     end = APP.index("def _reporter_save_quick_result", start)
