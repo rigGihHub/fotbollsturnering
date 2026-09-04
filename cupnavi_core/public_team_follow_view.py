@@ -16,6 +16,7 @@ from cupnavi_core.public_team_follow import (
     build_favorite_team_snapshot,
     favorite_table_position_from_snapshot,
     favorite_team_match_sections,
+    favorite_team_primary_action_label,
     find_possible_playoff,
 )
 
@@ -52,28 +53,34 @@ def render_public_team_follow(
         all_teams_value = "__all__"
         favorite_options = [all_teams_value] + [row["id"] for row in public_teams]
         favorite_index = favorite_options.index(requested_team_id) if requested_team_id in favorite_options else 0
+        _favorite_select_key = f"public_favorite_team_{tournament_id}"
+
+        # v443: selecting a team used to trigger Streamlit's normal widget rerun
+        # and then an explicit fragment rerun. Route/state changes now happen in
+        # the selectbox callback before the single normal rerun.
+        def _sync_public_favorite_team() -> None:
+            selected = st.session_state.get(_favorite_select_key, all_teams_value)
+            if hasattr(st, "query_params"):
+                st.query_params["cup"] = str(tournament_id)
+                if selected == all_teams_value:
+                    try:
+                        del st.query_params["team"]
+                    except KeyError:
+                        pass
+                else:
+                    st.query_params["team"] = str(selected)
+                    st.query_params["section"] = "team"
+
         favorite_selection = st.selectbox(
             "Välj lag",
             favorite_options,
             index=favorite_index,
             format_func=lambda team_id: tr("Alla lag") if team_id == all_teams_value else public_team_names.get(team_id, "Lag"),
-            key=f"public_favorite_team_{tournament_id}",
+            key=_favorite_select_key,
             help="Valet sparas i länken så cupen kan öppnas direkt med ditt lag.",
+            on_change=_sync_public_favorite_team,
         )
         favorite_team_id = None if favorite_selection == all_teams_value else favorite_selection
-        if favorite_team_id is not None and favorite_team_id != requested_team_id:
-            if hasattr(st, "query_params"):
-                st.query_params["team"] = str(favorite_team_id)
-                st.query_params["cup"] = str(tournament_id)
-            st.rerun(scope="fragment")
-        if favorite_team_id is None and requested_team_id is not None:
-            if hasattr(st, "query_params"):
-                try:
-                    del st.query_params["team"]
-                except KeyError:
-                    pass
-                st.query_params["cup"] = str(tournament_id)
-            st.rerun(scope="fragment")
 
         if not requested_team_id:
             return
@@ -134,61 +141,45 @@ def render_public_team_follow(
             unsafe_allow_html=True,
         )
 
-        _team_sections = favorite_team_match_sections(
-            favorite_snapshot,
-            now=now,
-            row_value=row_value,
-        )
-        _recent = _team_sections["recent"]
-        _upcoming = _team_sections["upcoming"]
-        if _recent:
-            _last = _recent[0]
-            st.markdown("**Senaste resultat**")
-            st.caption(
-                f"{source_label(_last['home_source'])} "
-                f"{row_value(_last, 'home_score', '–')}–{row_value(_last, 'away_score', '–')} "
-                f"{source_label(_last['away_source'])}"
-            )
-        if _upcoming:
-            st.markdown("**Kommande för mitt lag**")
-            for _match in _upcoming:
-                st.caption(
-                    f"{swedish_datetime(_match['scheduled_start'])} · "
-                    f"{public_pitch_label(_match)} · "
-                    f"{source_label(_match['home_source'])} – {source_label(_match['away_source'])}"
-                )
-
-        team_action_1, team_action_2 = st.columns(2)
-        if team_action_1.button(
-            "🗓️ Visa mitt lags matcher",
-            key=f"favorite_matches_btn_{tournament_id}",
-            use_container_width=True,
-            type="primary",
-        ):
-            st.session_state[f"public_force_team_filter_{tournament_id}"] = requested_team_id
-            st.session_state[f"public_page_v167_{tournament_id}"] = "Matcher"
-            if hasattr(st, "query_params"):
-                st.query_params["section"] = "matches"
-                st.query_params["team"] = str(requested_team_id)
-            st.rerun(scope="fragment")
-        if team_action_2.button(
-            tr("Visa alla lag"),
-            key=f"clear_favorite_team_{tournament_id}",
-            use_container_width=True,
-        ):
-            if hasattr(st, "query_params"):
-                try:
-                    del st.query_params["team"]
-                except KeyError:
-                    pass
-            st.rerun(scope="fragment")
-
+        # v446: the hero already contains the next-match facts. Add one clear
+        # action directly to that existing card instead of rendering a second
+        # facts card. The callback only reuses the in-memory favorite snapshot
+        # and deep-links to the exact match, so this adds zero DB reads.
         if favorite_next:
+            _favorite_next_id = int(row_value(favorite_next, "id", 0) or 0)
+
+            def _open_public_next_match() -> None:
+                st.session_state[f"public_force_team_filter_{tournament_id}"] = requested_team_id
+                st.session_state[f"public_page_v167_{tournament_id}"] = "Matcher"
+                if hasattr(st, "query_params"):
+                    st.query_params["cup"] = str(tournament_id)
+                    st.query_params["section"] = "matches"
+                    st.query_params["team"] = str(requested_team_id)
+                    if _favorite_next_id:
+                        st.query_params["match"] = str(_favorite_next_id)
+
+            _primary_match_action = favorite_team_primary_action_label(
+                favorite_next,
+                now=now,
+                row_value=row_value,
+            )
+            st.button(
+                _primary_match_action,
+                key=f"favorite_next_match_btn_{tournament_id}_{requested_team_id}_{_favorite_next_id}",
+                use_container_width=True,
+                type="primary",
+                help="Öppnar exakt nästa match med matchdetaljer direkt.",
+                on_click=_open_public_next_match,
+            )
+
+            # v447: put navigation to the next pitch directly beside the match-day
+            # action. It remains lazy: the venue lookup only happens after the
+            # visitor explicitly asks for directions, so first paint stays free.
             show_directions = st.toggle(
-                "📍 Visa vägbeskrivning till nästa match",
+                f"📍 Hitta till {public_pitch_label(favorite_next)}",
                 value=False,
                 key=f"public_team_directions_{tournament_id}_{requested_team_id}",
-                help="Hämtar planens vägbeskrivning först när du behöver den.",
+                help="Hämtar vägbeskrivningen först när du behöver den.",
             )
             if show_directions:
                 favorite_pitch_no = row_value(favorite_next, "pitch_number", None)
@@ -212,6 +203,71 @@ def render_public_team_follow(
                     )
                 else:
                     st.caption("Ingen vägbeskrivningslänk finns för nästa plan ännu.")
+
+        _team_sections = favorite_team_match_sections(
+            favorite_snapshot,
+            now=now,
+            row_value=row_value,
+        )
+        _recent = _team_sections["recent"]
+        _upcoming = _team_sections["upcoming"]
+        if _recent:
+            _last = _recent[0]
+            st.markdown("**Senaste resultat**")
+            st.caption(
+                f"{source_label(_last['home_source'])} "
+                f"{row_value(_last, 'home_score', '–')}–{row_value(_last, 'away_score', '–')} "
+                f"{source_label(_last['away_source'])}"
+            )
+        if _upcoming:
+            st.markdown("**Min cup · kommande matcher**")
+            st.caption("Ditt personliga schema – i tidsordning, med plan direkt på varje match.")
+            _current_day = None
+            for _index, _match in enumerate(_upcoming):
+                _start_text = swedish_datetime(_match['scheduled_start'])
+                _day_label = _start_text.split(" ")[0] if " " in _start_text else _start_text
+                if _day_label != _current_day:
+                    _current_day = _day_label
+                    st.markdown(f"**{_day_label}**")
+                _next_marker = "Nästa · " if _index == 0 else ""
+                st.caption(
+                    f"{_next_marker}{_start_text} · "
+                    f"{public_pitch_label(_match)} · "
+                    f"{source_label(_match['home_source'])} – {source_label(_match['away_source'])}"
+                )
+
+        def _open_public_team_matches() -> None:
+            st.session_state[f"public_force_team_filter_{tournament_id}"] = requested_team_id
+            st.session_state[f"public_page_v167_{tournament_id}"] = "Matcher"
+            if hasattr(st, "query_params"):
+                st.query_params["cup"] = str(tournament_id)
+                st.query_params["section"] = "matches"
+                st.query_params["team"] = str(requested_team_id)
+
+        def _clear_public_favorite_team() -> None:
+            st.session_state[_favorite_select_key] = all_teams_value
+            if hasattr(st, "query_params"):
+                st.query_params["cup"] = str(tournament_id)
+                st.query_params["section"] = "team"
+                try:
+                    del st.query_params["team"]
+                except KeyError:
+                    pass
+
+        team_action_1, team_action_2 = st.columns(2)
+        team_action_1.button(
+            "🗓️ Visa mitt lags matcher",
+            key=f"favorite_matches_btn_{tournament_id}",
+            use_container_width=True,
+            type="primary",
+            on_click=_open_public_team_matches,
+        )
+        team_action_2.button(
+            tr("Visa alla lag"),
+            key=f"clear_favorite_team_{tournament_id}",
+            use_container_width=True,
+            on_click=_clear_public_favorite_team,
+        )
 
         with st.expander("🔔 Få viktiga lagnotiser via e-post", expanded=False):
             st.caption("E-postadressen måste verifieras innan några notiser skickas.")

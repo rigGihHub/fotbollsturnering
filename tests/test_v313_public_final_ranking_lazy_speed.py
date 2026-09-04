@@ -1,6 +1,6 @@
 from pathlib import Path
 
-VERSION = "2026.09.03-427-TRAVEL-RULES-FLOW"
+VERSION = "2026.09.04-449-MOBILE-PLAYOFF-ACTION"
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE = (ROOT / "cupnavi_core" / "public_statistics_view.py").read_text(encoding="utf-8")
 

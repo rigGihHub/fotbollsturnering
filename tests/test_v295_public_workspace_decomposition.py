@@ -7,7 +7,7 @@ VERSION = (ROOT / "VERSION.txt").read_text(encoding="utf-8").strip()
 
 
 def test_release_and_public_workspace_boundary():
-    assert VERSION == "2026.09.03-427-TRAVEL-RULES-FLOW"
+    assert VERSION == "2026.09.04-449-MOBILE-PLAYOFF-ACTION"
     assert "from cupnavi_core.public_workspace_view import PublicWorkspaceDependencies, render_public_workspace" in APP
     start = APP.index("def render_public_view(")
     end = APP.index("def _reporter_save_quick_result", start)

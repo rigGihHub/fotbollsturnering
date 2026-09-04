@@ -36,4 +36,4 @@ def test_start_control_preserves_existing_readiness_checks():
 
 def test_release_version_is_v307():
     version = (APP.parent / "VERSION.txt").read_text(encoding="utf-8").strip()
-    assert version == "2026.09.03-427-TRAVEL-RULES-FLOW"
+    assert version == "2026.09.04-449-MOBILE-PLAYOFF-ACTION"

@@ -8,7 +8,7 @@ INFO = (ROOT / "cupnavi_core/public_info_view.py").read_text()
 
 
 def test_v423_release_and_info_fast_path_contract():
-    assert VERSION == "2026.09.03-427-TRAVEL-RULES-FLOW"
+    assert VERSION == "2026.09.04-449-MOBILE-PLAYOFF-ACTION"
     assert "def public_match_completion_db_snapshot" in APP
     assert 'or public_page in {"Matcher", "Mitt lag"}' in WORKSPACE
     assert '_needs_public_teams = public_page != "Info"' in WORKSPACE

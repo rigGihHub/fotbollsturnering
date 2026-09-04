@@ -24,6 +24,7 @@ def render_admin_publication_controls(
     unpublish_now: Callable[[], tuple[bool, str]],
     show_main_control: bool = False,
     show_sidebar_control: bool = True,
+    validation_ready: bool = True,
 ) -> None:
     """Render one publication truth: critical / warnings / improvements."""
     import streamlit as st
@@ -38,7 +39,7 @@ def render_admin_publication_controls(
         schedule_errors=schedule_errors,
         schedule_warnings=schedule_warnings,
     )
-    publish_blocked = not quality.can_publish
+    publish_blocked = (not quality.can_publish) or (not validation_ready)
 
     action_label = publication_action_label(published_once=published_once)
     if show_sidebar_control:
@@ -49,7 +50,10 @@ def render_admin_publication_controls(
         else:
             st.sidebar.caption("Turneringsvyn är ett utkast.")
 
-        if publish_blocked:
+        if not validation_ready:
+            st.sidebar.info("Kontrollen behöver uppdateras")
+            st.sidebar.caption("Öppna Kontroll när du är redo att publicera. Då kör CupNavi den fullständiga schemakontrollen.")
+        elif publish_blocked:
             st.sidebar.error(f"{len(quality.critical)} kritiska fel")
             for reason in quality.critical:
                 st.sidebar.markdown(f"• {reason}")
@@ -109,7 +113,10 @@ def render_admin_publication_controls(
         st.markdown("##### Steg 6 av 6 · Publicera")
         st.markdown("### Publicera cupen")
 
-        if quality.can_publish:
+        if not validation_ready:
+            st.info("Kontrollen behöver uppdateras innan publicering.")
+            st.caption("CupNavi kör den fullständiga schemakontrollen på Kontroll-sidan, inte på varje adminsida.")
+        elif quality.can_publish:
             st.success("✓ Kontroll klar – cupen är redo att publiceras")
             if quality.warnings or quality.improvements:
                 st.caption("Varningar och frivilliga förbättringar finns kvar i Kontroll ovan, men inget blockerar publiceringen.")

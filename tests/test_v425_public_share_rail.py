@@ -8,7 +8,7 @@ VERSION = (ROOT / "VERSION.txt").read_text(encoding="utf-8").strip()
 
 
 def test_v425_share_is_persistent_left_rail_action():
-    assert VERSION == "2026.09.03-427-TRAVEL-RULES-FLOW"
+    assert VERSION == "2026.09.04-449-MOBILE-PLAYOFF-ACTION"
     assert "with st.sidebar:" in WORKSPACE
     assert "render_public_share_control(tournament_id, tournament, in_sidebar=True)" in WORKSPACE
     assert "render_share_control(tournament_id, tournament)" not in MATCHES

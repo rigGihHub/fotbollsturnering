@@ -10,7 +10,7 @@ MIG=(ROOT/"cupnavi_core"/"migrations.py").read_text(encoding="utf-8")
 VERSION=(ROOT/"VERSION.txt").read_text().strip()
 
 def test_version():
-    assert VERSION=="2026.09.03-427-TRAVEL-RULES-FLOW"
+    assert VERSION=="2026.09.04-449-MOBILE-PLAYOFF-ACTION"
     assert VERSION in APP
 
 def test_new_cup_becomes_active_via_pending_selector_before_widget():
@@ -46,7 +46,7 @@ def test_priority_ui_explains_rank_and_compactness():
     assert "**Aktuell rangordning**" in SETUP
     assert 'st.markdown(f"**{_rank}.** {_priority_label}")' in SETUP
     assert '"Hur kompakt ska speldagen vara?"' in SETUP
-    assert "0 = mer luft / längre dag · 50 = balanserat · 100 = tätare schema / tidigare slut" in SETUP
+    assert '_compact_options=["Lugnare", "Balanserad", "Ganska kompakt", "Kompakt"]' in SETUP
 
 def test_calendar_all_descendant_surfaces_forced_light():
     assert '[data-baseweb="calendar"] div' in STYLE

@@ -13,7 +13,7 @@ def test_match_events_are_loaded_after_visible_match_filtering():
 
 
 def test_upcoming_only_view_can_skip_event_query_entirely():
-    assert "if visible_played_match_ids else {}" in VIEW
+    assert "if show_match_events and visible_played_match_ids" in VIEW
     assert "WHERE s.match_id IN ({placeholders})" in REPO
 
 

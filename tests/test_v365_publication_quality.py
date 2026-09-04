@@ -67,4 +67,4 @@ def test_warning_approval_checkbox_is_removed():
 
 
 def test_version():
-    assert 'APP_BUILD_VERSION = "2026.09.03-427-TRAVEL-RULES-FLOW"' in APP
+    assert 'APP_BUILD_VERSION = "2026.09.04-449-MOBILE-PLAYOFF-ACTION"' in APP

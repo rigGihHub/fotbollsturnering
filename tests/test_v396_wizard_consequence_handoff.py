@@ -1,6 +1,6 @@
 from pathlib import Path
 
-VERSION = "2026.09.03-427-TRAVEL-RULES-FLOW"
+VERSION = "2026.09.04-449-MOBILE-PLAYOFF-ACTION"
 
 
 def test_release_version():

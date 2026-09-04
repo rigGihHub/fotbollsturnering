@@ -8,7 +8,8 @@ SCHEDULE_VIEW = (APP.parent / "cupnavi_core" / "schedule_workspace_view.py").rea
 def test_flow_counts_only_load_for_primary_flow_pages():
     assert "_flow_counts = None" in SOURCE
     assert "if _flow_index is not None:" in SOURCE
-    assert '_flow_counts = one_row(' in SOURCE
+    assert '_cupnavi_admin_cache_flow_primary_' in SOURCE
+    assert '_session_ttl_get(' in SOURCE
     assert "else:\n    _recommended_page = _recommended_label = None" in SOURCE
 
 

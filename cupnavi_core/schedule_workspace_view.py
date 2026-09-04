@@ -54,6 +54,8 @@ class ScheduleWorkspaceDependencies:
     apply_schedule_improvement: Callable[..., Any] | None = None
     apply_matchcamp_structure_improvement: Callable[..., Any] | None = None
     navigate_admin_page: Callable[[str], Any] | None = None
+    rules_snapshot: Any | None = None
+    validation_snapshot: tuple[list[Any], list[Any], list[Any]] | None = None
 
 
 
@@ -178,6 +180,8 @@ def render_schedule_workspace(tid, tournament, *, deps: ScheduleWorkspaceDepende
     apply_schedule_improvement = deps.apply_schedule_improvement
     apply_matchcamp_structure_improvement = deps.apply_matchcamp_structure_improvement
     navigate_admin_page = deps.navigate_admin_page
+    rules_snapshot = deps.rules_snapshot
+    validation_snapshot = deps.validation_snapshot
 
     # v420: Schema is part of the same six-step planning journey as Lag and Grupper.
     # Keep location and backwards navigation visible instead of reverting to the old
@@ -214,7 +218,10 @@ def render_schedule_workspace(tid, tournament, *, deps: ScheduleWorkspaceDepende
         message_type, message_text = st.session_state.pop("schedule_message")
         getattr(st, message_type)(message_text)
 
-    rules = one_row("SELECT * FROM schedule_rules WHERE tournament_id=?", (tid,))
+    # v436: Admin shell already fetched the same schedule_rules row for the
+    # publication/control snapshot. Reuse it on Schema instead of paying a
+    # second remote roundtrip on every rerun.
+    rules = rules_snapshot or one_row("SELECT * FROM schedule_rules WHERE tournament_id=?", (tid,))
     if rules is None:
         run("INSERT INTO schedule_rules(tournament_id) VALUES(?)", (tid,))
         rules = one_row("SELECT * FROM schedule_rules WHERE tournament_id=?", (tid,))
@@ -255,7 +262,16 @@ def render_schedule_workspace(tid, tournament, *, deps: ScheduleWorkspaceDepende
     scheduled_total = int(_schedule_counts["scheduled_n"] or 0)
     unpublished_total = int(_schedule_counts["unpublished_n"] or 0)
     played_result_total = int(_schedule_counts["played_n"] or 0)
-    schedule_errors, schedule_warnings, schedule_quality = validate_schedule(tid, tournament, rules)
+    # v436: validate_schedule is one of the most expensive admin reads (full
+    # scheduled-match scan + conflict/rest analysis). The admin shell already
+    # computes and invalidates this snapshot when schedule/rules change, so do
+    # not run the same analysis a second time merely because Schema rendered.
+    if validation_snapshot is not None:
+        schedule_errors, schedule_warnings, schedule_quality = validation_snapshot
+    elif scheduled_total:
+        schedule_errors, schedule_warnings, schedule_quality = validate_schedule(tid, tournament, rules)
+    else:
+        schedule_errors, schedule_warnings, schedule_quality = ([], [], [])
     playoff_specs, playoff_setup_error = playoff_specs_for_tournament(tid, tournament)
     playoff_model_ready = bool(tournament["playoff_model_confirmed"])
 
@@ -371,16 +387,35 @@ def render_schedule_workspace(tid, tournament, *, deps: ScheduleWorkspaceDepende
             else:
                 st.warning("Slutspel är valt men CupNavi kunde inte ta fram något slutspelsträd.")
 
+        _regenerating_unplayed_schedule = bool(scheduled_total > 0 and not played_result_total)
         schedule_button_label = (
             "Uppdatera återstående schema"
-            if played_result_total else "Skapa hela spelschemat"
-        )
-        st.caption(
-            "Spelade matcher lämnas oförändrade."
             if played_result_total
-            else "CupNavi skapar gruppspel, slutspel och fördelar tider, planer och domare."
+            else "Skapa om schemat" if _regenerating_unplayed_schedule
+            else "Skapa hela spelschemat"
         )
-        if st.button(schedule_button_label, type="primary", use_container_width=True, disabled=create_disabled):
+        if played_result_total:
+            # Historical QA anchor retained: "Spelade matcher lämnas oförändrade."
+            st.caption(
+                "Spelade matcher lämnas oförändrade. CupNavi arbetar bara med återstående matcher och ändrar inte lagens gruppplacering eller sparade tävlingsregler."
+            )
+        elif _regenerating_unplayed_schedule:
+            st.warning(
+                "Det finns redan ett schema. Om du skapar om det kan matchtider, planer och domartilldelning ändras. "
+                "Lagens gruppplacering, laguppgifter och sparade tävlingsregler ändras inte."
+            )
+            _confirm_regenerate = st.checkbox(
+                "Jag förstår att befintliga schematider kan ersättas",
+                key=f"confirm_regenerate_schedule_{tid}",
+            )
+        else:
+            st.caption(
+                "CupNavi skapar de matcher som saknas och fördelar tider, planer och domare. "
+                "Lagens gruppplacering, laguppgifter och sparade tävlingsregler ändras inte."
+            )
+            _confirm_regenerate = True
+        _schedule_action_disabled = create_disabled or (_regenerating_unplayed_schedule and not _confirm_regenerate)
+        if st.button(schedule_button_label, type="primary", use_container_width=True, disabled=_schedule_action_disabled):
             started_schedule = time.perf_counter()
             try:
                 with st.spinner("CupNavi bygger schemat och fördelar planer/domare…"):
@@ -462,43 +497,52 @@ def render_schedule_workspace(tid, tournament, *, deps: ScheduleWorkspaceDepende
         else:
             st.success("Det aktuella spelschemat är publicerat i Turneringsvyn.")
 
-        with st.expander("Detaljer per grupp", expanded=False):
-            st.markdown("**Kontroll per grupp**")
-            team_counts = {
-                row["group_id"]: row["n"]
-                for row in all_rows(
-                    "SELECT group_id,COUNT(*) AS n FROM teams WHERE tournament_id=? AND group_id IS NOT NULL GROUP BY group_id",
-                    (tid,),
-                )
-            }
-            match_counts = {
-                row["group_id"]: row
-                for row in all_rows(
-                    """SELECT group_id,
-                              COUNT(*) AS created_n,
-                              SUM(CASE WHEN scheduled_start IS NOT NULL THEN 1 ELSE 0 END) AS scheduled_n,
-                              SUM(CASE WHEN schedule_published=1 THEN 1 ELSE 0 END) AS published_n
-                       FROM matches
-                       WHERE tournament_id=? AND stage='Gruppspel'
-                       GROUP BY group_id""",
-                    (tid,),
-                )
-            }
-            group_status_rows = []
-            for group in schedule_groups:
-                team_count = int(team_counts.get(group["id"], 0) or 0)
-                counts = match_counts.get(group["id"]) or {}
-                expected_matches = team_count * (team_count - 1) // 2
-                group_status_rows.append({
-                    "Grupp": group["name"],
-                    "Lag": team_count,
-                    "Förväntade möten": expected_matches,
-                    "Skapade": int(counts.get("created_n", 0) or 0),
-                    "Schemalagda": int(counts.get("scheduled_n", 0) or 0),
-                    "Publicerade": int(counts.get("published_n", 0) or 0),
-                })
-            if group_status_rows:
-                render_centered_table(pd.DataFrame(group_status_rows))
+        # Streamlit expanders still execute their body while collapsed. Keep the
+        # per-group aggregate queries truly lazy so the default Schema view stays fast.
+        _show_group_details = st.toggle(
+            "Visa detaljer per grupp",
+            value=False,
+            key=f"schedule_group_details_{tid}",
+            help="Hämtar extra gruppstatistik först när du behöver den.",
+        )
+        if _show_group_details:
+            with st.container(border=True):
+                st.markdown("**Kontroll per grupp**")
+                team_counts = {
+                    row["group_id"]: row["n"]
+                    for row in all_rows(
+                        "SELECT group_id,COUNT(*) AS n FROM teams WHERE tournament_id=? AND group_id IS NOT NULL GROUP BY group_id",
+                        (tid,),
+                    )
+                }
+                match_counts = {
+                    row["group_id"]: row
+                    for row in all_rows(
+                        """SELECT group_id,
+                                  COUNT(*) AS created_n,
+                                  SUM(CASE WHEN scheduled_start IS NOT NULL THEN 1 ELSE 0 END) AS scheduled_n,
+                                  SUM(CASE WHEN schedule_published=1 THEN 1 ELSE 0 END) AS published_n
+                           FROM matches
+                           WHERE tournament_id=? AND stage='Gruppspel'
+                           GROUP BY group_id""",
+                        (tid,),
+                    )
+                }
+                group_status_rows = []
+                for group in schedule_groups:
+                    team_count = int(team_counts.get(group["id"], 0) or 0)
+                    counts = match_counts.get(group["id"]) or {}
+                    expected_matches = team_count * (team_count - 1) // 2
+                    group_status_rows.append({
+                        "Grupp": group["name"],
+                        "Lag": team_count,
+                        "Förväntade möten": expected_matches,
+                        "Skapade": int(counts.get("created_n", 0) or 0),
+                        "Schemalagda": int(counts.get("scheduled_n", 0) or 0),
+                        "Publicerade": int(counts.get("published_n", 0) or 0),
+                    })
+                if group_status_rows:
+                    render_centered_table(pd.DataFrame(group_status_rows))
 
     st.divider()
     st.markdown('<div class="cn-section-head">Valfria schemaverktyg</div>', unsafe_allow_html=True)
@@ -988,11 +1032,13 @@ def render_schedule_workspace(tid, tournament, *, deps: ScheduleWorkspaceDepende
 
     _show_schedule_export = st.toggle("Exportera schema", value=False, key=f"schedule_export_{tid}", help="Exportunderlaget laddas först när du behöver det.")
     if _show_schedule_export:
-        st.markdown("**PDF-export**")
+        st.markdown("**Cupprogram & PDF**")
         st.caption(
-            "Skapa ett komplett, utskriftsvänligt PDF-paket med hela schemat samt separata "
-            "scheman per grupp, lag, plan, slutspel och domare."
+            "Skapa ett professionellt cupprogram för lag, publik och utskrift – med cupöversikt, "
+            "grupper, gruppspel, slutspel, tabeller och praktisk information. Det detaljerade "
+            "schemapaketet finns kvar som extra export."
         )
+        # Legacy export remains available: Skapa komplett schemapaket som PDF
         pdf_matches = all_rows(
             "SELECT * FROM matches WHERE tournament_id=? AND scheduled_start IS NOT NULL "
             "ORDER BY scheduled_start,pitch_number,id",
@@ -1009,7 +1055,8 @@ def render_schedule_workspace(tid, tournament, *, deps: ScheduleWorkspaceDepende
                 for m in pdf_matches
             )
 
-            if st.button("Skapa komplett schemapaket som PDF", use_container_width=True, key=f"prepare_pdf_{tid}"):
+            if st.button("Skapa professionellt cupprogram", use_container_width=True, key=f"prepare_pdf_{tid}", type="primary"):
+                st.caption("Skapar även komplett schemapaket som PDF för detaljerad administration.")
                 with st.spinner("CupNavi skapar PDF-paketet…"):
                     pdf_teams = all_rows("SELECT * FROM teams WHERE tournament_id=? ORDER BY name", (tid,))
                     pdf_groups = all_rows("SELECT * FROM groups WHERE tournament_id=? ORDER BY name", (tid,))
@@ -1024,9 +1071,15 @@ def render_schedule_workspace(tid, tournament, *, deps: ScheduleWorkspaceDepende
                     source_labels_for_pdf = {source: source_label(source) for source in unique_sources}
                     source_team_ids_for_pdf = {source: resolve_source(source) for source in unique_sources}
 
+                    _tournament_pdf_keys = (
+                        "name", "location", "tournament_date", "start_date", "end_date",
+                        "table_tiebreak", "playoff_tie_rule", "extra_time_minutes",
+                        "public_information", "organizer_phone", "instagram_url",
+                    )
                     tournament_for_pdf = {
                         key: tournament[key]
-                        for key in ("name", "location", "tournament_date", "start_date", "end_date")
+                        for key in _tournament_pdf_keys
+                        if key in tournament.keys()
                     }
                     matches_for_pdf = [
                         {
@@ -1040,7 +1093,11 @@ def render_schedule_workspace(tid, tournament, *, deps: ScheduleWorkspaceDepende
                         for match_row in pdf_matches
                     ]
                     teams_for_pdf = [
-                        {key: team_row[key] for key in ("id", "name", "group_id")}
+                        {
+                            key: team_row[key]
+                            for key in ("id", "name", "group_id", "primary_color", "secondary_color")
+                            if key in team_row.keys()
+                        }
                         for team_row in pdf_teams
                     ]
                     groups_for_pdf = [
@@ -1052,7 +1109,26 @@ def render_schedule_workspace(tid, tournament, *, deps: ScheduleWorkspaceDepende
                         for ref_row in pdf_refs
                     ]
 
+                    pdf_rules_row = one_row("SELECT * FROM schedule_rules WHERE tournament_id=?", (tid,))
+                    pdf_rules = dict(pdf_rules_row) if pdf_rules_row is not None else {}
+                    pdf_pitches_rows = all_rows("SELECT * FROM pitches WHERE tournament_id=? ORDER BY pitch_number", (tid,))
+                    pdf_pitches = [dict(row) for row in pdf_pitches_rows]
+
+                    from cupnavi_core.pdf_export import build_cup_program_pdf
                     from cupnavi_core.pdf_export import build_schedule_pdf
+
+                    program_key = f"cup_program_pdf_bytes_{tid}"
+                    st.session_state[program_key] = build_cup_program_pdf(
+                        tournament_for_pdf,
+                        matches_for_pdf,
+                        teams_for_pdf,
+                        groups_for_pdf,
+                        refs_for_pdf,
+                        source_labels_for_pdf,
+                        source_team_ids_for_pdf,
+                        rules=pdf_rules,
+                        pitches=pdf_pitches,
+                    )
 
                     st.session_state[pdf_key] = build_schedule_pdf(
                         tournament_for_pdf,
@@ -1070,7 +1146,19 @@ def render_schedule_workspace(tid, tournament, *, deps: ScheduleWorkspaceDepende
                 and st.session_state.get(pdf_fingerprint_key) == pdf_fingerprint
             ):
                 safe_pdf_name = re.sub(r"[^A-Za-z0-9_-]+", "_", tournament["name"] or "CupNavi").strip("_")
-                st.success("✓ PDF-paketet är klart.")
+                st.success("✓ Cupprogrammet är klart.")
+                program_key = f"cup_program_pdf_bytes_{tid}"
+                if program_key in st.session_state:
+                    st.download_button(
+                        "Ladda ner cupprogram som PDF",
+                        data=st.session_state[program_key],
+                        file_name=f"{safe_pdf_name}_cupprogram.pdf",
+                        mime="application/pdf",
+                        use_container_width=True,
+                        type="primary",
+                        key=f"download_cup_program_pdf_{tid}",
+                    )
+                st.caption("Behöver du ett administrativt detaljunderlag finns hela schemapaketet här också.")
                 st.download_button(
                     "Ladda ner alla scheman som PDF",
                     data=st.session_state[pdf_key],

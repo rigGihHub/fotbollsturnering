@@ -30,7 +30,7 @@ def test_schedule_rule_and_quality_detail_is_collapsed():
 def test_schedule_secondary_tools_are_progressively_disclosed():
     block=SCHEDULE_VIEW
     for label in [
-        'with st.expander("Detaljer per grupp", expanded=False)',
+        '"Visa detaljer per grupp"',
         '_show_schedule_export = st.toggle("Exportera schema"',
         '_show_schedule_travel = st.toggle("Reseinformation"',
     ]:

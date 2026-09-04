@@ -5,7 +5,7 @@ VERSION = (ROOT / "VERSION.txt").read_text().strip()
 PRESENTATION = (ROOT / "cupnavi_core" / "public_presentation_view.py").read_text()
 
 def test_v399_version():
-    assert VERSION == "2026.09.03-427-TRAVEL-RULES-FLOW"
+    assert VERSION == "2026.09.04-449-MOBILE-PLAYOFF-ACTION"
 
 def test_mobile_playoff_marks_winner_and_decider():
     assert "team{' winner' if home_winner else ''}" in PRESENTATION

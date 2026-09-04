@@ -191,7 +191,7 @@ def inject_v198_visual_system():
     return _inject_v198_visual_system_impl(st)
 
 
-APP_BUILD_VERSION = "2026.09.03-427-TRAVEL-RULES-FLOW"
+APP_BUILD_VERSION = "2026.09.04-449-MOBILE-PLAYOFF-ACTION"
 APP_VERSION = APP_BUILD_VERSION
 
 def read_core_version_from_disk():
@@ -1108,6 +1108,32 @@ def public_match_overview_db_snapshot(tournament_id, *, scorer_enabled=True, ass
     return value
 
 
+def public_scorer_leader_db_snapshot(tournament_id):
+    """Load only the public top scorer with a short live-session cache.
+
+    v444 removes the unrelated active-visitor aggregate from the hot Matches
+    path. The result can change during live reporting, so keep the same short
+    15-second freshness window as the previous combined overview.
+    """
+    from cupnavi_core.public_match_repository import fetch_public_scorer_leader
+
+    cache_key = f"_cupnavi_public_scorer_v444_{int(tournament_id)}"
+    cached = st.session_state.get(cache_key)
+    if cached:
+        cached_at, cached_value = cached
+        if (time.monotonic() - float(cached_at)) < 15.0:
+            _PERF["cache_hits"] += 1
+            return cached_value
+
+    started = time.perf_counter()
+    with db() as con:
+        leader_rows = fetch_public_scorer_leader(con, tournament_id=int(tournament_id))
+    _record_db_call(started)
+    value = {"leader_rows": leader_rows}
+    st.session_state[cache_key] = (time.monotonic(), value)
+    return value
+
+
 def public_match_completion_db_snapshot(tournament_id):
     """Return only the completion counters needed by the public Info page.
 
@@ -1134,35 +1160,45 @@ def public_match_completion_db_snapshot(tournament_id):
 
 
 def public_info_boot_db_snapshot(tournament_id):
-    """Load Cupinfo rules and completion counters in one remote DB roundtrip."""
-    row = one_row(
-        """SELECT sr.*,
-                  (SELECT COUNT(*) FROM matches m
-                   WHERE m.tournament_id=? AND m.scheduled_start IS NOT NULL AND m.schedule_published=1) AS _total_matches,
-                  (SELECT COUNT(*) FROM matches m
-                   WHERE m.tournament_id=? AND m.scheduled_start IS NOT NULL AND m.schedule_published=1
-                     AND (m.home_score IS NULL OR m.away_score IS NULL)) AS _open_matches
-           FROM (SELECT 1 AS singleton) seed
-           LEFT JOIN schedule_rules sr ON sr.tournament_id=?""",
-        (int(tournament_id), int(tournament_id), int(tournament_id)),
-    )
-    return row, {
-        "total_matches": int(_row_value(row, "_total_matches", 0) or 0),
-        "open_matches": int(_row_value(row, "_open_matches", 0) or 0),
-    }
+    """Load Cupinfo rules + completion once, then reuse briefly across navigation."""
+    tournament_id = int(tournament_id)
+
+    def _load_info_boot():
+        row = one_row(
+            """SELECT sr.*,
+                      (SELECT COUNT(*) FROM matches m
+                       WHERE m.tournament_id=? AND m.scheduled_start IS NOT NULL AND m.schedule_published=1) AS _total_matches,
+                      (SELECT COUNT(*) FROM matches m
+                       WHERE m.tournament_id=? AND m.scheduled_start IS NOT NULL AND m.schedule_published=1
+                         AND (m.home_score IS NULL OR m.away_score IS NULL)) AS _open_matches
+               FROM (SELECT 1 AS singleton) seed
+               LEFT JOIN schedule_rules sr ON sr.tournament_id=?""",
+            (tournament_id, tournament_id, tournament_id),
+        )
+        return row, {
+            "total_matches": int(_row_value(row, "_total_matches", 0) or 0),
+            "open_matches": int(_row_value(row, "_open_matches", 0) or 0),
+        }
+
+    return _session_ttl_get(f"_cupnavi_public_info_boot_v434_{tournament_id}", 8.0, _load_info_boot)
 
 def public_match_events_db_snapshot(match_ids):
-    """Load visible public match events with DB timing kept in the app service layer."""
+    """Load visible public match events with a five-second session fast path."""
     from cupnavi_core.public_match_repository import fetch_public_match_events
 
-    normalized_ids = [int(match_id) for match_id in match_ids if int(match_id) > 0]
+    normalized_ids = tuple(sorted({int(match_id) for match_id in match_ids if int(match_id) > 0}))
     if not normalized_ids:
         return {}
-    started = time.perf_counter()
-    with db() as con:
-        grouped = fetch_public_match_events(con, normalized_ids)
-    _record_db_call(started)
-    return grouped
+
+    def _load_events():
+        started = time.perf_counter()
+        with db() as con:
+            grouped = fetch_public_match_events(con, normalized_ids)
+        _record_db_call(started)
+        return grouped
+
+    cache_key = f"_cupnavi_public_events_v434_{hash(normalized_ids)}"
+    return _session_ttl_get(cache_key, 5.0, _load_events)
 
 
 def render_public_share_control(tournament_id, tournament, *, in_sidebar=False):
@@ -3566,6 +3602,69 @@ def _clear_render_query_cache():
     _RENDER_QUERY_CACHE.clear()
     _DERIVED_RENDER_CACHE.clear()
 
+
+def _clear_session_read_caches(prefixes=("_cupnavi_admin_cache_",)):
+    """Invalidate short cross-rerun read caches after a database write.
+
+    Admin navigation benefits from reusing the same team/group/class snapshots for
+    a few seconds, but any write must make the next render fresh immediately.
+    """
+    for key in list(st.session_state.keys()):
+        if any(str(key).startswith(prefix) for prefix in prefixes):
+            st.session_state.pop(key, None)
+
+def _session_ttl_get(key, ttl_seconds, factory):
+    """Reuse hot read-only snapshots across Streamlit reruns for a few seconds.
+
+    Render/query caches only live for one rerun (or the short public cache epoch).
+    Remote Turso latency made rapid navigation feel like the app was "thinking"
+    even when the same data had just been read.  This tiny session cache keeps
+    interaction fast while bounded TTLs preserve near-live tournament updates.
+    """
+    cached = st.session_state.get(key)
+    if cached:
+        try:
+            cached_at, cached_value = cached
+            if (time.monotonic() - float(cached_at)) < float(ttl_seconds):
+                _PERF["cache_hits"] += 1
+                return cached_value
+        except (TypeError, ValueError):
+            pass
+    value = factory()
+    st.session_state[key] = (time.monotonic(), value)
+    return value
+
+
+
+def admin_teams_snapshot(tournament_id, ttl_seconds=8.0):
+    """Reuse the unchanged team list across quick admin reruns/navigation."""
+    tournament_id = int(tournament_id)
+    return _session_ttl_get(
+        f"_cupnavi_admin_cache_teams_{tournament_id}",
+        ttl_seconds,
+        lambda: all_rows("SELECT * FROM teams WHERE tournament_id=? ORDER BY name", (tournament_id,)),
+    )
+
+
+def admin_groups_snapshot(tournament_id, ttl_seconds=8.0):
+    """Reuse the unchanged group list across quick admin reruns/navigation."""
+    tournament_id = int(tournament_id)
+    return _session_ttl_get(
+        f"_cupnavi_admin_cache_groups_{tournament_id}",
+        ttl_seconds,
+        lambda: all_rows("SELECT * FROM groups WHERE tournament_id=? ORDER BY name", (tournament_id,)),
+    )
+
+
+def admin_classes_snapshot(tournament_id, ttl_seconds=12.0):
+    """Read competition classes without running the legacy sync on every render."""
+    tournament_id = int(tournament_id)
+    return _session_ttl_get(
+        f"_cupnavi_admin_cache_classes_{tournament_id}",
+        ttl_seconds,
+        lambda: competition_classes(tournament_id),
+    )
+
 def _derived_cache_get(key, factory):
     if key in _DERIVED_RENDER_CACHE:
         _PERF["derived_hits"] += 1
@@ -3604,6 +3703,7 @@ def one_row(sql, params=()):
 
 def run(sql, params=()):
     _clear_render_query_cache()
+    _clear_session_read_caches()
     started = time.perf_counter()
     with db() as con:
         cur = con.execute(sql, params)
@@ -3616,48 +3716,56 @@ def run(sql, params=()):
 
 
 def public_core_snapshot(tournament_id, *, include_matches=True, include_teams=True):
-    """Load only the public core rows needed by the current public route.
+    """Load the public core with a short cross-rerun fast path.
 
-    The public team selector is present on every normal route, so a compact team
-    projection is always loaded. Match rows are optional: Statistics and Playoffs
-    do not need the full published schedule unless a followed team (or another
-    route-specific feature) requires it. Results remain fresh per Streamlit rerun.
+    Public navigation often asks for the exact same schedule/team projection a
+    few seconds apart.  Keep that snapshot for six seconds so tab switches and
+    filters do not pay another remote roundtrip, while live results remain
+    effectively real-time.
     """
-    cache_key=("public-core-snapshot", int(tournament_id), bool(include_matches), bool(include_teams))
-    if cache_key in _DERIVED_RENDER_CACHE:
+    tournament_id = int(tournament_id)
+    include_matches = bool(include_matches)
+    include_teams = bool(include_teams)
+    render_key=("public-core-snapshot", tournament_id, include_matches, include_teams)
+    if render_key in _DERIVED_RENDER_CACHE:
         _PERF["derived_hits"] += 1
-        return _DERIVED_RENDER_CACHE[cache_key]
-    started=time.perf_counter()
-    with db() as con:
-        if include_matches:
-            matches=_rows_from_cursor(con.execute(
-                """SELECT m.id,m.tournament_id,m.group_id,m.bracket_id,m.stage,m.round_no,m.match_no,
-                          m.home_source,m.away_source,m.home_score,m.away_score,
-                          m.home_penalties,m.away_penalties,m.referee_id,m.schedule_published,
-                          m.decided_winner_id,m.scheduled_start,m.pitch_number,
-                          r.name AS referee_name,
-                          COALESCE(p.name, 'Plan ' || CAST(m.pitch_number AS TEXT)) AS pitch_name
-                   FROM matches m
-                   LEFT JOIN referees r ON r.id=m.referee_id
-                   LEFT JOIN pitches p ON p.tournament_id=m.tournament_id AND p.pitch_number=m.pitch_number
-                   WHERE m.tournament_id=? AND m.scheduled_start IS NOT NULL AND m.schedule_published=1
-                   ORDER BY m.scheduled_start,m.pitch_number,m.id""",
-                (int(tournament_id),),
-            ))
-        else:
-            matches=[]
-        if include_teams:
-            teams=_rows_from_cursor(con.execute(
-                """SELECT id,name,group_id,age_class,
-                          primary_color,secondary_color,home_pattern,home_color_2,away_pattern,away_color_2
-                   FROM teams WHERE tournament_id=? ORDER BY name""",
-                (int(tournament_id),),
-            ))
-        else:
-            teams=[]
-    _record_db_call(started)
-    value={"matches":matches,"teams":teams}
-    _DERIVED_RENDER_CACHE[cache_key]=value
+        return _DERIVED_RENDER_CACHE[render_key]
+
+    def _load_public_core():
+        started=time.perf_counter()
+        with db() as con:
+            if include_matches:
+                matches=_rows_from_cursor(con.execute(
+                    """SELECT m.id,m.tournament_id,m.group_id,m.bracket_id,m.stage,m.round_no,m.match_no,
+                              m.home_source,m.away_source,m.home_score,m.away_score,
+                              m.home_penalties,m.away_penalties,m.referee_id,m.schedule_published,
+                              m.decided_winner_id,m.scheduled_start,m.pitch_number,
+                              r.name AS referee_name,
+                              COALESCE(p.name, 'Plan ' || CAST(m.pitch_number AS TEXT)) AS pitch_name
+                       FROM matches m
+                       LEFT JOIN referees r ON r.id=m.referee_id
+                       LEFT JOIN pitches p ON p.tournament_id=m.tournament_id AND p.pitch_number=m.pitch_number
+                       WHERE m.tournament_id=? AND m.scheduled_start IS NOT NULL AND m.schedule_published=1
+                       ORDER BY m.scheduled_start,m.pitch_number,m.id""",
+                    (tournament_id,),
+                ))
+            else:
+                matches=[]
+            if include_teams:
+                teams=_rows_from_cursor(con.execute(
+                    """SELECT id,name,group_id,age_class,
+                              primary_color,secondary_color,home_pattern,home_color_2,away_pattern,away_color_2
+                       FROM teams WHERE tournament_id=? ORDER BY name""",
+                    (tournament_id,),
+                ))
+            else:
+                teams=[]
+        _record_db_call(started)
+        return {"matches":matches,"teams":teams}
+
+    session_key = f"_cupnavi_public_core_v434_{tournament_id}_{int(include_matches)}_{int(include_teams)}"
+    value = _session_ttl_get(session_key, 6.0, _load_public_core)
+    _DERIVED_RENDER_CACHE[render_key]=value
     return value
 
 def run_many(sql, params_seq):
@@ -5739,6 +5847,7 @@ def render_public_view(tournament_id, tournament):
             public_match_events_db_snapshot=public_match_events_db_snapshot,
             public_match_events_html=public_match_events_html,
             public_match_overview_db_snapshot=public_match_overview_db_snapshot,
+            public_scorer_leader_db_snapshot=public_scorer_leader_db_snapshot,
             public_navigation_specs=public_navigation_specs,
             render_empty_state=render_empty_state,
             render_public_info_section=render_public_info_section,
@@ -7818,20 +7927,28 @@ else:
             _requested_numeric_id = None
 
         if _requested_numeric_id is not None:
-            _requested_public_row = one_row(
-                """SELECT * FROM tournaments
-                   WHERE id=? AND is_published=1
-                     AND COALESCE(lifecycle_status,'published') IN ('published','live','completed')
-                     AND COALESCE(lifecycle_status,'published')!='trashed'""",
-                (_requested_numeric_id,),
+            _requested_public_row = _session_ttl_get(
+                f"_cupnavi_public_tournament_v434_id_{int(_requested_numeric_id)}",
+                12.0,
+                lambda: one_row(
+                    """SELECT * FROM tournaments
+                       WHERE id=? AND is_published=1
+                         AND COALESCE(lifecycle_status,'published') IN ('published','live','completed')
+                         AND COALESCE(lifecycle_status,'published')!='trashed'""",
+                    (_requested_numeric_id,),
+                ),
             )
         else:
-            _requested_public_row = one_row(
-                """SELECT * FROM tournaments
-                   WHERE public_slug=? AND is_published=1
-                     AND COALESCE(lifecycle_status,'published') IN ('published','live','completed')
-                     AND COALESCE(lifecycle_status,'published')!='trashed'""",
-                (cup_query_text,),
+            _requested_public_row = _session_ttl_get(
+                f"_cupnavi_public_tournament_v434_slug_{cup_query_text}",
+                12.0,
+                lambda: one_row(
+                    """SELECT * FROM tournaments
+                       WHERE public_slug=? AND is_published=1
+                         AND COALESCE(lifecycle_status,'published') IN ('published','live','completed')
+                         AND COALESCE(lifecycle_status,'published')!='trashed'""",
+                    (cup_query_text,),
+                ),
             )
 
     if _requested_public_row is not None:
@@ -8818,7 +8935,10 @@ if _flow_index is not None:
         # i samma remote DB-roundtrip och återanvänd snapshoten längre ned.
         _now_iso = datetime.now().isoformat(timespec="seconds")
         _delayed_cutoff_iso = (datetime.now() - timedelta(minutes=90)).isoformat(timespec="seconds")
-        _flow_counts = one_row(
+        _flow_counts = _session_ttl_get(
+            f"_cupnavi_admin_cache_flow_overview_{int(tid)}",
+            5.0,
+            lambda: one_row(
             """SELECT
                  (SELECT COUNT(*) FROM teams WHERE tournament_id=?) AS teams_n,
                  (SELECT COUNT(*) FROM groups WHERE tournament_id=?) AS groups_n,
@@ -8840,10 +8960,14 @@ if _flow_index is not None:
                  (SELECT COUNT(*) FROM matches WHERE tournament_id=? AND scheduled_start IS NOT NULL AND scheduled_start<?
                     AND (home_score IS NULL OR away_score IS NULL)) AS delayed_n""",
             (tid,tid,tid,tid,tid,tid,tid,tid,tid,tid,tid,tid,tid,tid,_now_iso,tid,_now_iso,tid,_delayed_cutoff_iso),
+            ),
         )
         _DERIVED_RENDER_CACHE[("admin-workflow-counts", int(tid))] = _flow_counts
     else:
-        _flow_counts = one_row(
+        _flow_counts = _session_ttl_get(
+            f"_cupnavi_admin_cache_flow_primary_{int(tid)}",
+            5.0,
+            lambda: one_row(
             """SELECT
                  (SELECT COUNT(*) FROM teams WHERE tournament_id=?) AS teams_n,
                  (SELECT COUNT(*) FROM groups WHERE tournament_id=?) AS groups_n,
@@ -8852,6 +8976,7 @@ if _flow_index is not None:
                  (SELECT COUNT(*) FROM matches WHERE tournament_id=? AND scheduled_start IS NOT NULL) AS scheduled_n,
                  (SELECT COUNT(*) FROM matches WHERE tournament_id=? AND home_score IS NOT NULL AND away_score IS NOT NULL) AS played_n""",
             (tid,tid,tid,tid,tid,tid),
+            ),
         )
     _flow_total = int(_flow_counts["matches_n"] or 0)
     _flow_played = int(_flow_counts["played_n"] or 0)
@@ -8963,30 +9088,53 @@ if current_schedule_dirty and current_schedule_scheduled:
 
 # Publicering ska kunna hanteras från samtliga adminflikar.
 # Valideringen cachas i sessionen och räknas bara om när något schema-/regelrelaterat ändrats.
-sidebar_rules = one_row(
-    """SELECT sr.*,
-              (SELECT COUNT(*) FROM matches m WHERE m.tournament_id=sr.tournament_id AND m.scheduled_start IS NOT NULL) AS scheduled_n
-       FROM schedule_rules sr WHERE sr.tournament_id=?""",
-    (tid,),
-)
-if sidebar_rules is None:
-    run("INSERT INTO schedule_rules(tournament_id) VALUES(?)", (tid,))
-    sidebar_rules = one_row(
+def _load_admin_sidebar_rules():
+    row = one_row(
         """SELECT sr.*,
                   (SELECT COUNT(*) FROM matches m WHERE m.tournament_id=sr.tournament_id AND m.scheduled_start IS NOT NULL) AS scheduled_n
            FROM schedule_rules sr WHERE sr.tournament_id=?""",
         (tid,),
     )
+    if row is None:
+        run("INSERT INTO schedule_rules(tournament_id) VALUES(?)", (tid,))
+        row = one_row(
+            """SELECT sr.*,
+                      (SELECT COUNT(*) FROM matches m WHERE m.tournament_id=sr.tournament_id AND m.scheduled_start IS NOT NULL) AS scheduled_n
+               FROM schedule_rules sr WHERE sr.tournament_id=?""",
+            (tid,),
+        )
+    return row
+
+# v442: this shell snapshot used to pay a remote DB roundtrip on every admin
+# navigation click. Reuse it for a few seconds; all local writes invalidate the
+# admin cache immediately through run().
+sidebar_rules = _session_ttl_get(
+    f"_cupnavi_admin_cache_sidebar_rules_{int(tid)}",
+    6.0,
+    _load_admin_sidebar_rules,
+)
 
 # Primärflödet har redan räknat schemalagda matcher. På sekundära sidor kommer
 # samma värde från rules-snapshoten, utan ett extra DB-anrop.
 sidebar_scheduled = _flow_scheduled if _flow_index is not None else int(_row_value(sidebar_rules, "scheduled_n", 0) or 0)
 
 validation_cache_key = f"_schedule_validation_{tid}"
-if sidebar_scheduled:
-    if st.session_state.get("_validation_dirty", True) or validation_cache_key not in st.session_state:
-        st.session_state[validation_cache_key] = validate_schedule(tid, tournament, sidebar_rules)
-        st.session_state["_validation_dirty"] = False
+_validation_dirty = bool(st.session_state.get("_validation_dirty", True))
+_validation_cached = validation_cache_key in st.session_state
+# v437: full schedule validation is intentionally lazy. It is one of the most
+# expensive admin checks and previously ran after virtually every interaction
+# anywhere in Admin. Recompute it only where the organiser actually needs the
+# answer (Schema/Kontroll). Other pages may reuse a known-fresh snapshot, but a
+# dirty/missing snapshot can never enable publishing.
+_validation_required_here = admin_page in {"Skapa och publicera schema", "Kontroller"}
+if sidebar_scheduled and (_validation_required_here and (_validation_dirty or not _validation_cached)):
+    st.session_state[validation_cache_key] = validate_schedule(tid, tournament, sidebar_rules)
+    st.session_state["_validation_dirty"] = False
+    _validation_dirty = False
+    _validation_cached = True
+
+_validation_ready = bool(sidebar_scheduled and _validation_cached and not _validation_dirty)
+if _validation_ready:
     sidebar_errors, sidebar_warnings, _sidebar_quality = st.session_state.get(
         validation_cache_key, ([], [], [])
     )
@@ -9030,11 +9178,20 @@ if not _first_run_new_cup:
         unpublish_now=_unpublish_tournament_now,
         show_main_control=False,
         show_sidebar_control=True,
+        validation_ready=_validation_ready,
     )
 
-# Cupens livscykel: publicerad -> pågår -> avslutad. Avslutad cup blir skrivskyddad
-# i admin men ligger kvar publikt tills admin uttryckligen flyttar den till papperskorgen.
-lifecycle_counts = fetch_lifecycle_match_counts(one_row, tid)
+# Cupens livscykel: publicerad -> pågår -> avslutad. För utkast behövs ingen
+# separat matchräkning alls; avsluta-knappen existerar först efter publicering.
+# v437 sparar därmed ytterligare ett remote DB-anrop på hela setupflödet.
+if tournament_lifecycle in ("published", "live"):
+    lifecycle_counts = _session_ttl_get(
+        f"_cupnavi_admin_cache_lifecycle_counts_{int(tid)}",
+        4.0,
+        lambda: fetch_lifecycle_match_counts(one_row, tid),
+    )
+else:
+    lifecycle_counts = None
 completion_state = build_completion_state(
     total=int(lifecycle_counts["total"] or 0) if lifecycle_counts else 0,
     played=int(lifecycle_counts["played"] or 0) if lifecycle_counts else 0,
@@ -9301,6 +9458,11 @@ if admin_page == "Instruktioner":
         },
     ]
 
+    def _open_admin_page(target_page: str) -> None:
+        # v441: navigation callbacks update state before Streamlit's normal
+        # rerun, avoiding a second explicit rerun after the click.
+        st.session_state[admin_page_key] = target_page
+
     completed_steps = sum(1 for step in guide_steps if step["done"])
     guide_progress = completed_steps / len(guide_steps)
     st.progress(guide_progress, text=f"{completed_steps} av {len(guide_steps)} steg har påbörjats eller slutförts")
@@ -9308,13 +9470,13 @@ if admin_page == "Instruktioner":
     next_step = next((step for step in guide_steps if not step["done"]), None)
     if next_step:
         st.info(f"**Rekommenderat nästa steg:** {next_step['title']} – {next_step['text']}")
-        if st.button(
+        st.button(
             f"Gå till {next_step['page'].replace('Skapa och publicera schema', 'Schema').replace('Matcher och resultat', 'Matcher').replace('Matchhändelser', 'Händelser')}",
             type="primary",
             key=f"guide_next_{tid}",
-        ):
-            st.session_state[admin_page_key] = next_step["page"]
-            st.rerun()
+            on_click=_open_admin_page,
+            args=(next_step["page"],),
+        )
     else:
         st.success("Grundflödet är genomfört. Fortsätt administrera resultat, händelser och slutspel under cupen.")
 
@@ -9324,12 +9486,12 @@ if admin_page == "Instruktioner":
         status = "Klart/aktivt" if step["done"] else "Återstår"
         with st.expander(f"{icon} {step['title']} · {status}", expanded=bool(next_step and step["title"] == next_step["title"])):
             st.write(step["text"])
-            if st.button(
+            st.button(
                 f"Öppna {step['page'].replace('Skapa och publicera schema', 'Schema').replace('Matcher och resultat', 'Matcher').replace('Matchhändelser', 'Händelser')}",
                 key=f"guide_open_{tid}_{step_index}_{step['page']}",
-            ):
-                st.session_state[admin_page_key] = step["page"]
-                st.rerun()
+                on_click=_open_admin_page,
+                args=(step["page"],),
+            )
 
     st.markdown("### Viktigt att känna till")
     st.markdown(
@@ -9509,9 +9671,13 @@ elif admin_page == "Adminöversikt":
         with st.expander("⚖️ Fairnessanalys", expanded=False):
             st.caption("Rådgivande analys av vila, matchtider och planbyten. Körs bara när du öppnar den för att hålla Adminöversikten snabb.")
             if not fairness_requested:
-                if st.button("Kör fairnessanalys", key=f"load_fairness_{tid}", use_container_width=True):
-                    st.session_state[fairness_state_key] = True
-                    st.rerun()
+                st.button(
+                    "Kör fairnessanalys",
+                    key=f"load_fairness_{tid}",
+                    use_container_width=True,
+                    on_click=st.session_state.__setitem__,
+                    args=(fairness_state_key, True),
+                )
             else:
                 if fairness_load_error is not None:
                     fairness = {
@@ -10642,6 +10808,7 @@ if admin_page == "Kontroller":
         unpublish_now=_unpublish_tournament_now,
         show_main_control=True,
         show_sidebar_control=False,
+        validation_ready=True,
     )
 
     _show_deep_controls = st.toggle("Fördjupad kontroll", value=False, key=f"show_deep_controls_{tid}")
@@ -11242,12 +11409,18 @@ if admin_page == "Lag":
                     st.session_state[admin_page_key] = "Trupper"
                     st.session_state[admin_group_key] = _admin_group_for_page("Trupper")
                     st.rerun()
-    class_rows = sync_competition_classes(tid)
+    # v435: normal navigation must be read-only. Class synchronization is already
+    # performed when setup/class settings change; doing UPDATEs on every Lag render
+    # made remote Turso navigation needlessly slow. Only repair an actually empty
+    # legacy class table, otherwise reuse a short read snapshot.
+    class_rows = admin_classes_snapshot(tid)
+    if not class_rows and parse_age_classes(_row_value(tournament, "age_classes_json", "[]")):
+        class_rows = sync_competition_classes(tid)
     current_classes = [competition_class_label(row) for row in class_rows]
     # v397: Lag-sidan behöver hela laglistan längre ned oavsett. Hämta den en
     # gång här och återanvänd både listan och len(teams) i stället för ett separat
     # COUNT-anrop följt av samma fulla läsning. Detta sparar en remote roundtrip.
-    teams = all_rows("SELECT * FROM teams WHERE tournament_id=? ORDER BY name", (tid,))
+    teams = admin_teams_snapshot(tid)
     max_teams = int(tournament["expected_team_count"] or 0)
     registered_team_count = len(teams)
     team_limit_reached = bool(max_teams and registered_team_count >= max_teams)
@@ -11303,7 +11476,8 @@ if admin_page == "Lag":
             help="När cupen bara har en tävlingsklass väljs den automatiskt. Lag i olika klasser hålls sportsligt separerade.",
         )
         team_age_class = next((competition_class_label(row) for row in class_rows if row["id"] == team_class_id), "")
-        with st.expander("Komplettera laget (valfritt)", expanded=False):
+        with st.expander("Komplettera laget – tröjfärger, lagansvarig m.m. (valfritt)", expanded=False):
+            st.caption("Lägg till praktisk laginformation som tröjfärger, reservställ, lagansvarig och kontaktuppgifter. Du kan göra detta nu eller senare.")
             st.caption("Matchställ, kontaktperson och reseönskemål. Du kan hoppa över detta nu och komplettera senare.")
 
             st.markdown("#### Matchställ")
@@ -11454,7 +11628,7 @@ if admin_page == "Lag":
                 help="Flera bilder går bra om laglistan finns på flera sidor.",
             )
             if not _lag_ai_api_key:
-                st.info("AI-importen behöver OPENAI_API_KEY i Streamlit Secrets för att kunna läsa bilden.")
+                st.warning("AI-importen är inte aktiverad i den här miljön ännu. Lägg OPENAI_API_KEY i appens Streamlit Secrets för att slå på bildtolkningen. Ingen API-nyckel visas eller sparas i CupNavi.")
             if st.button(
                 "Läs av bilden med AI",
                 type="primary",
@@ -12108,10 +12282,10 @@ if admin_page == "Grupper":
             "🔒 Gruppstrukturen är låst efter första resultatet i en riktig cup. "
             "Testmiljöer kan fortfarande ändra grupper fritt."
         )
-    teams = all_rows("SELECT * FROM teams WHERE tournament_id=? ORDER BY name", (tid,))
+    teams = admin_teams_snapshot(tid)
     # v397: gruppsidan använde tidigare först COUNT(groups) och därefter SELECT *
     # på samma render. Ladda grupperna en gång och återanvänd listan genom sidan.
-    groups = all_rows("SELECT * FROM groups WHERE tournament_id=? ORDER BY name", (tid,))
+    groups = admin_groups_snapshot(tid)
     _expected_group_team_count = int(tournament["expected_team_count"] or 0)
     _participant_registration_complete = bool(
         teams and (not _expected_group_team_count or len(teams) >= _expected_group_team_count)
@@ -12201,7 +12375,7 @@ if admin_page == "Grupper":
             _sg1.metric("Grupper", len(_smart_plan))
             _sg2.metric("Lag/grupp", f"{min(_smart_sizes)}–{max(_smart_sizes)}" if _smart_sizes else "–")
             _sg3.metric("Lag totalt", sum(_smart_sizes))
-            st.caption("Jämnstora grupper inom respektive tävlingsklass. Du kan justera placeringen efteråt.")
+            st.caption("Jämnstora grupper inom respektive tävlingsklass. Förslaget är bara en förhandsvisning – inget sparas förrän du väljer att använda det. Du kan justera placeringen efteråt.")
             with st.expander("Visa vilka lag som hamnar i varje grupp", expanded=False):
                 for item in _smart_plan:
                     names = ", ".join(str(team_row["name"]) for team_row in item["teams"])
@@ -12266,7 +12440,8 @@ if admin_page == "Grupper":
     if _recommended_groups > 0 and not _smart_plan:
         st.caption(f"Rekommendation: **{_recommended_groups} grupper** · cirka **{int(_row_value(_group_rules,'recommended_group_size',0) or 0)} lag per grupp**.")
         if _existing_groups_count == 0 and teams and _participant_registration_complete:
-            if st.button(f"Skapa {_recommended_groups} rekommenderade grupper",type="primary",use_container_width=True,key=f"create_recommended_groups_{tid}"):
+            st.caption("Detta är ett frivilligt snabbval. Inga grupper skapas förrän du trycker på knappen.")
+            if st.button(f"Skapa {_recommended_groups} rekommenderade grupper",type="secondary",use_container_width=True,key=f"create_recommended_groups_{tid}"):
                 class_default=class_rows[0] if len(class_rows)==1 else None
                 class_id=_row_value(class_default,"id",None) if class_default else None
                 class_name=competition_class_label(class_default) if class_default else None
@@ -12472,7 +12647,7 @@ if admin_page == "Trupper":
             run("UPDATE tournaments SET max_roster_size=?,squad_deadline_minutes=?,allow_team_public_contact=? WHERE id=?", (portal_max_roster, portal_deadline, int(portal_public_contact), tid))
             st.success("Portalreglerna är sparade.")
             st.rerun()
-    teams = all_rows("SELECT * FROM teams WHERE tournament_id=? ORDER BY name", (tid,))
+    teams = admin_teams_snapshot(tid)
     if not teams:
         st.info("Lägg först till ett lag.")
     else:
@@ -13015,6 +13190,8 @@ if admin_page == "Skapa och publicera schema":
             apply_schedule_improvement=_apply_schedule_improvement,
             apply_matchcamp_structure_improvement=_apply_matchcamp_structure_improvement,
             navigate_admin_page=_set_admin_page,
+            rules_snapshot=sidebar_rules,
+            validation_snapshot=(sidebar_errors, sidebar_warnings, _sidebar_quality),
         ),
     )
 
@@ -15436,12 +15613,27 @@ if view_mode == "Admin" and admin_page == "Adminöversikt":
         _perf_cols[2].metric("DB-anrop", _db_calls)
         _perf_cols[3].metric("DB-andel", f"{_db_share:.0f} %")
 
-        if _render_ms >= 2500:
+        if _perf_snapshot.get("budget_status") == "over":
+            _budget_over = ", ".join(_perf_snapshot.get("budget_over") or [])
+            st.warning(
+                "Den här rutten ligger över sin prestandabudget"
+                + (f" ({_budget_over})." if _budget_over else ".")
+            )
+        elif _perf_snapshot.get("budget_status") == "within":
+            st.success("Den här rutten ligger inom sin prestandabudget.")
+        elif _render_ms >= 2500:
             st.warning("Renderingen är långsam (>2,5 s). DB- och nätverksanrop bör granskas.")
         elif _render_ms >= 1200:
             st.info("Renderingen är märkbar (1,2–2,5 s). Det finns sannolikt mer att optimera.")
         else:
             st.success("Renderingen ligger under 1,2 s i den här körningen.")
+
+        if _perf_snapshot.get("budget_render_ms") is not None:
+            st.caption(
+                "Budget för denna rutt/fas: "
+                f"≤ {_perf_snapshot['budget_render_ms']:.0f} ms · "
+                f"≤ {_perf_snapshot['budget_db_calls']} DB-anrop."
+            )
 
         _history = st.session_state["_cupnavi_perf_history"]
         if len(_history) >= 2:
@@ -15461,6 +15653,11 @@ if view_mode == "Admin" and admin_page == "Adminöversikt":
                 "Render ms": row["render_ms"],
                 "DB ms": row["db_ms"],
                 "DB-anrop": row["db_calls"],
+                "Budget": (
+                    "✅" if row.get("budget_status") == "within"
+                    else "⚠️" if row.get("budget_status") == "over"
+                    else "–"
+                ),
                 "Fas": row["session_phase"],
             } for row in _route_history[-8:]]
             render_centered_table(pd.DataFrame(_route_rows))

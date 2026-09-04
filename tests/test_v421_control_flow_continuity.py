@@ -6,7 +6,7 @@ APP = Path("app.py").read_text(encoding="utf-8")
 
 
 def test_v421_version():
-    assert APP_VERSION == "2026.09.03-427-TRAVEL-RULES-FLOW"
+    assert APP_VERSION == "2026.09.04-449-MOBILE-PLAYOFF-ACTION"
 
 
 def test_control_page_uses_shared_six_step_flow():

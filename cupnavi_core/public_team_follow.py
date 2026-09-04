@@ -43,15 +43,18 @@ def build_favorite_team_snapshot(
             match_datetime(match, row_value) or datetime.max,
         ),
     )
+    # v447: explicit live/pause state wins over score fields. A reporter may
+    # already have entered 0-0 or a live score, and that must still surface as
+    # the team's current match rather than being mistaken for a finished result.
     next_match = next(
         (
             match for match in matches
-            if row_value(match, "home_score", None) is None
-            and row_value(match, "away_score", None) is None
-            and (
+            if (
                 normalize_match_status(row_value(match, "match_status", None)) in {MATCH_LIVE, MATCH_HALFTIME}
                 or (
-                    match_datetime(match, row_value) is not None
+                    row_value(match, "home_score", None) is None
+                    and row_value(match, "away_score", None) is None
+                    and match_datetime(match, row_value) is not None
                     and match_datetime(match, row_value) >= now
                 )
             )
@@ -63,6 +66,7 @@ def build_favorite_team_snapshot(
             match for match in reversed(matches)
             if row_value(match, "home_score", None) is not None
             and row_value(match, "away_score", None) is not None
+            and normalize_match_status(row_value(match, "match_status", None)) not in {MATCH_LIVE, MATCH_HALFTIME}
         ),
         None,
     )
@@ -72,6 +76,8 @@ def build_favorite_team_snapshot(
         home_score = row_value(match, "home_score", None)
         away_score = row_value(match, "away_score", None)
         if home_score is None or away_score is None:
+            continue
+        if normalize_match_status(row_value(match, "match_status", None)) in {MATCH_LIVE, MATCH_HALFTIME}:
             continue
         played_count += 1
         home_id = source_team_id(match["home_source"])
@@ -217,6 +223,28 @@ def build_favorite_team_hero_html(
         content += "<span class='cn-my-pill'>🏆 Slutspel: inväntar kvalificering</span>"
     return content + "</div></div>"
 
+
+
+def favorite_team_primary_action_label(
+    match_row: Mapping[str, Any] | None,
+    *,
+    now: datetime,
+    row_value: Callable[[Any, str, Any], Any],
+) -> str:
+    """Return the clearest cup-day action label without any extra data fetch."""
+    if not match_row:
+        return ""
+    status = normalize_match_status(row_value(match_row, "match_status", None))
+    if status == MATCH_LIVE:
+        return "⚽ Följ matchen nu"
+    if status == MATCH_HALFTIME:
+        return "⚽ Öppna matchen · paus"
+    dt = match_datetime(match_row, row_value)
+    if dt is not None:
+        minutes_until = max(0, int((dt - now).total_seconds() // 60))
+        if minutes_until <= 15:
+            return f"⚽ Nästa match om {minutes_until} min"
+    return "⚽ Öppna nästa match"
 
 def favorite_team_group_id(
     public_teams: Iterable[Mapping[str, Any]],

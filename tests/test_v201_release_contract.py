@@ -7,7 +7,7 @@ LOGIC=(ROOT/"cupnavi_core/public_view_logic.py").read_text(encoding="utf-8")
 VERSION=(ROOT/"VERSION.txt").read_text(encoding="utf-8").strip()
 
 def test_release_v201():
-    assert VERSION == "2026.09.03-427-TRAVEL-RULES-FLOW"
+    assert VERSION == "2026.09.04-449-MOBILE-PLAYOFF-ACTION"
     assert "release_ui_label(APP_BUILD_VERSION)" in APP
 
 def test_public_view_consumes_extracted_logic():

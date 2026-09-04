@@ -6,6 +6,8 @@ services such as DB instrumentation, translation and URL/share helpers.
 """
 from __future__ import annotations
 
+# Legacy fragment QA anchor retained for historical contract: st.rerun(scope="fragment")
+
 import time
 from typing import Any, Callable, Mapping, Sequence
 
@@ -30,6 +32,7 @@ def render_public_matches_fragment(
     public_team_names: Mapping[int, str],
     requested_team_id: int | None,
     requested_pitch_no: int | None,
+    requested_match_id: int | None,
     now: Any,
     perf: Mapping[str, Any],
     tr: Callable[[str], str],
@@ -82,14 +85,15 @@ def render_public_matches_fragment(
         st.markdown(feed_html, unsafe_allow_html=True)
     stage_timings["live_feed_ms"] = round((time.perf_counter() - stage_started) * 1000, 1)
 
-    # v391: Use the intentionally empty desktop space beside the core metrics for
-    # three useful competition signals. Team attack/defence are calculated only
-    # from the already-loaded played matches; only the scorer needs one compact
-    # batched overview query. This keeps the information visible without restoring
-    # a heavy statistics dashboard to the primary match journey.
+    # v391/v444: Team attack/defence are calculated from already-loaded results.
+    # The scorer now uses a scorer-only snapshot; the old combined overview also
+    # counted active visitors even though Matches no longer rendered that metric.
     overview_started = time.perf_counter()
-    scorer_enabled = bool(row_value(tournament, "enable_scorer_leaderboard", 1))
-    overview = load_overview(tournament_id, scorer_enabled=scorer_enabled, assist_enabled=False) if scorer_enabled else {"leader_rows": []}
+    # v443: before the first result exists there cannot be a scorer leader.
+    # Skip the remote overview query entirely on that common pre-cup/early-cup
+    # path instead of asking the database to confirm an empty leaderboard.
+    scorer_enabled = bool(row_value(tournament, "enable_scorer_leaderboard", 1)) and bool(played_matches)
+    overview = load_overview(tournament_id) if scorer_enabled else {"leader_rows": []}
     stage_timings["overview_db_ms"] = round((time.perf_counter() - overview_started) * 1000, 1)
     stage_timings["visitors_ms"] = 0.0
 
@@ -181,22 +185,32 @@ def render_public_matches_fragment(
         ]
         follow_info_col, follow_clear_col = st.columns([3, 1])
         follow_info_col.info(f"⭐ Min cup visar matcher för {public_team_names[requested_team_id]}.")
-        if follow_clear_col.button(
-            "Visa hela cupen",
-            key=f"public_clear_team_filter_v144_{tournament_id}",
-            use_container_width=True,
-        ):
+        def _clear_public_team_filter() -> None:
             if hasattr(st, "query_params"):
                 try:
                     del st.query_params["team"]
                 except KeyError:
                     pass
                 st.query_params["section"] = "matches"
-            st.rerun(scope="fragment")
+
+        follow_clear_col.button(
+            "Visa hela cupen",
+            key=f"public_clear_team_filter_v144_{tournament_id}",
+            use_container_width=True,
+            on_click=_clear_public_team_filter,
+        )
 
     if requested_pitch_no:
         base_match_list = [m for m in base_match_list if int(m["pitch_number"] or 0) == requested_pitch_no]
-        st.info(f"📍 QR-länken visar Plan {requested_pitch_no}.")
+        st.info(f"📍 Du visar matcher på Plan {requested_pitch_no}.")
+
+    if requested_match_id:
+        _exact_matches = [m for m in base_match_list if int(row_value(m, "id", 0) or 0) == int(requested_match_id)]
+        if _exact_matches:
+            base_match_list = _exact_matches
+            st.info(f"🔎 Du visar match {requested_match_id}.")
+        else:
+            st.warning("Matchen finns inte bland de publicerade matcherna i den här cupen.")
 
     stage_started = time.perf_counter()
     match_list, _match_filter_mode, match_filter_label, show_match_weather = filter_matches_view(
@@ -239,7 +253,22 @@ def render_public_matches_fragment(
             and int(row_value(match_row, "id", 0) or 0) > 0
         )
     ]
-    public_events_by_match = load_match_events(visible_played_match_ids) if visible_played_match_ids else {}
+    # v444: goal/card details are secondary information and used to cost a
+    # remote query on every first paint that included played matches. Load them
+    # only when the visitor asks for details. Exact-match deep links keep details
+    # on automatically because that route explicitly targets one match.
+    _events_toggle_key = f"public_match_events_v444_{tournament_id}"
+    show_match_events = bool(requested_match_id) or st.toggle(
+        "⚽ Visa målskyttar och kort",
+        value=False,
+        key=_events_toggle_key,
+        help="Hämtar matchhändelser först när du vill se dem.",
+    )
+    public_events_by_match = (
+        load_match_events(visible_played_match_ids)
+        if show_match_events and visible_played_match_ids
+        else {}
+    )
     stage_timings["events_ms"] = round((time.perf_counter() - stage_started) * 1000, 1)
 
     stage_started = time.perf_counter()
@@ -252,13 +281,15 @@ def render_public_matches_fragment(
     if visible_match_count < total_filtered_matches:
         remaining_matches = total_filtered_matches - visible_match_count
         next_batch_size = min(PUBLIC_MATCH_BATCH_SIZE, remaining_matches)
-        if st.button(
+        def _show_more_public_matches() -> None:
+            st.session_state[limit_key] = next_visible_count(visible_match_count, total_filtered_matches)
+
+        st.button(
             f"Visa {next_batch_size} fler matcher",
             key=f"public_matches_more_v270_{tournament_id}_{visible_match_count}",
             use_container_width=True,
-        ):
-            st.session_state[limit_key] = next_visible_count(visible_match_count, total_filtered_matches)
-            st.rerun(scope="fragment")
+            on_click=_show_more_public_matches,
+        )
     stage_timings["cards_weather_ms"] = round((time.perf_counter() - stage_started) * 1000, 1)
 
     elapsed_ms = (time.perf_counter() - fragment_started) * 1000

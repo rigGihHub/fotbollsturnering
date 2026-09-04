@@ -13,7 +13,7 @@ def test_matches_page_still_avoids_full_table_and_statistics_work():
     assert "snapshot_table_bundle(" not in MATCHES
     assert "competition_highlights(" not in MATCHES
     assert "calculate_all_group_tables(" not in MATCHES
-    assert 'load_overview=public_match_overview_db_snapshot' in WORKSPACE
+    assert 'load_overview=public_scorer_leader_db_snapshot' in WORKSPACE
 
 
 def test_matches_summary_remains_compact_while_accepting_small_highlights():

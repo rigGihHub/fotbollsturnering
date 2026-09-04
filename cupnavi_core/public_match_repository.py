@@ -8,6 +8,45 @@ from __future__ import annotations
 from typing import Any
 
 
+def fetch_public_scorer_leader(con: Any, *, tournament_id: int) -> list[dict[str, Any]]:
+    """Return only the current top scorer for the public Matches summary.
+
+    This intentionally avoids the visitor-session aggregate used by the older
+    combined overview snapshot. The Matches page no longer renders visitor
+    counts, so asking the database for them on every live cup view was wasted
+    work.
+    """
+    row = con.execute(
+        """SELECT CASE WHEN COALESCE(p.is_protected,0)=1 THEN 'Skyddad spelare' ELSE p.name END AS player_name,
+                  t.name AS team_name, SUM(s.goals) AS goals, SUM(s.assists) AS assists
+           FROM player_match_stats s
+           JOIN players p ON p.id=s.player_id
+           JOIN teams t ON t.id=p.team_id
+           JOIN matches m ON m.id=s.match_id
+           WHERE m.tournament_id=?
+           GROUP BY p.id,p.name,p.is_protected,t.name
+           HAVING SUM(s.goals)>0
+           ORDER BY SUM(s.goals) DESC, SUM(s.assists) DESC, LOWER(p.name) ASC
+           LIMIT 1""",
+        (int(tournament_id),),
+    ).fetchone()
+    if row is None:
+        return []
+
+    def value(key: str, index: int):
+        try:
+            return row[key]
+        except (TypeError, KeyError, IndexError):
+            return row[index]
+
+    return [{
+        "player_name": value("player_name", 0),
+        "team_name": value("team_name", 1),
+        "goals": int(value("goals", 2) or 0),
+        "assists": int(value("assists", 3) or 0),
+    }]
+
+
 def fetch_public_match_overview(con: Any, *, tournament_id: int, cutoff: str, session_token: str,
                                 scorer_enabled: bool = True, assist_enabled: bool = True) -> dict[str, Any]:
     row = con.execute(

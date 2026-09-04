@@ -3,7 +3,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 APP = (ROOT / "app.py").read_text(encoding="utf-8")
 RESULTS_VIEW = (ROOT / "cupnavi_core" / "admin_results_view.py").read_text(encoding="utf-8")
-VERSION = "2026.09.03-427-TRAVEL-RULES-FLOW"
+VERSION = "2026.09.04-449-MOBILE-PLAYOFF-ACTION"
 
 
 def test_release_version_is_v339():

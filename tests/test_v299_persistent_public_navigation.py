@@ -20,7 +20,7 @@ def test_existing_public_navigation_visual_contract_is_preserved():
 
 
 def test_v299_release_is_canonical():
-    expected = '2026.09.03-427-TRAVEL-RULES-FLOW'
+    expected = '2026.09.04-449-MOBILE-PLAYOFF-ACTION'
     assert (ROOT / 'VERSION.txt').read_text(encoding='utf-8').strip() == expected
     assert expected in APP
     assert expected in (ROOT / 'cupnavi_core' / 'version.py').read_text(encoding='utf-8')

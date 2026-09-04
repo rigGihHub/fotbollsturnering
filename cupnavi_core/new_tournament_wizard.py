@@ -62,14 +62,30 @@ def render_new_tournament_wizard(tournament_id, tournament, *, deps):
     )
     st.progress(step / 5, text=f"Steg {step} av 5 · {labels[step-1]}")
 
+    def _set_wizard_step(target_step: int) -> None:
+        # v441: callbacks run before Streamlit's normal widget rerun, so pure
+        # navigation needs one render instead of button render + explicit rerun.
+        st.session_state[step_key] = max(1, min(5, int(target_step)))
+
     def nav(*, can_next=True, next_label="Fortsätt", back=True):
         left, right = st.columns(2)
-        if back and left.button("← Föregående", use_container_width=True, key=f"wizard_back_{tournament_id}_{step}"):
-            st.session_state[step_key] = max(1, step - 1)
-            st.rerun()
-        if right.button(next_label, type="primary", use_container_width=True, disabled=not can_next, key=f"wizard_next_{tournament_id}_{step}"):
-            st.session_state[step_key] = min(5, step + 1)
-            st.rerun()
+        if back:
+            left.button(
+                "← Föregående",
+                use_container_width=True,
+                key=f"wizard_back_{tournament_id}_{step}",
+                on_click=_set_wizard_step,
+                args=(step - 1,),
+            )
+        right.button(
+            next_label,
+            type="primary",
+            use_container_width=True,
+            disabled=not can_next,
+            key=f"wizard_next_{tournament_id}_{step}",
+            on_click=_set_wizard_step,
+            args=(step + 1,),
+        )
 
     arrangement_type = normalize_arrangement_type(_row_value(tournament, "arrangement_type", "tournament"))
 
@@ -273,6 +289,8 @@ def render_new_tournament_wizard(tournament_id, tournament, *, deps):
                     for _row in _rows:
                         st.caption(f"{_row['from']} → {_row['to']}: {_row['route_minutes']} min + {_row['buffer_minutes']} min marginal = {_row['total_minutes']} min")
 
+        st.markdown("**När är planerna tillgängliga?**")
+        st.caption("Ange tidsfönstret då CupNavi får lägga matcher på varje plan. Starttiden är den första möjliga matchstarten. Sluttiden är när planen slutar vara tillgänglig – CupNavi lägger därför ingen match som pågår efter den tiden.")
         windows = ensure_pitch_day_windows(tournament_id, tournament, pitch_count, rules["first_match_time"], rules["latest_kickoff_time"])
         valid = True
         by_day = {}
@@ -283,8 +301,8 @@ def render_new_tournament_wizard(tournament_id, tournament, *, deps):
             for w in rows:
                 pitch = int(w["pitch_number"])
                 c1,c2 = st.columns(2)
-                sv = c1.time_input(f"Start · plan {pitch}", value=datetime.strptime(w["start_time"],"%H:%M").time(), key=f"wizard_start_{tournament_id}_{pitch}_{play_date}")
-                ev = c2.time_input(f"Slut · plan {pitch}", value=datetime.strptime(w["end_time"],"%H:%M").time(), key=f"wizard_end_{tournament_id}_{pitch}_{play_date}")
+                sv = c1.time_input(f"Första möjliga matchstart · plan {pitch}", value=datetime.strptime(w["start_time"],"%H:%M").time(), key=f"wizard_start_{tournament_id}_{pitch}_{play_date}")
+                ev = c2.time_input(f"Planen tillgänglig till · plan {pitch}", value=datetime.strptime(w["end_time"],"%H:%M").time(), key=f"wizard_end_{tournament_id}_{pitch}_{play_date}")
                 if sv >= ev:
                     valid = False
                     st.error("Sluttiden måste vara senare än starttiden.")

@@ -49,7 +49,7 @@ def test_public_team_follow_no_longer_calls_db_backed_calculate_table():
 
 
 def test_venue_lookup_is_lazy_behind_directions_toggle():
-    toggle = VIEW.index('"📍 Visa vägbeskrivning till nästa match"')
+    toggle = VIEW.index('f"📍 Hitta till {public_pitch_label(favorite_next)}"')
     venue_query = VIEW.index("SELECT url,label FROM venue_points")
     assert toggle < venue_query
     assert "if show_directions:" in VIEW[toggle:venue_query]

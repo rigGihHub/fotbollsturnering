@@ -45,6 +45,8 @@ def test_schedule_validation_bulk_loads_teams():
 
 
 def test_secondary_admin_page_schedule_status_comes_from_rules_snapshot():
-    region=APP[APP.index('sidebar_rules = one_row('):APP.index('validation_cache_key =', APP.index('sidebar_rules = one_row('))]
+    start = APP.index('def _load_admin_sidebar_rules():')
+    region = APP[start:APP.index('validation_cache_key =', start)]
     assert 'AS scheduled_n' in region
+    assert '_cupnavi_admin_cache_sidebar_rules_' in region
     assert 'sidebar_scheduled = _flow_scheduled if _flow_index is not None else' in region

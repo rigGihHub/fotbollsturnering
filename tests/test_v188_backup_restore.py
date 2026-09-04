@@ -2,7 +2,7 @@ from pathlib import Path
 ROOT=Path(__file__).resolve().parents[1]
 APP=(ROOT/"app.py").read_text(encoding="utf-8")
 BACKUP=(ROOT/"cupnavi_core/backup.py").read_text(encoding="utf-8")
-R="2026.09.03-427-TRAVEL-RULES-FLOW"
+R="2026.09.04-449-MOBILE-PLAYOFF-ACTION"
 
 def test_restore_is_non_destructive():
     assert "restore_backup_as_new_tournament" in BACKUP

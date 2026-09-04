@@ -5,7 +5,7 @@ VERSION = Path("VERSION.txt").read_text().strip()
 
 
 def test_v314_version():
-    assert VERSION == "2026.09.03-427-TRAVEL-RULES-FLOW"
+    assert VERSION == "2026.09.04-449-MOBILE-PLAYOFF-ACTION"
 
 
 def test_navigation_is_rendered_before_public_core_snapshot_on_normal_public_path():

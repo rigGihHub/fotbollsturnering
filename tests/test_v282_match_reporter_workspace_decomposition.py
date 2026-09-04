@@ -52,4 +52,4 @@ def test_workspace_uses_injected_persistence_callbacks():
 
 
 def test_release_version():
-    assert VERSION == "2026.09.03-427-TRAVEL-RULES-FLOW"
+    assert VERSION == "2026.09.04-449-MOBILE-PLAYOFF-ACTION"

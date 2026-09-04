@@ -52,7 +52,7 @@ def test_matchcamp_hides_table_and_playoff_status():
 
 def test_mobile_team_page_surfaces_recent_and_upcoming_before_secondary_actions():
     recent = VIEW.index('st.markdown("**Senaste resultat**")')
-    upcoming = VIEW.index('st.markdown("**Kommande för mitt lag**")')
+    upcoming = VIEW.index('st.markdown("**Min cup · kommande matcher**")')
     actions = VIEW.index("team_action_1, team_action_2")
     assert recent < actions
     assert upcoming < actions

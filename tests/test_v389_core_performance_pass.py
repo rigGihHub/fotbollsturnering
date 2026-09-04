@@ -1,6 +1,6 @@
 from pathlib import Path
 
-RELEASE = "2026.09.03-427-TRAVEL-RULES-FLOW"
+RELEASE = "2026.09.04-449-MOBILE-PLAYOFF-ACTION"
 
 
 def test_v389_batches_schedule_match_events_and_reuses_match_snapshot():

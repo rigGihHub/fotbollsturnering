@@ -23,4 +23,4 @@ def test_control_center_shares_lazy_match_snapshot():
 
 
 def test_release_version_305():
-    assert '2026.09.03-427-TRAVEL-RULES-FLOW' in APP
+    assert '2026.09.04-449-MOBILE-PLAYOFF-ACTION' in APP

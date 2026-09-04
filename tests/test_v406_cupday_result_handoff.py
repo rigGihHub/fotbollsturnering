@@ -7,7 +7,7 @@ APP = (ROOT / "app.py").read_text()
 
 
 def test_v406_version():
-    assert VERSION == "2026.09.03-427-TRAVEL-RULES-FLOW"
+    assert VERSION == "2026.09.04-449-MOBILE-PLAYOFF-ACTION"
 
 
 def test_next_same_pitch_is_in_memory_and_pending_only():

@@ -6,7 +6,7 @@ VIEW = (ROOT / "cupnavi_core" / "initial_setup_view.py").read_text(encoding="utf
 
 
 def test_v284_release_and_extracted_setup_module_exist():
-    assert "2026.09.03-427-TRAVEL-RULES-FLOW" in APP
+    assert "2026.09.04-449-MOBILE-PLAYOFF-ACTION" in APP
     assert "class InitialSetupDependencies" in VIEW
     assert "def render_initial_tournament_setup" in VIEW
 

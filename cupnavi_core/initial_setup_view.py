@@ -121,20 +121,55 @@ def render_initial_tournament_setup(tournament_id, tournament, *, deps: InitialS
         run("INSERT INTO schedule_rules(tournament_id) VALUES(?)", (tournament_id,))
         rules = one_row("SELECT * FROM schedule_rules WHERE tournament_id=?", (tournament_id,))
 
-    # v427: manual setup is now its own rules block, not a replay of setup decisions.
+    # v428: manual setup is a single-source rules editor. Facts already chosen in
+    # the wizard are summarized here instead of being asked a second time.
     if st.session_state.get("new_tournament_setup_mode") == "rules":
+        _rules_arrangement = normalize_arrangement_type(_row_value(tournament, "arrangement_type", "tournament"))
+        _rules_results = bool(_row_value(tournament, "results_counted", 1))
+        _rules_playoff = str(_row_value(tournament, "playoff_format", "Inget slutspel") or "Inget slutspel")
+        _rules_sync = bool(_row_value(rules, "synchronized_pitch_times", 0))
+        _rules_result_label = (
+            "Resultat, tabell och placeringar"
+            if _rules_results
+            else ("Utan gruppresultat · manuellt slutspel" if _rules_playoff == "Manuellt slutspel" else "Utan resultaträkning")
+        )
+        _rules_timing_label = "Synkroniserade avsparkstider" if _rules_sync else "Dynamiska plantider"
+
         st.markdown("## Tävlingsregler")
-        st.caption("Deltagare, lagantal, planer och tider är redan sparade. Här ändrar du bara reglerna som styr matcherna och schemat.")
-        if st.button("← Tillbaka till upplägg", use_container_width=True, key=f"rules_back_{tournament_id}"):
+        st.caption("Deltagare, lagantal, planer, tider och resultatläge är redan sparade. Här ändrar du bara tävlingsreglerna.")
+        st.info(f"Redan valt: **{_rules_result_label}** · **{_rules_timing_label}**. Dessa val ändras i guiden, inte här.")
+        def _leave_rules_for_step(target_step: int) -> None:
+            # v441: this is navigation-only state. Let the button's ordinary
+            # rerun render the destination instead of forcing a second rerun.
             st.session_state["new_tournament_setup_mode"] = "new"
-            st.session_state[f"new_tournament_wizard_step_{tournament_id}"] = 4
-            st.rerun()
+            st.session_state[f"new_tournament_wizard_step_{tournament_id}"] = int(target_step)
+
+        _back_col, _pitch_col = st.columns(2)
+        _back_col.button(
+            "← Tillbaka till upplägg",
+            use_container_width=True,
+            key=f"rules_back_{tournament_id}",
+            on_click=_leave_rules_for_step,
+            args=(4,),
+        )
+        _pitch_col.button(
+            "Ändra planer & tider",
+            use_container_width=True,
+            key=f"rules_edit_pitches_{tournament_id}",
+            on_click=_leave_rules_for_step,
+            args=(3,),
+        )
+
         _sport_rec = sport_setup_recommendation(_row_value(tournament,"sport","Fotboll"))
         st.markdown("### Poäng")
-        _cols=st.columns(3)
-        for _col,(_label,_field,_value) in zip(_cols,[("Vinst","points_win",int(_row_value(tournament,"points_win",3) or 3)),("Oavgjort","points_draw",int(_row_value(tournament,"points_draw",1) or 1)),("Förlust","points_loss",int(_row_value(tournament,"points_loss",0) or 0))]):
-            _key=f"rules_{_field}_{tournament_id}"
-            _col.number_input(_label,0,10,_value,key=_key,on_change=_autosave_tournament_field,args=(tournament_id,_field,_key,int))
+        if _rules_results:
+            _cols=st.columns(3)
+            for _col,(_label,_field,_value) in zip(_cols,[("Vinst","points_win",int(_row_value(tournament,"points_win",3) or 3)),("Oavgjort","points_draw",int(_row_value(tournament,"points_draw",1) or 1)),("Förlust","points_loss",int(_row_value(tournament,"points_loss",0) or 0))]):
+                _key=f"rules_{_field}_{tournament_id}"
+                _col.number_input(_label,0,10,_value,key=_key,on_change=_autosave_tournament_field,args=(tournament_id,_field,_key,int))
+        else:
+            st.caption("Poäng används inte eftersom resultaträkning är avstängd.")
+
         st.markdown("### Matchtid, pauser och vila")
         _a,_b=st.columns(2); _hk=f"rules_halves_{tournament_id}"; _mk=f"rules_minutes_{tournament_id}"
         _a.number_input("Perioder/halvlekar/set",1,7,int(rules["halves"]),key=_hk,on_change=_autosave_rule_field,args=(tournament_id,"halves",_hk,int))
@@ -143,18 +178,51 @@ def render_initial_tournament_setup(tournament_id, tournament, *, deps: InitialS
         _c.number_input("Paus mellan perioder",0,60,int(rules["halftime_minutes"]),key=_ht,on_change=_autosave_rule_field,args=(tournament_id,"halftime_minutes",_ht,int))
         _d.number_input("Paus mellan matcher på plan",0,120,int(rules["pitch_break_minutes"]),key=_pb,on_change=_autosave_rule_field,args=(tournament_id,"pitch_break_minutes",_pb,int))
         _e.number_input("Minsta lagvila",0,300,int(rules["minimum_team_rest_minutes"]),key=_rs,on_change=_autosave_rule_field,args=(tournament_id,"minimum_team_rest_minutes",_rs,int))
+
+        st.markdown("### Slutspel")
+        if _rules_arrangement == ARRANGEMENT_MATCHCAMP:
+            st.caption("Matchcamp använder inget automatiskt slutspel. Det valet gjordes när arrangemangstypen valdes.")
+        elif not _rules_results:
+            if _rules_playoff == "Manuellt slutspel":
+                st.info("Manuellt slutspel är valt. Du väljer själv slutspelslagen och vinnarna på sidan Slutspel.")
+            else:
+                st.caption("Inget slutspel används eftersom cupen spelas utan resultaträkning.")
+        else:
+            _placement_format = "Placeringsslutspel – ettor mot ettor osv."
+            _playoff_options = ["Inget slutspel", "A- och B-slutspel", _placement_format]
+            _playoff_saved = _rules_playoff if _rules_playoff in _playoff_options else "Inget slutspel"
+            _p1,_p2=st.columns(2)
+            _playoff_selected=_p1.selectbox("Typ av slutspel",_playoff_options,index=_playoff_options.index(_playoff_saved),key=f"rules_playoff_format_{tournament_id}")
+            _bronze=_p2.checkbox("Bronsmatch",value=bool(_row_value(tournament,"bronze_match",0)),disabled=_playoff_selected=="Inget slutspel",key=f"rules_bronze_{tournament_id}")
+            _tie_options=["Förlängning + straffar","Straffar direkt","Lottning"]
+            _tie_saved=str(_row_value(tournament,"playoff_tie_rule","Straffar direkt") or "Straffar direkt")
+            if _tie_saved not in _tie_options: _tie_saved="Straffar direkt"
+            _t1,_t2=st.columns(2)
+            _tie=_t1.selectbox("Oavgjord slutspelsmatch",_tie_options,index=_tie_options.index(_tie_saved),disabled=_playoff_selected=="Inget slutspel",key=f"rules_playoff_tie_{tournament_id}")
+            _extra_saved=max(1,int(_row_value(tournament,"extra_time_minutes",10) or 10))
+            _extra=_t2.number_input("Förlängning (minuter)",1,60,_extra_saved,disabled=_playoff_selected=="Inget slutspel" or _tie!="Förlängning + straffar",key=f"rules_extra_time_{tournament_id}")
+            if (_playoff_selected != _rules_playoff or bool(_bronze) != bool(_row_value(tournament,"bronze_match",0)) or _tie != _tie_saved or int(_extra) != _extra_saved):
+                run(
+                    "UPDATE tournaments SET playoff_format=?,bronze_match=?,playoff_tie_rule=?,extra_time_minutes=?,playoff_model_confirmed=1,schedule_dirty=1 WHERE id=?",
+                    (_playoff_selected,1 if _bronze else 0,_tie if _playoff_selected!="Inget slutspel" else "Straffar direkt",int(_extra) if _playoff_selected!="Inget slutspel" and _tie=="Förlängning + straffar" else 0,int(tournament_id)),
+                )
+                st.rerun()
+
         st.markdown("### Schemaprioriteringar")
-        _sync=f"rules_sync_{tournament_id}"
-        st.checkbox("Kräv samma avsparkstider på alla planer",value=bool(_row_value(rules,"synchronized_pitch_times",0)),key=_sync,on_change=_autosave_rule_field,args=(tournament_id,"synchronized_pitch_times",_sync,lambda v:1 if v else 0))
+        st.caption(f"Plantidernas arbetssätt är redan satt till **{_rules_timing_label.lower()}** i steget Planer & tider.")
         _ck=f"rules_compactness_{tournament_id}"
         _compact=st.slider("Hur kompakt ska speldagen vara?",0,100,int(_row_value(rules,"compactness_level",50) or 50),key=_ck)
         if int(_compact)!=int(_row_value(rules,"compactness_level",50) or 50):
             run("UPDATE schedule_rules SET compactness_level=?,schedule_strategy=? WHERE tournament_id=?",(int(_compact),"earliest_finish" if int(_compact)>=50 else "use_pitch_windows",int(tournament_id)))
         st.caption(f"Sportprofil: {_sport_rec['display_name']}. Alla ändringar autosparas.")
-        if st.button("Klar med tävlingsregler → tillbaka till upplägg",type="primary",use_container_width=True,key=f"rules_done_{tournament_id}"):
-            st.session_state["new_tournament_setup_mode"]="new"
-            st.session_state[f"new_tournament_wizard_step_{tournament_id}"]=4
-            st.rerun()
+        st.button(
+            "Klar med tävlingsregler → tillbaka till upplägg",
+            type="primary",
+            use_container_width=True,
+            key=f"rules_done_{tournament_id}",
+            on_click=_leave_rules_for_step,
+            args=(4,),
+        )
         return
 
     # v364: Matchcamp and tournament are distinct product modes rather than
@@ -775,21 +843,19 @@ def render_initial_tournament_setup(tournament_id, tournament, *, deps: InitialS
         r6.number_input("Minsta lagvila",0,300,int(rules["minimum_team_rest_minutes"]),key=restk,on_change=_autosave_rule_field,args=(tournament_id,"minimum_team_rest_minutes",restk,int))
 
         st.markdown("### 5. Vad är viktigast i schemat?")
-        st.markdown("**Tider på flera planer**")
-        _sync_key=f"setup_sync_pitch_times_{tournament_id}"
-        _sync_pitch_times=st.checkbox(
-            "Kräv samma avsparkstider på alla planer",
-            value=bool(_row_value(rules,"synchronized_pitch_times",0)),
-            key=_sync_key,
-            help="Påslaget ger gemensamma startvågor på alla planer. Avstängt låter varje plan använda nästa möjliga tid.",
+        _sync_pitch_times = bool(_row_value(rules,"synchronized_pitch_times",0))
+        st.caption(
+            "Avsparkstider: " + (
+                "Synkroniserade – samma startvågor på alla planer."
+                if _sync_pitch_times else
+                "Dynamiska – varje plan använder nästa möjliga tid."
+            ) + " Detta val görs under Planer & tider."
         )
-        if _sync_pitch_times:
-            st.info("Synkroniserat: enklare för lag, publik och sekretariat att komma ihåg tiderna, men kan lämna viss plantid oanvänd.")
-        else:
-            st.info("Dynamiskt: CupNavi kan utnyttja planerna friare och få in matcher tidigare när förutsättningarna skiljer sig mellan planerna.")
-        if int(_sync_pitch_times)!=int(_row_value(rules,"synchronized_pitch_times",0) or 0):
-            run("UPDATE schedule_rules SET synchronized_pitch_times=? WHERE tournament_id=?",(int(_sync_pitch_times),int(tournament_id)))
-            rules=one_row("SELECT * FROM schedule_rules WHERE tournament_id=?",(int(tournament_id),))
+        if st.button("Ändra planer & tider", key=f"setup_change_pitch_times_{tournament_id}"):
+            st.session_state["new_tournament_setup_mode"] = "wizard"
+            st.session_state["new_tournament_setup_step"] = 3
+            st.session_state["new_tournament_setup_id"] = int(tournament_id)
+            st.rerun()
 
         st.markdown("**Prioritera schemamålen**")
         st.caption("Rangordna målen. **1 = viktigast.** CupNavi använder ordningen när flera olika scheman klarar alla obligatoriska regler.")
@@ -848,21 +914,37 @@ def render_initial_tournament_setup(tournament_id, tournament, *, deps: InitialS
             rules = one_row("SELECT * FROM schedule_rules WHERE tournament_id=?", (int(tournament_id),))
 
         _compact_key=f"setup_compactness_{tournament_id}"
-        _compactness=st.slider(
-            "Hur kompakt ska speldagen vara?",
-            0,100,int(_row_value(rules,"compactness_level",50) or 50),
-            key=_compact_key,
-            help="Lägre värde ger mer luft och längre pauser/håltider. Högre värde försöker lägga matcherna tätare så cupen kan sluta tidigare."
-        )
-        if int(_compactness) < 35:
-            _tempo_explanation="Luftigt: större marginaler och mer väntetid kan ge en längre speldag."
-        elif int(_compactness) > 65:
-            _tempo_explanation="Kompakt: CupNavi försöker minska håltider och få cupen klar tidigare utan att bryta minsta lagvila."
+        _compact_saved=int(_row_value(rules,"compactness_level",50) or 50)
+        _compact_options=["Lugnare", "Balanserad", "Ganska kompakt", "Kompakt"]
+        if _compact_saved < 35:
+            _compact_default="Lugnare"
+        elif _compact_saved < 60:
+            _compact_default="Balanserad"
+        elif _compact_saved < 85:
+            _compact_default="Ganska kompakt"
         else:
-            _tempo_explanation="Balanserat: CupNavi väger rimlig vila mot att undvika onödigt lång speldag."
-        st.caption("0 = mer luft / längre dag · 50 = balanserat · 100 = tätare schema / tidigare slut")
-        st.info(_tempo_explanation)
-        if int(_compactness)!=int(_row_value(rules,"compactness_level",50) or 50):
+            _compact_default="Kompakt"
+        st.markdown("**Hur kompakt ska speldagen vara?**")
+        st.caption("Styr hur CupNavi balanserar kort väntetid mot mer återhämtning. Minsta lagvila ovan bryts aldrig.")
+        _compact_label=st.select_slider(
+            "Lugnare schema  ←   →  Kompakt schema",
+            options=_compact_options,
+            value=_compact_default,
+            key=_compact_key,
+            label_visibility="visible",
+        )
+        _compact_map={"Lugnare":20,"Balanserad":50,"Ganska kompakt":73,"Kompakt":95}
+        _compactness=_compact_map[_compact_label]
+        if _compact_label == "Lugnare":
+            _tempo_explanation="Mer luft mellan matcherna och mer återhämtning. Speldagen kan bli längre."
+        elif _compact_label == "Balanserad":
+            _tempo_explanation="Balanserar återhämtning med en rimligt kort speldag."
+        elif _compact_label == "Ganska kompakt":
+            _tempo_explanation="Försöker minska onödiga håltider och hålla ihop lagens matcher, utan att bryta minsta lagvila."
+        else:
+            _tempo_explanation="Prioriterar en kortare total speldag och mindre väntan så långt de obligatoriska viloreglerna tillåter."
+        st.info(f"**{_compact_label}:** {_tempo_explanation}")
+        if int(_compactness)!=_compact_saved:
             run("UPDATE schedule_rules SET compactness_level=?,schedule_strategy=? WHERE tournament_id=?",
                 (int(_compactness), "earliest_finish" if int(_compactness)>=50 else "use_pitch_windows", int(tournament_id)))
             rules=one_row("SELECT * FROM schedule_rules WHERE tournament_id=?",(int(tournament_id),))

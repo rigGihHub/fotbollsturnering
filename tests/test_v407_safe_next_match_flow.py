@@ -9,7 +9,7 @@ RESULTS = (ROOT / "cupnavi_core" / "admin_results_view.py").read_text()
 APP = (ROOT / "app.py").read_text()
 
 def test_v408_version():
-    assert VERSION == "2026.09.03-427-TRAVEL-RULES-FLOW"
+    assert VERSION == "2026.09.04-449-MOBILE-PLAYOFF-ACTION"
 
 def test_safe_start_window():
     row={"scheduled_start":"2026-09-03T10:00:00","match_status":"not_started"}

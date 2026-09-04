@@ -8,7 +8,7 @@ CORE_VERSION = (ROOT / "cupnavi_core" / "version.py").read_text(encoding="utf-8"
 
 
 def test_v285_version_is_synchronized():
-    expected = "2026.09.03-427-TRAVEL-RULES-FLOW"
+    expected = "2026.09.04-449-MOBILE-PLAYOFF-ACTION"
     assert VERSION == expected
     assert f'APP_VERSION = "{expected}"' in CORE_VERSION
     assert f'APP_BUILD_VERSION = "{expected}"' in APP
@@ -30,7 +30,7 @@ def test_workspace_owns_schedule_ui_and_progressive_disclosure():
         'st.markdown("#### Skapa eller uppdatera schema")',
         '"Skapa hela spelschemat"',
         '"Uppdatera återstående schema"',
-        'with st.expander("Detaljer per grupp", expanded=False)',
+        '"Visa detaljer per grupp"',
         '_show_schedule_export = st.toggle("Exportera schema"',
         '_show_schedule_travel = st.toggle("Reseinformation"',
         '"Tillämpa drag-and-drop-ordningen"',

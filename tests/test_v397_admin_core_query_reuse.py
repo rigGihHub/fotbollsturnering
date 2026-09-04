@@ -1,6 +1,6 @@
 from pathlib import Path
 
-VERSION = "2026.09.03-427-TRAVEL-RULES-FLOW"
+VERSION = "2026.09.04-449-MOBILE-PLAYOFF-ACTION"
 
 
 def test_version_and_release_note():
@@ -16,9 +16,9 @@ def test_team_page_reuses_team_and_class_reads():
     end = app.index('if admin_page == "Grupper":', start)
     block = app[start:end]
     assert 'registered_team_count = len(teams)' in block
-    assert block.count('SELECT * FROM teams WHERE tournament_id=? ORDER BY name') == 1
+    assert block.count('admin_teams_snapshot(tid)') == 1
     assert 'edit_class_rows = class_rows' in block
-    assert block.count('competition_classes(tid)') == 1  # sync_competition_classes only contains the token as suffix
+    assert block.count('admin_classes_snapshot(tid)') == 1
 
 
 def test_group_page_reuses_group_rows_for_count_and_rendering():
@@ -27,5 +27,5 @@ def test_group_page_reuses_group_rows_for_count_and_rendering():
     end = app.index('if admin_page == "Trupper":', start)
     block = app[start:end]
     assert '_existing_groups_count = len(groups)' in block
-    assert block.count('SELECT * FROM groups WHERE tournament_id=? ORDER BY name') == 1
+    assert block.count('admin_groups_snapshot(tid)') == 1
     assert 'SELECT COUNT(*) AS n FROM groups WHERE tournament_id=?' in block  # freshness check exists only inside the create transaction

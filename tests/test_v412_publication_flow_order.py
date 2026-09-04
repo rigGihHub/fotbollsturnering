@@ -33,4 +33,4 @@ def test_v412_publication_view_can_render_main_without_sidebar():
 
 
 def test_v412_version():
-    assert Path("VERSION.txt").read_text().strip() == "2026.09.03-427-TRAVEL-RULES-FLOW"
+    assert Path("VERSION.txt").read_text().strip() == "2026.09.04-449-MOBILE-PLAYOFF-ACTION"

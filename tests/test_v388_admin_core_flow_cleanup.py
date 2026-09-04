@@ -12,7 +12,7 @@ def _groups():
     return APP[start:end]
 
 def test_release_version():
-    assert VERSION=="2026.09.03-427-TRAVEL-RULES-FLOW"
+    assert VERSION=="2026.09.04-449-MOBILE-PLAYOFF-ACTION"
 
 def test_manual_group_tools_are_true_lazy():
     block=_groups()

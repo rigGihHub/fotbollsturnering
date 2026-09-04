@@ -9,7 +9,7 @@ VERSION = (ROOT / "VERSION.txt").read_text(encoding="utf-8").strip()
 
 
 def test_v322_version():
-    assert VERSION == "2026.09.03-427-TRAVEL-RULES-FLOW"
+    assert VERSION == "2026.09.04-449-MOBILE-PLAYOFF-ACTION"
 
 
 def test_public_workspace_is_one_outer_fragment_without_nested_public_adapters():
@@ -21,7 +21,7 @@ def test_public_workspace_is_one_outer_fragment_without_nested_public_adapters()
 
 def test_public_explicit_reruns_stay_in_fragment():
     assert "st.rerun()" not in TEAM
-    assert 'st.rerun(scope="fragment")' in TEAM
+    assert 'st.rerun(scope="fragment")' not in TEAM
     assert "st.rerun()" not in MATCHES
     assert 'st.rerun(scope="fragment")' in MATCHES
 

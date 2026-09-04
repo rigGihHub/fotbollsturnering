@@ -5,7 +5,7 @@ APP = (ROOT / "app.py").read_text(encoding="utf-8")
 VERSION = (ROOT / "VERSION.txt").read_text(encoding="utf-8").strip()
 
 def test_v341_version_markers():
-    assert VERSION == "2026.09.03-427-TRAVEL-RULES-FLOW"
+    assert VERSION == "2026.09.04-449-MOBILE-PLAYOFF-ACTION"
     assert f'APP_BUILD_VERSION = "{VERSION}"' in APP
     assert f'APP_VERSION = "{VERSION}"' in (ROOT / "cupnavi_core/version.py").read_text(encoding="utf-8")
 

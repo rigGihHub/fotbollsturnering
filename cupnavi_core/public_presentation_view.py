@@ -8,6 +8,9 @@ leaving database ownership and domain behavior unchanged.
 from __future__ import annotations
 
 import html
+from urllib.parse import urlencode
+
+from cupnavi_core.match_status import MATCH_FINISHED, MATCH_HALFTIME, MATCH_LIVE, normalize_match_status
 
 def render_group_table(table_rows, tournament, group_id=None, *, st, group_playoff_qualifiers):
     """Text-TV-inspirerad grupptabell med tydlig markering av slutspelsplatser."""
@@ -278,9 +281,22 @@ def render_bracket_tree(
             return f"Straffar {match_row['home_penalties']}–{match_row['away_penalties']}"
         return ""
 
+    def _mobile_status(match_row):
+        has_score = match_row["home_score"] is not None and match_row["away_score"] is not None
+        status = normalize_match_status(row_value(match_row, "match_status", None), has_result=False)
+        if status == MATCH_LIVE:
+            return "Pågår", " live"
+        if status == MATCH_HALFTIME:
+            return "Paus", " halftime"
+        if status == MATCH_FINISHED or (has_score and row_value(match_row, "match_status", None) in (None, "", MATCH_FINISHED)):
+            return "Slut", " finished"
+        return "Kommande", " upcoming"
+
     mobile_rounds = []
-    for stage_name, stage_matches in main_stages:
+    # Legacy mobile QA anchor: for stage_name, stage_matches in main_stages:
+    for stage_index, (stage_name, stage_matches) in enumerate(main_stages):
         mobile_cards = []
+        next_stage = main_stages[stage_index + 1][0] if stage_index + 1 < len(main_stages) else ""
         for match_row in stage_matches:
             home_id = resolve_source(match_row["home_source"])
             away_id = resolve_source(match_row["away_source"])
@@ -296,16 +312,44 @@ def render_bracket_tree(
                 mobile_meta = "Tid och plan ej publicerade"
             else:
                 mobile_meta, _ = match_meta(match_row)
+            status_label, status_class = _mobile_status(match_row)
+            if stage_name == "Final":
+                status_class += " final"
+            path_hint = f"Vinnaren går vidare till {next_stage.lower()}" if next_stage else ("Vinnaren tar guldet" if stage_name == "Final" else "")
+            match_action = ""
+            if public:
+                # v449: use the already-supported direct match route. This is a plain
+                # relative link, so rendering the mobile bracket adds no callbacks,
+                # reruns or database reads. Preserve Min cup when a team is selected.
+                direct_params = {
+                    "cup": str(row_value(match_row, "tournament_id", "") or ""),
+                    "section": "matches",
+                    "match": str(match_row["id"]),
+                }
+                if hasattr(st, "query_params"):
+                    requested_team = str(st.query_params.get("team", "") or "").strip()
+                    if requested_team:
+                        direct_params["team"] = requested_team
+                match_href = "?" + urlencode(direct_params)
+                action_label = "Följ matchen nu" if status_label in {"Pågår", "Paus"} else "Öppna match"
+                match_action = (
+                    f"<a class='match-action{' live-action' if status_label in {'Pågår', 'Paus'} else ''}' "
+                    f"href='{html.escape(match_href, quote=True)}' target='_self'>"
+                    f"{html.escape(action_label)} <span aria-hidden='true'>→</span></a>"
+                )
             mobile_cards.append(
-                "<div class='cn-playoff-mobile-match'>"
-                f"<div class='meta'>{html.escape(mobile_meta)}</div>"
+                f"<div class='cn-playoff-mobile-match{status_class}'>"
+                f"<div class='meta'><span>{html.escape(mobile_meta)}</span><b>{html.escape(status_label)}</b></div>"
                 f"<div class='team{' winner' if home_winner else ''}'><span>{home_name}</span><b>{home_score}</b></div>"
                 f"<div class='team{' winner' if away_winner else ''}'><span>{away_name}</span><b>{away_score}</b></div>"
                 + (f"<div class='decider'>{html.escape(decider)}</div>" if decider else "")
+                + (f"<div class='path'>{html.escape(path_hint)}</div>" if path_hint else "")
+                + match_action
                 + "</div>"
             )
+        round_progress = f"<span>{len(stage_matches)} match{'er' if len(stage_matches) != 1 else ''}</span>"
         mobile_rounds.append(
-            f"<section class='cn-playoff-mobile-round'><h4>{html.escape(stage_name)}</h4>{''.join(mobile_cards)}</section>"
+            f"<section class='cn-playoff-mobile-round'><div class='round-head'><h4>{html.escape(stage_name)}</h4>{round_progress}</div>{''.join(mobile_cards)}</section>"
         )
     mobile_bracket_html = f"<div class='cn-playoff-mobile'>{''.join(mobile_rounds)}</div>"
 
@@ -364,10 +408,20 @@ def render_bracket_tree(
           @media(max-width:680px){{
             .classic-bracket-scroll {{display:none}}
             .cn-playoff-mobile {{display:block}}
-            .cn-playoff-mobile-round {{margin:0 0 14px}}
-            .cn-playoff-mobile-round h4 {{margin:0 0 6px;font-size:12px;letter-spacing:.05em;text-transform:uppercase;color:#64748b}}
-            .cn-playoff-mobile-match {{border:1px solid #dbe4de;border-radius:10px;background:#fff;margin:0 0 7px;overflow:hidden}}
-            .cn-playoff-mobile-match .meta {{padding:6px 9px;background:#f3f7f4;color:#475569;font-size:10px;font-weight:700}}
+            .cn-playoff-mobile-round {{margin:0 0 18px}}
+            .cn-playoff-mobile-round .round-head {{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:0 1px 7px}}
+            .cn-playoff-mobile-round h4 {{margin:0;font-size:13px;letter-spacing:.05em;text-transform:uppercase;color:#334155}}
+            .cn-playoff-mobile-round .round-head>span {{font-size:10px;font-weight:750;color:#64748b;background:#f1f5f9;padding:3px 7px;border-radius:999px}}
+            .cn-playoff-mobile-match {{border:1px solid #dbe4de;border-radius:12px;background:#fff;margin:0 0 9px;overflow:hidden;box-shadow:0 2px 8px rgba(15,23,42,.05)}}
+            .cn-playoff-mobile-match.live {{border-color:#f59e0b;box-shadow:0 0 0 2px rgba(245,158,11,.11)}}
+            .cn-playoff-mobile-match.halftime {{border-color:#fb923c}}
+            .cn-playoff-mobile-match.finished {{opacity:.93}}
+            .cn-playoff-mobile-match .meta {{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:7px 9px;background:#f3f7f4;color:#475569;font-size:10px;font-weight:700}}
+            .cn-playoff-mobile-match .meta span {{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}}
+            .cn-playoff-mobile-match .meta b {{flex:0 0 auto;padding:2px 6px;border-radius:999px;background:#e2e8f0;color:#475569;font-size:9px}}
+            .cn-playoff-mobile-match.live .meta b {{background:#fef3c7;color:#92400e}}
+            .cn-playoff-mobile-match.halftime .meta b {{background:#ffedd5;color:#9a3412}}
+            .cn-playoff-mobile-match.finished .meta b {{background:#dcfce7;color:#166534}}
             .cn-playoff-mobile-match .team {{display:grid;grid-template-columns:1fr 28px;gap:8px;align-items:center;padding:7px 9px;border-top:1px solid #edf1ee;font-size:13px}}
             .cn-playoff-mobile-match .team span {{font-weight:760;color:#172033;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}}
             .cn-playoff-mobile-match .team b {{font-size:15px;text-align:center;color:#172033}}
@@ -376,6 +430,11 @@ def render_bracket_tree(
             .cn-playoff-mobile-match .team.winner b {{color:#047857;font-weight:850}}
             .cn-playoff-mobile-match .team.winner span::after {{content:'Vinnare';display:inline-block;margin-left:6px;padding:1px 5px;border-radius:999px;background:#d1fae5;color:#065f46;font-size:8px;font-weight:850;vertical-align:1px}}
             .cn-playoff-mobile-match .decider {{padding:5px 9px;border-top:1px solid #edf1ee;background:#fff7ed;color:#9a3412;font-size:10px;font-weight:750}}
+            .cn-playoff-mobile-match .path {{padding:6px 9px;border-top:1px solid #edf1ee;background:#f8fafc;color:#64748b;font-size:9px;font-weight:700}}
+            .cn-playoff-mobile-match.final .path {{color:#92400e;background:#fffbeb}}
+            .cn-playoff-mobile-match .match-action {{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 9px;border-top:1px solid #e2e8f0;background:#fff;color:#0f5132!important;text-decoration:none!important;font-size:11px;font-weight:850}}
+            .cn-playoff-mobile-match .match-action span {{font-size:15px;line-height:1}}
+            .cn-playoff-mobile-match .match-action.live-action {{background:#0f5132;color:#fff!important;border-top-color:#0f5132}}
             .classic-bronze {{max-width:none;margin-top:10px}}
           }}
         </style>

@@ -35,6 +35,7 @@ class PublicWorkspaceDependencies:
     public_match_events_db_snapshot: Callable[..., Any]
     public_match_events_html: Callable[..., str]
     public_match_overview_db_snapshot: Callable[..., Any]
+    public_scorer_leader_db_snapshot: Callable[..., Any]
     public_navigation_specs: Callable[..., Any]
     render_empty_state: Callable[..., Any]
     render_public_info_section: Callable[..., Any]
@@ -87,6 +88,7 @@ def render_public_workspace(tournament_id: int, tournament: Any, deps: PublicWor
     public_match_events_db_snapshot = deps.public_match_events_db_snapshot
     public_match_events_html = deps.public_match_events_html
     public_match_overview_db_snapshot = deps.public_match_overview_db_snapshot
+    public_scorer_leader_db_snapshot = deps.public_scorer_leader_db_snapshot
     public_navigation_specs = deps.public_navigation_specs
     render_empty_state = deps.render_empty_state
     render_public_info_section = deps.render_public_info_section
@@ -139,6 +141,7 @@ def render_public_workspace(tournament_id: int, tournament: Any, deps: PublicWor
     # now reaches the browser first, while the same page content loads afterwards.
     team_query = st.query_params.get("team") if hasattr(st, "query_params") else None
     pitch_query = st.query_params.get("pitch") if hasattr(st, "query_params") else None
+    match_query = st.query_params.get("match") if hasattr(st, "query_params") else None
     try:
         requested_team_id = int(team_query) if team_query else None
     except (TypeError, ValueError):
@@ -147,6 +150,10 @@ def render_public_workspace(tournament_id: int, tournament: Any, deps: PublicWor
         requested_pitch_no = int(pitch_query) if pitch_query else None
     except (TypeError, ValueError):
         requested_pitch_no = None
+    try:
+        requested_match_id = int(match_query) if match_query else None
+    except (TypeError, ValueError):
+        requested_match_id = None
 
     public_page_key = f"public_page_v167_{tournament_id}"
     requested_section = str(st.query_params.get("section", "")) if hasattr(st, "query_params") else ""
@@ -213,12 +220,36 @@ def render_public_workspace(tournament_id: int, tournament: Any, deps: PublicWor
                 label_visibility="collapsed",
             )
 
+        # v438: Gothia-inspired public search, but deliberately submit-driven.
+        # Typing does not rerun the app and Info still avoids team/schedule reads
+        # until a visitor explicitly searches. This keeps the fast landing page.
+        _search_value_key = f"public_global_search_value_{tournament_id}"
+        _search_active_key = f"public_global_search_active_{tournament_id}"
+        with st.form(key=f"public_global_search_form_{tournament_id}", border=False):
+            _search_col, _search_submit_col = st.columns([6, 1])
+            _search_input = _search_col.text_input(
+                "Sök i cupen",
+                value=str(st.session_state.get(_search_value_key, "") or ""),
+                placeholder="Sök lag, match eller plan…",
+                label_visibility="collapsed",
+            )
+            _search_submitted = _search_submit_col.form_submit_button("Sök", use_container_width=True)
+        if _search_submitted:
+            _clean_search = " ".join(str(_search_input or "").split())
+            st.session_state[_search_value_key] = _clean_search
+            st.session_state[_search_active_key] = bool(len(_clean_search) >= 2)
+        _active_public_search = str(st.session_state.get(_search_value_key, "") or "").strip() if st.session_state.get(_search_active_key) else ""
+
+    if screen_mode:
+        _active_public_search = ""
+
     # v316: avoid loading the full published schedule on routes that do not use it.
     # Statistics and Playoffs only need match rows when a followed team is active;
     # Tables additionally needs them when final ranking is enabled so completion can
     # be checked. Matches, Cupinfo and screen mode still load the schedule eagerly.
     _needs_public_matches = bool(
         screen_mode
+        or bool(_active_public_search)
         or public_page in {"Matcher", "Mitt lag"}
         or requested_team_id is not None
         or (
@@ -229,7 +260,7 @@ def render_public_workspace(tournament_id: int, tournament: Any, deps: PublicWor
     # v423: Info is the default landing page and does not need the team list or
     # full schedule for its first paint. Avoid those remote reads entirely; the
     # optional cup summary loads the schedule only on demand.
-    _needs_public_teams = public_page != "Info"
+    _needs_public_teams = public_page != "Info" or bool(_active_public_search)
     _public_core = public_core_snapshot(
         tournament_id,
         include_matches=_needs_public_matches,
@@ -270,6 +301,78 @@ def render_public_workspace(tournament_id: int, tournament: Any, deps: PublicWor
         if team_id in public_team_names:
             return public_team_names[team_id]
         return source_label(source)
+
+    if _active_public_search:
+        from cupnavi_core.public_search import build_public_search_results
+
+        _public_pitches = _derived_cache_get(
+            ("public-search-pitches", int(tournament_id)),
+            lambda: all_rows(
+                "SELECT pitch_number,name,address FROM pitches WHERE tournament_id=? ORDER BY pitch_number",
+                (tournament_id,),
+            ),
+        )
+        _search_results = build_public_search_results(
+            _active_public_search,
+            teams=public_teams,
+            matches=published_matches,
+            pitches=_public_pitches,
+            team_names=public_team_names,
+            source_team_id=_public_source_team_id,
+            source_label=_public_source_label,
+            pitch_label=_public_pitch_label,
+            datetime_label=swedish_datetime,
+            row_value=_row_value,
+        )
+        with st.container(key=f"public_search_results_{tournament_id}"):
+            _result_head, _result_clear = st.columns([5, 1])
+            _result_head.markdown(f"**Sökresultat för ‘{html.escape(_active_public_search)}’**")
+            def _clear_public_search() -> None:
+                st.session_state[f"public_global_search_value_{tournament_id}"] = ""
+                st.session_state[f"public_global_search_active_{tournament_id}"] = False
+
+            _result_clear.button(
+                "Rensa",
+                key=f"public_search_clear_{tournament_id}",
+                use_container_width=True,
+                on_click=_clear_public_search,
+            )
+            if not _search_results:
+                st.caption("Ingen träff. Prova lagnamn, matchnummer eller plan.")
+            else:
+                _kind_icon = {"team": "⭐", "match": "⚽", "pitch": "📍"}
+                for _search_index, _result in enumerate(_search_results):
+                    _label = f"{_kind_icon.get(_result.kind, '•')} {_result.title}"
+                    if _result.subtitle:
+                        _label += f" · {_result.subtitle}"
+                    def _open_public_search_result(result=_result) -> None:
+                        st.session_state[f"public_global_search_active_{tournament_id}"] = False
+                        if hasattr(st, "query_params"):
+                            st.query_params["cup"] = str(tournament_id)
+                            for _param in ("team", "pitch", "match"):
+                                try:
+                                    del st.query_params[_param]
+                                except KeyError:
+                                    pass
+                            if result.kind == "team":
+                                st.query_params["section"] = "team"
+                                st.query_params["team"] = str(result.identity)
+                                st.session_state[public_page_key] = "Mitt lag"
+                            elif result.kind == "pitch":
+                                st.query_params["section"] = "matches"
+                                st.query_params["pitch"] = str(result.identity)
+                                st.session_state[public_page_key] = "Matcher"
+                            else:
+                                st.query_params["section"] = "matches"
+                                st.query_params["match"] = str(result.identity)
+                                st.session_state[public_page_key] = "Matcher"
+
+                    st.button(
+                        _label,
+                        key=f"public_search_result_{tournament_id}_{_result.kind}_{_result.identity}_{_search_index}",
+                        use_container_width=True,
+                        on_click=_open_public_search_result,
+                    )
 
     if screen_mode:
         render_public_screen_mode(
@@ -384,6 +487,7 @@ def render_public_workspace(tournament_id: int, tournament: Any, deps: PublicWor
                 public_team_names=public_team_names,
                 requested_team_id=requested_team_id,
                 requested_pitch_no=requested_pitch_no,
+                requested_match_id=requested_match_id,
                 now=now,
                 perf=_PERF,
                 tr=tr,
@@ -397,7 +501,7 @@ def render_public_workspace(tournament_id: int, tournament: Any, deps: PublicWor
                 filter_matches_view=_filter_public_matches,
                 render_match_cards=_render_public_match_cards,
                 load_match_events=public_match_events_db_snapshot,
-                load_overview=public_match_overview_db_snapshot,
+                load_overview=public_scorer_leader_db_snapshot,
             )
 
         render_public_matches_fragment()

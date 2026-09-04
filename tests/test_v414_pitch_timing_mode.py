@@ -19,4 +19,4 @@ def test_v414_scheduler_honors_saved_choice():
 
 
 def test_v414_version():
-    assert VERSION == "2026.09.03-427-TRAVEL-RULES-FLOW"
+    assert VERSION == "2026.09.04-449-MOBILE-PLAYOFF-ACTION"

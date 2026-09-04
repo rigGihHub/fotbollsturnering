@@ -1,4 +1,4 @@
-APP_VERSION = "2026.09.03-427-TRAVEL-RULES-FLOW"
+APP_VERSION = "2026.09.04-449-MOBILE-PLAYOFF-ACTION"
 
 
 def release_ui_label(version: str) -> str:

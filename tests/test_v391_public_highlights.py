@@ -11,7 +11,7 @@ def test_public_matches_restores_compact_highlights_in_summary_space():
     assert 'highlights["defence"]' in MATCHES
     assert 'highlights["scorer"]' in MATCHES
     assert 'highlights_html=highlights_html' in MATCHES
-    assert 'load_overview=public_match_overview_db_snapshot' in WORKSPACE
+    assert 'load_overview=public_scorer_leader_db_snapshot' in WORKSPACE
 
 
 def test_highlight_labels_match_requested_public_signals():

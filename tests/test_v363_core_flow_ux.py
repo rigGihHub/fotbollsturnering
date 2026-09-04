@@ -10,7 +10,7 @@ def test_team_page_prioritizes_minimum_required_action():
     assert '<div class="title">Lag</div>' in APP
     assert "Lägg in lagen och fortsätt sedan" in APP
     assert "Skriv lagnamnet och spara. Resten kan kompletteras senare." in APP
-    assert "Komplettera laget (valfritt)" in APP
+    assert "Komplettera laget – tröjfärger, lagansvarig m.m. (valfritt)" in APP
     assert "Fortsätt till Grupper →" in APP
 
 
@@ -40,4 +40,4 @@ def test_setup_uses_progressive_disclosure_wording():
 
 
 def test_version():
-    assert 'APP_BUILD_VERSION = "2026.09.03-427-TRAVEL-RULES-FLOW"' in APP
+    assert 'APP_BUILD_VERSION = "2026.09.04-449-MOBILE-PLAYOFF-ACTION"' in APP
