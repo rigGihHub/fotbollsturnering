@@ -33,8 +33,8 @@ def test_publish_is_step_seven():
     assert 'Steg 7 av 7 · Publicera' in PUB
 
 def test_version():
-    assert '2026.09.07-520-UNIQUE-PUBLICATION-CHECKLIST-KEYS' in VER
-    assert '2026.09.07-520-UNIQUE-PUBLICATION-CHECKLIST-KEYS' in APP
+    assert '2026.09.07-524-PRIMARY-FLOW-PITCH-COUNT-FIX' in VER
+    assert '2026.09.07-524-PRIMARY-FLOW-PITCH-COUNT-FIX' in APP
 
 
 def test_groups_do_not_skip_pitch_step():

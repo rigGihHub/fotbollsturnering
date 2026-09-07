@@ -6,7 +6,7 @@ APP=(ROOT/'app.py').read_text(encoding='utf-8')
 VERSION=(ROOT/'VERSION.txt').read_text(encoding='utf-8').strip()
 
 def test_v436_version():
-    assert VERSION == '2026.09.07-520-UNIQUE-PUBLICATION-CHECKLIST-KEYS'
+    assert VERSION == '2026.09.07-524-PRIMARY-FLOW-PITCH-COUNT-FIX'
 
 def test_schema_reuses_shell_snapshots():
     assert 'rules_snapshot: Any | None = None' in VIEW

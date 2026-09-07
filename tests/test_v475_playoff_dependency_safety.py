@@ -2,7 +2,7 @@ from pathlib import Path
 
 from cupnavi_core.playoff_dependency_safety import dependency_impact, winner_side
 
-VERSION = "2026.09.07-520-UNIQUE-PUBLICATION-CHECKLIST-KEYS"
+VERSION = "2026.09.07-524-PRIMARY-FLOW-PITCH-COUNT-FIX"
 APP = Path("app.py").read_text(encoding="utf-8")
 
 

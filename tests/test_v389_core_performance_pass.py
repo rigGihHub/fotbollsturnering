@@ -1,6 +1,6 @@
 from pathlib import Path
 
-RELEASE = "2026.09.07-520-UNIQUE-PUBLICATION-CHECKLIST-KEYS"
+RELEASE = "2026.09.07-524-PRIMARY-FLOW-PITCH-COUNT-FIX"
 
 
 def test_v389_batches_schedule_match_events_and_reuses_match_snapshot():

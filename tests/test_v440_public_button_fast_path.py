@@ -7,7 +7,7 @@ MATCHES = (ROOT / "cupnavi_core/public_matches_view.py").read_text(encoding="utf
 
 
 def test_v440_version():
-    assert VERSION == "2026.09.07-520-UNIQUE-PUBLICATION-CHECKLIST-KEYS"
+    assert VERSION == "2026.09.07-524-PRIMARY-FLOW-PITCH-COUNT-FIX"
 
 
 def test_public_search_buttons_use_single_rerun_callbacks():

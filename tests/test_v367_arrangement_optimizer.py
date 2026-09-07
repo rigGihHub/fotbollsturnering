@@ -77,4 +77,4 @@ def test_matchcamp_apply_skips_home_away_rebalance():
 
 
 def test_version():
-    assert 'APP_BUILD_VERSION = "2026.09.07-520-UNIQUE-PUBLICATION-CHECKLIST-KEYS"' in APP
+    assert 'APP_BUILD_VERSION = "2026.09.07-524-PRIMARY-FLOW-PITCH-COUNT-FIX"' in APP

@@ -4,7 +4,7 @@ from cupnavi_core.sharp_rehearsal import build_sharp_rehearsal_verdict, rehearsa
 
 ROOT = Path(__file__).resolve().parents[1]
 APP = (ROOT / 'app.py').read_text(encoding='utf-8')
-VERSION = '2026.09.07-520-UNIQUE-PUBLICATION-CHECKLIST-KEYS'
+VERSION = '2026.09.07-524-PRIMARY-FLOW-PITCH-COUNT-FIX'
 
 
 def test_release_version():

@@ -6,7 +6,7 @@ PRESENTATION = (ROOT / "cupnavi_core" / "public_presentation_view.py").read_text
 
 
 def test_v448_version():
-    assert VERSION == "2026.09.07-520-UNIQUE-PUBLICATION-CHECKLIST-KEYS"
+    assert VERSION == "2026.09.07-524-PRIMARY-FLOW-PITCH-COUNT-FIX"
 
 
 def test_mobile_playoff_has_live_status_and_progress_path():

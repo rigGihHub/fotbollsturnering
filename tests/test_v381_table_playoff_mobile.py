@@ -5,7 +5,7 @@ PRESENTATION=(ROOT/"cupnavi_core/public_presentation_view.py").read_text(encodin
 VERSION=(ROOT/"VERSION.txt").read_text().strip()
 
 def test_release_version():
-    assert VERSION=="2026.09.07-520-UNIQUE-PUBLICATION-CHECKLIST-KEYS"
+    assert VERSION=="2026.09.07-524-PRIMARY-FLOW-PITCH-COUNT-FIX"
 
 def test_group_table_uses_light_product_ui():
     assert ".texttv-wrap{{overflow-x:auto;border:1px solid #dbe4de" in PRESENTATION

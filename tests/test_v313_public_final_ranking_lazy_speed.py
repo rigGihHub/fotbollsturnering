@@ -1,6 +1,6 @@
 from pathlib import Path
 
-VERSION = "2026.09.07-520-UNIQUE-PUBLICATION-CHECKLIST-KEYS"
+VERSION = "2026.09.07-524-PRIMARY-FLOW-PITCH-COUNT-FIX"
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE = (ROOT / "cupnavi_core" / "public_statistics_view.py").read_text(encoding="utf-8")
 

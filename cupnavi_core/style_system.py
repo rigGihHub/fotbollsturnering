@@ -544,7 +544,7 @@ def inject_custom_css(st):
             color:#ffffff !important;
           }
           .cup-hero .eyebrow { font-size:12px; text-transform:uppercase; letter-spacing:.11em; opacity:.82; font-weight:800; }
-          .cup-hero .title { font-size:clamp(26px,4vw,40px); font-weight:850; line-height:1.08; margin:5px 0 8px; }
+          .cup-hero .title { font-size:clamp(26px,4vw,40px); font-weight:850; line-height:1.08; margin:5px 0 8px; text-transform:none !important; }
           .cup-hero .meta { font-size:14px; opacity:.94; }
 
           .cn-hero-title-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}

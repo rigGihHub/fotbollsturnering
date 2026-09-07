@@ -8,7 +8,7 @@ VERSION = (ROOT / "VERSION.txt").read_text(encoding="utf-8").strip()
 
 
 def test_v294_release_and_public_style_boundary():
-    assert VERSION == "2026.09.07-520-UNIQUE-PUBLICATION-CHECKLIST-KEYS"
+    assert VERSION == "2026.09.07-524-PRIMARY-FLOW-PITCH-COUNT-FIX"
     assert "inject_public_experience_styles(st)" in WORKSPACE
     assert ".cn-follow-shell" not in APP
     assert "def inject_public_experience_styles(st):" in STYLE

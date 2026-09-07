@@ -36,7 +36,7 @@ RULES = {
 
 
 def test_release_version():
-    assert VERSION == "2026.09.07-520-UNIQUE-PUBLICATION-CHECKLIST-KEYS"
+    assert VERSION == "2026.09.07-524-PRIMARY-FLOW-PITCH-COUNT-FIX"
 
 
 def test_gap_absorption_moves_fewer_matches_than_full_cascade():

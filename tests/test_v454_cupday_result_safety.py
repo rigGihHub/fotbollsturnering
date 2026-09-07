@@ -6,7 +6,7 @@ VERSION = Path('VERSION.txt').read_text().strip()
 
 
 def test_v454_version():
-    assert VERSION == '2026.09.07-520-UNIQUE-PUBLICATION-CHECKLIST-KEYS'
+    assert VERSION == '2026.09.07-524-PRIMARY-FLOW-PITCH-COUNT-FIX'
 
 
 def test_schedule_score_write_has_stale_snapshot_protection():

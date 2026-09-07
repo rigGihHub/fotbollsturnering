@@ -24,7 +24,7 @@ def test_public_navigation_has_full_row_brand_background_and_active_contrast():
 
 
 def test_v292_release_is_canonical():
-    expected = "2026.09.07-520-UNIQUE-PUBLICATION-CHECKLIST-KEYS"
+    expected = "2026.09.07-524-PRIMARY-FLOW-PITCH-COUNT-FIX"
     assert (ROOT / "VERSION.txt").read_text(encoding="utf-8").strip() == expected
     assert expected in APP
     assert expected in (ROOT / "cupnavi_core" / "version.py").read_text(encoding="utf-8")

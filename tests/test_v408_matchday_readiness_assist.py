@@ -22,7 +22,7 @@ def _match(now, *, minutes=10, referee_id=None, home='team:1', away='team:2'):
 
 
 def test_version_and_release_note():
-    assert APP_VERSION == '2026.09.07-520-UNIQUE-PUBLICATION-CHECKLIST-KEYS'
+    assert APP_VERSION == '2026.09.07-524-PRIMARY-FLOW-PITCH-COUNT-FIX'
     assert (ROOT / 'MATCHDAY_READINESS_ASSIST_V408.md').exists()
 
 

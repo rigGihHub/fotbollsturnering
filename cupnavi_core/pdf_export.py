@@ -536,7 +536,7 @@ def build_cup_program_pdf(
 
     # Hero / identity block
     hero = Table([[Paragraph("OFFICIELLT CUPPROGRAM", styles["HeroEyebrow"])],
-                  [Paragraph(tournament_name.upper(), styles["HeroTitle"])],
+                  [Paragraph(tournament_name, styles["HeroTitle"])],
                   [Paragraph(f"{location}  ·  {date_label or 'Datum ej angivet'}", styles["HeroMeta"])]],
                  colWidths=[182*mm], rowHeights=[8*mm, 17*mm, 9*mm])
     hero.setStyle(TableStyle([

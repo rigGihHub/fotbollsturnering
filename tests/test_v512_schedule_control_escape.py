@@ -6,8 +6,8 @@ VERSION = (ROOT / "VERSION.txt").read_text(encoding="utf-8")
 APP = (ROOT / "app.py").read_text(encoding="utf-8")
 
 def test_v512_version():
-    assert "2026.09.07-520-UNIQUE-PUBLICATION-CHECKLIST-KEYS" in VERSION
-    assert 'APP_BUILD_VERSION = "2026.09.07-520-UNIQUE-PUBLICATION-CHECKLIST-KEYS"' in APP
+    assert "2026.09.07-524-PRIMARY-FLOW-PITCH-COUNT-FIX" in VERSION
+    assert 'APP_BUILD_VERSION = "2026.09.07-524-PRIMARY-FLOW-PITCH-COUNT-FIX"' in APP
 
 def test_schema_has_explicit_next_control_button():
     assert '"Fortsätt till Kontroll →"' in SCHEDULE

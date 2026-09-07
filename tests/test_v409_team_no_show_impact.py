@@ -8,7 +8,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def test_v409_version_and_release_note():
-    assert APP_VERSION == "2026.09.07-520-UNIQUE-PUBLICATION-CHECKLIST-KEYS"
+    assert APP_VERSION == "2026.09.07-524-PRIMARY-FLOW-PITCH-COUNT-FIX"
     assert (ROOT / "TEAM_NO_SHOW_IMPACT_V409.md").exists()
 
 

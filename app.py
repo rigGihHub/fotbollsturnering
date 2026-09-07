@@ -178,7 +178,7 @@ def inject_v266_public_mobile_css():
     return _inject_v266_public_mobile_css_impl(st)
 def inject_v198_visual_system():
     return _inject_v198_visual_system_impl(st)
-APP_BUILD_VERSION = "2026.09.07-520-UNIQUE-PUBLICATION-CHECKLIST-KEYS"
+APP_BUILD_VERSION = "2026.09.07-524-PRIMARY-FLOW-PITCH-COUNT-FIX"
 APP_VERSION = APP_BUILD_VERSION
 
 def _set_session_state_values(values):
@@ -5168,6 +5168,7 @@ def create_bracket(tournament_id, name, size, bronze, first_sources):
         )
 
 PLACEMENT_PLAYOFF_FORMAT = "Placeringsslutspel – ettor mot ettor osv."
+TOP_TWO_PLAYOFF_FORMAT = "Slutspel – bara ettor och tvåor"
 MANUAL_PLAYOFF_FORMAT = "Manuellt slutspel"
 
 def placement_playoff_specs(tournament_id):
@@ -5196,6 +5197,29 @@ def playoff_specs_for_tournament(tournament_id, tournament):
         # Manual brackets are created from explicit team selections on the Slutspel page.
         # They intentionally have no standings-derived specification.
         return [], ""
+    if fmt == TOP_TWO_PLAYOFF_FORMAT:
+        groups = all_rows("SELECT * FROM groups WHERE tournament_id=? ORDER BY name", (tournament_id,))
+        if len(groups) not in {2, 4, 8}:
+            return [], "Slutspel för ettor och tvåor kräver två, fyra eller åtta grupper."
+        count_rows = all_rows(
+            """SELECT group_id,COUNT(*) AS n FROM teams
+               WHERE tournament_id=? AND group_id IS NOT NULL
+               GROUP BY group_id""",
+            (tournament_id,),
+        )
+        counts = {row["group_id"]: int(row["n"] or 0) for row in count_rows}
+        if any(counts.get(group["id"], 0) < 2 for group in groups):
+            return [], "Slutspel för ettor och tvåor kräver minst två lag i varje grupp."
+        sources = []
+        # Para grupper två och två. Gruppettan möter tvåan i grann-gruppen,
+        # så lag från samma grupp inte möts direkt i första slutspelsmatchen.
+        for idx in range(0, len(groups), 2):
+            group_a, group_b = groups[idx], groups[idx + 1]
+            sources.extend([
+                f"group:{group_a['id']}:1", f"group:{group_b['id']}:2",
+                f"group:{group_b['id']}:1", f"group:{group_a['id']}:2",
+            ])
+        return [("Slutspel", len(sources), sources)], ""
     if fmt == "A- och B-slutspel":
         groups = all_rows("SELECT * FROM groups WHERE tournament_id=? ORDER BY name", (tournament_id,))
         if len(groups) != 2:
@@ -8542,7 +8566,13 @@ with st.sidebar:
                             con.execute("DELETE FROM tournaments WHERE id=?", (tid,))
                             con.commit()
                         _clear_render_query_cache()
-                        st.session_state.pop("preferred_tournament_id", None)
+                        _remaining_ids = [int(row["id"]) for row in tournaments if int(row["id"]) != int(tid)]
+                        for _selection_key in ("preferred_tournament_id", "active_tournament_selector", "main_active_tournament_selector"):
+                            st.session_state.pop(_selection_key, None)
+                        if _remaining_ids:
+                            st.session_state["preferred_tournament_id"] = _remaining_ids[0]
+                            st.session_state["active_tournament_selector"] = _remaining_ids[0]
+                            st.session_state["main_active_tournament_selector"] = _remaining_ids[0]
                         st.rerun()
                 else:
                     st.caption("Riktiga cuper flyttas först till papperskorgen så att historik inte försvinner av misstag.")
@@ -8561,6 +8591,14 @@ with st.sidebar:
                         )
                         if not changed:
                             st.warning("Cupens status hade ändrats. Ladda om och försök igen.")
+                        else:
+                            _remaining_ids = [int(row["id"]) for row in tournaments if int(row["id"]) != int(tid)]
+                            for _selection_key in ("preferred_tournament_id", "active_tournament_selector", "main_active_tournament_selector"):
+                                st.session_state.pop(_selection_key, None)
+                            if _remaining_ids:
+                                st.session_state["preferred_tournament_id"] = _remaining_ids[0]
+                                st.session_state["active_tournament_selector"] = _remaining_ids[0]
+                                st.session_state["main_active_tournament_selector"] = _remaining_ids[0]
                         st.rerun()
 
                 if st.button("Öppna papperskorgen", key=f"sidebar_open_trash_{tid}", use_container_width=True):
@@ -8770,6 +8808,104 @@ label[data-testid="stWidgetLabel"] {
     margin-top:0!important;
     margin-bottom:1px!important;
   }
+}
+
+/* PUBLIC DESKTOP MATCH FOCUS V521
+   Wide screens should feel like a tournament board, not a narrow admin form.
+   Mobile keeps the compact v380/v488 treatment below 901px. */
+@media(min-width:1180px){
+  .stApp .block-container{
+    max-width:1540px!important;
+    padding-left:clamp(20px,2.2vw,40px)!important;
+    padding-right:clamp(20px,2.2vw,40px)!important;
+  }
+
+  /* Mode switch is utility chrome, not the main content. */
+  .cn-mode-nav-safezone + div{
+    max-width:300px!important;
+    opacity:.82;
+    margin-bottom:6px!important;
+  }
+  .cn-mode-nav-safezone + div [data-testid="stButton"] button{
+    min-height:30px!important;
+    padding:3px 9px!important;
+    font-size:.72rem!important;
+    font-weight:650!important;
+  }
+
+  /* Give the cup itself the strongest visual weight. */
+  .cup-hero{
+    padding:17px 22px 15px!important;
+    margin-bottom:9px!important;
+    border-width:1px!important;
+  }
+  .cup-hero .eyebrow{font-size:.72rem!important;letter-spacing:.09em!important;opacity:.74}
+  .cup-hero .title{font-size:clamp(32px,2.35vw,42px)!important;line-height:1.02!important;letter-spacing:-.025em!important}
+  .cup-hero .meta{font-size:14px!important;line-height:1.35!important;margin-top:5px!important}
+  .cup-hero .cn-hero-slogan{font-size:.75rem!important;opacity:.72!important;margin-top:5px!important}
+  .cn-hero-status{font-size:.72rem!important;padding:4px 8px!important}
+
+  /* Local navigation remains clear, but not taller than the tournament header. */
+  .cn-public-top-nav + div [data-testid="stButton"] button{
+    min-height:38px!important;
+    font-size:.82rem!important;
+    font-weight:720!important;
+  }
+
+  /* Search, filters and summary are support tools. */
+  .cn-public-summary-row{margin:7px 0 11px!important}
+  .cn-public-summary-row .public-metric{min-height:68px!important;padding:9px 12px!important}
+  .cn-public-summary-row .public-metric .label{font-size:10.5px!important}
+  .cn-public-summary-row .public-metric .value{font-size:20px!important}
+  .cn-public-highlights .cn-public-highlight{min-height:68px!important;padding:9px 11px!important}
+  [data-testid="stExpander"]:has(.cn-public-filter-marker){margin-bottom:8px!important}
+
+  /* Match cards are the focal point: time, teams and score dominate. */
+  .public-match-card{
+    margin:9px 0!important;
+    padding:15px 18px 13px!important;
+    border-radius:11px!important;
+    border-width:1px!important;
+  }
+  .public-match-card .cn-match-card-top{
+    grid-template-columns:120px minmax(0,1fr) 120px!important;
+    gap:16px!important;
+  }
+  .public-match-card .cn-match-time{font-size:25px!important;line-height:1!important;letter-spacing:-.035em!important}
+  .public-match-card .cn-match-place{font-size:12px!important;margin-top:3px!important}
+  .public-match-card .cn-match-context .match-stage{font-size:10px!important;letter-spacing:.08em!important}
+  .public-match-card .cn-match-context .match-number{font-size:10px!important;margin-top:3px!important}
+  .public-match-card .status-pill{font-size:9px!important;padding:3px 7px!important}
+  .public-match-card .cn-match-teams{
+    grid-template-columns:minmax(0,1fr) 112px minmax(0,1fr)!important;
+    gap:22px!important;
+    margin-top:12px!important;
+  }
+  .public-match-card .public-team-name{
+    font-size:clamp(19px,1.25vw,23px)!important;
+    line-height:1.12!important;
+    font-weight:900!important;
+    letter-spacing:-.018em!important;
+  }
+  .public-match-card .match-score{
+    font-size:clamp(27px,1.8vw,34px)!important;
+    line-height:1!important;
+    font-weight:950!important;
+    letter-spacing:-.045em!important;
+    text-align:center!important;
+  }
+  .public-match-card.is-finished .match-score{transform:scale(1.03)}
+  .public-match-card .cn-match-kit{width:18px!important;height:13px!important;flex-basis:18px!important}
+  .public-match-card .cn-match-events-compact{margin-top:10px!important;padding-top:9px!important}
+  .public-match-card .cn-event-team{padding:6px 8px!important}
+  .public-match-card .cn-event{font-size:11px!important;padding:3px 6px!important}
+  .public-match-secondary{font-size:10px!important;margin-top:6px!important;opacity:.78}
+}
+
+@media(min-width:1500px){
+  .stApp .block-container{max-width:1620px!important}
+  .public-match-card{padding-left:22px!important;padding-right:22px!important}
+  .public-match-card .cn-match-teams{grid-template-columns:minmax(0,1fr) 132px minmax(0,1fr)!important}
 }
 
 /* SHARE POPOVER POLISH v1.195 */
@@ -9346,10 +9482,11 @@ if _flow_index is not None:
                  (SELECT COUNT(*) FROM teams WHERE tournament_id=?) AS teams_n,
                  (SELECT COUNT(*) FROM groups WHERE tournament_id=?) AS groups_n,
                  (SELECT COUNT(*) FROM teams WHERE tournament_id=? AND group_id IS NULL) AS unassigned_n,
+                 (SELECT COUNT(*) FROM pitches WHERE tournament_id=?) AS pitches_n,
                  (SELECT COUNT(*) FROM matches WHERE tournament_id=?) AS matches_n,
                  (SELECT COUNT(*) FROM matches WHERE tournament_id=? AND scheduled_start IS NOT NULL) AS scheduled_n,
                  (SELECT COUNT(*) FROM matches WHERE tournament_id=? AND home_score IS NOT NULL AND away_score IS NOT NULL) AS played_n""",
-            (tid,tid,tid,tid,tid,tid),
+            (tid,tid,tid,tid,tid,tid,tid),
             ),
         )
     _flow_total = int(_flow_counts["matches_n"] or 0)
@@ -10139,7 +10276,7 @@ elif admin_page == "Adminöversikt":
                     run("INSERT INTO schedule_rules(tournament_id) VALUES(?)", (tid,))
                     overview_rules = one_row("SELECT * FROM schedule_rules WHERE tournament_id=?", (tid,))
                 placement_format = PLACEMENT_PLAYOFF_FORMAT
-                format_options = ["Inget slutspel", "A- och B-slutspel", placement_format]
+                format_options = ["Inget slutspel", TOP_TWO_PLAYOFF_FORMAT, "A- och B-slutspel", placement_format]
                 stored_format = placement_format if tournament["playoff_format"] == "Flera egna slutspel" else tournament["playoff_format"]
                 saved_format = stored_format if stored_format in format_options else "Inget slutspel"
                 if not tournament["playoff_model_confirmed"]:
@@ -13284,6 +13421,8 @@ if admin_page == "Papperskorg":
             )
             if not changed:
                 st.warning("Cupen ändrades av en annan administratör och kunde inte återställas.")
+            else:
+                st.session_state.pop("trashed_tournament_target_v502", None)
             st.rerun()
         permanent_col.error("Permanent radering går inte att ångra.")
         typed_name = permanent_col.text_input(
@@ -13301,6 +13440,8 @@ if admin_page == "Papperskorg":
             )
             if deleted:
                 st.session_state.pop(f"admin_page_{bin_id}", None)
+                st.session_state.pop("trashed_tournament_target_v502", None)
+                st.session_state.pop(f"permanent_delete_name_v502_{bin_id}", None)
             else:
                 st.warning("Cupen ändrades eller återställdes och raderades därför inte.")
             st.rerun()

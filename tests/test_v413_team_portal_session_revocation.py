@@ -10,4 +10,4 @@ def test_v413_team_portal_session_binds_to_credential_hash():
 
 
 def test_v413_version():
-    assert Path("VERSION.txt").read_text().strip() == "2026.09.07-520-UNIQUE-PUBLICATION-CHECKLIST-KEYS"
+    assert Path("VERSION.txt").read_text().strip() == "2026.09.07-524-PRIMARY-FLOW-PITCH-COUNT-FIX"

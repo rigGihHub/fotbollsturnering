@@ -7,8 +7,8 @@ VERSION = (ROOT / "cupnavi_core" / "version.py").read_text(encoding="utf-8")
 
 
 def test_v511_version():
-    assert "2026.09.07-520-UNIQUE-PUBLICATION-CHECKLIST-KEYS" in VERSION
-    assert 'APP_BUILD_VERSION = "2026.09.07-520-UNIQUE-PUBLICATION-CHECKLIST-KEYS"' in APP
+    assert "2026.09.07-524-PRIMARY-FLOW-PITCH-COUNT-FIX" in VERSION
+    assert 'APP_BUILD_VERSION = "2026.09.07-524-PRIMARY-FLOW-PITCH-COUNT-FIX"' in APP
 
 
 def test_existing_tournament_setup_is_reachable_from_sidebar():

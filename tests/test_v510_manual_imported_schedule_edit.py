@@ -5,7 +5,7 @@ VIEW = (ROOT / "cupnavi_core" / "schedule_workspace_view.py").read_text(encoding
 VERSION = (ROOT / "cupnavi_core" / "version.py").read_text(encoding="utf-8")
 
 def test_v510_version():
-    assert "2026.09.07-520-UNIQUE-PUBLICATION-CHECKLIST-KEYS" in VERSION
+    assert "2026.09.07-524-PRIMARY-FLOW-PITCH-COUNT-FIX" in VERSION
 
 def test_existing_schedule_has_visible_manual_edit_path():
     assert "Redigera befintligt schema manuellt" in VIEW

@@ -258,7 +258,7 @@ def render_initial_tournament_setup(tournament_id, tournament, *, deps: InitialS
                 st.caption("Inget slutspel används eftersom cupen spelas utan resultaträkning.")
         else:
             _placement_format = "Placeringsslutspel – ettor mot ettor osv."
-            _playoff_options = ["Inget slutspel", "A- och B-slutspel", _placement_format]
+            _playoff_options = ["Inget slutspel", "Slutspel – bara ettor och tvåor", "A- och B-slutspel", _placement_format]
             _playoff_saved = _rules_playoff if _rules_playoff in _playoff_options else "Inget slutspel"
             _p1,_p2=st.columns(2)
             _playoff_selected=_p1.selectbox("Typ av slutspel",_playoff_options,index=_playoff_options.index(_playoff_saved),key=f"rules_playoff_format_{tournament_id}")

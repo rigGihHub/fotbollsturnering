@@ -1,6 +1,6 @@
 from pathlib import Path
 
-VERSION = "2026.09.07-520-UNIQUE-PUBLICATION-CHECKLIST-KEYS"
+VERSION = "2026.09.07-524-PRIMARY-FLOW-PITCH-COUNT-FIX"
 APP = Path("app.py").read_text(encoding="utf-8")
 FOLLOW = Path("cupnavi_core/public_team_follow_view.py").read_text(encoding="utf-8")
 MATCHES = Path("cupnavi_core/public_matches_view.py").read_text(encoding="utf-8")

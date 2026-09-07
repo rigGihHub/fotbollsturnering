@@ -9,7 +9,7 @@ VERSION = (ROOT / "VERSION.txt").read_text().strip()
 
 
 def test_release_version():
-    assert VERSION == "2026.09.07-520-UNIQUE-PUBLICATION-CHECKLIST-KEYS"
+    assert VERSION == "2026.09.07-524-PRIMARY-FLOW-PITCH-COUNT-FIX"
 
 
 def test_clear_kits_need_no_action():

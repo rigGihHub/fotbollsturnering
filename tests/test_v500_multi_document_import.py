@@ -16,7 +16,7 @@ class FakeResponse:
 
 
 def test_v500_version_and_requested_admin_copy():
-    assert VERSION == '2026.09.07-520-UNIQUE-PUBLICATION-CHECKLIST-KEYS'
+    assert VERSION == '2026.09.07-524-PRIMARY-FLOW-PITCH-COUNT-FIX'
     assert '<div class="cn-create-title">Vad vill du göra?</div>' in APP
     assert '<div class="cn-create-eyebrow">Admin</div>' not in APP
     assert 'Välj en väg först. CupNavi visar inget annat administrativt innehåll innan du har valt.' not in APP
