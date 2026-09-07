@@ -62,4 +62,4 @@ def test_current_pitch_count_is_not_overwritten_from_old_image():
 
 
 def test_version():
-    assert 'APP_BUILD_VERSION = "2026.09.07-493-BUTTON-LATENCY-IV"' in APP
+    assert 'APP_BUILD_VERSION = "2026.09.07-494-PUBLIC-UX-PDF"' in APP

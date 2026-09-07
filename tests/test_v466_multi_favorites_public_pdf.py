@@ -1,6 +1,6 @@
 from pathlib import Path
 
-VERSION = "2026.09.07-493-BUTTON-LATENCY-IV"
+VERSION = "2026.09.07-494-PUBLIC-UX-PDF"
 APP = Path("app.py").read_text(encoding="utf-8")
 FOLLOW = Path("cupnavi_core/public_team_follow_view.py").read_text(encoding="utf-8")
 STYLE = Path("cupnavi_core/style_system.py").read_text(encoding="utf-8")
@@ -30,13 +30,12 @@ def test_multi_favorite_overview_reuses_loaded_matches():
 
 
 def test_public_pdf_is_lazy_and_uses_existing_engine():
-    public_block = APP[APP.index('if view_mode == "Turneringsvy":'):APP.index('# SNABB ADMINNAVIGERING')]
-    assert 'with st.expander("🖨️ Skriv ut / PDF", expanded=False):' in public_block
-    assert 'if st.button(' in public_block
-    assert '"Skapa aktuell PDF"' in public_block
-    assert 'from cupnavi_core.pdf_export import build_cup_program_pdf' in public_block
-    assert 'st.download_button(' in public_block
-    assert '"Ladda ner / skriv ut PDF"' in public_block
+    share_block = APP[APP.index('def render_public_share_control'):APP.index('@st.cache_data(show_spinner=False)', APP.index('def render_public_share_control'))]
+    assert '"Skapa och ladda ned PDF"' in share_block
+    assert 'data=lambda: _build_public_cup_program_pdf_bytes' in share_block
+    assert 'on_click="ignore"' in share_block
+    assert 'from cupnavi_core.pdf_export import build_cup_program_pdf' in APP
+    assert 'bytes(data).startswith(b"%PDF")' in APP
 
 
 def test_public_pdf_only_uses_published_scheduled_matches():

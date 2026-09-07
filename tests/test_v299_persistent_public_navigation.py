@@ -20,7 +20,7 @@ def test_existing_public_navigation_visual_contract_is_preserved():
 
 
 def test_v299_release_is_canonical():
-    expected = '2026.09.07-493-BUTTON-LATENCY-IV'
+    expected = '2026.09.07-494-PUBLIC-UX-PDF'
     assert (ROOT / 'VERSION.txt').read_text(encoding='utf-8').strip() == expected
     assert expected in APP
     assert expected in (ROOT / 'cupnavi_core' / 'version.py').read_text(encoding='utf-8')

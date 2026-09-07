@@ -130,9 +130,10 @@ _follow = (ROOT / "cupnavi_core" / "public_team_follow_view.py").read_text()
 assert 'st.multiselect(' in _follow
 assert 'st.query_params["teams"]' in _follow
 assert 'row_value(row, "age_class", "")' in _follow
-assert 'with st.expander("🖨️ Skriv ut / PDF", expanded=False):' in app
-assert '"Skapa aktuell PDF"' in app
-# v466: multi favorites + public pdf
+assert '"Skapa och ladda ned PDF"' in app
+assert 'data=lambda: _build_public_cup_program_pdf_bytes' in app
+assert 'on_click="ignore"' in app
+# v466/v494: multi favorites + public pdf stays lazy until the download click.
 # v467: multi favorite timeline runs entirely on loaded public matches.
 _follow = (ROOT / "cupnavi_core" / "public_team_follow_view.py").read_text()
 _helper = (ROOT / "cupnavi_core" / "public_team_follow.py").read_text()
@@ -180,14 +181,14 @@ _matches = (ROOT / "cupnavi_core" / "public_matches_view.py").read_text()
 assert 'with st.expander("Mer om senaste resultatet", expanded=False):' in _follow
 assert 'with st.expander("Väder & vägbeskrivning", expanded=False):' in _follow
 assert "if show_directions:" in _follow
-assert "elif visible_played_match_ids:" in _matches
-assert "show_match_events = False" in _matches
+assert "elif visible_played_match_ids and _event_details_enabled:" in _matches
+assert "value=True" in _matches
 assert "0 <= _minutes_to_weather <= 120" in _matches
 # v472: public mobile QA
 # v473: table/playoff mobile QA changes presentation only.
 _stats = (ROOT / "cupnavi_core" / "public_statistics_view.py").read_text()
 _present = (ROOT / "cupnavi_core" / "public_presentation_view.py").read_text()
-assert "expanded=_group_index == 0" in _stats
+assert "expanded=True" in _stats
 assert "expanded=_bracket_index == 0" in _stats
 assert "calculate_all_group_tables(tournament_id, tournament)" in _stats
 assert "brackets_for_display(tournament_id)" in _stats

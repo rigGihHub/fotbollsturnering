@@ -2099,19 +2099,29 @@ def inject_v198_visual_system(st):
           border-color:#9fc2aa;background:var(--cn98-primary-soft);color:var(--cn98-primary);
         }
 
-        /* Final sidebar authority: quieter app chrome, clearer controls. */
+        /* Final sidebar authority: compact Text-TV control rail, not a blank settings column. */
         [data-testid="stSidebar"]{
-          background:#f1f5f2!important;border-right:1px solid var(--cn98-border)!important;
+          background:linear-gradient(180deg,#eaf1ee 0%,#f4f7f5 62%,#edf3f0 100%)!important;
+          border-right:1px solid #c8d7cf!important;box-shadow:8px 0 24px rgba(18,47,33,.045)!important;
         }
-        [data-testid="stSidebar"] > div{background:#f1f5f2!important}
+        [data-testid="stSidebar"] > div{background:transparent!important}
         [data-testid="stSidebar"] [data-testid="stVerticalBlock"]{gap:.38rem!important}
         [data-testid="stSidebar"] h1{
-          font-size:1.05rem!important;letter-spacing:-.02em!important;margin-bottom:.15rem!important;
+          font-size:1.08rem!important;letter-spacing:-.02em!important;margin:0 0 .3rem!important;
+          color:#fff!important;background:#173a56!important;border-left:5px solid #1fa55b!important;
+          border-radius:10px!important;padding:12px 13px!important;box-shadow:none!important;
         }
-        [data-testid="stSidebar"] [data-testid="stSelectbox"]{
-          margin-bottom:.1rem!important;
+        [data-testid="stSidebar"] [data-testid="stWidgetLabel"] p{
+          color:#465a50!important;font-size:.68rem!important;font-weight:900!important;letter-spacing:.055em!important;text-transform:uppercase!important;
         }
-        [data-testid="stSidebar"] hr{margin:.5rem 0!important}
+        [data-testid="stSidebar"] [data-testid="stSelectbox"]{margin-bottom:.1rem!important}
+        [data-testid="stSidebar"] [data-baseweb="select"] > div{
+          background:#fff!important;border-color:#b9cbc1!important;border-radius:9px!important;box-shadow:none!important;
+        }
+        [data-testid="stSidebar"] [data-testid="stExpander"]{
+          background:rgba(255,255,255,.62)!important;border:1px solid #d6e1db!important;border-radius:9px!important;
+        }
+        [data-testid="stSidebar"] hr{margin:.5rem 0!important;border-color:#cfddd5!important}
 
         @media(max-width:768px){
           .cn-admin-nav-shell .hint{display:none}

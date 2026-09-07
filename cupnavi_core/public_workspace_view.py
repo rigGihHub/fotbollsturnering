@@ -428,13 +428,6 @@ def render_public_workspace(tournament_id: int, tournament: Any, deps: PublicWor
             match_duration_minutes=match_duration_minutes,
         )
 
-    screen_url = public_cup_url(tournament_id) + ("&" if "?" in public_cup_url(tournament_id) else "?") + "screen=1"
-    if public_page == "Info":
-        st.markdown(
-            f"<div style='text-align:right;margin:-4px 0 8px'><a class='cn-screen-link' href='{html.escape(screen_url, quote=True)}'>🖥 Informationsskärm</a></div>",
-            unsafe_allow_html=True,
-        )
-
     def _filter_public_matches(base_matches, key_prefix, heading):
         return render_public_match_filters_module(
             base_matches,

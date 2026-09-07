@@ -53,7 +53,7 @@ def render_public_match_cards(
         if forecastable:
             weather_forecast, weather_status = fetch_weather_forecast(tournament["location"] or "")
         else:
-            weather_status = ""
+            weather_status = "Prognos visas för kommande matcher inom 16 dagar."
 
     st.markdown(
         """
@@ -125,6 +125,8 @@ def render_public_match_cards(
             try:
                 match_weather = weather_for_match(weather_forecast, row_value(match_row, "scheduled_start"))
                 weather_text = weather_label(match_weather) if weather_forecast else weather_status
+                if not weather_text:
+                    weather_text = "Prognos visas för kommande matcher inom 16 dagar."
             except Exception:
                 weather_text = "Väderprognosen kan inte visas för den här matchen."
 

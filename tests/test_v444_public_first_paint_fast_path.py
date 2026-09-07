@@ -4,7 +4,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def test_v444_release_version():
-    assert (ROOT / "VERSION.txt").read_text().strip() == "2026.09.07-493-BUTTON-LATENCY-IV"
+    assert (ROOT / "VERSION.txt").read_text().strip() == "2026.09.07-494-PUBLIC-UX-PDF"
 
 
 def test_match_events_are_lazy_on_first_paint():
@@ -12,7 +12,7 @@ def test_match_events_are_lazy_on_first_paint():
     assert '"⚽ Målskyttar och kort"' in source
     assert "if show_match_events and visible_played_match_ids" in source
     assert "if requested_match_id:" in source
-    assert "elif visible_played_match_ids:" in source
+    assert "elif visible_played_match_ids and _event_details_enabled:" in source
     assert "show_match_events = False" in source
 
 

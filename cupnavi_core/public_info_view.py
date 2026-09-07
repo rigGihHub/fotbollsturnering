@@ -37,6 +37,25 @@ def render_public_info_section(
     if info_rules is None:
         info_rules = one_row("SELECT * FROM schedule_rules WHERE tournament_id=?", (tournament_id,))
     st.markdown(
+        """<style>
+        .cn-info-guide-head{background:#173a56!important;color:#fff!important;border:0!important;border-left:5px solid #1fa55b!important;box-shadow:none!important;padding:15px 17px!important;margin:4px 0 12px!important}
+        .cn-info-guide-head .kicker{color:#9be7b5!important;font-size:11px!important;font-weight:900!important;letter-spacing:.11em!important}
+        .cn-info-guide-head .title{color:#fff!important;font-size:22px!important;line-height:1.15!important;margin:4px 0!important}
+        .cn-info-guide-head .copy{color:#dbe7ef!important;font-size:13px!important;line-height:1.4!important;margin-top:5px!important}
+        .cn-info-section-title{margin:15px 0 7px!important;font-size:13px!important;font-weight:900!important}
+        .cn-venue-card{display:grid!important;grid-template-columns:38px minmax(0,1fr)!important;gap:11px!important;align-items:center!important;padding:10px 12px!important;border-radius:10px!important;border-left:4px solid #1f7a4c!important}
+        .cn-venue-copy{display:block!important;min-width:0!important}
+        .cn-venue-copy strong,.cn-venue-copy small,.cn-venue-copy span{display:block!important;white-space:normal!important}
+        .cn-venue-copy strong{font-size:14px!important;line-height:1.2!important;margin:0!important}
+        .cn-venue-copy small{font-size:10px!important;line-height:1.2!important;margin:2px 0 0!important;color:#1b6b46!important}
+        .cn-venue-copy span{font-size:12px!important;line-height:1.35!important;margin:4px 0 0!important;color:#586575!important}
+        .cn-practical-info-card{gap:8px!important}
+        .cn-practical-item{border-radius:10px!important;border-left:3px solid #c5d7cc!important}
+        @media(max-width:680px){.cn-info-guide-head .title{font-size:19px!important}.cn-info-guide-head{padding:13px 14px!important}}
+        </style>""",
+        unsafe_allow_html=True,
+    )
+    st.markdown(
         """<div class="cn-info-guide-head">
           <div class="kicker">Cupguide</div>
           <div class="title">Allt praktiskt på ett ställe</div>

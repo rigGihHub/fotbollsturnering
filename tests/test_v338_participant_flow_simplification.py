@@ -2,7 +2,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 APP = (ROOT / "app.py").read_text(encoding="utf-8")
-VERSION = "2026.09.07-493-BUTTON-LATENCY-IV"
+VERSION = "2026.09.07-494-PUBLIC-UX-PDF"
 
 
 def test_release_version_is_v338():

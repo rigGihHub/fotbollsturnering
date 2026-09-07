@@ -77,4 +77,4 @@ def test_matchcamp_apply_skips_home_away_rebalance():
 
 
 def test_version():
-    assert 'APP_BUILD_VERSION = "2026.09.07-493-BUTTON-LATENCY-IV"' in APP
+    assert 'APP_BUILD_VERSION = "2026.09.07-494-PUBLIC-UX-PDF"' in APP

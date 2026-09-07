@@ -1,4 +1,4 @@
-APP_VERSION = "2026.09.07-493-BUTTON-LATENCY-IV"
+APP_VERSION = "2026.09.07-494-PUBLIC-UX-PDF"
 
 
 def release_ui_label(version: str) -> str:

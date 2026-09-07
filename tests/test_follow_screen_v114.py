@@ -24,7 +24,7 @@ def test_public_follow_team_and_screen_mode_exist():
     assert 'render_public_screen_mode(' in workspace
     assert 'Informationsskärm' in screen
     assert 'window.parent.location.reload()' in screen
-    assert 'screen=1' in workspace
+    assert 'screen=1' in app
 
 
 def test_screen_mode_keeps_live_upcoming_results_and_tables():

@@ -140,7 +140,7 @@ def render_public_match_filters(
         st.divider()
         show_weather = st.toggle(
             "🌦️ " + tr("Visa väderprognos"),
-            value=False,
+            value=True,
             key=f"public_matches_weather_{tournament_id}",
             help="Hämtar prognos först när du väljer att visa den.",
         )

@@ -1,7 +1,7 @@
 from pathlib import Path
 from cupnavi_core.playoff_dependency_safety import transitive_downstream_match_ids
 
-VERSION = "2026.09.07-493-BUTTON-LATENCY-IV"
+VERSION = "2026.09.07-494-PUBLIC-UX-PDF"
 APP = Path("app.py").read_text(encoding="utf-8")
 
 

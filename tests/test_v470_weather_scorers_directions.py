@@ -1,6 +1,6 @@
 from pathlib import Path
 
-VERSION = "2026.09.07-493-BUTTON-LATENCY-IV"
+VERSION = "2026.09.07-494-PUBLIC-UX-PDF"
 APP = Path("app.py").read_text(encoding="utf-8")
 VIEW = Path("cupnavi_core/public_team_follow_view.py").read_text(encoding="utf-8")
 MATCHES = Path("cupnavi_core/public_matches_view.py").read_text(encoding="utf-8")
@@ -12,11 +12,11 @@ def test_version_is_v470():
     assert Path("VERSION.txt").read_text().strip() == VERSION
 
 
-def test_weather_remains_opt_in_but_is_now_easy_to_reach():
+def test_weather_defaults_on_and_is_easy_to_reach():
     assert '"🌦️ Väder för nästa match"' in VIEW
     assert 'st.session_state[f"public_matches_weather_{tournament_id}"] = True' in VIEW
     assert '"🌦️ " + tr("Visa väderprognos")' in FILTERS
-    assert "value=False" in FILTERS
+    assert "value=True" in FILTERS
 
 
 def test_latest_result_has_direct_scorer_action():

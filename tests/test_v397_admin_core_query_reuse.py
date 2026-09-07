@@ -1,6 +1,6 @@
 from pathlib import Path
 
-VERSION = "2026.09.07-493-BUTTON-LATENCY-IV"
+VERSION = "2026.09.07-494-PUBLIC-UX-PDF"
 
 
 def test_version_and_release_note():

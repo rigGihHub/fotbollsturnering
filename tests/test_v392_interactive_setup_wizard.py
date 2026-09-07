@@ -7,8 +7,8 @@ VERSION = (ROOT / "VERSION.txt").read_text(encoding="utf-8").strip()
 
 
 def test_v392_version():
-    assert VERSION == "2026.09.07-493-BUTTON-LATENCY-IV"
-    assert 'APP_BUILD_VERSION = "2026.09.07-493-BUTTON-LATENCY-IV"' in APP
+    assert VERSION == "2026.09.07-494-PUBLIC-UX-PDF"
+    assert 'APP_BUILD_VERSION = "2026.09.07-494-PUBLIC-UX-PDF"' in APP
 
 
 def test_new_tournament_enters_wizard_mode():

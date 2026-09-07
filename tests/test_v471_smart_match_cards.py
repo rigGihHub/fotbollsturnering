@@ -1,6 +1,6 @@
 from pathlib import Path
 
-VERSION = "2026.09.07-493-BUTTON-LATENCY-IV"
+VERSION = "2026.09.07-494-PUBLIC-UX-PDF"
 APP = Path("app.py").read_text(encoding="utf-8")
 MATCHES = Path("cupnavi_core/public_matches_view.py").read_text(encoding="utf-8")
 CARDS = Path("cupnavi_core/public_match_cards.py").read_text(encoding="utf-8")
@@ -34,6 +34,6 @@ def test_weather_network_still_not_forced_in_match_orchestration():
 
 def test_existing_event_loading_stays_lazy():
     assert "if requested_match_id:" in MATCHES
-    assert "elif visible_played_match_ids:" in MATCHES
+    assert "elif visible_played_match_ids and _event_details_enabled:" in MATCHES
     assert "show_match_events = False" in MATCHES
     assert "if show_match_events and visible_played_match_ids" in MATCHES

@@ -1,6 +1,6 @@
 from pathlib import Path
 
-VERSION = "2026.09.07-493-BUTTON-LATENCY-IV"
+VERSION = "2026.09.07-494-PUBLIC-UX-PDF"
 APP = Path("app.py").read_text(encoding="utf-8")
 STATS = Path("cupnavi_core/public_statistics_view.py").read_text(encoding="utf-8")
 PRESENT = Path("cupnavi_core/public_presentation_view.py").read_text(encoding="utf-8")
@@ -11,9 +11,9 @@ def test_version_is_v473():
     assert Path("VERSION.txt").read_text().strip() == VERSION
 
 
-def test_multiple_groups_are_visually_collapsed():
-    assert 'st.caption(f"{len(groups)} grupper · första gruppen är öppen")' in STATS
-    assert "expanded=_group_index == 0" in STATS
+def test_multiple_groups_are_visible_by_default():
+    assert 'st.caption(f"{len(groups)} grupper · alla tabeller visas")' in STATS
+    assert "expanded=True" in STATS
     assert 'f"{group[\'name\']} · {len(group_table)} lag"' in STATS
 
 

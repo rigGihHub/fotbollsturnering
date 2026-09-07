@@ -8,11 +8,11 @@ MATCHES = (ROOT / "cupnavi_core" / "public_matches_view.py").read_text(encoding=
 FILTERS = (ROOT / "cupnavi_core" / "public_match_filters_view.py").read_text(encoding="utf-8")
 
 
-def test_v269_version_and_weather_is_opt_in():
-    assert VERSION == "2026.09.07-493-BUTTON-LATENCY-IV"
+def test_v269_version_and_weather_defaults_on():
+    assert VERSION == "2026.09.07-494-PUBLIC-UX-PDF"
     weather_block = FILTERS[FILTERS.index('show_weather = st.toggle('):]
     weather_block = weather_block[:500]
-    assert 'value=False' in weather_block
+    assert 'value=True' in weather_block
     assert 'Filter & visning' in FILTERS
 
 

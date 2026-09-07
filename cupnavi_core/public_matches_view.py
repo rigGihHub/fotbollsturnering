@@ -259,12 +259,17 @@ def render_public_matches_fragment(
     # only when the visitor asks for details. Exact-match deep links keep details
     # on automatically because that route explicitly targets one match.
     _events_toggle_key = f"public_match_events_v444_{tournament_id}"
-    if requested_match_id:
+    _event_details_enabled = any((
+        bool(row_value(tournament, "enable_scorer_leaderboard", 1)),
+        bool(row_value(tournament, "enable_assist_leaderboard", 1)),
+        bool(row_value(tournament, "enable_card_statistics", 1)),
+    ))
+    if requested_match_id and _event_details_enabled:
         show_match_events = True
-    elif visible_played_match_ids:
+    elif visible_played_match_ids and _event_details_enabled:
         show_match_events = st.toggle(
             "⚽ Målskyttar och kort",
-            value=False,
+            value=True,
             key=_events_toggle_key,
             help="Visar registrerade matchhändelser för de spelade matcherna.",
         )

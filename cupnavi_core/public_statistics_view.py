@@ -59,7 +59,7 @@ def render_public_statistics_section(
                 symbol="—",
             )
         if len(groups) > 1:
-            st.caption(f"{len(groups)} grupper · första gruppen är öppen")
+            st.caption(f"{len(groups)} grupper · alla tabeller visas")
         for _group_index, group in enumerate(groups):
             group_table = _public_tables["tables"].get(int(group["id"]), [])
             if len(groups) == 1:
@@ -68,7 +68,7 @@ def render_public_statistics_section(
             else:
                 with st.expander(
                     f"{group['name']} · {len(group_table)} lag",
-                    expanded=_group_index == 0,
+                    expanded=True,
                 ):
                     render_group_table(group_table, tournament, group["id"])
         if bool(row_value(tournament, "enable_final_ranking", 0)):

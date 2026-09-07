@@ -1,6 +1,6 @@
 from pathlib import Path
 
-RELEASE = "2026.09.07-493-BUTTON-LATENCY-IV"
+RELEASE = "2026.09.07-494-PUBLIC-UX-PDF"
 
 
 def test_v389_batches_schedule_match_events_and_reuses_match_snapshot():

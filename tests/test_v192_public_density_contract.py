@@ -16,6 +16,6 @@ def test_completed_match_cards_are_denser():
     assert "font-size:14px!important" in APP
     assert "margin-top:4px!important" in APP
 
-def test_weather_placeholder_does_not_consume_card_height():
-    assert 'weather_status = ""' in MATCH
+def test_enabled_weather_never_disappears_silently():
+    assert 'weather_status = "Prognos visas för kommande matcher inom 16 dagar."' in MATCH
     assert "if show_weather and weather_text else \"\"" in MATCH

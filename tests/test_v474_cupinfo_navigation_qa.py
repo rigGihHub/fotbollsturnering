@@ -1,6 +1,6 @@
 from pathlib import Path
 
-VERSION = "2026.09.07-493-BUTTON-LATENCY-IV"
+VERSION = "2026.09.07-494-PUBLIC-UX-PDF"
 APP = Path("app.py").read_text(encoding="utf-8")
 LOGIC = Path("cupnavi_core/public_view_logic.py").read_text(encoding="utf-8")
 INFO = Path("cupnavi_core/public_info_view.py").read_text(encoding="utf-8")

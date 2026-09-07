@@ -1,7 +1,7 @@
 from pathlib import Path
 from cupnavi_core.go_live_readiness import build_go_live_readiness
 
-VERSION = "2026.09.07-493-BUTTON-LATENCY-IV"
+VERSION = "2026.09.07-494-PUBLIC-UX-PDF"
 APP = Path("app.py").read_text(encoding="utf-8")
 
 

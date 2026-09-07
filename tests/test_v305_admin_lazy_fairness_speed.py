@@ -23,4 +23,4 @@ def test_control_center_shares_lazy_match_snapshot():
 
 
 def test_release_version_305():
-    assert '2026.09.07-493-BUTTON-LATENCY-IV' in APP
+    assert '2026.09.07-494-PUBLIC-UX-PDF' in APP

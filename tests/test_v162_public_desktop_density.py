@@ -9,7 +9,7 @@ MATCH=(ROOT/"cupnavi_core/public_match_cards.py").read_text(encoding="utf-8")
 FEED=(ROOT/"cupnavi_core/public_match_feed_logic.py").read_text(encoding="utf-8")
 MATCHES=(ROOT/"cupnavi_core/public_matches_view.py").read_text(encoding="utf-8")
 WORKSPACE=(ROOT/"cupnavi_core/public_workspace_view.py").read_text(encoding="utf-8")
-RELEASE="2026.09.07-493-BUTTON-LATENCY-IV"
+RELEASE="2026.09.07-494-PUBLIC-UX-PDF"
 
 def test_release_version_is_hard_synced():
     assert RELEASE in APP
@@ -26,12 +26,11 @@ def test_duplicate_next_match_hero_is_removed():
     assert 'class="cn-next-match"' not in MATCHES
     assert "Cupen just nu" in FEED
 
-def test_information_screen_is_demoted_to_info_page():
-    start=WORKSPACE.index("public_page = resolve_public_page(")
-    end=WORKSPACE.index("def _filter_public_matches",start)
-    block=WORKSPACE[start:end]
-    assert "screen_url = public_cup_url" in block
-    assert 'if public_page == "Info":' in block
+def test_information_screen_is_demoted_to_share_control():
+    share=APP[APP.index("def render_public_share_control"):APP.index("@st.cache_data(show_spinner=False)", APP.index("def render_public_share_control"))]
+    assert "screen_url = public_cup_url" in share
+    assert '"🖥 Informationsskärm"' in share
+    assert "cn-screen-link" not in WORKSPACE
 
 def test_follow_team_does_not_require_keyed_container_support():
     assert 'st.container(key=f"public_follow_{tournament_id}")' not in APP

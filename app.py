@@ -197,7 +197,7 @@ def inject_v198_visual_system():
     return _inject_v198_visual_system_impl(st)
 
 
-APP_BUILD_VERSION = "2026.09.07-493-BUTTON-LATENCY-IV"
+APP_BUILD_VERSION = "2026.09.07-494-PUBLIC-UX-PDF"
 APP_VERSION = APP_BUILD_VERSION
 
 
@@ -1214,6 +1214,66 @@ def public_match_events_db_snapshot(match_ids):
     return _session_ttl_get(cache_key, 5.0, _load_events)
 
 
+def _public_cup_program_filename(tournament_id, tournament):
+    safe_name = re.sub(r"[^A-Za-z0-9_-]+", "_", str(tournament["name"] or "CupNavi")).strip("_")
+    return f"{safe_name or f'CupNavi_{int(tournament_id)}'}_cupprogram.pdf"
+
+
+def _build_public_cup_program_pdf_bytes(tournament_id, tournament):
+    """Build the public cup programme lazily when the download is clicked."""
+    pdf_matches = all_rows(
+        """SELECT * FROM matches
+           WHERE tournament_id=? AND scheduled_start IS NOT NULL AND schedule_published=1
+           ORDER BY scheduled_start,pitch_number,id""",
+        (tournament_id,),
+    )
+    pdf_teams = all_rows("SELECT * FROM teams WHERE tournament_id=? ORDER BY name", (tournament_id,))
+    pdf_groups = all_rows("SELECT * FROM groups WHERE tournament_id=? ORDER BY name", (tournament_id,))
+    pdf_refs = all_rows("SELECT * FROM referees WHERE tournament_id=? ORDER BY name", (tournament_id,))
+    pdf_rules_row = one_row("SELECT * FROM schedule_rules WHERE tournament_id=?", (tournament_id,))
+    pdf_rules = dict(pdf_rules_row) if pdf_rules_row is not None else {}
+    pdf_pitches = [dict(row) for row in all_rows(
+        "SELECT * FROM pitches WHERE tournament_id=? ORDER BY pitch_number", (tournament_id,)
+    )]
+    pdf_sources = {
+        source
+        for match_row in pdf_matches
+        for source in (match_row["home_source"], match_row["away_source"])
+        if source
+    }
+    source_labels = {source: source_label(source) for source in pdf_sources}
+    source_team_ids = {source: resolve_source(source) for source in pdf_sources}
+    tournament_keys = (
+        "name", "location", "tournament_date", "start_date", "end_date",
+        "table_tiebreak", "playoff_tie_rule", "extra_time_minutes",
+        "public_information", "organizer_phone", "instagram_url",
+    )
+    tournament_payload = {key: tournament[key] for key in tournament_keys if key in tournament.keys()}
+    match_payload = [{
+        key: row[key]
+        for key in (
+            "id", "group_id", "stage", "scheduled_start", "pitch_number",
+            "home_source", "away_source", "home_score", "away_score",
+            "home_penalties", "away_penalties", "referee_id",
+        )
+    } for row in pdf_matches]
+    team_payload = [{
+        key: row[key]
+        for key in ("id", "name", "group_id", "primary_color", "secondary_color")
+        if key in row.keys()
+    } for row in pdf_teams]
+    group_payload = [{key: row[key] for key in ("id", "name")} for row in pdf_groups]
+    ref_payload = [{key: row[key] for key in ("id", "name")} for row in pdf_refs]
+    from cupnavi_core.pdf_export import build_cup_program_pdf
+    data = build_cup_program_pdf(
+        tournament_payload, match_payload, team_payload, group_payload, ref_payload,
+        source_labels, source_team_ids, rules=pdf_rules, pitches=pdf_pitches,
+    )
+    if not isinstance(data, (bytes, bytearray)) or not bytes(data).startswith(b"%PDF"):
+        raise ValueError("CupNavi kunde inte skapa en giltig PDF.")
+    return bytes(data)
+
+
 def render_public_share_control(tournament_id, tournament, *, in_sidebar=False):
     """Render the public share action as a compact, polished rail control."""
     share_url = public_cup_url(tournament_id)
@@ -1260,6 +1320,24 @@ def render_public_share_control(tournament_id, tournament, *, in_sidebar=False):
                     file_name=f"cupnavi-{int(tournament_id)}-qr.png", mime="image/png",
                     key=f"cn_share_qr_download_{int(tournament_id)}", use_container_width=True,
                 )
+        st.divider()
+        st.download_button(
+            "Skapa och ladda ned PDF",
+            data=lambda: _build_public_cup_program_pdf_bytes(tournament_id, tournament),
+            file_name=_public_cup_program_filename(tournament_id, tournament),
+            mime="application/pdf",
+            key=f"cn_share_pdf_download_{int(tournament_id)}",
+            use_container_width=True,
+            on_click="ignore",
+            help="Skapar ett aktuellt cupprogram först när du klickar och laddar sedan ned det direkt.",
+        )
+        screen_url = public_cup_url(tournament_id) + ("&" if "?" in public_cup_url(tournament_id) else "?") + "screen=1"
+        st.link_button(
+            "🖥 Informationsskärm",
+            screen_url,
+            use_container_width=True,
+            help="Öppnar en ren vy för stor skärm vid cupområdet.",
+        )
         st.caption("Länken går till den publika cupsidan och kräver ingen inloggning.")
 
 
@@ -9172,111 +9250,8 @@ if view_mode == "Admin":
         st.info("Växla till Turneringsvy för att se den arkiverade cupsidan precis som besökarna gör.")
         st.stop()
 if view_mode == "Turneringsvy":
-    # v466: public visitors can create the same professional cup programme
-    # directly from the tournament view. Everything stays lazy until requested.
-    with st.expander("🖨️ Skriv ut / PDF", expanded=False):
-        st.caption("Skapa ett aktuellt cupprogram som PDF. Öppna filen och välj Skriv ut på mobil eller dator.")
-        _public_program_key = f"public_cup_program_pdf_bytes_{tid}"
-        _public_program_name_key = f"public_cup_program_pdf_name_{tid}"
-        if st.button(
-            "Skapa aktuell PDF",
-            key=f"public_prepare_cup_program_pdf_{tid}",
-            use_container_width=True,
-        ):
-            with st.spinner("CupNavi skapar cupprogrammet…"):
-                _pdf_matches = all_rows(
-                    """SELECT * FROM matches
-                       WHERE tournament_id=? AND scheduled_start IS NOT NULL AND schedule_published=1
-                       ORDER BY scheduled_start,pitch_number,id""",
-                    (tid,),
-                )
-                if not _pdf_matches:
-                    st.warning("PDF blir tillgänglig när ett publicerat schema finns.")
-                else:
-                    _pdf_teams = all_rows("SELECT * FROM teams WHERE tournament_id=? ORDER BY name", (tid,))
-                    _pdf_groups = all_rows("SELECT * FROM groups WHERE tournament_id=? ORDER BY name", (tid,))
-                    _pdf_refs = all_rows("SELECT * FROM referees WHERE tournament_id=? ORDER BY name", (tid,))
-                    _pdf_rules_row = one_row("SELECT * FROM schedule_rules WHERE tournament_id=?", (tid,))
-                    _pdf_rules = dict(_pdf_rules_row) if _pdf_rules_row is not None else {}
-                    _pdf_pitches = [dict(row) for row in all_rows(
-                        "SELECT * FROM pitches WHERE tournament_id=? ORDER BY pitch_number", (tid,)
-                    )]
-
-                    _pdf_sources = {
-                        source
-                        for match_row in _pdf_matches
-                        for source in (match_row["home_source"], match_row["away_source"])
-                        if source
-                    }
-                    _pdf_source_labels = {source: source_label(source) for source in _pdf_sources}
-                    _pdf_source_team_ids = {source: resolve_source(source) for source in _pdf_sources}
-
-                    _pdf_tournament_keys = (
-                        "name", "location", "tournament_date", "start_date", "end_date",
-                        "table_tiebreak", "playoff_tie_rule", "extra_time_minutes",
-                        "public_information", "organizer_phone", "instagram_url",
-                    )
-                    _pdf_tournament = {
-                        key: tournament[key]
-                        for key in _pdf_tournament_keys
-                        if key in tournament.keys()
-                    }
-                    _pdf_match_rows = [
-                        {
-                            key: row[key]
-                            for key in (
-                                "id", "group_id", "stage", "scheduled_start", "pitch_number",
-                                "home_source", "away_source", "home_score", "away_score",
-                                "home_penalties", "away_penalties", "referee_id",
-                            )
-                        }
-                        for row in _pdf_matches
-                    ]
-                    _pdf_team_rows = [
-                        {
-                            key: row[key]
-                            for key in ("id", "name", "group_id", "primary_color", "secondary_color")
-                            if key in row.keys()
-                        }
-                        for row in _pdf_teams
-                    ]
-                    _pdf_group_rows = [
-                        {key: row[key] for key in ("id", "name")}
-                        for row in _pdf_groups
-                    ]
-                    _pdf_ref_rows = [
-                        {key: row[key] for key in ("id", "name")}
-                        for row in _pdf_refs
-                    ]
-
-                    from cupnavi_core.pdf_export import build_cup_program_pdf
-                    st.session_state[_public_program_key] = build_cup_program_pdf(
-                        _pdf_tournament,
-                        _pdf_match_rows,
-                        _pdf_team_rows,
-                        _pdf_group_rows,
-                        _pdf_ref_rows,
-                        _pdf_source_labels,
-                        _pdf_source_team_ids,
-                        rules=_pdf_rules,
-                        pitches=_pdf_pitches,
-                    )
-                    _safe_public_pdf_name = re.sub(
-                        r"[^A-Za-z0-9_-]+", "_", tournament["name"] or "CupNavi"
-                    ).strip("_")
-                    st.session_state[_public_program_name_key] = f"{_safe_public_pdf_name}_cupprogram.pdf"
-
-        if _public_program_key in st.session_state:
-            st.download_button(
-                "Ladda ner / skriv ut PDF",
-                data=st.session_state[_public_program_key],
-                file_name=st.session_state.get(_public_program_name_key, f"CupNavi_{tid}_cupprogram.pdf"),
-                mime="application/pdf",
-                use_container_width=True,
-                type="primary",
-                key=f"public_download_cup_program_pdf_{tid}",
-            )
-
+    # v494: PDF and informationsskärm live under Dela in the persistent left rail.
+    # PDF bytes are generated lazily by st.download_button on the actual click.
     _render_with_friendly_error(render_public_view, tid, tournament)
     st.stop()
 
