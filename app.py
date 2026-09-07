@@ -178,7 +178,7 @@ def inject_v266_public_mobile_css():
     return _inject_v266_public_mobile_css_impl(st)
 def inject_v198_visual_system():
     return _inject_v198_visual_system_impl(st)
-APP_BUILD_VERSION = "2026.09.07-508-PUBLISH-CHECKLIST-DYNAMIC-SCHEDULE"
+APP_BUILD_VERSION = "2026.09.07-510-MANUAL-IMPORTED-SCHEDULE-EDIT"
 APP_VERSION = APP_BUILD_VERSION
 
 def _set_session_state_values(values):
@@ -13738,6 +13738,7 @@ if admin_page == "Skapa och publicera schema":
             sort_items=sort_items,
             swedish_weekdays=SWEDISH_WEEKDAYS,
             setting=setting,
+            db=db,
             apply_schedule_improvement=_apply_schedule_improvement,
             apply_matchcamp_structure_improvement=_apply_matchcamp_structure_improvement,
             navigate_admin_page=_set_admin_page,

@@ -20,7 +20,7 @@ def source_team_id(value):
 
 
 def test_v447_version():
-    assert VERSION == "2026.09.07-507-REVIEWED-DOCUMENT-SCHEDULE-IMPORT"
+    assert VERSION == "2026.09.07-510-MANUAL-IMPORTED-SCHEDULE-EDIT"
 
 
 def test_live_score_is_still_current_match_not_finished_result():

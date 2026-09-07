@@ -67,4 +67,4 @@ def test_v411_ui_is_lazy_and_read_only():
 
 
 def test_v411_version():
-    assert Path("VERSION.txt").read_text().strip() == "2026.09.07-507-REVIEWED-DOCUMENT-SCHEDULE-IMPORT"
+    assert Path("VERSION.txt").read_text().strip() == "2026.09.07-510-MANUAL-IMPORTED-SCHEDULE-EDIT"

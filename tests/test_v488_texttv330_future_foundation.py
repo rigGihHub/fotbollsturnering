@@ -1,6 +1,6 @@
 from pathlib import Path
 
-VERSION = "2026.09.07-507-REVIEWED-DOCUMENT-SCHEDULE-IMPORT"
+VERSION = "2026.09.07-510-MANUAL-IMPORTED-SCHEDULE-EDIT"
 APP = Path("app.py").read_text(encoding="utf-8")
 THEME = Path("cupnavi_core/texttv330_theme.py").read_text(encoding="utf-8")
 

@@ -28,7 +28,7 @@ def test_mobile_playoff_action_adds_no_database_query():
 
 
 def test_v449_version_is_consistent():
-    version = "2026.09.07-507-REVIEWED-DOCUMENT-SCHEDULE-IMPORT"
+    version = "2026.09.07-510-MANUAL-IMPORTED-SCHEDULE-EDIT"
     assert f'APP_BUILD_VERSION = "{version}"' in APP
     assert version in (ROOT / "cupnavi_core" / "version.py").read_text(encoding="utf-8")
     assert (ROOT / "VERSION.txt").read_text(encoding="utf-8").strip() == version

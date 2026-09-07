@@ -3,7 +3,7 @@ from pathlib import Path
 
 from cupnavi_core.cup_day_dashboard import build_cup_day_action_queue
 
-VERSION = "2026.09.07-507-REVIEWED-DOCUMENT-SCHEDULE-IMPORT"
+VERSION = "2026.09.07-510-MANUAL-IMPORTED-SCHEDULE-EDIT"
 APP = Path("app.py").read_text(encoding="utf-8")
 
 

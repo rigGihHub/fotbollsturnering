@@ -13,7 +13,7 @@ def _resolve(source):
 
 
 def test_release_version_and_note():
-    assert APP_VERSION == "2026.09.07-507-REVIEWED-DOCUMENT-SCHEDULE-IMPORT"
+    assert APP_VERSION == "2026.09.07-510-MANUAL-IMPORTED-SCHEDULE-EDIT"
     assert (ROOT / "PITCH_OUTAGE_ASSIST_V410.md").exists()
 
 

@@ -54,6 +54,7 @@ class ScheduleWorkspaceDependencies:
     swedish_weekdays: Any
     reset_unused_playoff_downstream_match: Callable[..., Any] | None = None
     setting: Callable[..., Any] | None = None
+    db: Callable[..., Any] | None = None
     apply_schedule_improvement: Callable[..., Any] | None = None
     apply_matchcamp_structure_improvement: Callable[..., Any] | None = None
     navigate_admin_page: Callable[[str], Any] | None = None
@@ -337,6 +338,125 @@ def render_schedule_workspace(tid, tournament, *, deps: ScheduleWorkspaceDepende
         schedule_errors=schedule_errors,
         schedule_warnings=schedule_warnings,
     )
+    # v510: A schedule imported from photo/PDF is a real schedule, but it must
+    # still be editable by the organizer. Surface that action here instead of
+    # hiding it among advanced/detail tools.
+    if scheduled_total > 0:
+        with st.container(border=True):
+            st.markdown("#### Redigera befintligt schema manuellt")
+            st.caption(
+                "Ändra en ospelad match utan att generera om resten av schemat. "
+                "Du kan justera tid, plan, domare och – för gruppspelsmatcher – lagen."
+            )
+            _manual_edit_open = st.toggle(
+                "Öppna manuell schemaredigering",
+                value=False,
+                key=f"manual_schedule_edit_open_{tid}",
+            )
+            if _manual_edit_open:
+                _manual_matches = all_rows(
+                    """SELECT * FROM matches
+                       WHERE tournament_id=? AND scheduled_start IS NOT NULL
+                       ORDER BY scheduled_start,pitch_number,id""",
+                    (tid,),
+                )
+                _manual_ids = [int(row["id"]) for row in _manual_matches]
+                _manual_match_id = st.selectbox(
+                    "Match att ändra",
+                    _manual_ids,
+                    format_func=lambda mid: next(
+                        f"{swedish_datetime(row['scheduled_start'])} · Plan {row['pitch_number'] or '–'} · "
+                        f"{source_label(row['home_source'])} – {source_label(row['away_source'])}"
+                        for row in _manual_matches if int(row["id"]) == int(mid)
+                    ),
+                    key=f"manual_schedule_match_{tid}",
+                )
+                _manual_match = next(row for row in _manual_matches if int(row["id"]) == int(_manual_match_id))
+                _manual_played = _manual_match["home_score"] is not None or _manual_match["away_score"] is not None
+                if _manual_played:
+                    st.warning("Matchen har redan resultat och är skyddad. Spelade matcher kan inte ändras här.")
+                else:
+                    _manual_start = datetime.fromisoformat(_manual_match["scheduled_start"])
+                    _manual_refs = all_rows("SELECT id,name FROM referees WHERE tournament_id=? ORDER BY name", (tid,))
+                    _manual_teams = all_rows("SELECT id,name,group_id FROM teams WHERE tournament_id=? ORDER BY name", (tid,))
+                    with st.form(f"manual_schedule_edit_{tid}_{_manual_match_id}"):
+                        _me1, _me2, _me3 = st.columns(3)
+                        _start_bound = datetime.fromisoformat(str(tournament["start_date"] or tournament["tournament_date"])) .date()
+                        _end_bound = datetime.fromisoformat(str(tournament["end_date"] or tournament["start_date"] or tournament["tournament_date"])) .date()
+                        _new_date = _me1.date_input("Datum", value=_manual_start.date(), min_value=_start_bound, max_value=_end_bound, key=f"manual_schedule_date_{tid}_{_manual_match_id}")
+                        _new_time = _me2.time_input("Avspark", value=_manual_start.time(), key=f"manual_schedule_time_{tid}_{_manual_match_id}")
+                        _new_pitch = _me3.number_input("Plan", 1, int(rules["pitch_count"]), int(_manual_match["pitch_number"] or 1), key=f"manual_schedule_pitch_{tid}_{_manual_match_id}")
+
+                        _ref_ids = [None] + [int(r["id"]) for r in _manual_refs]
+                        _current_ref = int(_manual_match["referee_id"]) if _manual_match["referee_id"] is not None else None
+                        _ref_index = _ref_ids.index(_current_ref) if _current_ref in _ref_ids else 0
+                        _new_ref = st.selectbox(
+                            "Domare",
+                            _ref_ids,
+                            index=_ref_index,
+                            format_func=lambda rid: "Ingen domare" if rid is None else next(r["name"] for r in _manual_refs if int(r["id"]) == int(rid)),
+                            key=f"manual_schedule_ref_{tid}_{_manual_match_id}",
+                        )
+
+                        _new_home_source = _manual_match["home_source"]
+                        _new_away_source = _manual_match["away_source"]
+                        if str(_manual_match["stage"] or "") == "Gruppspel" and _manual_match["group_id"] is not None:
+                            _group_team_rows = [r for r in _manual_teams if r["group_id"] is not None and int(r["group_id"]) == int(_manual_match["group_id"])]
+                            _group_team_ids = [int(r["id"]) for r in _group_team_rows]
+                            def _source_team_id(src):
+                                try:
+                                    kind, raw = str(src).split(":", 1)
+                                    return int(raw) if kind == "team" else None
+                                except Exception:
+                                    return None
+                            _home_id = _source_team_id(_manual_match["home_source"])
+                            _away_id = _source_team_id(_manual_match["away_source"])
+                            if _group_team_ids and _home_id in _group_team_ids and _away_id in _group_team_ids:
+                                _th, _ta = st.columns(2)
+                                _new_home_id = _th.selectbox(
+                                    "Hemma",
+                                    _group_team_ids,
+                                    index=_group_team_ids.index(_home_id),
+                                    format_func=lambda team_id: next(r["name"] for r in _group_team_rows if int(r["id"]) == int(team_id)),
+                                    key=f"manual_schedule_home_{tid}_{_manual_match_id}",
+                                )
+                                _new_away_id = _ta.selectbox(
+                                    "Borta",
+                                    _group_team_ids,
+                                    index=_group_team_ids.index(_away_id),
+                                    format_func=lambda team_id: next(r["name"] for r in _group_team_rows if int(r["id"]) == int(team_id)),
+                                    key=f"manual_schedule_away_{tid}_{_manual_match_id}",
+                                )
+                                if int(_new_home_id) == int(_new_away_id):
+                                    st.error("Samma lag kan inte möta sig självt.")
+                                _new_home_source = f"team:{int(_new_home_id)}"
+                                _new_away_source = f"team:{int(_new_away_id)}"
+
+                        _new_locked = st.checkbox(
+                            "Lås matchen så automatisk schemaläggning inte flyttar den",
+                            value=bool(_manual_match["schedule_locked"]),
+                            key=f"manual_schedule_lock_{tid}_{_manual_match_id}",
+                        )
+                        _save_manual = st.form_submit_button("Spara ändringen", type="primary", use_container_width=True)
+                        if _save_manual:
+                            if _new_home_source == _new_away_source:
+                                st.error("Samma lag kan inte möta sig självt.")
+                            else:
+                                _new_start = datetime.combine(_new_date, _new_time).isoformat(timespec="minutes")
+                                run(
+                                    """UPDATE matches
+                                       SET scheduled_start=?,pitch_number=?,referee_id=?,home_source=?,away_source=?,schedule_locked=?,schedule_published=0
+                                       WHERE id=? AND tournament_id=? AND home_score IS NULL AND away_score IS NULL""",
+                                    (_new_start, int(_new_pitch), _new_ref, _new_home_source, _new_away_source, int(_new_locked), int(_manual_match_id), tid),
+                                )
+                                run("UPDATE tournaments SET is_published=0 WHERE id=?", (tid,))
+                                st.session_state["_validation_dirty"] = True
+                                st.session_state["schedule_message"] = (
+                                    "success",
+                                    "Matchen ändrades manuellt. Övriga matcher lämnades orörda. Kontrollera schemat före publicering.",
+                                )
+                                st.rerun()
+
     _sync_times = bool(rules["synchronized_pitch_times"])
     _timing_title = "Synkroniserade plantider" if _sync_times else "Dynamiska plantider"
     _timing_detail = (
@@ -377,6 +497,65 @@ def render_schedule_workspace(tid, tournament, *, deps: ScheduleWorkspaceDepende
             or not playoff_model_ready
             or bool(playoff_setup_error)
         )
+
+        # v509: Existing cups created from the older photo/document flow may have
+        # imported teams/groups but no persisted matches. Let the administrator
+        # re-read the source directly from Schema and explicitly approve the
+        # recovered match programme instead of sending them into the generator.
+        if scheduled_total == 0 and setting is not None and deps.db is not None:
+            with st.expander("📷 Har du redan ett schema i foto/PDF? Importera matchprogrammet här", expanded=False):
+                st.caption("Om du skapade cupen från ett foto i en äldre version kan lag och grupper ha importerats utan själva matcherna. Läs in underlaget igen här. CupNavi visar alltid en förhandsgranskning innan något sparas.")
+                _uploads = st.file_uploader(
+                    "Foto, PDF eller dokument med matchprogram",
+                    type=["pdf", "txt", "png", "jpg", "jpeg", "webp"],
+                    accept_multiple_files=True,
+                    key=f"schedule_existing_import_upload_{tid}",
+                )
+                _prefill_key = f"schedule_existing_import_prefill_{tid}"
+                if _uploads and st.button("Läs matchprogrammet", key=f"schedule_existing_import_analyze_{tid}", type="primary"):
+                    _api_key = setting("OPENAI_API_KEY")
+                    if not _api_key:
+                        st.error("Dokumenttolkningen är inte aktiverad.")
+                    else:
+                        try:
+                            from cupnavi_core.ai_cup_document_import import extract_cup_setup_from_documents
+                            with st.spinner("CupNavi läser matchprogrammet …"):
+                                _docs = [(item.getvalue(), item.name, item.type) for item in _uploads]
+                                st.session_state[_prefill_key] = extract_cup_setup_from_documents(_docs, _api_key)
+                            st.rerun()
+                        except Exception as exc:
+                            st.error(f"Matchprogrammet kunde inte tolkas: {exc}")
+                _import_prefill = st.session_state.get(_prefill_key) or {}
+                _import_matches = list(_import_prefill.get("matches") or [])
+                if _import_matches:
+                    st.success(f"CupNavi hittade {len(_import_matches)} matcher. Kontrollera dem innan du sparar.")
+                    _rows = [{
+                        "Tid": m.get("time") or "", "Grupp": m.get("group_name") or "",
+                        "Hemma": m.get("home_team") or "", "Borta": m.get("away_team") or "",
+                        "Plan": m.get("venue") or "",
+                    } for m in _import_matches]
+                    _edited = st.data_editor(_rows, use_container_width=True, hide_index=True, num_rows="fixed", key=f"schedule_existing_import_editor_{tid}")
+                    _confirm = st.checkbox("Jag har granskat matcherna och vill använda detta som cupens befintliga schema", key=f"schedule_existing_import_confirm_{tid}")
+                    if st.button("Importera granskat schema", disabled=not _confirm, type="primary", use_container_width=True, key=f"schedule_existing_import_apply_{tid}"):
+                        try:
+                            from datetime import date as _date
+                            from cupnavi_core.cup_document_creator_view import apply_document_matches
+                            _import_prefill["matches"] = [{
+                                "time": r.get("Tid"), "group_name": r.get("Grupp"),
+                                "home_team": r.get("Hemma"), "away_team": r.get("Borta"),
+                                "venue": r.get("Plan"), "stage": "Gruppspel",
+                            } for r in _edited]
+                            _raw_date = tournament["start_date"] or tournament["tournament_date"]
+                            _fallback = _date.fromisoformat(str(_raw_date)[:10])
+                            _count = apply_document_matches(deps.db, tid, _import_prefill, _fallback)
+                            st.session_state["schedule_message"] = ("success", f"{_count} matcher importerades. De behandlas nu som ett befintligt schema och skrivs inte över automatiskt.")
+                            st.session_state.pop(_prefill_key, None)
+                            st.session_state["_validation_dirty"] = True
+                            st.rerun()
+                        except Exception as exc:
+                            st.error(f"Importen avbröts utan att ändra schemat: {exc}")
+                elif _import_prefill:
+                    st.warning("CupNavi hittade inga säkra matcher i underlaget. Inget har sparats.")
 
         # v347: a compact readiness contract before the destructive/expensive
         # schedule action. The generator should never look "ready" while the

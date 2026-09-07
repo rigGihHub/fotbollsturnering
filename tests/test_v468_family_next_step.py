@@ -3,7 +3,7 @@ from pathlib import Path
 
 from cupnavi_core.public_team_follow import build_family_next_step
 
-VERSION = "2026.09.07-507-REVIEWED-DOCUMENT-SCHEDULE-IMPORT"
+VERSION = "2026.09.07-510-MANUAL-IMPORTED-SCHEDULE-EDIT"
 APP = Path("app.py").read_text(encoding="utf-8")
 VIEW = Path("cupnavi_core/public_team_follow_view.py").read_text(encoding="utf-8")
 STYLE = Path("cupnavi_core/style_system.py").read_text(encoding="utf-8")

@@ -32,7 +32,7 @@ def test_existing_settings_editor_uses_light_surface_and_edit_copy():
 
 
 def test_v505_version_is_synchronized():
-    version='2026.09.07-507-REVIEWED-DOCUMENT-SCHEDULE-IMPORT'
+    version='2026.09.07-510-MANUAL-IMPORTED-SCHEDULE-EDIT'
     assert version in APP
     assert version in Path('cupnavi_core/version.py').read_text(encoding='utf-8')
     assert Path('VERSION.txt').read_text(encoding='utf-8').strip() == version

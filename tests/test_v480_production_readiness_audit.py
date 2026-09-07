@@ -1,7 +1,7 @@
 from pathlib import Path
 from cupnavi_core.go_live_readiness import build_go_live_readiness
 
-VERSION = "2026.09.07-507-REVIEWED-DOCUMENT-SCHEDULE-IMPORT"
+VERSION = "2026.09.07-510-MANUAL-IMPORTED-SCHEDULE-EDIT"
 APP = Path("app.py").read_text(encoding="utf-8")
 
 

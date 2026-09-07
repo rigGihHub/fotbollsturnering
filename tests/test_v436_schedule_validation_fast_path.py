@@ -6,7 +6,7 @@ APP=(ROOT/'app.py').read_text(encoding='utf-8')
 VERSION=(ROOT/'VERSION.txt').read_text(encoding='utf-8').strip()
 
 def test_v436_version():
-    assert VERSION == '2026.09.07-507-REVIEWED-DOCUMENT-SCHEDULE-IMPORT'
+    assert VERSION == '2026.09.07-510-MANUAL-IMPORTED-SCHEDULE-EDIT'
 
 def test_schema_reuses_shell_snapshots():
     assert 'rules_snapshot: Any | None = None' in VIEW
