@@ -3,7 +3,7 @@ ROOT=Path(__file__).resolve().parents[1]
 APP=(ROOT/"app.py").read_text(encoding="utf-8")
 REPO=(ROOT/"cupnavi_api/repository.py").read_text(encoding="utf-8")
 MAIN=(ROOT/"cupnavi_api/main.py").read_text(encoding="utf-8")
-R="2026.09.07-494-PUBLIC-UX-PDF"
+R="2026.09.07-495-PUBLIC-UX-PDF-II"
 
 def test_test_tools_are_gated_to_test_environment():
     assert "_demo_environment_allowed = is_test_environment(tournament)" in APP

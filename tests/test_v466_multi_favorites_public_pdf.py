@@ -1,6 +1,6 @@
 from pathlib import Path
 
-VERSION = "2026.09.07-494-PUBLIC-UX-PDF"
+VERSION = "2026.09.07-495-PUBLIC-UX-PDF-II"
 APP = Path("app.py").read_text(encoding="utf-8")
 FOLLOW = Path("cupnavi_core/public_team_follow_view.py").read_text(encoding="utf-8")
 STYLE = Path("cupnavi_core/style_system.py").read_text(encoding="utf-8")
@@ -34,8 +34,9 @@ def test_public_pdf_is_lazy_and_uses_existing_engine():
     assert '"Skapa och ladda ned PDF"' in share_block
     assert 'data=lambda: _build_public_cup_program_pdf_bytes' in share_block
     assert 'on_click="ignore"' in share_block
-    assert 'from cupnavi_core.pdf_export import build_cup_program_pdf' in APP
-    assert 'bytes(data).startswith(b"%PDF")' in APP
+    assert 'from cupnavi_core.pdf_export import build_cup_program_pdf' in Path('cupnavi_core/public_pdf_download.py').read_text(encoding='utf-8')
+    pdf_service = Path('cupnavi_core/public_pdf_download.py').read_text(encoding='utf-8')
+    assert 'data.startswith(b"%PDF")' in pdf_service
 
 
 def test_public_pdf_only_uses_published_scheduled_matches():

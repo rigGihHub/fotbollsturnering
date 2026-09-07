@@ -24,6 +24,7 @@ def test_visitor_snapshot_capability_remains_but_is_not_on_primary_matches_summa
 def test_share_control_is_in_persistent_public_left_rail():
     assert "render_share_control(tournament_id, tournament)" not in MATCHES
     workspace = Path("cupnavi_core/public_workspace_view.py").read_text(encoding="utf-8")
-    assert "with st.sidebar:" in workspace
-    assert "render_public_share_control(tournament_id, tournament, in_sidebar=True)" in workspace
+    assert "with st.sidebar:" in APP
+    assert "render_public_share_control(tournament_id, tournament, in_sidebar=True)" not in workspace
+    assert "render_public_share_control(tid, tournament, in_sidebar=True)" in APP
     assert "cn-share-inline-anchor" not in APP

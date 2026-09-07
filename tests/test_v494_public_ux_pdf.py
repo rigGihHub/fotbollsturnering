@@ -1,6 +1,6 @@
 from pathlib import Path
 
-VERSION = "2026.09.07-494-PUBLIC-UX-PDF"
+VERSION = "2026.09.07-495-PUBLIC-UX-PDF-II"
 APP = Path("app.py").read_text(encoding="utf-8")
 FILTERS = Path("cupnavi_core/public_match_filters_view.py").read_text(encoding="utf-8")
 MATCHES = Path("cupnavi_core/public_matches_view.py").read_text(encoding="utf-8")
@@ -45,8 +45,9 @@ def test_pdf_and_information_screen_live_under_share_control():
 
 def test_pdf_builder_validates_pdf_signature_and_is_lazy():
     assert 'def _build_public_cup_program_pdf_bytes' in APP
-    assert 'schedule_published=1' in APP
-    assert 'bytes(data).startswith(b"%PDF")' in APP
+    PDF_SERVICE = Path("cupnavi_core/public_pdf_download.py").read_text(encoding="utf-8")
+    assert 'schedule_published=1' in PDF_SERVICE
+    assert 'data.startswith(b"%PDF")' in PDF_SERVICE
     public_block = APP[APP.index('if view_mode == "Turneringsvy":'):APP.index('# SNABB ADMINNAVIGERING')]
     assert 'with st.expander("🖨️ Skriv ut / PDF"' not in public_block
 

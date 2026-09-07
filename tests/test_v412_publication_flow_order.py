@@ -33,4 +33,4 @@ def test_v412_publication_view_can_render_main_without_sidebar():
 
 
 def test_v412_version():
-    assert Path("VERSION.txt").read_text().strip() == "2026.09.07-494-PUBLIC-UX-PDF"
+    assert Path("VERSION.txt").read_text().strip() == "2026.09.07-495-PUBLIC-UX-PDF-II"

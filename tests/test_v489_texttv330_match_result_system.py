@@ -1,6 +1,6 @@
 from pathlib import Path
 
-VERSION = "2026.09.07-494-PUBLIC-UX-PDF"
+VERSION = "2026.09.07-495-PUBLIC-UX-PDF-II"
 APP = Path("app.py").read_text(encoding="utf-8")
 THEME = Path("cupnavi_core/texttv330_theme.py").read_text(encoding="utf-8")
 

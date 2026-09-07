@@ -6,7 +6,7 @@ STYLE=(ROOT/"cupnavi_core/style_system.py").read_text(encoding="utf-8")
 VERSION=(ROOT/"VERSION.txt").read_text().strip()
 
 def test_release_version():
-    assert VERSION=="2026.09.07-494-PUBLIC-UX-PDF"
+    assert VERSION=="2026.09.07-495-PUBLIC-UX-PDF-II"
 
 def test_info_has_guide_intro_and_scannable_sections():
     assert 'class="cn-info-guide-head"' in INFO

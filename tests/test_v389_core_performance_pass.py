@@ -1,6 +1,6 @@
 from pathlib import Path
 
-RELEASE = "2026.09.07-494-PUBLIC-UX-PDF"
+RELEASE = "2026.09.07-495-PUBLIC-UX-PDF-II"
 
 
 def test_v389_batches_schedule_match_events_and_reuses_match_snapshot():

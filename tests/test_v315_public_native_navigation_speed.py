@@ -7,7 +7,7 @@ VERSION = (ROOT / "VERSION.txt").read_text(encoding="utf-8").strip()
 
 
 def test_v315_version_is_canonical():
-    assert VERSION == "2026.09.07-494-PUBLIC-UX-PDF"
+    assert VERSION == "2026.09.07-495-PUBLIC-UX-PDF-II"
 
 
 def test_primary_navigation_uses_native_streamlit_widget_not_href_builder():

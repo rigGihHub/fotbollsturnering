@@ -1,7 +1,7 @@
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-RELEASE = "2026.09.07-494-PUBLIC-UX-PDF"
+RELEASE = "2026.09.07-495-PUBLIC-UX-PDF-II"
 
 
 def test_health_contract_testclient_dependency_is_declared():

@@ -108,11 +108,8 @@ def render_public_workspace(tournament_id: int, tournament: Any, deps: PublicWor
     tr = deps.tr
     track_public_visit = deps.track_public_visit
 
-    # v425: Sharing belongs to the persistent left rail, not inside Matcher's
-    # content hierarchy. This keeps the action available on every public page
-    # without interrupting the summary-card flow.
-    with st.sidebar:
-        render_public_share_control(tournament_id, tournament, in_sidebar=True)
+    # v495: the persistent share control is rendered by app.py before this
+    # fragment so it sits above the deliberately subdued accessibility control.
     unsubscribe_notification_subscription = deps.unsubscribe_notification_subscription
     weather_for_match = deps.weather_for_match
     weather_label = deps.weather_label

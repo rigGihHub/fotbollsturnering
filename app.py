@@ -197,7 +197,7 @@ def inject_v198_visual_system():
     return _inject_v198_visual_system_impl(st)
 
 
-APP_BUILD_VERSION = "2026.09.07-494-PUBLIC-UX-PDF"
+APP_BUILD_VERSION = "2026.09.07-495-PUBLIC-UX-PDF-II"
 APP_VERSION = APP_BUILD_VERSION
 
 
@@ -1219,59 +1219,25 @@ def _public_cup_program_filename(tournament_id, tournament):
     return f"{safe_name or f'CupNavi_{int(tournament_id)}'}_cupprogram.pdf"
 
 
+def _open_public_pdf_read_connection():
+    """Open a dedicated read connection safe for Streamlit's download worker."""
+    if TURSO_CONFIG_PARTIAL:
+        missing = "TURSO_AUTH_TOKEN" if TURSO_DATABASE_URL else "TURSO_DATABASE_URL"
+        raise RuntimeError(f"Turso-konfigurationen är ofullständig: {missing} saknas.")
+    if CLOUD_DATABASE_ENABLED:
+        return _new_cloud_raw_connection()
+    con = sqlite3.connect(DB_FILE)
+    con.row_factory = sqlite3.Row
+    con.execute("PRAGMA foreign_keys = ON")
+    return con
+
+
 def _build_public_cup_program_pdf_bytes(tournament_id, tournament):
-    """Build the public cup programme lazily when the download is clicked."""
-    pdf_matches = all_rows(
-        """SELECT * FROM matches
-           WHERE tournament_id=? AND scheduled_start IS NOT NULL AND schedule_published=1
-           ORDER BY scheduled_start,pitch_number,id""",
-        (tournament_id,),
+    """Build a complete PDF from an independent worker-thread-safe snapshot."""
+    from cupnavi_core.public_pdf_download import build_public_pdf_download
+    return build_public_pdf_download(
+        tournament_id, tournament, open_read_connection=_open_public_pdf_read_connection,
     )
-    pdf_teams = all_rows("SELECT * FROM teams WHERE tournament_id=? ORDER BY name", (tournament_id,))
-    pdf_groups = all_rows("SELECT * FROM groups WHERE tournament_id=? ORDER BY name", (tournament_id,))
-    pdf_refs = all_rows("SELECT * FROM referees WHERE tournament_id=? ORDER BY name", (tournament_id,))
-    pdf_rules_row = one_row("SELECT * FROM schedule_rules WHERE tournament_id=?", (tournament_id,))
-    pdf_rules = dict(pdf_rules_row) if pdf_rules_row is not None else {}
-    pdf_pitches = [dict(row) for row in all_rows(
-        "SELECT * FROM pitches WHERE tournament_id=? ORDER BY pitch_number", (tournament_id,)
-    )]
-    pdf_sources = {
-        source
-        for match_row in pdf_matches
-        for source in (match_row["home_source"], match_row["away_source"])
-        if source
-    }
-    source_labels = {source: source_label(source) for source in pdf_sources}
-    source_team_ids = {source: resolve_source(source) for source in pdf_sources}
-    tournament_keys = (
-        "name", "location", "tournament_date", "start_date", "end_date",
-        "table_tiebreak", "playoff_tie_rule", "extra_time_minutes",
-        "public_information", "organizer_phone", "instagram_url",
-    )
-    tournament_payload = {key: tournament[key] for key in tournament_keys if key in tournament.keys()}
-    match_payload = [{
-        key: row[key]
-        for key in (
-            "id", "group_id", "stage", "scheduled_start", "pitch_number",
-            "home_source", "away_source", "home_score", "away_score",
-            "home_penalties", "away_penalties", "referee_id",
-        )
-    } for row in pdf_matches]
-    team_payload = [{
-        key: row[key]
-        for key in ("id", "name", "group_id", "primary_color", "secondary_color")
-        if key in row.keys()
-    } for row in pdf_teams]
-    group_payload = [{key: row[key] for key in ("id", "name")} for row in pdf_groups]
-    ref_payload = [{key: row[key] for key in ("id", "name")} for row in pdf_refs]
-    from cupnavi_core.pdf_export import build_cup_program_pdf
-    data = build_cup_program_pdf(
-        tournament_payload, match_payload, team_payload, group_payload, ref_payload,
-        source_labels, source_team_ids, rules=pdf_rules, pitches=pdf_pitches,
-    )
-    if not isinstance(data, (bytes, bytearray)) or not bytes(data).startswith(b"%PDF"):
-        raise ValueError("CupNavi kunde inte skapa en giltig PDF.")
-    return bytes(data)
 
 
 def render_public_share_control(tournament_id, tournament, *, in_sidebar=False):
@@ -8711,11 +8677,15 @@ def render_tournament_clock(tournament_row):
     language_json = json.dumps(language_tag)
     clock_html = f"""
     <div style="font-family:system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
-                border:1px solid #dbe4df;border-radius:12px;padding:9px 12px;background:#f8fbf9;
-                color:#10231a;line-height:1.15;">
-      <div style="font-size:11px;font-weight:700;color:#587066;margin-bottom:3px;">CUPKLOCKA</div>
-      <div id="cupnavi-clock-time" style="font-size:25px;font-weight:750;letter-spacing:.02em;">--:--:--</div>
-      <div id="cupnavi-clock-date" style="font-size:11px;color:#587066;margin-top:3px;"></div>
+                border:1px solid #173a2b;border-radius:14px;padding:10px 12px 9px;
+                background:linear-gradient(145deg,#112d22 0%,#174936 100%);color:#fff;
+                line-height:1.08;box-shadow:0 6px 18px rgba(16,50,36,.16);overflow:hidden;">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:5px;">
+        <div style="font-size:10px;font-weight:900;letter-spacing:.13em;color:#a7f3c5;">CUPKLOCKA</div>
+        <div style="font-size:9px;font-weight:800;color:#d5eadf;border:1px solid rgba(213,234,223,.35);border-radius:999px;padding:2px 6px;">LIVE</div>
+      </div>
+      <div id="cupnavi-clock-time" style="font-size:27px;font-weight:900;letter-spacing:.035em;font-variant-numeric:tabular-nums;">--:--:--</div>
+      <div id="cupnavi-clock-date" style="font-size:10px;color:#d5eadf;margin-top:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"></div>
     </div>
     <script>
       const tz = {timezone_json};
@@ -8741,17 +8711,31 @@ def render_tournament_clock(tournament_row):
       setInterval(tickCupNaviClock, 1000);
     </script>
     """
-    components.html(clock_html, height=76, scrolling=False)
+    components.html(clock_html, height=84, scrolling=False)
 
 with st.sidebar:
     render_tournament_clock(tournament)
+    # v495: sharing stays high in the public rail; accessibility is deliberately
+    # quieter and lower so it does not compete with the cup's primary actions.
+    if view_mode == "Turneringsvy":
+        render_public_share_control(tid, tournament, in_sidebar=True)
+
+st.markdown(
+    """<style>
+    [class*="st-key-cn_sidebar_a11y_"]{margin-top:22px!important;opacity:.82}
+    [class*="st-key-cn_sidebar_a11y_"] [data-testid="stExpander"]{border:0!important;background:transparent!important}
+    [class*="st-key-cn_sidebar_a11y_"] [data-testid="stExpander"] details summary{min-height:30px!important;padding:3px 4px!important}
+    [class*="st-key-cn_sidebar_a11y_"] [data-testid="stExpander"] details summary p{font-size:11px!important;font-weight:650!important;color:#65766d!important}
+    </style>""",
+    unsafe_allow_html=True,
+)
+with st.sidebar.container(key=f"cn_sidebar_a11y_{int(tid)}"):
+    with st.expander("♿ Tillgänglighet", expanded=False):
+        a11y_high_contrast = st.toggle("Hög kontrast", value=bool(st.session_state.get("a11y_high_contrast", False)), key="a11y_high_contrast")
+        a11y_large_text = st.toggle("Större text", value=bool(st.session_state.get("a11y_large_text", False)), key="a11y_large_text")
+        st.caption("Extra visningshjälp för kontrast och textstorlek.")
 
 tournament_lifecycle = normalize_status(tournament["lifecycle_status"], is_published=bool(tournament["is_published"]))
-
-with st.sidebar.expander("♿ Tillgänglighet", expanded=False):
-    a11y_high_contrast = st.toggle("Hög kontrast", value=bool(st.session_state.get("a11y_high_contrast", False)), key="a11y_high_contrast")
-    a11y_large_text = st.toggle("Större text", value=bool(st.session_state.get("a11y_large_text", False)), key="a11y_large_text")
-    st.caption("CupNavi använder text + symboler, stora klickytor och tydliga fokusmarkeringar så färg aldrig är enda informationsbäraren.")
 
 _a11y_css = []
 if a11y_high_contrast:

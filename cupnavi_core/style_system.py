@@ -1327,10 +1327,18 @@ def inject_v266_public_mobile_css(st):
         [class*="st-key-cn_public_primary_nav_shell_"] [data-testid="stButtonGroup"] button{
           min-width:0 !important;min-height:42px !important;padding:6px 7px !important;border-radius:8px !important;
           background:transparent !important;color:#f8fffb !important;border-color:transparent !important;
-          font-size:13px !important;font-weight:800 !important;box-shadow:none !important;
+          font-size:12.5px !important;font-weight:800 !important;box-shadow:none !important;line-height:1.12!important;
         }
         [class*="st-key-cn_public_primary_nav_shell_"] [data-testid="stSegmentedControl"] button *,
-        [class*="st-key-cn_public_primary_nav_shell_"] [data-testid="stButtonGroup"] button *{color:#f8fffb !important}
+        [class*="st-key-cn_public_primary_nav_shell_"] [data-testid="stButtonGroup"] button *{
+          color:#f8fffb !important;white-space:normal!important;overflow:visible!important;
+          text-overflow:clip!important;line-height:1.12!important;word-break:normal!important;
+        }
+        [class*="st-key-cn_public_primary_nav_shell_"] [data-testid="stSegmentedControl"] button p,
+        [class*="st-key-cn_public_primary_nav_shell_"] [data-testid="stButtonGroup"] button p{
+          white-space:normal!important;overflow:visible!important;text-overflow:clip!important;
+          max-width:none!important;margin:0!important;text-align:center!important;
+        }
         [class*="st-key-cn_public_primary_nav_shell_"] [data-testid="stSegmentedControl"] button[aria-pressed="true"],
         [class*="st-key-cn_public_primary_nav_shell_"] [data-testid="stButtonGroup"] button[aria-pressed="true"],
         [class*="st-key-cn_public_primary_nav_shell_"] [data-testid="stSegmentedControl"] button[aria-checked="true"],

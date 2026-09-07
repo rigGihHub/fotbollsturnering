@@ -6,7 +6,7 @@ VERSION = (ROOT / "VERSION.txt").read_text().strip()
 
 
 def test_v319_version():
-    assert VERSION == "2026.09.07-494-PUBLIC-UX-PDF"
+    assert VERSION == "2026.09.07-495-PUBLIC-UX-PDF-II"
 
 
 def test_existing_brackets_are_loaded_before_setup_validation():

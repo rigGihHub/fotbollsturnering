@@ -39,5 +39,5 @@ def test_core_components_are_normalized():
         assert token in STYLE
 
 def test_release_is_v198():
-    assert VERSION == "2026.09.07-494-PUBLIC-UX-PDF"
+    assert VERSION == "2026.09.07-495-PUBLIC-UX-PDF-II"
     assert "release_ui_label(APP_BUILD_VERSION)" in APP

@@ -7,7 +7,7 @@ VERSION = (ROOT / "VERSION.txt").read_text(encoding="utf-8").strip()
 
 
 def test_release_version():
-    assert VERSION == "2026.09.07-494-PUBLIC-UX-PDF"
+    assert VERSION == "2026.09.07-495-PUBLIC-UX-PDF-II"
 
 
 def test_validation_is_lazy_outside_schema_and_control():

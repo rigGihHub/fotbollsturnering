@@ -12,7 +12,7 @@ def _groups():
     return APP[start:end]
 
 def test_release_version():
-    assert VERSION=="2026.09.07-494-PUBLIC-UX-PDF"
+    assert VERSION=="2026.09.07-495-PUBLIC-UX-PDF-II"
 
 def test_manual_group_tools_are_true_lazy():
     block=_groups()

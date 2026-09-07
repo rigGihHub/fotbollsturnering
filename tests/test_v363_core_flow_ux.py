@@ -40,4 +40,4 @@ def test_setup_uses_progressive_disclosure_wording():
 
 
 def test_version():
-    assert 'APP_BUILD_VERSION = "2026.09.07-494-PUBLIC-UX-PDF"' in APP
+    assert 'APP_BUILD_VERSION = "2026.09.07-495-PUBLIC-UX-PDF-II"' in APP

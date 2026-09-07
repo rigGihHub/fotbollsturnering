@@ -7,7 +7,7 @@ LOGIC=(ROOT/"cupnavi_core/public_view_logic.py").read_text(encoding="utf-8")
 VERSION=(ROOT/"VERSION.txt").read_text(encoding="utf-8").strip()
 
 def test_release_v201():
-    assert VERSION == "2026.09.07-494-PUBLIC-UX-PDF"
+    assert VERSION == "2026.09.07-495-PUBLIC-UX-PDF-II"
     assert "release_ui_label(APP_BUILD_VERSION)" in APP
 
 def test_public_view_consumes_extracted_logic():

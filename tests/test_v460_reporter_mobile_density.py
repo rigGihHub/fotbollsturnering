@@ -1,6 +1,6 @@
 from pathlib import Path
 
-VERSION = "2026.09.07-494-PUBLIC-UX-PDF"
+VERSION = "2026.09.07-495-PUBLIC-UX-PDF-II"
 APP = Path("app.py").read_text(encoding="utf-8")
 REPORTER = Path("cupnavi_core/match_reporter_workspace_view.py").read_text(encoding="utf-8")
 STYLE = Path("cupnavi_core/style_system.py").read_text(encoding="utf-8")

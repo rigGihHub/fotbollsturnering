@@ -6,7 +6,7 @@ VERSION = (ROOT / 'VERSION.txt').read_text(encoding='utf-8').strip()
 
 
 def test_v324_version():
-    assert VERSION == '2026.09.07-494-PUBLIC-UX-PDF'
+    assert VERSION == '2026.09.07-495-PUBLIC-UX-PDF-II'
 
 
 def test_reporter_uses_lazy_section_selector_instead_of_tabs():
