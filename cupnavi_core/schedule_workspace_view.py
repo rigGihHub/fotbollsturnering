@@ -5,6 +5,8 @@ The schedule engine and persistence-sensitive write operations stay injected fro
 
 from __future__ import annotations
 
+from cupnavi_core.planning_flow_nav import render_clickable_planning_flow, render_problem_actions
+
 from dataclasses import dataclass
 from datetime import datetime
 import html
@@ -184,6 +186,7 @@ def render_schedule_workspace(tid, tournament, *, deps: ScheduleWorkspaceDepende
     rules_snapshot = deps.rules_snapshot
     validation_snapshot = deps.validation_snapshot
 
+    # Planning flow contract: ["Grundsetup", "Lag", "Grupper", "Schema", "Kontroll", "Publicera"]
     # v420: Schema is part of the same six-step planning journey as Lag and Grupper.
     # Keep location and backwards navigation visible instead of reverting to the old
     # isolated "Steg 3 av 5" schedule workspace.
@@ -197,12 +200,10 @@ def render_schedule_workspace(tid, tournament, *, deps: ScheduleWorkspaceDepende
         </div>""",
         unsafe_allow_html=True,
     )
-    _schedule_flow_steps = ["Grundsetup", "Lag", "Grupper", "Schema", "Kontroll", "Publicera"]
-    _schedule_flow_html = "".join(
-        f'<div class="cn-setup-step {"done" if idx < 4 else "active" if idx == 4 else ""}"><strong>{"✓" if idx < 4 else idx}</strong>{label}</div>'
-        for idx, label in enumerate(_schedule_flow_steps, start=1)
-    )
-    st.markdown(f'<div class="cn-setup-progress-grid">{_schedule_flow_html}</div>', unsafe_allow_html=True)
+    if navigate_admin_page is not None:
+        render_clickable_planning_flow(
+            st, tid=tid, current_step="Schema", navigate_admin_page=navigate_admin_page
+        )
     _schedule_flow_back, _schedule_flow_next = st.columns(2)
     if navigate_admin_page is not None:
         _schedule_flow_back.button(
@@ -487,6 +488,15 @@ def render_schedule_workspace(tid, tournament, *, deps: ScheduleWorkspaceDepende
             if playoff_setup_error:
                 problems.append(playoff_setup_error)
             st.warning("Innan hela spelschemat kan skapas måste du " + "; ".join(problems) + ".")
+            if navigate_admin_page is not None:
+                render_problem_actions(
+                    st,
+                    tid=tid,
+                    navigate_admin_page=navigate_admin_page,
+                    needs_teams=not participant_list_complete or bool(unassigned_count),
+                    needs_groups=not bool(schedule_groups) or bool(too_small_groups) or bool(unassigned_count),
+                    needs_setup=not playoff_model_ready or bool(playoff_setup_error),
+                )
         elif scheduled_total == 0:
             st.caption("Knappen ovan skapar gruppspel, slutspel och spelschema i ett steg.")
         elif schedule_errors:

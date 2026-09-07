@@ -5,7 +5,7 @@ VERSION = Path("VERSION.txt").read_text().strip()
 
 
 def test_v314_version():
-    assert VERSION == "2026.09.07-505-ADMIN-PREVIEW-CODES-SETTINGS"
+    assert VERSION == "2026.09.07-506-CLICKABLE-FLOW-PROBLEM-ROUTING"
 
 
 def test_navigation_is_rendered_before_public_core_snapshot_on_normal_public_path():

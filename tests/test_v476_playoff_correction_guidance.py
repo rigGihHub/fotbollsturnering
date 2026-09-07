@@ -1,7 +1,7 @@
 from pathlib import Path
 from cupnavi_core.playoff_dependency_safety import build_dependency_guidance
 
-VERSION = "2026.09.07-505-ADMIN-PREVIEW-CODES-SETTINGS"
+VERSION = "2026.09.07-506-CLICKABLE-FLOW-PROBLEM-ROUTING"
 APP = Path("app.py").read_text(encoding="utf-8")
 SCHEDULE = Path("cupnavi_core/schedule_workspace_view.py").read_text(encoding="utf-8")
 

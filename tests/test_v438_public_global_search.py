@@ -56,7 +56,7 @@ def test_public_search_finds_team_pitch_and_match_without_database_logic():
 
 
 def test_public_search_is_submit_driven_and_preserves_info_fast_path():
-    assert VERSION == "2026.09.07-505-ADMIN-PREVIEW-CODES-SETTINGS"
+    assert VERSION == "2026.09.07-506-CLICKABLE-FLOW-PROBLEM-ROUTING"
     assert 'with st.form(key=f"public_global_search_form_{tournament_id}"' in WORKSPACE
     assert 'form_submit_button("Sök"' in WORKSPACE
     assert 'or bool(_active_public_search)' in WORKSPACE

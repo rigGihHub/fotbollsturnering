@@ -9,7 +9,7 @@ WORKSPACE = (ROOT / "cupnavi_core" / "public_workspace_view.py").read_text(encod
 
 
 def test_release_version_v274():
-    assert VERSION == "2026.09.07-505-ADMIN-PREVIEW-CODES-SETTINGS"
+    assert VERSION == "2026.09.07-506-CLICKABLE-FLOW-PROBLEM-ROUTING"
 
 
 def test_public_hero_builder_preserves_status_and_escapes_content():

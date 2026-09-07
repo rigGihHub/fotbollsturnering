@@ -13,7 +13,7 @@ def _resolve(source):
 
 
 def test_release_version_and_note():
-    assert APP_VERSION == "2026.09.07-505-ADMIN-PREVIEW-CODES-SETTINGS"
+    assert APP_VERSION == "2026.09.07-506-CLICKABLE-FLOW-PROBLEM-ROUTING"
     assert (ROOT / "PITCH_OUTAGE_ASSIST_V410.md").exists()
 
 

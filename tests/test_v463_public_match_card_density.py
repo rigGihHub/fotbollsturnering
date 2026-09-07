@@ -1,6 +1,6 @@
 from pathlib import Path
 
-VERSION = "2026.09.07-505-ADMIN-PREVIEW-CODES-SETTINGS"
+VERSION = "2026.09.07-506-CLICKABLE-FLOW-PROBLEM-ROUTING"
 APP = Path("app.py").read_text(encoding="utf-8")
 CARDS = Path("cupnavi_core/public_match_cards.py").read_text(encoding="utf-8")
 

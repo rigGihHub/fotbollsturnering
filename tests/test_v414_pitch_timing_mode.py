@@ -19,4 +19,4 @@ def test_v414_scheduler_honors_saved_choice():
 
 
 def test_v414_version():
-    assert VERSION == "2026.09.07-505-ADMIN-PREVIEW-CODES-SETTINGS"
+    assert VERSION == "2026.09.07-506-CLICKABLE-FLOW-PROBLEM-ROUTING"

@@ -116,4 +116,4 @@ def test_workspace_delegates_read_projection_and_offline_markup_while_app_keeps_
 
 
 def test_release_version():
-    assert VERSION == "2026.09.07-505-ADMIN-PREVIEW-CODES-SETTINGS"
+    assert VERSION == "2026.09.07-506-CLICKABLE-FLOW-PROBLEM-ROUTING"

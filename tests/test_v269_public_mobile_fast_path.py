@@ -9,7 +9,7 @@ FILTERS = (ROOT / "cupnavi_core" / "public_match_filters_view.py").read_text(enc
 
 
 def test_v269_version_and_weather_defaults_on():
-    assert VERSION == "2026.09.07-505-ADMIN-PREVIEW-CODES-SETTINGS"
+    assert VERSION == "2026.09.07-506-CLICKABLE-FLOW-PROBLEM-ROUTING"
     weather_block = FILTERS[FILTERS.index('show_weather = display_col1.toggle('):]
     weather_block = weather_block[:500]
     assert 'value=True' in weather_block

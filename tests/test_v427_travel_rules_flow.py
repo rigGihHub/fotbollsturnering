@@ -7,7 +7,7 @@ SETUP=(ROOT/"cupnavi_core/initial_setup_view.py").read_text()
 MIG=(ROOT/"cupnavi_core/migrations.py").read_text()
 
 def test_release_version():
-    assert (ROOT/"VERSION.txt").read_text().strip()=="2026.09.07-505-ADMIN-PREVIEW-CODES-SETTINGS"
+    assert (ROOT/"VERSION.txt").read_text().strip()=="2026.09.07-506-CLICKABLE-FLOW-PROBLEM-ROUTING"
 
 def test_wizard_travel_uses_only_buffer_and_auto_route_action():
     assert "Ta hänsyn till restid mellan planerna" in WIZ

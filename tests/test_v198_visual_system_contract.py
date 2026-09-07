@@ -39,5 +39,5 @@ def test_core_components_are_normalized():
         assert token in STYLE
 
 def test_release_is_v198():
-    assert VERSION == "2026.09.07-505-ADMIN-PREVIEW-CODES-SETTINGS"
+    assert VERSION == "2026.09.07-506-CLICKABLE-FLOW-PROBLEM-ROUTING"
     assert "release_ui_label(APP_BUILD_VERSION)" in APP

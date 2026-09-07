@@ -12,7 +12,7 @@ VERSION = (ROOT / "VERSION.txt").read_text(encoding="utf-8").strip()
 
 
 def test_release_and_module_boundary():
-    assert VERSION == "2026.09.07-505-ADMIN-PREVIEW-CODES-SETTINGS"
+    assert VERSION == "2026.09.07-506-CLICKABLE-FLOW-PROBLEM-ROUTING"
     assert "render_admin_results_workspace(" in APP
     app_block = APP[APP.index('if admin_page == "Matcher och resultat":'):APP.index('if admin_page == "Matchhändelser":')]
     assert 'st.data_editor(' not in app_block

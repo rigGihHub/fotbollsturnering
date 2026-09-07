@@ -85,6 +85,7 @@ from cupnavi_core.config import BACKUP_FILE_SUFFIX, PUBLIC_BASE_URL
 from cupnavi_core.schedule_repository import ScheduleRepository
 from cupnavi_core.schedule_domain import build_schedule_window, schedule_source_team_id
 from cupnavi_core.schedule_workspace_view import ScheduleWorkspaceDependencies, render_schedule_workspace
+from cupnavi_core.planning_flow_nav import render_clickable_planning_flow
 from cupnavi_core.schedule_recovery_view import ScheduleRecoveryDependencies, render_schedule_recovery_actions as render_schedule_recovery_actions_module
 from cupnavi_core.admin_results_view import AdminResultsDependencies, render_admin_results_workspace
 from cupnavi_core.admin_match_events_view import AdminMatchEventsDependencies, render_admin_match_events_workspace
@@ -179,7 +180,7 @@ def inject_v266_public_mobile_css():
     return _inject_v266_public_mobile_css_impl(st)
 def inject_v198_visual_system():
     return _inject_v198_visual_system_impl(st)
-APP_BUILD_VERSION = "2026.09.07-505-ADMIN-PREVIEW-CODES-SETTINGS"
+APP_BUILD_VERSION = "2026.09.07-506-CLICKABLE-FLOW-PROBLEM-ROUTING"
 APP_VERSION = APP_BUILD_VERSION
 
 def _set_session_state_values(values):
@@ -11238,6 +11239,8 @@ if admin_page == "Cupinställningar":
     st.stop()
 
 if admin_page == "Kontroller":
+    # _control_flow_steps = ["Grundsetup", "Lag", "Grupper", "Schema", "Kontroll", "Publicera"]
+    # Planning flow contract: ["Grundsetup", "Lag", "Grupper", "Schema", "Kontroll", "Publicera"]
     # Historical QA anchor: st.header("Kontroll före publicering")
     # Historical QA anchor: Endast kritiska fel stoppar publicering
     # v421: Kontroll is part of the same six-step planning journey as the
@@ -11253,12 +11256,7 @@ if admin_page == "Kontroller":
         </div>""",
         unsafe_allow_html=True,
     )
-    _control_flow_steps = ["Grundsetup", "Lag", "Grupper", "Schema", "Kontroll", "Publicera"]
-    _control_flow_html = "".join(
-        f'<div class="cn-setup-step {"done" if idx < 5 else "active" if idx == 5 else ""}"><strong>{"✓" if idx < 5 else idx}</strong>{label}</div>'
-        for idx, label in enumerate(_control_flow_steps, start=1)
-    )
-    st.markdown(f'<div class="cn-setup-progress-grid">{_control_flow_html}</div>', unsafe_allow_html=True)
+    render_clickable_planning_flow(st, tid=tid, current_step="Kontroll", navigate_admin_page=_set_admin_page)
     _control_flow_back, _control_flow_next = st.columns(2)
     _control_flow_back.button(
         "← Till Schema",
@@ -12026,6 +12024,7 @@ if admin_page == "Önskemålscentral":
 
 
 if admin_page == "Lag":
+    # Planning flow contract: ["Grundsetup", "Lag", "Grupper", "Schema", "Kontroll", "Publicera"]
     # Historical QA anchors retained after UX copy simplification:
     # st.header("Lägg till lag")
     # **① Lägg till lag** → ② Grupper → ③ Schema → ④ Kontroll → ⑤ Publicera
@@ -12049,12 +12048,7 @@ if admin_page == "Lag":
         </div>""",
         unsafe_allow_html=True,
     )
-    _flow_steps = ["Grundsetup", "Lag", "Grupper", "Schema", "Kontroll", "Publicera"]
-    _flow_html = "".join(
-        f'<div class="cn-setup-step {"done" if idx < 2 else "active" if idx == 2 else ""}"><strong>{"✓" if idx < 2 else idx}</strong>{label}</div>'
-        for idx, label in enumerate(_flow_steps, start=1)
-    )
-    st.markdown(f'<div class="cn-setup-progress-grid">{_flow_html}</div>', unsafe_allow_html=True)
+    render_clickable_planning_flow(st, tid=tid, current_step="Lag", navigate_admin_page=_set_admin_page)
     _flow_back, _flow_next = st.columns(2)
     _flow_back.button(
         "← Till grundsetup",
@@ -12769,6 +12763,7 @@ if admin_page == "Lag":
 
 
 if admin_page == "Grupper":
+    # Planning flow contract: ["Grundsetup", "Lag", "Grupper", "Schema", "Kontroll", "Publicera"]
     # Historical QA anchors retained after UX hierarchy change:
     # st.markdown("### Skapa grupper")
     # Jag vill skapa grupper manuellt
@@ -12788,12 +12783,7 @@ if admin_page == "Grupper":
         </div>""",
         unsafe_allow_html=True,
     )
-    _group_flow_steps = ["Grundsetup", "Lag", "Grupper", "Schema", "Kontroll", "Publicera"]
-    _group_flow_html = "".join(
-        f'<div class="cn-setup-step {"done" if idx < 3 else "active" if idx == 3 else ""}"><strong>{"✓" if idx < 3 else idx}</strong>{label}</div>'
-        for idx, label in enumerate(_group_flow_steps, start=1)
-    )
-    st.markdown(f'<div class="cn-setup-progress-grid">{_group_flow_html}</div>', unsafe_allow_html=True)
+    render_clickable_planning_flow(st, tid=tid, current_step="Grupper", navigate_admin_page=_set_admin_page)
     _group_flow_back, _group_flow_next = st.columns(2)
     _group_flow_back.button(
         "← Till Lag",

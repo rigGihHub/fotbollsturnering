@@ -11,7 +11,7 @@ WORKSPACE=(ROOT/"cupnavi_core/public_workspace_view.py").read_text(encoding="utf
 VERSION=(ROOT/"VERSION.txt").read_text().strip()
 
 def test_release_version():
-    assert VERSION=="2026.09.07-505-ADMIN-PREVIEW-CODES-SETTINGS"
+    assert VERSION=="2026.09.07-506-CLICKABLE-FLOW-PROBLEM-ROUTING"
 
 def test_primary_public_navigation_matches_user_tasks():
     assert [row[0] for row in PUBLIC_PAGE_SPECS] == [

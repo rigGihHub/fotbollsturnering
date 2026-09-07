@@ -12,7 +12,7 @@ def _overview_block():
 
 
 def test_release_version():
-    assert VERSION == "2026.09.07-505-ADMIN-PREVIEW-CODES-SETTINGS"
+    assert VERSION == "2026.09.07-506-CLICKABLE-FLOW-PROBLEM-ROUTING"
 
 
 def test_class_progress_query_removed_from_default_overview():

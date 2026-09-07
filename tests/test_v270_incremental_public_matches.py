@@ -7,7 +7,7 @@ MATCHES = (ROOT / "cupnavi_core" / "public_matches_view.py").read_text(encoding=
 
 
 def test_release_version_270():
-    assert VERSION == "2026.09.07-505-ADMIN-PREVIEW-CODES-SETTINGS"
+    assert VERSION == "2026.09.07-506-CLICKABLE-FLOW-PROBLEM-ROUTING"
 
 
 def test_public_match_paging_helper_batches_without_framework_state():

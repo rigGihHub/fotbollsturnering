@@ -9,7 +9,7 @@ def creation_block():
     return APP[start:end]
 
 def test_v343_version():
-    assert VERSION == '2026.09.07-505-ADMIN-PREVIEW-CODES-SETTINGS'
+    assert VERSION == '2026.09.07-506-CLICKABLE-FLOW-PROBLEM-ROUTING'
     assert f'APP_BUILD_VERSION = "{VERSION}"' in APP
     assert f'APP_VERSION = "{VERSION}"' in (ROOT/'cupnavi_core/version.py').read_text(encoding='utf-8')
 
