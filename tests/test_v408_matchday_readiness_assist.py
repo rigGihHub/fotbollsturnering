@@ -22,7 +22,7 @@ def _match(now, *, minutes=10, referee_id=None, home='team:1', away='team:2'):
 
 
 def test_version_and_release_note():
-    assert APP_VERSION == '2026.09.07-497-MY-TEAMS-NOTICES-POLISH'
+    assert APP_VERSION == '2026.09.07-499-DOCUMENT-TO-COMPLETE-PROPOSAL'
     assert (ROOT / 'MATCHDAY_READINESS_ASSIST_V408.md').exists()
 
 

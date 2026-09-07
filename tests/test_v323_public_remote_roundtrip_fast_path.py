@@ -6,7 +6,7 @@ VERSION = (ROOT / 'VERSION.txt').read_text().strip()
 
 
 def test_v323_version():
-    assert VERSION == '2026.09.07-497-MY-TEAMS-NOTICES-POLISH'
+    assert VERSION == '2026.09.07-499-DOCUMENT-TO-COMPLETE-PROPOSAL'
 
 
 def test_schema_fast_path_is_one_execute_statement():

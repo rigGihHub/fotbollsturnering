@@ -13,7 +13,7 @@ _APP_RENDER_STARTED = time.perf_counter()
 import hashlib
 import sys
 import importlib
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from pathlib import Path
 from urllib.parse import urlencode, quote, urlparse
 from urllib.request import Request, urlopen
@@ -54,7 +54,6 @@ def _refresh_cupnavi_imports_if_sources_changed():
     current = _compute_source_fingerprint()
     previous = st.session_state.get("_cupnavi_source_fingerprint")
     changed = previous != current
-
     if changed:
         # The Streamlit process can survive a GitHub redeploy. Remove only our own
         # package modules so subsequent imports in this script load the new files.
@@ -68,13 +67,9 @@ def _refresh_cupnavi_imports_if_sources_changed():
         ) + 1
         st.session_state["_cupnavi_source_reloaded_at"] = datetime.now().isoformat(timespec="seconds")
     return current, changed
-
-
 ACTIVE_SOURCE_FINGERPRINT, SOURCE_PACKAGE_REFRESHED = _refresh_cupnavi_imports_if_sources_changed()
-
 from cupnavi_core.version import APP_VERSION as IMPORTED_CORE_APP_VERSION, release_ui_label
 from cupnavi_core.texttv330_theme import public_style_tag as texttv330_public_style_tag, cupday_style_tag as texttv330_cupday_style_tag
-
 from cupnavi_core.observability import safe_error_record, persist_error
 from cupnavi_core.performance import build_performance_snapshot, performance_log_line
 from cupnavi_core.schedule_quality import assess_schedule
@@ -171,35 +166,20 @@ from cupnavi_core.admin_publication_view import (
 from cupnavi_core.admin_role_codes_view import render_role_code_card
 from cupnavi_core.go_live_readiness import build_go_live_readiness, readiness_icon as go_live_readiness_icon
 from cupnavi_core.sharp_rehearsal import build_sharp_rehearsal_verdict
-
-
 def inject_custom_css():
     return _inject_custom_css_impl(st)
-
-
 def inject_ux2_css():
     return _inject_ux2_css_impl(st, components)
-
-
 def inject_v191_design_system():
     return _inject_v191_design_system_impl(st)
-
-
 def inject_v193_product_design_system():
     return _inject_v193_product_design_system_impl(st)
-
-
 def inject_v266_public_mobile_css():
     return _inject_v266_public_mobile_css_impl(st)
-
-
 def inject_v198_visual_system():
     return _inject_v198_visual_system_impl(st)
-
-
-APP_BUILD_VERSION = "2026.09.07-497-MY-TEAMS-NOTICES-POLISH"
+APP_BUILD_VERSION = "2026.09.07-499-DOCUMENT-TO-COMPLETE-PROPOSAL"
 APP_VERSION = APP_BUILD_VERSION
-
 
 def _set_session_state_values(values):
     st.session_state.update(values)
@@ -8128,6 +8108,11 @@ def render_new_tournament_creator(*, key_prefix="sidebar"):
             selected_template = template_definition(template_id)
             st.caption(selected_template["description_sv"])
 
+    doc_prefill_key, doc_use_teams_key = f"{key_prefix}_cup_document_prefill", f"{key_prefix}_cup_document_use_teams"
+    doc_prefill, _doc_date = {}, None
+    if not creator_compact:
+        from cupnavi_core.cup_document_creator_view import render_cup_document_import
+        doc_prefill, doc_prefill_key, doc_use_teams_key, _doc_date = render_cup_document_import(st, key_prefix, setting)
     with st.form(f"{key_prefix}_new_tournament", clear_on_submit=True):
         sports_list = list(SPORT_PROFILES)
         suggested_sport = selected_template["sport"] if selected_template["sport"] in sports_list else sports_list[0]
@@ -8146,7 +8131,7 @@ def render_new_tournament_creator(*, key_prefix="sidebar"):
         else:
             create_col1, create_col2 = st.columns(2)
             with create_col1:
-                n = st.text_input("Namn på cup *", placeholder="Exempel: Sommarcupen 2026")
+                n = st.text_input("Namn på cup *", value=str(doc_prefill.get("tournament_name") or ""), placeholder="Exempel: Sommarcupen 2026")
                 sport = st.selectbox(
                     "Sport *",
                     sports_list,
@@ -8155,8 +8140,8 @@ def render_new_tournament_creator(*, key_prefix="sidebar"):
                     help="Sport väljs när cupen skapas och låses därefter, eftersom den styr matchmodell, terminologi och sportregler.",
                 )
             with create_col2:
-                place = st.text_input("Spelort", placeholder="Exempel: Örebro")
-                start_date = st.date_input("Cupdag")
+                place = st.text_input("Spelort", value=str(doc_prefill.get("location") or ""), placeholder="Exempel: Örebro")
+                start_date = st.date_input("Cupdag", value=_doc_date or date.today())
 
         multi_day = st.checkbox("Cupen pågår flera dagar", value=False, key=f"{key_prefix}_new_tournament_multi_day")
         end_date = st.date_input("Sista cupdag", value=start_date) if multi_day else start_date
@@ -8257,6 +8242,9 @@ def render_new_tournament_creator(*, key_prefix="sidebar"):
                 public_slug = choose_unique_slug(n.strip(), start_date.isoformat(), new_tournament_id, used_slugs)
                 run("UPDATE tournaments SET public_slug=? WHERE id=?", (public_slug, new_tournament_id))
                 sync_competition_classes(new_tournament_id, [])
+                if st.session_state.get(doc_use_teams_key, False) and doc_prefill.get("teams"):
+                    from cupnavi_core.cup_document_creator_view import apply_document_teams
+                    _imported_team_count = apply_document_teams(db, new_tournament_id, doc_prefill); add_feed_item(new_tournament_id, f"{_imported_team_count} lag importerade från dokument", str(doc_prefill.get("source_name") or "Cupprogram"), category="Import")
                 defaults = sport_profile(sport)
                 run(
                     """INSERT INTO schedule_rules(
@@ -8282,6 +8270,8 @@ def render_new_tournament_creator(*, key_prefix="sidebar"):
                 st.session_state["pending_new_tournament_id"] = int(new_tournament_id)
                 st.session_state["pending_new_tournament_slug"] = str(public_slug or new_tournament_id)
                 st.session_state["show_mobile_tournament_creator"] = False
+                st.session_state.pop(doc_prefill_key, None)
+                st.session_state.pop(doc_use_teams_key, None)
                 st.rerun()
 
 # Historical static-test anchors. These strings preserve legacy source boundaries

@@ -1,6 +1,6 @@
 from pathlib import Path
 
-VERSION = "2026.09.07-497-MY-TEAMS-NOTICES-POLISH"
+VERSION = "2026.09.07-499-DOCUMENT-TO-COMPLETE-PROPOSAL"
 APP = Path("app.py").read_text(encoding="utf-8")
 ROLE_VIEW = Path("cupnavi_core/admin_role_codes_view.py").read_text(encoding="utf-8")
 CONTRACT = Path("scripts/check_performance_contract.py").read_text(encoding="utf-8")

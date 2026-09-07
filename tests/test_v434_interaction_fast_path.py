@@ -6,8 +6,8 @@ VERSION = (ROOT / "VERSION.txt").read_text(encoding="utf-8").strip()
 
 
 def test_release_version():
-    assert VERSION == "2026.09.07-497-MY-TEAMS-NOTICES-POLISH"
-    assert 'APP_BUILD_VERSION = "2026.09.07-497-MY-TEAMS-NOTICES-POLISH"' in APP
+    assert VERSION == "2026.09.07-499-DOCUMENT-TO-COMPLETE-PROPOSAL"
+    assert 'APP_BUILD_VERSION = "2026.09.07-499-DOCUMENT-TO-COMPLETE-PROPOSAL"' in APP
 
 
 def test_short_session_ttl_fast_path_exists():

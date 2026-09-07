@@ -4,7 +4,7 @@ SRC=(ROOT/"cupnavi_core"/"initial_setup_view.py").read_text(encoding="utf-8")
 VERSION=(ROOT/"VERSION.txt").read_text().strip()
 
 def test_v428_version():
-    assert VERSION=="2026.09.07-497-MY-TEAMS-NOTICES-POLISH"
+    assert VERSION=="2026.09.07-499-DOCUMENT-TO-COMPLETE-PROPOSAL"
 
 def test_rules_block_does_not_reask_pitch_timing():
     block=SRC[SRC.index('# v428: manual setup'):SRC.index('# v364: Matchcamp')]

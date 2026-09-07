@@ -12,7 +12,7 @@ def _overview_block():
 
 
 def test_release_version():
-    assert VERSION == "2026.09.07-497-MY-TEAMS-NOTICES-POLISH"
+    assert VERSION == "2026.09.07-499-DOCUMENT-TO-COMPLETE-PROPOSAL"
 
 
 def test_class_progress_query_removed_from_default_overview():

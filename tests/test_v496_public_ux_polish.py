@@ -1,6 +1,6 @@
 from pathlib import Path
 
-VERSION = "2026.09.07-497-MY-TEAMS-NOTICES-POLISH"
+VERSION = "2026.09.07-499-DOCUMENT-TO-COMPLETE-PROPOSAL"
 APP = Path("app.py").read_text(encoding="utf-8")
 FILTERS = Path("cupnavi_core/public_match_filters_view.py").read_text(encoding="utf-8")
 MATCHES = Path("cupnavi_core/public_matches_view.py").read_text(encoding="utf-8")

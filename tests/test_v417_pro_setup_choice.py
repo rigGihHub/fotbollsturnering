@@ -6,7 +6,7 @@ VERSION = (ROOT / "VERSION.txt").read_text(encoding="utf-8").strip()
 
 
 def test_v417_version():
-    assert VERSION == "2026.09.07-497-MY-TEAMS-NOTICES-POLISH"
+    assert VERSION == "2026.09.07-499-DOCUMENT-TO-COMPLETE-PROPOSAL"
 
 
 def test_manual_setup_is_primary_path_for_tournaments():

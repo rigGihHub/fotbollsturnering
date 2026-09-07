@@ -1,6 +1,6 @@
 from pathlib import Path
 
-VERSION = "2026.09.07-497-MY-TEAMS-NOTICES-POLISH"
+VERSION = "2026.09.07-499-DOCUMENT-TO-COMPLETE-PROPOSAL"
 
 
 def test_release_version():

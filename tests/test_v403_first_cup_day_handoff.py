@@ -22,7 +22,7 @@ def _match(mid, start, status="not_started"):
 
 
 def test_version_and_release_note():
-    assert VERSION == "2026.09.07-497-MY-TEAMS-NOTICES-POLISH"
+    assert VERSION == "2026.09.07-499-DOCUMENT-TO-COMPLETE-PROPOSAL"
     assert (ROOT / "FIRST_CUP_DAY_HANDOFF_V403.md").exists()
 
 

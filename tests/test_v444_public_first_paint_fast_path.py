@@ -4,7 +4,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def test_v444_release_version():
-    assert (ROOT / "VERSION.txt").read_text().strip() == "2026.09.07-497-MY-TEAMS-NOTICES-POLISH"
+    assert (ROOT / "VERSION.txt").read_text().strip() == "2026.09.07-499-DOCUMENT-TO-COMPLETE-PROPOSAL"
 
 
 def test_match_events_are_lazy_on_first_paint():

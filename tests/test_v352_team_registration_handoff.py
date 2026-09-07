@@ -5,7 +5,7 @@ VERSION = Path("VERSION.txt").read_text(encoding="utf-8").strip()
 
 
 def test_v352_release_version():
-    assert VERSION == "2026.09.07-497-MY-TEAMS-NOTICES-POLISH"
+    assert VERSION == "2026.09.07-499-DOCUMENT-TO-COMPLETE-PROPOSAL"
 
 
 def test_team_page_starts_with_guided_primary_task():

@@ -2,7 +2,7 @@ from pathlib import Path
 ROOT=Path(__file__).resolve().parents[1]
 APP=(ROOT/"app.py").read_text(encoding="utf-8")
 FOLLOW_VIEW=(ROOT/"cupnavi_core"/"public_team_follow_view.py").read_text(encoding="utf-8")
-R="2026.09.07-497-MY-TEAMS-NOTICES-POLISH"
+R="2026.09.07-499-DOCUMENT-TO-COMPLETE-PROPOSAL"
 
 def test_version_check_reads_deployed_file_directly():
     assert "def read_core_version_from_disk" in APP

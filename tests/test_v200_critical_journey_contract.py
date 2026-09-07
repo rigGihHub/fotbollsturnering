@@ -21,4 +21,4 @@ def test_active_tournament_has_real_browser_regression_guard():
     assert 'selector.input_value() == first' in E2E
 
 def test_release_is_v200():
-    assert VERSION == "2026.09.07-497-MY-TEAMS-NOTICES-POLISH"
+    assert VERSION == "2026.09.07-499-DOCUMENT-TO-COMPLETE-PROPOSAL"

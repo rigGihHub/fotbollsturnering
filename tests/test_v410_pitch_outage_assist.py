@@ -13,7 +13,7 @@ def _resolve(source):
 
 
 def test_release_version_and_note():
-    assert APP_VERSION == "2026.09.07-497-MY-TEAMS-NOTICES-POLISH"
+    assert APP_VERSION == "2026.09.07-499-DOCUMENT-TO-COMPLETE-PROPOSAL"
     assert (ROOT / "PITCH_OUTAGE_ASSIST_V410.md").exists()
 
 

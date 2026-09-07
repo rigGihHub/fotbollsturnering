@@ -6,7 +6,7 @@ PRESENTATION = (ROOT / "cupnavi_core" / "public_presentation_view.py").read_text
 
 
 def test_v448_version():
-    assert VERSION == "2026.09.07-497-MY-TEAMS-NOTICES-POLISH"
+    assert VERSION == "2026.09.07-499-DOCUMENT-TO-COMPLETE-PROPOSAL"
 
 
 def test_mobile_playoff_has_live_status_and_progress_path():

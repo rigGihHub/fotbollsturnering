@@ -6,7 +6,7 @@ SCHEDULE = (ROOT / "cupnavi_core" / "schedule_workspace_view.py").read_text(enco
 VERSION = (ROOT / "VERSION.txt").read_text(encoding="utf-8").strip()
 
 def test_release_version():
-    assert VERSION == "2026.09.07-497-MY-TEAMS-NOTICES-POLISH"
+    assert VERSION == "2026.09.07-499-DOCUMENT-TO-COMPLETE-PROPOSAL"
     assert VERSION in APP
 
 def test_expected_team_count_is_part_of_schedule_readiness():

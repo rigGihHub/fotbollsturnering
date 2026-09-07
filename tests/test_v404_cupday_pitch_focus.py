@@ -23,7 +23,7 @@ def _finished_without_score():
 
 
 def test_version_and_release_note():
-    assert VERSION == "2026.09.07-497-MY-TEAMS-NOTICES-POLISH"
+    assert VERSION == "2026.09.07-499-DOCUMENT-TO-COMPLETE-PROPOSAL"
     assert (ROOT / "CUPDAY_PITCH_FOCUS_V404.md").exists()
 
 

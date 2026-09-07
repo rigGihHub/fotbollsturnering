@@ -1,7 +1,7 @@
 from pathlib import Path
 from cupnavi_core.go_live_readiness import build_go_live_readiness
 
-VERSION = "2026.09.07-497-MY-TEAMS-NOTICES-POLISH"
+VERSION = "2026.09.07-499-DOCUMENT-TO-COMPLETE-PROPOSAL"
 APP = Path("app.py").read_text(encoding="utf-8")
 
 

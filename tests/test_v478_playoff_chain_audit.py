@@ -1,7 +1,7 @@
 from pathlib import Path
 from cupnavi_core.playoff_dependency_safety import transitive_downstream_match_ids
 
-VERSION = "2026.09.07-497-MY-TEAMS-NOTICES-POLISH"
+VERSION = "2026.09.07-499-DOCUMENT-TO-COMPLETE-PROPOSAL"
 APP = Path("app.py").read_text(encoding="utf-8")
 
 

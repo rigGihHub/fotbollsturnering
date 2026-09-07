@@ -40,4 +40,4 @@ def test_setup_uses_progressive_disclosure_wording():
 
 
 def test_version():
-    assert 'APP_BUILD_VERSION = "2026.09.07-497-MY-TEAMS-NOTICES-POLISH"' in APP
+    assert 'APP_BUILD_VERSION = "2026.09.07-499-DOCUMENT-TO-COMPLETE-PROPOSAL"' in APP

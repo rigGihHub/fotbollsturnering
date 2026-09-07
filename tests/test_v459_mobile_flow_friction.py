@@ -3,7 +3,7 @@ from pathlib import Path
 
 from cupnavi_core.mobile_flow import mobile_match_preview
 
-VERSION = "2026.09.07-497-MY-TEAMS-NOTICES-POLISH"
+VERSION = "2026.09.07-499-DOCUMENT-TO-COMPLETE-PROPOSAL"
 APP = Path("app.py").read_text(encoding="utf-8")
 PORTAL = Path("cupnavi_core/team_portal_view.py").read_text(encoding="utf-8")
 
