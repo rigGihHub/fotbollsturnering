@@ -1,6 +1,6 @@
 from pathlib import Path
 
-VERSION = "2026.09.07-502-GUIDED-ADMIN-FLOW"
+VERSION = "2026.09.07-505-ADMIN-PREVIEW-CODES-SETTINGS"
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE = (ROOT / "cupnavi_core" / "public_statistics_view.py").read_text(encoding="utf-8")
 

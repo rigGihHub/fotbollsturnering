@@ -58,4 +58,4 @@ def test_cup_day_has_direct_operational_actions():
 
 
 def test_version():
-    assert 'APP_BUILD_VERSION = "2026.09.07-502-GUIDED-ADMIN-FLOW"' in APP
+    assert 'APP_BUILD_VERSION = "2026.09.07-505-ADMIN-PREVIEW-CODES-SETTINGS"' in APP

@@ -1,5 +1,5 @@
 from pathlib import Path
-VERSION = "2026.09.07-502-GUIDED-ADMIN-FLOW"
+VERSION = "2026.09.07-505-ADMIN-PREVIEW-CODES-SETTINGS"
 APP = Path("app.py").read_text(encoding="utf-8")
 def test_version_is_v492():
     assert Path("VERSION.txt").read_text().strip() == VERSION

@@ -1,6 +1,6 @@
 from pathlib import Path
 
-RELEASE = "2026.09.07-502-GUIDED-ADMIN-FLOW"
+RELEASE = "2026.09.07-505-ADMIN-PREVIEW-CODES-SETTINGS"
 
 
 def test_v389_batches_schedule_match_events_and_reuses_match_snapshot():

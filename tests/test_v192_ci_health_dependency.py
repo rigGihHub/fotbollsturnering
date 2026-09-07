@@ -1,7 +1,7 @@
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-RELEASE = "2026.09.07-502-GUIDED-ADMIN-FLOW"
+RELEASE = "2026.09.07-505-ADMIN-PREVIEW-CODES-SETTINGS"
 
 
 def test_health_contract_testclient_dependency_is_declared():

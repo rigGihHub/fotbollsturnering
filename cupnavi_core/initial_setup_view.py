@@ -93,6 +93,18 @@ def render_initial_tournament_setup(tournament_id, tournament, *, deps: InitialS
     DIFFICULTY_LEVELS = deps.difficulty_levels
     date_with_weekday = deps.date_with_weekday
     """Första konfigurationssidan efter skapande. Vanliga fält autosparas."""
+    # v505: editing an existing cup uses the same readable light form surface as
+    # the new-cup wizard. The surrounding Text-TV shell must never leak dark
+    # text/background combinations into form labels, captions or alerts.
+    st.markdown(
+        """<style>
+        [data-testid="stAppViewContainer"],[data-testid="stMain"],.stMainBlockContainer{background:#f6f8f7!important;color:#172033!important}
+        .stMainBlockContainer h1,.stMainBlockContainer h2,.stMainBlockContainer h3,.stMainBlockContainer h4,.stMainBlockContainer p,
+        .stMainBlockContainer [data-testid="stCaptionContainer"],.stMainBlockContainer [data-testid="stWidgetLabel"],
+        .stMainBlockContainer [data-testid="stAlert"]{color:#172033!important}
+        </style>""", unsafe_allow_html=True,
+    )
+    _editing_existing = st.session_state.get("new_tournament_setup_mode") == "edit"
     # Historical QA anchors retained after arrangement-type UX:
     # Cup skapad · fortsätt setupen
     # Du behöver inte kunna cupregler i förväg.
@@ -101,9 +113,9 @@ def render_initial_tournament_setup(tournament_id, tournament, *, deps: InitialS
     st.markdown(
         f"""
         <div class="cn-setup-hero">
-          <div class="cn-setup-eyebrow">Arrangemang skapat · fortsätt</div>
-          <div class="cn-setup-title">Kom igång med {tournament['name']}</div>
-          <p class="cn-setup-copy">Lägg bara in det CupNavi behöver för att planera arrangemanget. Specialinställningar kan vänta.</p>
+          <div class="cn-setup-eyebrow">{"Ändra cupinställningar" if _editing_existing else "Arrangemang skapat · fortsätt"}</div>
+          <div class="cn-setup-title">{"Inställningar för " if _editing_existing else "Kom igång med "}{tournament['name']}</div>
+          <p class="cn-setup-copy">{"Ändra bara det som behöver justeras. CupNavi visar konsekvenser innan större ändringar påverkar planeringen." if _editing_existing else "Lägg bara in det CupNavi behöver för att planera arrangemanget. Specialinställningar kan vänta."}</p>
           <div class="cn-setup-progress-grid">
             <div class="cn-setup-step done"><strong>✓</strong>Grund</div>
             <div class="cn-setup-step active"><strong>2</strong>Tävlingsklasser</div>

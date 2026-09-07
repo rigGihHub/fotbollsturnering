@@ -6,7 +6,7 @@ VERSION = (ROOT / 'VERSION.txt').read_text(encoding='utf-8').strip()
 
 
 def test_v324_version():
-    assert VERSION == '2026.09.07-502-GUIDED-ADMIN-FLOW'
+    assert VERSION == '2026.09.07-505-ADMIN-PREVIEW-CODES-SETTINGS'
 
 
 def test_reporter_uses_lazy_section_selector_instead_of_tabs():

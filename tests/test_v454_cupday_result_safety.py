@@ -6,7 +6,7 @@ VERSION = Path('VERSION.txt').read_text().strip()
 
 
 def test_v454_version():
-    assert VERSION == '2026.09.07-502-GUIDED-ADMIN-FLOW'
+    assert VERSION == '2026.09.07-505-ADMIN-PREVIEW-CODES-SETTINGS'
 
 
 def test_schedule_score_write_has_stale_snapshot_protection():

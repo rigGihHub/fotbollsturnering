@@ -6,7 +6,7 @@ PRESENTATION = (ROOT / "cupnavi_core" / "public_presentation_view.py").read_text
 
 
 def test_v448_version():
-    assert VERSION == "2026.09.07-502-GUIDED-ADMIN-FLOW"
+    assert VERSION == "2026.09.07-505-ADMIN-PREVIEW-CODES-SETTINGS"
 
 
 def test_mobile_playoff_has_live_status_and_progress_path():

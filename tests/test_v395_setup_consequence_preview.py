@@ -1,7 +1,7 @@
 from pathlib import Path
 from cupnavi_core.initial_setup_logic import setup_consequence_preview
 
-VERSION = "2026.09.07-502-GUIDED-ADMIN-FLOW"
+VERSION = "2026.09.07-505-ADMIN-PREVIEW-CODES-SETTINGS"
 
 
 def test_release_version():

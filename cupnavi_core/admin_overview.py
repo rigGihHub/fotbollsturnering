@@ -172,7 +172,7 @@ def recommend_next_step(
     if _count(counts, "matches_n") == 0:
         return AdminNextStep("Nästa steg: generera schema", "Skapa och publicera schema", "Grunddata är på plats. Generera gruppspel och slutspel.")
     if schedule_dirty:
-        return AdminNextStep("Nästa steg: regenerera schema", "Skapa och publicera schema", "Förutsättningarna har ändrats sedan schemat skapades.")
+        return AdminNextStep("Nästa steg: granska schemaändring", "Skapa och publicera schema", "Det finns redan ett schema. CupNavi ändrar ingenting automatiskt. Öppna Schema för att se vad som behöver uppdateras och bekräfta uttryckligen innan befintliga tider eller planer ersätts.")
     if not published:
         return AdminNextStep("Nästa steg: kontrollera och publicera", "Kontroller", "Schemat är klart. Kontrollera kritiska fel och publicera när allt ser rätt ut.")
     if not readiness.results_ready:

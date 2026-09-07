@@ -1,7 +1,7 @@
 from pathlib import Path
 from cupnavi_core.sharp_rehearsal import rehearsal_steps, build_sharp_rehearsal_verdict
 
-VERSION = "2026.09.07-502-GUIDED-ADMIN-FLOW"
+VERSION = "2026.09.07-505-ADMIN-PREVIEW-CODES-SETTINGS"
 APP = Path("app.py").read_text(encoding="utf-8")
 
 

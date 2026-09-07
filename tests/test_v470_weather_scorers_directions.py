@@ -1,6 +1,6 @@
 from pathlib import Path
 
-VERSION = "2026.09.07-502-GUIDED-ADMIN-FLOW"
+VERSION = "2026.09.07-505-ADMIN-PREVIEW-CODES-SETTINGS"
 APP = Path("app.py").read_text(encoding="utf-8")
 VIEW = Path("cupnavi_core/public_team_follow_view.py").read_text(encoding="utf-8")
 MATCHES = Path("cupnavi_core/public_matches_view.py").read_text(encoding="utf-8")

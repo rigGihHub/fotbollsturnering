@@ -159,6 +159,7 @@ from cupnavi_core.admin_overview import (
 )
 from cupnavi_core.admin_publication import build_completion_state, build_publication_quality_summary
 from cupnavi_core.admin_publication_repository import fetch_lifecycle_match_counts
+from cupnavi_core.admin_publish_preview import render_publish_preview
 from cupnavi_core.admin_publication_view import (
     render_admin_lifecycle_controls,
     render_admin_publication_controls,
@@ -178,7 +179,7 @@ def inject_v266_public_mobile_css():
     return _inject_v266_public_mobile_css_impl(st)
 def inject_v198_visual_system():
     return _inject_v198_visual_system_impl(st)
-APP_BUILD_VERSION = "2026.09.07-502-GUIDED-ADMIN-FLOW"
+APP_BUILD_VERSION = "2026.09.07-505-ADMIN-PREVIEW-CODES-SETTINGS"
 APP_VERSION = APP_BUILD_VERSION
 
 def _set_session_state_values(values):
@@ -8784,6 +8785,15 @@ with st.sidebar:
 
                 if st.button("Öppna papperskorgen", key=f"sidebar_open_trash_{tid}", use_container_width=True):
                     st.session_state[f"admin_page_{tid}"] = "Papperskorg"
+        st.markdown("**Koder**")
+        st.caption("Matchrapportör · domare · lag")
+        st.button(
+            "Öppna alla koder",
+            key=f"sidebar_open_all_codes_{tid}",
+            use_container_width=True,
+            on_click=_set_session_state_values,
+            args=({f"pending_admin_page_{tid}": "Åtkomst & koder"},),
+        )
 
 st.markdown(
     """<style>
@@ -9315,6 +9325,22 @@ if st.session_state.get(admin_page_key) not in ADMIN_PAGES:
     st.session_state[admin_page_key] = "Adminöversikt"
 def _set_admin_page(page):
     st.session_state[admin_page_key] = page
+    # v504: remember programmatic navigation until the guided widgets are rebuilt.
+    # This prevents an already-instantiated selectbox/segmented control from
+    # restoring the previous page on the rerun.
+    st.session_state[f"pending_admin_page_{tid}"] = page
+    # v503: keep the guided admin flow widgets in sync with programmatic
+    # navigation. Without this, a CTA such as "Fortsätt till Grupper" changes
+    # admin_page in its callback, but the existing step selectbox can immediately
+    # write the previous page (for example Lag) back on the following rerun.
+    flow_step_resolver = globals().get("_flow_step_for_page")
+    flow_steps = globals().get("_ADMIN_FLOW_STEPS", [])
+    if callable(flow_step_resolver):
+        step_name = flow_step_resolver(page)
+        st.session_state[f"admin_flow_{tid}"] = step_name
+        step_pages = next((items for name, items in flow_steps if name == step_name), [])
+        if page in step_pages:
+            st.session_state[f"admin_flow_page_{tid}_{step_name}"] = page
 # Två nivåer i adminnavigationen: fem tydliga huvudområden och bara relevanta
 # underknappar för valt område. Det minskar knappmängden utan att gömma funktioner.
 def _admin_group_for_page(page):
@@ -9395,7 +9421,16 @@ def _flow_step_for_page(page_name):
             return step_name
     return "Planer & tider"
 admin_flow_key = f"admin_flow_{tid}"
-st.session_state[admin_flow_key] = _flow_step_for_page(st.session_state[admin_page_key])
+_pending_admin_page = st.session_state.pop(f"pending_admin_page_{tid}", None)
+if _pending_admin_page in ADMIN_PAGES:
+    st.session_state[admin_page_key] = _pending_admin_page
+    _pending_step = _flow_step_for_page(_pending_admin_page)
+    st.session_state[admin_flow_key] = _pending_step
+    _pending_pages = next((items for name, items in _ADMIN_FLOW_STEPS if name == _pending_step), [])
+    if _pending_admin_page in _pending_pages:
+        st.session_state[f"admin_flow_page_{tid}_{_pending_step}"] = _pending_admin_page
+else:
+    st.session_state[admin_flow_key] = _flow_step_for_page(st.session_state[admin_page_key])
 def _sync_admin_flow_selector():
     chosen = st.session_state.get(admin_flow_key, "Deltagare")
     pages = next((items for name, items in _ADMIN_FLOW_STEPS if name == chosen), [])
@@ -11284,6 +11319,11 @@ if admin_page == "Kontroller":
     if not (_control_summary.critical or _control_summary.warnings or _control_summary.improvements):
         st.success("Inga problem eller förbättringspunkter hittades i snabbkontrollen.")
 
+    # v505: a concrete preview comes before the irreversible public action.
+    render_publish_preview(
+        st=st, tournament_id=tid, tournament=tournament, all_rows=all_rows,
+        row_value=_row_value, cup_date_label=cup_date_label,
+    )
     # v412: render Step 5 only after the Step 4 control summary has actually
     # appeared. The sidebar control remains globally available, but the large
     # main-content publication card no longer jumps ahead of the control step.

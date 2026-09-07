@@ -10,7 +10,7 @@ VERSION = (ROOT / "VERSION.txt").read_text(encoding="utf-8").strip()
 
 
 def test_v425_share_is_persistent_left_rail_action():
-    assert VERSION == "2026.09.07-502-GUIDED-ADMIN-FLOW"
+    assert VERSION == "2026.09.07-505-ADMIN-PREVIEW-CODES-SETTINGS"
     assert "with st.sidebar:" in APP
     assert "render_public_share_control(tournament_id, tournament, in_sidebar=True)" not in WORKSPACE
     assert "render_public_share_control(tid, tournament, in_sidebar=True)" in APP

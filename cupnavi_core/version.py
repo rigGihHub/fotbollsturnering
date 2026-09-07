@@ -1,4 +1,4 @@
-APP_VERSION = "2026.09.07-502-GUIDED-ADMIN-FLOW"
+APP_VERSION = "2026.09.07-505-ADMIN-PREVIEW-CODES-SETTINGS"
 
 
 def release_ui_label(version: str) -> str:

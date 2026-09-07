@@ -15,7 +15,7 @@ ROOT = Path(__file__).resolve().parents[1]
 APP = (ROOT / "app.py").read_text(encoding="utf-8")
 MODULE = (ROOT / "cupnavi_core" / "admin_overview.py").read_text(encoding="utf-8")
 REPOSITORY = (ROOT / "cupnavi_core" / "admin_overview_repository.py").read_text(encoding="utf-8")
-VERSION = "2026.09.07-502-GUIDED-ADMIN-FLOW"
+VERSION = "2026.09.07-505-ADMIN-PREVIEW-CODES-SETTINGS"
 
 
 def sample_counts(**overrides):
@@ -82,7 +82,7 @@ def test_readiness_and_next_step_follow_existing_priority():
 
     counts = sample_counts(matches_n=12, played_n=0)
     readiness = build_readiness(counts, expected_teams=8, schedule_dirty=True)
-    assert recommend_next_step(readiness, counts, schedule_dirty=True).title == "Nästa steg: regenerera schema"
+    assert recommend_next_step(readiness, counts, schedule_dirty=True).title == "Nästa steg: granska schemaändring"
 
     counts = sample_counts(played_n=12)
     readiness = build_readiness(counts, expected_teams=8, schedule_dirty=False)

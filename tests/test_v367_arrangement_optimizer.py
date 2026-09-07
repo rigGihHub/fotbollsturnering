@@ -77,4 +77,4 @@ def test_matchcamp_apply_skips_home_away_rebalance():
 
 
 def test_version():
-    assert 'APP_BUILD_VERSION = "2026.09.07-502-GUIDED-ADMIN-FLOW"' in APP
+    assert 'APP_BUILD_VERSION = "2026.09.07-505-ADMIN-PREVIEW-CODES-SETTINGS"' in APP

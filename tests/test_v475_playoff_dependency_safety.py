@@ -2,7 +2,7 @@ from pathlib import Path
 
 from cupnavi_core.playoff_dependency_safety import dependency_impact, winner_side
 
-VERSION = "2026.09.07-502-GUIDED-ADMIN-FLOW"
+VERSION = "2026.09.07-505-ADMIN-PREVIEW-CODES-SETTINGS"
 APP = Path("app.py").read_text(encoding="utf-8")
 
 
