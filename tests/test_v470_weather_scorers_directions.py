@@ -1,6 +1,6 @@
 from pathlib import Path
 
-VERSION = "2026.09.07-495-PUBLIC-UX-PDF-II"
+VERSION = "2026.09.07-497-MY-TEAMS-NOTICES-POLISH"
 APP = Path("app.py").read_text(encoding="utf-8")
 VIEW = Path("cupnavi_core/public_team_follow_view.py").read_text(encoding="utf-8")
 MATCHES = Path("cupnavi_core/public_matches_view.py").read_text(encoding="utf-8")
@@ -24,7 +24,7 @@ def test_latest_result_has_direct_scorer_action():
     assert 'st.query_params["match"] = str(_last_match_id)' in VIEW
     assert "if requested_match_id:" in MATCHES
     assert "show_match_events = True" in MATCHES
-    assert '"⚽ Målskyttar och kort"' in MATCHES
+    assert '"⚽ Målskyttar och kort"' in FILTERS
 
 
 def test_family_directions_are_lazy():

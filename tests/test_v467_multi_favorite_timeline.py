@@ -3,7 +3,7 @@ from pathlib import Path
 
 from cupnavi_core.public_team_follow import build_multi_favorite_timeline
 
-VERSION = "2026.09.07-495-PUBLIC-UX-PDF-II"
+VERSION = "2026.09.07-497-MY-TEAMS-NOTICES-POLISH"
 APP = Path("app.py").read_text(encoding="utf-8")
 VIEW = Path("cupnavi_core/public_team_follow_view.py").read_text(encoding="utf-8")
 STYLE = Path("cupnavi_core/style_system.py").read_text(encoding="utf-8")

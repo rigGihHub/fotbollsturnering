@@ -3,7 +3,7 @@ from pathlib import Path
 from cupnavi_core.public_navigation_view import build_public_navigation_html
 from cupnavi_core.public_view_logic import public_navigation_specs
 
-VERSION = "2026.09.07-495-PUBLIC-UX-PDF-II"
+VERSION = "2026.09.07-497-MY-TEAMS-NOTICES-POLISH"
 APP = Path("app.py").read_text(encoding="utf-8")
 STYLE = Path("cupnavi_core/style_system.py").read_text(encoding="utf-8")
 
@@ -37,7 +37,7 @@ def test_small_phone_breakpoints_exist():
 def test_small_phone_nav_keeps_touch_target_and_five_columns():
     block = STYLE[STYLE.index("@media(max-width:360px)"):STYLE.index("@media(max-width:330px)")]
     assert "min-height:44px!important" in block
-    assert "font-size:8.5px!important" in block
+    assert "font-size:9.25px!important" in block
     assert "padding-left:max(6px,env(safe-area-inset-left))!important" in block
     assert "padding-right:max(6px,env(safe-area-inset-right))!important" in block
 

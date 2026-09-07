@@ -1,4 +1,4 @@
-const state={cup:null,page:"matches",teamId:null,cupKey:null,standings:null,playoffs:null,teamSummary:null};
+const state={cup:null,page:"matches",teamId:null,cupKey:null,standings:null,playoffs:null,teamSummary:null,lastNotificationId:null,notificationTimer:null};
 const qs=new URLSearchParams(location.search);
 const API_BASE=(window.CUPNAVI_API_BASE||"").replace(/\/$/,"");
 const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
@@ -45,6 +45,63 @@ function publicOfflineUrls(key,teamId=null){
   return urls;
 }
 
+function updateMobileNotifyUi(message=""){
+  const btn=document.querySelector("#mobileNotify");
+  const status=document.querySelector("#mobileNotifyStatus");
+  if(!btn||!status)return;
+  const supported=("Notification" in window)&&("serviceWorker" in navigator);
+  btn.disabled=!supported||!state.teamId;
+  if(!supported){ status.textContent="Mobilnotiser stöds inte av den här webbläsaren."; return; }
+  if(!state.teamId){ status.textContent="Välj ett lag först."; return; }
+  status.textContent=message||(Notification.permission==="granted"?"Mobilnotiser är på medan CupNavi är aktiv.":"Tillåt notiser för att få laguppdateringar på telefonen.");
+  btn.textContent=Notification.permission==="granted"?"🔔 Mobilnotiser aktiva":"🔔 Aktivera mobilnotiser";
+}
+
+async function pollTeamNotifications({silent=false}={}){
+  if(!state.cupKey||!state.teamId||Notification.permission!=="granted")return;
+  try{
+    const res=await fetch(`${API_BASE}/api/public/cups/${encodeURIComponent(state.cupKey)}/teams/${Number(state.teamId)}/notifications`,{cache:"no-store"});
+    if(!res.ok)return;
+    const payload=await res.json();
+    const notes=payload.notifications||[];
+    if(!notes.length)return;
+    const newest=Number(notes[0].id||0);
+    const storageKey=`cupnavi:lastNotification:${state.cupKey}:${state.teamId}`;
+    let seen=Number(localStorage.getItem(storageKey)||0);
+    if(state.lastNotificationId!=null)seen=Math.max(seen,Number(state.lastNotificationId||0));
+    if(!silent&&seen>0){
+      const fresh=notes.filter(note=>Number(note.id||0)>seen).reverse();
+      const registration=await navigator.serviceWorker.ready;
+      for(const note of fresh){
+        await registration.showNotification(note.title||"CupNavi",{
+          body:note.message||"Ny lagnotis",
+          tag:`cupnavi-note-${note.id}`,
+          data:{url:`./?cup=${encodeURIComponent(state.cupKey)}&team=${Number(state.teamId)}`},
+        });
+      }
+    }
+    state.lastNotificationId=newest;
+    localStorage.setItem(storageKey,String(newest));
+  }catch(_error){}
+}
+
+function startNotificationPolling(){
+  if(state.notificationTimer){clearInterval(state.notificationTimer);state.notificationTimer=null;}
+  if(Notification.permission!=="granted"||!state.teamId)return;
+  pollTeamNotifications({silent:true});
+  state.notificationTimer=setInterval(()=>pollTeamNotifications(),45000);
+}
+
+async function enableMobileNotifications(){
+  if(!("Notification" in window)||!("serviceWorker" in navigator)){updateMobileNotifyUi();return;}
+  if(!state.teamId){updateMobileNotifyUi("Välj ett lag först.");return;}
+  const permission=await Notification.requestPermission();
+  if(permission!=="granted"){updateMobileNotifyUi("Notiser är inte tillåtna i telefonens webbläsare.");return;}
+  await navigator.serviceWorker.ready;
+  updateMobileNotifyUi("Mobilnotiser är på medan CupNavi är aktiv.");
+  startNotificationPolling();
+}
+
 window.CUPNAVI_OFFLINE_READY=Promise.resolve({ok:false,reason:"cup-not-loaded"});
 
 async function loadCup(key){
@@ -62,6 +119,8 @@ async function loadCup(key){
   select.innerHTML=`<option value="">Alla lag</option>`+state.cup.teams.map(t=>`<option value="${t.id}">${esc(t.name)}</option>`).join("");
   const saved=localStorage.getItem(`cupnavi:team:${key}`);
   if(saved){state.teamId=Number(saved);select.value=saved;}
+  updateMobileNotifyUi();
+  startNotificationPolling();
 
   // Make the current cup explicitly offline-ready. This works even on the
   // very first visit, before the service worker controls the page.
@@ -173,6 +232,8 @@ document.querySelector("#teamSelect").onchange=async e=>{
   const key=localStorage.getItem("cupnavi:lastCup");
   if(state.teamId)localStorage.setItem(`cupnavi:team:${key}`,state.teamId);
   else localStorage.removeItem(`cupnavi:team:${key}`);
+  updateMobileNotifyUi();
+  startNotificationPolling();
   if(key){
     window.CUPNAVI_OFFLINE_READY=cachePublicUrls(publicOfflineUrls(key,state.teamId));
     await window.CUPNAVI_OFFLINE_READY;
@@ -180,7 +241,8 @@ document.querySelector("#teamSelect").onchange=async e=>{
   render();
 };
 document.querySelectorAll("nav button").forEach(b=>b.onclick=()=>{state.page=b.dataset.page;render()});
-if("serviceWorker" in navigator) navigator.serviceWorker.register("./service-worker.js");
+document.querySelector("#mobileNotify").onclick=enableMobileNotifications;
+if("serviceWorker" in navigator) navigator.serviceWorker.register("./service-worker.js").then(()=>updateMobileNotifyUi());
 const initial=qs.get("cup")||localStorage.getItem("cupnavi:lastCup");
 if(initial){document.querySelector("#cupKey").value=initial;loadCup(initial).catch(()=>{})}
 

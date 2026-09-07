@@ -1,9 +1,10 @@
 from pathlib import Path
 
-VERSION = "2026.09.07-495-PUBLIC-UX-PDF-II"
+VERSION = "2026.09.07-497-MY-TEAMS-NOTICES-POLISH"
 APP = Path("app.py").read_text(encoding="utf-8")
 FOLLOW = Path("cupnavi_core/public_team_follow_view.py").read_text(encoding="utf-8")
 MATCHES = Path("cupnavi_core/public_matches_view.py").read_text(encoding="utf-8")
+FILTERS = Path("cupnavi_core/public_match_filters_view.py").read_text(encoding="utf-8")
 
 
 def test_version_is_v472():
@@ -30,7 +31,7 @@ def test_primary_next_match_action_remains_outside_secondary_expander():
 def test_match_event_toggle_is_hidden_when_no_played_matches():
     assert "elif visible_played_match_ids and _event_details_enabled:" in MATCHES
     assert "show_match_events = False" in MATCHES
-    assert '"⚽ Målskyttar och kort"' in MATCHES
+    assert '"⚽ Målskyttar och kort"' in FILTERS
 
 
 def test_exact_match_message_is_compact():

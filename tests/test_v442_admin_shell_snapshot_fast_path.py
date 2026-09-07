@@ -7,7 +7,7 @@ PERF = (ROOT / "scripts" / "check_performance_contract.py").read_text(encoding="
 
 
 def test_release_version():
-    assert VERSION == "2026.09.07-495-PUBLIC-UX-PDF-II"
+    assert VERSION == "2026.09.07-497-MY-TEAMS-NOTICES-POLISH"
 
 
 def test_admin_flow_counts_reuse_short_session_snapshots():

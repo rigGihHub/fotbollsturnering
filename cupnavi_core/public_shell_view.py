@@ -38,6 +38,7 @@ def build_public_hero_html(
         "<div class='cn-hero-title-row'>"
         f"<div class='title'>{html.escape(tournament['name'])}</div>{status_html}</div>"
         f"<div class='meta'>{hero_meta} · {html.escape(str(row_value(tournament, 'sport', 'Fotboll')))}</div>"
+        "<div class='cn-hero-slogan'>Mer cup. Mindre kaos.</div>"
         "</div>"
     )
 

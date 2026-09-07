@@ -439,6 +439,11 @@ def render_public_workspace(tournament_id: int, tournament: Any, deps: PublicWor
             row_value=_row_value,
             filter_matches=filter_matches,
             sort_public_matches=sort_public_matches,
+            show_event_details_toggle=any((
+                bool(_row_value(tournament, "enable_scorer_leaderboard", 1)),
+                bool(_row_value(tournament, "enable_assist_leaderboard", 1)),
+                bool(_row_value(tournament, "enable_card_statistics", 1)),
+            )),
         )
 
     def _render_public_match_cards(matches, show_results=None, show_weather=False, events_by_match=None):

@@ -7,7 +7,7 @@ VERSION = (ROOT / "VERSION.txt").read_text(encoding="utf-8").strip()
 
 
 def test_v405_version():
-    assert VERSION == "2026.09.07-495-PUBLIC-UX-PDF-II"
+    assert VERSION == "2026.09.07-497-MY-TEAMS-NOTICES-POLISH"
 
 
 def test_cupday_exact_match_handoff_and_delay_prefill():

@@ -367,9 +367,8 @@ def render_public_team_follow(
             st.markdown(
                 f"""<div class="cn-follow-latest-result">
                   <span class="label">Senaste</span>
-                  <span class="teams">{source_label(_last['home_source'])} "
-                f"{row_value(_last, 'home_score', '–')}–{row_value(_last, 'away_score', '–')} "
-                f"{source_label(_last['away_source'])}</span></div>""",
+                  <span class="teams">{html.escape(source_label(_last['home_source']))} {html.escape(str(row_value(_last, 'home_score', '–')))}–{html.escape(str(row_value(_last, 'away_score', '–')))} {html.escape(source_label(_last['away_source']))}</span>
+                </div>""",
                 unsafe_allow_html=True,
             )
             _last_match_id = int(row_value(_last, "id", 0) or 0)
@@ -564,6 +563,24 @@ def render_public_team_follow(
                                 )
                         except ValueError as exc:
                             st.error(str(exc))
+
+        # v497: Mobile notification entry point. The installable PWA can request
+        # browser notification permission and surface new team notifications on
+        # the phone while the CupNavi mobile view is active. Full closed-app web
+        # push remains a separate VAPID delivery step and is intentionally not
+        # presented as completed here.
+        _public_slug = str(row_value(tournament, "public_slug", tournament_id) or tournament_id)
+        _mobile_url = f"https://cup-navi.com/?cup={_public_slug}&team={int(requested_team_id)}"
+        with st.expander("📱 Lagnotiser i mobilen · beta", expanded=False):
+            st.caption(
+                "Öppna CupNavis mobilvy på telefonen, välj laget och tryck Aktivera mobilnotiser. "
+                "Telefonnotiser visas när mobilvyn är aktiv. Full push när appen är helt stängd är ännu inte aktiverad."
+            )
+            st.link_button(
+                "📱 Öppna mobilvy för mitt lag",
+                _mobile_url,
+                use_container_width=True,
+            )
 
         show_notification_history = st.toggle(
             "🔔 Visa senaste lagnotiser",

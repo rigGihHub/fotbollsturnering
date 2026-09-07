@@ -10,4 +10,4 @@ def test_v413_team_portal_session_binds_to_credential_hash():
 
 
 def test_v413_version():
-    assert Path("VERSION.txt").read_text().strip() == "2026.09.07-495-PUBLIC-UX-PDF-II"
+    assert Path("VERSION.txt").read_text().strip() == "2026.09.07-497-MY-TEAMS-NOTICES-POLISH"

@@ -8,7 +8,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def test_v409_version_and_release_note():
-    assert APP_VERSION == "2026.09.07-495-PUBLIC-UX-PDF-II"
+    assert APP_VERSION == "2026.09.07-497-MY-TEAMS-NOTICES-POLISH"
     assert (ROOT / "TEAM_NO_SHOW_IMPACT_V409.md").exists()
 
 

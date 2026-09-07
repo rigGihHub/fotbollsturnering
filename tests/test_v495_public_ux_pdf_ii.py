@@ -1,6 +1,6 @@
 from pathlib import Path
 
-VERSION = "2026.09.07-495-PUBLIC-UX-PDF-II"
+VERSION = "2026.09.07-497-MY-TEAMS-NOTICES-POLISH"
 APP = Path("app.py").read_text(encoding="utf-8")
 INFO = Path("cupnavi_core/public_info_view.py").read_text(encoding="utf-8")
 STYLE = Path("cupnavi_core/style_system.py").read_text(encoding="utf-8")
@@ -29,7 +29,7 @@ def test_clock_and_accessibility_are_polished_and_share_precedes_accessibility()
     share_pos = APP.index("render_public_share_control(tid, tournament, in_sidebar=True)")
     a11y_pos = APP.index('with st.sidebar.container(key=f"cn_sidebar_a11y_')
     assert share_pos < a11y_pos
-    assert "font-size:11px!important" in APP
+    assert "font-size:10px!important" in APP
 
 
 def test_public_nav_text_is_not_ellipsized():

@@ -48,20 +48,17 @@ def render_public_info_section(
           background:#fff!important;border:1px solid #d9e2de!important;border-radius:14px!important;
           box-shadow:0 2px 8px rgba(18,49,37,.05)!important;color:#162b22!important;
         }
-        .cn-venue-card{display:grid!important;grid-template-columns:38px minmax(0,1fr)!important;gap:11px!important;align-items:center!important;padding:12px 13px!important;border-left:4px solid #1f7a4c!important;min-height:84px!important}
+        .cn-venue-card,.cn-practical-item{display:grid!important;grid-template-columns:34px minmax(0,1fr)!important;gap:8px!important;padding:12px 13px!important;min-height:78px!important;align-items:center!important}
         .cn-venue-card.cn-linked{transition:border-color .12s ease,box-shadow .12s ease!important}
         .cn-venue-card.cn-linked:hover{border-color:#84b79a!important;box-shadow:0 4px 14px rgba(18,49,37,.10)!important}
         .cn-venue-card-link{text-decoration:none!important;color:inherit!important;display:block!important}
+        .cn-venue-icon,.cn-practical-item .icon{font-size:20px!important}
         .cn-venue-copy{display:block!important;min-width:0!important}
-        .cn-venue-copy strong,.cn-venue-copy small,.cn-venue-copy span{display:block!important;white-space:normal!important}
-        .cn-venue-copy strong{font-size:14px!important;line-height:1.2!important;margin:0!important;color:#13291f!important}
-        .cn-venue-copy small{font-size:10px!important;line-height:1.2!important;margin:2px 0 0!important;color:#1b6b46!important;font-weight:800!important;text-transform:uppercase!important;letter-spacing:.04em!important}
-        .cn-venue-copy span{font-size:12px!important;line-height:1.35!important;margin:4px 0 0!important;color:#586575!important}.cn-venue-copy .cn-venue-directions{font-size:10px!important;color:#176b46!important;font-weight:800!important;margin-top:7px!important}
-        .cn-practical-item{display:grid!important;grid-template-columns:34px minmax(0,1fr)!important;gap:8px!important;padding:12px 13px!important;min-height:78px!important;align-items:center!important}
-        .cn-practical-item .icon{font-size:20px!important}
-        .cn-practical-item small,.cn-practical-item strong{display:block!important;white-space:normal!important}
-        .cn-practical-item small{font-size:10px!important;color:#5f7067!important;text-transform:uppercase!important;font-weight:800!important;letter-spacing:.04em!important}
-        .cn-practical-item strong{font-size:13px!important;line-height:1.3!important;color:#152d23!important;margin-top:3px!important}
+        .cn-venue-copy strong,.cn-venue-copy small,.cn-venue-copy span,.cn-practical-item small,.cn-practical-item strong{display:block!important;white-space:normal!important}
+        .cn-venue-copy small,.cn-practical-item small{font-size:10px!important;color:#5f7067!important;text-transform:uppercase!important;font-weight:800!important;letter-spacing:.04em!important}
+        .cn-venue-copy strong,.cn-practical-item strong{font-size:13px!important;line-height:1.3!important;color:#152d23!important;margin-top:3px!important}
+        .cn-venue-copy span{font-size:11px!important;line-height:1.3!important;margin-top:3px!important;color:#586575!important}
+        .cn-venue-copy .cn-venue-directions{font-size:10px!important;color:#176b46!important;font-weight:800!important;margin-top:5px!important}
         .cn-custom-info-card{padding:13px 14px!important;line-height:1.45!important;border-left:4px solid #1f7a4c!important}
         @media(max-width:680px){.cn-info-guide-head .title{font-size:19px!important}.cn-info-guide-head{padding:13px 14px!important}.cn-info-card-grid,.cn-practical-info-card{grid-template-columns:1fr!important}}
         </style>""",
@@ -96,8 +93,8 @@ def render_public_info_section(
             card = (
                 f"<div class='cn-venue-card kind-{html.escape(point_kind)}{' cn-linked' if point['url'] else ''}'>"
                 f"<div class='cn-venue-icon'>{icon}</div><div class='cn-venue-copy'>"
-                f"<strong>{html.escape(point['label'])}</strong>"
                 f"<small>{html.escape(point['kind'] or 'Plats')}</small>"
+                f"<strong>{html.escape(point['label'])}</strong>"
                 f"<span>{html.escape(point['detail'] or '')}</span></div></div>"
             )
             if point["url"]:

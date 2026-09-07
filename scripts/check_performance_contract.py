@@ -182,7 +182,9 @@ assert 'with st.expander("Mer om senaste resultatet", expanded=False):' in _foll
 assert 'with st.expander("Väder & vägbeskrivning", expanded=False):' in _follow
 assert "if show_directions:" in _follow
 assert "elif visible_played_match_ids and _event_details_enabled:" in _matches
-assert "value=True" in _matches
+_filters = (ROOT / "cupnavi_core" / "public_match_filters_view.py").read_text()
+assert '"⚽ Målskyttar och kort"' in _filters
+assert "value=True" in _filters
 assert "0 <= _minutes_to_weather <= 120" in _matches
 # v472: public mobile QA
 # v473: table/playoff mobile QA changes presentation only.

@@ -267,12 +267,7 @@ def render_public_matches_fragment(
     if requested_match_id and _event_details_enabled:
         show_match_events = True
     elif visible_played_match_ids and _event_details_enabled:
-        show_match_events = st.toggle(
-            "⚽ Målskyttar och kort",
-            value=True,
-            key=_events_toggle_key,
-            help="Visar registrerade matchhändelser för de spelade matcherna.",
-        )
+        show_match_events = bool(st.session_state.get(_events_toggle_key, True))
     else:
         show_match_events = False
     public_events_by_match = (

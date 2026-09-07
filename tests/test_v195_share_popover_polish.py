@@ -13,9 +13,10 @@ def test_share_actions_are_readable_and_active():
     assert 'opacity:1!important' in APP
 
 def test_share_content_has_qr_guidance_and_public_link_note():
-    assert 'st.markdown("#### QR-kod")' in APP
-    assert "Skanna koden för att öppna den publika cupsidan." in APP
-    assert "kräver ingen inloggning" in APP
+    assert "cn-share-qr-label" in APP
+    assert "width=76" in APP
+    assert "Skapa och ladda ned PDF" in APP
+    assert "Informationsskärm" in APP
 
 def test_visible_version_is_195():
     assert 'release_ui_label(APP_BUILD_VERSION)' in APP

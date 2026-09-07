@@ -19,6 +19,7 @@ def render_public_match_filters(
     row_value,
     filter_matches,
     sort_public_matches,
+    show_event_details_toggle=True,
 ):
     """Gemensamt filter för den sammanslagna matchsidan."""
     filtered = list(base_matches)
@@ -138,12 +139,20 @@ def render_public_match_filters(
             filter_label = "Alla matcher"
 
         st.divider()
-        show_weather = st.toggle(
+        display_col1, display_col2 = st.columns(2)
+        show_weather = display_col1.toggle(
             "🌦️ " + tr("Visa väderprognos"),
             value=True,
             key=f"public_matches_weather_{tournament_id}",
-            help="Hämtar prognos först när du väljer att visa den.",
+            help="Visar väderprognos på matchkorten när prognosdata finns.",
         )
+        if show_event_details_toggle:
+            display_col2.toggle(
+                "⚽ Målskyttar och kort",
+                value=True,
+                key=f"public_match_events_v444_{tournament_id}",
+                help="Visar registrerade målskyttar och kort för spelade matcher.",
+            )
 
     return (
         sort_public_matches(filtered),

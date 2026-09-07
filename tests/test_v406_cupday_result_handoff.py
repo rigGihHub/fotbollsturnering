@@ -7,7 +7,7 @@ APP = (ROOT / "app.py").read_text()
 
 
 def test_v406_version():
-    assert VERSION == "2026.09.07-495-PUBLIC-UX-PDF-II"
+    assert VERSION == "2026.09.07-497-MY-TEAMS-NOTICES-POLISH"
 
 
 def test_next_same_pitch_is_in_memory_and_pending_only():

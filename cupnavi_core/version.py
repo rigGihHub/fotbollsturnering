@@ -1,4 +1,4 @@
-APP_VERSION = "2026.09.07-495-PUBLIC-UX-PDF-II"
+APP_VERSION = "2026.09.07-497-MY-TEAMS-NOTICES-POLISH"
 
 
 def release_ui_label(version: str) -> str:

@@ -4,7 +4,7 @@ APP=(ROOT/'app.py').read_text(encoding='utf-8')
 VERSION=(ROOT/'VERSION.txt').read_text(encoding='utf-8').strip()
 
 def test_release_version():
-    assert VERSION == '2026.09.07-495-PUBLIC-UX-PDF-II'
+    assert VERSION == '2026.09.07-497-MY-TEAMS-NOTICES-POLISH'
 
 def test_mobile_creation_not_sidebar_only():
     assert 'def render_new_tournament_creator' in APP

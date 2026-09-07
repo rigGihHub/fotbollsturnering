@@ -1331,12 +1331,12 @@ def inject_v266_public_mobile_css(st):
         }
         [class*="st-key-cn_public_primary_nav_shell_"] [data-testid="stSegmentedControl"] button *,
         [class*="st-key-cn_public_primary_nav_shell_"] [data-testid="stButtonGroup"] button *{
-          color:#f8fffb !important;white-space:normal!important;overflow:visible!important;
+          color:#f8fffb !important;white-space:nowrap!important;overflow:visible!important;
           text-overflow:clip!important;line-height:1.12!important;word-break:normal!important;
         }
         [class*="st-key-cn_public_primary_nav_shell_"] [data-testid="stSegmentedControl"] button p,
         [class*="st-key-cn_public_primary_nav_shell_"] [data-testid="stButtonGroup"] button p{
-          white-space:normal!important;overflow:visible!important;text-overflow:clip!important;
+          white-space:nowrap!important;overflow:visible!important;text-overflow:clip!important;
           max-width:none!important;margin:0!important;text-align:center!important;
         }
         [class*="st-key-cn_public_primary_nav_shell_"] [data-testid="stSegmentedControl"] button[aria-pressed="true"],
@@ -1402,8 +1402,8 @@ def inject_v266_public_mobile_css(st):
           }
           [class*="st-key-cn_public_primary_nav_shell_"] [data-testid="stSegmentedControl"] button,
           [class*="st-key-cn_public_primary_nav_shell_"] [data-testid="stButtonGroup"] button{
-            min-width:0!important;min-height:44px!important;padding:4px 2px!important;font-size:9px!important;line-height:1.05!important;
-            white-space:normal!important;overflow-wrap:normal!important;word-break:normal!important;hyphens:none!important;
+            min-width:0!important;min-height:44px!important;padding:4px 1px!important;font-size:9.5px!important;line-height:1.05!important;
+            white-space:nowrap!important;overflow-wrap:normal!important;word-break:normal!important;hyphens:none!important;
           }
         }
         @media(max-width:360px){
@@ -1416,7 +1416,7 @@ def inject_v266_public_mobile_css(st):
           [class*="st-key-cn_public_primary_nav_shell_"]{padding:3px!important}
           [class*="st-key-cn_public_primary_nav_shell_"] [data-testid="stSegmentedControl"] button,
           [class*="st-key-cn_public_primary_nav_shell_"] [data-testid="stButtonGroup"] button{
-            min-height:44px!important;padding:3px 1px!important;font-size:8.5px!important;letter-spacing:-.01em!important;
+            min-height:44px!important;padding:3px 1px!important;font-size:9.25px!important;letter-spacing:-.015em!important;
           }
           .public-match-card{padding:9px!important;margin:6px 0!important}
           .public-match-card .public-team-name{font-size:15px!important}
@@ -1425,11 +1425,10 @@ def inject_v266_public_mobile_css(st):
           [data-testid="stAlert"]{padding:8px 9px!important}
         }
         @media(max-width:330px){
-          /* v465: 320 px phones still keep readable tap targets. Prefer wrapping
-             over shrinking the navigation into unreadable 8 px labels. */
+          /* v496: even 320 px phones keep every primary label on one line. */
           [class*="st-key-cn_public_primary_nav_shell_"] [data-testid="stSegmentedControl"] button,
           [class*="st-key-cn_public_primary_nav_shell_"] [data-testid="stButtonGroup"] button{
-            min-height:46px!important;font-size:9.5px!important;line-height:1.02!important;white-space:normal!important;
+            min-height:46px!important;font-size:9.5px!important;line-height:1.02!important;white-space:nowrap!important;
           }
           .public-match-card .public-team-name{font-size:14.5px!important}
         }
@@ -2801,6 +2800,22 @@ def inject_public_experience_styles(st):
           .cn-public-highlight .value{white-space:normal!important;display:-webkit-box!important;-webkit-line-clamp:2!important;-webkit-box-orient:vertical!important}
         }
 
+        /* v497 — Mina lag must look intentional on desktop as well as mobile. */
+        .cn-multi-favorite-card{
+          display:grid!important;grid-template-columns:minmax(150px,.8fr) minmax(180px,1fr) minmax(220px,1.15fr)!important;
+          gap:10px!important;align-items:center!important;border:1px solid rgba(148,163,184,.28)!important;
+          border-radius:12px!important;padding:10px 12px!important;margin:7px 0!important;background:#fff!important;
+        }
+        .cn-multi-favorite-card .team{font-weight:900!important;color:#0f172a!important;overflow-wrap:anywhere!important}
+        .cn-multi-favorite-card .next,.cn-multi-favorite-card .last{font-size:.82rem!important;line-height:1.3!important;color:#475569!important}
+        .cn-follow-latest-result{
+          display:grid!important;grid-template-columns:auto 1fr!important;gap:10px!important;align-items:center!important;
+          border:1px solid rgba(148,163,184,.28)!important;border-radius:12px!important;padding:9px 11px!important;margin:6px 0 8px!important;
+        }
+        .cn-follow-latest-result .label{font-size:.74rem!important;font-weight:900!important;text-transform:uppercase!important;letter-spacing:.05em!important;color:#64748b!important}
+        .cn-follow-latest-result .teams{font-size:.94rem!important;font-weight:850!important;text-align:right!important;color:#0f172a!important}
+        .cn-hero-slogan{margin-top:7px!important;font-size:.78rem!important;font-weight:850!important;letter-spacing:.02em!important;color:#dff7e8!important}
+
         @media(max-width:760px){
           .cn-public-summary-row{display:block!important;margin-bottom:10px!important}
           .cn-public-summary-row .public-metric-grid{margin-bottom:8px!important}
@@ -2817,7 +2832,7 @@ def inject_public_experience_styles(st):
           .cn-follow-latest-result .label{font-size:.78rem!important;font-weight:800!important;text-transform:uppercase!important;letter-spacing:.04em!important}
           .cn-follow-latest-result .teams{font-size:.96rem!important;font-weight:800!important;text-align:right!important;overflow-wrap:anywhere!important}
           .cn-multi-favorite-card{
-            border:1px solid rgba(148,163,184,.28)!important;border-radius:12px!important;
+            display:block!important;border:1px solid rgba(148,163,184,.28)!important;border-radius:12px!important;
             padding:10px 11px!important;margin:7px 0!important;min-width:0!important;
           }
           .cn-multi-favorite-card .team{font-weight:900!important;overflow-wrap:anywhere!important}

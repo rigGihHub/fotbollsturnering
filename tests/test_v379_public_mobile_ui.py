@@ -8,7 +8,7 @@ STYLE=(ROOT/"cupnavi_core/style_system.py").read_text(encoding="utf-8")
 VERSION=(ROOT/"VERSION.txt").read_text().strip()
 
 def test_release_version():
-    assert VERSION=="2026.09.07-495-PUBLIC-UX-PDF-II"
+    assert VERSION=="2026.09.07-497-MY-TEAMS-NOTICES-POLISH"
 
 def test_public_navigation_is_task_first_and_short():
     specs=public_navigation_specs()

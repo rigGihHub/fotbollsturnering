@@ -1,7 +1,7 @@
 from pathlib import Path
 from cupnavi_core.initial_setup_logic import setup_consequence_preview
 
-VERSION = "2026.09.07-495-PUBLIC-UX-PDF-II"
+VERSION = "2026.09.07-497-MY-TEAMS-NOTICES-POLISH"
 
 
 def test_release_version():

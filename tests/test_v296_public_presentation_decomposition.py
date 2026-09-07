@@ -9,7 +9,7 @@ VERSION = (ROOT / "VERSION.txt").read_text(encoding="utf-8").strip()
 
 
 def test_release_and_public_presentation_boundary():
-    assert VERSION == "2026.09.07-495-PUBLIC-UX-PDF-II"
+    assert VERSION == "2026.09.07-497-MY-TEAMS-NOTICES-POLISH"
     assert "from cupnavi_core.public_presentation_view import (" in APP
     for name in ("render_group_table", "render_bracket_tree", "public_match_events_html", "public_rules_html"):
         assert f"def {name}(" in PRESENTATION

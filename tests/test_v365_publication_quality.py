@@ -67,4 +67,4 @@ def test_warning_approval_checkbox_is_removed():
 
 
 def test_version():
-    assert 'APP_BUILD_VERSION = "2026.09.07-495-PUBLIC-UX-PDF-II"' in APP
+    assert 'APP_BUILD_VERSION = "2026.09.07-497-MY-TEAMS-NOTICES-POLISH"' in APP

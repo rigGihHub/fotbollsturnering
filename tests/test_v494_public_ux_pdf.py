@@ -1,6 +1,6 @@
 from pathlib import Path
 
-VERSION = "2026.09.07-495-PUBLIC-UX-PDF-II"
+VERSION = "2026.09.07-497-MY-TEAMS-NOTICES-POLISH"
 APP = Path("app.py").read_text(encoding="utf-8")
 FILTERS = Path("cupnavi_core/public_match_filters_view.py").read_text(encoding="utf-8")
 MATCHES = Path("cupnavi_core/public_matches_view.py").read_text(encoding="utf-8")
@@ -20,8 +20,8 @@ def test_release_version_is_consistent():
 def test_weather_and_match_events_are_default_on_when_available():
     weather_block = FILTERS[FILTERS.index('"🌦️ " + tr("Visa väderprognos")'):]
     assert "value=True" in weather_block[:250]
-    assert '"⚽ Målskyttar och kort"' in MATCHES
-    event_block = MATCHES[MATCHES.index('"⚽ Målskyttar och kort"') - 180:]
+    assert '"⚽ Målskyttar och kort"' in FILTERS
+    event_block = FILTERS[FILTERS.index('"⚽ Målskyttar och kort"') - 180:]
     assert "value=True" in event_block[:500]
     assert '"enable_scorer_leaderboard"' in MATCHES
     assert '"enable_card_statistics"' in MATCHES
@@ -59,6 +59,6 @@ def test_all_public_group_tables_are_open_by_default():
 
 def test_cupinfo_and_sidebar_have_explicit_visual_hierarchy():
     assert ".cn-info-guide-head{background:#173a56!important" in INFO
-    assert ".cn-venue-copy strong,.cn-venue-copy small,.cn-venue-copy span{display:block!important" in INFO
+    assert ".cn-venue-copy strong,.cn-venue-copy small,.cn-venue-copy span,.cn-practical-item small,.cn-practical-item strong{display:block!important" in INFO
     assert "compact Text-TV control rail" in STYLE
     assert 'border-left:5px solid #1fa55b!important' in STYLE

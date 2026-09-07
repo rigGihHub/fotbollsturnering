@@ -5,7 +5,7 @@ STYLE=(ROOT/"cupnavi_core"/"style_system.py").read_text(encoding="utf-8")
 VERSION=(ROOT/"VERSION.txt").read_text().strip()
 
 def test_version():
-    assert VERSION=="2026.09.07-495-PUBLIC-UX-PDF-II"
+    assert VERSION=="2026.09.07-497-MY-TEAMS-NOTICES-POLISH"
     assert VERSION in APP
 
 def test_empty_cup_gets_beginner_first_run():

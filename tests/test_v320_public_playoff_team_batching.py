@@ -8,7 +8,7 @@ APP = (ROOT / "app.py").read_text()
 VERSION = (ROOT / "VERSION.txt").read_text().strip()
 
 def test_v320_version():
-    assert VERSION == "2026.09.07-495-PUBLIC-UX-PDF-II"
+    assert VERSION == "2026.09.07-497-MY-TEAMS-NOTICES-POLISH"
 
 def test_public_workspace_passes_existing_team_map_to_statistics():
     assert "public_team_by_id=public_team_by_id" in WORKSPACE

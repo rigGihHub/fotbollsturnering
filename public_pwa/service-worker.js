@@ -71,3 +71,14 @@ self.addEventListener("fetch",event=>{
 
   event.respondWith(caches.match(req).then(hit=>hit||fetch(req)));
 });
+
+
+self.addEventListener("notificationclick",event=>{
+  event.notification.close();
+  const url=event.notification?.data?.url||"./";
+  event.waitUntil(clients.matchAll({type:"window",includeUncontrolled:true}).then(list=>{
+    const existing=list.find(client=>"focus" in client);
+    if(existing){ existing.navigate(url); return existing.focus(); }
+    return clients.openWindow?clients.openWindow(url):undefined;
+  }));
+});

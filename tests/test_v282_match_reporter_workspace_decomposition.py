@@ -52,4 +52,4 @@ def test_workspace_uses_injected_persistence_callbacks():
 
 
 def test_release_version():
-    assert VERSION == "2026.09.07-495-PUBLIC-UX-PDF-II"
+    assert VERSION == "2026.09.07-497-MY-TEAMS-NOTICES-POLISH"

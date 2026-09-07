@@ -29,5 +29,5 @@ def test_business_helpers_are_injected_not_reimplemented():
     assert "sport_profile=sport_profile" in APP
 
 def test_release_is_v202():
-    assert VERSION=="2026.09.07-495-PUBLIC-UX-PDF-II"
+    assert VERSION=="2026.09.07-497-MY-TEAMS-NOTICES-POLISH"
     assert "release_ui_label(APP_BUILD_VERSION)" in APP

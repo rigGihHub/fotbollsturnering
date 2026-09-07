@@ -11,7 +11,7 @@ def _overview_section():
 
 
 def test_release_version():
-    assert VERSION == '2026.09.07-495-PUBLIC-UX-PDF-II'
+    assert VERSION == '2026.09.07-497-MY-TEAMS-NOTICES-POLISH'
 
 
 def test_control_center_reuses_unchecked_snapshot_count():

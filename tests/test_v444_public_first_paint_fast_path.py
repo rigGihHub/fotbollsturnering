@@ -4,12 +4,13 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def test_v444_release_version():
-    assert (ROOT / "VERSION.txt").read_text().strip() == "2026.09.07-495-PUBLIC-UX-PDF-II"
+    assert (ROOT / "VERSION.txt").read_text().strip() == "2026.09.07-497-MY-TEAMS-NOTICES-POLISH"
 
 
 def test_match_events_are_lazy_on_first_paint():
     source = (ROOT / "cupnavi_core/public_matches_view.py").read_text(encoding="utf-8")
-    assert '"⚽ Målskyttar och kort"' in source
+    filters = (ROOT / "cupnavi_core/public_match_filters_view.py").read_text(encoding="utf-8")
+    assert '"⚽ Målskyttar och kort"' in filters
     assert "if show_match_events and visible_played_match_ids" in source
     assert "if requested_match_id:" in source
     assert "elif visible_played_match_ids and _event_details_enabled:" in source

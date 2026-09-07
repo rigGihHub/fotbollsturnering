@@ -6,8 +6,8 @@ VERSION = (ROOT / "VERSION.txt").read_text(encoding="utf-8").strip()
 
 
 def test_release_version():
-    assert VERSION == "2026.09.07-495-PUBLIC-UX-PDF-II"
-    assert 'APP_BUILD_VERSION = "2026.09.07-495-PUBLIC-UX-PDF-II"' in APP
+    assert VERSION == "2026.09.07-497-MY-TEAMS-NOTICES-POLISH"
+    assert 'APP_BUILD_VERSION = "2026.09.07-497-MY-TEAMS-NOTICES-POLISH"' in APP
 
 
 def test_admin_cross_rerun_snapshots_exist_and_writes_invalidate():

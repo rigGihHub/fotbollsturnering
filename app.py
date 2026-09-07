@@ -197,7 +197,7 @@ def inject_v198_visual_system():
     return _inject_v198_visual_system_impl(st)
 
 
-APP_BUILD_VERSION = "2026.09.07-495-PUBLIC-UX-PDF-II"
+APP_BUILD_VERSION = "2026.09.07-497-MY-TEAMS-NOTICES-POLISH"
 APP_VERSION = APP_BUILD_VERSION
 
 
@@ -1258,6 +1258,14 @@ def render_public_share_control(tournament_id, tournament, *, in_sidebar=False):
           border:1px solid #cbd9d1!important;background:#fff!important;color:#173126!important;
         }
         .cn-share-rail-anchor + div button:hover,.cn-share-metrics-anchor + div button:hover{border-color:#8eaa9b!important;background:#f7faf8!important}
+        [data-testid="stPopoverBody"]:has(.cn-share-popover-marker){max-height:none!important;overflow:visible!important;padding:12px 14px!important}
+        [data-testid="stPopoverBody"]:has(.cn-share-popover-marker) h3{font-size:1rem!important;margin:0 0 3px!important}
+        [data-testid="stPopoverBody"]:has(.cn-share-popover-marker) [data-testid="stCaptionContainer"]{margin:0!important}
+        [data-testid="stPopoverBody"]:has(.cn-share-popover-marker) [data-testid="stCode"]{margin:4px 0 6px!important}
+        [data-testid="stPopoverBody"]:has(.cn-share-popover-marker) [data-testid="stHorizontalBlock"]{gap:6px!important}
+        [data-testid="stPopoverBody"]:has(.cn-share-popover-marker) button,
+        [data-testid="stPopoverBody"]:has(.cn-share-popover-marker) a{min-height:34px!important;font-size:.78rem!important}
+        .cn-share-qr-label{font-size:.72rem;font-weight:850;color:#315245;margin:2px 0 4px!important}
         @media(max-width:760px){.cn-share-rail-anchor + div button,.cn-share-metrics-anchor + div button{min-height:44px!important}}
         </style>""",
         unsafe_allow_html=True,
@@ -1268,7 +1276,6 @@ def render_public_share_control(tournament_id, tournament, *, in_sidebar=False):
     with st.popover("Dela", help=tr("Dela cupen"), use_container_width=bool(in_sidebar)):
         st.markdown("<span class='cn-share-popover-marker' aria-hidden='true'></span>", unsafe_allow_html=True)
         st.markdown(f"### {tr('Dela cupen')}")
-        st.caption(tr("Dela länken eller QR-koden till den här cupen."))
         st.code(share_url, language=None)
         share_col1, share_col2, share_col3 = st.columns(3)
         share_col1.link_button("WhatsApp", whatsapp_href, use_container_width=True)
@@ -1276,27 +1283,36 @@ def render_public_share_control(tournament_id, tournament, *, in_sidebar=False):
         share_col3.link_button("SMS", sms_href, use_container_width=True)
         share_qr = qr_png_bytes(share_url)
         if share_qr:
-            st.markdown("#### QR-kod")
             qr_col1, qr_col2 = st.columns([1, 2], vertical_alignment="center")
-            qr_col1.image(share_qr, width=120)
+            with qr_col1:
+                st.markdown("<div class='cn-share-qr-label'>QR-kod</div>", unsafe_allow_html=True)
+                st.image(share_qr, width=76)
             with qr_col2:
-                st.caption("Skanna koden för att öppna den publika cupsidan.")
                 st.download_button(
                     tr("Ladda ner QR-kod"), data=share_qr,
                     file_name=f"cupnavi-{int(tournament_id)}-qr.png", mime="image/png",
                     key=f"cn_share_qr_download_{int(tournament_id)}", use_container_width=True,
                 )
-        st.divider()
-        st.download_button(
-            "Skapa och ladda ned PDF",
-            data=lambda: _build_public_cup_program_pdf_bytes(tournament_id, tournament),
-            file_name=_public_cup_program_filename(tournament_id, tournament),
-            mime="application/pdf",
-            key=f"cn_share_pdf_download_{int(tournament_id)}",
-            use_container_width=True,
-            on_click="ignore",
-            help="Skapar ett aktuellt cupprogram först när du klickar och laddar sedan ned det direkt.",
-        )
+                st.download_button(
+                    "Skapa och ladda ned PDF",
+                    data=lambda: _build_public_cup_program_pdf_bytes(tournament_id, tournament),
+                    file_name=_public_cup_program_filename(tournament_id, tournament),
+                    mime="application/pdf",
+                    key=f"cn_share_pdf_download_{int(tournament_id)}",
+                    use_container_width=True,
+                    on_click="ignore",
+                    help="Skapar ett aktuellt cupprogram först när du klickar och laddar sedan ned det direkt.",
+                )
+        else:
+            st.download_button(
+                "Skapa och ladda ned PDF",
+                data=lambda: _build_public_cup_program_pdf_bytes(tournament_id, tournament),
+                file_name=_public_cup_program_filename(tournament_id, tournament),
+                mime="application/pdf",
+                key=f"cn_share_pdf_download_{int(tournament_id)}",
+                use_container_width=True,
+                on_click="ignore",
+            )
         screen_url = public_cup_url(tournament_id) + ("&" if "?" in public_cup_url(tournament_id) else "?") + "screen=1"
         st.link_button(
             "🖥 Informationsskärm",
@@ -1304,7 +1320,6 @@ def render_public_share_control(tournament_id, tournament, *, in_sidebar=False):
             use_container_width=True,
             help="Öppnar en ren vy för stor skärm vid cupområdet.",
         )
-        st.caption("Länken går till den publika cupsidan och kräver ingen inloggning.")
 
 
 @st.cache_data(show_spinner=False)
@@ -8677,7 +8692,7 @@ def render_tournament_clock(tournament_row):
     language_json = json.dumps(language_tag)
     clock_html = f"""
     <div style="font-family:system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
-                border:1px solid #173a2b;border-radius:14px;padding:10px 12px 9px;
+                box-sizing:border-box;border:1px solid #173a2b;border-radius:14px;padding:10px 12px 10px;
                 background:linear-gradient(145deg,#112d22 0%,#174936 100%);color:#fff;
                 line-height:1.08;box-shadow:0 6px 18px rgba(16,50,36,.16);overflow:hidden;">
       <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:5px;">
@@ -8711,7 +8726,7 @@ def render_tournament_clock(tournament_row):
       setInterval(tickCupNaviClock, 1000);
     </script>
     """
-    components.html(clock_html, height=84, scrolling=False)
+    components.html(clock_html, height=98, scrolling=False)
 
 with st.sidebar:
     render_tournament_clock(tournament)
@@ -8722,10 +8737,13 @@ with st.sidebar:
 
 st.markdown(
     """<style>
-    [class*="st-key-cn_sidebar_a11y_"]{margin-top:22px!important;opacity:.82}
+    [class*="st-key-cn_sidebar_a11y_"]{margin-top:22px!important;opacity:.74}
     [class*="st-key-cn_sidebar_a11y_"] [data-testid="stExpander"]{border:0!important;background:transparent!important}
-    [class*="st-key-cn_sidebar_a11y_"] [data-testid="stExpander"] details summary{min-height:30px!important;padding:3px 4px!important}
-    [class*="st-key-cn_sidebar_a11y_"] [data-testid="stExpander"] details summary p{font-size:11px!important;font-weight:650!important;color:#65766d!important}
+    [class*="st-key-cn_sidebar_a11y_"] [data-testid="stExpander"] details summary{min-height:28px!important;padding:2px 4px!important}
+    [class*="st-key-cn_sidebar_a11y_"] [data-testid="stExpander"] details summary p{font-size:10px!important;font-weight:650!important;color:#6b7a72!important}
+    @media(min-width:769px){
+      [class*="st-key-cn_sidebar_a11y_"]{position:fixed!important;left:18px!important;bottom:10px!important;width:248px!important;z-index:999990!important;margin:0!important}
+    }
     </style>""",
     unsafe_allow_html=True,
 )
@@ -16236,9 +16254,14 @@ if admin_page == "Tabeller":
         on_click=_set_admin_page,
         args=("Matcher och resultat",),
     )
+    _admin_has_toplists = any((
+        bool(_row_value(tournament, "enable_scorer_leaderboard", 1)),
+        bool(_row_value(tournament, "enable_assist_leaderboard", 1)),
+        bool(_row_value(tournament, "enable_card_statistics", 1)),
+    ))
     table_stats_section = st.segmented_control(
         "Tabell & statistik",
-        ["Tabeller", "Topplistor"],
+        ["Tabeller"] + (["Topplistor"] if _admin_has_toplists else []),
         default="Tabeller",
         key=f"table_stats_switch_{tid}_tables",
     )
@@ -16279,6 +16302,21 @@ if admin_page == "Skytteligor":
         on_click=_set_admin_page,
         args=("Matcher och resultat",),
     )
+    _admin_has_toplists = any((
+        bool(_row_value(tournament, "enable_scorer_leaderboard", 1)),
+        bool(_row_value(tournament, "enable_assist_leaderboard", 1)),
+        bool(_row_value(tournament, "enable_card_statistics", 1)),
+    ))
+    if not _admin_has_toplists:
+        st.info("Topplistor är avstängda för den här turneringen. Aktivera dem på Adminöversikten för att använda den här vyn.")
+        st.button(
+            "Till Tabeller",
+            key=f"leaders_disabled_to_tables_{tid}",
+            use_container_width=True,
+            on_click=_set_admin_page,
+            args=("Tabeller",),
+        )
+        st.stop()
     table_stats_section = st.segmented_control(
         "Tabell & statistik",
         ["Tabeller", "Topplistor"],

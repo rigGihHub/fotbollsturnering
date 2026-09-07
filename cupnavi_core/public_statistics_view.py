@@ -41,6 +41,8 @@ def render_public_statistics_section(
     _stats_options = [tr("Tabeller")] + ([tr("Topplistor")] if _has_toplists else []) + [tr("Slutspel")]
     if forced_section:
         stats_section = forced_section
+        if stats_section == tr("Topplistor") and not _has_toplists:
+            stats_section = tr("Tabeller")
     else:
         stats_section = st.segmented_control(
             tr("Statistik"),
