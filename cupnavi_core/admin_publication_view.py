@@ -160,6 +160,29 @@ def render_admin_publication_controls(
             st.success(st.session_state.pop("mobile_publish_message"))
 
 
+
+def render_publication_steps(*, tournament_id: int, teams_ready: bool, pitches_ready: bool, groups_ready: bool, schedule_ready: bool, control_ready: bool, navigate_admin_page) -> None:
+    """Persistent, clickable checklist of the gates required before publishing."""
+    import streamlit as st
+    steps = [
+        ("Deltagare", teams_ready, "Lag"),
+        ("Planer & tider", pitches_ready, "Adminöversikt"),
+        ("Grupper", groups_ready, "Grupper"),
+        ("Schema", schedule_ready, "Skapa och publicera schema"),
+        ("Kontroll", control_ready, "Kontroller"),
+    ]
+    st.sidebar.divider()
+    st.sidebar.subheader("Klart före publicering")
+    for label, ready, page in steps:
+        st.sidebar.button(
+            f"{'✅' if ready else '❌'} {label}", key=f"publish_check_{tournament_id}_{page}",
+            use_container_width=True, on_click=navigate_admin_page, args=(page,),
+        )
+    if all(ready for _, ready, _ in steps):
+        st.sidebar.success("Alla obligatoriska steg är klara.")
+    else:
+        st.sidebar.caption("Tryck på ett rött steg för att slutföra det.")
+
 def render_admin_lifecycle_controls(
     *,
     tournament_id: int,

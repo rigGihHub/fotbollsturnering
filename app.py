@@ -22,7 +22,6 @@ import pandas as pd
 import streamlit as st
 import streamlit.components.v1 as components
 
-
 def _compute_source_fingerprint():
     """Fingerprint a deployed release without scanning the whole source tree.
 
@@ -47,7 +46,6 @@ def _compute_source_fingerprint():
     except OSError:
         pass
     return digest.hexdigest()
-
 
 def _refresh_cupnavi_imports_if_sources_changed():
     """Reload CupNavi's own Python package automatically after a deployed source change."""
@@ -163,7 +161,7 @@ from cupnavi_core.admin_publication_repository import fetch_lifecycle_match_coun
 from cupnavi_core.admin_publish_preview import render_publish_preview
 from cupnavi_core.admin_publication_view import (
     render_admin_lifecycle_controls,
-    render_admin_publication_controls,
+    render_admin_publication_controls, render_publication_steps,
 )
 from cupnavi_core.admin_role_codes_view import render_role_code_card
 from cupnavi_core.go_live_readiness import build_go_live_readiness, readiness_icon as go_live_readiness_icon
@@ -180,7 +178,7 @@ def inject_v266_public_mobile_css():
     return _inject_v266_public_mobile_css_impl(st)
 def inject_v198_visual_system():
     return _inject_v198_visual_system_impl(st)
-APP_BUILD_VERSION = "2026.09.07-506-CLICKABLE-FLOW-PROBLEM-ROUTING"
+APP_BUILD_VERSION = "2026.09.07-508-PUBLISH-CHECKLIST-DYNAMIC-SCHEDULE"
 APP_VERSION = APP_BUILD_VERSION
 
 def _set_session_state_values(values):
@@ -203,7 +201,6 @@ CORE_APP_VERSION = read_core_version_from_disk()
 RELEASE_FILES_MISMATCH = CORE_APP_VERSION != APP_BUILD_VERSION
 REQUIRED_SCHEMA_VERSION = max(int(LATEST_SCHEMA_VERSION), 5)
 
-
 def deployment_diagnostics():
     return {
         "release": APP_BUILD_VERSION,
@@ -222,7 +219,6 @@ except ImportError:
     sort_items = None
 
 PUBLIC_APP_URL = PUBLIC_BASE_URL.rstrip("/") + "/"
-
 
 def sport_setup_recommendation(sport):
     """CupNavi defaults and relevant setup concepts for a selected sport."""
@@ -284,7 +280,6 @@ def sport_setup_recommendation(sport):
         **extra,
     }
 
-
 def recommend_tournament_format(*, sport, team_count, pitch_count, available_minutes, match_minutes, compactness=50):
     """Return an explainable tournament-format recommendation without mutating data."""
     sport_key=str(sport or "").strip().lower()
@@ -343,7 +338,6 @@ def recommend_tournament_format(*, sport, team_count, pitch_count, available_min
     )
     return {**best,"playoff_format_label":label,"sport":sport}
 
-
 def public_cup_url(tournament_id):
     """Permanent public link. Slug is preferred; numeric IDs remain backward compatible."""
     row = one_row("SELECT public_slug FROM tournaments WHERE id=?", (int(tournament_id),))
@@ -373,7 +367,6 @@ def parse_age_classes(value):
             result.append(label)
             seen.add(label.casefold())
     return result
-
 
 YOUTH_CLASS_CATEGORIES = {"Pojkar": "P", "Flickor": "F"}
 YOUTH_CLASS_YEARS = list(range(2008, 2023))
@@ -443,7 +436,6 @@ def competition_classes(tournament_id):
                 normalized.append(item)
             return normalized
 
-
 def sync_competition_classes(tournament_id, labels=None):
     """Synka äldre tävlingsklassdata till den nya klassmodellen utan att radera använda klasser."""
     tournament_id = int(tournament_id)
@@ -473,10 +465,8 @@ def sync_competition_classes(tournament_id, labels=None):
     )
     return competition_classes(tournament_id)
 
-
 def competition_class_label(row):
     return str(_row_value(row, "name", "") or "").strip()
-
 
 def sync_expected_team_count_from_classes(tournament_id):
     """Keep legacy/global team limit equal to the sum of planned teams per class."""
@@ -486,7 +476,6 @@ def sync_expected_team_count_from_classes(tournament_id):
     total=max(planned,actual)
     run("UPDATE tournaments SET expected_team_count=? WHERE id=?",(total,int(tournament_id)))
     return total
-
 
 DIFFICULTY_LEVELS = ["Lätt", "Medel", "Svår", "Extra svår"]
 
@@ -539,7 +528,6 @@ def save_pitch_day_window(tournament_id,pitch_number,play_date,start_time,end_ti
     starts=[r["start_time"] for r in rows if r["start_time"]]; ends=[r["end_time"] for r in rows if r["end_time"]]
     if starts and ends:
         run("UPDATE schedule_rules SET first_match_time=?,latest_kickoff_time=? WHERE tournament_id=?",(min(starts),max(ends),int(tournament_id)))
-
 
 def pitch_definitions(tournament_id, pitch_count=None):
     """Return pitch metadata and repair mixed cloud schemas once if needed.
@@ -834,7 +822,6 @@ def schedule_change_impact(tournament_id, change_type):
         "played_protected":True,
     }
 
-
 def _schedule_recovery_context(tournament_id, tournament, rules, unresolved):
     unresolved=max(0,int(unresolved or 0))
     teams=all_rows("SELECT id,late_first_match,earliest_first_time,avoid_late_group_match FROM teams WHERE tournament_id=?",(int(tournament_id),))
@@ -892,7 +879,6 @@ def _rerun_schedule_after_recovery(tournament_id, tournament, rules, action_labe
         st.session_state["schedule_message"] = ("error", f"Åtgärden sparades men omgenereringen misslyckades: {exc}")
     st.rerun()
 
-
 def _apply_schedule_recovery_extend(tournament_id, tournament, rules, context, minutes):
     rows = pitch_day_windows(tournament_id, int(rules["pitch_count"]))
     changed = 0
@@ -907,18 +893,15 @@ def _apply_schedule_recovery_extend(tournament_id, tournament, rules, context, m
             changed += 1
     _rerun_schedule_after_recovery(tournament_id, tournament, rules, f"Plantiderna förlängdes på {changed} plan(er) med upp till {minutes} minuter")
 
-
 def _apply_schedule_recovery_late_first(tournament_id, tournament, rules, context):
     run("UPDATE teams SET late_first_match=0,earliest_first_time=NULL WHERE tournament_id=? AND late_first_match=1", (int(tournament_id),))
     run("UPDATE tournaments SET schedule_dirty=1,is_published=0 WHERE id=?", (int(tournament_id),))
     _rerun_schedule_after_recovery(tournament_id, tournament, rules, "Lagens önskemål om senare första match togs bort")
 
-
 def _apply_schedule_recovery_break(tournament_id, tournament, rules, context):
     run("UPDATE schedule_rules SET consecutive_match_break_minutes=0 WHERE tournament_id=?", (int(tournament_id),))
     run("UPDATE tournaments SET schedule_dirty=1,is_published=0 WHERE id=?", (int(tournament_id),))
     _rerun_schedule_after_recovery(tournament_id, tournament, rules, "Extra lagvila sattes till 0 minuter")
-
 
 def _apply_schedule_recovery_pitch(tournament_id, tournament, rules, context):
     new_count = int(rules["pitch_count"] or 1) + 1
@@ -927,7 +910,6 @@ def _apply_schedule_recovery_pitch(tournament_id, tournament, rules, context):
     ensure_pitch_day_windows(tournament_id, tournament, new_count, rules["first_match_time"], rules["latest_kickoff_time"])
     run("UPDATE tournaments SET schedule_dirty=1,is_published=0 WHERE id=?", (int(tournament_id),))
     _rerun_schedule_after_recovery(tournament_id, tournament, rules, f"Plan {new_count} lades till med standardtider")
-
 
 def render_schedule_recovery_actions(tournament_id, tournament, rules, context):
     return render_schedule_recovery_actions_module(
@@ -959,7 +941,6 @@ def _autosave_rule_field(tournament_id, column, key, cast=None):
     run("UPDATE matches SET schedule_published=0 WHERE tournament_id=?", (int(tournament_id),))
     st.session_state[f"autosave_notice_{tournament_id}"] = "✓ Sparat automatiskt"
 
-
 def weekday_short(value):
     if value is None:
         return ""
@@ -968,10 +949,8 @@ def weekday_short(value):
     names = names_en if current_language() == "en" else names_sv
     return names[value.weekday()]
 
-
 def date_with_weekday(value):
     return f"{weekday_short(value)} {value.isoformat()}" if value else ""
-
 
 def _visitor_header(name):
     """Läs en HTTP-header om Streamlit exponerar den, annars tom sträng."""
@@ -981,7 +960,6 @@ def _visitor_header(name):
     except Exception:
         return ""
 
-
 def _visitor_device_type(user_agent):
     ua = (user_agent or "").lower()
     if any(token in ua for token in ("ipad", "tablet")):
@@ -989,7 +967,6 @@ def _visitor_device_type(user_agent):
     if any(token in ua for token in ("mobi", "iphone", "android")):
         return "Mobil"
     return "Dator"
-
 
 def _visitor_browser(user_agent):
     ua = (user_agent or "").lower()
@@ -1005,7 +982,6 @@ def _visitor_browser(user_agent):
         return "Firefox"
     return "Övrig"
 
-
 def _visitor_source(referrer):
     ref = (referrer or "").lower()
     if not ref:
@@ -1019,7 +995,6 @@ def _visitor_source(referrer):
     if "instagram." in ref:
         return "Instagram"
     return "Annan webbplats"
-
 
 def track_public_visit(tournament_id):
     """Integritetsvänlig besöksmätning. Ingen IP-adress eller personuppgift lagras."""
@@ -1063,7 +1038,6 @@ def track_public_visit(tournament_id):
     )
     st.session_state[throttle_key] = now_dt
 
-
 def public_match_overview_db_snapshot(tournament_id, *, scorer_enabled=True, assist_enabled=True, active_minutes=5):
     """Load public overview data with a very short session cache.
 
@@ -1102,7 +1076,6 @@ def public_match_overview_db_snapshot(tournament_id, *, scorer_enabled=True, ass
     st.session_state[cache_key] = (time.monotonic(), value)
     return value
 
-
 def public_scorer_leader_db_snapshot(tournament_id):
     """Load only the public top scorer with a short live-session cache.
 
@@ -1128,7 +1101,6 @@ def public_scorer_leader_db_snapshot(tournament_id):
     st.session_state[cache_key] = (time.monotonic(), value)
     return value
 
-
 def public_match_completion_db_snapshot(tournament_id):
     """Return only the completion counters needed by the public Info page.
 
@@ -1151,8 +1123,6 @@ def public_match_completion_db_snapshot(tournament_id):
         "total_matches": int(_row_value(row, "total_matches", 0) or 0),
         "open_matches": int(_row_value(row, "open_matches", 0) or 0),
     }
-
-
 
 def public_info_boot_db_snapshot(tournament_id):
     """Load Cupinfo rules + completion once, then reuse briefly across navigation."""
@@ -1195,11 +1165,9 @@ def public_match_events_db_snapshot(match_ids):
     cache_key = f"_cupnavi_public_events_v434_{hash(normalized_ids)}"
     return _session_ttl_get(cache_key, 5.0, _load_events)
 
-
 def _public_cup_program_filename(tournament_id, tournament):
     safe_name = re.sub(r"[^A-Za-z0-9_-]+", "_", str(tournament["name"] or "CupNavi")).strip("_")
     return f"{safe_name or f'CupNavi_{int(tournament_id)}'}_cupprogram.pdf"
-
 
 def _open_public_pdf_read_connection():
     """Open a dedicated read connection safe for Streamlit's download worker."""
@@ -1213,14 +1181,12 @@ def _open_public_pdf_read_connection():
     con.execute("PRAGMA foreign_keys = ON")
     return con
 
-
 def _build_public_cup_program_pdf_bytes(tournament_id, tournament):
     """Build a complete PDF from an independent worker-thread-safe snapshot."""
     from cupnavi_core.public_pdf_download import build_public_pdf_download
     return build_public_pdf_download(
         tournament_id, tournament, open_read_connection=_open_public_pdf_read_connection,
     )
-
 
 def render_public_share_control(tournament_id, tournament, *, in_sidebar=False):
     """Render the public share action as a compact, polished rail control."""
@@ -1303,7 +1269,6 @@ def render_public_share_control(tournament_id, tournament, *, in_sidebar=False):
             help="Öppnar en ren vy för stor skärm vid cupområdet.",
         )
 
-
 @st.cache_data(show_spinner=False)
 def qr_png_bytes(value):
     """QR-bilden är deterministisk och qrcode laddas först när delning används."""
@@ -1315,7 +1280,6 @@ def qr_png_bytes(value):
     buffer = io.BytesIO()
     image.save(buffer, format="PNG")
     return buffer.getvalue()
-
 
 def normalize_website_url(value):
     """Normalisera en frivillig webbplatsadress och validera utan regex."""
@@ -1339,7 +1303,6 @@ def normalize_website_url(value):
         )
     return candidate
 
-
 def image_data_uri(uploaded_file):
     """Konvertera en liten uppladdad sponsorlogga till en portabel data-URI."""
     if uploaded_file is None:
@@ -1351,8 +1314,6 @@ def image_data_uri(uploaded_file):
     if mime not in {"image/png", "image/jpeg", "image/webp"}:
         raise ValueError("Logotypen måste vara PNG, JPG eller WEBP.")
     return f"data:{mime};base64,{base64.b64encode(raw).decode('ascii')}"
-
-
 
 TRANSLATIONS = {
     "sv": {},
@@ -1568,7 +1529,6 @@ def _install_streamlit_translation_hooks():
 
     st._cupnavi_translation_hooks = True
 
-
 st.set_page_config(page_title="CupNavi", page_icon="🏆", layout="wide")
 
 st.html("""
@@ -1716,7 +1676,6 @@ div[role="dialog"] .stButton > button:not([kind="primary"]) * {
             .cn-workflow { grid-template-columns:1fr; }
           }
 
-
           /* ===== UI/UX FAS 2 v47 ===== */
           .cn-next-match {
             background:linear-gradient(135deg,#0f172a,#1e3a5f);
@@ -1796,7 +1755,6 @@ div[role="dialog"] .stButton > button:not([kind="primary"]) * {
             .cn-next-match .teams { font-size:20px; }
           }
 
-
           /* ===== PUBLIKT SCHEMAFILTER v52 ===== */
           div[data-testid="stRadio"] > div {
             gap:8px;
@@ -1807,7 +1765,6 @@ div[role="dialog"] .stButton > button:not([kind="primary"]) * {
             padding:7px 12px;
             background:#ffffff;
           }
-
 
           /* ===== PUBLIKA MATCHHÄNDELSER v56 ===== */
           .cn-match-events {
@@ -1849,7 +1806,6 @@ div[role="dialog"] .stButton > button:not([kind="primary"]) * {
             color:#991b1b !important;
           }
 
-
           .cn-event-teams {
             display:grid;
             grid-template-columns:repeat(2,minmax(0,1fr));
@@ -1878,7 +1834,6 @@ div[role="dialog"] .stButton > button:not([kind="primary"]) * {
             .cn-event { font-size:11px; padding:4px 6px; }
           }
 
-
           .cn-organizer-contact {
             display:flex;
             align-items:center;
@@ -1902,7 +1857,6 @@ div[role="dialog"] .stButton > button:not([kind="primary"]) * {
             .cn-call-button { width:100%; text-align:center; box-sizing:border-box; }
           }
 
-
           .cn-email-button {
             display:inline-block;
             background:#1e3a8a;
@@ -1917,7 +1871,6 @@ div[role="dialog"] .stButton > button:not([kind="primary"]) * {
           @media (max-width:480px) {
             .cn-email-button { width:100%; text-align:center; box-sizing:border-box; }
           }
-
 
           /* v85 import wizard */
           .cn-import-steps {
@@ -2053,7 +2006,6 @@ div[role="dialog"] .stButton > button:not([kind="primary"]) * {
             .cn-share-button { text-align:center; box-sizing:border-box; }
           }
 
-
           .cn-instagram-button {
             display:inline-block;
             background:#7c3aed;
@@ -2071,7 +2023,6 @@ div[role="dialog"] .stButton > button:not([kind="primary"]) * {
 
 </style>
 """)
-
 
 # Global arbetsindikator: visas automatiskt medan Streamlit kör om sidan efter interaktion.
 st.html("""
@@ -2103,10 +2054,6 @@ st.html("""
 </style>
 """)
 
-
-
-
-
 inject_custom_css()
 
 st.markdown(
@@ -2120,16 +2067,9 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-
-
 inject_ux2_css()
 
-
-
-
 inject_v191_design_system()
-
-
 
 inject_v193_product_design_system()
 
@@ -2137,7 +2077,6 @@ inject_v193_product_design_system()
 # nätverksanrop. Den renderas som en liten integrerad brand-rad i appskalet och
 # ligger kvar i alla vyer under scrollning.
 CUPNAVI_LOGO_FILE = Path(__file__).with_name("assets") / "cupnavi_logo.png"
-
 
 def render_persistent_brand():
     try:
@@ -2198,7 +2137,6 @@ def render_persistent_brand():
         unsafe_allow_html=True,
     )
 
-
 render_persistent_brand()
 
 # v1.266: mobil publikvy – ta bort Streamlit Cloud-chrome som visar bl.a. "Fork",
@@ -2208,7 +2146,6 @@ inject_v266_public_mobile_css()
 # APP_VERSION centraliseras i cupnavi_core/version.py
 DB_FILE = Path(os.getenv("CUPNAVI_DB_PATH") or Path(__file__).with_name("turnering.db"))
 
-
 def setting(name):
     """Hämta en hemlighet från Streamlit Secrets eller en miljövariabel."""
     try:
@@ -2217,13 +2154,11 @@ def setting(name):
         value = None
     return str(value).strip() if value else os.getenv(name, "").strip()
 
-
 TURSO_DATABASE_URL = setting("TURSO_DATABASE_URL")
 TURSO_AUTH_TOKEN = setting("TURSO_AUTH_TOKEN")
 TURSO_CONFIG_PARTIAL = bool(TURSO_DATABASE_URL) != bool(TURSO_AUTH_TOKEN)
 CLOUD_DATABASE_ENABLED = bool(TURSO_DATABASE_URL and TURSO_AUTH_TOKEN)
 ADMIN_ACCESS_CONFIGURED = bool(setting("ADMIN_PASSWORD"))
-
 
 def _client_identity_hash(scope):
     """Hashad klientnyckel för rate limiting; rå IP lagras aldrig."""
@@ -2244,7 +2179,6 @@ def _client_identity_hash(scope):
         identity = str(st.session_state[nonce_key]) + "|" + user_agent
     return hashlib.sha256(f"{scope}|{identity}".encode("utf-8")).hexdigest()
 
-
 def _rate_allowed(scope, limit, window_seconds):
     subject = _client_identity_hash(scope)
     with db() as con:
@@ -2257,7 +2191,6 @@ def _rate_allowed(scope, limit, window_seconds):
         )
         con.commit()
     return allowed, retry_after, count
-
 
 def require_admin_access():
     """Kräv adminlösenord i webbdrift. Lokalt läge får köras utan lösenord."""
@@ -2293,7 +2226,6 @@ def require_admin_access():
             st.error(tr("Fel lösenord."))
     st.stop()
 
-
 def _verify_tournament_role_code(table_name, tournament_id, entered_code):
     if table_name not in {"match_reporter_credentials", "referee_credentials"}:
         return None
@@ -2304,7 +2236,6 @@ def _verify_tournament_role_code(table_name, tournament_id, entered_code):
     if credential and verify_access_code(entered_code, credential["code_salt"], credential["code_hash"]):
         return credential
     return None
-
 
 def require_match_reporter_access():
     """Matchrapportör loggar normalt in med en turneringsspecifik fyrsiffrig kod."""
@@ -2435,13 +2366,11 @@ def require_match_reporter_access():
                 st.error("Fel kod.")
     st.stop()
 
-
 def _discard_cloud_raw_connection(raw=None):
     """Forget a failed Turso session connection so the next operation reconnects cleanly."""
     cached = st.session_state.get("_cupnavi_turso_connection")
     if raw is None or cached is raw:
         st.session_state.pop("_cupnavi_turso_connection", None)
-
 
 class CloudConnection:
     """DB-API-adapter som återanvänder Turso-anslutningen under Streamlit-sessionen."""
@@ -2530,7 +2459,6 @@ class CloudConnection:
         # slippa nätverks-handshake vid varje liten databasfråga.
         return None
 
-
 def _new_cloud_raw_connection():
     try:
         import libsql
@@ -2541,7 +2469,6 @@ def _new_cloud_raw_connection():
         ) from exc
     return libsql.connect(database=TURSO_DATABASE_URL, auth_token=TURSO_AUTH_TOKEN)
 
-
 def _cloud_raw_connection():
     """Återanvänd Turso-anslutningen utan ett extra nätverksanrop före varje fråga."""
     raw = st.session_state.get("_cupnavi_turso_connection")
@@ -2549,7 +2476,6 @@ def _cloud_raw_connection():
         raw = _new_cloud_raw_connection()
         st.session_state["_cupnavi_turso_connection"] = raw
     return raw
-
 
 def db():
     """Använd Turso i molnet och lokal SQLite på utvecklingsdatorn.
@@ -2569,7 +2495,6 @@ def db():
     con.row_factory = sqlite3.Row
     con.execute("PRAGMA foreign_keys = ON")
     return con
-
 
 def _playoff_dependency_guard(
     con,
@@ -2650,8 +2575,6 @@ def _playoff_dependency_guard(
         "guidance": guidance,
     }
 
-
-
 def _reset_unused_playoff_downstream_match(tournament_id, match_id):
     """Safely clear an unused downstream playoff result before correcting its source match."""
     tournament_id = int(tournament_id)
@@ -2700,7 +2623,6 @@ def _reset_unused_playoff_downstream_match(tournament_id, match_id):
         "reset": True,
         "message": f"Match {match_id} återställdes. Korrigera nu det tidigare slutspelsresultatet igen.",
     }
-
 
 def update_match_result_if_unchanged(
     con,
@@ -2763,7 +2685,6 @@ def update_match_result_if_unchanged(
         verify["away_penalties"], verify["decided_winner_id"], verify["referee_id"],
     ]
     return values == [home_score, away_score, home_penalties, away_penalties, decided_winner_id, referee_id]
-
 
 def update_player_match_stats_if_unchanged(
     con,
@@ -2830,7 +2751,6 @@ def update_player_match_stats_if_unchanged(
         values = list(verify)
     return values == [int(goals), int(assists), int(yellow_cards), int(red_cards)]
 
-
 def _rows_from_cursor(cursor):
     """Normalisera både sqlite3.Row och libsql-tupler till dictionary-liknande rader."""
     rows = cursor.fetchall()
@@ -2844,7 +2764,6 @@ def _rows_from_cursor(cursor):
         return [dict(zip(names, row)) for row in rows]
     return rows
 
-
 def _one_from_cursor(cursor):
     row = cursor.fetchone()
     if row is None or isinstance(row, sqlite3.Row):
@@ -2852,7 +2771,6 @@ def _one_from_cursor(cursor):
     description = getattr(cursor, "description", None) or []
     names = [column[0] for column in description]
     return dict(zip(names, row)) if names else row
-
 
 def _linked_player_goal_totals(con, match_row):
     """Return player-linked goal totals for the two resolved teams in a match."""
@@ -2873,15 +2791,12 @@ def _linked_player_goal_totals(con, match_row):
         "away": int(by_team.get(int(away_team_id), 0)) if away_team_id is not None else 0,
     }
 
-
 def _result_event_integrity(con, match_row, home_score, away_score):
     linked = _linked_player_goal_totals(con, match_row)
     return validate_result_against_linked_goals(
         home_score=home_score, away_score=away_score,
         home_linked_goals=linked["home"], away_linked_goals=linked["away"],
     )
-
-
 
 def execute_script(con, script):
     """Kör ett SQL-script även när anslutningen saknar sqlite3.executescript."""
@@ -2898,17 +2813,14 @@ def execute_script(con, script):
     if buffer.strip():
         con.execute(buffer)
 
-
 def columns(table):
     with db() as con:
         cursor = con.execute(f"PRAGMA table_info({table})")
         return {row["name"] for row in _rows_from_cursor(cursor)}
 
-
 def _connection_columns(con, table):
     cursor = con.execute(f"PRAGMA table_info({table})")
     return {row["name"] for row in _rows_from_cursor(cursor)}
-
 
 def ensure_v96_experience_schema_compat(con):
     """
@@ -3006,7 +2918,6 @@ def ensure_v96_experience_schema_compat(con):
         ("experience_toolkit_v96", datetime.now().isoformat(timespec="seconds")),
     )
 
-
 def ensure_v99_team_portal_schema_compat(con):
     """Idempotent skydd för Lagportalens schema även vid blandade releasefiler."""
     tournament_cols = _connection_columns(con, "tournaments")
@@ -3064,7 +2975,6 @@ def ensure_v99_team_portal_schema_compat(con):
         ("participant_team_portal_v99", datetime.now().isoformat(timespec="seconds")),
     )
 
-
 def ensure_v106_participant_privacy_schema_compat(con):
     """Idempotent kontakt-, spelarnamn-, integritets- och admin-kodfält för v106."""
     team_cols = _connection_columns(con, "teams")
@@ -3093,7 +3003,6 @@ def ensure_v106_participant_privacy_schema_compat(con):
         "INSERT OR IGNORE INTO cupnavi_schema_migrations(version,name,applied_at) VALUES(9,?,?)",
         ("participant_privacy_and_admin_codes_v106", datetime.now().isoformat(timespec="seconds")),
     )
-
 
 def ensure_v108_team_messages_schema_compat(con):
     """Idempotent intern meddelandefunktion mellan lag och arrangör."""
@@ -3129,7 +3038,6 @@ def ensure_v108_team_messages_schema_compat(con):
         ("team_messaging_v108", datetime.now().isoformat(timespec="seconds")),
     )
 
-
 def _message_party_label(row, team_names):
     if row["sender_type"] == "organizer":
         sender = "Arrangören"
@@ -3140,7 +3048,6 @@ def _message_party_label(row, team_names):
     else:
         recipient = team_names.get(int(row["recipient_team_id"]), "Lag") if row["recipient_team_id"] is not None else "Lag"
     return sender, recipient
-
 
 def _send_team_message(
     tournament_id,
@@ -3303,7 +3210,6 @@ def _player_display_name(player_row, public=False):
     full = " ".join(part for part in (first, last) if part).strip()
     return full or str(_row_value(player_row, "name", "") or "").strip() or "Spelare"
 
-
 def ensure_v100_international_schema_compat(con):
     """Idempotent international/multisport fields for mixed or legacy deployments."""
     tournament_cols = _connection_columns(con, "tournaments")
@@ -3320,7 +3226,6 @@ def ensure_v100_international_schema_compat(con):
         "INSERT OR IGNORE INTO cupnavi_schema_migrations(version,name,applied_at) VALUES(7,?,?)",
         ("international_multisport_foundation_v100", datetime.now().isoformat(timespec="seconds")),
     )
-
 
 def ensure_v102_lifecycle_schema_compat(con):
     """Idempotent cup lifecycle/history fields and permanent public slugs."""
@@ -3371,7 +3276,6 @@ def ensure_v102_lifecycle_schema_compat(con):
         ("tournament_lifecycle_history_v102", datetime.now().isoformat(timespec="seconds")),
     )
 
-
 def _schema_fast_path_ready(con):
     """Return True when the deployed DB already has the current production schema.
 
@@ -3400,7 +3304,6 @@ def _schema_fast_path_ready(con):
         )
     except Exception:
         return False
-
 
 @st.cache_resource(show_spinner=False)
 def init_db():
@@ -3841,7 +3744,6 @@ def init_db():
         con.commit()
     return schema_key
 
-
 # Cache endast under ett enskilt Streamlit-renderingsvarv. Den återställs vid rerun,
 # så administratören ser alltid nya data efter en skrivning utan långlivad cache.
 _RENDER_QUERY_CACHE = {}
@@ -3875,7 +3777,6 @@ def _clear_render_query_cache():
     _RENDER_QUERY_CACHE.clear()
     _DERIVED_RENDER_CACHE.clear()
 
-
 def _clear_session_read_caches(prefixes=("_cupnavi_admin_cache_",)):
     """Invalidate short cross-rerun read caches after a database write.
 
@@ -3907,8 +3808,6 @@ def _session_ttl_get(key, ttl_seconds, factory):
     st.session_state[key] = (time.monotonic(), value)
     return value
 
-
-
 def admin_teams_snapshot(tournament_id, ttl_seconds=8.0):
     """Reuse the unchanged team list across quick admin reruns/navigation."""
     tournament_id = int(tournament_id)
@@ -3918,7 +3817,6 @@ def admin_teams_snapshot(tournament_id, ttl_seconds=8.0):
         lambda: all_rows("SELECT * FROM teams WHERE tournament_id=? ORDER BY name", (tournament_id,)),
     )
 
-
 def admin_groups_snapshot(tournament_id, ttl_seconds=8.0):
     """Reuse the unchanged group list across quick admin reruns/navigation."""
     tournament_id = int(tournament_id)
@@ -3927,7 +3825,6 @@ def admin_groups_snapshot(tournament_id, ttl_seconds=8.0):
         ttl_seconds,
         lambda: all_rows("SELECT * FROM groups WHERE tournament_id=? ORDER BY name", (tournament_id,)),
     )
-
 
 def admin_classes_snapshot(tournament_id, ttl_seconds=12.0):
     """Read competition classes without running the legacy sync on every render."""
@@ -3959,7 +3856,6 @@ def all_rows(sql, params=()):
         _RENDER_QUERY_CACHE[key] = result
     return result
 
-
 def one_row(sql, params=()):
     key = _query_cache_key("one", sql, params) if _cacheable_query(sql) else None
     if key is not None and key in _RENDER_QUERY_CACHE:
@@ -3973,7 +3869,6 @@ def one_row(sql, params=()):
         _RENDER_QUERY_CACHE[key] = result
     return result
 
-
 def run(sql, params=()):
     _clear_render_query_cache()
     _clear_session_read_caches()
@@ -3984,9 +3879,6 @@ def run(sql, params=()):
         lastrowid = cur.lastrowid
     _record_db_call(started, write=True)
     return lastrowid
-
-
-
 
 def cupday_boot_db_snapshot(tournament_id, *, include_checkins=True):
     """Load Cupday rules, matches and optional team check-ins through one DB connection."""
@@ -4016,7 +3908,6 @@ def cupday_boot_db_snapshot(tournament_id, *, include_checkins=True):
         )
     _record_db_call(started)
     return {"rules": rules, "matches": matches, "checkins": checkins}
-
 
 def public_core_snapshot(tournament_id, *, include_matches=True, include_teams=True):
     """Load the public core with a short cross-rerun fast path.
@@ -4088,8 +3979,6 @@ def run_many(sql, params_seq):
     _record_db_call(started, write=True)
     return len(rows)
 
-
-
 def insert_tournament_compat(payload):
     """Skapa cup mot det faktiska tournaments-schemat i drift.
 
@@ -4120,7 +4009,6 @@ def _json_snapshot(value):
     except Exception:
         return None
 
-
 def record_audit(tournament_id, action_type, entity_type, description, *, entity_id=None,
                  before=None, after=None, reversible=False, actor="Admin"):
     """Spara en kompakt ändringspost för nya CupNavi-verktyg."""
@@ -4134,7 +4022,6 @@ def record_audit(tournament_id, action_type, entity_type, description, *, entity
          1 if reversible else 0),
     )
 
-
 def add_feed_item(tournament_id, title, detail=None, *, category="Info", related_match_id=None, public=True):
     return run(
         """INSERT INTO cup_feed(tournament_id,created_at,category,title,detail,public,related_match_id)
@@ -4142,7 +4029,6 @@ def add_feed_item(tournament_id, title, detail=None, *, category="Info", related
         (tournament_id, datetime.now().isoformat(timespec="seconds"), category, title, detail,
          1 if public else 0, related_match_id),
     )
-
 
 def _notification_public_url(tournament_id, token, action="confirm"):
     base = public_cup_url(tournament_id)
@@ -4254,7 +4140,6 @@ def add_team_notification(tournament_id, team_id, title, message, event_key=None
         print(f"[notification-email] {type(exc).__name__}: {exc}")
     return notification_id
 
-
 def _match_team_ids(match_row):
     ids = []
     for source in (match_row["home_source"], match_row["away_source"]):
@@ -4262,7 +4147,6 @@ def _match_team_ids(match_row):
         if resolved:
             ids.append(int(resolved))
     return ids
-
 
 def _goal_push_kwargs(tournament_id, match_row, expected, home_score, away_score):
     """Build provider-neutral goal push payload inputs before a write transaction."""
@@ -4281,7 +4165,6 @@ def _goal_push_kwargs(tournament_id, match_row, expected, home_score, away_score
         "new_away_score": away_score,
     }
 
-
 def schedule_repository():
     """Repository-gräns för all SQL som hör till schemadomänen."""
     return ScheduleRepository(
@@ -4290,10 +4173,8 @@ def schedule_repository():
         clear_cache=_clear_render_query_cache,
     )
 
-
 class TeamLimitReachedError(Exception):
     pass
-
 
 def insert_team_with_limit(tournament_id, name, primary_color, secondary_color,
                            home_pattern, home_color_2, away_pattern, away_color_2,
@@ -4336,10 +4217,8 @@ def insert_team_with_limit(tournament_id, name, primary_color, secondary_color,
     finally:
         con.close()
 
-
 def team(team_id):
     return one_row("SELECT * FROM teams WHERE id=?", (team_id,)) if team_id else None
-
 
 def calculate_table(group_id, tournament):
     table_key = (
@@ -4430,7 +4309,6 @@ def calculate_all_group_tables(tournament_id, tournament):
     _DERIVED_RENDER_CACHE[cache_key] = {"groups": groups, "tables": result}
     return _DERIVED_RENDER_CACHE[cache_key]
 
-
 def final_ranking_rows(tournament_id, tournament):
     teams = all_rows("SELECT * FROM teams WHERE tournament_id=? ORDER BY name", (tournament_id,))
     if not teams:
@@ -4479,7 +4357,6 @@ def final_ranking_rows(tournament_id, tournament):
     class_map = {row["id"]: row["name"] for row in competition_classes(tournament_id)}
     return [{"Placering": i, "Lag": team_by_id[team_id]["name"], "Tävlingsklass": class_map.get(_row_value(team_by_id[team_id], "competition_class_id", None), "–")} for i, team_id in enumerate(pinned + remaining, 1)]
 
-
 def result_winner(match_row, want_loser=False):
     home_id = resolve_source(match_row["home_source"])
     away_id = resolve_source(match_row["away_source"])
@@ -4507,7 +4384,6 @@ def result_winner(match_row, want_loser=False):
         winner, loser = (home_id, away_id) if hs > aas else (away_id, home_id)
     return loser if want_loser else winner
 
-
 def group_table_is_final(group_id):
     """En gruppplacering får inte lösas till ett lag förrän hela gruppspelet är klart."""
     team_count = one_row("SELECT COUNT(*) AS n FROM teams WHERE group_id=?", (group_id,))["n"]
@@ -4520,7 +4396,6 @@ def group_table_is_final(group_id):
         (group_id,),
     )["n"]
     return completed_matches >= expected_matches
-
 
 def resolve_source(source):
     if not source:
@@ -4576,8 +4451,6 @@ def _source_label_uncached(source):
         return "Förlorare i match"
     return "Ej klart"
 
-
-
 def source_label(source):
     cache_key=("source-label", str(source or ""))
     if cache_key in _DERIVED_RENDER_CACHE:
@@ -4620,7 +4493,6 @@ def match_meta(match_row):
         schedule_text = "Ej schemalagd"
     return schedule_text, referee["name"] if referee else "Ej tillsatt"
 
-
 def match_result_label(match_row):
     schedule_text, referee = match_meta(match_row)
     return (
@@ -4629,15 +4501,12 @@ def match_result_label(match_row):
         f"{source_label(match_row['away_source'])} · Domare: {referee}"
     )
 
-
 SWEDISH_WEEKDAYS = ["Måndag", "Tisdag", "Onsdag", "Torsdag", "Fredag", "Lördag", "Söndag"]
 SWEDISH_MONTHS = ["januari", "februari", "mars", "april", "maj", "juni", "juli", "augusti", "september", "oktober", "november", "december"]
-
 
 def swedish_datetime(value):
     moment = datetime.fromisoformat(value) if isinstance(value, str) else value
     return f"{SWEDISH_WEEKDAYS[moment.weekday()]} {moment.day} {SWEDISH_MONTHS[moment.month - 1]} {moment.year} · {moment.strftime('%H:%M')}"
-
 
 def cup_date_label(tournament):
     start_text = tournament["start_date"] or tournament["tournament_date"]
@@ -4649,7 +4518,6 @@ def cup_date_label(tournament):
     if start.date() == end.date():
         return f"{SWEDISH_WEEKDAYS[start.weekday()]} {start.day} {SWEDISH_MONTHS[start.month - 1]} {start.year}"
     return f"{start.day} {SWEDISH_MONTHS[start.month - 1]} {start.year}–{end.day} {SWEDISH_MONTHS[end.month - 1]} {end.year}"
-
 
 WEATHER_CODES = {
     0: ("☀️", "Klart"), 1: ("🌤️", "Mestadels klart"), 2: ("⛅", "Växlande molnighet"),
@@ -4664,7 +4532,6 @@ WEATHER_CODES = {
     95: ("⛈️", "Åska"), 96: ("⛈️", "Åska med lätt hagel"), 99: ("⛈️", "Åska med kraftigt hagel"),
 }
 
-
 @st.cache_data(ttl=86400, show_spinner=False)
 def _weather_geocode(place):
     """Geokodning ändras sällan; håll den separat från den kortare prognoscachen."""
@@ -4676,7 +4543,6 @@ def _weather_geocode(place):
         geocode = json.load(response)
     results = geocode.get("results") or []
     return results[0] if results else None
-
 
 @st.cache_data(ttl=1800, refresh_mode="background", show_spinner=False)
 def fetch_weather_forecast(place):
@@ -4712,7 +4578,6 @@ def fetch_weather_forecast(place):
     except Exception:
         return {}, "Väderprognosen kan inte hämtas just nu."
 
-
 def weather_for_match(forecast, scheduled_start):
     """Returnera prognos för matchen utan att publikvyn kan krascha på gammal/ofullständig data."""
     if not forecast or not scheduled_start:
@@ -4726,7 +4591,6 @@ def weather_for_match(forecast, scheduled_start):
         forecast_hour += timedelta(hours=1)
     return forecast.get("hours", {}).get(forecast_hour.strftime("%Y-%m-%dT%H:%M"))
 
-
 def weather_label(weather):
     if not weather:
         return "Prognos tillgänglig närmare matchdagen"
@@ -4735,7 +4599,6 @@ def weather_label(weather):
     rain = "–" if weather.get("rain_probability") is None else f"{round(weather['rain_probability'])} % regnrisk"
     wind = "–" if weather.get("wind_speed") is None else f"{round(weather['wind_speed'])} km/h vind"
     return f"{icon} {description} · {temperature} · {rain} · {wind}"
-
 
 def _row_value(row, key, default=None):
     """Läs ett fält säkert från sqlite/libsql-rader, dictar och äldre schema."""
@@ -4749,15 +4612,12 @@ def _row_value(row, key, default=None):
         value = default
     return default if value is None else value
 
-
 def _team_value(team_row, key, default=None):
     """Bakåtkompatibel wrapper för lagrader."""
     return _row_value(team_row, key, default)
 
-
 def is_test_environment(tournament_row):
     return str(_row_value(tournament_row, "environment_type", "production") or "production") == "test"
-
 
 def played_match_count(tournament_id):
     row = one_row(
@@ -4766,11 +4626,9 @@ def played_match_count(tournament_id):
     )
     return int(_row_value(row, "n", 0) or 0)
 
-
 def production_history_locked(tournament_id, tournament_row):
     """Historikskydd gäller först när en riktig cup har minst ett registrerat resultat."""
     return (not is_test_environment(tournament_row)) and played_match_count(tournament_id) > 0
-
 
 def team_has_played_result(tournament_id, team_id):
     token = f"team:{int(team_id)}"
@@ -4781,7 +4639,6 @@ def team_has_played_result(tournament_id, team_id):
         (int(tournament_id), token, token),
     )
     return int(_row_value(row, "n", 0) or 0) > 0
-
 
 KIT_PATTERNS = ["Helfärgad", "Vertikala ränder", "Horisontella ränder", "Rutigt", "Delad"]
 
@@ -4802,18 +4659,15 @@ KIT_COLOR_PRESETS = {
 }
 KIT_CUSTOM_COLOR = "🎨 Egen färg…"
 
-
 def _normalize_kit_hex(value, fallback="#111827"):
     text = str(value or "").strip().upper()
     return text if re.fullmatch(r"#[0-9A-F]{6}", text) else fallback
-
 
 def _set_kit_color_selector_value(key, color):
     color = _normalize_kit_hex(color)
     matched = next((label for label, value in KIT_COLOR_PRESETS.items() if value.upper() == color), None)
     st.session_state[f"{key}_mode"] = matched or KIT_CUSTOM_COLOR
     st.session_state[f"{key}_custom"] = color
-
 
 def kit_color_selector(label, key, default_color, help_text=None):
     """Beginner-friendly kit color selection with presets and optional exact picker."""
@@ -4831,8 +4685,6 @@ def kit_color_selector(label, key, default_color, help_text=None):
         return st.color_picker("Exakt färg", key=custom_key, help="Använd bara detta om snabbvalen inte räcker.")
     return KIT_COLOR_PRESETS[selected]
 
-
-
 def kit_colors(team_row, kit="home"):
     """Returnera de färger som faktiskt syns i ett hemma- eller bortaställ."""
     if not team_row:
@@ -4847,12 +4699,10 @@ def kit_colors(team_row, kit="home"):
         color_2 = _team_value(team_row, "home_color_2", "#FFFFFF")
     return [color_1] if pattern == "Helfärgad" else [color_1, color_2]
 
-
 def kit_pattern(team_row, kit="home"):
     if kit == "away":
         return _team_value(team_row, "away_pattern", "Helfärgad")
     return _team_value(team_row, "home_pattern", "Helfärgad")
-
 
 def kit_background(pattern, color_1, color_2):
     """CSS-bakgrund som visuellt återger valt tröjmönster."""
@@ -4866,13 +4716,11 @@ def kit_background(pattern, color_1, color_2):
         return f"linear-gradient(90deg,{color_1} 0 50%,{color_2} 50% 100%)"
     return color_1
 
-
 def kit_background_for_team(team_row, kit="home"):
     colors = kit_colors(team_row, kit)
     color_1 = colors[0]
     color_2 = colors[1] if len(colors) > 1 else color_1
     return kit_background(kit_pattern(team_row, kit), color_1, color_2)
-
 
 def kit_preview_html(pattern, color_1, color_2, title):
     bg = kit_background(pattern, color_1, color_2)
@@ -4881,7 +4729,6 @@ def kit_preview_html(pattern, color_1, color_2, title):
         f"<span style='width:58px;height:32px;border:1px solid #64748b;border-radius:7px;background:{bg};display:inline-block'></span>"
         f"<span style='color:#334155;font-size:13px'><b>{html.escape(title)}</b><br>{html.escape(pattern)}</span></div>"
     )
-
 
 def kit_swatch(team_row, kit="home"):
     """SVG-ruta för Streamlit-tabeller som kan visa två färger och mönster."""
@@ -4906,7 +4753,6 @@ def kit_swatch(team_row, kit="home"):
     svg = f"<svg xmlns='http://www.w3.org/2000/svg' width='58' height='24' viewBox='0 0 58 24'><defs>{defs}</defs><rect x='1' y='1' width='56' height='22' rx='4' fill='{fill}' stroke='#475569'/></svg>"
     return "data:image/svg+xml;base64," + base64.b64encode(svg.encode("utf-8")).decode("ascii")
 
-
 def _hex_rgb(value):
     value = (value or "").strip().lstrip("#")
     if len(value) == 3:
@@ -4918,7 +4764,6 @@ def _hex_rgb(value):
     except ValueError:
         return None
 
-
 def colors_similar(color_a, color_b, threshold=72):
     """Praktisk färgkrock: fånga även tydligt närliggande nyanser, inte bara identiska hexvärden."""
     a, b = _hex_rgb(color_a), _hex_rgb(color_b)
@@ -4927,10 +4772,8 @@ def colors_similar(color_a, color_b, threshold=72):
     distance = sum((x - y) ** 2 for x, y in zip(a, b)) ** 0.5
     return distance <= threshold
 
-
 def kits_conflict(team_a, kit_a, team_b, kit_b):
     return any(colors_similar(a, b) for a in kit_colors(team_a, kit_a) for b in kit_colors(team_b, kit_b))
-
 
 def match_kit_colors(home_team, away_team):
     """Behåll kompatibel returtyp men välj bortaställ utifrån alla synliga färger."""
@@ -4941,7 +4784,6 @@ def match_kit_colors(home_team, away_team):
     away_color = kit_colors(away_team, "away" if use_away_kit else "home")[0]
     return home_color, away_color, use_away_kit
 
-
 def kit_color_conflict(home_team, away_team):
     """Kontrollera om bortalagets valda ställ fortfarande krockar med hemmastället."""
     if not home_team or not away_team:
@@ -4949,7 +4791,6 @@ def kit_color_conflict(home_team, away_team):
     use_away_kit = kits_conflict(home_team, "home", away_team, "home")
     selected_away_kit = "away" if use_away_kit else "home"
     return kits_conflict(home_team, "home", away_team, selected_away_kit)
-
 
 def optimize_group_home_away(tournament_id):
     """
@@ -5118,7 +4959,6 @@ def optimize_group_home_away(tournament_id):
         _clear_render_query_cache()
     return changed
 
-
 def render_centered_table(dataframe, empty_text="Ingen data att visa."):
     """Rendera en responsiv HTML-tabell med centrerade rubriker och celler."""
     if dataframe is None or dataframe.empty:
@@ -5175,7 +5015,6 @@ def render_centered_table(dataframe, empty_text="Ingen data att visa."):
 """
     st.markdown(html_block, unsafe_allow_html=True)
 
-
 def brackets_for_display(tournament_id):
     """Visa högst ett A- och ett B-slutspel utan N+1-frågor mot matchtabellen."""
     rows = all_rows("SELECT * FROM brackets WHERE tournament_id=? ORDER BY id", (tournament_id,))
@@ -5210,7 +5049,6 @@ def brackets_for_display(tournament_id):
             duplicates.append(bracket)
     visible = regular + [value[3] for value in selected.values()]
     return sorted(visible, key=lambda bracket: bracket["id"]), duplicates
-
 
 def create_all_group_matches(tournament_id):
     """Create missing group matches using arrangement-aware pairing rules."""
@@ -5329,10 +5167,8 @@ def create_bracket(tournament_id, name, size, bronze, first_sources):
             (tournament_id, bracket_id, "Bronsmatch", round_no, 1, f"loser:{semifinal_ids[0]}", f"loser:{semifinal_ids[1]}"),
         )
 
-
 PLACEMENT_PLAYOFF_FORMAT = "Placeringsslutspel – ettor mot ettor osv."
 MANUAL_PLAYOFF_FORMAT = "Manuellt slutspel"
-
 
 def placement_playoff_specs(tournament_id):
     """Bygg dynamiska placeringsslutspel för två, fyra eller åtta grupper."""
@@ -5350,7 +5186,6 @@ def placement_playoff_specs(tournament_id):
         name = rank_names.get(rank, f"Placering {rank}-slutspel")
         specs.append((name, len(groups), [f"group:{group['id']}:{rank}" for group in groups]))
     return specs, ""
-
 
 def playoff_specs_for_tournament(tournament_id, tournament):
     """Returnera önskat slutspel utifrån den modell som valts på Adminöversikten."""
@@ -5388,7 +5223,6 @@ def playoff_specs_for_tournament(tournament_id, tournament):
     if fmt == PLACEMENT_PLAYOFF_FORMAT:
         return placement_playoff_specs(tournament_id)
     return [], "Okänd slutspelsmodell."
-
 
 def ensure_playoffs_for_schedule(tournament_id, tournament):
     """Skapa/uppdatera slutspel automatiskt när hela schemat genereras."""
@@ -5431,7 +5265,6 @@ def ensure_playoffs_for_schedule(tournament_id, tournament):
         )
     return True, ""
 
-
 def group_playoff_qualifiers(tournament_id, group_id):
     """Map group position -> playoff label from actual generated bracket sources."""
     rows = all_rows(
@@ -5470,7 +5303,6 @@ def group_playoff_qualifiers(tournament_id, group_id):
                 mapping.setdefault(rank, (bracket_name or "Slutspel", "qual-playoff"))
     return mapping
 
-
 def render_empty_state(title, description, *, symbol="•"):
     st.markdown(
         f"<div class='cn-empty-state' role='status'>"
@@ -5480,14 +5312,11 @@ def render_empty_state(title, description, *, symbol="•"):
         unsafe_allow_html=True,
     )
 
-
 def render_group_table(table_rows, tournament, group_id=None):
     return _render_group_table_impl(
         table_rows, tournament, group_id, st=st,
         group_playoff_qualifiers=group_playoff_qualifiers,
     )
-
-
 
 def generate_schedule(tournament_id, tournament, rules, preserve_existing=False):
     repo = schedule_repository()
@@ -5896,7 +5725,6 @@ def generate_schedule(tournament_id, tournament, rules, preserve_existing=False)
 
     return scheduled, unresolved, warning
 
-
 def validate_schedule(tournament_id, tournament, rules):
     """Kontrollera schemat och sammanställ väntetid och belastning per lag."""
     rows = schedule_repository().scheduled_matches(tournament_id)
@@ -6005,7 +5833,6 @@ def validate_schedule(tournament_id, tournament, rules):
         errors.append(f"{unscheduled_groups} gruppspelsmatcher saknar schematid.")
     return list(dict.fromkeys(errors)), list(dict.fromkeys(warnings)), quality_rows
 
-
 def render_bracket_tree(bracket_id, public=False, *, team_by_id=None):
     return _render_bracket_tree_impl(
         bracket_id, public, st=st, all_rows=all_rows, row_value=_row_value,
@@ -6013,22 +5840,16 @@ def render_bracket_tree(bracket_id, public=False, *, team_by_id=None):
         team_by_id=team_by_id,
     )
 
-
-
 def public_match_events_html(match_id, match_row=None, rows=None, team_names=None):
     return _public_match_events_html_impl(
         match_id, match_row, rows, team_names, all_rows=all_rows, one_row=one_row,
         row_value=_row_value, resolve_source=resolve_source, tr=tr,
     )
 
-
-
-
 def public_rules_html(tournament, rules):
     return _public_rules_html_impl(
         tournament, rules, row_value=_row_value, sport_profile=sport_profile,
     )
-
 
 def render_about_page():
     """Publik Om-sida driven av CupNavis centrala feature-katalog."""
@@ -6071,7 +5892,6 @@ def render_about_page():
         )
     )
 
-
 def render_public_statistics_section(tournament_id, tournament, published_matches, played_matches, forced_section=None, public_team_by_id=None):
     """Thin application adapter for the extracted public statistics view."""
     return render_public_statistics_section_module(
@@ -6096,7 +5916,6 @@ def render_public_statistics_section(tournament_id, tournament, published_matche
         render_bracket_tree=render_bracket_tree,
     )
 
-
 def render_public_info_section(tournament_id, tournament, published_matches, *, match_completion=None, load_published_matches=None):
     """Thin application adapter for the extracted Cupinfo view."""
     info_rules, combined_completion = public_info_boot_db_snapshot(tournament_id)
@@ -6108,8 +5927,6 @@ def render_public_info_section(tournament_id, tournament, published_matches, *, 
         public_rules_html=public_rules_html, cup_summary=cup_summary,
         sport_profile=sport_profile, rate_allowed=_rate_allowed, run=run,
     )
-
-
 
 @st.fragment
 def render_public_view(tournament_id, tournament):
@@ -6238,7 +6055,6 @@ def _reporter_save_quick_result(tournament_id, quick_match, home_score, away_sco
         )
     return True
 
-
 def _reporter_save_bulk_results(tournament_id, original_by_id, updates):
     """Persist bulk results without moving concurrency/write logic into the view."""
     for update in updates:
@@ -6324,7 +6140,6 @@ def _reporter_save_bulk_results(tournament_id, original_by_id, updates):
         "integrity_blocks": len(integrity_blocks),
         "dependency_blocks": len(dependency_blocks),
     }
-
 
 def _reporter_live_goal_transaction(tournament_id, match_row, team_id, player_id, expected_stats, *, delta):
     """Atomically change the live score and one player's goal counter.
@@ -6444,18 +6259,15 @@ def _reporter_live_goal_transaction(tournament_id, match_row, team_id, player_id
     )
     return {"saved": True, "home_score": new_home, "away_score": new_away, "player_goals": new_goals}
 
-
 def _reporter_save_live_goal(tournament_id, match_row, team_id, player_id, expected_stats):
     return _reporter_live_goal_transaction(
         tournament_id, match_row, team_id, player_id, expected_stats, delta=1
     )
 
-
 def _reporter_undo_live_goal(tournament_id, match_row, team_id, player_id, expected_stats):
     return _reporter_live_goal_transaction(
         tournament_id, match_row, team_id, player_id, expected_stats, delta=-1
     )
-
 
 def _reporter_save_event_rows(changed_rows):
     """Persist player-event edits with the existing optimistic-locking helper."""
@@ -6473,7 +6285,6 @@ def _reporter_save_event_rows(changed_rows):
     _clear_render_query_cache()
     return {"saved": len(saved_rows), "conflicts": len(conflicted_rows)}
 
-
 def _reporter_acknowledge_referee(tournament_id, referee_id, match_id):
     run(
         """INSERT INTO referee_acknowledgements(tournament_id,referee_id,match_id,acknowledged_at)
@@ -6484,7 +6295,6 @@ def _reporter_acknowledge_referee(tournament_id, referee_id, match_id):
         tournament_id, "referee_ack", "match", "Domaruppdrag bekräftat",
         entity_id=match_id, actor="Domare",
     )
-
 
 def _reporter_set_match_status(tournament_id, match_row, new_status, actor="Matchrapportör"):
     """Persist one explicit match lifecycle transition with optimistic locking."""
@@ -6532,8 +6342,6 @@ def _reporter_set_match_status(tournament_id, match_row, new_status, actor="Matc
     )
     return True
 
-
-
 def render_match_reporter_view(tournament_id, tournament):
     """Thin app boundary: inject reads, labels and protected persistence callbacks."""
     render_match_reporter_workspace(
@@ -6564,12 +6372,10 @@ def _participant_role_label(tournament):
     sport = str(_row_value(tournament, "sport", "Fotboll") or "Fotboll")
     return "Spelare/Paransvarig" if sport in {"Tennis", "Padel"} else "Lagledare"
 
-
 def _portal_match_label(match_row):
     when = swedish_datetime(match_row["scheduled_start"]) if match_row["scheduled_start"] else "Tid ej satt"
     pitch = pitch_label(match_row['tournament_id'],match_row['pitch_number'])
     return f"{when} · {pitch} · {source_label(match_row['home_source'])} – {source_label(match_row['away_source'])}"
-
 
 def _save_match_roster_if_unchanged(
     match_id,
@@ -6646,7 +6452,6 @@ def _save_match_roster_if_unchanged(
     _clear_render_query_cache()
     return True, None
 
-
 def _player_snapshot(player):
     """Fields protected when a team leader edits or deletes a player."""
     return {
@@ -6658,7 +6463,6 @@ def _player_snapshot(player):
         "position": _row_value(player, "position", None),
         "is_protected": int(_row_value(player, "is_protected", 0) or 0),
     }
-
 
 def _add_team_player_if_capacity(
     team_id,
@@ -6732,7 +6536,6 @@ def _add_team_player_if_capacity(
         return True, None
     return False, "roster_full"
 
-
 def _update_team_player_if_unchanged(
     player_id,
     team_id,
@@ -6791,7 +6594,6 @@ def _update_team_player_if_unchanged(
         return True, None
     return False, "conflict"
 
-
 def _delete_team_player_if_unchanged(player_id, team_id, expected):
     """Delete only the player version that the team leader actually saw."""
     with db() as con:
@@ -6824,7 +6626,6 @@ def _delete_team_player_if_unchanged(player_id, team_id, expected):
         return True, None
     return False, "conflict"
 
-
 def _team_contact_snapshot(team_row):
     return {
         "responsible_name": _team_value(team_row, "responsible_name", "") or "",
@@ -6835,7 +6636,6 @@ def _team_contact_snapshot(team_row):
         "public_contact_email": _team_value(team_row, "public_contact_email", "") or "",
         "public_contact_enabled": int(_team_value(team_row, "public_contact_enabled", 0) or 0),
     }
-
 
 def _save_team_contact_if_unchanged(
     team_id,
@@ -6907,7 +6707,6 @@ def _save_team_contact_if_unchanged(
         return True, None
     return False, "conflict"
 
-
 def _mark_team_messages_read(message_ids, *, tournament_id, recipient_type, recipient_team_id=None):
     """Mark only messages owned by the current inbox as read.
 
@@ -6945,14 +6744,12 @@ def _mark_team_messages_read(message_ids, *, tournament_id, recipient_type, reci
     _clear_render_query_cache()
     return max(0,int(rowcount or 0)) if rowcount is not None and rowcount >= 0 else len(ids)
 
-
 def _team_checkin_snapshot(team_row):
     return {
         "checked_in": int(_row_value(team_row,"checked_in",0) or 0),
         "checked_in_at": _row_value(team_row,"checked_in_at",None),
         "checked_in_by": _row_value(team_row,"checked_in_by",None),
     }
-
 
 def _set_team_checkin_if_unchanged(team_id, expected, *, checked_in, checked_in_by=None):
     """Optimistic check-in transition for the team portal."""
@@ -6982,7 +6779,6 @@ def _set_team_checkin_if_unchanged(team_id, expected, *, checked_in, checked_in_
         return True,None
     return False,"conflict"
 
-
 def _team_kit_snapshot(team_row):
     return {
         "kit_confirmed_at": _row_value(team_row,"kit_confirmed_at",None),
@@ -6993,7 +6789,6 @@ def _team_kit_snapshot(team_row):
         "away_pattern": _team_value(team_row,"away_pattern","Helfärgad") or "Helfärgad",
         "away_color_2": _team_value(team_row,"away_color_2","#111827") or "#111827",
     }
-
 
 def _confirm_team_kit_if_unchanged(team_id, expected):
     """Confirm exactly the kit version that was rendered to the team leader."""
@@ -7028,7 +6823,6 @@ def _confirm_team_kit_if_unchanged(team_id, expected):
         return True,None
     return False,"conflict"
 
-
 def _admin_team_snapshot(team_row):
     """Fields protected when Admin edits/deletes a team."""
     return {
@@ -7051,7 +6845,6 @@ def _admin_team_snapshot(team_row):
         "competition_class_id": _team_value(team_row, "competition_class_id", None),
         "group_id": _team_value(team_row, "group_id", None),
     }
-
 
 def _admin_update_team_if_unchanged(
     team_id,
@@ -7134,7 +6927,6 @@ def _admin_update_team_if_unchanged(
         return True,None
     return False,"conflict"
 
-
 def _admin_delete_team_if_unchanged(team_id, tournament_id, expected):
     """Delete a team only if the row still matches the Admin's rendered version."""
     team_id=int(team_id)
@@ -7194,14 +6986,12 @@ def _admin_delete_team_if_unchanged(team_id, tournament_id, expected):
         return True,None
     return False,"conflict"
 
-
 def _admin_group_snapshot(group_row):
     return {
         "name": _row_value(group_row,"name","") or "",
         "age_class": _row_value(group_row,"age_class",None),
         "competition_class_id": _row_value(group_row,"competition_class_id",None),
     }
-
 
 def _admin_update_group_if_unchanged(
     group_id,
@@ -7233,7 +7023,6 @@ def _admin_update_group_if_unchanged(
         _clear_render_query_cache()
         return True,None
     return False,"conflict"
-
 
 def _admin_delete_group_if_unchanged(group_id, tournament_id, expected):
     group_id=int(group_id)
@@ -7277,7 +7066,6 @@ def _admin_delete_group_if_unchanged(group_id, tournament_id, expected):
         return True,None
     return False,"conflict"
 
-
 def _set_schedule_request_status_if_current(
     request_id,
     tournament_id,
@@ -7301,7 +7089,6 @@ def _set_schedule_request_status_if_current(
         return True,None
     return False,"conflict"
 
-
 def _sponsor_snapshot(row):
     return {
         "name": _row_value(row,"name","") or "",
@@ -7312,7 +7099,6 @@ def _sponsor_snapshot(row):
         "active": int(_row_value(row,"active",0) or 0),
         "sort_order": int(_row_value(row,"sort_order",0) or 0),
     }
-
 
 def _admin_update_sponsor_if_unchanged(
     sponsor_id,
@@ -7355,7 +7141,6 @@ def _admin_update_sponsor_if_unchanged(
         return True,None
     return False,"conflict"
 
-
 def _admin_delete_sponsor_if_unchanged(sponsor_id, tournament_id, expected):
     with db() as con:
         cursor=con.execute(
@@ -7383,7 +7168,6 @@ def _admin_delete_sponsor_if_unchanged(sponsor_id, tournament_id, expected):
         return True,None
     return False,"conflict"
 
-
 def _functionary_snapshot(row):
     return {
         "name": _row_value(row,"name","") or "",
@@ -7395,7 +7179,6 @@ def _functionary_snapshot(row):
         "public_contact": int(_row_value(row,"public_contact",0) or 0),
         "active": int(_row_value(row,"active",1) or 0),
     }
-
 
 def _admin_update_functionary_if_unchanged(
     functionary_id,
@@ -7442,7 +7225,6 @@ def _admin_update_functionary_if_unchanged(
         return True,None
     return False,"conflict"
 
-
 def _admin_delete_functionary_if_unchanged(functionary_id, tournament_id, expected):
     with db() as con:
         cursor=con.execute(
@@ -7471,7 +7253,6 @@ def _admin_delete_functionary_if_unchanged(functionary_id, tournament_id, expect
         _clear_render_query_cache()
         return True,None
     return False,"conflict"
-
 
 def _set_publication_if_current(
     tournament_id,
@@ -7519,7 +7300,6 @@ def _set_publication_if_current(
         return True,None
     return False,"conflict"
 
-
 def _set_lifecycle_if_current(
     tournament_id,
     expected_lifecycle,
@@ -7553,7 +7333,6 @@ def _set_lifecycle_if_current(
         _clear_render_query_cache()
         return True,None
     return False,"conflict"
-
 
 def _undo_audit_entry_if_current(audit_id, tournament_id):
     """Undo one reversible audit entry exactly once, in one transaction."""
@@ -7620,7 +7399,6 @@ def _undo_audit_entry_if_current(audit_id, tournament_id):
         "description":description,
     }
 
-
 def _offer_snapshot(row):
     return {
         "title": _row_value(row,"title","") or "",
@@ -7632,7 +7410,6 @@ def _offer_snapshot(row):
         "active": int(_row_value(row,"active",0) or 0),
         "sort_order": int(_row_value(row,"sort_order",0) or 0),
     }
-
 
 def _admin_update_offer_if_unchanged(offer_id,tournament_id,expected,*,title,business_name,description,discount_code,valid_until,url,active,sort_order):
     with db() as con:
@@ -7660,7 +7437,6 @@ def _admin_update_offer_if_unchanged(offer_id,tournament_id,expected,*,title,bus
         return True,None
     return False,"conflict"
 
-
 def _admin_delete_offer_if_unchanged(offer_id,tournament_id,expected):
     with db() as con:
         cursor=con.execute(
@@ -7685,7 +7461,6 @@ def _admin_delete_offer_if_unchanged(offer_id,tournament_id,expected):
         return True,None
     return False,"conflict"
 
-
 def _functionary_shift_snapshot(row):
     return {
         "functionary_id": int(_row_value(row,"functionary_id",0) or 0),
@@ -7694,7 +7469,6 @@ def _functionary_shift_snapshot(row):
         "assignment": _row_value(row,"assignment",None),
         "location": _row_value(row,"location",None),
     }
-
 
 def _admin_delete_functionary_shift_if_unchanged(shift_id,tournament_id,expected):
     with db() as con:
@@ -7717,7 +7491,6 @@ def _admin_delete_functionary_shift_if_unchanged(shift_id,tournament_id,expected
         return True,None
     return False,"conflict"
 
-
 def _credential_snapshot(row):
     if row is None:
         return None
@@ -7727,7 +7500,6 @@ def _credential_snapshot(row):
         "created_at": _row_value(row,"created_at",None),
         "rotated_at": _row_value(row,"rotated_at",None),
     }
-
 
 def _rotate_participant_code_if_unchanged(tournament_id,team_id,expected):
     """Rotate portal code only if credential state still matches rendered state."""
@@ -7783,7 +7555,6 @@ def _rotate_participant_code_if_unchanged(tournament_id,team_id,expected):
         return True,None,plain_code
     return False,"conflict",None
 
-
 def _rotate_all_participant_codes(tournament_id):
     """Rotate every team portal code for one tournament in a single transaction."""
     team_rows = all_rows(
@@ -7820,7 +7591,6 @@ def _rotate_all_participant_codes(tournament_id):
     _clear_render_query_cache()
     return generated, None
 
-
 def _trash_tournament_if_current(tournament_id,expected_lifecycle,expected_is_published):
     with db() as con:
         cursor=con.execute(
@@ -7840,7 +7610,6 @@ def _trash_tournament_if_current(tournament_id,expected_lifecycle,expected_is_pu
         return True,None
     return False,"conflict"
 
-
 def _restore_trashed_tournament_if_current(tournament_id,expected_trashed_at):
     with db() as con:
         cursor=con.execute(
@@ -7856,7 +7625,6 @@ def _restore_trashed_tournament_if_current(tournament_id,expected_trashed_at):
         return True,None
     return False,"conflict"
 
-
 def _delete_trashed_tournament_if_current(tournament_id,expected_name,expected_trashed_at):
     with db() as con:
         cursor=con.execute(
@@ -7871,7 +7639,6 @@ def _delete_trashed_tournament_if_current(tournament_id,expected_name,expected_t
         _clear_render_query_cache()
         return True,None
     return False,"conflict"
-
 
 def render_team_portal(tournament_id, tournament):
     """Begränsad portal för ett enda lag/deltagare i en enda cup."""
@@ -7904,19 +7671,14 @@ def render_team_portal(tournament_id, tournament):
     )
     return render_team_portal_workspace(tournament_id, tournament, deps)
 
-
-
 init_db()
-
 
 # SIDOMENY OCH TURNERING
 st.sidebar.title(f"🏆 {tr('Turneringar')}")
 language_options = {"sv": "Svenska", "en": "English"}
 
-
 def _sync_language_selector():
     st.session_state["language"] = st.session_state.get("language_selector", current_language())
-
 
 selected_language = st.sidebar.selectbox(
     "🌐 " + tr("Välj språk"),
@@ -7965,7 +7727,6 @@ def _set_view_mode(mode):
         )
         if _active_cup and hasattr(st, "query_params"):
             st.query_params["cup"] = str(_active_cup)
-
 
 # v160: cupens huvudflöde. Specialfunktioner finns kvar i gruppnavigationen.
 ADMIN_PRIMARY_FLOW = [
@@ -8247,6 +8008,11 @@ def render_new_tournament_creator(*, key_prefix="sidebar"):
                 if st.session_state.get(doc_use_teams_key, False) and doc_prefill.get("teams"):
                     from cupnavi_core.cup_document_creator_view import apply_document_teams
                     _imported_team_count = apply_document_teams(db, new_tournament_id, doc_prefill); add_feed_item(new_tournament_id, f"{_imported_team_count} lag importerade från dokument", str(doc_prefill.get("source_name") or "Cupprogram"), category="Import")
+                _doc_matches_key = f"{key_prefix}_cup_document_use_matches"
+                if st.session_state.get(_doc_matches_key, False) and doc_prefill.get("matches"):
+                    from cupnavi_core.cup_document_creator_view import apply_document_matches
+                    _imported_match_count = apply_document_matches(db, new_tournament_id, doc_prefill, start_date)
+                    add_feed_item(new_tournament_id, f"{_imported_match_count} matcher importerade och låsta", "Importerat schema – ändras aldrig automatiskt", category="Import")
                 defaults = sport_profile(sport)
                 run(
                     """INSERT INTO schedule_rules(
@@ -8274,6 +8040,7 @@ def render_new_tournament_creator(*, key_prefix="sidebar"):
                 st.session_state["show_mobile_tournament_creator"] = False
                 st.session_state.pop(doc_prefill_key, None)
                 st.session_state.pop(doc_use_teams_key, None)
+                st.session_state.pop(f"{key_prefix}_cup_document_use_matches", None)
                 st.rerun()
 
 # Historical static-test anchors. These strings preserve legacy source boundaries
@@ -8370,13 +8137,11 @@ def _set_admin_entry_mode(mode):
     if mode == "manage":
         st.session_state["admin_manage_tournament_confirmed"] = False
 
-
 def _open_admin_entry_tournament(tournament_id):
     tournament_id = int(tournament_id)
     st.session_state["preferred_tournament_id"] = tournament_id
     st.session_state["active_tournament_selector"] = tournament_id
     st.session_state["admin_manage_tournament_confirmed"] = True
-
 
 # v426: Admin starts with one clean routing decision. Do not render cup selectors,
 # dashboards, creation forms or navigation until the organiser has chosen a path.
@@ -8824,7 +8589,6 @@ if a11y_large_text:
 _a11y_css.append("button,[role='button'],input,select,textarea{min-height:44px;} :focus-visible{outline:3px solid #2563EB!important;outline-offset:2px!important;} .cn-sr-only{position:absolute!important;width:1px!important;height:1px!important;padding:0!important;margin:-1px!important;overflow:hidden!important;clip:rect(0,0,0,0)!important;white-space:nowrap!important;border:0!important;}")
 if _a11y_css:
     st.markdown("<style>" + "".join(_a11y_css) + "</style><div class='cn-sr-only' role='status' aria-live='polite'>CupNavi är redo. Navigation och formulär kan användas med tangentbord och skärmläsare.</div>", unsafe_allow_html=True)
-
 
 # v321: public reruns do not need the large BaseWeb datepicker/admin CSS payload.
 # Keep public readability + public legacy polish, while admin/role views retain the
@@ -9714,7 +9478,11 @@ if current_schedule_dirty and current_schedule_scheduled:
 def _load_admin_sidebar_rules():
     row = one_row(
         """SELECT sr.*,
-                  (SELECT COUNT(*) FROM matches m WHERE m.tournament_id=sr.tournament_id AND m.scheduled_start IS NOT NULL) AS scheduled_n
+                  (SELECT COUNT(*) FROM matches m WHERE m.tournament_id=sr.tournament_id AND m.scheduled_start IS NOT NULL) AS scheduled_n,
+                  (SELECT COUNT(*) FROM pitches p WHERE p.tournament_id=sr.tournament_id) AS pitches_n,
+                  (SELECT COUNT(*) FROM teams t WHERE t.tournament_id=sr.tournament_id) AS teams_n,
+                  (SELECT COUNT(*) FROM groups g WHERE g.tournament_id=sr.tournament_id) AS groups_n,
+                  (SELECT COUNT(*) FROM teams t WHERE t.tournament_id=sr.tournament_id AND t.group_id IS NULL) AS unassigned_n
            FROM schedule_rules sr WHERE sr.tournament_id=?""",
         (tid,),
     )
@@ -9776,7 +9544,6 @@ def _publish_tournament_now():
         st.session_state["_validation_dirty"] = True
     return changed, reason
 
-
 def _unpublish_tournament_now():
     return _set_publication_if_current(
         tid,
@@ -9785,6 +9552,17 @@ def _unpublish_tournament_now():
         publish=False,
     )
 
+# v508: Persistent, clickable checklist of the actual publication gates.
+if not _first_run_new_cup and not bool(tournament["is_published"]):
+    _expected = int(tournament["expected_team_count"] or 0)
+    _teams_n = int(_row_value(sidebar_rules, "teams_n", 0) or 0)
+    render_publication_steps(
+        tournament_id=tid, teams_ready=_teams_n > 0 and (not _expected or _teams_n >= _expected),
+        pitches_ready=int(_row_value(sidebar_rules, "pitches_n", 0) or 0) > 0,
+        groups_ready=int(_row_value(sidebar_rules, "groups_n", 0) or 0) > 0 and int(_row_value(sidebar_rules, "unassigned_n", 0) or 0) == 0,
+        schedule_ready=bool(sidebar_scheduled) and not bool(tournament["schedule_dirty"]),
+        control_ready=bool(_validation_ready) and not bool(sidebar_errors), navigate_admin_page=_set_admin_page,
+    )
 
 # Historical QA anchor: show_main_control=(admin_page == "Kontroller")
 if not _first_run_new_cup:
@@ -9821,7 +9599,6 @@ completion_state = build_completion_state(
     lifecycle=tournament_lifecycle,
 )
 
-
 def _admin_set_public_lifecycle(expected_lifecycle, new_lifecycle):
     return _set_lifecycle_if_current(
         tid,
@@ -9830,7 +9607,6 @@ def _admin_set_public_lifecycle(expected_lifecycle, new_lifecycle):
         expected_is_published=1,
     )
 
-
 def _add_completed_cup_feed_item():
     add_feed_item(
         tid,
@@ -9838,7 +9614,6 @@ def _add_completed_cup_feed_item():
         "Resultat och statistik finns kvar i CupNavi-historiken.",
         category="Cup",
     )
-
 
 render_admin_lifecycle_controls(
     tournament_id=tid,
@@ -9871,38 +9646,29 @@ def _demo_data_service():
         )
     )
 
-
 def _demo_distribute_count(total, players):
     return _demo_data_service().distribute_count(total, players)
-
 
 def _demo_write_match_stats(match_id, team_id, goals, con):
     return _demo_data_service().write_match_stats(match_id, team_id, goals, con)
 
-
 def _demo_generate_group_results(tournament_id, *, fraction=1.0):
     return _demo_data_service().generate_group_results(tournament_id, fraction=fraction)
-
 
 def _demo_generate_playoff_results(tournament_id, *, fraction=1.0):
     return _demo_data_service().generate_playoff_results(tournament_id, fraction=fraction)
 
-
 def _demo_reset_results(tournament_id):
     return _demo_data_service().reset_results(tournament_id)
-
 
 def _demo_apply_safe_schedule_capacity(tournament_id, tournament_row):
     return _demo_data_service().apply_safe_schedule_capacity(tournament_id, tournament_row)
 
-
 def _demo_prepare_schedule(tournament_id):
     return _demo_data_service().prepare_schedule(tournament_id)
 
-
 def _demo_apply_progress_level(tournament_id, level):
     return _demo_data_service().apply_progress_level(tournament_id, level)
-
 
 def _admin_workflow_counts(tournament_id):
     # v1.279: query ownership lives in the repository module; app.py keeps only
@@ -9914,8 +9680,6 @@ def _admin_workflow_counts(tournament_id):
     result = fetch_admin_workflow_counts(one_row, int(tournament_id))
     _DERIVED_RENDER_CACHE[cache_key] = result
     return result
-
-
 
 if admin_page == "Instruktioner":
     st.header("Instruktioner")
@@ -10126,7 +9890,6 @@ if admin_page == "Instruktioner":
         - **Matcher är samlade på en publik sida.** Kommande och spelade matcher visas i samma flöde, med resultat och registrerade händelser när de finns.
         """
     )
-
 
 elif admin_page == "Adminöversikt":
     workflow_counts = _admin_workflow_counts(tid)
@@ -10775,7 +10538,6 @@ elif admin_page == "Adminöversikt":
                 else:
                     st.caption("Publiceringsstatus och publiceringsknapp finns i vänsterspalten.")
 
-
         with st.expander("Testverktyg", expanded=False):
             _demo_environment_allowed = is_test_environment(tournament)
             st.subheader("Testverktyg" if _demo_environment_allowed else "Testverktyg · endast Testmiljö")
@@ -11060,7 +10822,6 @@ elif admin_page == "Adminöversikt":
                             pass
                         st.error(f"Demodata kunde inte skapas: {exc}")
 
-
                 st.markdown("##### Testläge – välj hur långt cupen har kommit")
                 st.caption(
                     "Testlägena bygger ett komplett schema och fyller resultat, matchhändelser och status till vald nivå. "
@@ -11126,7 +10887,6 @@ elif admin_page == "Adminöversikt":
                     f"slutspel {int(progress_counts['playoff_played'] or 0)}/{int(progress_counts['playoff_total'] or 0)}."
                 )
 
-
             feedback_rows = all_rows(
                 "SELECT created_at,area,message,contact FROM feedback WHERE tournament_id=? ORDER BY id DESC LIMIT 50",
                 (tid,),
@@ -11141,7 +10901,6 @@ elif admin_page == "Adminöversikt":
                         if item["contact"]:
                             st.caption(f"Kontakt: {item['contact']}")
                         st.divider()
-
 
 if admin_page == "Cupinställningar":
     st.subheader("Cupinställningar")
@@ -11475,7 +11234,6 @@ if admin_page == "Kontroller":
             st.warning("Grupper med färre än två lag: " + ", ".join(small_group_controls))
         else:
             st.success("Alla skapade grupper har minst två lag.")
-
 
     _show_technical_health = st.toggle("Visa teknisk hälsa, backup & nödläge", value=False, key=f"show_technical_health_{tid}")
     if _show_technical_health:
@@ -12021,7 +11779,6 @@ if admin_page == "Önskemålscentral":
                 st.caption("Drag-and-drop kräver streamlit-sortables.")
             st.caption("Överst = viktigast om önskemål konkurrerar om samma tider.")
     st.stop()
-
 
 if admin_page == "Lag":
     # Planning flow contract: ["Grundsetup", "Lag", "Grupper", "Schema", "Kontroll", "Publicera"]
@@ -12761,7 +12518,6 @@ if admin_page == "Lag":
         else:
             st.info("Det finns inga lag att redigera.")
 
-
 if admin_page == "Grupper":
     # Planning flow contract: ["Grundsetup", "Lag", "Grupper", "Schema", "Kontroll", "Publicera"]
     # Historical QA anchors retained after UX hierarchy change:
@@ -13151,7 +12907,6 @@ if admin_page == "Grupper":
         else:
             st.info("Det finns inga grupper att redigera.")
 
-
 if admin_page == "Trupper":
     st.header("Spelare & trupper")
     st.caption("Lagverktyg · Välj lag och hantera spelare manuellt eller via AI-import.")
@@ -13417,8 +13172,6 @@ if admin_page == "Trupper":
                         st.error("Matchtruppen kunde inte sparas eftersom en vald spelare inte längre tillhör laget.")
                     st.rerun()
 
-
-
 if admin_page == "Papperskorg":
     st.header("Papperskorg")
     st.caption("Återställ en cup eller radera den permanent. Permanent radering går inte att ångra.")
@@ -13467,7 +13220,6 @@ if admin_page == "Papperskorg":
             else:
                 st.warning("Cupen ändrades eller återställdes och raderades därför inte.")
             st.rerun()
-
 
 if admin_page == "Åtkomst & koder":
     st.header("Alla koder")
@@ -13741,7 +13493,6 @@ if admin_page == "Domare":
                 for r in refs
             ]))
 
-
 def _undo_schedule_change(tournament_id, undo_rows):
     """Restore the exact pre-edit schedule snapshot used by the admin undo action."""
     with db() as con:
@@ -13755,7 +13506,6 @@ def _undo_schedule_change(tournament_id, undo_rows):
         )
         con.commit()
     _clear_render_query_cache()
-
 
 def _apply_drag_schedule_updates(tournament_id, updates):
     """Persist a drag-and-drop slot reassignment without changing schedule validation rules."""
@@ -13772,7 +13522,6 @@ def _apply_drag_schedule_updates(tournament_id, updates):
         )
         con.commit()
     _clear_render_query_cache()
-
 
 def _save_adjusted_schedule_match(
     tournament_id,
@@ -13795,7 +13544,6 @@ def _save_adjusted_schedule_match(
     )
     run("UPDATE tournaments SET is_published=0 WHERE id=?", (tournament_id,))
     _clear_render_query_cache()
-
 
 def _apply_schedule_improvement(tournament_id, updates, arrangement_type="tournament"):
     """Persist a previewed optimization; tournament mode may also rebalance home/away."""
@@ -13820,7 +13568,6 @@ def _apply_schedule_improvement(tournament_id, updates, arrangement_type="tourna
         changed = optimize_group_home_away(tournament_id)
     _clear_render_query_cache()
     return changed
-
 
 def _apply_matchcamp_structure_improvement(tournament_id, updates):
     """Atomically apply a previewed Matchcamp opponent-rewiring proposal.
@@ -13867,7 +13614,6 @@ def _apply_matchcamp_structure_improvement(tournament_id, updates):
             raise
     _clear_render_query_cache()
     return changed
-
 
 def _save_bulk_schedule_results(tournament_id, changed_scores, tournament_is_published):
     """Safely persist schedule-table score edits.
@@ -13954,7 +13700,6 @@ def _save_bulk_schedule_results(tournament_id, changed_scores, tournament_is_pub
         "dependency_blocked": dependency_blocked,
     }
 
-
 if admin_page == "Skapa och publicera schema":
     render_schedule_workspace(
         tid,
@@ -14028,7 +13773,6 @@ if admin_page == "Skapa och publicera schema":
             on_click=_set_admin_page,
             args=("Cupverktyg",),
         )
-
 
 if admin_page == "Matcher och resultat":
     if not bool(_row_value(tournament, "results_counted", 1)):
@@ -14163,7 +13907,6 @@ if admin_page == "Matcher och resultat":
         ),
     )
 
-
 if admin_page == "Matchhändelser":
     st.button(
         "← Till Resultat",
@@ -14209,7 +13952,6 @@ if admin_page == "Matchhändelser":
             save_event_updates=_save_admin_match_event_updates,
         ),
     )
-
 
 if admin_page == "Besöksstatistik":
     st.header(tr("Besöksstatistik"))
@@ -14354,7 +14096,6 @@ if admin_page == "Besöksstatistik":
                 "En besökssession identifieras med en slumpmässig sessionsnyckel som endast används för statistik."
             )
 
-
 if admin_page == "Sponsorer":
     partner_section = st.segmented_control(
         "Partners & erbjudanden",
@@ -14485,7 +14226,6 @@ if admin_page == "Sponsorer":
                     if not deleted:
                         st.warning("Sponsorn ändrades av en annan administratör och raderades därför inte.")
                     st.rerun()
-
 
 if admin_page == "Funktionärer":
     st.header("Funktionärer")
@@ -14659,7 +14399,6 @@ if admin_page == "Funktionärer":
                         st.warning("Arbetspasset ändrades av en annan administratör och raderades därför inte.")
                     st.rerun()
 
-
 if admin_page == "Erbjudanden":
     partner_section = st.segmented_control(
         "Partners & erbjudanden",
@@ -14792,7 +14531,6 @@ if admin_page == "Erbjudanden":
                         on_click=_pop_session_state_key,
                         args=(f"confirm_delete_offer_{offer['id']}",),
                     )
-
 
 if admin_page == "Import":
     st.header("Import")
@@ -15190,7 +14928,6 @@ if admin_page == "Import":
     if "import_success_message" in st.session_state:
         st.success(st.session_state.pop("import_success_message"))
 
-
 if admin_page == "Cupdagen":
     from cupnavi_core.cup_day_dashboard import (
         build_cup_day_snapshot,
@@ -15532,7 +15269,6 @@ if admin_page == "Cupdagen":
                 )
                 st.caption("Analysen ändrar inga domartilldelningar, tider eller planer.")
 
-
     # v410: incident preview for a pitch that becomes unavailable. The tool is
     # deliberately read-only: it compares consequences before any schedule write.
     _outage_pitches = [int(state["pitch_number"]) for state in _day_snapshot.get("pitch_states", [])]
@@ -15872,7 +15608,6 @@ if admin_page == "Cupdagen":
             on_click=_set_admin_page,
             args=("Skapa och publicera schema",),
         )
-
 
 if admin_page == "Cupverktyg":
     from cupnavi_core.autopilot_recovery import compare_pitch_delay_recovery_options, compare_pitch_outage_recovery_options
@@ -16232,7 +15967,6 @@ if admin_page == "Cupverktyg":
             file_name=f"cupnavi_summering_{tid}.md", mime="text/markdown", key=f"summary_download_{tid}"
         )
 
-
 if admin_page == "Tabeller":
     if not bool(_row_value(tournament, "results_counted", 1)):
         st.header("Tabeller")
@@ -16283,7 +16017,6 @@ if admin_page == "Tabeller":
                 render_centered_table(pd.DataFrame(ranking))
             else:
                 st.caption("Visas när hela cupen är färdigspelad.")
-
 
 if admin_page == "Skytteligor":
     st.button(
@@ -16364,7 +16097,6 @@ if admin_page == "Skytteligor":
                     render_centered_table(pd.DataFrame([{"Spelare": r["player_name"], "Lag": r["team_name"], "Gula": r["yellow_cards"], "Röda": r["red_cards"]} for r in card_rows]))
                 else:
                     st.info("Inga kort har registrerats.")
-
 
 if admin_page == "Slutspel":
     st.header("Slutspel")
@@ -16482,8 +16214,6 @@ if admin_page == "Slutspel":
                             "Bortalag": source_label(match_row["away_source"]),
                         })
                     render_centered_table(pd.DataFrame(overview_rows))
-
-
 
 # --- CupNavi performance diagnostics ------------------------------------------
 # One compact snapshot is recorded for every rerun. This gives us route-specific
@@ -16609,8 +16339,5 @@ if view_mode == "Admin" and admin_page == "Adminöversikt":
                 "Matcher": row.get("visible_matches", 0),
             } for row in _public_matches_history[-6:]]
             render_centered_table(pd.DataFrame(_public_stage_rows))
-
-
-
 
 inject_v198_visual_system()

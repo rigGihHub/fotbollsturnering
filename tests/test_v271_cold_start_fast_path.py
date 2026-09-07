@@ -8,7 +8,7 @@ SCHEDULE = (ROOT / "cupnavi_core" / "schedule_workspace_view.py").read_text(enco
 
 
 def test_v271_version_is_synchronized():
-    assert VERSION == "2026.09.07-506-CLICKABLE-FLOW-PROBLEM-ROUTING"
+    assert VERSION == "2026.09.07-507-REVIEWED-DOCUMENT-SCHEDULE-IMPORT"
     assert f'APP_BUILD_VERSION = "{VERSION}"' in APP
     assert f'APP_VERSION = "{VERSION}"' in CORE_VERSION
 

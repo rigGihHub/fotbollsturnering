@@ -1,5 +1,5 @@
 from pathlib import Path
-VERSION = "2026.09.07-506-CLICKABLE-FLOW-PROBLEM-ROUTING"
+VERSION = "2026.09.07-507-REVIEWED-DOCUMENT-SCHEDULE-IMPORT"
 APP = Path("app.py").read_text(encoding="utf-8")
 def test_version_is_v492():
     assert Path("VERSION.txt").read_text().strip() == VERSION

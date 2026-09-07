@@ -4,7 +4,7 @@ ROOT = Path(__file__).resolve().parents[1]
 E2E = (ROOT / "e2e/test_streamlit_critical_journey.py").read_text()
 
 def test_release_version():
-    expected = "2026.09.07-506-CLICKABLE-FLOW-PROBLEM-ROUTING"
+    expected = "2026.09.07-507-REVIEWED-DOCUMENT-SCHEDULE-IMPORT"
     assert (ROOT / "VERSION.txt").read_text().strip() == expected
     assert expected in (ROOT / "app.py").read_text()
 

@@ -1,7 +1,7 @@
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-RELEASE = "2026.09.07-506-CLICKABLE-FLOW-PROBLEM-ROUTING"
+RELEASE = "2026.09.07-507-REVIEWED-DOCUMENT-SCHEDULE-IMPORT"
 
 
 def test_health_contract_testclient_dependency_is_declared():

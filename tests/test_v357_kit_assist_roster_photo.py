@@ -29,4 +29,4 @@ def test_photo_roster_import_is_discoverable_from_team_registration():
 
 
 def test_version():
-    assert 'APP_BUILD_VERSION = "2026.09.07-506-CLICKABLE-FLOW-PROBLEM-ROUTING"' in APP
+    assert 'APP_BUILD_VERSION = "2026.09.07-507-REVIEWED-DOCUMENT-SCHEDULE-IMPORT"' in APP

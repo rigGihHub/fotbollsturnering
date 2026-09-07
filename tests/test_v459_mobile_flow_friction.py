@@ -3,7 +3,7 @@ from pathlib import Path
 
 from cupnavi_core.mobile_flow import mobile_match_preview
 
-VERSION = "2026.09.07-506-CLICKABLE-FLOW-PROBLEM-ROUTING"
+VERSION = "2026.09.07-507-REVIEWED-DOCUMENT-SCHEDULE-IMPORT"
 APP = Path("app.py").read_text(encoding="utf-8")
 PORTAL = Path("cupnavi_core/team_portal_view.py").read_text(encoding="utf-8")
 

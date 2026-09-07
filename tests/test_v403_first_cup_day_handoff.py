@@ -22,7 +22,7 @@ def _match(mid, start, status="not_started"):
 
 
 def test_version_and_release_note():
-    assert VERSION == "2026.09.07-506-CLICKABLE-FLOW-PROBLEM-ROUTING"
+    assert VERSION == "2026.09.07-507-REVIEWED-DOCUMENT-SCHEDULE-IMPORT"
     assert (ROOT / "FIRST_CUP_DAY_HANDOFF_V403.md").exists()
 
 

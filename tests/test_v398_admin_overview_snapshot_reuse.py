@@ -11,7 +11,7 @@ def _overview_section():
 
 
 def test_release_version():
-    assert VERSION == '2026.09.07-506-CLICKABLE-FLOW-PROBLEM-ROUTING'
+    assert VERSION == '2026.09.07-507-REVIEWED-DOCUMENT-SCHEDULE-IMPORT'
 
 
 def test_control_center_reuses_unchecked_snapshot_count():

@@ -8,7 +8,7 @@ MATCHES = (ROOT / "cupnavi_core" / "public_matches_view.py").read_text(encoding=
 
 
 def test_v268_version_and_pure_public_overview_module():
-    assert VERSION == "2026.09.07-506-CLICKABLE-FLOW-PROBLEM-ROUTING"
+    assert VERSION == "2026.09.07-507-REVIEWED-DOCUMENT-SCHEDULE-IMPORT"
     assert "import streamlit" not in MODULE
     assert "SELECT " not in MODULE
     assert "build_live_feed_html" in MODULE

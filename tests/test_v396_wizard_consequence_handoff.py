@@ -1,6 +1,6 @@
 from pathlib import Path
 
-VERSION = "2026.09.07-506-CLICKABLE-FLOW-PROBLEM-ROUTING"
+VERSION = "2026.09.07-507-REVIEWED-DOCUMENT-SCHEDULE-IMPORT"
 
 
 def test_release_version():

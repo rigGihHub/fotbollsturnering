@@ -1,10 +1,11 @@
-from datetime import date
+from datetime import date, datetime
 
 
 def render_cup_document_import(st, key_prefix, setting):
     """Render review-first document intake and return (prefill, use_teams_key, parsed_date)."""
     prefill_key = f"{key_prefix}_cup_document_prefill"
     use_teams_key = f"{key_prefix}_cup_document_use_teams"
+    use_matches_key = f"{key_prefix}_cup_document_use_matches"
     with st.expander("📄 Läs in tidigare cupprogram eller importera från foto/dokument", expanded=False):
         st.caption("Släpp in PDF, TXT eller en bild/skärmdump. CupNavi gör ett granskningsbart cupförslag med cupinfo, lag, grupper, matcher, tider, planer, slutspel och regler när uppgifterna finns i dokumentet.")
         uploads = st.file_uploader(
@@ -51,8 +52,22 @@ def render_cup_document_import(st, key_prefix, setting):
                 rows = []
                 for m in matches:
                     rows.append({"Tid": m.get("time") or "—", "Grupp": m.get("group_name") or "—", "Hemma": m.get("home_team") or "—", "Borta": m.get("away_team") or "—", "Plan": m.get("venue") or "—", "Speltid": m.get("duration") or "—"})
-                st.dataframe(rows, use_container_width=True, hide_index=True)
-                st.info("Matchprogrammet är ett granskningsförslag. Det skrivs inte automatiskt till spelschemat förrän du har granskat och godkänt det i nästa steg.")
+                edited_rows = st.data_editor(
+                    rows, use_container_width=True, hide_index=True, num_rows="fixed",
+                    key=f"{key_prefix}_cup_document_match_editor",
+                    column_config={"Tid": st.column_config.TextColumn(help="HH:MM eller YYYY-MM-DD HH:MM")},
+                )
+                extracted["matches"] = [
+                    {"time": r.get("Tid"), "group_name": r.get("Grupp"), "home_team": r.get("Hemma"),
+                     "away_team": r.get("Borta"), "venue": r.get("Plan"), "duration": r.get("Speltid"), "stage": "Gruppspel"}
+                    for r in edited_rows
+                ]
+                st.session_state[prefill_key] = extracted
+                st.checkbox(
+                    "Skapa det granskade matchprogrammet när cupen skapas", value=False, key=use_matches_key,
+                    help="CupNavi använder exakt raderna ovan. Ett importerat matchprogram räknas därefter som ett befintligt schema och skrivs aldrig över automatiskt.",
+                )
+                st.info("Matchprogrammet skrivs inte automatiskt till spelschemat. Inget schema skapas utan ditt uttryckliga godkännande. Efter importen behandlas matcherna som ett befintligt schema.")
             if playoffs:
                 st.markdown("**🏆 Slutspel som CupNavi hittade**")
                 rows = []
@@ -66,7 +81,7 @@ def render_cup_document_import(st, key_prefix, setting):
             for warning in extracted.get("warnings") or []:
                 st.warning(warning)
             if st.button("Rensa dokumenttolkning", key=f"{key_prefix}_clear_cup_document"):
-                st.session_state.pop(prefill_key, None); st.session_state.pop(use_teams_key, None); st.rerun()
+                st.session_state.pop(prefill_key, None); st.session_state.pop(use_teams_key, None); st.session_state.pop(use_matches_key, None); st.rerun()
     prefill = st.session_state.get(prefill_key) or {}
     parsed_date = None
     if prefill.get("start_date"):
@@ -97,6 +112,69 @@ def apply_document_teams(connection_factory, tournament_id, prefill):
                 (tournament_id, str(row.get("name") or "").strip(), group_id, "#111827", "#FFFFFF", "Helfärgad", "#FFFFFF", "Helfärgad", "#111827", 0, 0, None, f"Importerad från {prefill.get('source_name') or 'cupportal'}", 0),
             )
         con.execute("UPDATE tournaments SET schedule_dirty=1 WHERE id=?", (tournament_id,)); con.commit(); return len(teams)
+    except Exception:
+        con.rollback(); raise
+    finally:
+        con.close()
+
+
+def _parse_imported_start(value, fallback_date):
+    raw = str(value or "").strip()
+    if not raw:
+        raise ValueError("En importerad match saknar tid.")
+    for fmt in ("%H:%M", "%H.%M"):
+        try:
+            tm = datetime.strptime(raw, fmt).time()
+            return datetime.combine(fallback_date, tm).isoformat(timespec="minutes")
+        except ValueError:
+            pass
+    normalized = raw.replace("T", " ")
+    try:
+        return datetime.fromisoformat(normalized).isoformat(timespec="minutes")
+    except ValueError as exc:
+        raise ValueError(f"Ogiltig matchtid: {raw}") from exc
+
+
+def apply_document_matches(connection_factory, tournament_id, prefill, fallback_date):
+    """Create explicitly approved imported group matches atomically; never replaces existing matches."""
+    matches = list(prefill.get("matches") or [])
+    if not matches:
+        return 0
+    con = connection_factory()
+    try:
+        if con.execute("SELECT COUNT(*) FROM matches WHERE tournament_id=?", (tournament_id,)).fetchone()[0]:
+            raise ValueError("Cupen har redan ett schema. Importen avbryts utan att ändra något.")
+        teams = con.execute("SELECT id,name,group_id FROM teams WHERE tournament_id=?", (tournament_id,)).fetchall()
+        team_map = {str(r[1]).strip().casefold(): (int(r[0]), r[2]) for r in teams}
+        groups = con.execute("SELECT id,name FROM groups WHERE tournament_id=?", (tournament_id,)).fetchall()
+        group_map = {str(r[1]).strip().casefold(): int(r[0]) for r in groups}
+        pitch_rows = con.execute("SELECT pitch_number,name FROM pitches WHERE tournament_id=?", (tournament_id,)).fetchall()
+        pitch_map = {str(r[1]).strip().casefold(): int(r[0]) for r in pitch_rows}
+        next_pitch = max([int(r[0]) for r in pitch_rows] or [0]) + 1
+        prepared = []
+        for no, row in enumerate(matches, start=1):
+            home_name = str(row.get("home_team") or "").strip(); away_name = str(row.get("away_team") or "").strip()
+            if home_name.casefold() not in team_map or away_name.casefold() not in team_map:
+                raise ValueError(f"Match {no} har ett lag som inte finns bland de granskade lagen.")
+            home_id, home_gid = team_map[home_name.casefold()]; away_id, away_gid = team_map[away_name.casefold()]
+            group_name = str(row.get("group_name") or "").strip()
+            group_id = group_map.get(group_name.casefold()) if group_name else home_gid
+            if not group_id or home_gid != group_id or away_gid != group_id:
+                raise ValueError(f"Match {no} har en grupp som inte stämmer med lagen.")
+            venue = str(row.get("venue") or "").strip()
+            if not venue:
+                raise ValueError(f"Match {no} saknar plan.")
+            pitch_no = pitch_map.get(venue.casefold())
+            if pitch_no is None:
+                pitch_no = next_pitch; next_pitch += 1; pitch_map[venue.casefold()] = pitch_no
+                con.execute("INSERT INTO pitches(tournament_id,pitch_number,name) VALUES(?,?,?)", (tournament_id,pitch_no,venue))
+            start = _parse_imported_start(row.get("time"), fallback_date)
+            prepared.append((tournament_id, group_id, no, f"team:{home_id}", f"team:{away_id}", start, pitch_no))
+        con.executemany(
+            """INSERT INTO matches(tournament_id,group_id,stage,match_no,home_source,away_source,scheduled_start,pitch_number,schedule_locked)
+               VALUES(?,?,'Gruppspel',?,?,?,?,?,1)""", prepared)
+        con.execute("UPDATE tournaments SET schedule_dirty=0,is_published=0 WHERE id=?", (tournament_id,))
+        con.commit(); return len(prepared)
     except Exception:
         con.rollback(); raise
     finally:

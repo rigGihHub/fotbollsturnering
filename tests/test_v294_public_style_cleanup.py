@@ -8,7 +8,7 @@ VERSION = (ROOT / "VERSION.txt").read_text(encoding="utf-8").strip()
 
 
 def test_v294_release_and_public_style_boundary():
-    assert VERSION == "2026.09.07-506-CLICKABLE-FLOW-PROBLEM-ROUTING"
+    assert VERSION == "2026.09.07-507-REVIEWED-DOCUMENT-SCHEDULE-IMPORT"
     assert "inject_public_experience_styles(st)" in WORKSPACE
     assert ".cn-follow-shell" not in APP
     assert "def inject_public_experience_styles(st):" in STYLE

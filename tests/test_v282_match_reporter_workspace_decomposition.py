@@ -52,4 +52,4 @@ def test_workspace_uses_injected_persistence_callbacks():
 
 
 def test_release_version():
-    assert VERSION == "2026.09.07-506-CLICKABLE-FLOW-PROBLEM-ROUTING"
+    assert VERSION == "2026.09.07-507-REVIEWED-DOCUMENT-SCHEDULE-IMPORT"

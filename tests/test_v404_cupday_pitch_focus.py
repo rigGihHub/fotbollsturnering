@@ -23,7 +23,7 @@ def _finished_without_score():
 
 
 def test_version_and_release_note():
-    assert VERSION == "2026.09.07-506-CLICKABLE-FLOW-PROBLEM-ROUTING"
+    assert VERSION == "2026.09.07-507-REVIEWED-DOCUMENT-SCHEDULE-IMPORT"
     assert (ROOT / "CUPDAY_PITCH_FOCUS_V404.md").exists()
 
 

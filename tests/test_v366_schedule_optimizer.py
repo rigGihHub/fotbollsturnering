@@ -42,4 +42,4 @@ def test_ui_is_preview_first_and_explicit_apply():
     assert 'Inget ändras förrän du godkänner det.' in VIEW
 
 def test_version():
-    assert 'APP_BUILD_VERSION = "2026.09.07-506-CLICKABLE-FLOW-PROBLEM-ROUTING"' in APP
+    assert 'APP_BUILD_VERSION = "2026.09.07-507-REVIEWED-DOCUMENT-SCHEDULE-IMPORT"' in APP

@@ -228,6 +228,47 @@ def render_schedule_workspace(tid, tournament, *, deps: ScheduleWorkspaceDepende
         run("INSERT INTO schedule_rules(tournament_id) VALUES(?)", (tid,))
         rules = one_row("SELECT * FROM schedule_rules WHERE tournament_id=?", (tid,))
 
+    # v508: The timing model belongs on the Schema page. Previously it was
+    # buried under cup settings, which made a core scheduling choice hard to find.
+    with st.container(border=True):
+        st.markdown("##### Hur ska planernas tider fungera?")
+        _sync_now = bool(rules["synchronized_pitch_times"] or 0)
+        _timing_choice = st.radio(
+            "Välj schematyp",
+            ["Dynamiskt schema", "Samma avsparkstider på alla planer"],
+            index=1 if _sync_now else 0,
+            key=f"schedule_timing_mode_{tid}",
+            help=(
+                "Dynamiskt schema låter varje plan starta nästa match så snart vila, matchlängd och plantider tillåter. "
+                "Gemensamma avsparkstider använder samma startvågor på alla planer."
+            ),
+        )
+        _sync_new = _timing_choice == "Samma avsparkstider på alla planer"
+        if _sync_new:
+            st.caption("Alla planer följer gemensamma starttider, till exempel 09:00, 09:45 och 10:30.")
+        else:
+            st.caption("Dynamiskt: varje plan kan använda nästa möjliga starttid. Det ger större frihet att optimera schemat.")
+        if _sync_new != _sync_now:
+            if st.button("Spara schematyp", type="primary", key=f"save_schedule_timing_mode_{tid}"):
+                _existing_matches = one_row(
+                    "SELECT COUNT(*) AS n FROM matches WHERE tournament_id=? AND scheduled_start IS NOT NULL",
+                    (tid,),
+                )
+                run(
+                    "UPDATE schedule_rules SET synchronized_pitch_times=? WHERE tournament_id=?",
+                    (1 if _sync_new else 0, tid),
+                )
+                if int((_existing_matches["n"] if _existing_matches else 0) or 0) > 0:
+                    run("UPDATE tournaments SET schedule_dirty=1 WHERE id=?", (tid,))
+                    st.session_state["schedule_message"] = (
+                        "warning",
+                        "Schematypen är sparad. Ditt befintliga schema har inte ändrats. Granska schemaändringen innan du ersätter något.",
+                    )
+                else:
+                    st.session_state["schedule_message"] = ("success", "Schematypen är sparad.")
+                st.session_state["_validation_dirty"] = True
+                st.rerun()
+
     if st.session_state.get("schedule_recovery"):
         render_schedule_recovery_actions(tid,tournament,rules,st.session_state.get("schedule_recovery"))
     schedule_groups = all_rows("SELECT id,name FROM groups WHERE tournament_id=? ORDER BY name", (tid,))

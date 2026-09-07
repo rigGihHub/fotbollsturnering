@@ -1,6 +1,6 @@
 from pathlib import Path
 
-VERSION = "2026.09.07-506-CLICKABLE-FLOW-PROBLEM-ROUTING"
+VERSION = "2026.09.07-507-REVIEWED-DOCUMENT-SCHEDULE-IMPORT"
 APP = Path("app.py").read_text(encoding="utf-8")
 FILTERS = Path("cupnavi_core/public_match_filters_view.py").read_text(encoding="utf-8")
 MATCHES = Path("cupnavi_core/public_matches_view.py").read_text(encoding="utf-8")

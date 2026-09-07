@@ -54,4 +54,4 @@ def test_quality_is_loaded_only_inside_explicit_quality_view():
 
 
 def test_version():
-    assert 'APP_BUILD_VERSION = "2026.09.07-506-CLICKABLE-FLOW-PROBLEM-ROUTING"' in APP
+    assert 'APP_BUILD_VERSION = "2026.09.07-507-REVIEWED-DOCUMENT-SCHEDULE-IMPORT"' in APP

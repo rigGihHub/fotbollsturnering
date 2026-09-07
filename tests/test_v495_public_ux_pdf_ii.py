@@ -1,6 +1,6 @@
 from pathlib import Path
 
-VERSION = "2026.09.07-506-CLICKABLE-FLOW-PROBLEM-ROUTING"
+VERSION = "2026.09.07-507-REVIEWED-DOCUMENT-SCHEDULE-IMPORT"
 APP = Path("app.py").read_text(encoding="utf-8")
 INFO = Path("cupnavi_core/public_info_view.py").read_text(encoding="utf-8")
 STYLE = Path("cupnavi_core/style_system.py").read_text(encoding="utf-8")

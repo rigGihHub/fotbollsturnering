@@ -6,7 +6,7 @@ APP = Path("app.py").read_text(encoding="utf-8")
 
 
 def test_v421_version():
-    assert APP_VERSION == "2026.09.07-506-CLICKABLE-FLOW-PROBLEM-ROUTING"
+    assert APP_VERSION == "2026.09.07-507-REVIEWED-DOCUMENT-SCHEDULE-IMPORT"
 
 
 def test_control_page_uses_shared_six_step_flow():

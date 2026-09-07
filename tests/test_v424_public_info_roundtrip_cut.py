@@ -8,7 +8,7 @@ VERSION = (ROOT / "VERSION.txt").read_text(encoding="utf-8").strip()
 
 
 def test_v424_release_and_combined_info_query():
-    assert VERSION == "2026.09.07-506-CLICKABLE-FLOW-PROBLEM-ROUTING"
+    assert VERSION == "2026.09.07-507-REVIEWED-DOCUMENT-SCHEDULE-IMPORT"
     assert "SELECT sr.*" in APP
     assert "AS _total_matches" in APP
     assert "AS _open_matches" in APP

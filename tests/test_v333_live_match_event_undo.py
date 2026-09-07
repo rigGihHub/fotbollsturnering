@@ -4,7 +4,7 @@ ROOT = Path(__file__).resolve().parents[1]
 WORKSPACE = (ROOT / "cupnavi_core" / "match_reporter_workspace_view.py").read_text()
 
 def test_v333_release_and_one_tap_undo_contract():
-    assert (ROOT / "VERSION.txt").read_text().strip() == "2026.09.07-506-CLICKABLE-FLOW-PROBLEM-ROUTING"
+    assert (ROOT / "VERSION.txt").read_text().strip() == "2026.09.07-507-REVIEWED-DOCUMENT-SCHEDULE-IMPORT"
     assert "↩️ Ångra senaste" in WORKSPACE
     assert "quick_last_event_detail_key" in WORKSPACE
     assert "target_player_id = int(detail.get(\"player_id\"" in WORKSPACE

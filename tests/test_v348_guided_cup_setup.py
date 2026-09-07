@@ -6,7 +6,7 @@ APP=(ROOT/"app.py").read_text(encoding="utf-8")
 VERSION=(ROOT/"VERSION.txt").read_text(encoding="utf-8").strip()
 
 def test_version():
-    assert VERSION=="2026.09.07-506-CLICKABLE-FLOW-PROBLEM-ROUTING"
+    assert VERSION=="2026.09.07-507-REVIEWED-DOCUMENT-SCHEDULE-IMPORT"
     assert VERSION in APP
 
 def test_setup_uses_beginner_language():
