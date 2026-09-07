@@ -1,6 +1,6 @@
 from pathlib import Path
 
-VERSION = "2026.09.07-519-BEGINNER-E2E-REGRESSION"
+VERSION = "2026.09.07-520-UNIQUE-PUBLICATION-CHECKLIST-KEYS"
 
 
 def test_version_and_release_note():

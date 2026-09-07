@@ -6,8 +6,8 @@ VERSION = (ROOT / "VERSION.txt").read_text(encoding="utf-8").strip()
 
 
 def test_release_version():
-    assert VERSION == "2026.09.07-519-BEGINNER-E2E-REGRESSION"
-    assert 'APP_BUILD_VERSION = "2026.09.07-519-BEGINNER-E2E-REGRESSION"' in APP
+    assert VERSION == "2026.09.07-520-UNIQUE-PUBLICATION-CHECKLIST-KEYS"
+    assert 'APP_BUILD_VERSION = "2026.09.07-520-UNIQUE-PUBLICATION-CHECKLIST-KEYS"' in APP
 
 
 def test_short_session_ttl_fast_path_exists():

@@ -6,7 +6,7 @@ APP=(ROOT/"app.py").read_text(encoding="utf-8")
 VERSION=(ROOT/"VERSION.txt").read_text().strip()
 
 def test_version():
-    assert VERSION=="2026.09.07-519-BEGINNER-E2E-REGRESSION"
+    assert VERSION=="2026.09.07-520-UNIQUE-PUBLICATION-CHECKLIST-KEYS"
     assert VERSION in APP
 
 def test_technical_editability_table_is_removed():

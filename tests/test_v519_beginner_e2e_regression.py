@@ -9,7 +9,7 @@ VERSION = (ROOT / "VERSION.txt").read_text(encoding="utf-8").strip()
 
 
 def test_release_version_is_synced():
-    assert VERSION == "2026.09.07-519-BEGINNER-E2E-REGRESSION"
+    assert VERSION == "2026.09.07-520-UNIQUE-PUBLICATION-CHECKLIST-KEYS"
     assert f'APP_BUILD_VERSION = "{VERSION}"' in APP
     assert VERSION in (ROOT / "cupnavi_core" / "version.py").read_text(encoding="utf-8")
 

@@ -1,7 +1,7 @@
 from pathlib import Path
 from cupnavi_core.playoff_dependency_safety import recovery_eligibility
 
-VERSION = "2026.09.07-519-BEGINNER-E2E-REGRESSION"
+VERSION = "2026.09.07-520-UNIQUE-PUBLICATION-CHECKLIST-KEYS"
 APP = Path("app.py").read_text(encoding="utf-8")
 SCHEDULE = Path("cupnavi_core/schedule_workspace_view.py").read_text(encoding="utf-8")
 

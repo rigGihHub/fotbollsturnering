@@ -7,7 +7,7 @@ STYLE=(ROOT/"cupnavi_core/style_system.py").read_text(encoding="utf-8")
 VERSION=(ROOT/"VERSION.txt").read_text().strip()
 
 def test_release_version():
-    assert VERSION=="2026.09.07-519-BEGINNER-E2E-REGRESSION"
+    assert VERSION=="2026.09.07-520-UNIQUE-PUBLICATION-CHECKLIST-KEYS"
 
 def test_workspace_headers_keep_step_context_without_duplicate_trail():
     assert 'render_clickable_planning_flow(st, tid=tid, current_step="Lag"' in APP

@@ -4,7 +4,7 @@ APP=(ROOT/'app.py').read_text(encoding='utf-8')
 VERSION=(ROOT/'VERSION.txt').read_text(encoding='utf-8').strip()
 
 def test_v345_version_sync():
-    assert VERSION == '2026.09.07-519-BEGINNER-E2E-REGRESSION'
+    assert VERSION == '2026.09.07-520-UNIQUE-PUBLICATION-CHECKLIST-KEYS'
     assert f'APP_BUILD_VERSION = "{VERSION}"' in APP
     assert f'APP_VERSION = "{VERSION}"' in (ROOT/'cupnavi_core/version.py').read_text(encoding='utf-8')
 

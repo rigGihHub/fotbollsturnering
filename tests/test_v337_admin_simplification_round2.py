@@ -2,7 +2,7 @@ from pathlib import Path
 ROOT=Path(__file__).resolve().parents[1]
 APP=(ROOT/"app.py").read_text(encoding="utf-8")
 UX=(ROOT/"cupnavi_core/ux2.py").read_text(encoding="utf-8")
-VERSION="2026.09.07-519-BEGINNER-E2E-REGRESSION"
+VERSION="2026.09.07-520-UNIQUE-PUBLICATION-CHECKLIST-KEYS"
 
 def overview_block():
     start=APP.index('elif admin_page == "Adminöversikt":'); end=APP.index('if admin_page == "Cupinställningar":', start); return APP[start:end]

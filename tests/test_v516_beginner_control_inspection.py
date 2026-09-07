@@ -24,4 +24,4 @@ def test_problem_destination_routes_core_blockers():
 
 
 def test_version_516():
-    assert (ROOT / "VERSION.txt").read_text(encoding="utf-8").strip() == "2026.09.07-519-BEGINNER-E2E-REGRESSION"
+    assert (ROOT / "VERSION.txt").read_text(encoding="utf-8").strip() == "2026.09.07-520-UNIQUE-PUBLICATION-CHECKLIST-KEYS"

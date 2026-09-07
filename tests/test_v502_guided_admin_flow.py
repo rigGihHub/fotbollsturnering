@@ -6,8 +6,8 @@ VERSION = (ROOT / 'VERSION.txt').read_text(encoding='utf-8').strip()
 
 
 def test_v502_release_version():
-    assert VERSION == '2026.09.07-519-BEGINNER-E2E-REGRESSION'
-    assert 'APP_BUILD_VERSION = "2026.09.07-519-BEGINNER-E2E-REGRESSION"' in APP
+    assert VERSION == '2026.09.07-520-UNIQUE-PUBLICATION-CHECKLIST-KEYS'
+    assert 'APP_BUILD_VERSION = "2026.09.07-520-UNIQUE-PUBLICATION-CHECKLIST-KEYS"' in APP
 
 
 def test_admin_uses_one_guided_five_step_flow():

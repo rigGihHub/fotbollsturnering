@@ -1,7 +1,7 @@
 from pathlib import Path
 from cupnavi_core.initial_setup_logic import setup_consequence_preview
 
-VERSION = "2026.09.07-519-BEGINNER-E2E-REGRESSION"
+VERSION = "2026.09.07-520-UNIQUE-PUBLICATION-CHECKLIST-KEYS"
 
 
 def test_release_version():

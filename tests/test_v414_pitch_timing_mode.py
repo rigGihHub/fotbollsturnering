@@ -19,4 +19,4 @@ def test_v414_scheduler_honors_saved_choice():
 
 
 def test_v414_version():
-    assert VERSION == "2026.09.07-519-BEGINNER-E2E-REGRESSION"
+    assert VERSION == "2026.09.07-520-UNIQUE-PUBLICATION-CHECKLIST-KEYS"

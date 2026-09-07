@@ -67,4 +67,4 @@ def test_v411_ui_is_lazy_and_read_only():
 
 
 def test_v411_version():
-    assert Path("VERSION.txt").read_text().strip() == "2026.09.07-519-BEGINNER-E2E-REGRESSION"
+    assert Path("VERSION.txt").read_text().strip() == "2026.09.07-520-UNIQUE-PUBLICATION-CHECKLIST-KEYS"

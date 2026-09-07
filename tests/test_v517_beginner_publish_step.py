@@ -17,4 +17,4 @@ def test_publish_action_not_buried_in_control():
     assert 'Allt obligatoriskt är klart' in app
 
 def test_version():
-    assert (ROOT / "VERSION.txt").read_text().strip() == "2026.09.07-519-BEGINNER-E2E-REGRESSION"
+    assert (ROOT / "VERSION.txt").read_text().strip() == "2026.09.07-520-UNIQUE-PUBLICATION-CHECKLIST-KEYS"

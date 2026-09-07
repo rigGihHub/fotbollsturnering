@@ -10,7 +10,7 @@ VERSION = (ROOT / "VERSION.txt").read_text(encoding="utf-8").strip()
 
 
 def test_release_version():
-    assert VERSION == "2026.09.07-519-BEGINNER-E2E-REGRESSION"
+    assert VERSION == "2026.09.07-520-UNIQUE-PUBLICATION-CHECKLIST-KEYS"
 
 
 def test_match_events_have_touch_first_quick_entry():

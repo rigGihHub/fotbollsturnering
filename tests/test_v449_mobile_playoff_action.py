@@ -28,7 +28,7 @@ def test_mobile_playoff_action_adds_no_database_query():
 
 
 def test_v449_version_is_consistent():
-    version = "2026.09.07-519-BEGINNER-E2E-REGRESSION"
+    version = "2026.09.07-520-UNIQUE-PUBLICATION-CHECKLIST-KEYS"
     assert f'APP_BUILD_VERSION = "{version}"' in APP
     assert version in (ROOT / "cupnavi_core" / "version.py").read_text(encoding="utf-8")
     assert (ROOT / "VERSION.txt").read_text(encoding="utf-8").strip() == version

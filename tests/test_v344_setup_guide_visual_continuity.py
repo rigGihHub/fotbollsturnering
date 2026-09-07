@@ -6,7 +6,7 @@ VERSION=(ROOT/"VERSION.txt").read_text().strip()
 APP=(ROOT/"app.py").read_text()
 
 def test_version():
- assert VERSION=="2026.09.07-519-BEGINNER-E2E-REGRESSION"
+ assert VERSION=="2026.09.07-520-UNIQUE-PUBLICATION-CHECKLIST-KEYS"
  assert f'APP_BUILD_VERSION = "{VERSION}"' in APP
 
 def test_visual_continuity():

@@ -32,4 +32,4 @@ def test_v412_publication_view_can_render_main_without_sidebar():
 
 
 def test_v412_version():
-    assert Path("VERSION.txt").read_text().strip() == "2026.09.07-519-BEGINNER-E2E-REGRESSION"
+    assert Path("VERSION.txt").read_text().strip() == "2026.09.07-520-UNIQUE-PUBLICATION-CHECKLIST-KEYS"

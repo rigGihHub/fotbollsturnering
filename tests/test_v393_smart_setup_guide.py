@@ -5,7 +5,7 @@ VIEW = (ROOT / "cupnavi_core" / "new_tournament_wizard.py").read_text(encoding="
 VERSION = (ROOT / "VERSION.txt").read_text(encoding="utf-8").strip()
 
 def test_v393_version():
-    assert VERSION == "2026.09.07-519-BEGINNER-E2E-REGRESSION"
+    assert VERSION == "2026.09.07-520-UNIQUE-PUBLICATION-CHECKLIST-KEYS"
 
 def test_matchcamp_setup_is_arrangement_specific():
     assert "Grupper och slutspel behövs inte" in VIEW

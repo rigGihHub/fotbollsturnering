@@ -1,6 +1,6 @@
 from pathlib import Path
 
-VERSION = "2026.09.07-519-BEGINNER-E2E-REGRESSION"
+VERSION = "2026.09.07-520-UNIQUE-PUBLICATION-CHECKLIST-KEYS"
 APP = Path("app.py").read_text(encoding="utf-8")
 STATS = Path("cupnavi_core/public_statistics_view.py").read_text(encoding="utf-8")
 PRESENT = Path("cupnavi_core/public_presentation_view.py").read_text(encoding="utf-8")

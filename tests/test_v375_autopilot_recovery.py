@@ -36,7 +36,7 @@ RULES = {
 
 
 def test_release_version():
-    assert VERSION == "2026.09.07-519-BEGINNER-E2E-REGRESSION"
+    assert VERSION == "2026.09.07-520-UNIQUE-PUBLICATION-CHECKLIST-KEYS"
 
 
 def test_gap_absorption_moves_fewer_matches_than_full_cascade():

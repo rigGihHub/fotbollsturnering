@@ -174,10 +174,15 @@ def render_publication_steps(*, tournament_id: int, cupinfo_ready: bool, teams_r
     ]
     st.sidebar.divider()
     st.sidebar.subheader("Klart före publicering")
-    for label, ready, page in steps:
+    for step_index, (label, ready, page) in enumerate(steps):
+        # Widget keys must be unique even when several checklist steps navigate
+        # to the same admin page (e.g. Cupinfo and Planer & tider).
         st.sidebar.button(
-            f"{'✅' if ready else '❌'} {label}", key=f"publish_check_{tournament_id}_{page}",
-            use_container_width=True, on_click=navigate_admin_page, args=(page,),
+            f"{'✅' if ready else '❌'} {label}",
+            key=f"publish_check_{tournament_id}_{step_index}_{label}",
+            use_container_width=True,
+            on_click=navigate_admin_page,
+            args=(page,),
         )
     if all(ready for _, ready, _ in steps):
         st.sidebar.success("Alla obligatoriska steg är klara.")
