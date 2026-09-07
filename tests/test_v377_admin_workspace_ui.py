@@ -9,7 +9,7 @@ VERSION = (ROOT / "VERSION.txt").read_text(encoding="utf-8").strip()
 
 
 def test_release_version():
-    assert VERSION == "2026.09.07-499-DOCUMENT-TO-COMPLETE-PROPOSAL"
+    assert VERSION == "2026.09.07-500-MULTI-DOCUMENT-IMPORT"
 
 
 def test_lag_and_groups_use_shared_workspace_headers_without_duplicate_trails():

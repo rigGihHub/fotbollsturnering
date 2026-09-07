@@ -67,4 +67,4 @@ def test_warning_approval_checkbox_is_removed():
 
 
 def test_version():
-    assert 'APP_BUILD_VERSION = "2026.09.07-499-DOCUMENT-TO-COMPLETE-PROPOSAL"' in APP
+    assert 'APP_BUILD_VERSION = "2026.09.07-500-MULTI-DOCUMENT-IMPORT"' in APP

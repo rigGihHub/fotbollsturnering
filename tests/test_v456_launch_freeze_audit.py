@@ -2,7 +2,7 @@ from pathlib import Path
 
 from cupnavi_core.go_live_readiness import build_go_live_readiness
 
-VERSION = "2026.09.07-499-DOCUMENT-TO-COMPLETE-PROPOSAL"
+VERSION = "2026.09.07-500-MULTI-DOCUMENT-IMPORT"
 APP = Path("app.py").read_text(encoding="utf-8")
 ROLE_VIEW = Path("cupnavi_core/admin_role_codes_view.py").read_text(encoding="utf-8")
 

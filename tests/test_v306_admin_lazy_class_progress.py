@@ -12,7 +12,7 @@ def _overview_block():
 
 
 def test_release_version():
-    assert VERSION == "2026.09.07-499-DOCUMENT-TO-COMPLETE-PROPOSAL"
+    assert VERSION == "2026.09.07-500-MULTI-DOCUMENT-IMPORT"
 
 
 def test_class_progress_query_removed_from_default_overview():

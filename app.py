@@ -178,7 +178,7 @@ def inject_v266_public_mobile_css():
     return _inject_v266_public_mobile_css_impl(st)
 def inject_v198_visual_system():
     return _inject_v198_visual_system_impl(st)
-APP_BUILD_VERSION = "2026.09.07-499-DOCUMENT-TO-COMPLETE-PROPOSAL"
+APP_BUILD_VERSION = "2026.09.07-500-MULTI-DOCUMENT-IMPORT"
 APP_VERSION = APP_BUILD_VERSION
 
 def _set_session_state_values(values):
@@ -8381,9 +8381,7 @@ def _open_admin_entry_tournament(tournament_id):
 if view_mode == "Admin" and st.session_state.get("admin_entry_mode") is None:
     st.markdown(
         """<div class="cn-create-hero">
-          <div class="cn-create-eyebrow">Admin</div>
           <div class="cn-create-title">Vad vill du göra?</div>
-          <p class="cn-create-copy">Välj en väg först. CupNavi visar inget annat administrativt innehåll innan du har valt.</p>
         </div>""",
         unsafe_allow_html=True,
     )

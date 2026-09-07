@@ -5,7 +5,7 @@ VIEW=(ROOT/'cupnavi_core'/'cup_document_creator_view.py').read_text(encoding='ut
 APP=(ROOT/'app.py').read_text(encoding='utf-8')
 
 def test_v499_version_and_complete_document_schema():
-    assert '2026.09.07-499-DOCUMENT-TO-COMPLETE-PROPOSAL' in APP
+    assert '2026.09.07-500-MULTI-DOCUMENT-IMPORT' in APP
     for field in ("'matches'", "'playoff_matches'", "'rules'", "'duration'"):
         assert field in AI
 

@@ -6,7 +6,7 @@ VERSION=(ROOT/"VERSION.txt").read_text().strip()
 APP=(ROOT/"app.py").read_text()
 
 def test_version():
- assert VERSION=="2026.09.07-499-DOCUMENT-TO-COMPLETE-PROPOSAL"
+ assert VERSION=="2026.09.07-500-MULTI-DOCUMENT-IMPORT"
  assert f'APP_BUILD_VERSION = "{VERSION}"' in APP
 
 def test_visual_continuity():

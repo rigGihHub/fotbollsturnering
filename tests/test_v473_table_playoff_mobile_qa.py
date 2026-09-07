@@ -1,6 +1,6 @@
 from pathlib import Path
 
-VERSION = "2026.09.07-499-DOCUMENT-TO-COMPLETE-PROPOSAL"
+VERSION = "2026.09.07-500-MULTI-DOCUMENT-IMPORT"
 APP = Path("app.py").read_text(encoding="utf-8")
 STATS = Path("cupnavi_core/public_statistics_view.py").read_text(encoding="utf-8")
 PRESENT = Path("cupnavi_core/public_presentation_view.py").read_text(encoding="utf-8")

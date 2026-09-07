@@ -11,7 +11,7 @@ APP = Path("app.py").read_text(encoding="utf-8")
 
 
 def test_v445_release_and_core_route_budgets_exist():
-    assert VERSION == "2026.09.07-499-DOCUMENT-TO-COMPLETE-PROPOSAL"
+    assert VERSION == "2026.09.07-500-MULTI-DOCUMENT-IMPORT"
     for route in (
         "Turneringsvy/Info",
         "Turneringsvy/Matcher",

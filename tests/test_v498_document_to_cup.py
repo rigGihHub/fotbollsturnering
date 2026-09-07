@@ -33,7 +33,7 @@ def test_pdf_is_sent_as_file_input_and_result_is_normalized():
 
 def test_creation_ui_has_document_drop_review_and_safe_team_import():
     assert 'render_cup_document_import' in APP
-    assert 'Starta från ett befintligt cupprogram' in VIEW
+    assert 'Läs in tidigare cupprogram eller importera från foto/dokument' in VIEW
     assert 'Lägg in de hittade lagen och grupperna när cupen skapas' in VIEW
     assert 'Never creates matches' in VIEW
     assert 'INSERT INTO groups(tournament_id,name)' in VIEW

@@ -6,7 +6,7 @@ VERSION = (ROOT / "VERSION.txt").read_text(encoding="utf-8").strip()
 
 
 def test_release_version():
-    assert VERSION == "2026.09.07-499-DOCUMENT-TO-COMPLETE-PROPOSAL"
+    assert VERSION == "2026.09.07-500-MULTI-DOCUMENT-IMPORT"
 
 
 def test_groups_page_keeps_guided_planning_context():

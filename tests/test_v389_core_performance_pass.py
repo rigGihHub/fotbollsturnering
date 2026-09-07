@@ -1,6 +1,6 @@
 from pathlib import Path
 
-RELEASE = "2026.09.07-499-DOCUMENT-TO-COMPLETE-PROPOSAL"
+RELEASE = "2026.09.07-500-MULTI-DOCUMENT-IMPORT"
 
 
 def test_v389_batches_schedule_match_events_and_reuses_match_snapshot():

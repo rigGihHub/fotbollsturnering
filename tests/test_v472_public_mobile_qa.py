@@ -1,6 +1,6 @@
 from pathlib import Path
 
-VERSION = "2026.09.07-499-DOCUMENT-TO-COMPLETE-PROPOSAL"
+VERSION = "2026.09.07-500-MULTI-DOCUMENT-IMPORT"
 APP = Path("app.py").read_text(encoding="utf-8")
 FOLLOW = Path("cupnavi_core/public_team_follow_view.py").read_text(encoding="utf-8")
 MATCHES = Path("cupnavi_core/public_matches_view.py").read_text(encoding="utf-8")

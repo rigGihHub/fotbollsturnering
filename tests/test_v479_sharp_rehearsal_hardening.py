@@ -1,7 +1,7 @@
 from pathlib import Path
 from cupnavi_core.sharp_rehearsal import rehearsal_steps, build_sharp_rehearsal_verdict
 
-VERSION = "2026.09.07-499-DOCUMENT-TO-COMPLETE-PROPOSAL"
+VERSION = "2026.09.07-500-MULTI-DOCUMENT-IMPORT"
 APP = Path("app.py").read_text(encoding="utf-8")
 
 

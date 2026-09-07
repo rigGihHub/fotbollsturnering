@@ -1,7 +1,7 @@
 from pathlib import Path
 ROOT=Path(__file__).resolve().parents[1]
 APP=(ROOT/"app.py").read_text(encoding="utf-8")
-RELEASE="2026.09.07-499-DOCUMENT-TO-COMPLETE-PROPOSAL"
+RELEASE="2026.09.07-500-MULTI-DOCUMENT-IMPORT"
 
 def test_public_follow_container_uses_compatible_streamlit_api():
     assert 'with st.container():' in APP

@@ -33,4 +33,4 @@ def test_v412_publication_view_can_render_main_without_sidebar():
 
 
 def test_v412_version():
-    assert Path("VERSION.txt").read_text().strip() == "2026.09.07-499-DOCUMENT-TO-COMPLETE-PROPOSAL"
+    assert Path("VERSION.txt").read_text().strip() == "2026.09.07-500-MULTI-DOCUMENT-IMPORT"

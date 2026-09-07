@@ -6,7 +6,7 @@ VERSION = (ROOT / "VERSION.txt").read_text(encoding="utf-8").strip()
 
 
 def test_v422_version_and_final_step_label():
-    assert VERSION == "2026.09.07-499-DOCUMENT-TO-COMPLETE-PROPOSAL"
+    assert VERSION == "2026.09.07-500-MULTI-DOCUMENT-IMPORT"
     assert "Steg 6 av 6 · Publicera" in VIEW
     assert "Steg 5 av 5 · Publicera" not in VIEW
 

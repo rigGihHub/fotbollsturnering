@@ -5,23 +5,26 @@ def render_cup_document_import(st, key_prefix, setting):
     """Render review-first document intake and return (prefill, use_teams_key, parsed_date)."""
     prefill_key = f"{key_prefix}_cup_document_prefill"
     use_teams_key = f"{key_prefix}_cup_document_use_teams"
-    with st.expander("📄 Starta från ett befintligt cupprogram", expanded=False):
+    with st.expander("📄 Läs in tidigare cupprogram eller importera från foto/dokument", expanded=False):
         st.caption("Släpp in PDF, TXT eller en bild/skärmdump. CupNavi gör ett granskningsbart cupförslag med cupinfo, lag, grupper, matcher, tider, planer, slutspel och regler när uppgifterna finns i dokumentet.")
-        upload = st.file_uploader(
-            "Cupprogram eller inbjudan", type=["pdf", "txt", "png", "jpg", "jpeg", "webp"],
+        uploads = st.file_uploader(
+            "Cupprogram, dokument eller bilder", type=["pdf", "txt", "png", "jpg", "jpeg", "webp"],
             key=f"{key_prefix}_cup_document_upload",
-            help="Max 25 MB. Inget sparas i cupen förrän du granskat resultatet och skapar cupen.",
+            help="Du kan välja flera bilder/dokument samtidigt. Max 25 MB per fil. Inget sparas i cupen förrän du granskat resultatet och skapar cupen.",
+            accept_multiple_files=True,
         )
-        if upload is not None and st.button("✨ Läs dokumentet", key=f"{key_prefix}_analyze_cup_document", type="primary"):
+        if uploads and st.button("✨ Läs dokumenten", key=f"{key_prefix}_analyze_cup_document", type="primary"):
             api_key = setting("OPENAI_API_KEY")
             if not api_key:
-                st.warning("Dokumenttolkningen kräver OPENAI_API_KEY i Streamlit Secrets. Filen skickas inte iväg utan en konfigurerad nyckel.")
+                st.warning("AI-tolkningen är inte aktiverad ännu. Lägg en OpenAI API-nyckel som OPENAI_API_KEY i Streamlit Secrets. Nyckeln visas aldrig i CupNavi.")
+                st.caption("Streamlit Cloud → appens Settings → Secrets → lägg till: OPENAI_API_KEY = \"sk-...\"")
             else:
                 try:
-                    from cupnavi_core.ai_cup_document_import import extract_cup_setup_from_document
-                    with st.spinner("CupNavi läser cupprogrammet …"):
-                        extracted = extract_cup_setup_from_document(upload.getvalue(), upload.name, upload.type, api_key)
-                    extracted["source_name"] = upload.name
+                    from cupnavi_core.ai_cup_document_import import extract_cup_setup_from_documents
+                    with st.spinner("CupNavi läser dokumenten …"):
+                        documents = [(item.getvalue(), item.name, item.type) for item in uploads]
+                        extracted = extract_cup_setup_from_documents(documents, api_key)
+                    extracted["source_name"] = ", ".join(item.name for item in uploads)
                     st.session_state[prefill_key] = extracted
                     st.session_state[use_teams_key] = True
                 except Exception as exc:
@@ -49,7 +52,7 @@ def render_cup_document_import(st, key_prefix, setting):
                 for m in matches:
                     rows.append({"Tid": m.get("time") or "—", "Grupp": m.get("group_name") or "—", "Hemma": m.get("home_team") or "—", "Borta": m.get("away_team") or "—", "Plan": m.get("venue") or "—", "Speltid": m.get("duration") or "—"})
                 st.dataframe(rows, use_container_width=True, hide_index=True)
-                st.info("Matchprogrammet är ett förslag i v499. Det skrivs inte automatiskt till spelschemat förrän du har granskat och godkänt det i nästa steg.")
+                st.info("Matchprogrammet är ett granskningsförslag. Det skrivs inte automatiskt till spelschemat förrän du har granskat och godkänt det i nästa steg.")
             if playoffs:
                 st.markdown("**🏆 Slutspel som CupNavi hittade**")
                 rows = []

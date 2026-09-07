@@ -1,6 +1,6 @@
 from pathlib import Path
 
-VERSION = "2026.09.07-499-DOCUMENT-TO-COMPLETE-PROPOSAL"
+VERSION = "2026.09.07-500-MULTI-DOCUMENT-IMPORT"
 
 
 def test_version_and_release_note():

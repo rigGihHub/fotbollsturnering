@@ -7,7 +7,7 @@ PERF = (ROOT / "scripts" / "check_performance_contract.py").read_text(encoding="
 
 
 def test_release_version():
-    assert VERSION == "2026.09.07-499-DOCUMENT-TO-COMPLETE-PROPOSAL"
+    assert VERSION == "2026.09.07-500-MULTI-DOCUMENT-IMPORT"
 
 
 def test_admin_flow_counts_reuse_short_session_snapshots():

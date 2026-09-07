@@ -12,7 +12,7 @@ def _lag_block():
     return APP[start:end]
 
 def test_release_version():
-    assert VERSION=="2026.09.07-499-DOCUMENT-TO-COMPLETE-PROPOSAL"
+    assert VERSION=="2026.09.07-500-MULTI-DOCUMENT-IMPORT"
 
 def test_team_secondary_tools_are_true_lazy_gates():
     lag=_lag_block()

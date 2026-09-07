@@ -19,4 +19,4 @@ def test_v414_scheduler_honors_saved_choice():
 
 
 def test_v414_version():
-    assert VERSION == "2026.09.07-499-DOCUMENT-TO-COMPLETE-PROPOSAL"
+    assert VERSION == "2026.09.07-500-MULTI-DOCUMENT-IMPORT"
