@@ -6,7 +6,7 @@ SCHEDULE = (ROOT / "cupnavi_core" / "schedule_workspace_view.py").read_text(enco
 VERSION = (ROOT / "VERSION.txt").read_text(encoding="utf-8").strip()
 
 def test_release_version():
-    assert VERSION == "2026.09.07-500-MULTI-DOCUMENT-IMPORT"
+    assert VERSION == "2026.09.07-502-GUIDED-ADMIN-FLOW"
     assert VERSION in APP
 
 def test_expected_team_count_is_part_of_schedule_readiness():

@@ -1,7 +1,7 @@
 from pathlib import Path
 from cupnavi_core.go_live_readiness import build_go_live_readiness
 
-VERSION = "2026.09.07-500-MULTI-DOCUMENT-IMPORT"
+VERSION = "2026.09.07-502-GUIDED-ADMIN-FLOW"
 APP = Path("app.py").read_text(encoding="utf-8")
 
 

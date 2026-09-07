@@ -11,7 +11,7 @@ def _overview_section():
 
 
 def test_release_version():
-    assert VERSION == '2026.09.07-500-MULTI-DOCUMENT-IMPORT'
+    assert VERSION == '2026.09.07-502-GUIDED-ADMIN-FLOW'
 
 
 def test_control_center_reuses_unchecked_snapshot_count():
@@ -30,7 +30,7 @@ def test_start_control_uses_counts_not_full_table_reads():
     section = _overview_section()
     marker = 'if _show_start_control:'
     start = section.index(marker)
-    end = section.index('with st.expander("⚠️ Riskzon', start)
+    end = section.index('with st.expander("Testverktyg"', start)
     start_control = section[start:end]
     assert 'workflow_counts["scheduled_n"]' in start_control
     assert 'workflow_counts["missing_refs_n"]' in start_control

@@ -4,7 +4,7 @@ APP=(ROOT/"app.py").read_text()
 VERSION=(ROOT/"VERSION.txt").read_text().strip()
 
 def test_version():
-    assert VERSION=="2026.09.07-500-MULTI-DOCUMENT-IMPORT"
+    assert VERSION=="2026.09.07-502-GUIDED-ADMIN-FLOW"
     assert f'APP_BUILD_VERSION = "{VERSION}"' in APP
 
 def test_global_admin_navigation_has_four_real_groups():
@@ -14,7 +14,7 @@ def test_global_admin_navigation_has_four_real_groups():
 
 def test_remaining_low_frequency_tools_are_contextual():
     assert 'if page == "Cupverktyg":\n        return "Matcher"' in APP
-    assert 'if page in {"Sponsorer", "Erbjudanden"}:\n        return "Organisation"' in APP
+    assert 'if page in {"Sponsorer", "Erbjudanden", "Åtkomst & koder"}:\n        return "Organisation"' in APP
     assert 'if page == "Besöksstatistik":\n        return "Översikt"' in APP
     assert '"Cupverktyg"' in APP
     assert '"Sponsorer"' in APP

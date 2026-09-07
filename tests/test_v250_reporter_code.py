@@ -18,8 +18,8 @@ def test_reporter_credentials_are_per_tournament_and_hashed():
     assert "new_code_hash(new_code)" in APP
 
 def test_admin_can_generate_four_digit_reporter_code_under_referees():
-    block=APP[APP.index('if admin_page == "Domare":'):APP.index('if admin_page == "Skapa och publicera schema":')]
-    assert 'st.subheader("Åtkomstkoder")' in block
+    block=APP[APP.index('if admin_page == "Åtkomst & koder":'):APP.index('if admin_page == "Domare":')]
+    assert 'st.header("Alla koder")' in block
     assert '"Matchrapportör"' in block and '"match_reporter_credentials"' in block and '"reporter"' in block
     assert '"Generera 4-siffrig kod"' in ROLE
     assert "generate_short_numeric_code(4)" in block

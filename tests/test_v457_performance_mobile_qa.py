@@ -2,7 +2,7 @@ from pathlib import Path
 
 from cupnavi_core.performance import PERFORMANCE_BUDGETS
 
-VERSION = "2026.09.07-500-MULTI-DOCUMENT-IMPORT"
+VERSION = "2026.09.07-502-GUIDED-ADMIN-FLOW"
 APP = Path("app.py").read_text(encoding="utf-8")
 STYLE = Path("cupnavi_core/style_system.py").read_text(encoding="utf-8")
 CONTRACT = Path("scripts/check_performance_contract.py").read_text(encoding="utf-8")

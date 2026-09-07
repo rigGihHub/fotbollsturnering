@@ -7,7 +7,7 @@ MATCHES = (ROOT / "cupnavi_core/public_matches_view.py").read_text(encoding="utf
 
 
 def test_v443_version():
-    assert VERSION == "2026.09.07-500-MULTI-DOCUMENT-IMPORT"
+    assert VERSION == "2026.09.07-502-GUIDED-ADMIN-FLOW"
 
 
 def test_my_team_selection_and_actions_use_single_rerun_callbacks():

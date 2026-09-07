@@ -8,7 +8,7 @@ VERSION = (ROOT / "VERSION.txt").read_text(encoding="utf-8").strip()
 
 
 def test_v441_version_and_wizard_navigation_are_single_rerun():
-    assert VERSION == "2026.09.07-500-MULTI-DOCUMENT-IMPORT"
+    assert VERSION == "2026.09.07-502-GUIDED-ADMIN-FLOW"
     assert "def _set_wizard_step(target_step: int)" in WIZARD
     assert "on_click=_set_wizard_step" in WIZARD
     nav_block = WIZARD[WIZARD.index("def nav(*,"):WIZARD.index("arrangement_type =", WIZARD.index("def nav(*,"))]

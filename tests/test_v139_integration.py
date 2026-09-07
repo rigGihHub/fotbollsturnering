@@ -5,7 +5,7 @@ ADMIN_OVERVIEW=(ROOT/"cupnavi_core/admin_overview.py").read_text(encoding="utf-8
 
 def test_v139_version_sync():
     v=(ROOT/"VERSION.txt").read_text().strip()
-    assert v=="2026.09.07-500-MULTI-DOCUMENT-IMPORT"
+    assert v=="2026.09.07-502-GUIDED-ADMIN-FLOW"
     assert v in APP
     assert v in (ROOT/"cupnavi_core/version.py").read_text()
 

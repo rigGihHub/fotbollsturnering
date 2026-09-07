@@ -178,7 +178,7 @@ def inject_v266_public_mobile_css():
     return _inject_v266_public_mobile_css_impl(st)
 def inject_v198_visual_system():
     return _inject_v198_visual_system_impl(st)
-APP_BUILD_VERSION = "2026.09.07-500-MULTI-DOCUMENT-IMPORT"
+APP_BUILD_VERSION = "2026.09.07-502-GUIDED-ADMIN-FLOW"
 APP_VERSION = APP_BUILD_VERSION
 
 def _set_session_state_values(values):
@@ -8723,6 +8723,68 @@ with st.sidebar:
     if view_mode == "Turneringsvy":
         render_public_share_control(tid, tournament, in_sidebar=True)
 
+    if view_mode == "Admin":
+        with st.expander("Cupadministration", expanded=False):
+            st.caption("Namn och radering ligger här så att du alltid hittar dem.")
+            _sidebar_name = st.text_input(
+                "Cupnamn",
+                value=str(tournament["name"] or ""),
+                key=f"sidebar_tournament_name_{tid}",
+            ).strip()
+            if st.button(
+                "Spara nytt namn",
+                key=f"sidebar_save_tournament_name_{tid}",
+                use_container_width=True,
+                disabled=not _sidebar_name or _sidebar_name == str(tournament["name"] or ""),
+            ):
+                run("UPDATE tournaments SET name=? WHERE id=?", (_sidebar_name, tid))
+                _clear_render_query_cache()
+                st.success("Cupnamnet är ändrat.")
+
+            st.divider()
+            with st.expander("🗑️ Radera cup", expanded=False):
+                _sidebar_environment = str(_row_value(tournament, "environment_type", "production") or "production")
+                _sidebar_lifecycle = normalize_status(tournament["lifecycle_status"], is_published=bool(tournament["is_published"]))
+                if _sidebar_environment == "test":
+                    _sidebar_delete_confirm = st.checkbox(
+                        f"Jag vill radera testcupen {tournament['name']}",
+                        key=f"sidebar_delete_test_confirm_{tid}",
+                    )
+                    if st.button(
+                        "Radera testcup permanent",
+                        key=f"sidebar_delete_test_{tid}",
+                        type="primary",
+                        use_container_width=True,
+                        disabled=not _sidebar_delete_confirm,
+                    ):
+                        with db() as con:
+                            con.execute("DELETE FROM tournaments WHERE id=?", (tid,))
+                            con.commit()
+                        _clear_render_query_cache()
+                        st.session_state.pop("preferred_tournament_id", None)
+                        st.rerun()
+                else:
+                    st.caption("Riktiga cuper flyttas först till papperskorgen så att historik inte försvinner av misstag.")
+                    _sidebar_trash_confirm = st.checkbox(
+                        f"Flytta {tournament['name']} till papperskorgen",
+                        key=f"sidebar_trash_confirm_{tid}",
+                    )
+                    if st.button(
+                        "Flytta till papperskorgen",
+                        key=f"sidebar_trash_{tid}",
+                        use_container_width=True,
+                        disabled=not _sidebar_trash_confirm,
+                    ):
+                        changed, _reason = _trash_tournament_if_current(
+                            tid, _sidebar_lifecycle, bool(tournament["is_published"]),
+                        )
+                        if not changed:
+                            st.warning("Cupens status hade ändrats. Ladda om och försök igen.")
+                        st.rerun()
+
+                if st.button("Öppna papperskorgen", key=f"sidebar_open_trash_{tid}", use_container_width=True):
+                    st.session_state[f"admin_page_{tid}"] = "Papperskorg"
+
 st.markdown(
     """<style>
     [class*="st-key-cn_sidebar_a11y_"]{margin-top:22px!important;opacity:.74}
@@ -9019,13 +9081,11 @@ label[data-testid="stWidgetLabel"] {
   }
 }
 <
-
 </style>
 """, unsafe_allow_html=True)
 else:
     st.markdown("""
 <style>
-
 /* CUPNAVI CALENDAR FINAL OVERRIDE */
 /* Streamlit/BaseWeb renders the datepicker in a portal. Keep the entire portal
    explicitly light so neither browser color-scheme nor app theme can create
@@ -9038,14 +9098,12 @@ else:
   color:#172033 !important;
   color-scheme:light !important;
 }
-
 /* Default every calendar descendant to readable dark text. */
 [data-baseweb="calendar"] *,
 [data-baseweb="popover"] [data-baseweb="calendar"] * {
   color:#172033 !important;
   text-shadow:none !important;
 }
-
 /* Header, weekday strip and grid all stay light. */
 [data-baseweb="calendar"] [role="banner"],
 [data-baseweb="calendar"] [role="columnheader"],
@@ -9058,14 +9116,12 @@ else:
   color:#172033 !important;
   opacity:1 !important;
 }
-
 /* Weekday labels must remain visibly distinct. */
 [data-baseweb="calendar"] [role="columnheader"],
 [data-baseweb="calendar"] abbr {
   font-weight:700 !important;
   color:#334155 !important;
 }
-
 /* Month/year controls and arrows. */
 [data-baseweb="calendar"] button,
 [data-baseweb="calendar"] select,
@@ -9080,7 +9136,6 @@ else:
   fill:#172033 !important;
   color:#172033 !important;
 }
-
 /* Every day cell is light by default: no black spacer/overflow blocks. */
 [data-baseweb="calendar"] [role="gridcell"] button,
 [data-baseweb="calendar"] [role="gridcell"] [role="button"],
@@ -9090,7 +9145,6 @@ else:
   opacity:1 !important;
   box-shadow:none !important;
 }
-
 /* Outside-month / disabled dates are muted, never black. */
 [data-baseweb="calendar"] [aria-disabled="true"],
 [data-baseweb="calendar"] [aria-disabled="true"] *,
@@ -9100,7 +9154,6 @@ else:
   color:#94a3b8 !important;
   opacity:1 !important;
 }
-
 /* Selected date keeps a clear CupNavi accent. */
 [data-baseweb="calendar"] [aria-selected="true"],
 [data-baseweb="calendar"] [aria-selected="true"] *,
@@ -9110,13 +9163,11 @@ else:
   color:#ffffff !important;
   font-weight:700 !important;
 }
-
 /* Focus remains visible for keyboard users. */
 [data-baseweb="calendar"] :focus-visible {
   outline:3px solid #86efac !important;
   outline-offset:2px !important;
 }
-
 /* GLOBAL READABILITY PASS: secondary guidance must not disappear on the light
    CupNavi surface. This intentionally avoids changing buttons or input values. */
 [data-testid="stCaptionContainer"],
@@ -9133,11 +9184,8 @@ label[data-testid="stWidgetLabel"] {
   opacity:1 !important;
   font-weight:600 !important;
 }
-
-
 </style>
 """, unsafe_allow_html=True)
-
 def render_initial_tournament_setup(tournament_id, tournament):
     """Render first-run wizard for a new cup; keep the full editor for later changes."""
     deps = InitialSetupDependencies(
@@ -9177,8 +9225,6 @@ def render_initial_tournament_setup(tournament_id, tournament):
     if st.session_state.get("new_tournament_setup_mode") == "new":
         return render_new_tournament_wizard_module(tournament_id, tournament, deps=deps)
     return render_initial_tournament_setup_module(tournament_id, tournament, deps=deps)
-
-
 def _render_with_friendly_error(renderer, *args):
     try:
         renderer(*args)
@@ -9198,19 +9244,15 @@ def _render_with_friendly_error(renderer, *args):
         st.error(f"Något gick fel när sidan skulle visas. Dina sparade uppgifter påverkas inte. Försök igen. Fel-ID: {error_id}")
         st.caption("Tekniska detaljer loggas internt. Ange Fel-ID om du kontaktar support.")
         print(f"[{error_id}] {type(exc).__name__}: {exc}")
-
 if view_mode == "Lagportal":
     _render_with_friendly_error(render_team_portal, tid, tournament)
     st.stop()
-
 if view_mode == "Matchrapportör":
     _render_with_friendly_error(render_match_reporter_view, tid, tournament)
     st.stop()
-
 if view_mode == "Admin" and st.session_state.get("new_tournament_setup_id") == tid:
     render_initial_tournament_setup(tid, tournament)
     st.stop()
-
 if view_mode == "Admin":
     st.title(f"🏆 {tournament['name']}")
     tournament_environment = str(_row_value(tournament, "environment_type", "production") or "production")
@@ -9244,10 +9286,9 @@ if view_mode == "Turneringsvy":
     # PDF bytes are generated lazily by st.download_button on the actual click.
     _render_with_friendly_error(render_public_view, tid, tournament)
     st.stop()
-
 # SNABB ADMINNAVIGERING: visuellt som flikar, men bara vald sida körs.
 ADMIN_PAGES = [
-    "Instruktioner", "Adminöversikt", "Cupinställningar", "Önskemålscentral", "Kontroller", "Problem & lösningar", "Lag", "Grupper", "Trupper", "Domare",
+    "Instruktioner", "Adminöversikt", "Cupinställningar", "Papperskorg", "Åtkomst & koder", "Önskemålscentral", "Kontroller", "Problem & lösningar", "Lag", "Grupper", "Trupper", "Domare",
     "Skapa och publicera schema", "Cupdagen", "Tabeller", "Matcher och resultat",
     "Matchhändelser", "Slutspel", "Skytteligor", "Erbjudanden",
     "Sponsorer", "Funktionärer", "Import", "Besöksstatistik", "Cupverktyg",
@@ -9272,10 +9313,8 @@ ADMIN_NAV = [item for _, items in ADMIN_NAV_GROUPS for item in items]
 admin_page_key = f"admin_page_{tid}"
 if st.session_state.get(admin_page_key) not in ADMIN_PAGES:
     st.session_state[admin_page_key] = "Adminöversikt"
-
 def _set_admin_page(page):
     st.session_state[admin_page_key] = page
-
 # Två nivåer i adminnavigationen: fem tydliga huvudområden och bara relevanta
 # underknappar för valt område. Det minskar knappmängden utan att gömma funktioner.
 def _admin_group_for_page(page):
@@ -9293,7 +9332,7 @@ def _admin_group_for_page(page):
         return "Översikt"
     if page == "Cupverktyg":
         return "Matcher"
-    if page in {"Sponsorer", "Erbjudanden"}:
+    if page in {"Sponsorer", "Erbjudanden", "Åtkomst & koder"}:
         return "Organisation"
     if page == "Besöksstatistik":
         return "Översikt"
@@ -9301,21 +9340,17 @@ def _admin_group_for_page(page):
         if any(item_page == page for item_page, _ in group_items):
             return group_name
     return "Översikt"
-
 admin_group_key = f"admin_group_{tid}"
 current_group = _admin_group_for_page(st.session_state[admin_page_key])
 st.session_state[admin_group_key] = current_group
-
 def _set_admin_group(group_name):
     st.session_state[admin_group_key] = group_name
     group_items = next(items for name, items in ADMIN_NAV_GROUPS if name == group_name)
     if group_items:
         st.session_state[admin_page_key] = group_items[0][0]
-
 # v342: do not render empty legacy groups. Keeping the tuple temporarily makes
 # historical route ownership explicit without presenting a dead navigation tab.
 group_names = [group_name for group_name, items in ADMIN_NAV_GROUPS if items]
-
 # v325: one responsive main-area selector instead of five simultaneous columns.
 # This keeps all admin areas one tap away without squeezing five buttons across
 # narrow phone screens. Only the selected area's page list is rendered below.
@@ -9324,84 +9359,76 @@ def _sync_admin_group_selector():
     group_items = next((items for name, items in ADMIN_NAV_GROUPS if name == selected_group), [])
     if group_items:
         st.session_state[admin_page_key] = group_items[0][0]
-
 _ADMIN_GROUP_LABELS = {
     "Översikt": "⌂ Översikt",
     "Deltagare": "◎ Deltagare",
     "Matcher": "▦ Matcher",
     "Organisation": "◇ Organisation",
 }
-st.markdown(
-    """<div class="cn-admin-nav-shell">
-      <span class="label">Adminområde</span>
-      <span class="hint">Välj arbetsområde – detaljer visas först när de behövs.</span>
-    </div>""",
-    unsafe_allow_html=True,
-)
+# v502: one guided admin flow replaces the previous Adminområde + primary buttons
+# + Fler verktyg stack. The user always sees where they are and what comes next.
+_ADMIN_FLOW_STEPS = [
+    ("Deltagare", ["Lag", "Grupper", "Trupper", "Import"]),
+    ("Planer & tider", ["Adminöversikt", "Skapa och publicera schema"]),
+    ("Upplägg", ["Cupinställningar", "Slutspel"]),
+    ("Organisation & koder", ["Åtkomst & koder", "Domare", "Funktionärer"]),
+    ("Publicera & cupdag", ["Skapa och publicera schema", "Cupdagen", "Matcher och resultat"]),
+]
+_ADMIN_FLOW_LABELS = {
+    "Deltagare": "1 Deltagare",
+    "Planer & tider": "2 Planer & tider",
+    "Upplägg": "3 Upplägg",
+    "Organisation & koder": "4 Organisation & koder",
+    "Publicera & cupdag": "5 Publicera",
+}
+def _flow_step_for_page(page_name):
+    if page_name in {"Önskemålscentral"}:
+        return "Deltagare"
+    if page_name in {"Kontroller", "Problem & lösningar", "Besöksstatistik", "Instruktioner"}:
+        return "Publicera & cupdag"
+    if page_name in {"Matchhändelser", "Tabeller", "Skytteligor", "Cupverktyg"}:
+        return "Publicera & cupdag"
+    if page_name in {"Sponsorer", "Erbjudanden"}:
+        return "Organisation & koder"
+    for step_name, pages in _ADMIN_FLOW_STEPS:
+        if page_name in pages:
+            return step_name
+    return "Planer & tider"
+admin_flow_key = f"admin_flow_{tid}"
+st.session_state[admin_flow_key] = _flow_step_for_page(st.session_state[admin_page_key])
+def _sync_admin_flow_selector():
+    chosen = st.session_state.get(admin_flow_key, "Deltagare")
+    pages = next((items for name, items in _ADMIN_FLOW_STEPS if name == chosen), [])
+    if pages and st.session_state.get(admin_page_key) not in pages:
+        st.session_state[admin_page_key] = pages[0]
+st.markdown("<div class='cn-admin-flow-kicker'>Fortsätt bygga cupen</div>", unsafe_allow_html=True)
 st.segmented_control(
-    "Adminområde",
-    group_names,
-    key=admin_group_key,
-    format_func=lambda value: _ADMIN_GROUP_LABELS.get(value, tr(value)),
-    on_change=_sync_admin_group_selector,
+    "Cupflöde",
+    [name for name, _ in _ADMIN_FLOW_STEPS],
+    key=admin_flow_key,
+    format_func=lambda value: _ADMIN_FLOW_LABELS[value],
+    on_change=_sync_admin_flow_selector,
     label_visibility="collapsed",
 )
-
-selected_group = st.session_state[admin_group_key]
-raw_items = next(items for group_name, items in ADMIN_NAV_GROUPS if group_name == selected_group)
-# v339: global navigation now mirrors the recurring work model directly.
-# Contextual tools are opened from their owning workspace instead of being
-# reintroduced as secondary global destinations.
-nav_items = raw_items
-
-# Primära sidor visas direkt. Situationsbundna verktyg finns kvar under Fler verktyg.
-# Detta minskar samtidig knappmängd utan att göra någon funktion oåtkomlig.
-_ADMIN_PRIMARY_PAGES_BY_GROUP = {
-    "Översikt": {"Adminöversikt"},
-    "Deltagare": {"Lag", "Grupper"},
-    "Matcher": {"Skapa och publicera schema", "Matcher och resultat", "Slutspel"},
-    "Organisation": {"Domare"},
+_selected_flow_step = st.session_state[admin_flow_key]
+_flow_pages = next(items for name, items in _ADMIN_FLOW_STEPS if name == _selected_flow_step)
+_flow_page_labels = {
+    "Adminöversikt": "Planer & tider",
+    "Skapa och publicera schema": "Schema",
+    "Matcher och resultat": "Resultat",
+    "Åtkomst & koder": "Alla koder",
 }
-
-def _admin_nav_item_is_active(page_name):
-    if page_name == "Sponsorer":
-        return st.session_state[admin_page_key] in ("Sponsorer", "Erbjudanden")
-    if page_name == "Matcher och resultat":
-        return st.session_state[admin_page_key] in ("Matcher och resultat", "Matchhändelser", "Tabeller", "Skytteligor")
-    return st.session_state[admin_page_key] == page_name
-
-_primary_names = _ADMIN_PRIMARY_PAGES_BY_GROUP.get(selected_group, set())
-_primary_nav_items = [item for item in nav_items if item[0] in _primary_names]
-_more_nav_items = [item for item in nav_items if item[0] not in _primary_names]
-
-if _primary_nav_items:
-    nav_cols = st.columns(min(3, len(_primary_nav_items)))
-    for nav_index, (page_name, button_label) in enumerate(_primary_nav_items):
-        nav_col = nav_cols[nav_index % len(nav_cols)]
-        nav_col.button(
-            button_label,
-            key=f"admin_nav_v194_primary_{tid}_{selected_group}_{page_name}",
-            type="primary" if _admin_nav_item_is_active(page_name) else "secondary",
-            use_container_width=True,
-            on_click=_set_admin_page,
-            args=(page_name,),
-        )
-
-if _more_nav_items:
-    _advanced_active = any(_admin_nav_item_is_active(page_name) for page_name, _ in _more_nav_items)
-    with st.expander("Fler verktyg", expanded=_advanced_active):
-        _more_cols = st.columns(min(3, len(_more_nav_items)))
-        for nav_index, (page_name, button_label) in enumerate(_more_nav_items):
-            _more_col = _more_cols[nav_index % len(_more_cols)]
-            _more_col.button(
-                button_label,
-                key=f"admin_nav_v194_more_{tid}_{selected_group}_{page_name}",
-                type="primary" if _admin_nav_item_is_active(page_name) else "secondary",
-                use_container_width=True,
-                on_click=_set_admin_page,
-                args=(page_name,),
-            )
-
+if len(_flow_pages) > 1:
+    _current_flow_page = st.session_state[admin_page_key] if st.session_state[admin_page_key] in _flow_pages else _flow_pages[0]
+    _selected_flow_page = st.selectbox(
+        "I detta steg",
+        _flow_pages,
+        index=_flow_pages.index(_current_flow_page),
+        format_func=lambda page: _flow_page_labels.get(page, tr(page)),
+        key=f"admin_flow_page_{tid}_{_selected_flow_step}",
+    )
+    if _selected_flow_page != st.session_state[admin_page_key]:
+        st.session_state[admin_page_key] = _selected_flow_page
 def _open_admin_search_hit(target_page, kind, entity_id, team_id=None):
     """Navigate from global search and carry the selected entity into its target view."""
     st.session_state[admin_page_key] = target_page
@@ -9415,8 +9442,6 @@ def _open_admin_search_hit(target_page, kind, entity_id, team_id=None):
     # Clear the search field in the callback (before widgets are rebuilt) so the
     # user sees the destination rather than an apparently unchanged search panel.
     st.session_state[f"global_admin_search_{tid}"] = ""
-
-
 with st.expander("Sök i cupen", expanded=False):
     global_query = st.text_input(
         "Sök lag/deltagare, spelare, domare eller matchnummer",
@@ -9482,12 +9507,8 @@ with st.expander("Sök i cupen", expanded=False):
                 )
         else:
             st.caption("Inga träffar i den aktiva cupen.")
-
-
-
 admin_page = st.session_state[admin_page_key]
 current_page_label = dict(ADMIN_NAV).get(admin_page, admin_page)
-
 _flow_index = _primary_flow_index(admin_page)
 _page_title, _page_copy = ADMIN_PAGE_COPY.get(admin_page, (current_page_label, "Administrera den här delen av cupen."))
 # Flödesräknarna används bara på de sju primära cupstegen. Tidigare kördes
@@ -10717,103 +10738,6 @@ elif admin_page == "Adminöversikt":
                     st.warning(f"{len(overview_schedule_warnings)} schemavarningar behöver granskas före publicering.")
                 else:
                     st.caption("Publiceringsstatus och publiceringsknapp finns i vänsterspalten.")
-
-        with st.expander("⚠️ Riskzon – Cup och papperskorg", expanded=False):
-            current_environment = str(_row_value(tournament, "environment_type", "production") or "production")
-            if current_environment == "test":
-                st.info("🧪 Testmiljö: cupen kan raderas direkt. Detta påverkar bara den valda testcupen.")
-                test_delete_confirm = st.checkbox(
-                    f"Jag vill radera testcupen {tournament['name']}",
-                    key=f"delete_test_tournament_confirm_{tid}",
-                )
-                if st.button(
-                    "🗑️ Radera testcup permanent",
-                    disabled=not test_delete_confirm,
-                    type="primary",
-                    use_container_width=True,
-                    key=f"delete_test_tournament_{tid}",
-                ):
-                    with db() as con:
-                        con.execute("DELETE FROM tournaments WHERE id=?", (tid,))
-                        con.commit()
-                    _clear_render_query_cache()
-                    st.session_state.pop("preferred_tournament_id", None)
-                    st.rerun()
-            else:
-                st.warning(
-                    "En riktig cup kan alltid raderas. Admin kan göra det även om cupen är publicerad eller har spelade matcher. "
-                    "Papperskorgen rekommenderas först så att en felklickning inte tar bort historik."
-                )
-                trash_selected = st.checkbox(
-                    f"Jag vill flytta {tournament['name']} till papperskorgen",
-                    key=f"trash_tournament_selected_{tid}",
-                )
-                if st.button(
-                    "🗑️ Flytta cupen till papperskorgen",
-                    disabled=not trash_selected,
-                    key=f"trash_tournament_button_{tid}",
-                    use_container_width=True,
-                ):
-                    changed, trash_reason = _trash_tournament_if_current(
-                        tid,
-                        tournament_lifecycle,
-                        bool(tournament["is_published"]),
-                    )
-                    if not changed:
-                        st.warning("Cupens status ändrades av en annan administratör och flytten genomfördes inte.")
-                    st.rerun()
-
-            trashed_tournaments = all_rows(
-                "SELECT id,name,trashed_at FROM tournaments WHERE lifecycle_status='trashed' ORDER BY trashed_at DESC,name"
-            )
-            with st.expander(f"Papperskorg ({len(trashed_tournaments)})", expanded=bool(trashed_tournaments)):
-                if not trashed_tournaments:
-                    st.caption("Papperskorgen är tom.")
-                else:
-                    trashed_ids = [row["id"] for row in trashed_tournaments]
-                    trash_name_by_id = {row["id"]: row["name"] for row in trashed_tournaments}
-                    trash_row_by_id = {row["id"]: row for row in trashed_tournaments}
-                    bin_id = st.selectbox(
-                        "Cup i papperskorgen",
-                        trashed_ids,
-                        format_func=lambda tournament_id: trash_name_by_id[tournament_id],
-                        key="trashed_tournament_target",
-                    )
-                    bin_name = trash_name_by_id[bin_id]
-                    trashed_at = trash_row_by_id[bin_id]["trashed_at"] or "Tid saknas"
-                    st.caption(f"Flyttad till papperskorgen: {trashed_at.replace('T',' ')}")
-                    restore_col, permanent_col = st.columns(2)
-                    if restore_col.button("↩️ Återställ cup", use_container_width=True, key=f"restore_trashed_{bin_id}"):
-                        changed, restore_reason = _restore_trashed_tournament_if_current(
-                            bin_id,
-                            trash_row_by_id[bin_id]["trashed_at"],
-                        )
-                        if not changed:
-                            st.warning("Cupen ändrades av en annan administratör och kunde inte återställas från den här äldre vyn.")
-                        st.rerun()
-                    permanent_col.error("Permanent radering går inte att ångra.")
-                    typed_name = permanent_col.text_input(
-                        f"Skriv exakt: {bin_name}",
-                        key=f"permanent_delete_name_{bin_id}",
-                    )
-                    if permanent_col.button(
-                        "Radera permanent",
-                        disabled=typed_name != bin_name,
-                        type="primary",
-                        use_container_width=True,
-                        key=f"permanent_delete_{bin_id}",
-                    ):
-                        deleted, delete_reason = _delete_trashed_tournament_if_current(
-                            bin_id,
-                            bin_name,
-                            trash_row_by_id[bin_id]["trashed_at"],
-                        )
-                        if deleted:
-                            st.session_state.pop(f"admin_page_{bin_id}", None)
-                            st.session_state.pop(f"_schedule_validation_{bin_id}", None)
-                        else:
-                            st.warning("Cupen ändrades eller återställdes av en annan administratör och raderades därför inte.")
-                        st.rerun()
 
 
         with st.expander("Testverktyg", expanded=False):
@@ -12565,180 +12489,6 @@ if admin_page == "Lag":
                 else:
                     st.info("Inga ändringar att spara.")
 
-        if st.toggle("Lagportal – koder", value=False, key=f"lazy_team_codes_{tid}", help="Koder och åtkomst laddas först när verktyget öppnas."):
-            st.caption("Här ser administratören alla aktuella lagkoder. Inloggningen verifieras fortfarande mot en saltad hash. Skydda tabellen från obehöriga.")
-            credentials = {
-                int(row["team_id"]): row
-                for row in all_rows(
-                    "SELECT team_id,admin_code,created_at,rotated_at FROM participant_access_credentials WHERE tournament_id=?",
-                    (tid,),
-                )
-            }
-            code_rows = []
-            missing_display_codes = []
-            for team_row in teams:
-                cred = credentials.get(int(team_row["id"]))
-                visible_code = (cred["admin_code"] if cred else None) or ""
-                if not visible_code:
-                    missing_display_codes.append(int(team_row["id"]))
-                code_rows.append({
-                    "Lag": team_row["name"],
-                    "Lagkod": visible_code or ("Äldre kod – skapa ny" if cred else "Saknas"),
-                    "Senast ändrad": (cred["rotated_at"] or cred["created_at"]) if cred else "–",
-                })
-            render_centered_table(pd.DataFrame(code_rows))
-
-            regenerate_all_key = f"confirm_regenerate_all_team_codes_{tid}"
-            all_team_codes_notice_key = f"all_team_codes_notice_{tid}"
-            if all_team_codes_notice_key in st.session_state:
-                notice_type, notice_text = st.session_state.pop(all_team_codes_notice_key)
-                getattr(st, notice_type)(notice_text)
-
-            if teams:
-                if not st.session_state.get(regenerate_all_key):
-                    st.button(
-                        "Regenerera koder för alla lag",
-                        key=f"request_regenerate_all_team_codes_{tid}",
-                        use_container_width=True,
-                        on_click=_set_session_state_values,
-                        args=({regenerate_all_key: True},),
-                    )
-                else:
-                    st.warning(
-                        f"Är du säker? Alla {len(teams)} nuvarande lagkoder slutar fungera direkt "
-                        "och måste delas ut på nytt."
-                    )
-                    bulk_yes, bulk_no = st.columns(2)
-                    if bulk_yes.button(
-                        "Ja, regenerera alla",
-                        key=f"confirm_regenerate_all_team_codes_button_{tid}",
-                        type="primary",
-                        use_container_width=True,
-                    ):
-                        generated_codes, bulk_error = _rotate_all_participant_codes(tid)
-                        st.session_state.pop(regenerate_all_key, None)
-                        if bulk_error:
-                            st.session_state[all_team_codes_notice_key] = (
-                                "error",
-                                f"Lagkoderna kunde inte regenereras: {bulk_error}",
-                            )
-                        else:
-                            for team_id, _plain_code in generated_codes:
-                                record_audit(
-                                    tid,
-                                    "participant_code_rotated",
-                                    "team",
-                                    "Lagkod regenererad via massåtgärd",
-                                    entity_id=team_id,
-                                    actor="Admin",
-                                )
-                            st.session_state[all_team_codes_notice_key] = (
-                                "success",
-                                f"Nya koder skapades för {len(generated_codes)} lag. "
-                                "Alla tidigare lagkoder är nu ogiltiga.",
-                            )
-                        st.rerun()
-                    bulk_no.button(
-                        "Avbryt",
-                        key=f"cancel_regenerate_all_team_codes_{tid}",
-                        use_container_width=True,
-                        on_click=_pop_session_state_key,
-                        args=(regenerate_all_key,),
-                    )
-
-            if missing_display_codes:
-                st.warning(f"{len(missing_display_codes)} lag saknar en visningsbar kod. Äldre hashade koder kan inte återläsas.")
-                if st.button("Skapa/ersätt koder för alla som saknar visningsbar kod", key=f"generate_missing_portal_codes_{tid}", type="primary", use_container_width=True):
-                    now_iso = datetime.now().isoformat(timespec="seconds")
-                    with db() as con:
-                        for missing_team_id in missing_display_codes:
-                            plain_code = generate_access_code()
-                            salt, code_hash = new_code_hash(plain_code)
-                            con.execute(
-                                """INSERT INTO participant_access_credentials(tournament_id,team_id,code_salt,code_hash,created_at,rotated_at,admin_code)
-                                   VALUES(?,?,?,?,?,NULL,?)
-                                   ON CONFLICT(tournament_id,team_id) DO UPDATE SET code_salt=excluded.code_salt,code_hash=excluded.code_hash,rotated_at=excluded.created_at,admin_code=excluded.admin_code""",
-                                (tid, missing_team_id, salt, code_hash, now_iso, plain_code),
-                            )
-                        con.commit()
-                    _clear_render_query_cache()
-                    st.success("Koder skapades. Tidigare koder för berörda lag är nu ogiltiga.")
-                    st.rerun()
-
-            access_team_id = st.selectbox(
-                "Lag för att skapa/återställa kod",
-                [row["id"] for row in teams],
-                format_func=lambda selected_id: next(row["name"] for row in teams if row["id"] == selected_id),
-                key=f"portal_access_team_{tid}",
-            )
-            credential = one_row(
-                "SELECT id,admin_code,created_at,rotated_at FROM participant_access_credentials WHERE tournament_id=? AND team_id=?",
-                (tid, access_team_id),
-            )
-            portal_code_notice_key=f"portal_code_notice_{tid}_{access_team_id}"
-            if portal_code_notice_key in st.session_state:
-                notice_type, notice_text = st.session_state.pop(portal_code_notice_key)
-                getattr(st, notice_type)(notice_text)
-            individual_confirm_key = f"confirm_regenerate_team_code_{tid}_{access_team_id}"
-            rotate_individual = False
-            if not credential:
-                rotate_individual = st.button(
-                    "Skapa ny kod",
-                    key=f"generate_portal_code_{tid}_{access_team_id}",
-                    type="primary",
-                )
-            elif not st.session_state.get(individual_confirm_key):
-                st.button(
-                    "Regenerera lagkod",
-                    key=f"request_regenerate_portal_code_{tid}_{access_team_id}",
-                    on_click=_set_session_state_values,
-                    args=({individual_confirm_key: True},),
-                )
-            else:
-                selected_team_name = next(
-                    row["name"] for row in teams if row["id"] == access_team_id
-                )
-                st.warning(
-                    f"Är du säker? Den nuvarande lagkoden för {selected_team_name} slutar fungera direkt."
-                )
-                indiv_yes, indiv_no = st.columns(2)
-                if indiv_yes.button(
-                    "Ja, regenerera",
-                    key=f"confirm_regenerate_portal_code_{tid}_{access_team_id}",
-                    type="primary",
-                ):
-                    rotate_individual = True
-                    st.session_state.pop(individual_confirm_key, None)
-                indiv_no.button(
-                    "Avbryt",
-                    key=f"cancel_regenerate_portal_code_{tid}_{access_team_id}",
-                    on_click=_pop_session_state_key,
-                    args=(individual_confirm_key,),
-                )
-
-            if rotate_individual:
-                changed, rotate_reason, plain_code = _rotate_participant_code_if_unchanged(
-                    tid,
-                    access_team_id,
-                    _credential_snapshot(credential),
-                )
-                if changed:
-                    record_audit(
-                        tid,
-                        "participant_code_rotated",
-                        "team",
-                        "Ny portal-kod skapad",
-                        entity_id=access_team_id,
-                        actor="Admin",
-                    )
-                    st.session_state[portal_code_notice_key]=("success",f"Ny lagkod: **{plain_code}**")
-                else:
-                    st.session_state[portal_code_notice_key]=(
-                        "warning",
-                        "Lagkoden ändrades av en annan administratör. Ingen äldre kodrotation skrevs över.",
-                    )
-                st.rerun()
-
         if st.toggle("Lagmeddelanden", value=False, key=f"lazy_team_messages_{tid}", help="Meddelanden laddas först när verktyget öppnas."):
             st.caption("Meddelanden som skickas till arrangören visas här. Du kan också skriva direkt till valfritt deltagande lag.")
             team_names = {int(row["id"]): row["name"] for row in teams}
@@ -13638,28 +13388,60 @@ if admin_page == "Trupper":
                     st.rerun()
 
 
-if admin_page == "Domare":
-    st.header("Domare")
-    st.caption("Lägg till domare för automatisk eller manuell matchtilldelning.")
 
-    _focus_kind = st.session_state.get(f"admin_search_focus_kind_{tid}")
-    _focus_entity = st.session_state.get(f"admin_search_focus_entity_{tid}")
-    if _focus_kind == "Domare" and _focus_entity:
-        _focused_referee = one_row(
-            "SELECT * FROM referees WHERE tournament_id=? AND id=?",
-            (tid, int(_focus_entity)),
+if admin_page == "Papperskorg":
+    st.header("Papperskorg")
+    st.caption("Återställ en cup eller radera den permanent. Permanent radering går inte att ångra.")
+    trashed_tournaments = all_rows(
+        "SELECT id,name,trashed_at FROM tournaments WHERE lifecycle_status='trashed' ORDER BY trashed_at DESC,name"
+    )
+    if not trashed_tournaments:
+        st.info("Papperskorgen är tom.")
+    else:
+        trashed_ids = [row["id"] for row in trashed_tournaments]
+        trash_name_by_id = {row["id"]: row["name"] for row in trashed_tournaments}
+        trash_row_by_id = {row["id"]: row for row in trashed_tournaments}
+        bin_id = st.selectbox(
+            "Cup i papperskorgen",
+            trashed_ids,
+            format_func=lambda tournament_id: trash_name_by_id[tournament_id],
+            key="trashed_tournament_target_v502",
         )
-        if _focused_referee:
-            with st.container(border=True):
-                st.markdown(f"### 🔎 {html.escape(_focused_referee['name'])}")
-                st.caption("Öppnad från Sök i cupen")
-                if _focused_referee["phone"]:
-                    st.write(f"Telefon: {_focused_referee['phone']}")
-                if _focused_referee["email"]:
-                    st.write(f"E-post: {_focused_referee['email']}")
+        bin_name = trash_name_by_id[bin_id]
+        trashed_at = trash_row_by_id[bin_id]["trashed_at"] or "Tid saknas"
+        st.caption(f"Flyttad: {trashed_at.replace('T',' ')}")
+        restore_col, permanent_col = st.columns(2)
+        if restore_col.button("↩️ Återställ cup", use_container_width=True, key=f"restore_trashed_v502_{bin_id}"):
+            changed, _reason = _restore_trashed_tournament_if_current(
+                bin_id, trash_row_by_id[bin_id]["trashed_at"],
+            )
+            if not changed:
+                st.warning("Cupen ändrades av en annan administratör och kunde inte återställas.")
+            st.rerun()
+        permanent_col.error("Permanent radering går inte att ångra.")
+        typed_name = permanent_col.text_input(
+            f"Skriv exakt: {bin_name}", key=f"permanent_delete_name_v502_{bin_id}"
+        )
+        if permanent_col.button(
+            "Radera permanent",
+            disabled=typed_name != bin_name,
+            type="primary",
+            use_container_width=True,
+            key=f"permanent_delete_v502_{bin_id}",
+        ):
+            deleted, _reason = _delete_trashed_tournament_if_current(
+                bin_id, bin_name, trash_row_by_id[bin_id]["trashed_at"],
+            )
+            if deleted:
+                st.session_state.pop(f"admin_page_{bin_id}", None)
+            else:
+                st.warning("Cupen ändrades eller återställdes och raderades därför inte.")
+            st.rerun()
 
-    st.subheader("Åtkomstkoder")
-    st.caption("Matchrapportör och domare har varsin fyrsiffrig kod för den aktiva cupen.")
+
+if admin_page == "Åtkomst & koder":
+    st.header("Alla koder")
+    st.caption("Här finns alla koder som behöver delas ut inför cupen – på ett enda ställe.")
 
     def _load_role_code_credential(table_name):
         return one_row(
@@ -13689,27 +13471,218 @@ if admin_page == "Domare":
             con.commit()
         return new_code
 
-    code_col1, code_col2 = st.columns(2)
-    with code_col1:
+    role_col1, role_col2 = st.columns(2)
+    with role_col1:
         render_role_code_card(
-            st,
-            "Matchrapportör",
-            "match_reporter_credentials",
-            "reporter",
-            tid,
-            _load_role_code_credential("match_reporter_credentials"),
-            _rotate_admin_role_code,
+            st, "Matchrapportör", "match_reporter_credentials", "reporter", tid,
+            _load_role_code_credential("match_reporter_credentials"), _rotate_admin_role_code,
         )
-    with code_col2:
+    with role_col2:
         render_role_code_card(
-            st,
-            "Domare",
-            "referee_credentials",
-            "referee",
-            tid,
-            _load_role_code_credential("referee_credentials"),
-            _rotate_admin_role_code,
+            st, "Domare", "referee_credentials", "referee", tid,
+            _load_role_code_credential("referee_credentials"), _rotate_admin_role_code,
         )
+
+    st.divider()
+    st.subheader("Lagkoder")
+    teams = all_rows("SELECT * FROM teams WHERE tournament_id=? ORDER BY name", (tid,))
+    if not teams:
+        st.info("Lägg till lag först. Lagkoder skapas och visas här när lag finns.")
+    else:
+        st.caption("Här ser administratören alla aktuella lagkoder. Inloggningen verifieras fortfarande mot en saltad hash. Skydda tabellen från obehöriga.")
+        credentials = {
+            int(row["team_id"]): row
+            for row in all_rows(
+                "SELECT team_id,admin_code,created_at,rotated_at FROM participant_access_credentials WHERE tournament_id=?",
+                (tid,),
+            )
+        }
+        code_rows = []
+        missing_display_codes = []
+        for team_row in teams:
+            cred = credentials.get(int(team_row["id"]))
+            visible_code = (cred["admin_code"] if cred else None) or ""
+            if not visible_code:
+                missing_display_codes.append(int(team_row["id"]))
+            code_rows.append({
+                "Lag": team_row["name"],
+                "Lagkod": visible_code or ("Äldre kod – skapa ny" if cred else "Saknas"),
+                "Senast ändrad": (cred["rotated_at"] or cred["created_at"]) if cred else "–",
+            })
+        render_centered_table(pd.DataFrame(code_rows))
+
+        regenerate_all_key = f"confirm_regenerate_all_team_codes_{tid}"
+        all_team_codes_notice_key = f"all_team_codes_notice_{tid}"
+        if all_team_codes_notice_key in st.session_state:
+            notice_type, notice_text = st.session_state.pop(all_team_codes_notice_key)
+            getattr(st, notice_type)(notice_text)
+
+        if teams:
+            if not st.session_state.get(regenerate_all_key):
+                st.button(
+                    "Regenerera koder för alla lag",
+                    key=f"request_regenerate_all_team_codes_{tid}",
+                    use_container_width=True,
+                    on_click=_set_session_state_values,
+                    args=({regenerate_all_key: True},),
+                )
+            else:
+                st.warning(
+                    f"Är du säker? Alla {len(teams)} nuvarande lagkoder slutar fungera direkt "
+                    "och måste delas ut på nytt."
+                )
+                bulk_yes, bulk_no = st.columns(2)
+                if bulk_yes.button(
+                    "Ja, regenerera alla",
+                    key=f"confirm_regenerate_all_team_codes_button_{tid}",
+                    type="primary",
+                    use_container_width=True,
+                ):
+                    generated_codes, bulk_error = _rotate_all_participant_codes(tid)
+                    st.session_state.pop(regenerate_all_key, None)
+                    if bulk_error:
+                        st.session_state[all_team_codes_notice_key] = (
+                            "error",
+                            f"Lagkoderna kunde inte regenereras: {bulk_error}",
+                        )
+                    else:
+                        for team_id, _plain_code in generated_codes:
+                            record_audit(
+                                tid,
+                                "participant_code_rotated",
+                                "team",
+                                "Lagkod regenererad via massåtgärd",
+                                entity_id=team_id,
+                                actor="Admin",
+                            )
+                        st.session_state[all_team_codes_notice_key] = (
+                            "success",
+                            f"Nya koder skapades för {len(generated_codes)} lag. "
+                            "Alla tidigare lagkoder är nu ogiltiga.",
+                        )
+                    st.rerun()
+                bulk_no.button(
+                    "Avbryt",
+                    key=f"cancel_regenerate_all_team_codes_{tid}",
+                    use_container_width=True,
+                    on_click=_pop_session_state_key,
+                    args=(regenerate_all_key,),
+                )
+
+        if missing_display_codes:
+            st.warning(f"{len(missing_display_codes)} lag saknar en visningsbar kod. Äldre hashade koder kan inte återläsas.")
+            if st.button("Skapa/ersätt koder för alla som saknar visningsbar kod", key=f"generate_missing_portal_codes_{tid}", type="primary", use_container_width=True):
+                now_iso = datetime.now().isoformat(timespec="seconds")
+                with db() as con:
+                    for missing_team_id in missing_display_codes:
+                        plain_code = generate_access_code()
+                        salt, code_hash = new_code_hash(plain_code)
+                        con.execute(
+                            """INSERT INTO participant_access_credentials(tournament_id,team_id,code_salt,code_hash,created_at,rotated_at,admin_code)
+                               VALUES(?,?,?,?,?,NULL,?)
+                               ON CONFLICT(tournament_id,team_id) DO UPDATE SET code_salt=excluded.code_salt,code_hash=excluded.code_hash,rotated_at=excluded.created_at,admin_code=excluded.admin_code""",
+                            (tid, missing_team_id, salt, code_hash, now_iso, plain_code),
+                        )
+                    con.commit()
+                _clear_render_query_cache()
+                st.success("Koder skapades. Tidigare koder för berörda lag är nu ogiltiga.")
+                st.rerun()
+
+        access_team_id = st.selectbox(
+            "Lag för att skapa/återställa kod",
+            [row["id"] for row in teams],
+            format_func=lambda selected_id: next(row["name"] for row in teams if row["id"] == selected_id),
+            key=f"portal_access_team_{tid}",
+        )
+        credential = one_row(
+            "SELECT id,admin_code,created_at,rotated_at FROM participant_access_credentials WHERE tournament_id=? AND team_id=?",
+            (tid, access_team_id),
+        )
+        portal_code_notice_key=f"portal_code_notice_{tid}_{access_team_id}"
+        if portal_code_notice_key in st.session_state:
+            notice_type, notice_text = st.session_state.pop(portal_code_notice_key)
+            getattr(st, notice_type)(notice_text)
+        individual_confirm_key = f"confirm_regenerate_team_code_{tid}_{access_team_id}"
+        rotate_individual = False
+        if not credential:
+            rotate_individual = st.button(
+                "Skapa ny kod",
+                key=f"generate_portal_code_{tid}_{access_team_id}",
+                type="primary",
+            )
+        elif not st.session_state.get(individual_confirm_key):
+            st.button(
+                "Regenerera lagkod",
+                key=f"request_regenerate_portal_code_{tid}_{access_team_id}",
+                on_click=_set_session_state_values,
+                args=({individual_confirm_key: True},),
+            )
+        else:
+            selected_team_name = next(
+                row["name"] for row in teams if row["id"] == access_team_id
+            )
+            st.warning(
+                f"Är du säker? Den nuvarande lagkoden för {selected_team_name} slutar fungera direkt."
+            )
+            indiv_yes, indiv_no = st.columns(2)
+            if indiv_yes.button(
+                "Ja, regenerera",
+                key=f"confirm_regenerate_portal_code_{tid}_{access_team_id}",
+                type="primary",
+            ):
+                rotate_individual = True
+                st.session_state.pop(individual_confirm_key, None)
+            indiv_no.button(
+                "Avbryt",
+                key=f"cancel_regenerate_portal_code_{tid}_{access_team_id}",
+                on_click=_pop_session_state_key,
+                args=(individual_confirm_key,),
+            )
+
+        if rotate_individual:
+            changed, rotate_reason, plain_code = _rotate_participant_code_if_unchanged(
+                tid,
+                access_team_id,
+                _credential_snapshot(credential),
+            )
+            if changed:
+                record_audit(
+                    tid,
+                    "participant_code_rotated",
+                    "team",
+                    "Ny portal-kod skapad",
+                    entity_id=access_team_id,
+                    actor="Admin",
+                )
+                st.session_state[portal_code_notice_key]=("success",f"Ny lagkod: **{plain_code}**")
+            else:
+                st.session_state[portal_code_notice_key]=(
+                    "warning",
+                    "Lagkoden ändrades av en annan administratör. Ingen äldre kodrotation skrevs över.",
+                )
+            st.rerun()
+
+if admin_page == "Domare":
+    st.header("Domare")
+    st.caption("Lägg till domare för automatisk eller manuell matchtilldelning.")
+
+    _focus_kind = st.session_state.get(f"admin_search_focus_kind_{tid}")
+    _focus_entity = st.session_state.get(f"admin_search_focus_entity_{tid}")
+    if _focus_kind == "Domare" and _focus_entity:
+        _focused_referee = one_row(
+            "SELECT * FROM referees WHERE tournament_id=? AND id=?",
+            (tid, int(_focus_entity)),
+        )
+        if _focused_referee:
+            with st.container(border=True):
+                st.markdown(f"### 🔎 {html.escape(_focused_referee['name'])}")
+                st.caption("Öppnad från Sök i cupen")
+                if _focused_referee["phone"]:
+                    st.write(f"Telefon: {_focused_referee['phone']}")
+                if _focused_referee["email"]:
+                    st.write(f"E-post: {_focused_referee['email']}")
+
+    st.info("Rapportörs-, domar- och lagkoder finns samlade under **Steg 4 · Organisation & koder → Alla koder**.")
 
     with st.form("new_referee", clear_on_submit=True):
         rname = st.text_input("Namn")

@@ -6,13 +6,13 @@ VERSION = Path('VERSION.txt').read_text().strip()
 
 
 def test_v325_version():
-    assert VERSION == '2026.09.07-500-MULTI-DOCUMENT-IMPORT'
+    assert VERSION == '2026.09.07-502-GUIDED-ADMIN-FLOW'
 
 
 def test_admin_main_area_uses_one_segmented_selector_not_five_columns():
-    assert 'st.segmented_control(\n    "Adminområde"' in APP
+    assert 'st.segmented_control(\n    "Cupflöde"' in APP
     assert 'group_cols = st.columns(len(group_names))' not in APP
-    assert '_sync_admin_group_selector' in APP
+    assert '_sync_admin_flow_selector' in APP
 
 
 def test_initial_class_creation_is_progressive_and_vertical():

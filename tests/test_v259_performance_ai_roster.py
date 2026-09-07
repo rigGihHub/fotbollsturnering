@@ -75,7 +75,7 @@ def test_ai_roster_request_uses_image_input_and_structured_schema():
 
 def test_roster_page_loads_match_rosters_lazily_and_filters_in_sql():
     start = SOURCE.index('if admin_page == "Trupper":')
-    end = SOURCE.index('\n\nif admin_page == "Domare":', start)
+    end = SOURCE.index('\n\nif admin_page == "Åtkomst & koder":', start)
     block = SOURCE[start:end]
     assert 'st.toggle(\n            "Visa matchtrupper – admin"' in block
     assert 'AND (home_source=? OR away_source=?)' in block
@@ -90,7 +90,7 @@ def test_expensive_secondary_tools_are_lazy():
 
 def test_global_search_uses_one_union_query():
     start = SOURCE.index('if len(global_query) >= 2:')
-    end = SOURCE.index('\n\n\nadmin_page = st.session_state[admin_page_key]', start)
+    end = SOURCE.index('admin_page = st.session_state[admin_page_key]', start)
     block = SOURCE[start:end]
     assert 'WITH\n               team_hits AS' in block
     assert 'UNION ALL SELECT * FROM player_hits' in block

@@ -6,7 +6,7 @@ VERSION = (ROOT / "VERSION.txt").read_text(encoding="utf-8").strip()
 
 
 def test_release_version():
-    assert VERSION == "2026.09.07-500-MULTI-DOCUMENT-IMPORT"
+    assert VERSION == "2026.09.07-502-GUIDED-ADMIN-FLOW"
     assert VERSION in APP
 
 
@@ -24,4 +24,5 @@ def test_overview_does_not_get_duplicate_global_next_step_card():
 def test_primary_admin_navigation_and_search_remain_available():
     assert "ADMIN_NAV_GROUPS = [" in APP
     assert 'with st.expander("Sök i cupen", expanded=False):' in APP
-    assert 'with st.expander("Fler verktyg", expanded=_advanced_active):' in APP
+    assert '_ADMIN_FLOW_STEPS = [' in APP
+    assert 'st.segmented_control(\n    "Cupflöde"' in APP

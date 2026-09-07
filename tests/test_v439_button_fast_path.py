@@ -6,7 +6,7 @@ VERSION = (ROOT / "VERSION.txt").read_text(encoding="utf-8").strip()
 
 
 def test_release_version():
-    assert VERSION == "2026.09.07-500-MULTI-DOCUMENT-IMPORT"
+    assert VERSION == "2026.09.07-502-GUIDED-ADMIN-FLOW"
 
 
 def test_quick_score_buttons_use_pre_rerun_callbacks():

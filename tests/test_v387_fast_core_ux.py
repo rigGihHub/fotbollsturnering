@@ -12,15 +12,15 @@ def _lag_block():
     return APP[start:end]
 
 def test_release_version():
-    assert VERSION=="2026.09.07-500-MULTI-DOCUMENT-IMPORT"
+    assert VERSION=="2026.09.07-502-GUIDED-ADMIN-FLOW"
 
 def test_team_secondary_tools_are_true_lazy_gates():
     lag=_lag_block()
+    assert 'if admin_page == "Åtkomst & koder":' in APP
     for key in (
         "lag_ai_roster_upload_",
         "lazy_team_tools_",
         "lazy_team_checkin_",
-        "lazy_team_codes_",
         "lazy_team_messages_",
         "lazy_team_edit_",
     ):

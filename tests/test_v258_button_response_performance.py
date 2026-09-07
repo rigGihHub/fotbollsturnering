@@ -15,7 +15,7 @@ def test_flow_counts_only_load_for_primary_flow_pages():
 
 def test_checkin_audit_is_batched_in_same_transaction():
     start = SOURCE.index('if st.button("Spara incheckning"')
-    end = SOURCE.index('if st.toggle("Lagportal – koder"', start)
+    end = SOURCE.index('if st.toggle("Lagmeddelanden"', start)
     block = SOURCE[start:end]
     assert "changes = []" in block
     assert "INSERT INTO audit_log" in block

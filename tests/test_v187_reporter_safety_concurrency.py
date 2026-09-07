@@ -2,7 +2,7 @@ from pathlib import Path
 ROOT=Path(__file__).resolve().parents[1]
 APP=(ROOT/"app.py").read_text(encoding="utf-8")
 WORKSPACE=(ROOT/"cupnavi_core/match_reporter_workspace_view.py").read_text(encoding="utf-8")
-R="2026.09.07-500-MULTI-DOCUMENT-IMPORT"
+R="2026.09.07-502-GUIDED-ADMIN-FLOW"
 
 def test_no_production_reporter_123_fallback():
     assert 'reporter_password = setting("MATCH_REPORTER_PASSWORD") or "123"' not in APP
@@ -20,7 +20,7 @@ def test_optimistic_result_lock_exists():
     assert "reporter_conflict_message" in WORKSPACE
 
 def test_admin_can_always_delete_real_cup():
-    assert "En riktig cup kan alltid raderas. Admin kan göra det även om cupen är publicerad eller har spelade matcher." in APP
+    assert "Riktiga cuper flyttas först till papperskorgen" in APP
     assert "Radera permanent" in APP
 
 def test_version():

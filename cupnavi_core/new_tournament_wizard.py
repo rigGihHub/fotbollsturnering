@@ -34,6 +34,35 @@ def render_new_tournament_wizard(tournament_id, tournament, *, deps):
     YOUTH_CLASS_YEARS = deps.youth_class_years
     DIFFICULTY_LEVELS = deps.difficulty_levels
 
+    # v501: The global Text-TV shell is intentionally dark, but this setup
+    # wizard is a form workspace. Keep the whole active wizard render on a
+    # light surface so headings, captions, alerts and native Streamlit widgets
+    # never inherit low-contrast colors from the surrounding shell. The style
+    # exists only on reruns where this wizard is rendered.
+    st.markdown(
+        """<style>
+        [data-testid="stAppViewContainer"],
+        [data-testid="stMain"],
+        .stMainBlockContainer {
+          background:#f6f8f7 !important;
+          color:#172033 !important;
+        }
+        .stMainBlockContainer h1,
+        .stMainBlockContainer h2,
+        .stMainBlockContainer h3,
+        .stMainBlockContainer h4,
+        .stMainBlockContainer p,
+        .stMainBlockContainer [data-testid="stCaptionContainer"],
+        .stMainBlockContainer [data-testid="stWidgetLabel"] {
+          color:#172033 !important;
+        }
+        .stMainBlockContainer [data-testid="stAlert"] {
+          color:#172033 !important;
+        }
+        </style>""",
+        unsafe_allow_html=True,
+    )
+
     rules = one_row("SELECT * FROM schedule_rules WHERE tournament_id=?", (tournament_id,))
     if rules is None:
         run("INSERT INTO schedule_rules(tournament_id) VALUES(?)", (tournament_id,))

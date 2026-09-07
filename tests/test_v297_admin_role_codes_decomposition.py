@@ -15,7 +15,7 @@ def test_v297_role_code_presentation_is_extracted():
 
 
 def test_v297_sensitive_credential_write_stays_in_app_layer():
-    block = APP[APP.index("def _rotate_admin_role_code"):APP.index("code_col1, code_col2 = st.columns(2)")]
+    block = APP[APP.index("def _rotate_admin_role_code"):APP.index("role_col1, role_col2 = st.columns(2)")]
     assert "generate_short_numeric_code(4)" in block
     assert "new_code_hash(new_code)" in block
     assert "with db() as con:" in block
@@ -32,9 +32,9 @@ def test_v297_view_receives_write_callback_instead_of_database_access():
 
 
 def test_v297_both_tournament_roles_keep_peer_cards():
-    domare = APP[APP.index('if admin_page == "Domare":'):APP.index('with st.form("new_referee"')]
+    domare = APP[APP.index('if admin_page == "Åtkomst & koder":'):APP.index('if admin_page == "Domare":')]
     assert '"Matchrapportör"' in domare
     assert '"match_reporter_credentials"' in domare
     assert '"Domare"' in domare
     assert '"referee_credentials"' in domare
-    assert "code_col1, code_col2 = st.columns(2)" in domare
+    assert "role_col1, role_col2 = st.columns(2)" in domare

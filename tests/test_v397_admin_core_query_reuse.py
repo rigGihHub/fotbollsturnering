@@ -1,6 +1,6 @@
 from pathlib import Path
 
-VERSION = "2026.09.07-500-MULTI-DOCUMENT-IMPORT"
+VERSION = "2026.09.07-502-GUIDED-ADMIN-FLOW"
 
 
 def test_version_and_release_note():

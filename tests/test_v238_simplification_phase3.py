@@ -16,13 +16,12 @@ def test_team_page_hides_secondary_operations():
     for label in [
         'with st.expander("Valfria laguppgifter", expanded=False)',
         'if st.toggle("Digital lagincheckning", value=False, key=f"lazy_team_checkin_{tid}"',
-        'if st.toggle("Lagportal – koder", value=False, key=f"lazy_team_codes_{tid}"',
         'if st.toggle("Lagmeddelanden", value=False, key=f"lazy_team_messages_{tid}"',
         'if st.toggle("Redigera eller ta bort lag", value=False, key=f"lazy_team_edit_{tid}"',
     ]:
         assert label in block
-    assert 'if st.button("Lägg till laget", type="primary"' in block
-
+    assert 'Lagportal – koder' not in block
+    assert 'if admin_page == "Åtkomst & koder":' in APP
 
 def test_groups_page_removes_duplicate_heading_and_keeps_main_flow():
     block=_block('if admin_page == "Grupper":','if admin_page == "Trupper":')

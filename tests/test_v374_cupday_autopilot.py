@@ -27,7 +27,7 @@ def row(mid, start, pitch, home, away, status="not_started", actual=None):
 
 
 def test_release_version():
-    assert VERSION == "2026.09.07-500-MULTI-DOCUMENT-IMPORT"
+    assert VERSION == "2026.09.07-502-GUIDED-ADMIN-FLOW"
 
 
 def test_delay_uses_explicit_live_and_actual_start():

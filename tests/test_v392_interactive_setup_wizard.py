@@ -7,8 +7,8 @@ VERSION = (ROOT / "VERSION.txt").read_text(encoding="utf-8").strip()
 
 
 def test_v392_version():
-    assert VERSION == "2026.09.07-500-MULTI-DOCUMENT-IMPORT"
-    assert 'APP_BUILD_VERSION = "2026.09.07-500-MULTI-DOCUMENT-IMPORT"' in APP
+    assert VERSION == "2026.09.07-502-GUIDED-ADMIN-FLOW"
+    assert 'APP_BUILD_VERSION = "2026.09.07-502-GUIDED-ADMIN-FLOW"' in APP
 
 
 def test_new_tournament_enters_wizard_mode():

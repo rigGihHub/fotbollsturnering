@@ -23,7 +23,7 @@ def test_trash_restore_and_permanent_delete_are_compare_and_set():
     assert "def _trash_tournament_if_current(" in APP
     assert "def _restore_trashed_tournament_if_current(" in APP
     assert "def _delete_trashed_tournament_if_current(" in APP
-    assert "Cupen ändrades eller återställdes av en annan administratör" in APP
+    assert "Cupen ändrades eller återställdes" in APP
 
 
 def test_referee_email_is_validated_before_insert():

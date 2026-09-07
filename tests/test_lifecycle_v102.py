@@ -71,7 +71,7 @@ def test_lifecycle_transitions_and_safe_trash_exist():
     assert "Markera cupen som pågående" in publication_view
     assert "Avsluta cup" in publication_view
     assert "lifecycle_status='completed'" in text
-    assert "Flytta cupen till papperskorgen" in text
+    assert "Flytta till papperskorgen" in text
     assert "Återställ cup" in text
     assert "Radera permanent" in text
     assert "typed_name != bin_name" in text

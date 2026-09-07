@@ -1,16 +1,16 @@
 from pathlib import Path
 ROOT=Path(__file__).resolve().parents[1]
 APP=(ROOT/"app.py").read_text(encoding="utf-8")
-R="2026.09.07-500-MULTI-DOCUMENT-IMPORT"
+R="2026.09.07-502-GUIDED-ADMIN-FLOW"
 def test_environment_persisted():
     assert '"environment_type": "TEXT NOT NULL DEFAULT \'production\'"' in APP
     assert "environment_type = st.radio(" in APP
 def test_test_delete_is_simple():
     assert "Radera testcup permanent" in APP
-    assert "delete_test_tournament_confirm_" in APP
+    assert "sidebar_delete_test_confirm_" in APP
 def test_production_remains_deletable():
-    assert "En riktig cup kan alltid raderas." in APP
-    assert "Flytta cupen till papperskorgen" in APP
+    assert "Riktiga cuper flyttas först till papperskorgen" in APP
+    assert "Flytta till papperskorgen" in APP
     assert "Radera permanent" in APP
 def test_clone_to_test():
     assert "clone_environment = st.radio(" in APP

@@ -23,4 +23,4 @@ def test_control_center_shares_lazy_match_snapshot():
 
 
 def test_release_version_305():
-    assert '2026.09.07-500-MULTI-DOCUMENT-IMPORT' in APP
+    assert '2026.09.07-502-GUIDED-ADMIN-FLOW' in APP

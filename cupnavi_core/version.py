@@ -1,4 +1,4 @@
-APP_VERSION = "2026.09.07-500-MULTI-DOCUMENT-IMPORT"
+APP_VERSION = "2026.09.07-502-GUIDED-ADMIN-FLOW"
 
 
 def release_ui_label(version: str) -> str:

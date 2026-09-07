@@ -36,7 +36,7 @@ RULES = {
 
 
 def test_release_version():
-    assert VERSION == "2026.09.07-500-MULTI-DOCUMENT-IMPORT"
+    assert VERSION == "2026.09.07-502-GUIDED-ADMIN-FLOW"
 
 
 def test_gap_absorption_moves_fewer_matches_than_full_cascade():

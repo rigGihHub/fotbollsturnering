@@ -10,7 +10,7 @@ MIG=(ROOT/"cupnavi_core"/"migrations.py").read_text(encoding="utf-8")
 VERSION=(ROOT/"VERSION.txt").read_text().strip()
 
 def test_version():
-    assert VERSION=="2026.09.07-500-MULTI-DOCUMENT-IMPORT"
+    assert VERSION=="2026.09.07-502-GUIDED-ADMIN-FLOW"
     assert VERSION in APP
 
 def test_new_cup_becomes_active_via_pending_selector_before_widget():

@@ -7,7 +7,7 @@ APP=(ROOT/"app.py").read_text(encoding="utf-8")
 
 def test_admin_search_is_after_navigation():
     search=APP.index('with st.expander("Sök i cupen", expanded=False):')
-    nav=APP.index('_ADMIN_PRIMARY_PAGES_BY_GROUP = {')
+    nav=APP.index('_ADMIN_FLOW_STEPS = [')
     page=APP.index('admin_page = st.session_state[admin_page_key]')
     assert nav < search < page
     assert 'with st.expander("🔎 Sök i cupen", expanded=False):' not in APP

@@ -1,7 +1,7 @@
 from pathlib import Path
 from cupnavi_core.playoff_dependency_safety import transitive_downstream_match_ids
 
-VERSION = "2026.09.07-500-MULTI-DOCUMENT-IMPORT"
+VERSION = "2026.09.07-502-GUIDED-ADMIN-FLOW"
 APP = Path("app.py").read_text(encoding="utf-8")
 
 

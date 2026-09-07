@@ -10,9 +10,9 @@ def test_only_one_empty_state_renderer():
     assert APP.count("def render_empty_state(") == 1
 
 def test_admin_advanced_tools_use_progressive_disclosure():
-    assert '_ADMIN_PRIMARY_PAGES_BY_GROUP' in APP
-    assert 'with st.expander("Fler verktyg", expanded=_advanced_active):' in APP
-    assert '"Översikt": {"Adminöversikt"}' in APP
+    assert '_ADMIN_FLOW_STEPS' in APP
+    assert 'st.segmented_control(\n    "Cupflöde"' in APP
+    assert '("Deltagare", ["Lag", "Grupper", "Trupper", "Import"])' in APP
 
 def test_redundant_prev_next_flow_buttons_removed():
     assert "v160_prev_" not in APP

@@ -6,7 +6,7 @@ APP = Path(__file__).resolve().parents[1] / "app.py"
 def _block() -> str:
     text = APP.read_text(encoding="utf-8")
     start = text.index('with st.expander("Publicering & startkontroll", expanded=False):')
-    end = text.index('with st.expander("⚠️ Riskzon – Cup och papperskorg", expanded=False):', start)
+    end = text.index('with st.expander("Testverktyg", expanded=False):', start)
     return text[start:end]
 
 
@@ -36,4 +36,4 @@ def test_start_control_preserves_existing_readiness_checks():
 
 def test_release_version_is_v307():
     version = (APP.parent / "VERSION.txt").read_text(encoding="utf-8").strip()
-    assert version == "2026.09.07-500-MULTI-DOCUMENT-IMPORT"
+    assert version == "2026.09.07-502-GUIDED-ADMIN-FLOW"

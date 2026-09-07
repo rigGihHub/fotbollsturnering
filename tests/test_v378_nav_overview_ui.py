@@ -7,16 +7,15 @@ VERSION = (ROOT / "VERSION.txt").read_text(encoding="utf-8").strip()
 
 
 def test_release_version():
-    assert VERSION == "2026.09.07-500-MULTI-DOCUMENT-IMPORT"
+    assert VERSION == "2026.09.07-502-GUIDED-ADMIN-FLOW"
 
 
 def test_admin_navigation_has_visual_shell_and_icon_labels():
-    assert 'class="cn-admin-nav-shell"' in APP
-    assert '"Översikt": "⌂ Översikt"' in APP
-    assert '"Deltagare": "◎ Deltagare"' in APP
-    assert '"Matcher": "▦ Matcher"' in APP
-    assert '"Organisation": "◇ Organisation"' in APP
-    assert 'st.segmented_control(\n    "Adminområde"' in APP
+    assert 'Fortsätt bygga cupen' in APP
+    assert '"Deltagare": "1 Deltagare"' in APP
+    assert '"Planer & tider": "2 Planer & tider"' in APP
+    assert '"Organisation & koder": "4 Organisation & koder"' in APP
+    assert 'st.segmented_control(\n    "Cupflöde"' in APP
 
 
 def test_overview_uses_modern_header_and_next_step_card():

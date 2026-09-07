@@ -4,7 +4,7 @@ from cupnavi_core.version import APP_VERSION
 
 
 def test_v420_version():
-    assert APP_VERSION == "2026.09.07-500-MULTI-DOCUMENT-IMPORT"
+    assert APP_VERSION == "2026.09.07-502-GUIDED-ADMIN-FLOW"
 
 
 def test_schedule_workspace_keeps_six_step_planning_flow():
