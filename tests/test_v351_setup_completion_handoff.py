@@ -6,7 +6,7 @@ APP=(ROOT/"app.py").read_text(encoding="utf-8")
 VERSION=(ROOT/"VERSION.txt").read_text().strip()
 
 def test_version():
-    assert VERSION=="2026.09.07-510-MANUAL-IMPORTED-SCHEDULE-EDIT"
+    assert VERSION=="2026.09.07-519-BEGINNER-E2E-REGRESSION"
     assert VERSION in APP
 
 def test_technical_editability_table_is_removed():
@@ -23,7 +23,7 @@ def test_final_setup_shows_only_actionable_readiness_checks():
     assert "Rätta punkterna ovan" in SETUP
 
 def test_handoff_explains_the_rest_of_the_journey():
-    assert "Lägg till lag → Grupper → Schema → Kontroll → Publicera." in SETUP
+    assert "Lägg till lag → Grupper → Planer & tider → Schema → Kontroll → Publicera." in SETUP
     assert 'key=f"v351_setup_to_teams_{tournament_id}"' in SETUP
     assert 'st.session_state[f"admin_page_{tournament_id}"] = "Lag"' in SETUP
 

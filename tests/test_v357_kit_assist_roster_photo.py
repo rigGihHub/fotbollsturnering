@@ -29,4 +29,4 @@ def test_photo_roster_import_is_discoverable_from_team_registration():
 
 
 def test_version():
-    assert 'APP_BUILD_VERSION = "2026.09.07-510-MANUAL-IMPORTED-SCHEDULE-EDIT"' in APP
+    assert 'APP_BUILD_VERSION = "2026.09.07-519-BEGINNER-E2E-REGRESSION"' in APP

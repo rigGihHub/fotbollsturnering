@@ -6,7 +6,7 @@ PRESENTATION = (ROOT / "cupnavi_core" / "public_presentation_view.py").read_text
 
 
 def test_v448_version():
-    assert VERSION == "2026.09.07-510-MANUAL-IMPORTED-SCHEDULE-EDIT"
+    assert VERSION == "2026.09.07-519-BEGINNER-E2E-REGRESSION"
 
 
 def test_mobile_playoff_has_live_status_and_progress_path():

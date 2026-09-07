@@ -6,7 +6,7 @@ VERSION = (ROOT / "VERSION.txt").read_text(encoding="utf-8").strip()
 
 
 def test_v318_version():
-    assert VERSION == "2026.09.07-510-MANUAL-IMPORTED-SCHEDULE-EDIT"
+    assert VERSION == "2026.09.07-519-BEGINNER-E2E-REGRESSION"
 
 
 def test_toplists_filter_zero_aggregate_rows_in_sql():

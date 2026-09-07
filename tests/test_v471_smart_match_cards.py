@@ -1,6 +1,6 @@
 from pathlib import Path
 
-VERSION = "2026.09.07-510-MANUAL-IMPORTED-SCHEDULE-EDIT"
+VERSION = "2026.09.07-519-BEGINNER-E2E-REGRESSION"
 APP = Path("app.py").read_text(encoding="utf-8")
 MATCHES = Path("cupnavi_core/public_matches_view.py").read_text(encoding="utf-8")
 CARDS = Path("cupnavi_core/public_match_cards.py").read_text(encoding="utf-8")

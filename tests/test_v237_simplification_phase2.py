@@ -13,12 +13,9 @@ def _block(start_marker,end_marker):
 
 
 def test_cup_settings_primary_action_is_visible_before_advanced_detail():
-    block=_block('if admin_page == "Cupinställningar":','if admin_page == "Kontroller":')
-    action=block.index('st.button("Ändra cupens inställningar"')
-    consequence=block.index('st.toggle("Kontrollera konsekvens före större ändring"')
-    assert action < consequence
-    assert 'with st.expander("Teknisk release-status", expanded=False)' in block
-
+    assert '"⚙️ Ändra cupsetup"' in APP
+    assert 'with st.expander("Cupadministration", expanded=False):' in APP
+    assert 'help="Gå tillbaka till cupens setup för att ändra exempelvis datum' in APP
 
 def test_schedule_rule_and_quality_detail_is_collapsed():
     block=SCHEDULE_VIEW

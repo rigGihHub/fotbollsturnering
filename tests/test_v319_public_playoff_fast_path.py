@@ -6,7 +6,7 @@ VERSION = (ROOT / "VERSION.txt").read_text().strip()
 
 
 def test_v319_version():
-    assert VERSION == "2026.09.07-510-MANUAL-IMPORTED-SCHEDULE-EDIT"
+    assert VERSION == "2026.09.07-519-BEGINNER-E2E-REGRESSION"
 
 
 def test_existing_brackets_are_loaded_before_setup_validation():

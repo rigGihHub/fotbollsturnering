@@ -7,7 +7,7 @@ VERSION = (ROOT / "VERSION.txt").read_text(encoding="utf-8").strip()
 
 
 def test_v402_version_consistency():
-    expected = "2026.09.07-510-MANUAL-IMPORTED-SCHEDULE-EDIT"
+    expected = "2026.09.07-519-BEGINNER-E2E-REGRESSION"
     assert VERSION == expected
     assert expected in (ROOT / "cupnavi_core" / "version.py").read_text(encoding="utf-8")
     assert f'APP_BUILD_VERSION = "{expected}"' in APP
@@ -20,7 +20,7 @@ def test_main_publication_control_only_renders_on_control_page():
 
 
 def test_publication_is_explicit_final_step():
-    assert 'Steg 6 av 6 · Publicera' in VIEW
+    assert 'Steg 7 av 7 · Publicera' in VIEW
     assert 'Publicera cupen' in VIEW
     assert 'blir cupen synlig för deltagare och publik' in VIEW
 

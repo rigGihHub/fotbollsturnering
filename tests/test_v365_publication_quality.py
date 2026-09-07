@@ -67,4 +67,4 @@ def test_warning_approval_checkbox_is_removed():
 
 
 def test_version():
-    assert 'APP_BUILD_VERSION = "2026.09.07-510-MANUAL-IMPORTED-SCHEDULE-EDIT"' in APP
+    assert 'APP_BUILD_VERSION = "2026.09.07-519-BEGINNER-E2E-REGRESSION"' in APP

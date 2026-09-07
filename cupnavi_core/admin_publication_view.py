@@ -110,7 +110,7 @@ def render_admin_publication_controls(
     # på en enda fråga: kan jag publicera nu?
     # Historical QA anchor: st.markdown("#### Publiceringskontroll")
     with st.container(border=True):
-        st.markdown("##### Steg 6 av 6 · Publicera")
+        st.markdown("##### Steg 7 av 7 · Publicera")
         st.markdown("### Publicera cupen")
 
         if not validation_ready:
@@ -161,13 +161,14 @@ def render_admin_publication_controls(
 
 
 
-def render_publication_steps(*, tournament_id: int, teams_ready: bool, pitches_ready: bool, groups_ready: bool, schedule_ready: bool, control_ready: bool, navigate_admin_page) -> None:
+def render_publication_steps(*, tournament_id: int, cupinfo_ready: bool, teams_ready: bool, pitches_ready: bool, groups_ready: bool, schedule_ready: bool, control_ready: bool, navigate_admin_page) -> None:
     """Persistent, clickable checklist of the gates required before publishing."""
     import streamlit as st
     steps = [
-        ("Deltagare", teams_ready, "Lag"),
-        ("Planer & tider", pitches_ready, "Adminöversikt"),
+        ("Cupinfo", cupinfo_ready, "Cupinställningar"),
+        ("Lag", teams_ready, "Lag"),
         ("Grupper", groups_ready, "Grupper"),
+        ("Planer & tider", pitches_ready, "Cupinställningar"),
         ("Schema", schedule_ready, "Skapa och publicera schema"),
         ("Kontroll", control_ready, "Kontroller"),
     ]

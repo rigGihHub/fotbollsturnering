@@ -6,7 +6,7 @@ VERSION = (ROOT / "VERSION.txt").read_text(encoding="utf-8").strip()
 
 
 def test_v501_release_version():
-    assert VERSION == "2026.09.07-510-MANUAL-IMPORTED-SCHEDULE-EDIT"
+    assert VERSION == "2026.09.07-519-BEGINNER-E2E-REGRESSION"
 
 
 def test_new_tournament_wizard_forces_readable_light_workspace():

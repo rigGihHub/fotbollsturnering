@@ -11,7 +11,7 @@ def test_planning_flow_is_real_navigation():
     assert 'render_clickable_planning_flow(st, tid=tid, current_step="Grupper"' in APP
     assert 'current_step="Schema"' in SCHEDULE
     assert 'render_clickable_planning_flow(st, tid=tid, current_step="Kontroll"' in APP
-    assert '"Grundsetup": "Cupinställningar"' in FLOW
+    assert '"Cupinfo": "Cupinställningar"' in FLOW
     assert '"Publicera": "Kontroller"' in FLOW
 
 
@@ -22,4 +22,4 @@ def test_schedule_blockers_link_to_the_fix_location():
     assert 'needs_setup=not playoff_model_ready or bool(playoff_setup_error)' in SCHEDULE
     assert '"Gå till Lag →"' in FLOW
     assert '"Gå till Grupper →"' in FLOW
-    assert '"Gå till Grundsetup →"' in FLOW
+    assert '"Gå till Cupinfo →"' in FLOW

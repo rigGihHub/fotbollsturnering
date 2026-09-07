@@ -7,14 +7,12 @@ STYLE=(ROOT/"cupnavi_core/style_system.py").read_text(encoding="utf-8")
 VERSION=(ROOT/"VERSION.txt").read_text().strip()
 
 def test_release_version():
-    assert VERSION=="2026.09.07-510-MANUAL-IMPORTED-SCHEDULE-EDIT"
+    assert VERSION=="2026.09.07-519-BEGINNER-E2E-REGRESSION"
 
 def test_workspace_headers_keep_step_context_without_duplicate_trail():
-    assert "Planeringsflöde · Deltagare" in APP
-    assert "Steg 2 av 5 · Tävlingsstruktur" in APP
-    assert "Planeringsflöde · Spelschema" in SCHEDULE
-    assert 'class="cn-step-trail"' not in APP
-    assert 'class="cn-step-trail"' not in SCHEDULE
+    assert 'render_clickable_planning_flow(st, tid=tid, current_step="Lag"' in APP
+    assert 'render_clickable_planning_flow(st, tid=tid, current_step="Grupper"' in APP
+    assert 'render_clickable_planning_flow(st, tid=tid, current_step="Kontroll"' in APP
 
 def test_overview_uses_next_step_and_attention_without_duplicate_journey():
     assert "Rekommenderat nästa steg" in APP

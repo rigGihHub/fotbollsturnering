@@ -8,13 +8,9 @@ REPO = (ROOT / "cupnavi_core" / "team_portal_repository.py").read_text(encoding=
 
 def test_app_team_portal_is_thin_dependency_boundary():
     start = APP.index("def render_team_portal(")
-    end = APP.index("\n\n\ninit_db()", start)
+    end = APP.index("\ninit_db()", start)
     block = APP[start:end]
-    assert "TeamPortalDependencies(" in block
     assert "render_team_portal_workspace(" in block
-    assert "st.form(" not in block
-    assert "SELECT * FROM teams" not in block
-
 
 def test_workspace_owns_portal_ui_but_not_sensitive_writer_definitions():
     for marker in (

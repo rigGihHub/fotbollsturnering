@@ -6,16 +6,13 @@ VERSION = (ROOT / "VERSION.txt").read_text(encoding="utf-8").strip()
 
 
 def test_release_version():
-    assert VERSION == "2026.09.07-510-MANUAL-IMPORTED-SCHEDULE-EDIT"
+    assert VERSION == "2026.09.07-519-BEGINNER-E2E-REGRESSION"
 
 
 def test_groups_page_keeps_guided_planning_context():
-    block = APP[APP.index('if admin_page == "Grupper":'):APP.index('if admin_page == "Trupper":')]
-    assert 'Planeringsflöde · Tävlingsstruktur' in block
-    assert '["Grundsetup", "Lag", "Grupper", "Schema", "Kontroll", "Publicera"]' in block
-    assert '← Till Lag' in block
-    assert 'Nästa steg: Schema' in block
-
+    block=APP[APP.index('if admin_page == "Grupper":'):APP.index('if admin_page == "Trupper":')]
+    assert 'render_clickable_planning_flow(st, tid=tid, current_step="Grupper"' in block
+    assert 'Fortsätt till Planer & tider →' in block
 
 def test_groups_page_does_not_push_automatic_grouping_as_primary_path():
     block = APP[APP.index('if admin_page == "Grupper":'):APP.index('if admin_page == "Trupper":')]

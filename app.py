@@ -156,7 +156,7 @@ from cupnavi_core.admin_overview import (
     class_progress_caption,
     recommend_next_step,
 )
-from cupnavi_core.admin_publication import build_completion_state, build_publication_quality_summary
+from cupnavi_core.admin_publication import build_completion_state, build_publication_quality_summary, publication_problem_destination
 from cupnavi_core.admin_publication_repository import fetch_lifecycle_match_counts
 from cupnavi_core.admin_publish_preview import render_publish_preview
 from cupnavi_core.admin_publication_view import (
@@ -178,7 +178,7 @@ def inject_v266_public_mobile_css():
     return _inject_v266_public_mobile_css_impl(st)
 def inject_v198_visual_system():
     return _inject_v198_visual_system_impl(st)
-APP_BUILD_VERSION = "2026.09.07-510-MANUAL-IMPORTED-SCHEDULE-EDIT"
+APP_BUILD_VERSION = "2026.09.07-519-BEGINNER-E2E-REGRESSION"
 APP_VERSION = APP_BUILD_VERSION
 
 def _set_session_state_values(values):
@@ -8492,7 +8492,21 @@ with st.sidebar:
 
     if view_mode == "Admin":
         with st.expander("Cupadministration", expanded=False):
-            st.caption("Namn och radering ligger här så att du alltid hittar dem.")
+            # v511: Cupsetup must remain reachable after a tournament has been created.
+            # This is navigation only; the setup itself owns validation and safe writes.
+            def _open_sidebar_cup_setup():
+                st.session_state["new_tournament_setup_mode"] = "edit"
+                st.session_state["new_tournament_setup_id"] = int(tid)
+                st.session_state["preferred_tournament_id"] = int(tid)
+
+            st.button(
+                "⚙️ Ändra cupsetup",
+                key=f"sidebar_open_cup_setup_{tid}",
+                use_container_width=True,
+                on_click=_open_sidebar_cup_setup,
+                help="Gå tillbaka till cupens setup för att ändra exempelvis datum, tävlingsklasser, planer och tider.",
+            )
+            st.caption("Setup, namn och radering ligger här så att du alltid hittar dem.")
             _sidebar_name = st.text_input(
                 "Cupnamn",
                 value=str(tournament["name"] or ""),
@@ -9098,14 +9112,10 @@ def _set_admin_page(page):
     # navigation. Without this, a CTA such as "Fortsätt till Grupper" changes
     # admin_page in its callback, but the existing step selectbox can immediately
     # write the previous page (for example Lag) back on the following rerun.
-    flow_step_resolver = globals().get("_flow_step_for_page")
-    flow_steps = globals().get("_ADMIN_FLOW_STEPS", [])
-    if callable(flow_step_resolver):
-        step_name = flow_step_resolver(page)
-        st.session_state[f"admin_flow_{tid}"] = step_name
-        step_pages = next((items for name, items in flow_steps if name == step_name), [])
-        if page in step_pages:
-            st.session_state[f"admin_flow_page_{tid}_{step_name}"] = page
+    # v513: the single beginner journey is synchronized on the next rerun.
+    journey_resolver = globals().get("_journey_step_for_page")
+    if callable(journey_resolver):
+        st.session_state[f"admin_beginner_journey_{tid}"] = journey_resolver(page)
 # Två nivåer i adminnavigationen: fem tydliga huvudområden och bara relevanta
 # underknappar för valt område. Det minskar knappmängden utan att gömma funktioner.
 def _admin_group_for_page(page):
@@ -9156,79 +9166,56 @@ _ADMIN_GROUP_LABELS = {
     "Matcher": "▦ Matcher",
     "Organisation": "◇ Organisation",
 }
-# v502: one guided admin flow replaces the previous Adminområde + primary buttons
-# + Fler verktyg stack. The user always sees where they are and what comes next.
-_ADMIN_FLOW_STEPS = [
-    ("Deltagare", ["Lag", "Grupper", "Trupper", "Import"]),
-    ("Planer & tider", ["Adminöversikt", "Skapa och publicera schema"]),
-    ("Upplägg", ["Cupinställningar", "Slutspel"]),
-    ("Organisation & koder", ["Åtkomst & koder", "Domare", "Funktionärer"]),
-    ("Publicera & cupdag", ["Skapa och publicera schema", "Cupdagen", "Matcher och resultat"]),
+# v513: one beginner-facing journey. The previous five-area flow plus nested
+# page selector exposed two competing mental models. Keep one route only:
+# Cupinfo -> Lag -> Grupper -> Planer & tider -> Schema -> Kontroll -> Publicera.
+_BEGINNER_JOURNEY = [
+    ("Cupinfo", "Cupinställningar"),
+    ("Lag", "Lag"),
+    ("Grupper", "Grupper"),
+    ("Planer & tider", "Adminöversikt"),
+    ("Schema", "Skapa och publicera schema"),
+    ("Kontroll", "Kontroller"),
+    ("Publicera", "Kontroller"),
 ]
-_ADMIN_FLOW_LABELS = {
-    "Deltagare": "1 Deltagare",
-    "Planer & tider": "2 Planer & tider",
-    "Upplägg": "3 Upplägg",
-    "Organisation & koder": "4 Organisation & koder",
-    "Publicera & cupdag": "5 Publicera",
-}
-def _flow_step_for_page(page_name):
-    if page_name in {"Önskemålscentral"}:
-        return "Deltagare"
-    if page_name in {"Kontroller", "Problem & lösningar", "Besöksstatistik", "Instruktioner"}:
-        return "Publicera & cupdag"
-    if page_name in {"Matchhändelser", "Tabeller", "Skytteligor", "Cupverktyg"}:
-        return "Publicera & cupdag"
-    if page_name in {"Sponsorer", "Erbjudanden"}:
-        return "Organisation & koder"
-    for step_name, pages in _ADMIN_FLOW_STEPS:
-        if page_name in pages:
-            return step_name
-    return "Planer & tider"
-admin_flow_key = f"admin_flow_{tid}"
+_BEGINNER_ROUTE_TO_STEP = {page: label for label, page in _BEGINNER_JOURNEY}
+_BEGINNER_ROUTE_TO_STEP.update({
+    "Trupper": "Lag", "Import": "Lag", "Önskemålscentral": "Lag",
+    "Slutspel": "Schema", "Cupdagen": "Publicera", "Matcher och resultat": "Publicera",
+    "Matchhändelser": "Publicera", "Tabeller": "Publicera", "Skytteligor": "Publicera",
+    "Åtkomst & koder": "Publicera", "Domare": "Publicera", "Funktionärer": "Publicera",
+})
+admin_flow_key = f"admin_beginner_journey_{tid}"
 _pending_admin_page = st.session_state.pop(f"pending_admin_page_{tid}", None)
 if _pending_admin_page in ADMIN_PAGES:
     st.session_state[admin_page_key] = _pending_admin_page
-    _pending_step = _flow_step_for_page(_pending_admin_page)
-    st.session_state[admin_flow_key] = _pending_step
-    _pending_pages = next((items for name, items in _ADMIN_FLOW_STEPS if name == _pending_step), [])
-    if _pending_admin_page in _pending_pages:
-        st.session_state[f"admin_flow_page_{tid}_{_pending_step}"] = _pending_admin_page
-else:
-    st.session_state[admin_flow_key] = _flow_step_for_page(st.session_state[admin_page_key])
-def _sync_admin_flow_selector():
-    chosen = st.session_state.get(admin_flow_key, "Deltagare")
-    pages = next((items for name, items in _ADMIN_FLOW_STEPS if name == chosen), [])
-    if pages and st.session_state.get(admin_page_key) not in pages:
-        st.session_state[admin_page_key] = pages[0]
-st.markdown("<div class='cn-admin-flow-kicker'>Fortsätt bygga cupen</div>", unsafe_allow_html=True)
-st.segmented_control(
-    "Cupflöde",
-    [name for name, _ in _ADMIN_FLOW_STEPS],
+
+def _journey_step_for_page(page_name):
+    return _BEGINNER_ROUTE_TO_STEP.get(page_name, "Cupinfo")
+
+def _sync_beginner_journey():
+    chosen = st.session_state.get(admin_flow_key, "Cupinfo")
+    target = next((page for label, page in _BEGINNER_JOURNEY if label == chosen), "Cupinställningar")
+    st.session_state[admin_page_key] = target
+    st.session_state[f"pending_admin_page_{tid}"] = target
+
+_current_journey_step = _journey_step_for_page(st.session_state[admin_page_key])
+# Do not overwrite a freshly user-selected widget value after instantiation.
+if admin_flow_key not in st.session_state:
+    st.session_state[admin_flow_key] = _current_journey_step
+elif st.session_state.get(admin_flow_key) != _current_journey_step and _pending_admin_page:
+    st.session_state[admin_flow_key] = _current_journey_step
+
+st.markdown("<div class='cn-admin-flow-kicker'>Din väg till publicerad cup</div>", unsafe_allow_html=True)
+st.selectbox(
+    "Cupens steg",
+    [label for label, _ in _BEGINNER_JOURNEY],
     key=admin_flow_key,
-    format_func=lambda value: _ADMIN_FLOW_LABELS[value],
-    on_change=_sync_admin_flow_selector,
-    label_visibility="collapsed",
+    format_func=lambda value: f"{[x[0] for x in _BEGINNER_JOURNEY].index(value)+1} · {value}",
+    on_change=_sync_beginner_journey,
+    help="Du kan gå tillbaka till ett tidigare steg när som helst. Rött i vänsterflanken visar bara sådant som faktiskt stoppar publicering.",
 )
-_selected_flow_step = st.session_state[admin_flow_key]
-_flow_pages = next(items for name, items in _ADMIN_FLOW_STEPS if name == _selected_flow_step)
-_flow_page_labels = {
-    "Adminöversikt": "Planer & tider",
-    "Skapa och publicera schema": "Schema",
-    "Matcher och resultat": "Resultat",
-    "Åtkomst & koder": "Alla koder",
-}
-if len(_flow_pages) > 1:
-    _current_flow_page = st.session_state[admin_page_key] if st.session_state[admin_page_key] in _flow_pages else _flow_pages[0]
-    _selected_flow_page = st.selectbox(
-        "I detta steg",
-        _flow_pages,
-        index=_flow_pages.index(_current_flow_page),
-        format_func=lambda page: _flow_page_labels.get(page, tr(page)),
-        key=f"admin_flow_page_{tid}_{_selected_flow_step}",
-    )
-    if _selected_flow_page != st.session_state[admin_page_key]:
-        st.session_state[admin_page_key] = _selected_flow_page
+st.caption("Du kan ändra tidigare steg när som helst. CupNavi ändrar aldrig ett befintligt schema automatiskt.")
 def _open_admin_search_hit(target_page, kind, entity_id, team_id=None):
     """Navigate from global search and carry the selected entity into its target view."""
     st.session_state[admin_page_key] = target_page
@@ -9392,10 +9379,11 @@ if _flow_index is not None and not _first_run_new_cup:
     st.markdown(
         f"<div class='cn-flow-context cn-flow-context-compact'>"
         f"<div class='cn-flow-kicker'>{html.escape({
-            'Lag': 'Steg 1 av 5 · Deltagare',
-            'Grupper': 'Steg 2 av 5 · Tävlingsstruktur',
-            'Skapa och publicera schema': 'Steg 3 av 5 · Schema',
-            'Kontroller': 'Steg 4 av 5 · Kontroll',
+            'Lag': 'Steg 2 av 7 · Lag',
+            'Grupper': 'Steg 3 av 7 · Grupper',
+            'Adminöversikt': 'Steg 4 av 7 · Planer & tider',
+            'Skapa och publicera schema': 'Steg 5 av 7 · Schema',
+            'Kontroller': 'Steg 6 av 7 · Kontroll',
         }.get(admin_page, 'Cupflöde'))}</div>"
         f"<div class='cn-flow-status'>"
         f"<span class='cn-flow-pill {_publish_class}'>● {html.escape(_publish_text)}</span>"
@@ -9419,10 +9407,14 @@ if _flow_index is not None:
         _recommended_page, _recommended_label = "Grupper", "Skapa grupper"
     elif _journey_unassigned_n > 0:
         _recommended_page, _recommended_label = "Grupper", f"Placera { _journey_unassigned_n } lag i grupp" if _journey_unassigned_n == 1 else f"Placera {_journey_unassigned_n} lag i grupper"
+    elif int(_flow_counts["pitches_n"] or 0) == 0:
+        # v518: a beginner should never be sent to Schema before a playable
+        # surface exists. Route to the visible Planer & tider step first.
+        _recommended_page, _recommended_label = "Adminöversikt", "Lägg till planer och tider"
     elif _flow_scheduled == 0 or bool(tournament["schedule_dirty"]):
         _recommended_page, _recommended_label = "Skapa och publicera schema", "Skapa eller uppdatera schemat"
     elif not bool(tournament["is_published"]):
-        # v401: setup-guiden lovar Lag → Grupper → Schema → Kontroll → Publicera.
+        # v401: setup-guiden lovar Lag → Grupper → Planer & tider → Schema → Kontroll → Publicera.
         # Låt därför inte första cupflödet hoppa direkt från ett färdigt schema
         # till resultatrapportering innan arrangören har gjort publiceringskontrollen.
         _recommended_page, _recommended_label = "Kontroller", "Kontrollera och publicera"
@@ -9557,7 +9549,9 @@ if not _first_run_new_cup and not bool(tournament["is_published"]):
     _expected = int(tournament["expected_team_count"] or 0)
     _teams_n = int(_row_value(sidebar_rules, "teams_n", 0) or 0)
     render_publication_steps(
-        tournament_id=tid, teams_ready=_teams_n > 0 and (not _expected or _teams_n >= _expected),
+        tournament_id=tid,
+        cupinfo_ready=bool(tournament["name"]) and bool(tournament["start_date"]) and bool(tournament["end_date"]),
+        teams_ready=_teams_n > 0 and (not _expected or _teams_n >= _expected),
         pitches_ready=int(_row_value(sidebar_rules, "pitches_n", 0) or 0) > 0,
         groups_ready=int(_row_value(sidebar_rules, "groups_n", 0) or 0) > 0 and int(_row_value(sidebar_rules, "unassigned_n", 0) or 0) == 0,
         schedule_ready=bool(sidebar_scheduled) and not bool(tournament["schedule_dirty"]),
@@ -9921,24 +9915,34 @@ elif admin_page == "Adminöversikt":
               <div class="title">{html.escape(tournament['name'])} är skapad!</div>
               <div class="copy">CupNavi guidar dig från första laget till publicerat schema. Du behöver inte kunna hur en cup ska planeras – börja enkelt, avancerade inställningar kan vänta.</div>
               <div class="cn-first-run-steps">
-                <div class="step active">1 · Lägg till lag</div>
-                <div class="step">2 · Skapa grupper</div>
-                <div class="step">3 · Kontrollera upplägg</div>
-                <div class="step">4 · Skapa schema</div>
-                <div class="step">5 · Publicera</div>
+                <div class="step active">1 · Cupinfo</div>
+                <div class="step">2 · Lag</div>
+                <div class="step">3 · Grupper</div>
+                <div class="step">4 · Planer & tider</div>
+                <div class="step">5 · Schema</div>
+                <div class="step">6 · Kontroll</div>
+                <div class="step">7 · Publicera</div>
               </div>
             </div>""",
             unsafe_allow_html=True,
         )
-        st.button(
-            "Lägg till första laget →",
+        _new_col, _import_col = st.columns(2)
+        _new_col.button(
+            "Fortsätt med Cupinfo →",
             type="primary",
             use_container_width=True,
-            key=f"v349_first_team_{tid}",
+            key=f"v518_first_cupinfo_{tid}",
             on_click=_set_admin_page,
-            args=("Lag",),
+            args=("Cupinställningar",),
         )
-        st.caption("Det mesta går att ändra senare. Du behöver inte göra alla avancerade inställningar nu.")
+        _import_col.button(
+            "Läs in foto/PDF →",
+            use_container_width=True,
+            key=f"v518_import_existing_{tid}",
+            on_click=_set_admin_page,
+            args=("Import",),
+        )
+        st.caption("Det mesta går att ändra senare. Börja med det du vet – CupNavi visar bara det som faktiskt måste vara klart före publicering.")
         st.info(
             "CupNavi visar publicering, schemavarningar och avancerade driftverktyg först när de blir relevanta."
         )
@@ -10903,19 +10907,30 @@ elif admin_page == "Adminöversikt":
                         st.divider()
 
 if admin_page == "Cupinställningar":
-    st.subheader("Cupinställningar")
-    st.caption("Ändra regler och planeringsförutsättningar i den guidade setupen.")
+    st.markdown(
+        """<div class="cn-workspace-head">
+          <div>
+            <div class="kicker">Steg 1 och 4 av 7</div>
+            <div class="title">Cupinfo · Planer & tider</div>
+            <div class="subtitle">Här ändrar du sådant som beskriver cupen och sådant som styr när och var matcher får spelas.</div>
+          </div>
+        </div>""",
+        unsafe_allow_html=True,
+    )
+    st.info("Måste vara klart före publicering: cupdatum och minst en spelplan med användbara tider. Namn, plats och övriga uppgifter kan kompletteras senare.")
+    st.caption("Om ett schema redan finns flyttar CupNavi aldrig matcher automatiskt när du ändrar setupen. Schemat markeras i stället för kontroll.")
     _played_count = int(one_row("SELECT COUNT(*) AS n FROM matches WHERE tournament_id=? AND home_score IS NOT NULL AND away_score IS NOT NULL",(tid,))["n"] or 0)
     _is_started = tournament_lifecycle in ("live","completed") or _played_count > 0
     _is_public = bool(tournament["is_published"])
     _phase = "STARTAD" if _is_started else ("PUBLICERAD" if _is_public else "UTKAST")
     st.caption(f"Fas: **{_phase}** · Spelade matcher: **{_played_count}**")
+    st.markdown("**Du kan ändra här:** datum, tävlingsklasser, antal planer, planernas tider och dynamiskt/synkroniserat schema.")
     def _open_current_cup_setup():
         st.session_state["new_tournament_setup_mode"]="edit"
         st.session_state["new_tournament_setup_id"]=int(tid)
         st.session_state["preferred_tournament_id"] = int(tid)
 
-    st.button("Ändra cupens inställningar", type="primary", use_container_width=True,
+    st.button("Öppna guidad cupsetup →", type="primary", use_container_width=True,
               key=f"open_setup_{tid}", on_click=_open_current_cup_setup)
     _deploy=deployment_diagnostics()
     with st.expander("Teknisk release-status", expanded=False):
@@ -10998,6 +11013,74 @@ if admin_page == "Cupinställningar":
     st.stop()
 
 if admin_page == "Kontroller":
+    _control_focus_key = f"planning_control_focus_{tid}"
+    _control_focus = st.session_state.get(_control_focus_key, "Kontroll")
+    if _control_focus not in {"Kontroll", "Publicera"}:
+        _control_focus = "Kontroll"
+
+    # v517: Publicera is now a real seventh beginner step instead of being
+    # visually buried underneath Kontroll. Both still share the same safe
+    # validation snapshot and publication backend.
+    if _control_focus == "Publicera":
+        st.markdown(
+            """<div class="cn-workspace-head">
+              <div>
+                <div class="kicker">Steg 7 av 7</div>
+                <div class="title">Publicera</div>
+                <div class="subtitle">Sista steget. Se vad som blir synligt och publicera när kontrollen är godkänd.</div>
+              </div>
+            </div>""",
+            unsafe_allow_html=True,
+        )
+        render_clickable_planning_flow(st, tid=tid, current_step="Publicera", navigate_admin_page=_set_admin_page)
+        if st.button(
+            "← Till Kontroll",
+            use_container_width=True,
+            key=f"publish_step_back_to_control_{tid}",
+        ):
+            st.session_state[_control_focus_key] = "Kontroll"
+            st.rerun()
+
+        control_errors = list(sidebar_errors)
+        control_warnings = list(sidebar_warnings)
+        control_scheduled = int(sidebar_scheduled or 0)
+        _publish_summary = build_publication_quality_summary(
+            playoff_model_confirmed=bool(tournament["playoff_model_confirmed"]),
+            scheduled_matches=control_scheduled,
+            schedule_dirty=bool(tournament["schedule_dirty"]),
+            schedule_errors=control_errors,
+            schedule_warnings=control_warnings,
+        )
+        with st.container(border=True):
+            if _publish_summary.can_publish:
+                st.success("✅ Allt obligatoriskt är klart")
+                st.markdown("**När du publicerar blir cupens publika vy tillgänglig för deltagare och publik.**")
+                st.caption("Du kan fortsätta ändra cupen senare. Ändringar som påverkar schema eller upplägg måste kontrolleras innan de publiceras igen.")
+            else:
+                st.error("⛔ Cupen kan inte publiceras ännu")
+                st.caption("Gå tillbaka till Kontroll. Där får du en Åtgärda-knapp för varje blockerande punkt.")
+
+        render_publish_preview(
+            st=st, tournament_id=tid, tournament=tournament, all_rows=all_rows,
+            row_value=_row_value, cup_date_label=cup_date_label,
+        )
+        render_admin_publication_controls(
+            tournament_id=tid,
+            is_published=bool(tournament["is_published"]),
+            published_once=bool(_row_value(tournament, "published_once", 0)),
+            playoff_model_confirmed=bool(tournament["playoff_model_confirmed"]),
+            scheduled_matches=control_scheduled,
+            schedule_dirty=bool(tournament["schedule_dirty"]),
+            schedule_errors=control_errors,
+            schedule_warnings=control_warnings,
+            publish_now=_publish_tournament_now,
+            unpublish_now=_unpublish_tournament_now,
+            show_main_control=True,
+            show_sidebar_control=False,
+            validation_ready=True,
+        )
+        st.stop()
+
     # _control_flow_steps = ["Grundsetup", "Lag", "Grupper", "Schema", "Kontroll", "Publicera"]
     # Planning flow contract: ["Grundsetup", "Lag", "Grupper", "Schema", "Kontroll", "Publicera"]
     # Historical QA anchor: st.header("Kontroll före publicering")
@@ -11008,9 +11091,9 @@ if admin_page == "Kontroller":
     st.markdown(
         """<div class="cn-workspace-head">
           <div>
-            <div class="kicker">Planeringsflöde · Kvalitetskontroll</div>
+            <div class="kicker">Steg 6 av 7</div>
             <div class="title">Kontroll</div>
-            <div class="subtitle">Kontrollera kritiska fel, varningar och förbättringar. När kontrollen är klar kan cupen publiceras direkt nedan.</div>
+            <div class="subtitle">CupNavi besiktar cupen. Rött måste lösas före publicering. Gult är råd och stoppar inte publicering.</div>
           </div>
         </div>""",
         unsafe_allow_html=True,
@@ -11024,7 +11107,13 @@ if admin_page == "Kontroller":
         on_click=_set_admin_page,
         args=("Schema",),
     )
-    _control_flow_next.caption("Nästa steg: Publicera nedan")
+    if _control_flow_next.button(
+        "Fortsätt till Publicera →",
+        use_container_width=True,
+        key=f"control_flow_next_to_publish_{tid}",
+    ):
+        st.session_state[_control_focus_key] = "Publicera"
+        st.rerun()
 
     # Historical QA anchor: control_rules = one_row(
     # v412: the global publication snapshot above already loaded rules, schedule
@@ -11042,63 +11131,58 @@ if admin_page == "Kontroller":
         schedule_warnings=control_warnings,
     )
 
+    # v516: Kontroll ska fungera som en besiktning, inte som ännu en dashboard.
+    # En ovan arrangör ska omedelbart förstå antingen "redo" eller exakt vad som återstår.
     # Historical QA anchor: cc1.metric("Blockerande fel", len(control_errors))
     # Historical QA anchor: st.error("Publicering är blockerad tills följande fel är åtgärdade:")
     # Historical QA anchor: st.warning("Följande varningar behöver granskas före publicering:")
-    cc1, cc2, cc3 = st.columns(3)
-    cc1.metric("Kritiska fel", len(_control_summary.critical))
-    cc2.metric("Varningar", len(_control_summary.warnings))
-    cc3.metric("Förbättringar", len(_control_summary.improvements))
-
     with st.container(border=True):
         if _control_summary.can_publish:
-            st.success("✓ Arrangemanget kan publiceras")
-            if _control_summary.warnings or _control_summary.improvements:
-                st.caption("Det finns saker att granska, men inget som gör publiceringen tekniskt eller sportsligt ogiltig.")
+            st.success("✅ Cupen är redo att publiceras")
+            st.caption("Alla obligatoriska kontroller är godkända. Gula råd nedan är frivilliga.")
         else:
-            st.error("Publicering är blockerad")
-            st.caption("Lös de kritiska felen nedan. Varningar och förbättringar behöver inte godkännas för att publicera.")
+            _remaining = len(_control_summary.critical)
+            st.error(f"⛔ {_remaining} sak{' återstår' if _remaining == 1 else 'er återstår'} före publicering")
+            st.caption("Tryck på Åtgärda vid varje röd punkt. CupNavi tar dig direkt till rätt ställe.")
 
     if _control_summary.critical:
-        st.markdown("### Kritiska fel")
-        for message in _control_summary.critical:
-            st.error(message)
-    if _control_summary.warnings:
-        st.markdown("### Varningar")
-        st.caption("Bör granskas, men blockerar inte publicering.")
-        for message in _control_summary.warnings:
-            st.warning(message)
-    if _control_summary.improvements:
-        st.markdown("### Förbättringsförslag")
-        st.caption("Frivilliga förbättringar som kan göra arrangemanget tydligare eller smidigare.")
-        for message in _control_summary.improvements:
-            st.info(message)
-    if not (_control_summary.critical or _control_summary.warnings or _control_summary.improvements):
-        st.success("Inga problem eller förbättringspunkter hittades i snabbkontrollen.")
+        st.markdown("### Det här måste fixas")
+        for _critical_index, message in enumerate(_control_summary.critical, 1):
+            _destination, _destination_label = publication_problem_destination(message)
+            with st.container(border=True):
+                st.markdown(f"**❌ {message}**")
+                st.button(
+                    f"Åtgärda → {_destination_label}",
+                    use_container_width=True,
+                    key=f"control_fix_{tid}_{_critical_index}",
+                    on_click=_set_admin_page,
+                    args=(_destination,),
+                )
 
-    # v505: a concrete preview comes before the irreversible public action.
-    render_publish_preview(
-        st=st, tournament_id=tid, tournament=tournament, all_rows=all_rows,
-        row_value=_row_value, cup_date_label=cup_date_label,
-    )
-    # v412: render Step 5 only after the Step 4 control summary has actually
-    # appeared. The sidebar control remains globally available, but the large
-    # main-content publication card no longer jumps ahead of the control step.
-    render_admin_publication_controls(
-        tournament_id=tid,
-        is_published=bool(tournament["is_published"]),
-        published_once=bool(_row_value(tournament, "published_once", 0)),
-        playoff_model_confirmed=bool(tournament["playoff_model_confirmed"]),
-        scheduled_matches=control_scheduled,
-        schedule_dirty=bool(tournament["schedule_dirty"]),
-        schedule_errors=control_errors,
-        schedule_warnings=control_warnings,
-        publish_now=_publish_tournament_now,
-        unpublish_now=_unpublish_tournament_now,
-        show_main_control=True,
-        show_sidebar_control=False,
-        validation_ready=True,
-    )
+    _optional_count = len(_control_summary.warnings) + len(_control_summary.improvements)
+    if _optional_count:
+        with st.expander(f"Gula råd och frivilliga förbättringar · {_optional_count}", expanded=False):
+            st.caption("Det här stoppar inte publicering. Du kan gå vidare även om du lämnar dem som de är.")
+            for message in _control_summary.warnings:
+                st.warning(message)
+            for message in _control_summary.improvements:
+                st.info(message)
+    elif _control_summary.can_publish:
+        st.caption("CupNavi hittade inga ytterligare råd i snabbkontrollen.")
+
+    # v517: keep the irreversible action out of Kontroll. The organiser first
+    # completes the inspection, then deliberately enters the seventh step.
+    if _control_summary.can_publish:
+        with st.container(border=True):
+            st.success("Kontrollen är klar")
+            if st.button(
+                "Fortsätt till Publicera →",
+                type="primary",
+                use_container_width=True,
+                key=f"control_ready_to_publish_{tid}",
+            ):
+                st.session_state[_control_focus_key] = "Publicera"
+                st.rerun()
 
     # v451: a real go-live gate for the selected tournament. This is intentionally
     # separate from publication quality: a schedule can be publishable while the
@@ -11798,9 +11882,9 @@ if admin_page == "Lag":
     st.markdown(
         """<div class="cn-workspace-head">
           <div>
-            <div class="kicker">Planeringsflöde · Deltagare</div>
+            <div class="kicker">Steg 2 av 7</div>
             <div class="title">Lag</div>
-            <div class="subtitle">Lägg in lagen och fortsätt sedan till grupper, schema, kontroll och publicering.</div>
+            <div class="subtitle">Lägg bara in lagen som ska delta. Tröjfärger, kontaktpersoner och andra detaljer kan vänta.</div>
           </div>
         </div>""",
         unsafe_allow_html=True,
@@ -11808,7 +11892,7 @@ if admin_page == "Lag":
     render_clickable_planning_flow(st, tid=tid, current_step="Lag", navigate_admin_page=_set_admin_page)
     _flow_back, _flow_next = st.columns(2)
     _flow_back.button(
-        "← Till grundsetup",
+        "← Till Cupinfo",
         use_container_width=True,
         key=f"teams_back_to_setup_{tid}",
         on_click=_set_session_state_values,
@@ -12532,7 +12616,7 @@ if admin_page == "Grupper":
     st.markdown(
         """<div class="cn-workspace-head">
           <div>
-            <div class="kicker">Planeringsflöde · Tävlingsstruktur</div>
+            <div class="kicker">Steg 3 av 7</div>
             <div class="title">Grupper</div>
             <div class="subtitle">Fördela lagen i grupper på det sätt som passar cupen. CupNavis förslag är frivilligt och kan justeras.</div>
           </div>
@@ -12548,7 +12632,7 @@ if admin_page == "Grupper":
         on_click=_set_admin_page,
         args=("Lag",),
     )
-    _group_flow_next.caption("Nästa steg: Schema")
+    _group_flow_next.caption("Nästa steg: Planer & tider")
     _group_history_locked = production_history_locked(tid, tournament)
     if _group_history_locked:
         st.warning(
@@ -12831,14 +12915,14 @@ if admin_page == "Grupper":
     if teams and _participant_registration_complete and _groups_after_assignment and _unassigned_after_assignment == 0:
         with st.container(border=True):
             st.markdown("### ✓ Gruppindelningen är klar")
-            st.caption("Alla lag är placerade. Nästa steg är att skapa spelschemat.")
+            st.caption("Alla lag är placerade. Nästa steg är att kontrollera planer och tider.")
             st.button(
-                "Fortsätt till Schema →",
+                "Fortsätt till Planer & tider →",
                 type="primary",
                 use_container_width=True,
-                key=f"v346_groups_to_schedule_{tid}",
+                key=f"v514_groups_to_pitches_{tid}",
                 on_click=_set_admin_page,
-                args=("Skapa och publicera schema",),
+                args=("Cupinställningar",),
             )
 
     st.divider()

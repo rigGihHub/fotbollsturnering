@@ -5,7 +5,7 @@ STYLE=(ROOT/"cupnavi_core"/"style_system.py").read_text(encoding="utf-8")
 VERSION=(ROOT/"VERSION.txt").read_text().strip()
 
 def test_version():
-    assert VERSION=="2026.09.07-510-MANUAL-IMPORTED-SCHEDULE-EDIT"
+    assert VERSION=="2026.09.07-519-BEGINNER-E2E-REGRESSION"
     assert VERSION in APP
 
 def test_empty_cup_gets_beginner_first_run():
@@ -13,9 +13,9 @@ def test_empty_cup_gets_beginner_first_run():
     assert "är skapad!" in APP
     assert "Du behöver inte kunna hur en cup ska planeras" in APP
     assert 'class="cn-first-run-steps"' in APP
-    assert "1 · Lägg till lag" in APP
-    assert "5 · Publicera" in APP
-    assert '"Lägg till första laget →"' in APP
+    assert "1 · Cupinfo" in APP
+    assert "7 · Publicera" in APP
+    assert '"Fortsätt med Cupinfo →"' in APP
 
 def test_empty_cup_hides_premature_system_noise():
     assert "if not _first_run_new_cup:" in APP

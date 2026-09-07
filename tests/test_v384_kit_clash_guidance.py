@@ -9,7 +9,7 @@ VERSION = (ROOT / "VERSION.txt").read_text().strip()
 
 
 def test_release_version():
-    assert VERSION == "2026.09.07-510-MANUAL-IMPORTED-SCHEDULE-EDIT"
+    assert VERSION == "2026.09.07-519-BEGINNER-E2E-REGRESSION"
 
 
 def test_clear_kits_need_no_action():

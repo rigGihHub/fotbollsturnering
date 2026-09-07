@@ -8,7 +8,7 @@ def test_group_flow_is_guided():
     assert 'st.markdown("### Skapa grupper")' in APP
     assert 'CupNavis förslag' in APP
     assert 'Jag vill skapa grupper manuellt' in APP
-    assert 'Fortsätt till Schema →' in APP
+    assert 'Fortsätt till Planer & tider →' in APP
 
 def test_pitch_timing_mode_is_user_visible_and_persisted():
     assert 'Detta val görs under Planer & tider.' in SETUP

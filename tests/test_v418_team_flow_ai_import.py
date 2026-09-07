@@ -6,17 +6,13 @@ VERSION = (ROOT / "VERSION.txt").read_text(encoding="utf-8").strip()
 
 
 def test_release_version():
-    assert VERSION == "2026.09.07-510-MANUAL-IMPORTED-SCHEDULE-EDIT"
+    assert VERSION == "2026.09.07-519-BEGINNER-E2E-REGRESSION"
 
 
 def test_team_page_keeps_planning_context_and_can_return_to_setup():
-    block = APP[APP.index('if admin_page == "Lag":'):APP.index('if admin_page == "Grupper":')]
-    assert 'Planeringsflöde · Deltagare' in block
-    assert '["Grundsetup", "Lag", "Grupper", "Schema", "Kontroll", "Publicera"]' in block
-    assert '← Till grundsetup' in block
-    assert 'new_tournament_wizard_step_' in block
-    assert '= 5' in block
-
+    block=APP[APP.index('if admin_page == "Lag":'):APP.index('if admin_page == "Grupper":')]
+    assert 'render_clickable_planning_flow(st, tid=tid, current_step="Lag"' in block
+    assert '"Cupinfo": "Cupinställningar"' in (ROOT/'cupnavi_core'/'planning_flow_nav.py').read_text(encoding='utf-8')
 
 def test_team_page_has_direct_review_before_write_ai_photo_import():
     block = APP[APP.index('if admin_page == "Lag":'):APP.index('if admin_page == "Grupper":')]

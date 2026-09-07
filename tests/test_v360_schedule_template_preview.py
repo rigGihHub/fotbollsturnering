@@ -62,4 +62,4 @@ def test_current_pitch_count_is_not_overwritten_from_old_image():
 
 
 def test_version():
-    assert 'APP_BUILD_VERSION = "2026.09.07-510-MANUAL-IMPORTED-SCHEDULE-EDIT"' in APP
+    assert 'APP_BUILD_VERSION = "2026.09.07-519-BEGINNER-E2E-REGRESSION"' in APP

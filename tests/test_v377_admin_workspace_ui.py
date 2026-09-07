@@ -9,26 +9,18 @@ VERSION = (ROOT / "VERSION.txt").read_text(encoding="utf-8").strip()
 
 
 def test_release_version():
-    assert VERSION == "2026.09.07-510-MANUAL-IMPORTED-SCHEDULE-EDIT"
+    assert VERSION == "2026.09.07-519-BEGINNER-E2E-REGRESSION"
 
 
 def test_lag_and_groups_use_shared_workspace_headers_without_duplicate_trails():
-    lag = APP[APP.index('if admin_page == "Lag":'):APP.index('if admin_page == "Grupper":')]
-    groups = APP[APP.index('if admin_page == "Grupper":'):APP.index('if admin_page == "Trupper":')]
-    assert 'class="cn-workspace-head"' in lag
-    assert "Planeringsflöde · Deltagare" in lag
-    assert 'class="cn-step-trail"' not in lag
-    assert 'class="cn-workspace-head"' in groups
-    assert "Planeringsflöde · Tävlingsstruktur" in groups
-    assert 'class="cn-step-trail"' not in groups
-
+    lag=APP[APP.index('if admin_page == "Lag":'):APP.index('if admin_page == "Grupper":')]
+    groups=APP[APP.index('if admin_page == "Grupper":'):APP.index('if admin_page == "Skapa och publicera schema":')]
+    assert 'render_clickable_planning_flow(st, tid=tid, current_step="Lag"' in lag
+    assert 'render_clickable_planning_flow(st, tid=tid, current_step="Grupper"' in groups
 
 def test_schedule_uses_same_step_language_without_duplicate_trail():
-    assert 'class="cn-workspace-head"' in SCHEDULE
-    assert "Planeringsflöde · Spelschema" in SCHEDULE
-    assert 'class="cn-step-trail"' not in SCHEDULE
-    assert '<div class="title">Schema</div>' in SCHEDULE
-
+    assert 'current_step="Schema"' in SCHEDULE
+    assert 'render_clickable_planning_flow' in SCHEDULE
 
 def test_results_header_and_progress_are_compact():
     assert 'class="cn-workspace-head"' in RESULTS

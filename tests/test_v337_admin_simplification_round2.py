@@ -2,7 +2,7 @@ from pathlib import Path
 ROOT=Path(__file__).resolve().parents[1]
 APP=(ROOT/"app.py").read_text(encoding="utf-8")
 UX=(ROOT/"cupnavi_core/ux2.py").read_text(encoding="utf-8")
-VERSION="2026.09.07-510-MANUAL-IMPORTED-SCHEDULE-EDIT"
+VERSION="2026.09.07-519-BEGINNER-E2E-REGRESSION"
 
 def overview_block():
     start=APP.index('elif admin_page == "Adminöversikt":'); end=APP.index('if admin_page == "Cupinställningar":', start); return APP[start:end]
@@ -39,10 +39,10 @@ def test_advanced_overview_capabilities_are_preserved_but_opt_in():
     assert '### 🎛️ Cup Control Center' in block
 
 def test_primary_match_navigation_deemphasizes_events_and_statistics():
-    flow=APP[APP.index('_ADMIN_FLOW_STEPS = ['):APP.index('_ADMIN_FLOW_LABELS = {')]
-    assert '("Publicera & cupdag", ["Skapa och publicera schema", "Cupdagen", "Matcher och resultat"])' in flow
-    assert '"Matchhändelser"' not in flow
-    assert '"Tabeller"' not in flow
+    nav=APP[APP.index('ADMIN_NAV_GROUPS = ['):APP.index('ADMIN_NAV = [')]
+    assert '"Matchhändelser"' not in nav
+    assert '"Tabeller"' not in nav
+    assert '"Matcher och resultat"' in nav
 
 def test_ux_helper_matches_new_information_architecture():
     assert '("Mer", [])' in UX

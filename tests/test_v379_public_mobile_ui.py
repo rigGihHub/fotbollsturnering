@@ -8,7 +8,7 @@ STYLE=(ROOT/"cupnavi_core/style_system.py").read_text(encoding="utf-8")
 VERSION=(ROOT/"VERSION.txt").read_text().strip()
 
 def test_release_version():
-    assert VERSION=="2026.09.07-510-MANUAL-IMPORTED-SCHEDULE-EDIT"
+    assert VERSION=="2026.09.07-519-BEGINNER-E2E-REGRESSION"
 
 def test_public_navigation_is_task_first_and_short():
     specs=public_navigation_specs()

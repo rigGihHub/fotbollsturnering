@@ -2,7 +2,7 @@ from pathlib import Path
 
 from cupnavi_core.playoff_dependency_safety import dependency_impact, winner_side
 
-VERSION = "2026.09.07-510-MANUAL-IMPORTED-SCHEDULE-EDIT"
+VERSION = "2026.09.07-519-BEGINNER-E2E-REGRESSION"
 APP = Path("app.py").read_text(encoding="utf-8")
 
 

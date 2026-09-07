@@ -42,4 +42,4 @@ def test_ui_is_preview_first_and_explicit_apply():
     assert 'Inget ändras förrän du godkänner det.' in VIEW
 
 def test_version():
-    assert 'APP_BUILD_VERSION = "2026.09.07-510-MANUAL-IMPORTED-SCHEDULE-EDIT"' in APP
+    assert 'APP_BUILD_VERSION = "2026.09.07-519-BEGINNER-E2E-REGRESSION"' in APP

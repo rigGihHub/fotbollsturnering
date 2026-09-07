@@ -6,7 +6,7 @@ VERSION = (ROOT / "VERSION.txt").read_text(encoding="utf-8").strip()
 
 
 def test_release_version():
-    assert VERSION == "2026.09.07-510-MANUAL-IMPORTED-SCHEDULE-EDIT"
+    assert VERSION == "2026.09.07-519-BEGINNER-E2E-REGRESSION"
     assert VERSION in APP
 
 
@@ -24,5 +24,5 @@ def test_overview_does_not_get_duplicate_global_next_step_card():
 def test_primary_admin_navigation_and_search_remain_available():
     assert "ADMIN_NAV_GROUPS = [" in APP
     assert 'with st.expander("Sök i cupen", expanded=False):' in APP
-    assert '_ADMIN_FLOW_STEPS = [' in APP
-    assert 'st.segmented_control(\n    "Cupflöde"' in APP
+    assert 'render_clickable_planning_flow' in APP
+    assert 'Din väg till publicerad cup' in APP

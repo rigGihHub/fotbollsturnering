@@ -7,16 +7,13 @@ VERSION = (ROOT / "VERSION.txt").read_text(encoding="utf-8").strip()
 
 
 def test_release_version():
-    assert VERSION == "2026.09.07-510-MANUAL-IMPORTED-SCHEDULE-EDIT"
+    assert VERSION == "2026.09.07-519-BEGINNER-E2E-REGRESSION"
 
 
 def test_admin_navigation_has_visual_shell_and_icon_labels():
-    assert 'Fortsätt bygga cupen' in APP
-    assert '"Deltagare": "1 Deltagare"' in APP
-    assert '"Planer & tider": "2 Planer & tider"' in APP
-    assert '"Organisation & koder": "4 Organisation & koder"' in APP
-    assert 'st.segmented_control(\n    "Cupflöde"' in APP
-
+    assert 'Din väg till publicerad cup' in APP
+    assert 'ADMIN_NAV_GROUPS = [' in APP
+    assert 'render_clickable_planning_flow' in APP
 
 def test_overview_uses_modern_header_and_next_step_card():
     block = APP[APP.index('elif admin_page == "Adminöversikt":'):APP.index('if admin_page == "Cupinställningar":')]
@@ -27,13 +24,12 @@ def test_overview_uses_modern_header_and_next_step_card():
 
 
 def test_first_run_has_compact_visual_five_step_path():
-    block = APP[APP.index('elif admin_page == "Adminöversikt":'):APP.index('if admin_page == "Cupinställningar":')]
-    assert 'class="cn-first-run-hero"' in block
-    assert 'class="cn-first-run-steps"' in block
-    assert "1 · Lägg till lag" in block
-    assert "5 · Publicera" in block
-    assert 'key=f"v349_first_team_{tid}"' in block
-
+    block=APP[APP.index('elif admin_page == "Adminöversikt":'):APP.index('if admin_page == "Cupinställningar":')]
+    assert '1 · Cupinfo' in block
+    assert '4 · Planer & tider' in block
+    assert '7 · Publicera' in block
+    assert 'key=f"v518_first_cupinfo_{tid}"' in block
+    assert 'key=f"v518_import_existing_{tid}"' in block
 
 def test_attention_remains_but_duplicate_journey_is_removed():
     block = APP[APP.index('elif admin_page == "Adminöversikt":'):APP.index('if admin_page == "Cupinställningar":')]

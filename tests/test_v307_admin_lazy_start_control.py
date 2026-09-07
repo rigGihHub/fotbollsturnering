@@ -36,4 +36,4 @@ def test_start_control_preserves_existing_readiness_checks():
 
 def test_release_version_is_v307():
     version = (APP.parent / "VERSION.txt").read_text(encoding="utf-8").strip()
-    assert version == "2026.09.07-510-MANUAL-IMPORTED-SCHEDULE-EDIT"
+    assert version == "2026.09.07-519-BEGINNER-E2E-REGRESSION"

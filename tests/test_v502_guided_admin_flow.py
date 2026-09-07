@@ -6,19 +6,14 @@ VERSION = (ROOT / 'VERSION.txt').read_text(encoding='utf-8').strip()
 
 
 def test_v502_release_version():
-    assert VERSION == '2026.09.07-510-MANUAL-IMPORTED-SCHEDULE-EDIT'
-    assert 'APP_BUILD_VERSION = "2026.09.07-510-MANUAL-IMPORTED-SCHEDULE-EDIT"' in APP
+    assert VERSION == '2026.09.07-519-BEGINNER-E2E-REGRESSION'
+    assert 'APP_BUILD_VERSION = "2026.09.07-519-BEGINNER-E2E-REGRESSION"' in APP
 
 
 def test_admin_uses_one_guided_five_step_flow():
-    assert '"Deltagare": "1 Deltagare"' in APP
-    assert '"Planer & tider": "2 Planer & tider"' in APP
-    assert '"Upplägg": "3 Upplägg"' in APP
-    assert '"Organisation & koder": "4 Organisation & koder"' in APP
-    assert '"Publicera & cupdag": "5 Publicera"' in APP
-    assert 'Fortsätt bygga cupen' in APP
-    assert '"Fler verktyg"' not in APP[APP.index('# v502: one guided admin flow'):APP.index('def _open_admin_search_hit')]
-
+    flow=(ROOT/'cupnavi_core'/'planning_flow_nav.py').read_text(encoding='utf-8')
+    assert 'FLOW_STEPS = ["Cupinfo", "Lag", "Grupper", "Planer & tider", "Schema", "Kontroll", "Publicera"]' in flow
+    assert 'Din väg till publicerad cup' in APP
 
 def test_sidebar_contains_rename_and_delete_controls():
     assert 'with st.expander("Cupadministration", expanded=False):' in APP

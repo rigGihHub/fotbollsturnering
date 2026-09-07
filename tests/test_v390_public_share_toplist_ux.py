@@ -6,8 +6,8 @@ VERSION = Path("VERSION.txt").read_text(encoding="utf-8").strip()
 
 
 def test_v390_release_version():
-    assert VERSION == "2026.09.07-510-MANUAL-IMPORTED-SCHEDULE-EDIT"
-    assert 'APP_BUILD_VERSION = "2026.09.07-510-MANUAL-IMPORTED-SCHEDULE-EDIT"' in APP
+    assert VERSION == "2026.09.07-519-BEGINNER-E2E-REGRESSION"
+    assert 'APP_BUILD_VERSION = "2026.09.07-519-BEGINNER-E2E-REGRESSION"' in APP
 
 
 def test_share_popover_activates_scoped_light_theme():

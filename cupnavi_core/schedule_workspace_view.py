@@ -187,16 +187,16 @@ def render_schedule_workspace(tid, tournament, *, deps: ScheduleWorkspaceDepende
     rules_snapshot = deps.rules_snapshot
     validation_snapshot = deps.validation_snapshot
 
-    # Planning flow contract: ["Grundsetup", "Lag", "Grupper", "Schema", "Kontroll", "Publicera"]
-    # v420: Schema is part of the same six-step planning journey as Lag and Grupper.
+    # Planning flow contract: ["Cupinfo", "Lag", "Grupper", "Planer & tider", "Schema", "Kontroll", "Publicera"]
+    # v514: Schema is step five in the single seven-step beginner journey.
     # Keep location and backwards navigation visible instead of reverting to the old
     # isolated "Steg 3 av 5" schedule workspace.
     st.markdown(
         """<div class="cn-workspace-head">
           <div>
-            <div class="kicker">Planeringsflöde · Spelschema</div>
+            <div class="kicker">Steg 5 av 7</div>
             <div class="title">Schema</div>
-            <div class="subtitle">Skapa och justera matchschemat. När det är klart fortsätter du till kontroll före publicering.</div>
+            <div class="subtitle">Här använder du ett importerat schema eller skapar ett nytt. CupNavi skriver aldrig över ett befintligt schema automatiskt.</div>
           </div>
         </div>""",
         unsafe_allow_html=True,
@@ -208,15 +208,27 @@ def render_schedule_workspace(tid, tournament, *, deps: ScheduleWorkspaceDepende
     _schedule_flow_back, _schedule_flow_next = st.columns(2)
     if navigate_admin_page is not None:
         _schedule_flow_back.button(
-            "← Till Grupper",
+            "← Till Planer & tider",
             use_container_width=True,
-            key=f"schedule_flow_back_to_groups_{tid}",
+            key=f"v514_schedule_back_to_pitches_{tid}",
             on_click=navigate_admin_page,
-            args=("Grupper",),
+            args=("Cupinställningar",),
         )
     else:
-        _schedule_flow_back.caption("Föregående steg: Grupper")
-    _schedule_flow_next.caption("Nästa steg: Kontroll")
+        _schedule_flow_back.caption("Föregående steg: Planer & tider")
+    # v512: Never strand the administrator on Schema. Control is a review step,
+    # not a reward for having a perfect setup. It must always be reachable so
+    # imported schedules and blockers can be inspected and resolved.
+    if navigate_admin_page is not None:
+        _schedule_flow_next.button(
+            "Fortsätt till Kontroll →",
+            use_container_width=True,
+            key=f"schedule_flow_next_to_control_{tid}",
+            on_click=navigate_admin_page,
+            args=("Kontroll",),
+        )
+    else:
+        _schedule_flow_next.caption("Nästa steg: Kontroll")
     if "schedule_message" in st.session_state:
         message_type, message_text = st.session_state.pop("schedule_message")
         getattr(st, message_type)(message_text)
@@ -231,7 +243,8 @@ def render_schedule_workspace(tid, tournament, *, deps: ScheduleWorkspaceDepende
 
     # v508: The timing model belongs on the Schema page. Previously it was
     # buried under cup settings, which made a core scheduling choice hard to find.
-    with st.container(border=True):
+    with st.expander("⚙️ Schematyp (valfritt)", expanded=False):
+        st.caption("De flesta kan lämna detta som det är. Ändra bara om planerna ska följa gemensamma avsparkstider.")
         st.markdown("##### Hur ska planernas tider fungera?")
         _sync_now = bool(rules["synchronized_pitch_times"] or 0)
         _timing_choice = st.radio(
@@ -342,7 +355,7 @@ def render_schedule_workspace(tid, tournament, *, deps: ScheduleWorkspaceDepende
     # still be editable by the organizer. Surface that action here instead of
     # hiding it among advanced/detail tools.
     if scheduled_total > 0:
-        with st.container(border=True):
+        with st.expander("✏️ Redigera befintligt schema manuellt", expanded=False):
             st.markdown("#### Redigera befintligt schema manuellt")
             st.caption(
                 "Ändra en ospelad match utan att generera om resten av schemat. "
@@ -475,7 +488,7 @@ def render_schedule_workspace(tid, tournament, *, deps: ScheduleWorkspaceDepende
         _rec_right.metric("Snabb schemakvalitet", _quick_grade)
         _rec_right.caption(_quick_detail)
         st.markdown(f"**Aktivt tidsläge: {_timing_title}**")
-        st.caption(_timing_detail + " Ändra detta under cupens grundinställningar om arrangemanget kräver ett annat upplägg.")
+        st.caption(_timing_detail + " Ändra under ‘Schematyp (valfritt)’ ovan om arrangemanget kräver ett annat upplägg.")
         if _next_step["state"] == "ready" and scheduled_total == 0:
             st.success("CupNavi rekommenderar att du skapar schemat nu.")
         elif _next_step["state"] == "blocked":
@@ -503,7 +516,12 @@ def render_schedule_workspace(tid, tournament, *, deps: ScheduleWorkspaceDepende
         # re-read the source directly from Schema and explicitly approve the
         # recovered match programme instead of sending them into the generator.
         if scheduled_total == 0 and setting is not None and deps.db is not None:
-            with st.expander("📷 Har du redan ett schema i foto/PDF? Importera matchprogrammet här", expanded=False):
+            st.info(
+                "Om du redan läste in ett matchprogram från foto/PDF men ser 0 schemalagda matcher här, "
+                "har själva matcherna inte sparats i cupen. Läs in samma underlag igen nedan och godkänn förhandsgranskningen. "
+                "Du kan ändå gå vidare till Kontroll för att se exakt vad som saknas."
+            )
+            with st.expander("📷 Har du redan ett schema i foto/PDF? Importera matchprogrammet här", expanded=True):
                 st.caption("Om du skapade cupen från ett foto i en äldre version kan lag och grupper ha importerats utan själva matcherna. Läs in underlaget igen här. CupNavi visar alltid en förhandsgranskning innan något sparas.")
                 _uploads = st.file_uploader(
                     "Foto, PDF eller dokument med matchprogram",
@@ -636,55 +654,58 @@ def render_schedule_workspace(tid, tournament, *, deps: ScheduleWorkspaceDepende
                 "Lagens gruppplacering, laguppgifter och sparade tävlingsregler ändras inte."
             )
             _confirm_regenerate = True
-        _schedule_action_disabled = create_disabled or (_regenerating_unplayed_schedule and not _confirm_regenerate)
-        if st.button(schedule_button_label, type="primary", use_container_width=True, disabled=_schedule_action_disabled):
-            started_schedule = time.perf_counter()
-            try:
-                with st.spinner("CupNavi bygger schemat och fördelar planer/domare…"):
-                    if played_result_total:
-                        created, ready_groups, skipped_groups = 0, len(schedule_groups), []
-                        optimize_group_home_away(tid)
-                        playoff_ok, playoff_error = ensure_playoffs_for_schedule(tid, tournament)
-                        if not playoff_ok:
-                            raise RuntimeError(playoff_error)
-                        count, unresolved, warning = generate_schedule(tid, tournament, rules, preserve_existing=True)
-                        parts = [
-                            f"{played_result_total} färdigspelade matcher skyddades och lämnades oförändrade.",
-                            "Slutspelsträdet kontrollerades och uppdaterades automatiskt.",
-                            f"{count} återstående matcher schemalades.",
-                        ]
+        _schedule_action_disabled = _regenerating_unplayed_schedule and not _confirm_regenerate
+        # v515: A disabled primary CTA looked clickable but did nothing. When setup
+        # blocks generation, show the problem and direct routes instead of a dead button.
+        if not create_disabled:
+            if st.button(schedule_button_label, type="primary", use_container_width=True, disabled=_schedule_action_disabled):
+                started_schedule = time.perf_counter()
+                try:
+                    with st.spinner("CupNavi bygger schemat och fördelar planer/domare…"):
+                        if played_result_total:
+                            created, ready_groups, skipped_groups = 0, len(schedule_groups), []
+                            optimize_group_home_away(tid)
+                            playoff_ok, playoff_error = ensure_playoffs_for_schedule(tid, tournament)
+                            if not playoff_ok:
+                                raise RuntimeError(playoff_error)
+                            count, unresolved, warning = generate_schedule(tid, tournament, rules, preserve_existing=True)
+                            parts = [
+                                f"{played_result_total} färdigspelade matcher skyddades och lämnades oförändrade.",
+                                "Slutspelsträdet kontrollerades och uppdaterades automatiskt.",
+                                f"{count} återstående matcher schemalades.",
+                            ]
+                        else:
+                            created, ready_groups, skipped_groups = create_all_group_matches(tid)
+                            playoff_ok, playoff_error = ensure_playoffs_for_schedule(tid, tournament)
+                            if not playoff_ok:
+                                raise RuntimeError(playoff_error)
+                            count, unresolved, warning = generate_schedule(tid, tournament, rules)
+                            parts = [
+                                f"Alla {ready_groups} grupper kontrollerades och {created} saknade gruppmatcher skapades.",
+                                "Slutspelsmatcherna skapades automatiskt utifrån vald slutspelsmodell.",
+                                f"{count} matcher schemalades totalt.",
+                            ]
+                    elapsed = time.perf_counter() - started_schedule
+                    parts.append(f"Genereringen tog {elapsed:.1f} sekunder.")
+                    if unresolved:
+                        parts.append(f"{unresolved} matcher kunde inte schemaläggas.")
+                    if warning:
+                        parts.append(warning)
+                    st.session_state["schedule_message"] = (
+                        "warning" if unresolved or warning else "success",
+                        " ".join(parts),
+                    )
+                    if unresolved:
+                        st.session_state["schedule_recovery"] = _schedule_recovery_context(tid,tournament,rules,unresolved)
                     else:
-                        created, ready_groups, skipped_groups = create_all_group_matches(tid)
-                        playoff_ok, playoff_error = ensure_playoffs_for_schedule(tid, tournament)
-                        if not playoff_ok:
-                            raise RuntimeError(playoff_error)
-                        count, unresolved, warning = generate_schedule(tid, tournament, rules)
-                        parts = [
-                            f"Alla {ready_groups} grupper kontrollerades och {created} saknade gruppmatcher skapades.",
-                            "Slutspelsmatcherna skapades automatiskt utifrån vald slutspelsmodell.",
-                            f"{count} matcher schemalades totalt.",
-                        ]
-                elapsed = time.perf_counter() - started_schedule
-                parts.append(f"Genereringen tog {elapsed:.1f} sekunder.")
-                if unresolved:
-                    parts.append(f"{unresolved} matcher kunde inte schemaläggas.")
-                if warning:
-                    parts.append(warning)
-                st.session_state["schedule_message"] = (
-                    "warning" if unresolved or warning else "success",
-                    " ".join(parts),
-                )
-                if unresolved:
-                    st.session_state["schedule_recovery"] = _schedule_recovery_context(tid,tournament,rules,unresolved)
-                else:
-                    st.session_state.pop("schedule_recovery",None)
-            except Exception as exc:
-                elapsed = time.perf_counter() - started_schedule
-                st.session_state["schedule_message"] = (
-                    "error",
-                    f"Schemagenereringen avbröts efter {elapsed:.1f} sekunder: {exc}",
-                )
-            st.rerun()
+                        st.session_state.pop("schedule_recovery",None)
+                except Exception as exc:
+                    elapsed = time.perf_counter() - started_schedule
+                    st.session_state["schedule_message"] = (
+                        "error",
+                        f"Schemagenereringen avbröts efter {elapsed:.1f} sekunder: {exc}",
+                    )
+                st.rerun()
         if played_result_total:
             st.info(
                 f"Det finns {played_result_total} matcher med registrerat resultat. "

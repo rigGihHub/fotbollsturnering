@@ -1,20 +1,18 @@
 from pathlib import Path
+SCHEDULE = Path("cupnavi_core/schedule_workspace_view.py").read_text(encoding="utf-8")
 
 from cupnavi_core.version import APP_VERSION
 
 
 def test_v420_version():
-    assert APP_VERSION == "2026.09.07-510-MANUAL-IMPORTED-SCHEDULE-EDIT"
+    assert APP_VERSION == "2026.09.07-519-BEGINNER-E2E-REGRESSION"
 
 
 def test_schedule_workspace_keeps_six_step_planning_flow():
-    src = Path("cupnavi_core/schedule_workspace_view.py").read_text(encoding="utf-8")
-    assert 'Planeringsflöde · Spelschema' in src
-    assert '["Grundsetup", "Lag", "Grupper", "Schema", "Kontroll", "Publicera"]' in src
-    assert '← Till Grupper' in src
-    assert 'Nästa steg: Kontroll' in src
-    assert 'Steg 3 av 5 · Schema' not in src
-
+    src=SCHEDULE
+    assert 'render_clickable_planning_flow(' in src
+    assert 'current_step="Schema"' in src
+    assert 'Fortsätt till Kontroll →' in src
 
 def test_schedule_workspace_receives_navigation_callback():
     app = Path("app.py").read_text(encoding="utf-8")

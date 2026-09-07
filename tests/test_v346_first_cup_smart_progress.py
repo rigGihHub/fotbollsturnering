@@ -5,7 +5,7 @@ APP=(ROOT/"app.py").read_text(encoding="utf-8")
 VERSION=(ROOT/"VERSION.txt").read_text(encoding="utf-8").strip()
 
 def test_version():
-    assert VERSION=="2026.09.07-510-MANUAL-IMPORTED-SCHEDULE-EDIT"
+    assert VERSION=="2026.09.07-519-BEGINNER-E2E-REGRESSION"
     assert f'APP_BUILD_VERSION = "{VERSION}"' in APP
 
 def test_team_registration_has_real_progress_and_group_handoff():
@@ -23,8 +23,8 @@ def test_group_automation_waits_for_complete_participant_list():
 def test_groups_have_back_to_teams_and_forward_to_schedule_ctas():
     assert '"Fortsätt lägga till lag"' in APP
     assert 'key=f"v346_groups_back_to_teams_{tid}"' in APP
-    assert '"Fortsätt till Schema →"' in APP
-    assert 'key=f"v346_groups_to_schedule_{tid}"' in APP
+    assert '"Fortsätt till Planer & tider →"' in APP
+    assert 'key=f"v514_groups_to_pitches_{tid}"' in APP
 
 def test_group_completion_requires_no_unassigned_teams():
     assert "_unassigned_after_assignment == 0" in APP

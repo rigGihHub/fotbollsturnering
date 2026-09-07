@@ -84,6 +84,18 @@ def build_publication_quality_summary(
     )
 
 
+
+def publication_problem_destination(message: str | None) -> tuple[str, str]:
+    """Map a publication blocker to the admin page where a novice can fix it."""
+    text = (message or "").lower()
+    if "slutspelsmodell" in text or "cupregler" in text:
+        return "Cupinställningar", "Öppna Cupinfo"
+    if "spelschema saknas" in text:
+        return "Skapa och publicera schema", "Öppna Schema"
+    if "schemat är inaktuellt" in text or "schemafel" in text:
+        return "Skapa och publicera schema", "Öppna Schema"
+    return "Kontroller", "Visa mer"
+
 def publication_action_label(*, published_once: bool) -> str:
     return "Uppdatera" if published_once else "Publicera"
 

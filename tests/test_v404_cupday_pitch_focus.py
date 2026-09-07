@@ -23,7 +23,7 @@ def _finished_without_score():
 
 
 def test_version_and_release_note():
-    assert VERSION == "2026.09.07-510-MANUAL-IMPORTED-SCHEDULE-EDIT"
+    assert VERSION == "2026.09.07-519-BEGINNER-E2E-REGRESSION"
     assert (ROOT / "CUPDAY_PITCH_FOCUS_V404.md").exists()
 
 

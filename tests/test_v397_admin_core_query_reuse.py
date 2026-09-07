@@ -1,6 +1,6 @@
 from pathlib import Path
 
-VERSION = "2026.09.07-510-MANUAL-IMPORTED-SCHEDULE-EDIT"
+VERSION = "2026.09.07-519-BEGINNER-E2E-REGRESSION"
 
 
 def test_version_and_release_note():

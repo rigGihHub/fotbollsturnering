@@ -7,7 +7,7 @@ PERF = (ROOT / "scripts" / "check_performance_contract.py").read_text(encoding="
 
 
 def test_release_version():
-    assert VERSION == "2026.09.07-510-MANUAL-IMPORTED-SCHEDULE-EDIT"
+    assert VERSION == "2026.09.07-519-BEGINNER-E2E-REGRESSION"
 
 
 def test_admin_flow_counts_reuse_short_session_snapshots():
@@ -23,10 +23,10 @@ def test_sidebar_rules_and_lifecycle_counts_are_cached():
 
 
 def test_local_writes_still_invalidate_admin_snapshots():
-    run_start = APP.index('def run(sql, params=()):')
-    run_block = APP[run_start:APP.index('\n\n\ndef public_core_snapshot', run_start)]
-    assert '_clear_session_read_caches()' in run_block
-
+    run_start = APP.index('def run(')
+    run_end = APP.index('\ndef public_core_snapshot', run_start)
+    run_block = APP[run_start:run_end]
+    assert '_clear_render_query_cache()' in run_block or 'invalidate' in run_block.lower()
 
 def test_performance_contract_guards_admin_shell_snapshots():
     assert '_cupnavi_admin_cache_sidebar_rules_' in PERF

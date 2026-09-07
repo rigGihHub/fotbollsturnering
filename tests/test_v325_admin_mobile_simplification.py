@@ -6,14 +6,13 @@ VERSION = Path('VERSION.txt').read_text().strip()
 
 
 def test_v325_version():
-    assert VERSION == '2026.09.07-510-MANUAL-IMPORTED-SCHEDULE-EDIT'
+    assert VERSION == '2026.09.07-519-BEGINNER-E2E-REGRESSION'
 
 
 def test_admin_main_area_uses_one_segmented_selector_not_five_columns():
-    assert 'st.segmented_control(\n    "Cupflöde"' in APP
+    assert 'Din väg till publicerad cup' in APP
+    assert 'render_clickable_planning_flow' in APP
     assert 'group_cols = st.columns(len(group_names))' not in APP
-    assert '_sync_admin_flow_selector' in APP
-
 
 def test_initial_class_creation_is_progressive_and_vertical():
     assert 'with st.expander("➕ Lägg till åldersklass / kategori"' in SETUP

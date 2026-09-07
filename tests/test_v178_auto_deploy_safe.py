@@ -2,7 +2,7 @@ from pathlib import Path
 ROOT=Path(__file__).resolve().parents[1]
 APP=(ROOT/"app.py").read_text(encoding="utf-8")
 CONFIG=(ROOT/".streamlit/config.toml").read_text(encoding="utf-8")
-R="2026.09.07-510-MANUAL-IMPORTED-SCHEDULE-EDIT"
+R="2026.09.07-519-BEGINNER-E2E-REGRESSION"
 
 def test_fingerprint_runs_before_core_imports():
     fingerprint=APP.index("ACTIVE_SOURCE_FINGERPRINT, SOURCE_PACKAGE_REFRESHED")

@@ -43,4 +43,4 @@ def test_published_cup_moves_into_result_work():
 def test_app_core_flow_no_longer_skips_control_for_unpublished_schedule():
     assert 'elif not bool(tournament["is_published"]):' in APP
     assert '_recommended_page, _recommended_label = "Kontroller", "Kontrollera och publicera"' in APP
-    assert 'Steg 4 av 5 · Kontroll' in APP
+    assert 'Steg 6 av 7 · Kontroll' in APP

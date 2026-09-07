@@ -12,7 +12,7 @@ def _groups():
     return APP[start:end]
 
 def test_release_version():
-    assert VERSION=="2026.09.07-510-MANUAL-IMPORTED-SCHEDULE-EDIT"
+    assert VERSION=="2026.09.07-519-BEGINNER-E2E-REGRESSION"
 
 def test_manual_group_tools_are_true_lazy():
     block=_groups()

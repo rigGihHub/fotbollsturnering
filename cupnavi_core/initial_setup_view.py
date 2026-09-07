@@ -128,6 +128,63 @@ def render_initial_tournament_setup(tournament_id, tournament, *, deps: InitialS
         unsafe_allow_html=True,
     )
     st.caption("Ange vad ni arrangerar, vilka som ska spela och vilka planer/tider ni har – CupNavi hjälper dig vidare.")
+
+    # v511: Existing tournaments can always return to setup and edit their cup dates.
+    # Dates are deliberately not pushed into existing match rows automatically; doing so
+    # could silently corrupt an imported or manually adjusted schedule.
+    if _editing_existing:
+        _saved_start_raw = _row_value(tournament, "start_date", None) or _row_value(tournament, "tournament_date", None)
+        _saved_end_raw = _row_value(tournament, "end_date", None) or _saved_start_raw
+        _saved_start = datetime.fromisoformat(str(_saved_start_raw)).date()
+        _saved_end = datetime.fromisoformat(str(_saved_end_raw)).date()
+        _existing_match_count = int(one_row(
+            "SELECT COUNT(*) AS n FROM matches WHERE tournament_id=?",
+            (tournament_id,),
+        )["n"] or 0)
+
+        with st.container(border=True):
+            st.markdown("### Cupdatum")
+            st.caption("Du kan ändra cupens datum även efter att turneringen skapats.")
+            with st.form(f"edit_cup_dates_{tournament_id}"):
+                _date_col1, _date_col2 = st.columns(2)
+                _edited_start = _date_col1.date_input("Första cupdag", value=_saved_start)
+                _date_col1.caption(f"📅 {date_with_weekday(_edited_start)}")
+                _edited_end = _date_col2.date_input("Sista cupdag", value=_saved_end, min_value=_edited_start)
+                _date_col2.caption(f"📅 {date_with_weekday(_edited_end)}")
+                if _existing_match_count:
+                    st.warning(
+                        f"Cupen har {_existing_match_count} schemalagda matcher. Ett nytt cupdatum flyttar inte matcherna automatiskt. "
+                        "Schemat markeras i stället för kontroll så att inga importerade eller manuellt ändrade tider skrivs över."
+                    )
+                _save_dates = st.form_submit_button(
+                    "Spara cupdatum",
+                    type="primary",
+                    use_container_width=True,
+                    disabled=(_edited_start == _saved_start and _edited_end == _saved_end),
+                )
+                if _save_dates:
+                    if _edited_end < _edited_start:
+                        st.error("Sista cupdagen får inte ligga före första cupdagen.")
+                    else:
+                        with db() as con:
+                            con.execute(
+                                "UPDATE tournaments SET tournament_date=?, start_date=?, end_date=?, schedule_dirty=1 WHERE id=?",
+                                (_edited_start.isoformat(), _edited_start.isoformat(), _edited_end.isoformat(), int(tournament_id)),
+                            )
+                            if _existing_match_count:
+                                con.execute(
+                                    "UPDATE matches SET schedule_published=0 WHERE tournament_id=?",
+                                    (int(tournament_id),),
+                                )
+                                con.execute(
+                                    "UPDATE tournaments SET is_published=0 WHERE id=?",
+                                    (int(tournament_id),),
+                                )
+                            con.commit()
+                        _clear_render_query_cache()
+                        st.session_state[f"autosave_notice_{tournament_id}"] = "✓ Cupdatum sparat"
+                        st.rerun()
+
     rules = one_row("SELECT * FROM schedule_rules WHERE tournament_id=?", (tournament_id,))
     if rules is None:
         run("INSERT INTO schedule_rules(tournament_id) VALUES(?)", (tournament_id,))
@@ -1110,7 +1167,7 @@ def render_initial_tournament_setup(tournament_id, tournament, *, deps: InitialS
             st.success("Grunden är klar. Nästa steg är att lägga till lagen som ska delta.")
             st.markdown(
                 "**Efter detta hjälper CupNavi dig vidare:** "
-                "Lägg till lag → Grupper → Schema → Kontroll → Publicera."
+                "Lägg till lag → Grupper → Planer & tider → Schema → Kontroll → Publicera."
             )
         else:
             _remaining_setup_checks=sum(1 for item in _setup_completion_checks if not item[0])

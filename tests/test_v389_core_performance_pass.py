@@ -1,6 +1,6 @@
 from pathlib import Path
 
-RELEASE = "2026.09.07-510-MANUAL-IMPORTED-SCHEDULE-EDIT"
+RELEASE = "2026.09.07-519-BEGINNER-E2E-REGRESSION"
 
 
 def test_v389_batches_schedule_match_events_and_reuses_match_snapshot():

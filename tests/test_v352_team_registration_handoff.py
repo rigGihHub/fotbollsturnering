@@ -5,7 +5,7 @@ VERSION = Path("VERSION.txt").read_text(encoding="utf-8").strip()
 
 
 def test_v352_release_version():
-    assert VERSION == "2026.09.07-510-MANUAL-IMPORTED-SCHEDULE-EDIT"
+    assert VERSION == "2026.09.07-519-BEGINNER-E2E-REGRESSION"
 
 
 def test_team_page_starts_with_guided_primary_task():
