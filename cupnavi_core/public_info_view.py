@@ -44,15 +44,10 @@ def render_public_info_section(
         </div>""",
         unsafe_allow_html=True,
     )
-    st.markdown(f"<div class='cn-info-section-title'>📘 {tr('Cupens regler')}</div>", unsafe_allow_html=True)
-    rules_html = public_rules_html(tournament, info_rules)
-    if rules_html:
-        st.markdown(rules_html, unsafe_allow_html=True)
-
     if tournament["public_information"]:
-        st.markdown(f"<div class='cn-info-section-title'>✍️ {tr('Information från arrangören')}</div>", unsafe_allow_html=True)
+        st.markdown(f"<div class='cn-info-section-title'>📣 {tr('Viktig information från arrangören')}</div>", unsafe_allow_html=True)
         public_text = html.escape(tournament["public_information"]).replace("\n", "<br>")
-        st.markdown(f"<div class='cn-custom-info-card'>{public_text}</div>", unsafe_allow_html=True)
+        st.markdown(f"<div class='cn-custom-info-card cn-organizer-priority'>{public_text}</div>", unsafe_allow_html=True)
 
     venue_points_public = all_rows(
         """SELECT * FROM venue_points WHERE tournament_id=? ORDER BY
@@ -127,6 +122,11 @@ def render_public_info_section(
     else:
         st.info(tr("Ingen praktisk information har publicerats ännu."))
 
+    rules_html = public_rules_html(tournament, info_rules)
+    if rules_html:
+        with st.expander("📘 " + tr("Cupens regler"), expanded=False):
+            st.markdown(rules_html, unsafe_allow_html=True)
+
     if bool(row_value(tournament, "enable_medical_info", 0)) and (row_value(tournament, "medical_info", "") or "").strip():
         st.markdown("<div class='cn-info-section-title'>🩹 Medicinsk beredskap</div>", unsafe_allow_html=True)
         st.markdown(f"<div class='cn-custom-info-card'>{html.escape(row_value(tournament, 'medical_info', '')).replace(chr(10), '<br>')}</div>", unsafe_allow_html=True)
@@ -184,7 +184,7 @@ def render_public_info_section(
     # four DB reads for contacts, functionaries, offers and sponsors on every
     # Cupinfo rerun. One explicit gate keeps the default journey lightweight.
     show_more_cup_details = st.toggle(
-        "Visa fler cupdetaljer",
+        "Fler cupdetaljer",
         value=False,
         key=f"public_more_cup_details_{int(tournament_id)}",
         help="Laddar lagkontakter, funktionärer, erbjudanden och partners först när du vill se dem.",

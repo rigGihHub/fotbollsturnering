@@ -27,7 +27,7 @@ def row(mid, start, pitch, home, away, status="not_started", actual=None):
 
 
 def test_release_version():
-    assert VERSION == "2026.09.04-449-MOBILE-PLAYOFF-ACTION"
+    assert VERSION == "2026.09.07-493-BUTTON-LATENCY-IV"
 
 
 def test_delay_uses_explicit_live_and_actual_start():

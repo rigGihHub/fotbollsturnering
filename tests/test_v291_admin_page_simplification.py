@@ -6,7 +6,7 @@ VERSION = (ROOT / "VERSION.txt").read_text(encoding="utf-8").strip()
 
 
 def test_release_version():
-    assert VERSION == "2026.09.04-449-MOBILE-PLAYOFF-ACTION"
+    assert VERSION == "2026.09.07-493-BUTTON-LATENCY-IV"
     assert VERSION in APP
 
 
@@ -30,4 +30,4 @@ def test_admin_copy_is_shorter_and_more_task_focused():
 
 def test_technical_tools_duplicate_label_removed_but_control_remains():
     assert 'st.caption("Tekniska verktyg")' not in APP
-    assert 'st.toggle("Visa teknisk hälsa och backup"' in APP
+    assert 'st.toggle("Visa teknisk hälsa, backup & nödläge"' in APP

@@ -5,7 +5,7 @@ APP=(ROOT/"app.py").read_text(encoding="utf-8")
 VERSION=(ROOT/"VERSION.txt").read_text(encoding="utf-8").strip()
 
 def test_version():
-    assert VERSION=="2026.09.04-449-MOBILE-PLAYOFF-ACTION"
+    assert VERSION=="2026.09.07-493-BUTTON-LATENCY-IV"
     assert f'APP_BUILD_VERSION = "{VERSION}"' in APP
 
 def test_team_registration_has_real_progress_and_group_handoff():

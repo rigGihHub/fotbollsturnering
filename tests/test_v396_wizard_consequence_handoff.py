@@ -1,6 +1,6 @@
 from pathlib import Path
 
-VERSION = "2026.09.04-449-MOBILE-PLAYOFF-ACTION"
+VERSION = "2026.09.07-493-BUTTON-LATENCY-IV"
 
 
 def test_release_version():

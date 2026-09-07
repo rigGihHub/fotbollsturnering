@@ -80,3 +80,68 @@ def event_totals_after_update(existing_by_player_id, update):
         goals += int(update["goals"])
         assists += int(update["assists"])
     return {"goals":goals,"assists":assists}
+
+
+def prepare_live_goal_change(*, home_score, away_score, home_team_id, away_team_id, team_id, delta=1):
+    """Return the score transition for one atomic live-goal operation.
+
+    Missing scores are treated as 0-0 only for live goal entry. The selected
+    team must be one of the match participants and a correction may never
+    produce a negative score.
+    """
+    home_team_id = int(home_team_id)
+    away_team_id = int(away_team_id)
+    team_id = int(team_id)
+    delta = int(delta)
+    if delta not in {-1, 1}:
+        raise ValueError("delta must be -1 or 1")
+    if team_id not in {home_team_id, away_team_id}:
+        raise ValueError("team is not part of the match")
+    old_home = int(home_score or 0)
+    old_away = int(away_score or 0)
+    new_home = old_home + (delta if team_id == home_team_id else 0)
+    new_away = old_away + (delta if team_id == away_team_id else 0)
+    if new_home < 0 or new_away < 0:
+        raise ValueError("score cannot be negative")
+    return {
+        "old_home_score": old_home,
+        "old_away_score": old_away,
+        "home_score": new_home,
+        "away_score": new_away,
+    }
+
+
+def validate_result_against_linked_goals(*, home_score, away_score, home_linked_goals, away_linked_goals):
+    """Validate that a proposed result can still explain stored player goals.
+
+    Player-linked goal counters may be lower than the team score (own goals or
+    unknown scorer), but they may never exceed the corresponding team score.
+    Clearing a result is also unsafe while linked player goals exist.
+    """
+    home_linked_goals = max(0, int(home_linked_goals or 0))
+    away_linked_goals = max(0, int(away_linked_goals or 0))
+    if home_score is None or away_score is None:
+        if home_linked_goals or away_linked_goals:
+            return {
+                "ok": False,
+                "message": "Ta bort registrerade målskyttar innan resultatet rensas.",
+            }
+        return {"ok": True, "message": ""}
+    try:
+        home_score = int(home_score)
+        away_score = int(away_score)
+    except (TypeError, ValueError):
+        return {"ok": False, "message": "Resultatet måste bestå av hela, icke-negativa mål."}
+    if home_score < 0 or away_score < 0:
+        return {"ok": False, "message": "Resultatet kan inte innehålla negativa mål."}
+    problems = []
+    if home_linked_goals > home_score:
+        problems.append(f"hemmalaget har {home_linked_goals} registrerade målskyttsmål men resultatet anger {home_score}")
+    if away_linked_goals > away_score:
+        problems.append(f"bortalaget har {away_linked_goals} registrerade målskyttsmål men resultatet anger {away_score}")
+    if problems:
+        return {
+            "ok": False,
+            "message": "Resultatet skulle inte stämma med matchhändelserna: " + "; ".join(problems) + ". Korrigera målskyttarna först.",
+        }
+    return {"ok": True, "message": ""}

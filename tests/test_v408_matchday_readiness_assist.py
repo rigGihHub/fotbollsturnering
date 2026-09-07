@@ -22,7 +22,7 @@ def _match(now, *, minutes=10, referee_id=None, home='team:1', away='team:2'):
 
 
 def test_version_and_release_note():
-    assert APP_VERSION == '2026.09.04-449-MOBILE-PLAYOFF-ACTION'
+    assert APP_VERSION == '2026.09.07-493-BUTTON-LATENCY-IV'
     assert (ROOT / 'MATCHDAY_READINESS_ASSIST_V408.md').exists()
 
 
@@ -69,7 +69,8 @@ def test_cupday_uses_compact_checkin_query_and_direct_actions():
     source = (ROOT / 'app.py').read_text(encoding='utf-8')
     block = source[source.index('if admin_page == "Cupdagen":'):source.index('if admin_page == "Cupverktyg":')]
     assert 'build_matchday_readiness_advice' in block
-    assert 'SELECT id,checked_in FROM teams WHERE tournament_id=?' in block
+    assert '_day_boot = cupday_boot_db_snapshot' in block
+    assert 'SELECT id,checked_in FROM teams WHERE tournament_id=?' in source
     assert 'Inför nästa avspark' in block
     assert 'Kontrollera lagincheckning' in block
     assert 'Bemanna matchen' in block

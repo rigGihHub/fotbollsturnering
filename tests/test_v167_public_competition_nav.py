@@ -3,12 +3,12 @@ from cupnavi_core.public_view_logic import public_navigation_specs, public_secti
 ROOT=Path(__file__).resolve().parents[1]
 APP=(ROOT/"app.py").read_text(encoding="utf-8")
 WORKSPACE=(ROOT/"cupnavi_core/public_workspace_view.py").read_text(encoding="utf-8")
-R="2026.09.04-449-MOBILE-PLAYOFF-ACTION"
+R="2026.09.07-493-BUTTON-LATENCY-IV"
 
 def test_public_has_clear_competition_navigation():
     specs=public_navigation_specs()
     assert [item[0] for item in specs] == ["Info","Matcher","Mitt lag","Tabeller","Slutspel"]
-    assert [item[2] for item in specs] == ["Info","Matcher","Mitt lag","Tabell","Slutspel"]
+    assert [item[2] for item in specs] == ["Info","Matcher","Mina lag","Tabell","Slutspel"]
 
 def test_sections_have_distinct_urls():
     assert public_section_for_page("Tabeller") == "tables"
@@ -22,7 +22,7 @@ def test_public_sections_render_directly_without_second_level_segmented_control(
 
 def test_mobile_bottom_nav_matches_competition_flow():
     specs=public_navigation_specs()
-    assert [item[3] for item in specs] == ["Info","Matcher","Mitt lag","Tabell","Slutspel"]
+    assert [item[3] for item in specs] == ["Info","Matcher","Mina lag","Tabell","Slutspel"]
     assert [item[1] for item in specs] == ["info","matches","team","tables","playoffs"]
 
 def test_info_uses_same_cupinfo_profile():

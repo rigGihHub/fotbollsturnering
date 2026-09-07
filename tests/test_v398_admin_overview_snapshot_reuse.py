@@ -11,7 +11,7 @@ def _overview_section():
 
 
 def test_release_version():
-    assert VERSION == '2026.09.04-449-MOBILE-PLAYOFF-ACTION'
+    assert VERSION == '2026.09.07-493-BUTTON-LATENCY-IV'
 
 
 def test_control_center_reuses_unchecked_snapshot_count():

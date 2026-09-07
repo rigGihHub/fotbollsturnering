@@ -7,7 +7,7 @@ VERSION = (ROOT / "VERSION.txt").read_text(encoding="utf-8").strip()
 
 
 def test_release_version():
-    assert VERSION == "2026.09.04-449-MOBILE-PLAYOFF-ACTION"
+    assert VERSION == "2026.09.07-493-BUTTON-LATENCY-IV"
 
 
 def test_public_snapshot_can_skip_match_query_and_cache_modes_separately():

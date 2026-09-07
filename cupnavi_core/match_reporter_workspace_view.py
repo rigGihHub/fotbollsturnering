@@ -49,6 +49,30 @@ from cupnavi_core.match_status import MATCH_FINISHED, MATCH_HALFTIME, MATCH_LIVE
 # st.session_state[player_widget_key] = player_ids[player_index + 1]
 
 
+CUPDAY_WRITE_FAILURE_MESSAGE = (
+    "⚠️ CupNavi kunde inte bekräfta att ändringen sparades. "
+    "Tryck inte igen direkt. Ladda om matchen och kontrollera det aktuella resultatet/händelserna först. "
+    "Om ändringen redan syns ska du inte registrera den en gång till."
+)
+
+
+def _set_write_failure_notice(*, operation: str = "Ändring", match_id: int | None = None, intended: dict[str, Any] | None = None) -> None:
+    st.session_state["reporter_write_failure_message"] = CUPDAY_WRITE_FAILURE_MESSAGE
+    st.session_state["reporter_write_failure_context"] = {
+        "operation": str(operation),
+        "match_id": int(match_id) if match_id is not None else None,
+        "intended": dict(intended or {}),
+        "refreshed": False,
+    }
+
+
+def _refresh_after_write_failure(deps: "MatchReporterWorkspaceDeps") -> None:
+    context = dict(st.session_state.get("reporter_write_failure_context") or {})
+    context["refreshed"] = True
+    st.session_state["reporter_write_failure_context"] = context
+    deps.refresh_server_state()
+
+
 @dataclass(frozen=True)
 class MatchReporterWorkspaceDeps:
     query_all: Callable[..., list[Any]]
@@ -63,8 +87,11 @@ class MatchReporterWorkspaceDeps:
     save_quick_result: Callable[[int, Any, int, int], bool]
     save_bulk_results: Callable[[int, dict[int, Any], list[dict[str, Any]]], dict[str, Any]]
     save_event_rows: Callable[[list[dict[str, Any]]], dict[str, int]]
+    save_live_goal: Callable[[int, Any, int, int, dict[str, int]], dict[str, Any]]
+    undo_live_goal: Callable[[int, Any, int, int, dict[str, int]], dict[str, Any]]
     acknowledge_referee: Callable[[int, int, int], None]
     set_match_status: Callable[[int, Any, str], bool]
+    refresh_server_state: Callable[[], None]
 
 
 def _set_session_value(key: str, value: Any) -> None:
@@ -95,13 +122,22 @@ def _save_quick_result_callback(
     most frequently used cup-day action.
     """
     home_score, away_score = st.session_state.get(draft_key, [0, 0])
-    if deps.save_quick_result(tournament_id, match_row, int(home_score), int(away_score)):
+    try:
+        saved = deps.save_quick_result(tournament_id, match_row, int(home_score), int(away_score))
+    except Exception:
+        _set_write_failure_notice(
+            operation="Slutresultat", match_id=int(match_row["id"]),
+            intended={"home_score": int(home_score), "away_score": int(away_score)},
+        )
+        return
+    if saved:
         st.session_state["reporter_result_message"] = "Slutresultatet är sparat."
     else:
         st.session_state.pop(draft_key, None)
-        st.session_state["reporter_result_warning"] = (
-            "Resultatet ändrades av en annan användare. CupNavi visar nu den senaste versionen."
-        )
+        if "reporter_result_warning" not in st.session_state:
+            st.session_state["reporter_result_warning"] = (
+                "Resultatet ändrades av en annan användare. Ingen extra ändring sparades. CupNavi visar nu den senaste versionen."
+            )
 
 
 def _set_match_status_callback(
@@ -111,7 +147,14 @@ def _set_match_status_callback(
     status_value: str,
 ) -> None:
     """Persist match status before the normal widget rerun."""
-    if not deps.set_match_status(tournament_id, match_row, status_value):
+    try:
+        saved = deps.set_match_status(tournament_id, match_row, status_value)
+    except Exception:
+        _set_write_failure_notice(
+            operation="Matchstatus", match_id=int(match_row["id"]), intended={"match_status": str(status_value)}
+        )
+        return
+    if not saved:
         st.session_state["reporter_result_warning"] = (
             "Matchstatusen ändrades av någon annan. CupNavi visar nu den senaste versionen."
         )
@@ -150,7 +193,9 @@ def _render_match_event_entry(
         st.warning("Laget saknar registrerade spelare.")
     else:
         existing = {int(row["player_id"]): row for row in fetch_player_match_stats(deps.query_all, match_id, selected_team_id)}
-        team_goals = int(match_row["home_score"] if selected_team_id == home_team_id else match_row["away_score"])
+        raw_team_goals = match_row["home_score"] if selected_team_id == home_team_id else match_row["away_score"]
+        team_goals = int(raw_team_goals or 0)
+        match_status = normalize_match_status(deps.row_value(match_row, "match_status", MATCH_NOT_STARTED))
         assist_enabled = bool(deps.row_value(tournament, "enable_assist_leaderboard", 1))
         card_statistics_enabled = bool(deps.row_value(tournament, "enable_card_statistics", 1))
         player_by_id = {int(player["id"]): player for player in players}
@@ -201,31 +246,61 @@ def _render_match_event_entry(
         if quick_last_event_key in st.session_state:
             st.caption(f"Senast registrerat: {st.session_state[quick_last_event_key]}")
             last_detail = st.session_state.get(quick_last_event_detail_key)
-            if isinstance(last_detail, dict) and st.button(
-                "↩️ Ångra senaste",
-                key=f"reporter_quick_undo_{match_id}_{selected_team_id}",
-                use_container_width=True,
-            ):
-                target_player_id = int(last_detail.get("player_id", 0) or 0)
-                target_field = str(last_detail.get("field", "") or "")
-                target_label = str(last_detail.get("label", "Händelse") or "Händelse")
+
+            def _undo_latest_quick_event() -> None:
+                """Undo inside the button callback so the widget's normal rerun is the only rerun."""
+                detail = st.session_state.get(quick_last_event_detail_key)
+                if not isinstance(detail, dict):
+                    return
+                target_player_id = int(detail.get("player_id", 0) or 0)
+                target_field = str(detail.get("field", "") or "")
+                target_label = str(detail.get("label", "Händelse") or "Händelse")
                 if target_player_id not in player_by_id or target_field not in {"goals", "assists", "yellow_cards", "red_cards"}:
                     st.session_state[quick_conflict_key] = "Den senaste händelsen kan inte längre identifieras säkert."
-                    st.rerun()
+                    return
+                if bool(detail.get("atomic_goal")):
+                    target_current = existing.get(target_player_id)
+                    expected_stats = {
+                        "goals": int(target_current["goals"] or 0) if target_current else 0,
+                        "assists": int(target_current["assists"] or 0) if target_current else 0,
+                        "yellow_cards": int(target_current["yellow_cards"] or 0) if target_current else 0,
+                        "red_cards": int(target_current["red_cards"] or 0) if target_current else 0,
+                    }
+                    try:
+                        undo_outcome = deps.undo_live_goal(
+                            tournament_id, match_row, selected_team_id, target_player_id, expected_stats
+                        )
+                    except Exception:
+                        _set_write_failure_notice(operation="Ångra mål", match_id=match_id)
+                        return
+                    if not undo_outcome.get("saved"):
+                        st.session_state[quick_conflict_key] = undo_outcome.get(
+                            "message", "Målet ändrades av en annan rapportör och kunde inte ångras."
+                        )
+                    else:
+                        st.session_state[quick_message_key] = "Målet och matchresultatet ångrades tillsammans."
+                        st.session_state.pop(quick_last_event_key, None)
+                        st.session_state.pop(quick_last_event_detail_key, None)
+                    return
+
                 undo_update = prepare_quick_event_update(
                     existing, match_id=match_id, player_id=target_player_id, field=target_field, delta=-1
                 )
                 if undo_update is None:
                     st.session_state[quick_conflict_key] = "Händelsen är redan borttagen eller ändrad."
-                    st.rerun()
+                    return
                 undo_totals = event_totals_after_update(existing, undo_update)
                 undo_validation = validate_match_event_totals(
                     team_goals, undo_totals["goals"], undo_totals["assists"]
                 )
                 if not undo_validation["ok"]:
                     st.session_state[quick_conflict_key] = undo_validation["errors"][0]
-                    st.rerun()
-                undo_outcome = deps.save_event_rows([undo_update])
+                    return
+                try:
+                    undo_outcome = deps.save_event_rows([undo_update])
+                except Exception:
+                    _set_write_failure_notice(operation="Ångra matchhändelse", match_id=match_id)
+                    return
                 if undo_outcome["conflicts"]:
                     st.session_state[quick_conflict_key] = (
                         "Händelsen ändrades av en annan rapportör och kunde inte ångras. Senaste värden laddas om."
@@ -234,11 +309,19 @@ def _render_match_event_entry(
                     st.session_state[quick_message_key] = f"{target_label} ångrades."
                     st.session_state.pop(quick_last_event_key, None)
                     st.session_state.pop(quick_last_event_detail_key, None)
-                st.rerun()
+
+            if isinstance(last_detail, dict):
+                st.button(
+                    "↩️ Ångra senaste",
+                    key=f"reporter_quick_undo_{match_id}_{selected_team_id}",
+                    use_container_width=True,
+                    on_click=_undo_latest_quick_event,
+                )
         if quick_conflict_key in st.session_state:
             st.warning(st.session_state.pop(quick_conflict_key), icon="⚠️")
 
         def _apply_quick_event(field: str, delta: int, label: str) -> None:
+            """Persist one player event inside the button callback; normal widget rerun is enough."""
             update = prepare_quick_event_update(
                 existing, match_id=match_id, player_id=player_id, field=field, delta=delta
             )
@@ -248,8 +331,12 @@ def _render_match_event_entry(
             validation = validate_match_event_totals(team_goals, totals["goals"], totals["assists"])
             if not validation["ok"]:
                 st.session_state[quick_conflict_key] = validation["errors"][0]
-                st.rerun()
-            outcome = deps.save_event_rows([update])
+                return
+            try:
+                outcome = deps.save_event_rows([update])
+            except Exception:
+                _set_write_failure_notice(operation=label, match_id=match_id)
+                return
             if outcome["conflicts"]:
                 st.session_state[quick_conflict_key] = (
                     "Spelarens händelser ändrades av en annan rapportör och skrevs inte över. "
@@ -269,9 +356,46 @@ def _render_match_event_entry(
                     "field": field,
                     "label": label,
                 }
-            st.rerun()
 
-        action_specs = [("goals", "⚽ + Mål", "Mål")]
+        def _save_live_goal_callback() -> None:
+            """Persist score + scorer before the single normal button rerun."""
+            try:
+                outcome = deps.save_live_goal(
+                    tournament_id, match_row, selected_team_id, player_id, current_values
+                )
+            except Exception:
+                _set_write_failure_notice(operation="Mål + målskytt", match_id=match_id)
+                return
+            if not outcome.get("saved"):
+                st.session_state[quick_conflict_key] = outcome.get(
+                    "message", "Matchen ändrades redan på servern. Ingen extra måländring sparades. Senaste värden laddas om."
+                )
+                return
+            player = player_by_id[player_id]
+            player_number = deps.row_value(player, "player_number", "–") or "–"
+            player_name = deps.row_value(player, "name", "")
+            st.session_state[quick_message_key] = (
+                f"Mål säkert sparat på servern. Resultatet är nu {outcome['home_score']}–{outcome['away_score']}."
+            )
+            st.session_state[quick_last_event_key] = (
+                f"Mål · #{player_number} {player_name} · {selected_team['name']}"
+            )
+            st.session_state[quick_last_event_detail_key] = {
+                "player_id": int(player_id), "field": "goals", "label": "Mål", "atomic_goal": True
+            }
+
+        if match_status != MATCH_FINISHED:
+            st.button(
+                "⚽ MÅL · uppdatera resultat",
+                key=f"reporter_live_goal_{match_id}_{selected_team_id}_{player_id}",
+                use_container_width=True,
+                type="primary",
+                on_click=_save_live_goal_callback,
+            )
+            st.caption("Ett tryck sparar både matchresultat och målskytt i samma transaktion. Vid segt nät: vänta på grön bekräftelse i stället för att trycka igen.")
+            action_specs = []
+        else:
+            action_specs = [("goals", "⚽ + Målskytt", "Mål")]
         if assist_enabled:
             action_specs.append(("assists", "🎯 + Assist", "Assist"))
         if card_statistics_enabled:
@@ -283,13 +407,14 @@ def _render_match_event_entry(
             cols = st.columns(2)
             for offset, spec in enumerate(action_specs[index:index + 2]):
                 field, button_label, success_label = spec
-                if cols[offset].button(
+                cols[offset].button(
                     button_label,
                     key=f"reporter_quick_add_{field}_{match_id}_{selected_team_id}_{player_id}",
                     use_container_width=True,
                     type="primary" if field == "goals" else "secondary",
-                ):
-                    _apply_quick_event(field, 1, success_label)
+                    on_click=_apply_quick_event,
+                    args=(field, 1, success_label),
+                )
 
         with st.expander("↩️ Korrigera senaste händelser", expanded=False):
             correction_specs = [("goals", "− Mål", "Mål korrigerat")]
@@ -301,13 +426,14 @@ def _render_match_event_entry(
                     ("red_cards", "− Rött", "Rött kort korrigerat"),
                 ])
             for field, button_label, success_label in correction_specs:
-                if st.button(
+                st.button(
                     button_label,
                     key=f"reporter_quick_sub_{field}_{match_id}_{selected_team_id}_{player_id}",
                     use_container_width=True,
                     disabled=current_values[field] <= 0,
-                ):
-                    _apply_quick_event(field, -1, success_label)
+                    on_click=_apply_quick_event,
+                    args=(field, -1, success_label),
+                )
 
         total_goals = sum(int(row["goals"] or 0) for row in existing.values())
         total_assists = sum(int(row["assists"] or 0) for row in existing.values())
@@ -355,7 +481,11 @@ def _render_match_event_entry(
                     match_id=match_id, is_na=pd.isna,
                 )
                 if changed_rows:
-                    outcome = deps.save_event_rows(changed_rows)
+                    try:
+                        outcome = deps.save_event_rows(changed_rows)
+                    except Exception:
+                        _set_write_failure_notice(operation="Matchhändelser", match_id=match_id)
+                        st.rerun()
                     if outcome["conflicts"]:
                         st.session_state[conflict_key] = (
                             f"{outcome['conflicts']} spelarrad(er) hade ändrats av en annan rapportör "
@@ -443,6 +573,49 @@ def render_match_reporter_workspace(tournament_id: int, tournament: Any, deps: M
     if reporter_section == reporter_sections[0]:
         matches = fetch_scheduled_matches(deps.query_all, tournament_id)
         playable_matches = select_playable_matches(matches, resolve_source=deps.resolve_source)
+        _write_failure_message = st.session_state.get("reporter_write_failure_message")
+        _write_failure_context = st.session_state.get("reporter_write_failure_context")
+        if _write_failure_message and isinstance(_write_failure_context, dict):
+            st.error(_write_failure_message)
+            _failure_match_id = _write_failure_context.get("match_id")
+            _failure_operation = str(_write_failure_context.get("operation") or "Ändring")
+            if not _write_failure_context.get("refreshed"):
+                st.button(
+                    "🔄 Läs om från servern", key=f"reporter_failure_refresh_{tournament_id}",
+                    type="primary", use_container_width=True,
+                    on_click=_refresh_after_write_failure, args=(deps,),
+                )
+                st.caption(f"Osäker åtgärd: {_failure_operation}. CupNavi gör ingen automatisk omskrivning.")
+            else:
+                _fresh_match = next((row for row in matches if _failure_match_id is not None and int(row["id"]) == int(_failure_match_id)), None)
+                _intended = dict(_write_failure_context.get("intended") or {})
+                if _fresh_match is not None and {"home_score", "away_score"} <= set(_intended):
+                    _already_saved = (
+                        _fresh_match["home_score"] == _intended["home_score"]
+                        and _fresh_match["away_score"] == _intended["away_score"]
+                    )
+                    if _already_saved:
+                        st.success(
+                            f"✅ Servern visar {_intended['home_score']}–{_intended['away_score']}. "
+                            "Ditt försök finns redan sparat – registrera det inte igen."
+                        )
+                    else:
+                        st.warning(
+                            "Servern visar inte det resultat du försökte spara. Kontrollera matchen visuellt; "
+                            "om värdena verkligen saknas kan du registrera dem på nytt."
+                        )
+                else:
+                    st.info("Serverläget är omladdat. Kontrollera den berörda matchen/händelsen innan du gör en ny ändring.")
+                def _clear_write_failure_notice() -> None:
+                    st.session_state.pop("reporter_write_failure_message", None)
+                    st.session_state.pop("reporter_write_failure_context", None)
+
+                st.button(
+                    "✓ Jag har kontrollerat serverläget", key=f"reporter_failure_clear_{tournament_id}",
+                    use_container_width=True, on_click=_clear_write_failure_notice,
+                )
+        elif _write_failure_message:
+            st.error(_write_failure_message)
         if "reporter_result_message" in st.session_state:
             st.success(st.session_state.pop("reporter_result_message"), icon="✅")
         if "reporter_result_warning" in st.session_state:
@@ -475,8 +648,7 @@ def render_match_reporter_workspace(tournament_id: int, tournament: Any, deps: M
             unreported_ids = [int(row["id"]) for row in match_queue if not _match_has_saved_result(row)]
             next_unreported_id = unreported_ids[0] if unreported_ids else None
             st.caption(
-                f"Matchkö · {len(unreported_ids)} orapporterade · "
-                f"{len(match_queue) - len(unreported_ids)} rapporterade"
+                f"{len(unreported_ids)} kvar · {len(match_queue) - len(unreported_ids)} klara"
             )
             if not unreported_ids:
                 st.success("Alla spelbara matcher har ett sparat resultat.", icon="✅")
@@ -541,45 +713,62 @@ def render_match_reporter_workspace(tournament_id: int, tournament: Any, deps: M
             if draft_key not in st.session_state:
                 st.session_state[draft_key] = [int(quick_match["home_score"] or 0), int(quick_match["away_score"] or 0)]
             quick_home_score, quick_away_score = st.session_state[draft_key]
-            qh, qc, qa = st.columns([2, 1, 2])
-            qh.markdown(f"**{quick_home_name}**"); qa.markdown(f"**{quick_away_name}**")
-            qh_minus, qh_plus = qh.columns(2); qa_minus, qa_plus = qa.columns(2)
-            qh_minus.button(
-                "−", key=f"qs_hm_{quick_match_id}", use_container_width=True,
-                on_click=_adjust_quick_score, args=(draft_key, 0, -1),
-            )
-            qh_plus.button(
-                "+", key=f"qs_hp_{quick_match_id}", use_container_width=True,
-                on_click=_adjust_quick_score, args=(draft_key, 0, 1),
-            )
-            qa_minus.button(
-                "−", key=f"qs_am_{quick_match_id}", use_container_width=True,
-                on_click=_adjust_quick_score, args=(draft_key, 1, -1),
-            )
-            qa_plus.button(
-                "+", key=f"qs_ap_{quick_match_id}", use_container_width=True,
-                on_click=_adjust_quick_score, args=(draft_key, 1, 1),
-            )
-            qc.markdown(f"<div style='text-align:center;font-size:30px;font-weight:900;padding-top:8px'>{quick_home_score}–{quick_away_score}</div>", unsafe_allow_html=True)
-            save_col, reset_col = st.columns(2)
-            playoff_tie_needs_detail = quick_match["stage"] != "Gruppspel" and quick_home_score == quick_away_score
-            save_col.button(
-                "✅ Spara resultat",
-                key=f"qs_save_{quick_match_id}",
-                type="primary",
-                use_container_width=True,
-                disabled=playoff_tie_needs_detail,
-                on_click=_save_quick_result_callback,
-                args=(deps, tournament_id, quick_match, draft_key),
-            )
-            reset_col.button(
-                "Återställ",
-                key=f"qs_reset_{quick_match_id}",
-                use_container_width=True,
-                on_click=_reset_quick_score,
-                args=(draft_key, int(quick_match["home_score"] or 0), int(quick_match["away_score"] or 0)),
-            )
+            with st.container(key=f"reporter_quick_score_shell_{tournament_id}_{quick_match_id}"):
+                qh, qc, qa = st.columns([2, 1, 2])
+                qh.markdown(f"**{quick_home_name}**")
+                qa.markdown(f"**{quick_away_name}**")
+                qh_minus, qh_plus = qh.columns(2)
+                qa_minus, qa_plus = qa.columns(2)
+                qh_minus.button(
+                    "−", key=f"qs_hm_{quick_match_id}", use_container_width=True,
+                    on_click=_adjust_quick_score, args=(draft_key, 0, -1),
+                )
+                qh_plus.button(
+                    "+", key=f"qs_hp_{quick_match_id}", use_container_width=True,
+                    on_click=_adjust_quick_score, args=(draft_key, 0, 1),
+                )
+                qa_minus.button(
+                    "−", key=f"qs_am_{quick_match_id}", use_container_width=True,
+                    on_click=_adjust_quick_score, args=(draft_key, 1, -1),
+                )
+                qa_plus.button(
+                    "+", key=f"qs_ap_{quick_match_id}", use_container_width=True,
+                    on_click=_adjust_quick_score, args=(draft_key, 1, 1),
+                )
+                qc.markdown(
+                    f"<div class='cn-reporter-score'>{quick_home_score}–{quick_away_score}</div>",
+                    unsafe_allow_html=True,
+                )
+                save_col, reset_col = st.columns([3, 1])
+                playoff_tie_needs_detail = quick_match["stage"] != "Gruppspel" and quick_home_score == quick_away_score
+                save_col.button(
+                    "✅ Spara resultat",
+                    key=f"qs_save_{quick_match_id}",
+                    type="primary",
+                    use_container_width=True,
+                    disabled=playoff_tie_needs_detail,
+                    on_click=_save_quick_result_callback,
+                    args=(deps, tournament_id, quick_match, draft_key),
+                )
+                reset_col.button(
+                    "↺",
+                    key=f"qs_reset_{quick_match_id}",
+                    help="Återställ till senast sparade resultat",
+                    use_container_width=True,
+                    on_click=_reset_quick_score,
+                    args=(draft_key, int(quick_match["home_score"] or 0), int(quick_match["away_score"] or 0)),
+                )
             persisted_result = quick_match["home_score"] is not None and quick_match["away_score"] is not None
+            if _advanced_reporting:
+                st.divider()
+                st.markdown("### ⚽ Livehändelser")
+                st.caption(
+                    "Under pågående match kan ett mål uppdatera resultat och målskytt tillsammans. "
+                    "När matchen är avslutad kan målskyttar kompletteras mot slutresultatet."
+                )
+                _render_match_event_entry(
+                    tournament_id, tournament, int(quick_match_id), quick_match, deps
+                )
             if persisted_result:
                 next_match_id = _next_unreported_match_id(playable_matches, int(quick_match_id))
                 if next_match_id is not None:
@@ -594,15 +783,6 @@ def render_match_reporter_workspace(tournament_id: int, tournament: Any, deps: M
                     )
                 else:
                     st.caption("✓ Inga fler orapporterade matcher senare i schemat.")
-                if _advanced_reporting:
-                    st.divider()
-                    st.markdown("### ⚽ Livehändelser")
-                    st.caption(
-                        "Registrera mål, assist och kort för samma match här. Händelserna valideras mot det senast sparade resultatet."
-                    )
-                    _render_match_event_entry(
-                        tournament_id, tournament, int(quick_match_id), quick_match, deps
-                    )
             if playoff_tie_needs_detail:
                 st.info(
                     "Oavgjord slutspelsmatch behöver straffar eller annat avgörande. "
@@ -610,12 +790,20 @@ def render_match_reporter_workspace(tournament_id: int, tournament: Any, deps: M
                 )
 
             if not _advanced_reporting:
-                st.caption("Behöver du målskyttar, assist, kort, straffar eller massinmatning? Välj Avancerad ovan.")
+                st.caption("Målskyttar, kort och specialfall finns i Avancerad.")
             if _advanced_reporting:
                 st.divider()
-                with st.expander("Fler resultatfält & massinmatning", expanded=playoff_tie_needs_detail):
+                _show_bulk_results = st.toggle(
+                    "Fler resultatfält & massinmatning",
+                    value=playoff_tie_needs_detail,
+                    key=f"reporter_show_bulk_results_{tournament_id}",
+                    help="Öppna bara när du behöver straffar, avgörande vinnare eller flera resultat samtidigt.",
+                )
+                if _show_bulk_results:
                     st.caption("Använd för straffar, avgörande vinnare eller när flera resultat ska registreras samtidigt.")
 
+                    # v486: truly lazy. Avoid team query, dataframe construction and data_editor
+                    # on the hot reporter path until the operator explicitly opens bulk mode.
                     team_rows = fetch_teams(deps.query_all, tournament_id)
                     team_name_by_id = {row["id"]: row["name"] for row in team_rows}
                     team_id_by_name = {row["name"]: row["id"] for row in team_rows}
@@ -643,11 +831,14 @@ def render_match_reporter_workspace(tournament_id: int, tournament: Any, deps: M
                     for message in error_messages: st.error(message)
                     for message in info_messages: st.info(message)
                     if updates:
-                        outcome = deps.save_bulk_results(tournament_id, original_by_id, updates)
+                        try:
+                            outcome = deps.save_bulk_results(tournament_id, original_by_id, updates)
+                        except Exception:
+                            _set_write_failure_notice(operation="Flera resultat")
+                            st.rerun()
                         if outcome["saved"]: st.session_state["reporter_result_message"] = "Sparat automatiskt"
                         if outcome["conflicts"]:
                             st.session_state["reporter_conflict_message"] = f"{outcome['conflicts']} match(er) hade ändrats av en annan rapportör och skrevs inte över. De senaste värdena har laddats om."
-                        st.rerun()
                     st.caption("✓ Kompletta resultat sparas automatiskt.")
 
     if reporter_section == reporter_sections[1]:
@@ -682,13 +873,20 @@ def render_match_reporter_workspace(tournament_id: int, tournament: Any, deps: M
             for assignment in assignments:
                 with st.container(border=True):
                     st.markdown(referee_assignment_markdown(assignment, swedish_datetime=deps.swedish_datetime, source_label=deps.source_label))
-                    if assignment["id"] in acked: st.success("Uppdraget är bekräftat.", icon="✅")
-                    elif st.button("Bekräfta att jag sett matchen", key=f"ref_ack_{referee_id}_{assignment['id']}", use_container_width=True):
-                        deps.acknowledge_referee(tournament_id, referee_id, int(assignment["id"])); st.rerun()
+                    if assignment["id"] in acked:
+                        st.success("Uppdraget är bekräftat.", icon="✅")
+                    else:
+                        st.button(
+                            "Bekräfta att jag sett matchen",
+                            key=f"ref_ack_{referee_id}_{assignment['id']}",
+                            use_container_width=True,
+                            on_click=deps.acknowledge_referee,
+                            args=(tournament_id, referee_id, int(assignment["id"])),
+                        )
 
     if reporter_section == reporter_sections[3]:
         st.markdown("### 📶 Offlineutkast")
         st.caption("Streamlit kräver serverkontakt för riktig synkronisering. Den här säkerhetsfunktionen sparar därför ett lokalt resultatutkast i webbläsaren om nätet blir dåligt. Utkastet ligger kvar på enheten och kan föras över till CupNavi Score när nätet återkommer.")
         offline_matches = fetch_scheduled_matches(deps.query_all, tournament_id)
         offline_options = build_offline_match_options(offline_matches, swedish_datetime=deps.swedish_datetime, source_label=deps.source_label)
-        components.html(build_offline_draft_html(offline_options, tournament_id), height=210, scrolling=False)
+        components.html(build_offline_draft_html(offline_options, tournament_id), height=235, scrolling=False)

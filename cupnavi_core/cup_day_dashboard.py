@@ -202,6 +202,84 @@ def minutes_until(row, *, now=None):
 
 
 
+
+def build_cup_day_action_queue(snapshot, *, readiness=None, autopilot=None, max_items=5):
+    """Build one deterministic, read-only action queue for the organiser.
+
+    The queue merges signals already computed for Cupdagen. It performs no I/O and
+    deliberately prefers concrete match actions over generic guidance.
+    """
+    snapshot = snapshot or {}
+    readiness = list(readiness or [])
+    autopilot = list(autopilot or [])
+    items = []
+
+    for row in snapshot.get("reporting_due") or []:
+        items.append({
+            "kind": "report_result", "severity": "error", "priority": 0,
+            "match_id": int(_value(row, "id", 0) or 0),
+            "pitch_number": int(_value(row, "pitch_number", 0) or 0),
+            "title": "Resultat saknas",
+            "detail": f"Match {match_time_label(row)} på plan {int(_value(row, 'pitch_number', 0) or 0)} behöver rapporteras.",
+            "action": "open_result",
+        })
+
+    for row in snapshot.get("start_overdue") or []:
+        items.append({
+            "kind": "start_match", "severity": "warning", "priority": 1,
+            "match_id": int(_value(row, "id", 0) or 0),
+            "pitch_number": int(_value(row, "pitch_number", 0) or 0),
+            "title": "Starttid passerad",
+            "detail": f"Match {match_time_label(row)} på plan {int(_value(row, 'pitch_number', 0) or 0)} står fortfarande som ej startad.",
+            "action": "start_match",
+            "match_row": row,
+        })
+
+    for alert in readiness:
+        action = str(alert.get("action") or "")
+        items.append({
+            "kind": str(alert.get("kind") or "readiness"),
+            "severity": str(alert.get("severity") or "warning"),
+            "priority": 2 if str(alert.get("severity")) == "error" else 3,
+            "match_id": int(alert.get("match_id") or 0),
+            "pitch_number": int(alert.get("pitch_number") or 0),
+            "title": str(alert.get("title") or "Kontroll behövs"),
+            "detail": str(alert.get("detail") or ""),
+            "action": action,
+            "team_ids": list(alert.get("team_ids") or []),
+        })
+
+    for advice in autopilot:
+        items.append({
+            "kind": str(advice.get("kind") or "autopilot"),
+            "severity": str(advice.get("severity") or "warning"),
+            "priority": 4 if str(advice.get("severity")) == "error" else 5,
+            "match_id": int(advice.get("match_id") or 0),
+            "pitch_number": int(advice.get("pitch_number") or 0),
+            "title": str(advice.get("title") or "Schema behöver granskas"),
+            "detail": str(advice.get("detail") or ""),
+            "action": str(advice.get("action") or "review_schedule"),
+            "delay_minutes": int(advice.get("delay_minutes") or 0),
+        })
+
+    severity_rank = {"error": 0, "warning": 1, "info": 2}
+    items.sort(key=lambda item: (
+        int(item.get("priority", 99)),
+        severity_rank.get(item.get("severity"), 9),
+        int(item.get("pitch_number", 999) or 999),
+        int(item.get("match_id", 999999) or 999999),
+    ))
+
+    deduped = []
+    seen = set()
+    for item in items:
+        key = (item.get("kind"), item.get("match_id"), item.get("pitch_number"))
+        if key in seen:
+            continue
+        seen.add(key)
+        deduped.append(item)
+    return deduped[: max(1, int(max_items or 1))]
+
 def cup_day_primary_guidance(snapshot, *, now=None):
     """Return one clear organizer action for the live-day home screen."""
     now = now or datetime.now()

@@ -9,7 +9,7 @@ VERSION = (ROOT / "VERSION.txt").read_text(encoding="utf-8").strip()
 
 
 def test_v322_version():
-    assert VERSION == "2026.09.04-449-MOBILE-PLAYOFF-ACTION"
+    assert VERSION == "2026.09.07-493-BUTTON-LATENCY-IV"
 
 
 def test_public_workspace_is_one_outer_fragment_without_nested_public_adapters():

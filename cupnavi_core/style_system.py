@@ -1253,7 +1253,7 @@ def inject_v193_product_design_system(st):
         .cn-current-admin-page{background:rgba(245,247,246,.96)!important;border-color:var(--cn-color-border)!important;box-shadow:none!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important}.cn-admin-nav-group-title,.cn-admin-section-label,.cn-flow-kicker{color:var(--cn-color-text-secondary)!important;font-size:.72rem!important;font-weight:730!important;letter-spacing:.055em!important;text-transform:uppercase!important}.cn-flow-context{padding:10px 12px!important;margin:4px 0 8px!important;background:#fff!important}
         .cn-public-top-nav + div [data-testid="stButton"] button{min-height:38px!important;font-size:.81rem!important}.public-metric{box-shadow:none!important;border-color:var(--cn-color-border)!important}.public-match-card{background:#fff!important}
         @media(max-width:1024px){:root{--cn-content-max:100%}.stApp .block-container{padding-left:16px!important;padding-right:16px!important}}
-        @media(max-width:768px){:root{--cn-control-h:44px}html,body,.stApp{max-width:100vw!important;overflow-x:hidden!important}.stApp .block-container{padding-left:10px!important;padding-right:10px!important;padding-bottom:88px!important}[data-testid="stHorizontalBlock"]{gap:8px!important}[data-testid="stButton"] button,[data-testid="stFormSubmitButton"] button,[data-testid="stDownloadButton"] button,[data-testid="stLinkButton"] a{min-height:44px!important}h1{font-size:1.46rem!important}h2{font-size:1.22rem!important}h3{font-size:1.02rem!important}[data-testid="stDataFrame"],.texttv-table-wrap{max-width:100%!important;overflow-x:auto!important;-webkit-overflow-scrolling:touch}[data-testid="stPopoverBody"]{max-width:calc(100vw - 20px)!important;max-height:calc(100vh - 24px)!important;overflow:auto!important}}
+        @media(max-width:768px){:root{--cn-control-h:44px}html,body,.stApp{max-width:100vw!important;overflow-x:hidden!important;-webkit-text-size-adjust:100%!important;text-size-adjust:100%!important}.stApp .block-container{max-width:100vw!important;padding-left:max(10px,env(safe-area-inset-left))!important;padding-right:max(10px,env(safe-area-inset-right))!important;padding-bottom:max(88px,calc(18px + env(safe-area-inset-bottom)))!important}[data-testid="stHorizontalBlock"]{gap:8px!important}[data-testid="stButton"] button,[data-testid="stFormSubmitButton"] button,[data-testid="stDownloadButton"] button,[data-testid="stLinkButton"] a{min-height:44px!important;touch-action:manipulation!important}input,textarea,select,[role="combobox"]{font-size:16px!important}img,svg,video,canvas{max-width:100%!important;height:auto}.stMarkdown,.stCaption,[data-testid="stAlert"],p,span{overflow-wrap:anywhere}h1{font-size:1.46rem!important}h2{font-size:1.22rem!important}h3{font-size:1.02rem!important}[data-testid="stDataFrame"],.texttv-table-wrap{max-width:100%!important;overflow-x:auto!important;-webkit-overflow-scrolling:touch}[data-testid="stPopoverBody"]{max-width:calc(100vw - 20px)!important;max-height:calc(100dvh - 24px)!important;overflow:auto!important}}
         @media(max-width:390px){.stApp .block-container{padding-left:8px!important;padding-right:8px!important}[data-testid="stHorizontalBlock"]{gap:6px!important}[data-testid="stButton"] button,[data-testid="stFormSubmitButton"] button{padding-left:9px!important;padding-right:9px!important;font-size:.81rem!important}}
         @media(min-width:1440px){:root{--cn-content-max:1280px}}
         @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important;scroll-behavior:auto!important}}
@@ -1288,7 +1288,7 @@ def inject_v266_public_mobile_css(st):
            itself sticky and keep the nav in normal flow inside it. */
         [data-testid="stElementContainer"]:has(.cn-public-section-nav),
         .element-container:has(.cn-public-section-nav){
-          position:sticky !important;top:0 !important;z-index:999995 !important;
+          position:sticky !important;top:env(safe-area-inset-top,0px) !important;z-index:999995 !important;
         }
         .cn-public-section-nav{
           display:grid !important;grid-template-columns:repeat(5,minmax(0,1fr)) !important;
@@ -1312,7 +1312,7 @@ def inject_v266_public_mobile_css(st):
            clicks inside the active session instead of doing a full href page
            navigation. The keyed container retains the same sticky green shell. */
         [class*="st-key-cn_public_primary_nav_shell_"]{
-          position:sticky !important;top:0 !important;z-index:999995 !important;
+          position:sticky !important;top:env(safe-area-inset-top,0px) !important;z-index:999995 !important;
           width:100% !important;margin:4px 0 12px !important;padding:6px !important;
           background:#1f6f4a !important;border:1px solid #195d3e !important;
           border-radius:12px !important;box-shadow:0 5px 16px rgba(15,23,42,.14) !important;
@@ -1385,6 +1385,85 @@ def inject_v266_public_mobile_css(st):
           .cn-public-summary-row .public-metric .value{font-size:21px !important}
           .cn-public-highlights{grid-template-columns:1fr !important}
           .cn-public-section-nav a span{font-size:9px !important}
+          [class*="st-key-cn_public_primary_nav_shell_"]{
+            margin-left:0!important;margin-right:0!important;padding:4px!important;border-radius:10px!important;
+          }
+          [class*="st-key-cn_public_primary_nav_shell_"] [data-testid="stSegmentedControl"] > div,
+          [class*="st-key-cn_public_primary_nav_shell_"] [data-testid="stButtonGroup"] > div{
+            grid-template-columns:repeat(5,minmax(0,1fr))!important;gap:2px!important;
+          }
+          [class*="st-key-cn_public_primary_nav_shell_"] [data-testid="stSegmentedControl"] button,
+          [class*="st-key-cn_public_primary_nav_shell_"] [data-testid="stButtonGroup"] button{
+            min-width:0!important;min-height:44px!important;padding:4px 2px!important;font-size:9px!important;line-height:1.05!important;
+            white-space:normal!important;overflow-wrap:normal!important;word-break:normal!important;hyphens:none!important;
+          }
+        }
+        @media(max-width:360px){
+          /* v464: 320–360 px phones (small iPhone/older Android). Keep all five
+             core destinations visible without horizontal page scroll. */
+          .stApp .block-container{
+            padding-left:max(6px,env(safe-area-inset-left))!important;
+            padding-right:max(6px,env(safe-area-inset-right))!important;
+          }
+          [class*="st-key-cn_public_primary_nav_shell_"]{padding:3px!important}
+          [class*="st-key-cn_public_primary_nav_shell_"] [data-testid="stSegmentedControl"] button,
+          [class*="st-key-cn_public_primary_nav_shell_"] [data-testid="stButtonGroup"] button{
+            min-height:44px!important;padding:3px 1px!important;font-size:8.5px!important;letter-spacing:-.01em!important;
+          }
+          .public-match-card{padding:9px!important;margin:6px 0!important}
+          .public-match-card .public-team-name{font-size:15px!important}
+          .cn-match-time{font-size:17px!important}
+          .cn-match-place{font-size:10px!important}
+          [data-testid="stAlert"]{padding:8px 9px!important}
+        }
+        @media(max-width:330px){
+          /* v465: 320 px phones still keep readable tap targets. Prefer wrapping
+             over shrinking the navigation into unreadable 8 px labels. */
+          [class*="st-key-cn_public_primary_nav_shell_"] [data-testid="stSegmentedControl"] button,
+          [class*="st-key-cn_public_primary_nav_shell_"] [data-testid="stButtonGroup"] button{
+            min-height:46px!important;font-size:9.5px!important;line-height:1.02!important;white-space:normal!important;
+          }
+          .public-match-card .public-team-name{font-size:14.5px!important}
+        }
+
+        /* v465: real-phone edge cases. Long names and large system text must be
+           allowed to wrap inside their own column instead of widening the page. */
+        @media(max-width:768px){
+          .public-match-card,.cn-follow-shell,.cn-next-card,.cn-live-card{min-width:0!important;max-width:100%!important}
+          .cn-match-teams,.cn-match-team,.cn-match-teamline,.cn-follow-latest-result,.cn-follow-latest-result .teams{min-width:0!important;max-width:100%!important}
+          .public-team-name,.cn-follow-team,.cn-live-teams,.cn-next-meta,.cn-follow-latest-result .teams{
+            overflow-wrap:anywhere!important;word-break:break-word!important;hyphens:auto!important;
+          }
+          .public-team-name{max-width:100%!important}
+          [data-testid="stButton"] button,[data-testid="stLinkButton"] a,[data-testid="stButtonGroup"] button{
+            overflow-wrap:anywhere!important;word-break:normal!important;white-space:normal!important;
+          }
+        }
+
+        /* Short landscape viewports are common when a phone is rotated or the
+           browser keyboard/chrome consumes height. Keep sticky navigation useful
+           without letting it dominate the visible area. */
+        @media(orientation:landscape) and (max-height:500px) and (max-width:950px){
+          [data-testid="stElementContainer"]:has(.cn-public-section-nav),
+          .element-container:has(.cn-public-section-nav),
+          [class*="st-key-cn_public_primary_nav_shell_"]{top:0!important}
+          .cn-public-section-nav,[class*="st-key-cn_public_primary_nav_shell_"]{
+            margin-top:2px!important;margin-bottom:6px!important;padding-top:3px!important;padding-bottom:3px!important;
+          }
+          .cn-public-section-nav a,
+          [class*="st-key-cn_public_primary_nav_shell_"] [data-testid="stSegmentedControl"] button,
+          [class*="st-key-cn_public_primary_nav_shell_"] [data-testid="stButtonGroup"] button{
+            min-height:40px!important;
+          }
+          .stApp .block-container{padding-top:.35rem!important;padding-bottom:max(12px,env(safe-area-inset-bottom))!important}
+        }
+
+        /* Coarse-pointer devices need reliable touch spacing even when their CSS
+           width resembles a small tablet. */
+        @media(pointer:coarse){
+          [data-testid="stButton"] button,[data-testid="stFormSubmitButton"] button,
+          [data-testid="stDownloadButton"] button,[data-testid="stLinkButton"] a,
+          .cn-public-section-nav a{min-height:44px!important;touch-action:manipulation!important}
         }
         </style>""",
         unsafe_allow_html=True,
@@ -2343,7 +2422,17 @@ def inject_v198_visual_system(st):
             min-height:44px!important;border-radius:9px!important;font-size:.79rem!important;
           }
           [data-testid="stForm"]{padding:11px 11px!important;border-radius:10px!important}
-          [data-testid="stExpander"] summary{min-height:40px!important}
+          /* v457: all common form controls meet a 44px cup-day touch target too. */
+          [data-baseweb="select"] > div,
+          [data-testid="stTextInput"] input,
+          [data-testid="stNumberInput"] input{
+            min-height:44px!important;
+          }
+          [data-testid="stCheckbox"] label,
+          [data-testid="stRadio"] label{
+            min-height:44px!important;display:flex!important;align-items:center!important;
+          }
+          [data-testid="stExpander"] summary{min-height:44px!important}
           .cn-empty-state{grid-template-columns:32px 1fr!important;padding:11px 12px!important}
           .cn-empty-state .icon{width:30px!important;height:30px!important}
           [data-testid="stAlert"]{padding:.62rem .7rem!important}
@@ -2516,6 +2605,30 @@ def inject_v198_visual_system(st):
             flex:1 1 100%!important;
             width:100%!important;
           }
+          /* v460: keep the reporter score controls dense on phones. */
+          [class*="st-key-reporter_quick_score_shell_"] > div [data-testid="stHorizontalBlock"]{
+            display:flex!important;
+            flex-wrap:nowrap!important;
+            gap:6px!important;
+          }
+          [class*="st-key-reporter_quick_score_shell_"] > div [data-testid="stHorizontalBlock"] > [data-testid="stColumn"]{
+            flex:1 1 0!important;
+            width:auto!important;
+            min-width:0!important;
+          }
+          [class*="st-key-reporter_quick_score_shell_"] [data-testid="stButton"] button{
+            min-height:46px!important;
+            padding:.35rem .4rem!important;
+            font-size:.95rem!important;
+          }
+          [class*="st-key-reporter_quick_score_shell_"] .cn-reporter-score{
+            text-align:center!important;
+            font-size:1.72rem!important;
+            line-height:1!important;
+            font-weight:900!important;
+            padding-top:12px!important;
+            white-space:nowrap!important;
+          }
           .stApp .block-container{
             padding-left:8px!important;
             padding-right:8px!important;
@@ -2676,8 +2789,57 @@ def inject_public_experience_styles(st):
           .cn-public-highlights{grid-template-columns:repeat(2,minmax(0,1fr))!important;max-width:none!important;gap:7px!important}
           .cn-public-highlight{padding:8px 9px!important}
           .cn-public-highlight .value{font-size:13px!important}
-          .cn-follow-shell{padding:14px;margin-top:4px;border-radius:16px}
-          .cn-follow-team{font-size:1.22rem}
+          .cn-follow-shell{padding:14px;margin-top:4px;border-radius:16px;max-width:100%;overflow:hidden}
+          .cn-follow-team{font-size:1.22rem;overflow-wrap:anywhere}
+          .cn-follow-latest-result{
+            display:flex!important;justify-content:space-between!important;align-items:center!important;
+            gap:10px!important;padding:9px 11px!important;margin:6px 0 8px!important;
+            border:1px solid rgba(148,163,184,.28)!important;border-radius:12px!important;
+          }
+          .cn-follow-latest-result .label{font-size:.78rem!important;font-weight:800!important;text-transform:uppercase!important;letter-spacing:.04em!important}
+          .cn-follow-latest-result .teams{font-size:.96rem!important;font-weight:800!important;text-align:right!important;overflow-wrap:anywhere!important}
+          .cn-multi-favorite-card{
+            border:1px solid rgba(148,163,184,.28)!important;border-radius:12px!important;
+            padding:10px 11px!important;margin:7px 0!important;min-width:0!important;
+          }
+          .cn-multi-favorite-card .team{font-weight:900!important;overflow-wrap:anywhere!important}
+          .cn-multi-favorite-card .next,.cn-multi-favorite-card .last{
+            font-size:.82rem!important;line-height:1.32!important;overflow-wrap:anywhere!important;
+          }
+          .cn-family-next-card{
+            border:1px solid rgba(22,101,52,.24)!important;
+            border-radius:14px!important;padding:12px!important;margin:9px 0 12px!important;
+            background:rgba(240,253,244,.72)!important;min-width:0!important;
+          }
+          .cn-family-next-card .eyebrow{
+            font-size:.72rem!important;font-weight:900!important;text-transform:uppercase!important;
+            letter-spacing:.04em!important;
+          }
+          .cn-family-next-card .title{font-size:1rem!important;font-weight:900!important;overflow-wrap:anywhere!important}
+          .cn-family-next-card .match{font-size:.95rem!important;font-weight:800!important;overflow-wrap:anywhere!important}
+          .cn-family-next-card .meta,.cn-family-next-card .move{
+            margin-top:3px!important;font-size:.82rem!important;line-height:1.3!important;overflow-wrap:anywhere!important;
+          }
+          .cn-family-next-card .travel{
+            margin-top:6px!important;padding-top:6px!important;border-top:1px solid rgba(22,101,52,.16)!important;
+            font-size:.82rem!important;line-height:1.3!important;font-weight:700!important;overflow-wrap:anywhere!important;
+          }
+          .cn-family-next-card .travel.warn{font-weight:900!important}
+          .cn-favorite-timeline-row{
+            display:grid!important;grid-template-columns:92px minmax(0,1fr)!important;
+            gap:2px 10px!important;padding:9px 10px!important;margin:6px 0!important;
+            border-bottom:1px solid rgba(148,163,184,.22)!important;min-width:0!important;
+          }
+          .cn-favorite-timeline-row .time{font-weight:900!important;white-space:nowrap!important}
+          .cn-favorite-timeline-row .teams{font-weight:800!important;overflow-wrap:anywhere!important}
+          .cn-favorite-timeline-row .meta{
+            grid-column:2!important;font-size:.8rem!important;line-height:1.25!important;overflow-wrap:anywhere!important;
+          }
+          @media(max-width:360px){
+            .cn-favorite-timeline-row{grid-template-columns:1fr!important;gap:2px!important}
+            .cn-favorite-timeline-row .meta{grid-column:1!important}
+          }
+          .cn-next-meta,.cn-live-subtitle,.cn-live-teams,.public-team-name{overflow-wrap:anywhere}
           .cn-next-card{padding:13px;border-radius:15px}
           .cn-next-teams{grid-template-columns:1fr auto 1fr;font-size:.98rem}
           .cn-follow-mini{grid-template-columns:1fr 1fr 1fr;gap:6px}

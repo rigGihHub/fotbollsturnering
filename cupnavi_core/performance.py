@@ -29,12 +29,12 @@ PERFORMANCE_BUDGETS: dict[str, dict[str, dict[str, float | int]]] = {
         "warm_rerun": {"render_ms": 1100.0, "db_calls": 3},
     },
     "Turneringsvy/Mitt lag": {
-        "first_render": {"render_ms": 2000.0, "db_calls": 6},
-        "warm_rerun": {"render_ms": 1000.0, "db_calls": 3},
+        "first_render": {"render_ms": 1800.0, "db_calls": 5},
+        "warm_rerun": {"render_ms": 850.0, "db_calls": 2},
     },
     "Admin/Adminöversikt": {
-        "first_render": {"render_ms": 2500.0, "db_calls": 10},
-        "warm_rerun": {"render_ms": 1200.0, "db_calls": 4},
+        "first_render": {"render_ms": 2300.0, "db_calls": 9},
+        "warm_rerun": {"render_ms": 1050.0, "db_calls": 3},
     },
     "Admin/Lag": {
         "first_render": {"render_ms": 2200.0, "db_calls": 8},

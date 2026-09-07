@@ -8,12 +8,12 @@ STYLE=(ROOT/"cupnavi_core/style_system.py").read_text(encoding="utf-8")
 VERSION=(ROOT/"VERSION.txt").read_text().strip()
 
 def test_release_version():
-    assert VERSION=="2026.09.04-449-MOBILE-PLAYOFF-ACTION"
+    assert VERSION=="2026.09.07-493-BUTTON-LATENCY-IV"
 
 def test_public_navigation_is_task_first_and_short():
     specs=public_navigation_specs()
     assert [x[0] for x in specs]==["Info","Matcher","Mitt lag","Tabeller","Slutspel"]
-    assert [x[2] for x in specs]==["Info","Matcher","Mitt lag","Tabell","Slutspel"]
+    assert [x[2] for x in specs]==["Info","Matcher","Mina lag","Tabell","Slutspel"]
     assert [x[1] for x in specs]==["info","matches","team","tables","playoffs"]
 
 def test_public_navigation_keeps_native_fast_rerun():
@@ -22,8 +22,8 @@ def test_public_navigation_keeps_native_fast_rerun():
 
 def test_mitt_lag_is_visually_explained_without_new_queries():
     assert "cn-public-follow-intro" in FOLLOW
-    assert "Följ mitt lag genom att välja lag. Då visas nästa match, plan och viktig laginformation först." in FOLLOW
-    assert 'favorite_selection = st.selectbox(' in FOLLOW
+    assert "Följ ett eller flera lag – även i olika klasser." in FOLLOW
+    assert 'favorite_team_ids = st.multiselect(' in FOLLOW
 
 def test_mobile_navigation_and_team_card_have_responsive_styles():
     assert '[class*="st-key-cn_public_primary_nav_shell_"]' in STYLE

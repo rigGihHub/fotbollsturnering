@@ -11,6 +11,7 @@ from typing import Callable
 import streamlit as st
 
 from cupnavi_core.notification_service import new_token
+from cupnavi_core.mobile_flow import mobile_match_preview
 from cupnavi_core.team_portal import verify_access_code, squad_deadline_at, squad_is_locked
 from cupnavi_core.team_portal_readiness import build_team_portal_readiness, readiness_icon
 from cupnavi_core.team_portal_repository import (
@@ -153,13 +154,14 @@ def render_team_portal_workspace(tournament_id, tournament, deps: TeamPortalDepe
                 f"Gå till fliken **{_next['tab']}**."
             )
 
-    _readiness_cols = st.columns(2)
-    for _index, _item in enumerate(_portal_readiness["items"]):
-        _col = _readiness_cols[_index % 2]
-        _col.markdown(
-            f"**{readiness_icon(_item['state'])} {_item['label']}**  \n"
-            f"{_item['detail']}"
-        )
+    with st.expander("Visa hela checklistan", expanded=False):
+        _readiness_cols = st.columns(2)
+        for _index, _item in enumerate(_portal_readiness["items"]):
+            _col = _readiness_cols[_index % 2]
+            _col.markdown(
+                f"**{readiness_icon(_item['state'])} {_item['label']}**  \n"
+                f"{_item['detail']}"
+            )
 
     portal_tabs = st.tabs(["Lag & matcher", "Trupp", "Matchtrupper", message_tab_label])
 
@@ -229,11 +231,22 @@ def render_team_portal_workspace(tournament_id, tournament, deps: TeamPortalDepe
             ),
         )
         if matches:
-            for match_row in matches:
+            _preview_matches = mobile_match_preview(matches, now=datetime.now(), limit=3)
+            _preview_ids = {int(row["id"]) for row in _preview_matches}
+            for match_row in _preview_matches:
                 score = ""
                 if match_row["home_score"] is not None and match_row["away_score"] is not None:
                     score = f" · {match_row['home_score']}–{match_row['away_score']}"
                 st.markdown(f"**{html.escape(deps.portal_match_label(match_row))}{score}**")
+            if len(matches) > len(_preview_matches):
+                with st.expander(f"Visa alla {len(matches)} matcher", expanded=False):
+                    for match_row in matches:
+                        if int(match_row["id"]) in _preview_ids:
+                            continue
+                        score = ""
+                        if match_row["home_score"] is not None and match_row["away_score"] is not None:
+                            score = f" · {match_row['home_score']}–{match_row['away_score']}"
+                        st.markdown(f"**{html.escape(deps.portal_match_label(match_row))}{score}**")
         else:
             st.caption("Inga schemalagda matcher ännu.")
 

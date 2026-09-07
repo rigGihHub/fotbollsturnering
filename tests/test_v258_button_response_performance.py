@@ -29,7 +29,7 @@ def test_bulk_result_save_skips_unchanged_matches_and_combines_publish_update():
     block = SCHEDULE_VIEW[start:end]
     assert "original_scores" in block
     assert "changed_scores" in block
-    assert "if original_scores.get(match_id) != (home_score, away_score)" in block
+    assert "if (expected_home, expected_away) != (home_score, away_score)" in block
     assert "save_bulk_schedule_results(tid, changed_scores" in block
     assert "schedule_published=CASE WHEN scheduled_start IS NOT NULL THEN 1 ELSE schedule_published END" in SOURCE
 

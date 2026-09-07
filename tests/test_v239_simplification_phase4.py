@@ -22,7 +22,7 @@ def test_admin_overview_advanced_tools_are_explicit_opt_in():
 
 def test_controls_put_domain_checks_before_technical_tools():
     block=_block('if admin_page == "Kontroller":','if admin_page == "Lag":')
-    core=block.index('control_rules = one_row('); technical=block.index('st.toggle("Visa teknisk hälsa och backup"')
+    core=block.index('control_rules = one_row('); technical=block.index('st.toggle("Visa teknisk hälsa, backup & nödläge"')
     assert core < technical
     assert 'st.toggle("Fördjupad kontroll"' in block
 

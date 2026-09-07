@@ -23,7 +23,7 @@ def _finished_without_score():
 
 
 def test_version_and_release_note():
-    assert VERSION == "2026.09.04-449-MOBILE-PLAYOFF-ACTION"
+    assert VERSION == "2026.09.07-493-BUTTON-LATENCY-IV"
     assert (ROOT / "CUPDAY_PITCH_FOCUS_V404.md").exists()
 
 

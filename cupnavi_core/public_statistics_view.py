@@ -58,10 +58,19 @@ def render_public_statistics_section(
                 tr("När arrangören har publicerat gruppindelningen visas tabellerna här."),
                 symbol="—",
             )
-        for group in groups:
-            st.subheader(group["name"])
+        if len(groups) > 1:
+            st.caption(f"{len(groups)} grupper · första gruppen är öppen")
+        for _group_index, group in enumerate(groups):
             group_table = _public_tables["tables"].get(int(group["id"]), [])
-            render_group_table(group_table, tournament, group['id'])
+            if len(groups) == 1:
+                st.subheader(group["name"])
+                render_group_table(group_table, tournament, group["id"])
+            else:
+                with st.expander(
+                    f"{group['name']} · {len(group_table)} lag",
+                    expanded=_group_index == 0,
+                ):
+                    render_group_table(group_table, tournament, group["id"])
         if bool(row_value(tournament, "enable_final_ranking", 0)):
             st.subheader("Slutlig ranking")
             # v313: ranking is only visible after every published match is complete.
@@ -213,9 +222,22 @@ def render_public_statistics_section(
                     st.info("Inget slutspelsträd finns ännu.")
             if duplicate_brackets:
                 st.warning("Äldre dubbletter av slutspel finns. Arrangören behöver regenerera schemat.")
-        for bracket in brackets:
-            st.subheader(bracket["name"])
-            render_bracket_tree(bracket["id"], public=True, team_by_id=public_team_by_id)
+        if len(brackets) > 1:
+            st.caption(f"{len(brackets)} slutspel · första trädet är öppet")
+        for _bracket_index, bracket in enumerate(brackets):
+            if len(brackets) == 1:
+                st.subheader(bracket["name"])
+                render_bracket_tree(bracket["id"], public=True, team_by_id=public_team_by_id)
+            else:
+                with st.expander(
+                    bracket["name"],
+                    expanded=_bracket_index == 0,
+                ):
+                    render_bracket_tree(
+                        bracket["id"],
+                        public=True,
+                        team_by_id=public_team_by_id,
+                    )
 
 
 

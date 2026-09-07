@@ -50,6 +50,7 @@ class ScheduleWorkspaceDependencies:
     save_bulk_schedule_results: Callable[..., Any]
     sort_items: Any
     swedish_weekdays: Any
+    reset_unused_playoff_downstream_match: Callable[..., Any] | None = None
     setting: Callable[..., Any] | None = None
     apply_schedule_improvement: Callable[..., Any] | None = None
     apply_matchcamp_structure_improvement: Callable[..., Any] | None = None
@@ -1518,12 +1519,53 @@ def render_schedule_workspace(tid, tournament, *, deps: ScheduleWorkspaceDepende
                     match_id = int(row["match_id"])
                     home_score = None if pd.isna(row["Hemmamål"]) else int(row["Hemmamål"])
                     away_score = None if pd.isna(row["Bortamål"]) else int(row["Bortamål"])
-                    if original_scores.get(match_id) != (home_score, away_score):
-                        changed_scores.append((home_score, away_score, match_id))
+                    expected_home, expected_away = original_scores.get(match_id, (None, None))
+                    if (expected_home, expected_away) != (home_score, away_score):
+                        changed_scores.append((home_score, away_score, match_id, expected_home, expected_away))
 
                 if changed_scores:
-                    save_bulk_schedule_results(tid, changed_scores, bool(tournament["is_published"]))
-                    st.success(f"Resultat sparade för {len(changed_scores)} matcher.")
+                    save_result = save_bulk_schedule_results(tid, changed_scores, bool(tournament["is_published"]))
+                    saved_count = len(save_result.get("saved", []))
+                    conflict_count = len(save_result.get("conflicts", []))
+                    integrity_count = len(save_result.get("integrity_blocked", []))
+                    dependency_blocked = list(save_result.get("dependency_blocked", []))
+                    dependency_count = len(dependency_blocked)
+                    if saved_count:
+                        st.success(f"Resultat sparade för {saved_count} matcher.")
+                    if conflict_count:
+                        st.warning(
+                            f"{conflict_count} match(er) hade ändrats efter att schemat laddades och skrevs inte över. "
+                            "Ladda om och kontrollera det senaste resultatet."
+                        )
+                    if integrity_count:
+                        st.error(
+                            f"{integrity_count} match(er) sparades inte eftersom resultatet skulle bli lägre än "
+                            "redan registrerade målskyttsmål. Korrigera Matchhändelser först."
+                        )
+                    if dependency_count:
+                        st.error(
+                            f"{dependency_count} slutspelsresultat sparades inte eftersom en senare match redan används."
+                        )
+                        for _blocked in dependency_blocked[:3]:
+                            _message = str(_blocked[1] if len(_blocked) > 1 else "").strip()
+                            if _message:
+                                st.caption(_message)
+                            _downstream_ids = tuple(_blocked[3] if len(_blocked) > 3 else ())
+                            if (
+                                _downstream_ids
+                                and deps.reset_unused_playoff_downstream_match is not None
+                            ):
+                                _downstream_id = int(_downstream_ids[0])
+                                if st.button(
+                                    f"↩ Återställ oanvänd match {_downstream_id}",
+                                    key=f"reset_playoff_downstream_{tid}_{_downstream_id}",
+                                    use_container_width=True,
+                                ):
+                                    _reset = deps.reset_unused_playoff_downstream_match(tid, _downstream_id)
+                                    if _reset.get("reset"):
+                                        st.success(_reset.get("message", "Matchen återställdes."))
+                                    else:
+                                        st.error(_reset.get("message", "Matchen kunde inte återställas."))
                     st.rerun()
                 else:
                     st.info("Inga resultatändringar att spara.")

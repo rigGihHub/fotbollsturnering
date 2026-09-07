@@ -6,8 +6,8 @@ VERSION = (ROOT / "VERSION.txt").read_text(encoding="utf-8").strip()
 
 
 def test_release_version():
-    assert VERSION == "2026.09.04-449-MOBILE-PLAYOFF-ACTION"
-    assert 'APP_BUILD_VERSION = "2026.09.04-449-MOBILE-PLAYOFF-ACTION"' in APP
+    assert VERSION == "2026.09.07-493-BUTTON-LATENCY-IV"
+    assert 'APP_BUILD_VERSION = "2026.09.07-493-BUTTON-LATENCY-IV"' in APP
 
 
 def test_admin_cross_rerun_snapshots_exist_and_writes_invalidate():

@@ -16,7 +16,7 @@ def test_info_is_first_and_named_info():
 
 def test_my_team_heading_is_not_duplicated_by_selector_label():
     assert "cn-public-follow-intro" in TEAM
-    assert '"Välj lag"' in TEAM
+    assert '"Mina favoritlag"' in TEAM
     assert '"⭐ Följ mitt lag"' not in TEAM
 
 

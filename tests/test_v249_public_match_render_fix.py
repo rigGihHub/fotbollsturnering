@@ -16,5 +16,6 @@ def test_referee_html_is_not_left_as_indented_markdown_fragment():
 
 def test_public_match_card_dynamic_text_is_escaped():
     assert 'html.escape(str(match_row["stage"]))' in CARD
-    assert 'html.escape(public_referee_label(match_row) or "Ej tillsatt")' in CARD
+    assert 'referee_label = public_referee_label(match_row)' in CARD
+    assert 'html.escape(referee_label)' in CARD
     assert 'html.escape(center_text)' in CARD

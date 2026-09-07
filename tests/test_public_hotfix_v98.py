@@ -24,8 +24,11 @@ def test_min_cup_has_all_teams_option_and_can_clear_team_query():
     app = Path("app.py").read_text(encoding="utf-8")
     view = Path("cupnavi_core/public_team_follow_view.py").read_text(encoding="utf-8")
     assert '"Alla lag": "All teams"' in app
-    assert 'format_func=lambda team_id: tr("Alla lag") if team_id == all_teams_value' in view
-    assert "def _sync_public_favorite_team()" in view
-    assert "selected == all_teams_value" in view
-    assert 'del st.query_params["team"]' in view
-    assert 'tr("Visa alla lag")' in view
+    assert 'st.multiselect(' in view
+    assert 'st.query_params["teams"]' in view
+    assert 'for key in ("team", "teams")' in view
+    assert "def _sync_public_favorite_teams()" in view
+    assert "if selected:" in view
+    assert 'for key in ("team", "teams")' in view
+    assert 'del st.query_params[key]' in view
+    assert '"Rensa favoriter"' in view

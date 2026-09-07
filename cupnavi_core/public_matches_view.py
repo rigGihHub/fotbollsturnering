@@ -9,6 +9,7 @@ from __future__ import annotations
 # Legacy fragment QA anchor retained for historical contract: st.rerun(scope="fragment")
 
 import time
+from datetime import datetime
 from typing import Any, Callable, Mapping, Sequence
 
 from cupnavi_core.public_match_feed_logic import classify_public_match_feed, public_match_feed_summary
@@ -208,7 +209,7 @@ def render_public_matches_fragment(
         _exact_matches = [m for m in base_match_list if int(row_value(m, "id", 0) or 0) == int(requested_match_id)]
         if _exact_matches:
             base_match_list = _exact_matches
-            st.info(f"🔎 Du visar match {requested_match_id}.")
+            st.caption("🔎 Exakt match")
         else:
             st.warning("Matchen finns inte bland de publicerade matcherna i den här cupen.")
 
@@ -258,12 +259,17 @@ def render_public_matches_fragment(
     # only when the visitor asks for details. Exact-match deep links keep details
     # on automatically because that route explicitly targets one match.
     _events_toggle_key = f"public_match_events_v444_{tournament_id}"
-    show_match_events = bool(requested_match_id) or st.toggle(
-        "⚽ Visa målskyttar och kort",
-        value=False,
-        key=_events_toggle_key,
-        help="Hämtar matchhändelser först när du vill se dem.",
-    )
+    if requested_match_id:
+        show_match_events = True
+    elif visible_played_match_ids:
+        show_match_events = st.toggle(
+            "⚽ Målskyttar och kort",
+            value=False,
+            key=_events_toggle_key,
+            help="Visar registrerade matchhändelser för de spelade matcherna.",
+        )
+    else:
+        show_match_events = False
     public_events_by_match = (
         load_match_events(visible_played_match_ids)
         if show_match_events and visible_played_match_ids
@@ -272,6 +278,45 @@ def render_public_matches_fragment(
     stage_timings["events_ms"] = round((time.perf_counter() - stage_started) * 1000, 1)
 
     stage_started = time.perf_counter()
+
+    # v471: weather stays opt-in, but a near upcoming match gets a direct
+    # quick action beside the match flow instead of forcing the visitor to
+    # reopen filters. This changes only session state; the forecast call still
+    # happens inside the existing card renderer after explicit user intent.
+    _near_weather_match = None
+    if not show_match_weather:
+        for _weather_candidate in match_list:
+            try:
+                _weather_start = datetime.fromisoformat(
+                    str(row_value(_weather_candidate, "scheduled_start", ""))
+                )
+            except (TypeError, ValueError):
+                continue
+            _minutes_to_weather = int((_weather_start - now).total_seconds() // 60)
+            if 0 <= _minutes_to_weather <= 120:
+                _near_weather_match = _weather_candidate
+                break
+
+    if _near_weather_match is not None:
+        _near_weather_minutes = int(
+            (
+                datetime.fromisoformat(str(row_value(_near_weather_match, "scheduled_start", "")))
+                - now
+            ).total_seconds()
+            // 60
+        )
+
+        def _enable_near_match_weather() -> None:
+            st.session_state[f"public_matches_weather_{tournament_id}"] = True
+
+        st.button(
+            f"🌦️ Visa väder · match om {_near_weather_minutes} min",
+            key=f"public_near_weather_v471_{tournament_id}_{int(row_value(_near_weather_match, 'id', 0) or 0)}",
+            use_container_width=True,
+            help="Aktiverar väderprognos för de synliga matchkorten.",
+            on_click=_enable_near_match_weather,
+        )
+
     render_match_cards(
         match_list,
         show_results=None,

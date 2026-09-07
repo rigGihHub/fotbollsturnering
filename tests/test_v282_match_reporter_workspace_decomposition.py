@@ -48,8 +48,8 @@ def test_workspace_uses_injected_persistence_callbacks():
     assert "deps.save_quick_result(" in WORKSPACE
     assert "deps.save_bulk_results(" in WORKSPACE
     assert "deps.save_event_rows(" in WORKSPACE
-    assert "deps.acknowledge_referee(" in WORKSPACE
+    assert "on_click=deps.acknowledge_referee" in WORKSPACE
 
 
 def test_release_version():
-    assert VERSION == "2026.09.04-449-MOBILE-PLAYOFF-ACTION"
+    assert VERSION == "2026.09.07-493-BUTTON-LATENCY-IV"

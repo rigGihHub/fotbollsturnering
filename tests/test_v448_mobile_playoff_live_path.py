@@ -6,7 +6,7 @@ PRESENTATION = (ROOT / "cupnavi_core" / "public_presentation_view.py").read_text
 
 
 def test_v448_version():
-    assert VERSION == "2026.09.04-449-MOBILE-PLAYOFF-ACTION"
+    assert VERSION == "2026.09.07-493-BUTTON-LATENCY-IV"
 
 
 def test_mobile_playoff_has_live_status_and_progress_path():

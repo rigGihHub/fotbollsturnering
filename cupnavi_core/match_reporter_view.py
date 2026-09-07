@@ -64,16 +64,20 @@ def build_offline_draft_html(options: list[dict[str, Any]], tournament_id: int) 
     storage_key = f"cupnavi-offline-{int(tournament_id)}"
     return f"""
     <style>body{{font-family:Arial,sans-serif;color:#172033;margin:0}} .box{{border:1px solid #cbd5e1;border-radius:14px;padding:14px;background:#fff}}
-    select,input,button{{font-size:16px;padding:9px;border:1px solid #cbd5e1;border-radius:9px}} .scores{{display:flex;gap:8px;margin:12px 0;align-items:center}} input{{width:70px}} button{{cursor:pointer;background:#ecfdf5}} #status{{font-size:12px;color:#475569;margin-top:8px}}</style>
-    <div class='box'><b>Lokalt resultatutkast</b><br><small>Data sparas endast i den här webbläsaren.</small><br><br>
+    select,input,button{{font-size:16px;padding:9px;border:1px solid #cbd5e1;border-radius:9px}} .scores{{display:flex;gap:8px;margin:12px 0;align-items:center;flex-wrap:wrap}} input{{width:70px}} button{{cursor:pointer;background:#ecfdf5}} #status,#net{{font-size:12px;color:#475569;margin-top:8px}} .offline{{color:#b91c1c;font-weight:700}} .online{{color:#166534;font-weight:700}}</style>
+    <div class='box'><b>Lokalt resultatutkast</b><div id='net'></div><small>Data sparas endast i den här webbläsaren och synkas inte automatiskt.</small><br><br>
     <select id='m'></select><div class='scores'><input id='h' type='number' min='0' value='0'><b>–</b><input id='a' type='number' min='0' value='0'><button id='save'>Spara lokalt</button><button id='copy'>Kopiera</button></div><div id='status'></div></div>
     <script>
     const matches={matches_json}; const key={_script_json(storage_key)};
-    const select=document.getElementById('m'); const h=document.getElementById('h'); const a=document.getElementById('a'); const status=document.getElementById('status');
+    const select=document.getElementById('m'); const h=document.getElementById('h'); const a=document.getElementById('a'); const status=document.getElementById('status'); const net=document.getElementById('net');
     matches.forEach(x=>{{const o=document.createElement('option');o.value=x.id;o.textContent=x.label;select.appendChild(o)}});
+    function networkStatus(){{const online=navigator.onLine;net.textContent=online?'● Online – använd vanlig målrapportering':'● Offline – använd detta lokala utkast';net.className=online?'online':'offline'}}
+    function saveLocal(message='Autosparat lokalt på enheten.'){{if(!select.value)return;const all=JSON.parse(localStorage.getItem(key)||'{{}}');all[select.value]={{h:+h.value||0,a:+a.value||0,saved:new Date().toLocaleString()}};localStorage.setItem(key,JSON.stringify(all));status.textContent=message}}
     function load(){{const all=JSON.parse(localStorage.getItem(key)||'{{}}');const d=all[select.value];if(d){{h.value=d.h;a.value=d.a;status.textContent='Lokalt utkast hittat: '+d.saved}}else{{h.value=0;a.value=0;status.textContent='Inget lokalt utkast för vald match.'}}}}
-    select.addEventListener('change',load); document.getElementById('save').onclick=()=>{{const all=JSON.parse(localStorage.getItem(key)||'{{}}');all[select.value]={{h:+h.value||0,a:+a.value||0,saved:new Date().toLocaleString()}};localStorage.setItem(key,JSON.stringify(all));status.textContent='Sparat lokalt på enheten.'}};
-    document.getElementById('copy').onclick=async()=>{{const label=select.options[select.selectedIndex]?.text||'';const txt=label+' | '+h.value+'–'+a.value;try{{await navigator.clipboard.writeText(txt);status.textContent='Utkastet kopierades.'}}catch(e){{status.textContent=txt}}}}; load();
+    select.addEventListener('change',load); h.addEventListener('input',()=>saveLocal()); a.addEventListener('input',()=>saveLocal());
+    document.getElementById('save').onclick=()=>saveLocal('Sparat lokalt på enheten.');
+    document.getElementById('copy').onclick=async()=>{{const label=select.options[select.selectedIndex]?.text||'';const txt=label+' | '+h.value+'–'+a.value;try{{await navigator.clipboard.writeText(txt);status.textContent='Utkastet kopierades.'}}catch(e){{status.textContent=txt}}}};
+    window.addEventListener('online',networkStatus); window.addEventListener('offline',networkStatus); networkStatus(); load();
     </script>
     """
 

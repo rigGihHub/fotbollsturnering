@@ -51,4 +51,4 @@ def test_quick_quality_does_not_require_expensive_score_analysis():
 
 
 def test_version():
-    assert 'APP_BUILD_VERSION = "2026.09.04-449-MOBILE-PLAYOFF-ACTION"' in APP
+    assert 'APP_BUILD_VERSION = "2026.09.07-493-BUTTON-LATENCY-IV"' in APP

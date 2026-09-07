@@ -425,6 +425,7 @@ def render_public_workspace(tournament_id: int, tournament: Any, deps: PublicWor
             one_row=one_row,
             all_rows=all_rows,
             create_notification_subscription=create_notification_subscription,
+            match_duration_minutes=match_duration_minutes,
         )
 
     screen_url = public_cup_url(tournament_id) + ("&" if "?" in public_cup_url(tournament_id) else "?") + "screen=1"

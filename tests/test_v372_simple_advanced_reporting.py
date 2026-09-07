@@ -6,7 +6,7 @@ VERSION = (ROOT / "VERSION.txt").read_text(encoding="utf-8").strip()
 
 
 def test_release_version():
-    assert VERSION == "2026.09.04-449-MOBILE-PLAYOFF-ACTION"
+    assert VERSION == "2026.09.07-493-BUTTON-LATENCY-IV"
 
 
 def test_score_flow_has_explicit_simple_and_advanced_modes():
@@ -21,14 +21,14 @@ def test_simple_mode_keeps_core_result_path_short():
     assert '"✅ Spara resultat"' in VIEW
     assert 'deps.save_quick_result(tournament_id, quick_match, quick_home_score, quick_away_score)' in VIEW
     assert 'if not _advanced_reporting:' in VIEW
-    assert '"Behöver du målskyttar, assist, kort, straffar eller massinmatning? Välj Avancerad ovan."' in VIEW
+    assert '"Målskyttar, kort och specialfall finns i Avancerad."' in VIEW
 
 
 def test_advanced_mode_owns_status_events_and_special_fields():
     assert 'if _advanced_reporting:' in VIEW
     assert 'st.markdown(f"**Matchstatus: {match_status_label(_current_status)}**")' in VIEW
     assert 'st.markdown("### ⚽ Livehändelser")' in VIEW
-    assert 'with st.expander("Fler resultatfält & massinmatning"' in VIEW
+    assert 'st.toggle(\n                    "Fler resultatfält & massinmatning"' in VIEW
     assert '"Avgörande vinnare"' in VIEW
 
 

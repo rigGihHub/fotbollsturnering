@@ -1,6 +1,6 @@
 from pathlib import Path
 
-VERSION = "2026.09.04-449-MOBILE-PLAYOFF-ACTION"
+VERSION = "2026.09.07-493-BUTTON-LATENCY-IV"
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE = (ROOT / "cupnavi_core" / "public_statistics_view.py").read_text(encoding="utf-8")
 

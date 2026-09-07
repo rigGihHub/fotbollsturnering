@@ -73,7 +73,6 @@ def render_role_code_card(
 
         if create_requested:
             st.session_state[code_key] = rotate_code(table_name)
-            st.rerun()
 
         if st.session_state.get(code_key):
             st.markdown(

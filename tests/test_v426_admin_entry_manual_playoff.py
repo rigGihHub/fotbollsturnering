@@ -8,7 +8,7 @@ VERSION = Path('VERSION.txt').read_text(encoding='utf-8').strip()
 
 
 def test_release_version():
-    assert VERSION == '2026.09.04-449-MOBILE-PLAYOFF-ACTION'
+    assert VERSION == '2026.09.07-493-BUTTON-LATENCY-IV'
 
 
 def test_admin_starts_with_clean_choice_gate():

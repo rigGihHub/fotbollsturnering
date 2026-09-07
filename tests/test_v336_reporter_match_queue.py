@@ -2,7 +2,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 WORKSPACE = (ROOT / "cupnavi_core" / "match_reporter_workspace_view.py").read_text()
-VERSION = "2026.09.04-449-MOBILE-PLAYOFF-ACTION"
+VERSION = "2026.09.07-493-BUTTON-LATENCY-IV"
 
 
 def test_version_markers_are_current():
@@ -27,7 +27,7 @@ def test_queue_labels_expose_next_unreported_and_reported_states():
 
 
 def test_score_workspace_defaults_to_next_work_item_and_shows_counts():
-    assert 'st.caption(\n                f"Matchkö · {len(unreported_ids)} orapporterade · "' in WORKSPACE
+    assert 'st.caption(\n                f"{len(unreported_ids)} kvar · {len(match_queue) - len(unreported_ids)} klara"' in WORKSPACE
     assert "st.session_state[quick_score_widget_key] = next_unreported_id or queue_ids[0]" in WORKSPACE
     assert '"Alla spelbara matcher har ett sparat resultat."' in WORKSPACE
     assert "queue_ids" in WORKSPACE

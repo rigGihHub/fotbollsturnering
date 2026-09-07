@@ -24,6 +24,213 @@ def match_datetime(match_row: Mapping[str, Any], row_value: Callable[[Any, str, 
         return None
 
 
+
+def build_multi_favorite_timeline(
+    published_matches: Iterable[Mapping[str, Any]],
+    favorite_team_ids: Iterable[int],
+    *,
+    now: datetime,
+    source_team_id: Callable[[Any], int | None],
+    row_value: Callable[[Any, str, Any], Any],
+    proximity_minutes: int = 60,
+    limit: int = 8,
+) -> dict[str, Any]:
+    """Build a deduplicated upcoming timeline for several followed teams.
+
+    A match between two favourite teams is shown once and tagged with both.
+    ``conflict_match_ids`` contains matches whose kick-off is within
+    ``proximity_minutes`` of another favourite match.
+    """
+    favorites = {int(team_id) for team_id in favorite_team_ids}
+    if not favorites:
+        return {"matches": [], "conflict_match_ids": set()}
+
+    items = []
+    for match in published_matches:
+        start = match_datetime(match, row_value)
+        if start is None or start < now:
+            continue
+        home_id = source_team_id(row_value(match, "home_source", None))
+        away_id = source_team_id(row_value(match, "away_source", None))
+        involved = tuple(
+            team_id for team_id in (home_id, away_id)
+            if team_id is not None and int(team_id) in favorites
+        )
+        if not involved:
+            continue
+        items.append(
+            {
+                "match": match,
+                "start": start,
+                "favorite_team_ids": tuple(dict.fromkeys(int(team_id) for team_id in involved)),
+            }
+        )
+
+    items.sort(
+        key=lambda item: (
+            item["start"],
+            int(row_value(item["match"], "pitch_number", 0) or 0),
+            int(row_value(item["match"], "id", 0) or 0),
+        )
+    )
+
+    conflict_ids: set[int] = set()
+    threshold = max(0, int(proximity_minutes))
+    for index, item in enumerate(items):
+        for other in items[index + 1:]:
+            delta_minutes = (other["start"] - item["start"]).total_seconds() / 60
+            if delta_minutes > threshold:
+                break
+            # A single match involving two favourites is not a scheduling clash
+            # with itself; different match ids are.
+            first_id = int(row_value(item["match"], "id", 0) or 0)
+            second_id = int(row_value(other["match"], "id", 0) or 0)
+            if first_id and second_id and first_id != second_id:
+                conflict_ids.update((first_id, second_id))
+
+    return {
+        "matches": items[: max(1, int(limit))],
+        "conflict_match_ids": conflict_ids,
+    }
+
+
+def build_family_next_step(
+    timeline: Mapping[str, Any],
+    *,
+    now: datetime,
+    row_value: Callable[[Any, str, Any], Any],
+) -> dict[str, Any]:
+    """Summarize the immediate next move for a family following several teams."""
+    items = list(timeline.get("matches") or [])
+    if not items:
+        return {
+            "next_item": None,
+            "following_item": None,
+            "minutes_until_next": None,
+            "gap_minutes": None,
+            "pitch_change": False,
+            "from_pitch": None,
+            "to_pitch": None,
+            "tight_turnaround": False,
+        }
+
+    next_item = items[0]
+    following_item = items[1] if len(items) > 1 else None
+    minutes_until_next = max(
+        0,
+        int((next_item["start"] - now).total_seconds() // 60),
+    )
+
+    gap_minutes = None
+    pitch_change = False
+    from_pitch = row_value(next_item["match"], "pitch_number", None)
+    to_pitch = None
+    if following_item is not None:
+        gap_minutes = max(
+            0,
+            int((following_item["start"] - next_item["start"]).total_seconds() // 60),
+        )
+        to_pitch = row_value(following_item["match"], "pitch_number", None)
+        pitch_change = (
+            from_pitch is not None
+            and to_pitch is not None
+            and str(from_pitch) != str(to_pitch)
+        )
+
+    return {
+        "next_item": next_item,
+        "following_item": following_item,
+        "minutes_until_next": minutes_until_next,
+        "gap_minutes": gap_minutes,
+        "pitch_change": pitch_change,
+        "from_pitch": from_pitch,
+        "to_pitch": to_pitch,
+        "tight_turnaround": gap_minutes is not None and gap_minutes <= 60,
+    }
+
+
+
+def build_family_travel_guidance(
+    family_step: Mapping[str, Any],
+    travel_matrix: Mapping[tuple[int, int], int] | None,
+    *,
+    match_duration_minutes: int,
+) -> dict[str, Any]:
+    """Calculate conservative family margin between two favourite matches.
+
+    The stored pitch travel matrix is treated as planned transfer time. For
+    Google-generated values this already includes the organizer's configured
+    buffer. Margin is measured from estimated end of the first match until the
+    next kick-off, after planned transfer time.
+    """
+    first = family_step.get("next_item")
+    second = family_step.get("following_item")
+    if first is None or second is None:
+        return {
+            "available": False,
+            "planned_transfer_minutes": None,
+            "post_match_window_minutes": None,
+            "margin_minutes": None,
+            "status": "unknown",
+        }
+
+    from_pitch = family_step.get("from_pitch")
+    to_pitch = family_step.get("to_pitch")
+    if from_pitch is None or to_pitch is None or str(from_pitch) == str(to_pitch):
+        return {
+            "available": True,
+            "planned_transfer_minutes": 0,
+            "post_match_window_minutes": max(
+                0,
+                int((second["start"] - first["start"]).total_seconds() // 60)
+                - max(0, int(match_duration_minutes)),
+            ),
+            "margin_minutes": max(
+                0,
+                int((second["start"] - first["start"]).total_seconds() // 60)
+                - max(0, int(match_duration_minutes)),
+            ),
+            "status": "same_pitch",
+        }
+
+    matrix = dict(travel_matrix or {})
+    try:
+        transfer = matrix.get((int(from_pitch), int(to_pitch)))
+    except (TypeError, ValueError):
+        transfer = None
+    if transfer is None:
+        return {
+            "available": False,
+            "planned_transfer_minutes": None,
+            "post_match_window_minutes": max(
+                0,
+                int((second["start"] - first["start"]).total_seconds() // 60)
+                - max(0, int(match_duration_minutes)),
+            ),
+            "margin_minutes": None,
+            "status": "missing_travel_time",
+        }
+
+    post_match_window = (
+        int((second["start"] - first["start"]).total_seconds() // 60)
+        - max(0, int(match_duration_minutes))
+    )
+    margin = post_match_window - max(0, int(transfer))
+    if margin < 0:
+        status = "insufficient"
+    elif margin <= 10:
+        status = "tight"
+    else:
+        status = "comfortable"
+    return {
+        "available": True,
+        "planned_transfer_minutes": max(0, int(transfer)),
+        "post_match_window_minutes": post_match_window,
+        "margin_minutes": margin,
+        "status": status,
+    }
+
+
 def build_favorite_team_snapshot(
     published_matches: Iterable[Mapping[str, Any]],
     team_id: int,

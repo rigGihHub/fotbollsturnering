@@ -3,8 +3,8 @@ from pathlib import Path
 
 def test_v433_personal_schedule_contract():
     source = Path("cupnavi_core/public_team_follow_view.py").read_text(encoding="utf-8")
-    assert "Min cup · kommande matcher" in source
-    assert "Ditt personliga schema" in source
+    assert "Kommande matcher" in source
+    assert "_visible_upcoming = _upcoming[:3]" in source
     assert '"Nästa · " if _index == 0' in source
     assert "public_pitch_label(_match)" in source
 

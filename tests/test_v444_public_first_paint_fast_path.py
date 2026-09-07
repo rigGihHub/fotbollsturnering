@@ -4,14 +4,16 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def test_v444_release_version():
-    assert (ROOT / "VERSION.txt").read_text().strip() == "2026.09.04-449-MOBILE-PLAYOFF-ACTION"
+    assert (ROOT / "VERSION.txt").read_text().strip() == "2026.09.07-493-BUTTON-LATENCY-IV"
 
 
 def test_match_events_are_lazy_on_first_paint():
     source = (ROOT / "cupnavi_core/public_matches_view.py").read_text(encoding="utf-8")
-    assert '"⚽ Visa målskyttar och kort"' in source
+    assert '"⚽ Målskyttar och kort"' in source
     assert "if show_match_events and visible_played_match_ids" in source
-    assert "show_match_events = bool(requested_match_id) or st.toggle(" in source
+    assert "if requested_match_id:" in source
+    assert "elif visible_played_match_ids:" in source
+    assert "show_match_events = False" in source
 
 
 def test_public_scorer_query_does_not_count_visitors():

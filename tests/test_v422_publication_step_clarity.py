@@ -6,7 +6,7 @@ VERSION = (ROOT / "VERSION.txt").read_text(encoding="utf-8").strip()
 
 
 def test_v422_version_and_final_step_label():
-    assert VERSION == "2026.09.04-449-MOBILE-PLAYOFF-ACTION"
+    assert VERSION == "2026.09.07-493-BUTTON-LATENCY-IV"
     assert "Steg 6 av 6 · Publicera" in VIEW
     assert "Steg 5 av 5 · Publicera" not in VIEW
 

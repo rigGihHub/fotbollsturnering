@@ -69,7 +69,12 @@ def render_public_match_cards(
           .public-match-card .match-weather { color:#64748b !important; }
           .public-match-card .match-score { color:#0f172a !important;font-weight:900 !important; }
           .public-match-card .public-team-name { font-size:18px !important;line-height:1.18;font-weight:850; }
-          .public-match-secondary{display:flex;justify-content:center;gap:12px;flex-wrap:wrap;margin-top:8px;font-size:12px;color:#64748b!important}
+          .public-match-secondary{display:flex;justify-content:center;gap:10px;flex-wrap:wrap;margin-top:6px;font-size:11px;color:#64748b!important}
+          .cn-match-events-compact{margin-top:8px!important;padding-top:7px!important;border-top:1px solid rgba(148,163,184,.20)!important}
+          .cn-match-events-compact .cn-events-title{font-size:10px!important;font-weight:900!important;text-transform:uppercase!important;letter-spacing:.04em!important;margin-bottom:4px!important}
+          .cn-match-events-compact .cn-event-teams{gap:8px!important}
+          .cn-match-events-compact .cn-event-team-name{font-size:10px!important}
+          .cn-match-events-compact .cn-event{font-size:11px!important;line-height:1.25!important}
           .cn-match-card-top{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:10px}
           .cn-match-time{font-size:20px;font-weight:900;letter-spacing:-.03em;line-height:1;color:#0f172a!important}
           .cn-match-place{font-size:12px;font-weight:760;color:#475569!important}
@@ -85,13 +90,16 @@ def render_public_match_cards(
           .cn-match-team.away .cn-match-teamline{justify-content:flex-end}
           .cn-match-kit{display:inline-block;width:16px;height:12px;border:1px solid #64748b;border-radius:3px;flex:0 0 16px}
           @media(max-width:760px){
+            .public-match-card{padding:10px!important;margin:7px 0!important;border-radius:12px!important}
             .public-match-card .public-team-name{font-size:16px!important}
-            .public-match-secondary{display:block;text-align:center}
-            .cn-match-card-top{grid-template-columns:auto 1fr auto;gap:7px}
+            .public-match-card .kit-label{display:none!important}
+            .public-match-secondary{margin-top:4px!important;font-size:10px!important}
+            .cn-match-card-top{grid-template-columns:auto 1fr auto;gap:6px}
             .cn-match-time{font-size:18px}
             .cn-match-place{font-size:11px}
-            .cn-match-teams{gap:7px}
+            .cn-match-teams{gap:6px;margin-top:7px}
             .cn-match-context .match-stage{font-size:10px}
+            .cn-match-context .match-number{display:none!important}
           }
         </style>
         """,
@@ -176,9 +184,10 @@ def render_public_match_cards(
             f'<span class="match-weather">{html.escape(weather_text)}</span>'
             if show_weather and weather_text else ""
         )
+        referee_label = public_referee_label(match_row)
         referee_html = (
-            f'<span class="match-referee">Domare: '
-            f'{html.escape(public_referee_label(match_row) or "Ej tillsatt")}</span>'
+            f'<span class="match-referee">Domare: {html.escape(referee_label)}</span>'
+            if referee_label else ""
         )
         match_number = row_value(match_row, "match_no", number) or number
         relative_html = (
@@ -201,12 +210,12 @@ def render_public_match_cards(
             '</div>'
             '<div class="cn-match-teams">'
             f'<div class="cn-match-team"><div class="cn-match-teamline"><span class="cn-match-kit" style="background:{home_kit_bg}"></span>'
-            f'<b class="public-team-name">{html.escape(home_name)}</b></div>'
-            '<small class="kit-label">Hemmalag</small></div>'
+            f'<b class="public-team-name">{html.escape(home_name)}</b></div></div>'
             f'<div class="match-score" style="font-size:21px">{html.escape(center_text)}</div>'
             f'<div class="cn-match-team away"><div class="cn-match-teamline"><b class="public-team-name">{html.escape(away_name)}</b>'
             f'<span class="cn-match-kit" style="background:{away_kit_bg}"></span></div>'
-            f'<small class="kit-label">{"Bortaställ" if away_kit_used else "Hemmaställ"}</small></div>'
+            + ('<small class="kit-label">Bortaställ</small>' if away_kit_used else '')
+            + '</div>'
             '</div>'
             f'{match_events_html}'
             f'<div class="public-match-secondary">{weather_html}{referee_html}</div>'

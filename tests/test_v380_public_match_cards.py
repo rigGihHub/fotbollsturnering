@@ -6,7 +6,7 @@ STYLE=(ROOT/"cupnavi_core/style_system.py").read_text(encoding="utf-8")
 VERSION=(ROOT/"VERSION.txt").read_text().strip()
 
 def test_release_version():
-    assert VERSION=="2026.09.04-449-MOBILE-PLAYOFF-ACTION"
+    assert VERSION=="2026.09.07-493-BUTTON-LATENCY-IV"
 
 def test_match_card_prioritizes_time_pitch_and_status():
     assert 'class="cn-match-time"' in CARD
@@ -26,7 +26,7 @@ def test_card_uses_real_match_number_when_available():
 def test_team_names_remain_primary_and_secondary_details_remain_secondary():
     assert 'class="cn-match-teams"' in CARD
     assert 'class="public-team-name"' in CARD
-    assert '<small class="kit-label">Hemmalag</small>' in CARD
+    assert '<small class="kit-label">Hemmalag</small>' not in CARD
     assert '<div class="public-match-secondary">{weather_html}{referee_html}</div>' in CARD
 
 def test_live_upcoming_and_finished_have_distinct_visual_states():

@@ -11,14 +11,14 @@ WORKSPACE=(ROOT/"cupnavi_core/public_workspace_view.py").read_text(encoding="utf
 VERSION=(ROOT/"VERSION.txt").read_text().strip()
 
 def test_release_version():
-    assert VERSION=="2026.09.04-449-MOBILE-PLAYOFF-ACTION"
+    assert VERSION=="2026.09.07-493-BUTTON-LATENCY-IV"
 
 def test_primary_public_navigation_matches_user_tasks():
     assert [row[0] for row in PUBLIC_PAGE_SPECS] == [
         "Info", "Matcher", "Mitt lag", "Tabeller", "Slutspel"
     ]
     assert [row[2] for row in public_navigation_specs()] == [
-        "Info", "Matcher", "Mitt lag", "Tabell", "Slutspel"
+        "Info", "Matcher", "Mina lag", "Tabell", "Slutspel"
     ]
     assert all(row[0] != "Statistik" for row in PUBLIC_PAGE_SPECS)
 

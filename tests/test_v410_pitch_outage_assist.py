@@ -13,7 +13,7 @@ def _resolve(source):
 
 
 def test_release_version_and_note():
-    assert APP_VERSION == "2026.09.04-449-MOBILE-PLAYOFF-ACTION"
+    assert APP_VERSION == "2026.09.07-493-BUTTON-LATENCY-IV"
     assert (ROOT / "PITCH_OUTAGE_ASSIST_V410.md").exists()
 
 

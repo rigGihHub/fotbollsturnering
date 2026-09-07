@@ -7,7 +7,7 @@ LOGIC = (ROOT / "cupnavi_core/public_team_follow.py").read_text(encoding="utf-8"
 
 
 def test_v446_contract_survives_current_release():
-    assert VERSION == "2026.09.04-449-MOBILE-PLAYOFF-ACTION"
+    assert VERSION == "2026.09.07-493-BUTTON-LATENCY-IV"
 
 
 def test_next_match_has_direct_single_rerun_action():
@@ -20,7 +20,7 @@ def test_next_match_has_direct_single_rerun_action():
 def test_next_match_action_reuses_snapshot_without_db_read():
     block = TEAM[
         TEAM.index("# v446: the hero already contains the next-match facts"):
-        TEAM.index("# v447: put navigation to the next pitch")
+        TEAM.index('with st.expander("Väder & vägbeskrivning"')
     ]
     assert 'row_value(favorite_next, "id", 0)' in block
     assert "one_row(" not in block

@@ -8,7 +8,7 @@ APP = (ROOT / "app.py").read_text(encoding="utf-8")
 def test_public_navigation_sticks_via_streamlit_element_wrapper():
     assert '[data-testid="stElementContainer"]:has(.cn-public-section-nav)' in STYLE
     assert '.element-container:has(.cn-public-section-nav)' in STYLE
-    assert 'position:sticky !important;top:0 !important;z-index:999995 !important' in STYLE
+    assert 'position:sticky !important;top:env(safe-area-inset-top,0px) !important;z-index:999995 !important' in STYLE
     assert '.cn-public-section-nav{' in STYLE
     assert 'position:relative !important;top:auto !important;z-index:1 !important' in STYLE
 
@@ -20,7 +20,7 @@ def test_existing_public_navigation_visual_contract_is_preserved():
 
 
 def test_v299_release_is_canonical():
-    expected = '2026.09.04-449-MOBILE-PLAYOFF-ACTION'
+    expected = '2026.09.07-493-BUTTON-LATENCY-IV'
     assert (ROOT / 'VERSION.txt').read_text(encoding='utf-8').strip() == expected
     assert expected in APP
     assert expected in (ROOT / 'cupnavi_core' / 'version.py').read_text(encoding='utf-8')

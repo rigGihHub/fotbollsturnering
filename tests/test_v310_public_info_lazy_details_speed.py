@@ -5,7 +5,7 @@ SRC = (ROOT / "cupnavi_core" / "public_info_view.py").read_text(encoding="utf-8"
 VERSION = (ROOT / "VERSION.txt").read_text(encoding="utf-8").strip()
 
 def test_release_version():
-    assert VERSION == "2026.09.04-449-MOBILE-PLAYOFF-ACTION"
+    assert VERSION == "2026.09.07-493-BUTTON-LATENCY-IV"
 
 def test_secondary_public_info_is_explicitly_lazy():
     gate = SRC.index('show_more_cup_details = st.toggle(')
@@ -18,7 +18,7 @@ def test_secondary_public_info_is_explicitly_lazy():
     assert gate < guarded < contacts < functionaries < offers < sponsors < feedback
 
 def test_public_info_gate_covers_four_secondary_sections():
-    assert '"Visa fler cupdetaljer"' in SRC
+    assert '"Fler cupdetaljer"' in SRC
     assert '"📞 Lagkontakter"' in SRC
     assert 'tr("Funktionärer")' in SRC
     assert 'tr("Erbjudanden")' in SRC

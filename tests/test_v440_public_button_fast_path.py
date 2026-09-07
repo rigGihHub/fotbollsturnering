@@ -7,7 +7,7 @@ MATCHES = (ROOT / "cupnavi_core/public_matches_view.py").read_text(encoding="utf
 
 
 def test_v440_version():
-    assert VERSION == "2026.09.04-449-MOBILE-PLAYOFF-ACTION"
+    assert VERSION == "2026.09.07-493-BUTTON-LATENCY-IV"
 
 
 def test_public_search_buttons_use_single_rerun_callbacks():

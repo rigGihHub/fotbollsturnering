@@ -70,7 +70,7 @@ def test_statistics_include_goal_assist_cards_and_playoffs():
 def test_info_page_keeps_custom_and_practical_content():
     block = Path("cupnavi_core/public_info_view.py").read_text(encoding="utf-8")
     assert 'if tournament["public_information"]:' in block
-    assert 'Information från arrangören' in block
+    assert 'Viktig information från arrangören' in block
     assert 'tournament["arena_address"]' in block
     assert 'tournament["kiosk_information"]' in block
     assert 'tournament["organizer_phone"]' in block

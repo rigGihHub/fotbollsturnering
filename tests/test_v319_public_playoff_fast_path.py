@@ -6,7 +6,7 @@ VERSION = (ROOT / "VERSION.txt").read_text().strip()
 
 
 def test_v319_version():
-    assert VERSION == "2026.09.04-449-MOBILE-PLAYOFF-ACTION"
+    assert VERSION == "2026.09.07-493-BUTTON-LATENCY-IV"
 
 
 def test_existing_brackets_are_loaded_before_setup_validation():
@@ -25,5 +25,5 @@ def test_setup_validation_is_guarded_by_missing_brackets():
 
 def test_duplicate_warning_and_bracket_rendering_are_preserved():
     assert 'st.warning("Äldre dubbletter av slutspel finns. Arrangören behöver regenerera schemat.")' in VIEW
-    assert "for bracket in brackets:" in VIEW
+    assert "for _bracket_index, bracket in enumerate(brackets):" in VIEW
     assert "render_bracket_tree(bracket[\"id\"], public=True" in VIEW

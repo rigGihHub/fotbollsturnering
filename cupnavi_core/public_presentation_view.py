@@ -99,6 +99,7 @@ def render_group_table(table_rows, tournament, group_id=None, *, st, group_playo
           .texttv-table th,.texttv-table td{{padding:8px 4px;white-space:nowrap}}
           .texttv-table th:nth-child(1),.texttv-table td:nth-child(1){{width:27px}}
           .texttv-table th:nth-child(2),.texttv-table td:nth-child(2){{width:42%;text-align:left!important;overflow:hidden;text-overflow:ellipsis}}
+          .texttv-table td.team{{font-size:12px!important;max-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}}
           .texttv-table th:nth-child(4),.texttv-table td:nth-child(4),
           .texttv-table th:nth-child(5),.texttv-table td:nth-child(5),
           .texttv-table th:nth-child(6),.texttv-table td:nth-child(6),
@@ -113,7 +114,8 @@ def render_group_table(table_rows, tournament, group_id=None, *, st, group_playo
           .qualifier{{min-width:28px!important;width:auto!important;height:22px!important;padding:0 5px!important;font-size:10px!important;line-height:1!important}}
           .qualifier-desktop{{display:none}}
           .qualifier-mobile{{display:inline}}
-          .texttv-legend{{gap:9px;font-size:10px;flex-wrap:wrap}}
+          .texttv-legend{{gap:9px;font-size:10px;flex-wrap:wrap;margin-top:5px}}
+          .texttv-table th,.texttv-table td{{height:38px}}
         }}
         </style>
         <div class="texttv-wrap"><table class="texttv-table">
@@ -510,9 +512,18 @@ def public_match_events_html(match_id, match_row=None, rows=None, team_names=Non
             "</div>"
         )
 
+    has_goals = any(int(row_value(row, "goals", 0) or 0) > 0 for row in rows)
+    has_reds = any(int(row_value(row, "red_cards", 0) or 0) > 0 for row in rows)
+    if has_goals and not has_reds:
+        event_title = "Målskyttar"
+    elif has_reds and not has_goals:
+        event_title = "Kort"
+    else:
+        event_title = "Målskyttar & kort"
+
     return (
-        "<div class='cn-match-events'>"
-        f"<div class='cn-events-title'>{html.escape(tr('Matchhändelser'))}</div>"
+        "<div class='cn-match-events cn-match-events-compact' aria-label='Matchhändelser'>"
+        f"<div class='cn-events-title'>{html.escape(event_title)}</div>"
         "<div class='cn-event-teams'>" + "".join(team_blocks) + "</div>"
         "</div>"
     )

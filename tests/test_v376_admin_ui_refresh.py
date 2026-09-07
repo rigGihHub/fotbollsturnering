@@ -7,7 +7,7 @@ VERSION = (ROOT / "VERSION.txt").read_text(encoding="utf-8").strip()
 
 
 def test_release_version():
-    assert VERSION == "2026.09.04-449-MOBILE-PLAYOFF-ACTION"
+    assert VERSION == "2026.09.07-493-BUTTON-LATENCY-IV"
 
 
 def test_cupday_uses_custom_operational_header():
@@ -29,9 +29,9 @@ def test_primary_guidance_has_visual_state_card():
 def test_operational_kpis_are_compact_custom_cards():
     section = APP[APP.index('if admin_page == "Cupdagen":'):APP.index('if admin_page == "Cupverktyg":')]
     assert 'class="cn-day-kpis"' in section
-    assert "Spelas nu" in section
-    assert "Inom 45 min" in section
-    assert "Behöver åtgärd" in section
+    assert "Pågår nu" in section
+    assert "Nästa 45 min" in section
+    assert "Problem" in section
     assert '_d1.metric("Nu"' not in section
 
 

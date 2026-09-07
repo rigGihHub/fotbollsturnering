@@ -7,7 +7,7 @@ VERSION = (ROOT / "VERSION.txt").read_text(encoding="utf-8").strip()
 
 
 def test_v315_version_is_canonical():
-    assert VERSION == "2026.09.04-449-MOBILE-PLAYOFF-ACTION"
+    assert VERSION == "2026.09.07-493-BUTTON-LATENCY-IV"
 
 
 def test_primary_navigation_uses_native_streamlit_widget_not_href_builder():
@@ -30,6 +30,6 @@ def test_native_navigation_keeps_canonical_section_url_synced():
 
 def test_native_navigation_retains_sticky_five_column_shell():
     assert '[class*="st-key-cn_public_primary_nav_shell_"]' in STYLE
-    assert 'position:sticky !important;top:0 !important;z-index:999995 !important' in STYLE
+    assert 'position:sticky !important;top:env(safe-area-inset-top,0px) !important;z-index:999995 !important' in STYLE
     assert 'grid-template-columns:repeat(5,minmax(0,1fr)) !important' in STYLE
     assert 'background:#1f6f4a !important' in STYLE

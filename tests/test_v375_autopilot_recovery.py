@@ -36,7 +36,7 @@ RULES = {
 
 
 def test_release_version():
-    assert VERSION == "2026.09.04-449-MOBILE-PLAYOFF-ACTION"
+    assert VERSION == "2026.09.07-493-BUTTON-LATENCY-IV"
 
 
 def test_gap_absorption_moves_fewer_matches_than_full_cascade():
