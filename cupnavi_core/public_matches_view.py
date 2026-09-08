@@ -99,11 +99,52 @@ def render_public_matches_fragment(
         st.markdown(feed_html, unsafe_allow_html=True)
     stage_timings["live_feed_ms"] = round((time.perf_counter() - stage_started) * 1000, 1)
 
-    # v529: keep scorer/highlight work completely off the first-paint path.
-    # The match list is the primary public task; render its compact summary
-    # immediately from already-loaded core data and defer all highlight
-    # calculations/DB reads until the visitor explicitly asks for them.
+    # v541: restore the compact public highlights that existed before the
+    # first-paint performance work. The top scorer comes from the dedicated
+    # lightweight cached query, so we do not need to load the full statistics
+    # dashboard. Team attack/defence highlights are calculated only when the
+    # current snapshot contains every published match; otherwise omitting them
+    # is safer than presenting rankings from a bounded first-paint batch.
     stage_started = time.perf_counter()
+    summary_highlights: dict[str, Any] = {}
+    if played_matches and published_matches_complete:
+        team_totals: dict[int, dict[str, int]] = {}
+        for match in played_matches:
+            home_id = source_team_id(match["home_source"])
+            away_id = source_team_id(match["away_source"])
+            if home_id is None or away_id is None:
+                continue
+            home_score = int(match["home_score"] or 0)
+            away_score = int(match["away_score"] or 0)
+            home_stats = team_totals.setdefault(int(home_id), {"gf": 0, "ga": 0, "played": 0})
+            away_stats = team_totals.setdefault(int(away_id), {"gf": 0, "ga": 0, "played": 0})
+            home_stats["gf"] += home_score; home_stats["ga"] += away_score; home_stats["played"] += 1
+            away_stats["gf"] += away_score; away_stats["ga"] += home_score; away_stats["played"] += 1
+        if team_totals:
+            max_goals = max(stats["gf"] for stats in team_totals.values())
+            played_team_stats = [stats for stats in team_totals.values() if stats["played"] > 0]
+            min_conceded = min(stats["ga"] for stats in played_team_stats) if played_team_stats else 0
+            attack_names = sorted(public_team_names[team_id] for team_id, stats in team_totals.items() if stats["gf"] == max_goals and team_id in public_team_names)
+            defence_names = sorted(public_team_names[team_id] for team_id, stats in team_totals.items() if stats["played"] > 0 and stats["ga"] == min_conceded and team_id in public_team_names)
+            if attack_names:
+                summary_highlights["attack"] = {"names": attack_names, "value": max_goals}
+            if defence_names:
+                summary_highlights["defence"] = {"names": defence_names, "value": min_conceded}
+
+    if bool(row_value(tournament, "enable_scorer_leaderboard", 1)) and summary_played_count > 0:
+        overview_started = time.perf_counter()
+        overview = load_overview(tournament_id)
+        stage_timings["overview_db_ms"] = round((time.perf_counter() - overview_started) * 1000, 1)
+        leader_rows = list(overview.get("leader_rows", []))
+        if leader_rows:
+            leader = leader_rows[0]
+            if int(leader.get("goals") or 0) > 0:
+                summary_highlights["scorer"] = {
+                    "player": str(leader.get("player_name") or ""),
+                    "team": str(leader.get("team_name") or ""),
+                    "value": int(leader.get("goals") or 0),
+                }
+
     summary_html = build_summary_html(
         team_count=team_count,
         played_count=summary_played_count,
@@ -111,11 +152,11 @@ def render_public_matches_fragment(
         total_score=summary_total_goals,
         score_label=sport_profile(row_value(tournament, "sport", "Fotboll"))["score_label"],
         tr=tr,
-        highlights_html="",
+        highlights_html=build_highlights_html(summary_highlights, tr=tr),
     )
     st.markdown(summary_html, unsafe_allow_html=True)
     stage_timings["summary_share_ms"] = round((time.perf_counter() - stage_started) * 1000, 1)
-    stage_timings["overview_db_ms"] = 0.0
+    stage_timings.setdefault("overview_db_ms", 0.0)
     stage_timings["highlights_ms"] = 0.0
     stage_timings["visitors_ms"] = 0.0
 

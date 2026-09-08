@@ -6,7 +6,7 @@ consume without coupling CupNavi's match reporting to a specific push vendor.
 """
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 import json
 
 
@@ -38,6 +38,7 @@ def goal_push_events(*, match_id: int, tournament_id: int,
             return
         title = f"⚽ Mål för {team_name}!"
         body = f"{home_team_name}–{away_team_name} {new_h}–{new_a}"
+        deliver_after = (datetime.now(timezone.utc) + timedelta(seconds=30)).isoformat(timespec="seconds")
         events.append({
             "tournament_id": int(tournament_id),
             "team_id": int(team_id),
@@ -51,6 +52,9 @@ def goal_push_events(*, match_id: int, tournament_id: int,
                 "match_id": int(match_id),
                 "team_id": int(team_id),
                 "score": {"home": new_h, "away": new_a},
+                "debounce_key": f"goal:{match_id}:{side}",
+                "deliver_after": deliver_after,
+                "debounce_seconds": 30,
             },
         })
 
@@ -62,7 +66,20 @@ def goal_push_events(*, match_id: int, tournament_id: int,
 
 
 def enqueue_push_event(con, event: dict) -> bool:
-    """Insert one idempotent push event into the durable outbox."""
+    """Insert one idempotent push event into the durable outbox.
+
+    Goal pushes use a 30-second quiet period. A newer edit for the same
+    match/team supersedes an older still-pending goal event, so only the latest
+    corrected score remains eligible for a future delivery worker.
+    """
+    payload = event.get("payload") or {}
+    if event.get("event_type") == "goal" and payload.get("debounce_key"):
+        con.execute(
+            """UPDATE push_notification_outbox
+               SET status='superseded'
+               WHERE status='pending' AND event_type='goal' AND match_id=? AND team_id=?""",
+            (int(event["match_id"]), int(event["team_id"])),
+        )
     cur = con.execute(
         """INSERT OR IGNORE INTO push_notification_outbox(
                tournament_id,team_id,match_id,event_type,event_key,title,body,payload_json,
@@ -71,7 +88,7 @@ def enqueue_push_event(con, event: dict) -> bool:
         (
             int(event["tournament_id"]), int(event["team_id"]), int(event["match_id"]),
             str(event["event_type"]), str(event["event_key"]), str(event["title"]),
-            str(event["body"]), json.dumps(event.get("payload") or {}, ensure_ascii=False,
+            str(event["body"]), json.dumps(payload, ensure_ascii=False,
                                            separators=(",", ":")), now_iso(),
         ),
     )
@@ -80,3 +97,18 @@ def enqueue_push_event(con, event: dict) -> bool:
 
 def enqueue_goal_push_events(con, **kwargs) -> int:
     return sum(1 for event in goal_push_events(**kwargs) if enqueue_push_event(con, event))
+
+
+def cancel_pending_goal_push_events(con, *, match_id: int, team_id: int | None = None) -> int:
+    """Cancel not-yet-delivered goal notifications after a reporter correction."""
+    if team_id is None:
+        cur = con.execute(
+            "UPDATE push_notification_outbox SET status='superseded' WHERE status='pending' AND event_type='goal' AND match_id=?",
+            (int(match_id),),
+        )
+    else:
+        cur = con.execute(
+            "UPDATE push_notification_outbox SET status='superseded' WHERE status='pending' AND event_type='goal' AND match_id=? AND team_id=?",
+            (int(match_id), int(team_id)),
+        )
+    return int(cur.rowcount or 0)

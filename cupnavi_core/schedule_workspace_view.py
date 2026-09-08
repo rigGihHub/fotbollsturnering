@@ -137,6 +137,39 @@ def schedule_next_step(
     }
 
 
+
+
+def schedule_issue_match_numbers(issue: Any) -> list[int]:
+    """Extract validation match numbers from a human-readable schedule issue."""
+    numbers = [int(raw) for raw in re.findall(r"\bmatch\s+(\d+)\b", str(issue or ""), flags=re.IGNORECASE)]
+    return list(dict.fromkeys(numbers))
+
+
+def schedule_issue_guidance(issue: Any) -> str:
+    """Return one short beginner-facing action sentence for a validation issue."""
+    text = str(issue or "").lower()
+    if "plankrock" in text:
+        return "Flytta en av matcherna till en annan tid eller plan."
+    if "domarkrock" in text:
+        return "Byt domare eller flytta en av matcherna."
+    if "dubbelbokat" in text:
+        return "Flytta en av matcherna så laget inte spelar två matcher samtidigt."
+    if "obligatoriska extrapusen" in text or "direkt efter varandra" in text:
+        return "Öka tiden mellan de berörda matcherna."
+    if "ogiltig plan" in text:
+        return "Välj en giltig plan för matchen."
+    if "utanför cupens datumintervall" in text:
+        return "Flytta matchen till ett datum inom cupen."
+    if "före planens tillåtna starttid" in text or "efter planens sluttid" in text:
+        return "Justera matchtiden så den ryms inom planens öppettider."
+    if "saknar schematid" in text:
+        return "Komplettera eller bygg om schemat så alla gruppspelsmatcher får en tid."
+    if "saknar domare" in text:
+        return "Tilldela en domare eller ändra domarläget."
+    if "färglikhet" in text:
+        return "Granska lagens matchställ och välj ett tydligt avvikande ställ."
+    return "Öppna den berörda matchen och rätta uppgifterna innan publicering."
+
 def schedule_quick_quality(*, scheduled_total: int, schedule_errors: list[Any], schedule_warnings: list[Any]) -> tuple[str, str]:
     """Cheap quality signal; the detailed score remains opt-in/lazy."""
     if scheduled_total <= 0:
@@ -355,7 +388,10 @@ def render_schedule_workspace(tid, tournament, *, deps: ScheduleWorkspaceDepende
     # still be editable by the organizer. Surface that action here instead of
     # hiding it among advanced/detail tools.
     if scheduled_total > 0:
-        with st.expander("✏️ Redigera befintligt schema manuellt", expanded=False):
+        with st.expander(
+            "✏️ Redigera befintligt schema manuellt",
+            expanded=bool(st.session_state.get(f"manual_schedule_edit_open_{tid}", False)),
+        ):
             st.markdown("#### Redigera befintligt schema manuellt")
             st.caption(
                 "Ändra en ospelad match utan att generera om resten av schemat. "
@@ -610,22 +646,88 @@ def render_schedule_workspace(tid, tournament, *, deps: ScheduleWorkspaceDepende
             ),
         ]
         ready_count = sum(1 for ok, _, _ in readiness_checks if ok)
-        st.progress(ready_count / len(readiness_checks))
-        st.caption(f"Förkontroll · {ready_count}/{len(readiness_checks)} steg klara")
-        _readiness_cols = st.columns(2)
-        for idx, (is_ready, label, detail) in enumerate(readiness_checks):
-            icon = "✓" if is_ready else "○"
-            _readiness_cols[idx % 2].markdown(f"**{icon} {label}**  \\n{detail}")
-        if ready_count == len(readiness_checks):
-            st.success("Redo att skapa spelschema. CupNavi har allt grundunderlag som behövs.")
-        if tournament["playoff_format"] != "Inget slutspel":
-            if playoff_setup_error:
-                st.error(f"Slutspel kan inte genereras: {playoff_setup_error}")
-            elif playoff_specs:
-                _playoff_match_estimate = sum(max(0, int(size) - 1) + (1 if bool(tournament["bronze_match"]) and int(size) >= 4 else 0) for _, size, _ in playoff_specs)
-                st.success(f"Slutspel redo att genereras · {len(playoff_specs)} träd · cirka {_playoff_match_estimate} slutspelsmatcher.")
-            else:
-                st.warning("Slutspel är valt men CupNavi kunde inte ta fram något slutspelsträd.")
+        _missing_readiness = [(label, detail) for ok, label, detail in readiness_checks if not ok]
+
+        # v542: The schedule page should answer three questions immediately:
+        # 1) Is the setup ready? 2) What is wrong? 3) What must I choose/do next?
+        # Keep completed setup facts compact and surface only unfinished choices.
+        with st.container(border=True):
+            _status_cols = st.columns(4)
+            _status_cols[0].metric("Grunddata", f"{ready_count}/{len(readiness_checks)} klara")
+            _status_cols[1].metric("Schema", f"{scheduled_total} matcher" if scheduled_total else "Inte skapat")
+            _status_cols[2].metric("Blockerande fel", len(schedule_errors))
+            _status_cols[3].metric("Varningar", len(schedule_warnings))
+            st.progress(ready_count / len(readiness_checks))
+
+        if _missing_readiness:
+            with st.container(border=True):
+                st.markdown("### Val som måste göras")
+                st.caption("Gör klart dessa punkter innan CupNavi kan bygga eller publicera schemat.")
+                for label, detail in _missing_readiness:
+                    st.markdown(f"**○ {label}** — {detail}")
+        else:
+            st.caption("✓ Grunddata klar: lag, grupper, gruppplacering och tävlingsupplägg är redo.")
+
+        _issue_match_rows = []
+        if schedule_errors or schedule_warnings:
+            # Validation labels matches by chronological position. Fetch only IDs in the
+            # same order once so every issue can offer a direct "Rätta match" action.
+            _issue_match_rows = all_rows(
+                """SELECT id FROM matches
+                   WHERE tournament_id=? AND scheduled_start IS NOT NULL
+                   ORDER BY scheduled_start,pitch_number,id""",
+                (tid,),
+            )
+
+        def _open_issue_match(match_number: int) -> None:
+            if not 1 <= int(match_number) <= len(_issue_match_rows):
+                return
+            match_id = int(_issue_match_rows[int(match_number) - 1]["id"])
+            st.session_state[f"manual_schedule_edit_open_{tid}"] = True
+            st.session_state[f"manual_schedule_match_{tid}"] = match_id
+
+        if schedule_errors:
+            with st.container(border=True):
+                st.markdown(f"### ⛔ Blockerande schemafel ({len(schedule_errors)})")
+                st.caption("Alla fel visas här. Rätta dem innan schemat kan publiceras.")
+                for idx, issue in enumerate(schedule_errors, 1):
+                    _match_numbers = schedule_issue_match_numbers(issue)
+                    with st.container(border=True):
+                        st.markdown(f"**Fel {idx}: {issue}**")
+                        st.caption(schedule_issue_guidance(issue))
+                        if _match_numbers:
+                            _action_cols = st.columns(min(3, len(_match_numbers)))
+                            for _col_idx, _match_number in enumerate(_match_numbers):
+                                _action_cols[_col_idx % len(_action_cols)].button(
+                                    f"Rätta match {_match_number} →",
+                                    key=f"schedule_error_match_{tid}_{idx}_{_match_number}",
+                                    use_container_width=True,
+                                    on_click=_open_issue_match,
+                                    args=(_match_number,),
+                                )
+                        elif "saknar schematid" in str(issue).lower():
+                            st.caption("Det här felet gäller schemat som helhet. Använd ‘Nästa steg’ nedan för att komplettera eller bygga om schemat.")
+        if schedule_warnings:
+            with st.expander(f"⚠️ Varningar ({len(schedule_warnings)})", expanded=not bool(schedule_errors)):
+                st.caption("Varningar blockerar inte alltid publicering, men bör granskas.")
+                for idx, warning in enumerate(schedule_warnings, 1):
+                    _match_numbers = schedule_issue_match_numbers(warning)
+                    with st.container(border=True):
+                        st.markdown(f"**Varning {idx}: {warning}**")
+                        st.caption(schedule_issue_guidance(warning))
+                        if _match_numbers:
+                            _action_cols = st.columns(min(3, len(_match_numbers)))
+                            for _col_idx, _match_number in enumerate(_match_numbers):
+                                _action_cols[_col_idx % len(_action_cols)].button(
+                                    f"Öppna match {_match_number} →",
+                                    key=f"schedule_warning_match_{tid}_{idx}_{_match_number}",
+                                    use_container_width=True,
+                                    on_click=_open_issue_match,
+                                    args=(_match_number,),
+                                )
+
+        if tournament["playoff_format"] != "Inget slutspel" and playoff_setup_error:
+            st.error(f"Slutspel kan inte genereras: {playoff_setup_error}")
 
         _regenerating_unplayed_schedule = bool(scheduled_total > 0 and not played_result_total)
         _locked_unplayed_total = int(one_row(
@@ -642,38 +744,49 @@ def render_schedule_workspace(tid, tournament, *, deps: ScheduleWorkspaceDepende
             else "Skapa om schemat" if _regenerating_unplayed_schedule
             else "Skapa hela spelschemat"
         )
-        if played_result_total:
-            # Historical QA anchor retained: "Spelade matcher lämnas oförändrade."
-            st.caption(
-                "Spelade matcher lämnas oförändrade. CupNavi arbetar bara med återstående matcher och ändrar inte lagens gruppplacering eller sparade tävlingsregler."
-            )
-        elif _regenerating_unplayed_schedule:
-            if _repairing_locked_schedule:
-                st.error(
-                    f"Schemat har {len(schedule_errors)} kritiska fel och {_locked_unplayed_total} ospelade matcher är låsta, "
-                    "vilket är vanligt efter foto/PDF-import. CupNavi kan reparera schemat genom att låsa upp de ospelade "
-                    "matcherna och räkna om tider, planer och domare. Lag, grupper och tävlingsregler ändras inte."
-                )
-            else:
-                st.warning(
-                    "Det finns redan ett schema. Om du skapar om det kan matchtider, planer och domartilldelning ändras. "
-                    "Lagens gruppplacering, laguppgifter och sparade tävlingsregler ändras inte."
-                )
-            _confirm_regenerate = st.checkbox(
-                "Jag förstår att befintliga schematider kan ersättas",
-                key=f"confirm_regenerate_schedule_{tid}",
-            )
-        else:
-            st.caption(
-                "CupNavi skapar de matcher som saknas och fördelar tider, planer och domare. "
-                "Lagens gruppplacering, laguppgifter och sparade tävlingsregler ändras inte."
-            )
-            _confirm_regenerate = True
-        _schedule_action_disabled = _regenerating_unplayed_schedule and not _confirm_regenerate
-        # v515: A disabled primary CTA looked clickable but did nothing. When setup
-        # blocks generation, show the problem and direct routes instead of a dead button.
+        # v542: Keep the destructive choice together with the primary action.
+        # Do not scatter warnings, confirmations and buttons across the page.
+        _confirm_regenerate = True
+        _schedule_action_disabled = False
+
         if not create_disabled:
-            if st.button(schedule_button_label, type="primary", use_container_width=True, disabled=_schedule_action_disabled):
+            with st.container(border=True):
+                st.markdown("### Nästa steg")
+                if played_result_total:
+                    st.markdown(
+                        f"**Uppdatera bara det som återstår.** {played_result_total} spelade matcher och deras resultat skyddas. "
+                        "CupNavi ändrar inte lagens gruppplacering eller sparade tävlingsregler."
+                    )
+                elif _repairing_locked_schedule:
+                    st.markdown(
+                        "**Rekommenderat: reparera det foto/PDF-importerade schemat.** CupNavi låser upp ospelade importerade matcher "
+                        "och räknar om tider, planer och domare. Lag, grupper och tävlingsregler behålls."
+                    )
+                elif _regenerating_unplayed_schedule:
+                    st.markdown(
+                        "**Du behöver välja:** behåll befintliga tider, eller tillåt CupNavi att skapa om de ospelade schematiderna."
+                    )
+                elif scheduled_total == 0:
+                    st.markdown("**Rekommenderat:** skapa hela spelschemat nu.")
+                else:
+                    st.markdown(f"**{_next_step['title']}** — {_next_step['detail']}")
+
+                if _regenerating_unplayed_schedule:
+                    _confirm_regenerate = st.checkbox(
+                        "Ja, CupNavi får ersätta befintliga ospelade schematider",
+                        key=f"confirm_regenerate_schedule_{tid}",
+                    )
+                    _schedule_action_disabled = not _confirm_regenerate
+                    if _schedule_action_disabled:
+                        st.caption("Välj ovan för att aktivera knappen. Inget ändras innan du trycker på knappen.")
+
+                _run_schedule_action = st.button(
+                    schedule_button_label,
+                    type="primary",
+                    use_container_width=True,
+                    disabled=_schedule_action_disabled,
+                )
+            if _run_schedule_action:
                 started_schedule = time.perf_counter()
                 try:
                     with st.spinner("CupNavi bygger schemat och fördelar planer/domare…"):
@@ -729,11 +842,6 @@ def render_schedule_workspace(tid, tournament, *, deps: ScheduleWorkspaceDepende
                         f"Schemagenereringen avbröts efter {elapsed:.1f} sekunder: {exc}",
                     )
                 st.rerun()
-        if played_result_total:
-            st.info(
-                f"Det finns {played_result_total} matcher med registrerat resultat. "
-                "Därför bevaras befintliga schematider och resultat; endast återstående matcher får nya tider."
-            )
         if create_disabled:
             problems = []
             if not participant_list_complete:
@@ -751,7 +859,7 @@ def render_schedule_workspace(tid, tournament, *, deps: ScheduleWorkspaceDepende
                 problems.append("välj och spara slutspelsmodell på Adminöversikten")
             if playoff_setup_error:
                 problems.append(playoff_setup_error)
-            st.warning("Innan hela spelschemat kan skapas måste du " + "; ".join(problems) + ".")
+            st.caption("Åtgärda valen under ‘Val som måste göras’ ovan. Gå direkt till rätt steg här:")
             if navigate_admin_page is not None:
                 render_problem_actions(
                     st,
@@ -764,9 +872,9 @@ def render_schedule_workspace(tid, tournament, *, deps: ScheduleWorkspaceDepende
         elif scheduled_total == 0:
             st.caption("Knappen ovan skapar gruppspel, slutspel och spelschema i ett steg.")
         elif schedule_errors:
-            st.error(f"Schemat har {len(schedule_errors)} fel och kan inte publiceras. Se schemakontrollen nedan.")
+            st.caption("Publicering är blockerad tills schemafelen ovan är lösta.")
         elif schedule_warnings:
-            st.warning("Schemat har varningar. Granska dem och godkänn dem i vänsterspalten före publicering.")
+            st.caption("Schemat har varningar som bör granskas före publicering.")
         elif unpublished_total:
             st.warning("Schemat är ett utkast. Kontrollera matchlistan och publicera sedan från vänsterspalten.")
         else:

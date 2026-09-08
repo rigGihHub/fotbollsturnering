@@ -108,7 +108,7 @@ from cupnavi_core.schedule_optimizer import optimize_match_order
 from cupnavi_core.v137 import candidate_sort_key, normalize_schedule_strategy, travel_minutes
 from cupnavi_core.email_service import send_notification_email
 from cupnavi_core.notification_service import new_token, token_hash, normalize_email, category_enabled, classify_notification, now_iso
-from cupnavi_core.push_notification_service import enqueue_goal_push_events
+from cupnavi_core.push_notification_service import enqueue_goal_push_events, cancel_pending_goal_push_events
 from cupnavi_core.match_status import MATCH_FINISHED, MATCH_LIVE, MATCH_NOT_STARTED, normalize_match_status
 from cupnavi_core.playoff_dependency_safety import build_dependency_guidance, dependency_impact, recovery_eligibility, transitive_downstream_match_ids, winner_side
 from cupnavi_core.match_event_logic import prepare_live_goal_change, validate_result_against_linked_goals
@@ -178,7 +178,7 @@ def inject_v266_public_mobile_css():
     return _inject_v266_public_mobile_css_impl(st)
 def inject_v198_visual_system():
     return _inject_v198_visual_system_impl(st)
-APP_BUILD_VERSION = "2026.09.08-540-IMPORTED-SCHEDULE-REPAIR-AND-PUBLIC-SUMMARY-FIX"
+APP_BUILD_VERSION = "2026.09.08-548-REPORTER-NETWORK-RESILIENCE"
 APP_VERSION = APP_BUILD_VERSION
 
 def _set_session_state_values(values):
@@ -6537,6 +6537,10 @@ def _reporter_live_goal_transaction(tournament_id, match_row, team_id, player_id
                 (now_iso, now_iso, match_id),
             )
             enqueue_goal_push_events(con, **goal_push)
+        else:
+            # v544: a quick correction inside the grace window must also cancel
+            # any not-yet-delivered goal notification for this team/match.
+            cancel_pending_goal_push_events(con, match_id=match_id, team_id=team_id)
         con.commit()
     except Exception:
         try:
