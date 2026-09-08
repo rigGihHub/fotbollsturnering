@@ -72,6 +72,7 @@ class ScheduleRepository:
         schedule_updates,
         unresolved,
         preserve_existing,
+        replace_locked=False,
     ):
         """Spara ett helt schemaläggningspass atomiskt."""
         with self._connection_factory() as con:
@@ -84,12 +85,23 @@ class ScheduleRepository:
                     "UPDATE matches SET schedule_published=0 WHERE tournament_id=?",
                     (tournament_id,),
                 )
-                con.execute(
-                    """UPDATE matches
-                       SET scheduled_start=NULL,pitch_number=NULL
-                       WHERE tournament_id=? AND schedule_locked=0""",
-                    (tournament_id,),
-                )
+                if replace_locked:
+                    # Explicit rebuild: the organizer has accepted that imported/manual
+                    # times may be replaced. Unlock only unplayed matches inside the
+                    # same transaction so an interrupted save cannot leave a half-reset schedule.
+                    con.execute(
+                        """UPDATE matches
+                           SET scheduled_start=NULL,pitch_number=NULL,referee_id=NULL,schedule_locked=0
+                           WHERE tournament_id=? AND home_score IS NULL AND away_score IS NULL""",
+                        (tournament_id,),
+                    )
+                else:
+                    con.execute(
+                        """UPDATE matches
+                           SET scheduled_start=NULL,pitch_number=NULL
+                           WHERE tournament_id=? AND schedule_locked=0""",
+                        (tournament_id,),
+                    )
 
             if schedule_updates:
                 con.executemany(

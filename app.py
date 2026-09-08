@@ -178,7 +178,7 @@ def inject_v266_public_mobile_css():
     return _inject_v266_public_mobile_css_impl(st)
 def inject_v198_visual_system():
     return _inject_v198_visual_system_impl(st)
-APP_BUILD_VERSION = "2026.09.08-539-IMPORT-HOTFIX"
+APP_BUILD_VERSION = "2026.09.08-540-IMPORTED-SCHEDULE-REPAIR-AND-PUBLIC-SUMMARY-FIX"
 APP_VERSION = APP_BUILD_VERSION
 
 def _set_session_state_values(values):
@@ -5587,7 +5587,7 @@ def render_group_table(table_rows, tournament, group_id=None):
         group_playoff_qualifiers=group_playoff_qualifiers,
     )
 
-def generate_schedule(tournament_id, tournament, rules, preserve_existing=False):
+def generate_schedule(tournament_id, tournament, rules, preserve_existing=False, replace_locked=False):
     repo = schedule_repository()
 
     def schedule_source_id(source):
@@ -5694,7 +5694,7 @@ def generate_schedule(tournament_id, tournament, rules, preserve_existing=False)
             team_last_end[away_id] = max(team_last_end.get(away_id, start), existing_end)
             if existing_match["referee_id"] in referee_ready:
                 referee_ready[existing_match["referee_id"]] = max(referee_ready[existing_match["referee_id"]], existing_end + pitch_gap)
-    else:
+    elif not replace_locked:
         for locked_match in matches:
             if not locked_match["schedule_locked"] or not locked_match["scheduled_start"] or not locked_match["pitch_number"]:
                 continue
@@ -5730,7 +5730,7 @@ def generate_schedule(tournament_id, tournament, rules, preserve_existing=False)
     remaining = []
     placeholder_matches = []
     for match_row in matches:
-        if match_row["scheduled_start"] and (preserve_existing or match_row["schedule_locked"]):
+        if match_row["scheduled_start"] and (preserve_existing or (match_row["schedule_locked"] and not replace_locked)):
             continue
         home_id = schedule_source_id(match_row["home_source"])
         away_id = schedule_source_id(match_row["away_source"])
@@ -5988,6 +5988,7 @@ def generate_schedule(tournament_id, tournament, rules, preserve_existing=False)
             schedule_updates=schedule_updates,
             unresolved=unresolved,
             preserve_existing=preserve_existing,
+            replace_locked=replace_locked,
         )
     except Exception as exc:
         return 0, len(schedule_updates) + unresolved, f"Schemat kunde inte sparas och inga schemaändringar genomfördes: {exc}"

@@ -1,6 +1,6 @@
 import re
 
-APP_VERSION = "2026.09.08-539-IMPORT-HOTFIX"
+APP_VERSION = "2026.09.08-540-IMPORTED-SCHEDULE-REPAIR-AND-PUBLIC-SUMMARY-FIX"
 
 
 def release_ui_label(build_version: str = APP_VERSION) -> str:

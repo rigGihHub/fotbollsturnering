@@ -120,11 +120,16 @@ def build_summary_html(
     strip in the otherwise empty desktop space without restoring the full statistics
     dashboard to the Matches page.
     """
-    return f"""<div class='cn-public-summary-row'>
-      <div class='public-metric-grid'>
-        <div class='public-metric'><div class='label'>{html.escape(tr('Lag'))}</div><div class='value'>{int(team_count)}</div></div>
-        <div class='public-metric'><div class='label'>{html.escape(tr('Matcher spelade'))}</div><div class='value'>{int(played_count)} {html.escape(tr('av'))} {int(total_matches)}</div></div>
-        <div class='public-metric'><div class='label'>{html.escape(str(score_label).capitalize())}</div><div class='value'>{int(total_score)}</div></div>
-      </div>
-      {highlights_html}
-    </div>"""
+    # Keep the HTML in one continuous block. Indented multiline closing tags can
+    # be interpreted as Markdown code after fragment reruns in some Streamlit builds,
+    # which surfaced a literal ``</div>`` box in the public Matches summary.
+    return (
+        "<div class='cn-public-summary-row'>"
+        "<div class='public-metric-grid'>"
+        f"<div class='public-metric'><div class='label'>{html.escape(tr('Lag'))}</div><div class='value'>{int(team_count)}</div></div>"
+        f"<div class='public-metric'><div class='label'>{html.escape(tr('Matcher spelade'))}</div><div class='value'>{int(played_count)} {html.escape(tr('av'))} {int(total_matches)}</div></div>"
+        f"<div class='public-metric'><div class='label'>{html.escape(str(score_label).capitalize())}</div><div class='value'>{int(total_score)}</div></div>"
+        "</div>"
+        f"{highlights_html}"
+        "</div>"
+    )

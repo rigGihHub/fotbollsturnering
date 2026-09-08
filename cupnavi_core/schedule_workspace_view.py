@@ -628,9 +628,17 @@ def render_schedule_workspace(tid, tournament, *, deps: ScheduleWorkspaceDepende
                 st.warning("Slutspel är valt men CupNavi kunde inte ta fram något slutspelsträd.")
 
         _regenerating_unplayed_schedule = bool(scheduled_total > 0 and not played_result_total)
+        _locked_unplayed_total = int(one_row(
+            """SELECT COUNT(*) AS n FROM matches
+               WHERE tournament_id=? AND schedule_locked=1
+                 AND home_score IS NULL AND away_score IS NULL""",
+            (tid,),
+        )["n"] or 0) if _regenerating_unplayed_schedule else 0
+        _repairing_locked_schedule = bool(_regenerating_unplayed_schedule and schedule_errors and _locked_unplayed_total)
         schedule_button_label = (
             "Uppdatera återstående schema"
             if played_result_total
+            else "Reparera och bygg om schemat" if _repairing_locked_schedule
             else "Skapa om schemat" if _regenerating_unplayed_schedule
             else "Skapa hela spelschemat"
         )
@@ -640,10 +648,17 @@ def render_schedule_workspace(tid, tournament, *, deps: ScheduleWorkspaceDepende
                 "Spelade matcher lämnas oförändrade. CupNavi arbetar bara med återstående matcher och ändrar inte lagens gruppplacering eller sparade tävlingsregler."
             )
         elif _regenerating_unplayed_schedule:
-            st.warning(
-                "Det finns redan ett schema. Om du skapar om det kan matchtider, planer och domartilldelning ändras. "
-                "Lagens gruppplacering, laguppgifter och sparade tävlingsregler ändras inte."
-            )
+            if _repairing_locked_schedule:
+                st.error(
+                    f"Schemat har {len(schedule_errors)} kritiska fel och {_locked_unplayed_total} ospelade matcher är låsta, "
+                    "vilket är vanligt efter foto/PDF-import. CupNavi kan reparera schemat genom att låsa upp de ospelade "
+                    "matcherna och räkna om tider, planer och domare. Lag, grupper och tävlingsregler ändras inte."
+                )
+            else:
+                st.warning(
+                    "Det finns redan ett schema. Om du skapar om det kan matchtider, planer och domartilldelning ändras. "
+                    "Lagens gruppplacering, laguppgifter och sparade tävlingsregler ändras inte."
+                )
             _confirm_regenerate = st.checkbox(
                 "Jag förstår att befintliga schematider kan ersättas",
                 key=f"confirm_regenerate_schedule_{tid}",
@@ -679,12 +694,20 @@ def render_schedule_workspace(tid, tournament, *, deps: ScheduleWorkspaceDepende
                             playoff_ok, playoff_error = ensure_playoffs_for_schedule(tid, tournament)
                             if not playoff_ok:
                                 raise RuntimeError(playoff_error)
-                            count, unresolved, warning = generate_schedule(tid, tournament, rules)
+                            count, unresolved, warning = generate_schedule(
+                                tid, tournament, rules, replace_locked=_repairing_locked_schedule
+                            )
                             parts = [
                                 f"Alla {ready_groups} grupper kontrollerades och {created} saknade gruppmatcher skapades.",
                                 "Slutspelsmatcherna skapades automatiskt utifrån vald slutspelsmodell.",
+                                (
+                                    f"{_locked_unplayed_total} låsta ospelade matcher låstes upp och byggdes om."
+                                    if _repairing_locked_schedule
+                                    else None
+                                ),
                                 f"{count} matcher schemalades totalt.",
                             ]
+                            parts = [part for part in parts if part]
                     elapsed = time.perf_counter() - started_schedule
                     parts.append(f"Genereringen tog {elapsed:.1f} sekunder.")
                     if unresolved:
