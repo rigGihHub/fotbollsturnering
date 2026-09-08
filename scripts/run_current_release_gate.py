@@ -9,8 +9,8 @@ release. This runner keeps those tests intact and instead executes:
 1. compileall,
 2. all evergreen/non-release-specific test modules,
 3. a current replacement for the one superseded weather-default contract,
-4. selected recent v540-v553 functional/safety contracts (not version pins),
-5. the v553 current-release contract.
+4. selected recent v540-v558 functional/safety contracts (not version pins),
+5. the v558 current-release contract.
 
 A failing selected test is a release blocker. Historical tests are not deleted
 or rewritten just to make the suite green.
@@ -50,6 +50,10 @@ def main() -> int:
     # contract is opt-in weather; v549 tests the current behavior explicitly.
     deselect = [
         "--deselect=tests/test_performance_v90.py::test_weather_is_on_by_default_but_user_can_toggle_it",
+        # v106 hardcodes the indentation of the old shared-password login. v554
+        # replaces that UI with organizer accounts while retaining the rerun
+        # safety behavior; the current contract verifies the new flow.
+        "--deselect=tests/test_team_privacy_v106.py::test_successful_logins_rerun_to_hide_credentials",
     ]
     run([sys.executable, "-m", "pytest", *evergreen, *deselect])
 
@@ -76,7 +80,17 @@ def main() -> int:
         "tests/test_v548_reporter_network_resilience.py::test_reporter_has_live_browser_network_probe",
         "tests/test_v548_reporter_network_resilience.py::test_uncertain_write_requires_server_refresh_not_automatic_retry",
         "tests/test_v548_reporter_network_resilience.py::test_existing_safety_contracts_are_retained",
-        "tests/test_current_release_gate_v553.py",
+        "tests/test_current_release_gate_v554.py::test_v33_creates_account_and_membership_schema",
+        "tests/test_current_release_gate_v554.py::test_admin_list_is_membership_scoped_for_organizers",
+        "tests/test_current_release_gate_v554.py::test_every_selected_admin_tournament_has_server_side_guard",
+        "tests/test_current_release_gate_v554.py::test_new_cups_and_copies_are_owned_by_current_account",
+        "tests/test_current_release_gate_v554.py::test_passwords_are_scrypt_hashed_and_superadmin_is_separate",
+        "tests/test_current_release_gate_v554.py::test_previous_v553_admin_flow_and_smart_import_survive",
+        "tests/test_current_release_gate_v554.py::test_successful_account_and_superadmin_login_rerun_after_credentials",
+        "tests/test_current_release_gate_v556.py::test_halftime_copy_uses_halves_periods",
+        "tests/test_current_release_gate_v556.py::test_halftime_control_is_conditional_on_two_or_more_periods",
+        "tests/test_current_release_gate_v556.py::test_v555_behaviour_is_retained",
+        "tests/test_current_release_gate_v558.py",
     ]
     run([sys.executable, "-m", "pytest", *recent_nodes])
     print("CURRENT RELEASE GATE: PASS")

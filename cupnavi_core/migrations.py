@@ -9,7 +9,7 @@ Regel:
 from dataclasses import dataclass
 from datetime import datetime, timezone
 
-LATEST_SCHEMA_VERSION = 32
+LATEST_SCHEMA_VERSION = 33
 # Historical QA anchor: LATEST_SCHEMA_VERSION = 27
 
 
@@ -538,6 +538,11 @@ MIGRATIONS = (
         "pitch_travel_buffer",
         (),
     ),
+    Migration(
+        33,
+        "organizer_accounts_and_tournament_memberships",
+        (),
+    ),
 
 )
 
@@ -835,7 +840,7 @@ def ensure_v27_schema_compat(con):
         con.execute("CREATE TABLE schedule_rules(tournament_id INTEGER PRIMARY KEY)")
         cols = {"tournament_id"}
     if "synchronized_pitch_times" not in cols:
-        con.execute("ALTER TABLE schedule_rules ADD COLUMN synchronized_pitch_times INTEGER NOT NULL DEFAULT 0")
+        con.execute("ALTER TABLE schedule_rules ADD COLUMN synchronized_pitch_times INTEGER NOT NULL DEFAULT 1")
 
 def ensure_v28_schema_compat(con):
     """Idempotent explicit Matchcamp/Turnering type.
@@ -918,6 +923,29 @@ def ensure_v32_schema_compat(con):
     if "pitch_travel_buffer_minutes" not in cols:
         con.execute("ALTER TABLE schedule_rules ADD COLUMN pitch_travel_buffer_minutes INTEGER NOT NULL DEFAULT 10")
 
+
+def ensure_v33_schema_compat(con):
+    """Idempotent organizer accounts and per-tournament membership isolation."""
+    con.execute("""CREATE TABLE IF NOT EXISTS organizer_accounts (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        email TEXT NOT NULL UNIQUE,
+        display_name TEXT,
+        password_salt TEXT NOT NULL,
+        password_hash TEXT NOT NULL,
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        disabled_at TEXT
+    )""")
+    con.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_organizer_accounts_email ON organizer_accounts(email)")
+    con.execute("""CREATE TABLE IF NOT EXISTS tournament_members (
+        tournament_id INTEGER NOT NULL REFERENCES tournaments(id) ON DELETE CASCADE,
+        organizer_account_id INTEGER NOT NULL REFERENCES organizer_accounts(id) ON DELETE CASCADE,
+        role TEXT NOT NULL DEFAULT 'owner',
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY(tournament_id, organizer_account_id)
+    )""")
+    con.execute("CREATE INDEX IF NOT EXISTS idx_tournament_members_account ON tournament_members(organizer_account_id,tournament_id)")
+    con.execute("CREATE INDEX IF NOT EXISTS idx_tournament_members_tournament ON tournament_members(tournament_id,organizer_account_id)")
+
 def apply_migrations(con):
     """Applicera alla saknade migreringar och returnera nya versionsnummer."""
     ensure_migration_table(con)
@@ -949,6 +977,8 @@ def apply_migrations(con):
             ensure_v31_schema_compat(con)
         if migration.version == 32:
             ensure_v32_schema_compat(con)
+        if migration.version == 33:
+            ensure_v33_schema_compat(con)
         for statement in migration.statements:
             _execute(con, statement)
         _execute(

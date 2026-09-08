@@ -357,18 +357,19 @@ def render_public_matches_fragment(
     if visible_match_count < total_filtered_matches:
         remaining_matches = total_filtered_matches - visible_match_count
         next_batch_size = min(PUBLIC_MATCH_BATCH_SIZE, remaining_matches)
-        def _show_more_public_matches() -> None:
-            st.session_state[limit_key] = next_visible_count(visible_match_count, total_filtered_matches)
-            # v538: bounded first-paint rows live in the parent workspace.
-            # A full rerun is required to ask Turso for the next server batch.
-            st.rerun(scope="app")
-
-        st.button(
+        # v558: perform the app-level rerun in the normal render path rather than
+        # inside an on_click callback. Streamlit callbacks run before the widget
+        # rerun; requesting another rerun from inside the callback could leave the
+        # parent public workspace on its previous bounded DB snapshot. Updating the
+        # limit and then explicitly rerunning the app here guarantees that the
+        # parent asks the database for the larger batch.
+        if st.button(
             f"Visa {next_batch_size} fler matcher",
-            key=f"public_matches_more_v270_{tournament_id}_{visible_match_count}",
+            key=f"public_matches_more_v558_{tournament_id}_{visible_match_count}",
             use_container_width=True,
-            on_click=_show_more_public_matches,
-        )
+        ):
+            st.session_state[limit_key] = next_visible_count(visible_match_count, total_filtered_matches)
+            st.rerun(scope="app")
     stage_timings["cards_weather_ms"] = round((time.perf_counter() - stage_started) * 1000, 1)
 
     # v529: secondary tournament highlights live below the match list and are

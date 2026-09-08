@@ -547,25 +547,32 @@ def render_schedule_workspace(tid, tournament, *, deps: ScheduleWorkspaceDepende
             or bool(playoff_setup_error)
         )
 
-        # v509: Existing cups created from the older photo/document flow may have
-        # imported teams/groups but no persisted matches. Let the administrator
-        # re-read the source directly from Schema and explicitly approve the
-        # recovered match programme instead of sending them into the generator.
+        # v557: A schedule already read from the Smart Import flow is carried
+        # forward in session state. Show its review immediately instead of asking
+        # the organiser to upload/read the same photo again. The uploader below is
+        # retained only as a recovery path for genuinely older cups.
         if scheduled_total == 0 and setting is not None and deps.db is not None:
-            st.info(
-                "Om du redan läste in ett matchprogram från foto/PDF men ser 0 schemalagda matcher här, "
-                "har själva matcherna inte sparats i cupen. Läs in samma underlag igen nedan och godkänn förhandsgranskningen. "
-                "Du kan ändå gå vidare till Kontroll för att se exakt vad som saknas."
-            )
-            with st.expander("📷 Har du redan ett schema i foto/PDF? Importera matchprogrammet här", expanded=True):
-                st.caption("Om du skapade cupen från ett foto i en äldre version kan lag och grupper ha importerats utan själva matcherna. Läs in underlaget igen här. CupNavi visar alltid en förhandsgranskning innan något sparas.")
-                _uploads = st.file_uploader(
-                    "Foto, PDF eller dokument med matchprogram",
-                    type=["pdf", "txt", "png", "jpg", "jpeg", "webp"],
-                    accept_multiple_files=True,
-                    key=f"schedule_existing_import_upload_{tid}",
+            _prefill_key = f"schedule_existing_import_prefill_{tid}"
+            _prefill_from_smart = bool(st.session_state.get(f"schedule_existing_import_from_smart_{tid}"))
+            _already_prepared = bool(st.session_state.get(_prefill_key))
+            if _already_prepared and _prefill_from_smart:
+                st.success("Matchprogrammet från bilden följer med. Kontrollera det nedan – du behöver inte läsa in bilden igen.")
+            elif not _already_prepared:
+                st.info(
+                    "Har cupen skapats i en äldre version där bara lag/grupper följde med från foto/PDF? "
+                    "Då kan du återställa matchprogrammet här. Nya bildimporter följer automatiskt med till Schema."
                 )
-                _prefill_key = f"schedule_existing_import_prefill_{tid}"
+            with st.expander("📷 Matchprogram från foto/PDF", expanded=_already_prepared):
+                if not _already_prepared:
+                    st.caption("Detta är en återställningsväg för äldre importer. Nya bildimporter ska inte behöva läsas in igen.")
+                    _uploads = st.file_uploader(
+                        "Foto, PDF eller dokument med matchprogram",
+                        type=["pdf", "txt", "png", "jpg", "jpeg", "webp"],
+                        accept_multiple_files=True,
+                        key=f"schedule_existing_import_upload_{tid}",
+                    )
+                else:
+                    _uploads = None
                 if _uploads and st.button("Läs matchprogrammet", key=f"schedule_existing_import_analyze_{tid}", type="primary"):
                     _api_key = setting("OPENAI_API_KEY")
                     if not _api_key:
@@ -604,6 +611,7 @@ def render_schedule_workspace(tid, tournament, *, deps: ScheduleWorkspaceDepende
                             _count = apply_document_matches(deps.db, tid, _import_prefill, _fallback)
                             st.session_state["schedule_message"] = ("success", f"{_count} matcher importerades. De behandlas nu som ett befintligt schema och skrivs inte över automatiskt.")
                             st.session_state.pop(_prefill_key, None)
+                            st.session_state.pop(f"schedule_existing_import_from_smart_{tid}", None)
                             st.session_state["_validation_dirty"] = True
                             st.rerun()
                         except Exception as exc:

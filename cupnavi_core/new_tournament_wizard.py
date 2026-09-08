@@ -345,6 +345,7 @@ def render_new_tournament_wizard(tournament_id, tournament, *, deps):
                 else:
                     st.warning("Skriv domarens namn först.")
 
+        _travel_on = False
         if pitch_count > 1:
             st.markdown("**Restid mellan planer**")
             _travel_saved=bool(_row_value(rules,"consider_pitch_travel",0))
@@ -382,9 +383,11 @@ def render_new_tournament_wizard(tournament_id, tournament, *, deps):
                     st.error("Sluttiden måste vara senare än starttiden.")
                 elif sv.strftime("%H:%M") != w["start_time"] or ev.strftime("%H:%M") != w["end_time"] or not bool(_row_value(w,"confirmed",0)):
                     save_pitch_day_window(tournament_id,pitch,play_date,sv.strftime("%H:%M"),ev.strftime("%H:%M"),True)
-        if unverified:
-            st.warning(f"{unverified} adress(er) behöver verifieras innan du fortsätter.")
-        nav(can_next=valid and unverified == 0 and _pitch_size != "Välj planstorlek")
+        if unverified and _travel_on:
+            st.warning(f"{unverified} adress(er) behöver verifieras eftersom du valt att använda planadresser/restid i planeringen.")
+        elif unverified:
+            st.info("Planadresser är frivilliga och blockerar inte nästa steg. Verifiering krävs först om du väljer att använda dem för restid i planeringen.")
+        nav(can_next=valid and (not _travel_on or unverified == 0) and _pitch_size != "Välj planstorlek")
         return
 
     pitch_count = int(_row_value(rules,"pitch_count",1) or 1)
@@ -550,12 +553,22 @@ def render_new_tournament_wizard(tournament_id, tournament, *, deps):
     st.caption("Detta är en kapacitetskontroll, inte det färdiga schemat. Exakta tider bestäms när CupNavi bygger schemat.")
 
     pitch_rows = ensure_pitch_definitions(tournament_id, pitch_count)
-    address_ok = all(not str(_row_value(r,"address","") or "").strip() or bool(_row_value(r,"address_verified",0)) for r in pitch_rows)
+    _address_planning_enabled = bool(_row_value(rules, "consider_pitch_travel", 0))
+    _filled_addresses_verified = all(
+        not str(_row_value(r,"address","") or "").strip() or bool(_row_value(r,"address_verified",0))
+        for r in pitch_rows
+    )
+    address_ok = (not _address_planning_enabled) or _filled_addresses_verified
+    _address_text = (
+        "verifierade för restidsplanering"
+        if _address_planning_enabled
+        else "frivilliga – används inte i planeringen"
+    )
     checks = [
         (bool(class_rows), "Deltagare", f"{len(class_rows)} klass(er) planerade"),
         (planned_total > 0, "Lagantal", f"cirka {planned_total} lag totalt"),
         (bool(windows), "Planer och tider", f"{pitch_count} plan(er) med speltider"),
-        (address_ok, "Planadresser", "ifyllda adresser är verifierade"),
+        (address_ok, "Planadresser", _address_text),
     ]
     for ok, label, text in checks:
         st.markdown(f"{'✓' if ok else '⚠️'} **{label}** · {text}")

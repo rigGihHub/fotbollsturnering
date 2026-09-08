@@ -1,6 +1,6 @@
 import re
 
-APP_VERSION = "2026.09.08-553-REFEREE-MISC-SMART-IMPORT"
+APP_VERSION = "2026.09.08-558-PUBLIC-MORE-MATCHES-AND-CODE-HUB"
 
 
 def release_ui_label(build_version: str = APP_VERSION) -> str:

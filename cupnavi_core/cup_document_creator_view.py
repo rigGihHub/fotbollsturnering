@@ -64,10 +64,10 @@ def render_cup_document_import(st, key_prefix, setting):
                 ]
                 st.session_state[prefill_key] = extracted
                 st.checkbox(
-                    "Skapa det granskade matchprogrammet när cupen skapas", value=False, key=use_matches_key,
-                    help="CupNavi använder exakt raderna ovan. Ett importerat matchprogram räknas därefter som ett befintligt schema och skrivs aldrig över automatiskt.",
+                    "Använd det granskade matchprogrammet som cupens schema", value=True, key=use_matches_key,
+                    help="Standardvalet är att det granskade schemat från foto/PDF följer med cupen. Det låses som befintligt schema och ändras bara om du själv väljer att redigera eller bygga om det.",
                 )
-                st.info("Matchprogrammet skrivs inte automatiskt till spelschemat. Inget schema skapas utan ditt uttryckliga godkännande. Efter importen behandlas matcherna som ett befintligt schema.")
+                st.info("Det granskade matchprogrammet är förvalt. När cupen skapas blir det cupens befintliga schema och behöver inte läsas in igen. Avmarkera bara om du inte vill använda schemat från underlaget.")
             if playoffs:
                 st.markdown("**🏆 Slutspel som CupNavi hittade**")
                 rows = []

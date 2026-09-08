@@ -241,12 +241,18 @@ def render_initial_tournament_setup(tournament_id, tournament, *, deps: InitialS
 
         st.markdown("### Matchtid, pauser och vila")
         _a,_b=st.columns(2); _hk=f"rules_halves_{tournament_id}"; _mk=f"rules_minutes_{tournament_id}"
-        _a.number_input("Perioder/halvlekar/set",1,7,int(rules["halves"]),key=_hk,on_change=_autosave_rule_field,args=(tournament_id,"halves",_hk,int))
-        _b.number_input("Minuter per period/halvlek/set",1,120,int(rules["minutes_per_half"]),key=_mk,on_change=_autosave_rule_field,args=(tournament_id,"minutes_per_half",_mk,int))
-        _c,_d,_e=st.columns(3); _ht=f"rules_halftime_{tournament_id}"; _pb=f"rules_pitchbreak_{tournament_id}"; _rs=f"rules_rest_{tournament_id}"
-        _c.number_input("Paus mellan perioder",0,60,int(rules["halftime_minutes"]),key=_ht,on_change=_autosave_rule_field,args=(tournament_id,"halftime_minutes",_ht,int))
-        _d.number_input("Paus mellan matcher på plan",0,120,int(rules["pitch_break_minutes"]),key=_pb,on_change=_autosave_rule_field,args=(tournament_id,"pitch_break_minutes",_pb,int))
-        _e.number_input("Minsta lagvila",0,300,int(rules["minimum_team_rest_minutes"]),key=_rs,on_change=_autosave_rule_field,args=(tournament_id,"minimum_team_rest_minutes",_rs,int))
+        _halves_value = _a.number_input("Halvlekar/perioder/set",1,7,int(rules["halves"]),key=_hk,on_change=_autosave_rule_field,args=(tournament_id,"halves",_hk,int))
+        _b.number_input("Minuter per halvlek/period/set",1,120,int(rules["minutes_per_half"]),key=_mk,on_change=_autosave_rule_field,args=(tournament_id,"minutes_per_half",_mk,int))
+        _ht=f"rules_halftime_{tournament_id}"; _pb=f"rules_pitchbreak_{tournament_id}"; _rs=f"rules_rest_{tournament_id}"
+        if int(_halves_value) >= 2:
+            _c,_d,_e=st.columns(3)
+            _c.number_input("Paus mellan halvlekar/perioder",0,60,int(rules["halftime_minutes"]),key=_ht,on_change=_autosave_rule_field,args=(tournament_id,"halftime_minutes",_ht,int))
+            _d.number_input("Paus mellan matcher på plan",0,120,int(rules["pitch_break_minutes"]),key=_pb,on_change=_autosave_rule_field,args=(tournament_id,"pitch_break_minutes",_pb,int))
+            _e.number_input("Minsta lagvila",0,300,int(rules["minimum_team_rest_minutes"]),key=_rs,on_change=_autosave_rule_field,args=(tournament_id,"minimum_team_rest_minutes",_rs,int))
+        else:
+            _d,_e=st.columns(2)
+            _d.number_input("Paus mellan matcher på plan",0,120,int(rules["pitch_break_minutes"]),key=_pb,on_change=_autosave_rule_field,args=(tournament_id,"pitch_break_minutes",_pb,int))
+            _e.number_input("Minsta lagvila",0,300,int(rules["minimum_team_rest_minutes"]),key=_rs,on_change=_autosave_rule_field,args=(tournament_id,"minimum_team_rest_minutes",_rs,int))
 
         st.markdown("### Slutspel")
         if _rules_arrangement == ARRANGEMENT_MATCHCAMP:
@@ -488,14 +494,17 @@ def render_initial_tournament_setup(tournament_id, tournament, *, deps: InitialS
             _pitch_address_status.append(("", False))
             st.caption("Lägg in en adress om deltagarna ska kunna navigera till spelplatsen.")
     _addresses_to_verify=[address for address, verified in _pitch_address_status if address and not verified]
-    if _addresses_to_verify:
-        st.warning(f"{len(_addresses_to_verify)} planadress(er) behöver fortfarande verifieras i Google Maps.")
+    _address_planning_enabled = bool(_row_value(rules,"consider_pitch_travel",0))
+    if _addresses_to_verify and _address_planning_enabled:
+        st.warning(f"{len(_addresses_to_verify)} planadress(er) behöver verifieras eftersom adresser/restid används i planeringen.")
+    elif _addresses_to_verify:
+        st.info("Planadresser är frivilliga och blockerar inte nästa steg. De behöver verifieras först om du väljer att använda dem i planeringen.")
     elif any(address for address, _verified in _pitch_address_status):
         st.success("✓ Inlagda planadresser är verifierade i Google Maps.")
 
     st.caption("Kapacitetssteget anger vad som är möjligt. CupNavi förklarar senare hur prioriteringarna påverkar schemat.")
     travel_key=f"setup_consider_pitch_travel_{tournament_id}"
-    consider_travel=st.checkbox("Ta hänsyn till restid mellan planer",value=bool(_row_value(rules,"consider_pitch_travel",0)),key=travel_key,help="CupNavi använder de restider du anger nedan. Ingen extern karttjänst anropas.")
+    consider_travel=st.checkbox("Använd planadresser/restid i planeringen",value=_address_planning_enabled,key=travel_key,help="Valfritt. När detta är aktivt använder CupNavi restid mellan planerna och då behöver berörda planadresser vara verifierade.")
     if consider_travel!=bool(_row_value(rules,"consider_pitch_travel",0)):
         run("UPDATE schedule_rules SET consider_pitch_travel=? WHERE tournament_id=?",(1 if consider_travel else 0,int(tournament_id)))
     if consider_travel and current_pitch_count>1:
@@ -540,7 +549,7 @@ def render_initial_tournament_setup(tournament_id, tournament, *, deps: InitialS
     # v348: Guided Cup Setup turns the existing recommendation engine into a
     # novice-facing assistant. It explains the proposed setup in plain language
     # and applies only safe recommendation/default fields when explicitly accepted.
-    _guided_ready = bool(class_rows) and _planned_total > 0 and valid_windows and not _addresses_to_verify
+    _guided_ready = bool(class_rows) and _planned_total > 0 and valid_windows and (not consider_travel or not _addresses_to_verify)
     _guided_format_rec = None
     if _guided_ready:
         _guided_available_minutes = available_pitch_minutes(windows, row_value=_row_value) or 480
@@ -734,7 +743,7 @@ def render_initial_tournament_setup(tournament_id, tournament, *, deps: InitialS
 
     # v326/v348: the minimum viable setup ends here. The guided recommendation
     # makes the defaults understandable before the organiser starts adding teams.
-    _fast_track_ready = bool(class_rows) and _planned_total > 0 and valid_windows and not _addresses_to_verify
+    _fast_track_ready = bool(class_rows) and _planned_total > 0 and valid_windows and (not consider_travel or not _addresses_to_verify)
     _setup_ready = _fast_track_ready
     with st.container(border=True):
         st.markdown("#### Kontroll innan du går vidare")
@@ -903,13 +912,18 @@ def render_initial_tournament_setup(tournament_id, tournament, *, deps: InitialS
         )
         r1,r2=st.columns(2)
         hk=f"setup_halves_{tournament_id}"; mk=f"setup_minutes_{tournament_id}"
-        r1.number_input("Perioder/halvlekar/set",1,7,int(rules["halves"]),key=hk,on_change=_autosave_rule_field,args=(tournament_id,"halves",hk,int))
-        r2.number_input("Minuter per period/halvlek/set",1,120,int(rules["minutes_per_half"]),key=mk,on_change=_autosave_rule_field,args=(tournament_id,"minutes_per_half",mk,int))
-        r4,r5,r6=st.columns(3)
+        _setup_halves_value = r1.number_input("Halvlekar/perioder/set",1,7,int(rules["halves"]),key=hk,on_change=_autosave_rule_field,args=(tournament_id,"halves",hk,int))
+        r2.number_input("Minuter per halvlek/period/set",1,120,int(rules["minutes_per_half"]),key=mk,on_change=_autosave_rule_field,args=(tournament_id,"minutes_per_half",mk,int))
         htk=f"setup_halftime_{tournament_id}"; pbk=f"setup_pitchbreak_{tournament_id}"; restk=f"setup_rest_{tournament_id}"
-        r4.number_input("Paus mellan perioder",0,60,int(rules["halftime_minutes"]),key=htk,on_change=_autosave_rule_field,args=(tournament_id,"halftime_minutes",htk,int))
-        r5.number_input("Paus mellan matcher på plan",0,120,int(rules["pitch_break_minutes"]),key=pbk,on_change=_autosave_rule_field,args=(tournament_id,"pitch_break_minutes",pbk,int))
-        r6.number_input("Minsta lagvila",0,300,int(rules["minimum_team_rest_minutes"]),key=restk,on_change=_autosave_rule_field,args=(tournament_id,"minimum_team_rest_minutes",restk,int))
+        if int(_setup_halves_value) >= 2:
+            r4,r5,r6=st.columns(3)
+            r4.number_input("Paus mellan halvlekar/perioder",0,60,int(rules["halftime_minutes"]),key=htk,on_change=_autosave_rule_field,args=(tournament_id,"halftime_minutes",htk,int))
+            r5.number_input("Paus mellan matcher på plan",0,120,int(rules["pitch_break_minutes"]),key=pbk,on_change=_autosave_rule_field,args=(tournament_id,"pitch_break_minutes",pbk,int))
+            r6.number_input("Minsta lagvila",0,300,int(rules["minimum_team_rest_minutes"]),key=restk,on_change=_autosave_rule_field,args=(tournament_id,"minimum_team_rest_minutes",restk,int))
+        else:
+            r5,r6=st.columns(2)
+            r5.number_input("Paus mellan matcher på plan",0,120,int(rules["pitch_break_minutes"]),key=pbk,on_change=_autosave_rule_field,args=(tournament_id,"pitch_break_minutes",pbk,int))
+            r6.number_input("Minsta lagvila",0,300,int(rules["minimum_team_rest_minutes"]),key=restk,on_change=_autosave_rule_field,args=(tournament_id,"minimum_team_rest_minutes",restk,int))
 
         st.markdown("### 5. Vad är viktigast i schemat?")
         _sync_pitch_times = bool(_row_value(rules,"synchronized_pitch_times",0))
@@ -1143,10 +1157,10 @@ def render_initial_tournament_setup(tournament_id, tournament, *, deps: InitialS
                 "Kontrollera planernas tillgängliga tider under punkt 2.",
             ),
             (
-                not bool(_addresses_to_verify),
+                (not consider_travel) or not bool(_addresses_to_verify),
                 "Planadresser",
-                "alla ifyllda adresser är verifierade",
-                "Öppna och verifiera återstående planadresser i Google Maps under punkt 2.",
+                "frivilliga – eller verifierade när de används i planeringen",
+                "Verifiera återstående planadresser i Google Maps, eller stäng av användning av adresser/restid i planeringen.",
             ),
             (
                 bool(_result_mode),

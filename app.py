@@ -178,7 +178,7 @@ def inject_v266_public_mobile_css():
     return _inject_v266_public_mobile_css_impl(st)
 def inject_v198_visual_system():
     return _inject_v198_visual_system_impl(st)
-APP_BUILD_VERSION = "2026.09.08-553-REFEREE-MISC-SMART-IMPORT"
+APP_BUILD_VERSION = "2026.09.08-558-PUBLIC-MORE-MATCHES-AND-CODE-HUB"
 APP_VERSION = APP_BUILD_VERSION
 
 def _set_session_state_values(values):
@@ -2204,38 +2204,148 @@ def _rate_allowed(scope, limit, window_seconds):
         con.commit()
     return allowed, retry_after, count
 
+def _normalize_account_email(value):
+    return str(value or "").strip().casefold()
+
+def _account_password_hash(password, salt_hex):
+    return hashlib.scrypt(
+        str(password).encode("utf-8"),
+        salt=bytes.fromhex(str(salt_hex)),
+        n=2**14, r=8, p=1, dklen=32,
+    ).hex()
+
+def _current_organizer_account_id():
+    try:
+        return int(st.session_state.get("organizer_account_id"))
+    except (TypeError, ValueError):
+        return None
+
+def _is_cupnavi_superadmin():
+    return bool(st.session_state.get("admin_authenticated"))
+
+def grant_current_account_tournament_access(tournament_id, role="owner"):
+    account_id = _current_organizer_account_id()
+    if account_id is None:
+        return False
+    run(
+        """INSERT INTO tournament_members(tournament_id,organizer_account_id,role) VALUES(?,?,?)
+           ON CONFLICT(tournament_id,organizer_account_id) DO UPDATE SET role=excluded.role""",
+        (int(tournament_id), int(account_id), str(role)),
+    )
+    st.session_state.pop(f"_cupnavi_shell_cache_admin_tournaments_account_{int(account_id)}", None)
+    st.session_state.pop("_cupnavi_shell_cache_admin_tournaments_super", None)
+    return True
+
+def can_administer_tournament(tournament_id):
+    if _is_cupnavi_superadmin() or (not CLOUD_DATABASE_ENABLED and _current_organizer_account_id() is None):
+        return True
+    account_id = _current_organizer_account_id()
+    if account_id is None:
+        return False
+    row = one_row(
+        "SELECT 1 AS ok FROM tournament_members WHERE tournament_id=? AND organizer_account_id=? LIMIT 1",
+        (int(tournament_id), int(account_id)),
+    )
+    return bool(row)
+
+def _logout_admin_identity():
+    for key in ("admin_authenticated", "organizer_account_id", "organizer_account_email", "organizer_account_name"):
+        st.session_state.pop(key, None)
+    st.session_state.pop("admin_entry_mode", None)
+
 def require_admin_access():
-    """Kräv adminlösenord i webbdrift. Lokalt läge får köras utan lösenord."""
+    """Require an organizer account; keep ADMIN_PASSWORD only as internal superadmin fallback."""
+    account_id = _current_organizer_account_id()
+    if account_id is not None:
+        label = st.session_state.get("organizer_account_name") or st.session_state.get("organizer_account_email") or "Arrangör"
+        st.sidebar.success(f"Inloggad: {label}")
+        if st.sidebar.button("Logga ut", use_container_width=True, key="organizer_logout_v554"):
+            _logout_admin_identity()
+            st.rerun()
+        return
+
+    if _is_cupnavi_superadmin():
+        st.sidebar.success("CupNavi driftadmin")
+        if st.sidebar.button("Logga ut", use_container_width=True, key="superadmin_logout_v554"):
+            _logout_admin_identity()
+            st.rerun()
+        return
+
+    st.title("Logga in till CupNavi")
+    st.caption("Varje arrangörskonto ser bara de turneringar kontot har behörighet till.")
+    login_tab, create_tab = st.tabs(["Logga in", "Skapa arrangörskonto"])
+    with login_tab:
+        with st.form("organizer_login_v554"):
+            email = st.text_input("E-post", key="organizer_login_email_v554")
+            password = st.text_input("Lösenord", type="password", key="organizer_login_password_v554")
+            submitted = st.form_submit_button("Logga in", type="primary", use_container_width=True)
+        if submitted:
+            allowed, retry_after, _ = _rate_allowed("organizer-login", 10, 600)
+            if not allowed:
+                st.error(f"För många inloggningsförsök. Försök igen om cirka {max(1, retry_after // 60)} minut(er).")
+            else:
+                normalized = _normalize_account_email(email)
+                account = one_row(
+                    "SELECT id,email,display_name,password_salt,password_hash,disabled_at FROM organizer_accounts WHERE email=?",
+                    (normalized,),
+                )
+                valid = bool(account and not account["disabled_at"])
+                if valid:
+                    candidate = _account_password_hash(password, account["password_salt"])
+                    valid = hmac.compare_digest(candidate, str(account["password_hash"]))
+                if valid:
+                    st.session_state["organizer_account_id"] = int(account["id"])
+                    st.session_state["organizer_account_email"] = str(account["email"])
+                    st.session_state["organizer_account_name"] = str(account["display_name"] or "")
+                    st.session_state["admin_entry_mode"] = None
+                    st.rerun()
+                else:
+                    st.error("Fel e-post eller lösenord.")
+    with create_tab:
+        st.caption("Kontot används för att hålla dina turneringar åtskilda från andra arrangörers.")
+        with st.form("organizer_create_v554"):
+            display_name = st.text_input("Namn", key="organizer_create_name_v554")
+            email = st.text_input("E-post", key="organizer_create_email_v554")
+            password = st.text_input("Lösenord", type="password", key="organizer_create_password_v554")
+            password2 = st.text_input("Upprepa lösenord", type="password", key="organizer_create_password2_v554")
+            submitted = st.form_submit_button("Skapa konto", type="primary", use_container_width=True)
+        if submitted:
+            normalized = _normalize_account_email(email)
+            if "@" not in normalized or "." not in normalized.split("@")[-1]:
+                st.error("Ange en giltig e-postadress.")
+            elif len(password) < 10:
+                st.error("Lösenordet måste vara minst 10 tecken.")
+            elif password != password2:
+                st.error("Lösenorden är inte lika.")
+            elif one_row("SELECT id FROM organizer_accounts WHERE email=?", (normalized,)):
+                st.error("Det finns redan ett konto med den e-postadressen.")
+            else:
+                salt = os.urandom(16).hex()
+                pwd_hash = _account_password_hash(password, salt)
+                account_id = run(
+                    "INSERT INTO organizer_accounts(email,display_name,password_salt,password_hash) VALUES(?,?,?,?)",
+                    (normalized, str(display_name or "").strip() or None, salt, pwd_hash),
+                )
+                st.session_state["organizer_account_id"] = int(account_id)
+                st.session_state["organizer_account_email"] = normalized
+                st.session_state["organizer_account_name"] = str(display_name or "").strip()
+                st.session_state["admin_entry_mode"] = None
+                st.rerun()
+
     admin_password = setting("ADMIN_PASSWORD")
-    if not admin_password:
-        if CLOUD_DATABASE_ENABLED:
-            st.sidebar.error("Adminlösenord saknas i Streamlit Secrets.")
-            st.error("Administration är låst tills ADMIN_PASSWORD har lagts till i Streamlit Secrets.")
-            st.stop()
-        st.sidebar.warning("Lokalt läge utan adminlösenord")
-        return
-
-    if st.session_state.get("admin_authenticated"):
-        st.sidebar.success("Inloggad som administratör")
-        if st.sidebar.button("Logga ut", use_container_width=True):
-            st.session_state["admin_authenticated"] = False
-            st.rerun()
-        return
-
-    st.title("Administratörsinloggning")
-    st.caption("Turneringsvyn är offentlig. Administrationen kräver lösenord.")
-    with st.form("admin_login"):
-        entered_password = st.text_input("Adminlösenord", type="password")
-        submitted = st.form_submit_button(tr("Logga in"), type="primary", use_container_width=True)
-    if submitted:
-        if hmac.compare_digest(entered_password, admin_password):
-            st.session_state["admin_authenticated"] = True
-            st.rerun()
-        allowed, retry_after, _ = _rate_allowed("admin-login", 8, 600)
-        if not allowed:
-            st.error(f"För många misslyckade inloggningsförsök. Försök igen om cirka {max(1, retry_after // 60)} minut(er).")
-        else:
-            st.error(tr("Fel lösenord."))
+    if admin_password:
+        with st.expander("CupNavi driftadmin", expanded=False):
+            st.caption("Endast för CupNavi-drift. Dela inte detta lösenord med arrangörer.")
+            with st.form("superadmin_login_v554"):
+                entered_password = st.text_input("Driftlösenord", type="password")
+                super_submitted = st.form_submit_button("Logga in som driftadmin", use_container_width=True)
+            if super_submitted:
+                if hmac.compare_digest(entered_password, admin_password):
+                    st.session_state["admin_authenticated"] = True
+                    st.rerun()
+                st.error("Fel driftlösenord.")
+    elif CLOUD_DATABASE_ENABLED:
+        st.info("Driftadmin är inte konfigurerad. Arrangörskonton fungerar ändå.")
     st.stop()
 
 def _verify_tournament_role_code(table_name, tournament_id, entered_code):
@@ -3529,7 +3639,7 @@ def init_db():
                 consecutive_match_break_minutes INTEGER NOT NULL DEFAULT 15,
                 pitch_count INTEGER NOT NULL DEFAULT 2,
                 referee_mode TEXT NOT NULL DEFAULT 'Automatisk',
-                synchronized_pitch_times INTEGER NOT NULL DEFAULT 0,
+                synchronized_pitch_times INTEGER NOT NULL DEFAULT 1,
                 pitch_size_format TEXT,
                 pitch_travel_buffer_minutes INTEGER NOT NULL DEFAULT 10,
                 latest_kickoff_time TEXT NOT NULL DEFAULT '18:00'
@@ -3660,7 +3770,7 @@ def init_db():
         if "recommended_playoff_size" not in rule_cols:
             con.execute("ALTER TABLE schedule_rules ADD COLUMN recommended_playoff_size INTEGER NOT NULL DEFAULT 0")
         if "synchronized_pitch_times" not in rule_cols:
-            con.execute("ALTER TABLE schedule_rules ADD COLUMN synchronized_pitch_times INTEGER NOT NULL DEFAULT 0")
+            con.execute("ALTER TABLE schedule_rules ADD COLUMN synchronized_pitch_times INTEGER NOT NULL DEFAULT 1")
         if "pitch_size_format" not in rule_cols:
             con.execute("ALTER TABLE schedule_rules ADD COLUMN pitch_size_format TEXT")
         if "request_priority" not in team_cols:
@@ -3821,21 +3931,28 @@ def _session_ttl_get(key, ttl_seconds, factory):
     return value
 
 def admin_tournament_list_snapshot(ttl_seconds=8.0):
-    """Reuse the admin tournament shell across rapid Streamlit reruns.
-
-    The active cup selector, clone source picker and admin shell used to issue
-    overlapping remote Turso tournament-list reads on every interaction. Keep
-    one short-lived canonical list and invalidate it immediately after writes.
-    """
-    return _session_ttl_get(
-        "_cupnavi_shell_cache_admin_tournaments",
-        ttl_seconds,
-        lambda: all_rows(
+    """Return only tournaments the current organizer may administer."""
+    account_id = _current_organizer_account_id()
+    if _is_cupnavi_superadmin() or (not CLOUD_DATABASE_ENABLED and account_id is None):
+        cache_key = "_cupnavi_shell_cache_admin_tournaments_super"
+        loader = lambda: all_rows(
             "SELECT * FROM tournaments WHERE COALESCE(lifecycle_status,'draft')!='trashed' "
             "ORDER BY CASE COALESCE(lifecycle_status,'draft') WHEN 'live' THEN 0 WHEN 'published' THEN 1 WHEN 'draft' THEN 2 WHEN 'completed' THEN 3 ELSE 4 END, "
             "COALESCE(start_date,tournament_date) DESC,name"
-        ),
-    )
+        )
+    elif account_id is not None:
+        cache_key = f"_cupnavi_shell_cache_admin_tournaments_account_{int(account_id)}"
+        loader = lambda: all_rows(
+            """SELECT t.* FROM tournaments t
+               JOIN tournament_members tm ON tm.tournament_id=t.id
+               WHERE tm.organizer_account_id=? AND COALESCE(t.lifecycle_status,'draft')!='trashed'
+               ORDER BY CASE COALESCE(t.lifecycle_status,'draft') WHEN 'live' THEN 0 WHEN 'published' THEN 1 WHEN 'draft' THEN 2 WHEN 'completed' THEN 3 ELSE 4 END,
+                        COALESCE(t.start_date,t.tournament_date) DESC,t.name""",
+            (int(account_id),),
+        )
+    else:
+        return []
+    return _session_ttl_get(cache_key, ttl_seconds, loader)
 
 def public_tournament_list_snapshot(ttl_seconds=12.0):
     """Reuse public tournament discovery across quick reruns when no cup link is supplied."""
@@ -8302,6 +8419,7 @@ def render_new_tournament_creator(*, key_prefix="sidebar"):
                     "changing_rooms_available": 1 if create_changing_rooms else 0,
                     "show_price_information": 1 if create_show_prices else 0,
                 })
+                grant_current_account_tournament_access(new_tournament_id, "owner")
                 used_slugs = [row["public_slug"] for row in all_rows("SELECT public_slug FROM tournaments WHERE public_slug IS NOT NULL")]
                 public_slug = choose_unique_slug(n.strip(), start_date.isoformat(), new_tournament_id, used_slugs)
                 run("UPDATE tournaments SET public_slug=? WHERE id=?", (public_slug, new_tournament_id))
@@ -8317,8 +8435,8 @@ def render_new_tournament_creator(*, key_prefix="sidebar"):
                 defaults = sport_profile(sport)
                 run(
                     """INSERT INTO schedule_rules(
-                           tournament_id,halves,minutes_per_half,halftime_minutes,minimum_team_rest_minutes
-                       ) VALUES(?,?,?,?,?)
+                           tournament_id,halves,minutes_per_half,halftime_minutes,minimum_team_rest_minutes,synchronized_pitch_times
+                       ) VALUES(?,?,?,?,?,1)
                        ON CONFLICT(tournament_id) DO NOTHING""",
                     (new_tournament_id, defaults["halves"], defaults["minutes_per_half"],
                      defaults["halftime_minutes"], defaults["minimum_team_rest_minutes"]),
@@ -8327,11 +8445,16 @@ def render_new_tournament_creator(*, key_prefix="sidebar"):
                 # v350: the newly created cup becomes active immediately. The
                 # selector widget is instantiated later in the rerun, so it is
                 # safe to seed both desktop and mobile selector state here.
-                st.session_state["new_tournament_setup_id"] = int(new_tournament_id)
-                st.session_state["new_tournament_setup_mode"] = "new"
+                # v555: Cupinfo is completed by the creator. Hand the organiser
+                # directly to the next main-flow step instead of starting a second
+                # first-run wizard at an earlier/parallel step.
+                st.session_state.pop("new_tournament_setup_id", None)
+                st.session_state.pop("new_tournament_setup_mode", None)
                 st.session_state["admin_entry_mode"] = "manage"
                 st.session_state["admin_manage_tournament_confirmed"] = True
-                st.session_state[f"new_tournament_wizard_step_{int(new_tournament_id)}"] = 1
+                st.session_state[f"admin_page_{int(new_tournament_id)}"] = "Lag"
+                st.session_state[f"pending_admin_page_{int(new_tournament_id)}"] = "Lag"
+                st.session_state[f"admin_beginner_journey_{int(new_tournament_id)}"] = "Lag"
                 st.session_state["preferred_tournament_id"] = int(new_tournament_id)
                 # The creator exists both before and after the canonical selector
                 # depending on desktop/mobile layout. Defer widget-key mutation to
@@ -8425,6 +8548,7 @@ if view_mode == "Admin" and st.session_state.get("admin_entry_mode") == "manage"
                     if copy_refs:
                         for row in all_rows("SELECT name,phone,email,referee_level FROM referees WHERE tournament_id=? ORDER BY id", (source_id,)):
                             run("INSERT INTO referees(tournament_id,name,phone,email,referee_level) VALUES(?,?,?,?,?)", (new_id, row["name"], row["phone"], row["email"], row["referee_level"]))
+                    grant_current_account_tournament_access(new_id, "owner")
                     used_slugs = [row["public_slug"] for row in all_rows("SELECT public_slug FROM tournaments WHERE public_slug IS NOT NULL")]
                     slug = choose_unique_slug(clone_name.strip(), clone_start.isoformat(), new_id, used_slugs)
                     run("UPDATE tournaments SET public_slug=? WHERE id=?", (slug, new_id))
@@ -8689,6 +8813,10 @@ tid = st.sidebar.selectbox(
     format_func=_tournament_selector_label,
     key="active_tournament_selector",
 )
+
+if view_mode == "Admin" and not can_administer_tournament(int(tid)):
+    st.error("Du har inte behörighet till den här turneringen.")
+    st.stop()
 
 # v328: Admin tournament switching must not depend on the sidebar. Streamlit
 # collapses the sidebar on narrow screens, so expose the same canonical choice in
@@ -9684,7 +9812,22 @@ st.button(
     args=("Övrigt",),
     disabled=_misc_active,
 )
-st.caption("Alla nio huvudsteg är alltid åtkomliga. Övrigt samlar frivilliga funktioner och blockerar aldrig publicering.")
+# v558: access codes are an operationally important admin task. Keep the full
+# code hub one click away from every admin page instead of burying it under
+# Övrigt/Organisation. It remains outside the numbered setup flow because codes
+# are not required to publish a cup.
+_codes_active = _current_route == "Åtkomst & koder"
+st.button(
+    "✓ 🔐 Administrera alla koder" if _codes_active else "🔐 Administrera alla koder",
+    key=f"admin_all_codes_global_{tid}",
+    use_container_width=True,
+    type="primary" if _codes_active else "secondary",
+    on_click=_set_admin_page,
+    args=("Åtkomst & koder",),
+    disabled=_codes_active,
+    help="Samlad hantering av lagkoder, matchrapportörskod, domarkod och andra åtkomstkoder.",
+)
+st.caption("Alla nio huvudsteg är alltid åtkomliga. Övrigt samlar frivilliga funktioner och blockerar aldrig publicering. Koder har en egen snabbknapp eftersom de ofta behöver delas ut nära cupstart.")
 def _open_admin_search_hit(target_page, kind, entity_id, team_id=None):
     """Navigate from global search and carry the selected entity into its target view."""
     st.session_state[admin_page_key] = target_page
@@ -10739,11 +10882,15 @@ elif admin_page == "Adminöversikt":
 
                     st.markdown("#### Match- och schemaregler")
                     br2, br3 = st.columns(2)
-                    edited_halves = br2.number_input("Antal perioder/halvlekar/set", 1, 4, int(overview_rules["halves"]), disabled=_prod_history_locked)
-                    edited_minutes_half = br3.number_input("Minuter per period/halvlek/set", 1, 120, int(overview_rules["minutes_per_half"]), disabled=_prod_history_locked)
-                    br4, br5 = st.columns(2)
-                    edited_halftime = br4.number_input("Paus mellan perioder/halvlekar (minuter)", 0, 60, int(overview_rules["halftime_minutes"]), disabled=_prod_history_locked)
-                    edited_pitch_break = br5.number_input("Paus mellan matcher på samma plan", 0, 120, int(overview_rules["pitch_break_minutes"]), disabled=_prod_history_locked)
+                    edited_halves = br2.number_input("Antal halvlekar/perioder/set", 1, 4, int(overview_rules["halves"]), disabled=_prod_history_locked)
+                    edited_minutes_half = br3.number_input("Minuter per halvlek/period/set", 1, 120, int(overview_rules["minutes_per_half"]), disabled=_prod_history_locked)
+                    if int(edited_halves) >= 2:
+                        br4, br5 = st.columns(2)
+                        edited_halftime = br4.number_input("Paus mellan halvlekar/perioder (minuter)", 0, 60, int(overview_rules["halftime_minutes"]), disabled=_prod_history_locked)
+                        edited_pitch_break = br5.number_input("Paus mellan matcher på samma plan", 0, 120, int(overview_rules["pitch_break_minutes"]), disabled=_prod_history_locked)
+                    else:
+                        edited_halftime = int(overview_rules["halftime_minutes"])
+                        edited_pitch_break = st.number_input("Paus mellan matcher på samma plan", 0, 120, int(overview_rules["pitch_break_minutes"]), disabled=_prod_history_locked)
                     st.markdown("##### Tider på flera planer")
                     with st.container(border=True):
                         edited_sync_pitch_times = st.checkbox(
@@ -11339,7 +11486,11 @@ if admin_page == "Regler":
         r1, r2, r3 = st.columns(3)
         halves = r1.number_input("Halvlekar / perioder", 1, 4, int(_rules["halves"]), disabled=_rules_locked)
         minutes = r2.number_input("Minuter per halvlek / period", 1, 120, int(_rules["minutes_per_half"]), disabled=_rules_locked)
-        halftime = r3.number_input("Paus (minuter)", 0, 60, int(_rules["halftime_minutes"]), disabled=_rules_locked)
+        if int(halves) >= 2:
+            halftime = r3.number_input("Paus mellan halvlekar/perioder (minuter)", 0, 60, int(_rules["halftime_minutes"]), disabled=_rules_locked)
+        else:
+            halftime = int(_rules["halftime_minutes"])
+            r3.caption("Ingen pausinställning behövs vid 1 halvlek/period.")
         match_total = int(halves) * int(minutes) + max(0, int(halves)-1) * int(halftime)
         st.info(f"Matchtid inklusive pauser: cirka **{match_total} minuter**.")
 
@@ -12142,6 +12293,7 @@ if admin_page == "Kontroller":
                             )
                         finally:
                             con.close()
+                    grant_current_account_tournament_access(restored_tid, "owner")
                     _clear_render_query_cache()
                     st.session_state["preferred_tournament_id"] = int(restored_tid)
                     st.session_state[f"admin_page_{restored_tid}"] = "Adminöversikt"
@@ -15216,6 +15368,25 @@ if admin_page == "Import":
                     if st.button(f"Fortsätt med valda uppgifter → {_first}", type="primary", use_container_width=True, key=f"smart_import_continue_{tid}"):
                         st.session_state[f"smart_import_selected_{tid}"] = list(_selected_sections)
                         st.session_state[f"smart_import_payload_{tid}"] = _smart_result
+                        # v557: If the already-read image contains a schedule, reuse the
+                        # same uploaded bytes for the structured match extraction. The
+                        # organiser must never be asked to upload/read the same photo a
+                        # second time on the Schema page.
+                        if "Schema" in _selected_sections and _smart_image is not None:
+                            try:
+                                from cupnavi_core.ai_cup_document_import import extract_cup_setup_from_documents
+                                with st.spinner("CupNavi förbereder det hittade matchprogrammet …"):
+                                    _source_name = str(getattr(_smart_image, "name", None) or "foto/skärmdump")
+                                    _source_mime = str(getattr(_smart_image, "type", None) or "image/png")
+                                    _structured = extract_cup_setup_from_documents(
+                                        [(_smart_image.getvalue(), _source_name, _source_mime)],
+                                        _smart_api_key,
+                                    )
+                                    _structured["source_name"] = _source_name
+                                st.session_state[f"schedule_existing_import_prefill_{tid}"] = _structured
+                                st.session_state[f"schedule_existing_import_from_smart_{tid}"] = True
+                            except Exception as exc:
+                                st.warning(f"Schemat kunde inte förberedas automatiskt: {exc}")
                         _set_admin_page(_destination.get(_first, "Övrigt"))
                         st.rerun()
                 else:
