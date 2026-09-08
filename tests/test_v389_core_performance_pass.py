@@ -1,6 +1,6 @@
 from pathlib import Path
 
-RELEASE = "2026.09.07-524-PRIMARY-FLOW-PITCH-COUNT-FIX"
+RELEASE = "2026.09.07-525-OPTIONAL-REFEREE-SETUP"
 
 
 def test_v389_batches_schedule_match_events_and_reuses_match_snapshot():

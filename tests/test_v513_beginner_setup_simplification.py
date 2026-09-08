@@ -17,4 +17,4 @@ def test_existing_program_is_first_run_choice():
 def test_sidebar_has_cupinfo():
     assert '("Cupinfo", cupinfo_ready, "Cupinställningar")' in PUB
 def test_version():
-    assert '2026.09.07-524-PRIMARY-FLOW-PITCH-COUNT-FIX' in VER
+    assert '2026.09.07-525-OPTIONAL-REFEREE-SETUP' in VER

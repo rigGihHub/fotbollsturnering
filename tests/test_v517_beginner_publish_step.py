@@ -17,4 +17,4 @@ def test_publish_action_not_buried_in_control():
     assert 'Allt obligatoriskt är klart' in app
 
 def test_version():
-    assert (ROOT / "VERSION.txt").read_text().strip() == "2026.09.07-524-PRIMARY-FLOW-PITCH-COUNT-FIX"
+    assert (ROOT / "VERSION.txt").read_text().strip() == "2026.09.07-525-OPTIONAL-REFEREE-SETUP"

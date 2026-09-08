@@ -6,7 +6,7 @@ VERSION = (ROOT / "VERSION.txt").read_text(encoding="utf-8").strip()
 
 
 def test_v318_version():
-    assert VERSION == "2026.09.07-524-PRIMARY-FLOW-PITCH-COUNT-FIX"
+    assert VERSION == "2026.09.07-525-OPTIONAL-REFEREE-SETUP"
 
 
 def test_toplists_filter_zero_aggregate_rows_in_sql():

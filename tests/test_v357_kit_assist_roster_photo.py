@@ -29,4 +29,4 @@ def test_photo_roster_import_is_discoverable_from_team_registration():
 
 
 def test_version():
-    assert 'APP_BUILD_VERSION = "2026.09.07-524-PRIMARY-FLOW-PITCH-COUNT-FIX"' in APP
+    assert 'APP_BUILD_VERSION = "2026.09.07-525-OPTIONAL-REFEREE-SETUP"' in APP

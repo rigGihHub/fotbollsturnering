@@ -3,7 +3,7 @@ from pathlib import Path
 
 from cupnavi_core.cup_day_dashboard import build_cup_day_action_queue
 
-VERSION = "2026.09.07-524-PRIMARY-FLOW-PITCH-COUNT-FIX"
+VERSION = "2026.09.07-525-OPTIONAL-REFEREE-SETUP"
 APP = Path("app.py").read_text(encoding="utf-8")
 
 

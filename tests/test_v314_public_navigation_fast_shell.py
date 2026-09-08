@@ -5,7 +5,7 @@ VERSION = Path("VERSION.txt").read_text().strip()
 
 
 def test_v314_version():
-    assert VERSION == "2026.09.07-524-PRIMARY-FLOW-PITCH-COUNT-FIX"
+    assert VERSION == "2026.09.07-525-OPTIONAL-REFEREE-SETUP"
 
 
 def test_navigation_is_rendered_before_public_core_snapshot_on_normal_public_path():

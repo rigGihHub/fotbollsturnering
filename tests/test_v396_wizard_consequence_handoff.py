@@ -1,6 +1,6 @@
 from pathlib import Path
 
-VERSION = "2026.09.07-524-PRIMARY-FLOW-PITCH-COUNT-FIX"
+VERSION = "2026.09.07-525-OPTIONAL-REFEREE-SETUP"
 
 
 def test_release_version():

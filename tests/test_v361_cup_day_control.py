@@ -58,4 +58,4 @@ def test_cup_day_has_direct_operational_actions():
 
 
 def test_version():
-    assert 'APP_BUILD_VERSION = "2026.09.07-524-PRIMARY-FLOW-PITCH-COUNT-FIX"' in APP
+    assert 'APP_BUILD_VERSION = "2026.09.07-525-OPTIONAL-REFEREE-SETUP"' in APP

@@ -10,7 +10,7 @@ WORKSPACE = (ROOT / "cupnavi_core" / "public_workspace_view.py").read_text(encod
 
 
 def test_release_version_v273():
-    assert VERSION == "2026.09.07-524-PRIMARY-FLOW-PITCH-COUNT-FIX"
+    assert VERSION == "2026.09.07-525-OPTIONAL-REFEREE-SETUP"
 
 
 def test_navigation_builder_keeps_single_responsive_nav_and_active_page():

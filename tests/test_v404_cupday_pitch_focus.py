@@ -23,7 +23,7 @@ def _finished_without_score():
 
 
 def test_version_and_release_note():
-    assert VERSION == "2026.09.07-524-PRIMARY-FLOW-PITCH-COUNT-FIX"
+    assert VERSION == "2026.09.07-525-OPTIONAL-REFEREE-SETUP"
     assert (ROOT / "CUPDAY_PITCH_FOCUS_V404.md").exists()
 
 

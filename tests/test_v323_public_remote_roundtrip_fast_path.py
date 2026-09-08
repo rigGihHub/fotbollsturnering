@@ -6,7 +6,7 @@ VERSION = (ROOT / 'VERSION.txt').read_text().strip()
 
 
 def test_v323_version():
-    assert VERSION == '2026.09.07-524-PRIMARY-FLOW-PITCH-COUNT-FIX'
+    assert VERSION == '2026.09.07-525-OPTIONAL-REFEREE-SETUP'
 
 
 def test_schema_fast_path_is_one_execute_statement():

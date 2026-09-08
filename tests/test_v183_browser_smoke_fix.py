@@ -2,7 +2,7 @@ from pathlib import Path
 ROOT=Path(__file__).resolve().parents[1]
 SMOKE=(ROOT/"e2e/test_streamlit_browser_smoke.py").read_text(encoding="utf-8")
 APP=(ROOT/"app.py").read_text(encoding="utf-8")
-R="2026.09.07-524-PRIMARY-FLOW-PITCH-COUNT-FIX"
+R="2026.09.07-525-OPTIONAL-REFEREE-SETUP"
 
 def test_smoke_test_does_not_wait_for_visible_body():
     assert 'page.wait_for_selector("body",state="attached"' in SMOKE

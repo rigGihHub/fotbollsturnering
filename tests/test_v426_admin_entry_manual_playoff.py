@@ -8,7 +8,7 @@ VERSION = Path('VERSION.txt').read_text(encoding='utf-8').strip()
 
 
 def test_release_version():
-    assert VERSION == '2026.09.07-524-PRIMARY-FLOW-PITCH-COUNT-FIX'
+    assert VERSION == '2026.09.07-525-OPTIONAL-REFEREE-SETUP'
 
 
 def test_admin_starts_with_clean_choice_gate():

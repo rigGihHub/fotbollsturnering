@@ -5,7 +5,7 @@ VIEW=(ROOT/'cupnavi_core'/'cup_document_creator_view.py').read_text(encoding='ut
 APP=(ROOT/'app.py').read_text(encoding='utf-8')
 
 def test_v499_version_and_complete_document_schema():
-    assert '2026.09.07-524-PRIMARY-FLOW-PITCH-COUNT-FIX' in APP
+    assert '2026.09.07-525-OPTIONAL-REFEREE-SETUP' in APP
     for field in ("'matches'", "'playoff_matches'", "'rules'", "'duration'"):
         assert field in AI
 

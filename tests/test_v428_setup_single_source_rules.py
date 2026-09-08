@@ -4,7 +4,7 @@ SRC=(ROOT/"cupnavi_core"/"initial_setup_view.py").read_text(encoding="utf-8")
 VERSION=(ROOT/"VERSION.txt").read_text().strip()
 
 def test_v428_version():
-    assert VERSION=="2026.09.07-524-PRIMARY-FLOW-PITCH-COUNT-FIX"
+    assert VERSION=="2026.09.07-525-OPTIONAL-REFEREE-SETUP"
 
 def test_rules_block_does_not_reask_pitch_timing():
     block=SRC[SRC.index('# v428: manual setup'):SRC.index('# v364: Matchcamp')]

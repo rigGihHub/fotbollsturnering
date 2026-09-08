@@ -6,7 +6,7 @@ VERSION = (ROOT / "VERSION.txt").read_text(encoding="utf-8").strip()
 
 
 def test_v422_version_and_final_step_label():
-    assert VERSION == '2026.09.07-524-PRIMARY-FLOW-PITCH-COUNT-FIX'
+    assert VERSION == '2026.09.07-525-OPTIONAL-REFEREE-SETUP'
     assert "Steg 7 av 7 · Publicera" in VIEW
 
 def test_v422_publication_card_does_not_repeat_control_dashboard():

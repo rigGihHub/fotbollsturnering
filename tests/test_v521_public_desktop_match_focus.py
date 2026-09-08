@@ -5,7 +5,7 @@ APP=(ROOT/"app.py").read_text(encoding="utf-8")
 VER=(ROOT/"VERSION.txt").read_text(encoding="utf-8").strip()
 
 def test_v521_version():
-    assert VER == "2026.09.07-524-PRIMARY-FLOW-PITCH-COUNT-FIX"
+    assert VER == "2026.09.07-525-OPTIONAL-REFEREE-SETUP"
 
 def test_v521_wide_public_canvas_and_match_hierarchy():
     assert "PUBLIC DESKTOP MATCH FOCUS V521" in APP

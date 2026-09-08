@@ -13,7 +13,7 @@ def _resolve(source):
 
 
 def test_release_version_and_note():
-    assert APP_VERSION == "2026.09.07-524-PRIMARY-FLOW-PITCH-COUNT-FIX"
+    assert APP_VERSION == "2026.09.07-525-OPTIONAL-REFEREE-SETUP"
     assert (ROOT / "PITCH_OUTAGE_ASSIST_V410.md").exists()
 
 

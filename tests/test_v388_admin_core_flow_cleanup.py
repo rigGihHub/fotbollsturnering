@@ -12,7 +12,7 @@ def _groups():
     return APP[start:end]
 
 def test_release_version():
-    assert VERSION=="2026.09.07-524-PRIMARY-FLOW-PITCH-COUNT-FIX"
+    assert VERSION=="2026.09.07-525-OPTIONAL-REFEREE-SETUP"
 
 def test_manual_group_tools_are_true_lazy():
     block=_groups()

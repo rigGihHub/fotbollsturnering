@@ -12,7 +12,7 @@ def _overview_block():
 
 
 def test_release_version():
-    assert VERSION == "2026.09.07-524-PRIMARY-FLOW-PITCH-COUNT-FIX"
+    assert VERSION == "2026.09.07-525-OPTIONAL-REFEREE-SETUP"
 
 
 def test_class_progress_query_removed_from_default_overview():

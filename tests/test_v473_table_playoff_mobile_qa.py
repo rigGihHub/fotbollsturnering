@@ -1,6 +1,6 @@
 from pathlib import Path
 
-VERSION = "2026.09.07-524-PRIMARY-FLOW-PITCH-COUNT-FIX"
+VERSION = "2026.09.07-525-OPTIONAL-REFEREE-SETUP"
 APP = Path("app.py").read_text(encoding="utf-8")
 STATS = Path("cupnavi_core/public_statistics_view.py").read_text(encoding="utf-8")
 PRESENT = Path("cupnavi_core/public_presentation_view.py").read_text(encoding="utf-8")

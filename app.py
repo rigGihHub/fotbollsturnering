@@ -178,7 +178,7 @@ def inject_v266_public_mobile_css():
     return _inject_v266_public_mobile_css_impl(st)
 def inject_v198_visual_system():
     return _inject_v198_visual_system_impl(st)
-APP_BUILD_VERSION = "2026.09.07-524-PRIMARY-FLOW-PITCH-COUNT-FIX"
+APP_BUILD_VERSION = "2026.09.08-537-ISOLATED-MATCHES-FRAGMENT"
 APP_VERSION = APP_BUILD_VERSION
 
 def _set_session_state_values(values):
@@ -997,7 +997,19 @@ def _visitor_source(referrer):
     return "Annan webbplats"
 
 def track_public_visit(tournament_id):
-    """Integritetsvänlig besöksmätning. Ingen IP-adress eller personuppgift lagras."""
+    """Integritetsvänlig besöksmätning utan blockerande write på första paint.
+
+    v531 prioriterar cupinnehållet: första renderingen markerar bara sessionen
+    lokalt. Besöks-UPSERten sker först vid nästa Streamlit-rerun/interaktion.
+    Därmed ligger ingen analytics-write på den publika sidans kritiska väg.
+    En besökare som lämnar utan någon interaktion kan därför saknas i
+    statistiken, vilket är en avsiktlig precision-vs-latency-avvägning.
+    """
+    first_paint_key = f"_cupnavi_visit_first_paint_seen_{tournament_id}"
+    if not st.session_state.get(first_paint_key):
+        st.session_state[first_paint_key] = True
+        return
+
     session_key = f"_cupnavi_visitor_session_{tournament_id}"
     token = st.session_state.get(session_key)
     if not token:
@@ -3777,7 +3789,7 @@ def _clear_render_query_cache():
     _RENDER_QUERY_CACHE.clear()
     _DERIVED_RENDER_CACHE.clear()
 
-def _clear_session_read_caches(prefixes=("_cupnavi_admin_cache_",)):
+def _clear_session_read_caches(prefixes=("_cupnavi_admin_cache_", "_cupnavi_shell_cache_", "_cupnavi_public_tournament_v434_")):
     """Invalidate short cross-rerun read caches after a database write.
 
     Admin navigation benefits from reusing the same team/group/class snapshots for
@@ -3807,6 +3819,35 @@ def _session_ttl_get(key, ttl_seconds, factory):
     value = factory()
     st.session_state[key] = (time.monotonic(), value)
     return value
+
+def admin_tournament_list_snapshot(ttl_seconds=8.0):
+    """Reuse the admin tournament shell across rapid Streamlit reruns.
+
+    The active cup selector, clone source picker and admin shell used to issue
+    overlapping remote Turso tournament-list reads on every interaction. Keep
+    one short-lived canonical list and invalidate it immediately after writes.
+    """
+    return _session_ttl_get(
+        "_cupnavi_shell_cache_admin_tournaments",
+        ttl_seconds,
+        lambda: all_rows(
+            "SELECT * FROM tournaments WHERE COALESCE(lifecycle_status,'draft')!='trashed' "
+            "ORDER BY CASE COALESCE(lifecycle_status,'draft') WHEN 'live' THEN 0 WHEN 'published' THEN 1 WHEN 'draft' THEN 2 WHEN 'completed' THEN 3 ELSE 4 END, "
+            "COALESCE(start_date,tournament_date) DESC,name"
+        ),
+    )
+
+def public_tournament_list_snapshot(ttl_seconds=12.0):
+    """Reuse public tournament discovery across quick reruns when no cup link is supplied."""
+    return _session_ttl_get(
+        "_cupnavi_shell_cache_public_tournaments",
+        ttl_seconds,
+        lambda: all_rows(
+            "SELECT * FROM tournaments WHERE is_published=1 AND COALESCE(lifecycle_status,'published') IN ('published','live','completed') "
+            "ORDER BY CASE COALESCE(lifecycle_status,'published') WHEN 'live' THEN 0 WHEN 'published' THEN 1 WHEN 'completed' THEN 2 ELSE 3 END, "
+            "COALESCE(start_date,tournament_date) DESC,name"
+        ),
+    )
 
 def admin_teams_snapshot(tournament_id, ttl_seconds=8.0):
     """Reuse the unchanged team list across quick admin reruns/navigation."""
@@ -3909,7 +3950,7 @@ def cupday_boot_db_snapshot(tournament_id, *, include_checkins=True):
     _record_db_call(started)
     return {"rules": rules, "matches": matches, "checkins": checkins}
 
-def public_core_snapshot(tournament_id, *, include_matches=True, include_teams=True):
+def public_core_snapshot(tournament_id, *, include_matches=True, include_teams=True, match_limit=None, match_window_start=None, match_window_end=None):
     """Load the public core with a short cross-rerun fast path.
 
     Public navigation often asks for the exact same schedule/team projection a
@@ -3920,7 +3961,15 @@ def public_core_snapshot(tournament_id, *, include_matches=True, include_teams=T
     tournament_id = int(tournament_id)
     include_matches = bool(include_matches)
     include_teams = bool(include_teams)
-    render_key=("public-core-snapshot", tournament_id, include_matches, include_teams)
+    try:
+        match_limit = int(match_limit) if match_limit is not None else None
+    except (TypeError, ValueError):
+        match_limit = None
+    if match_limit is not None and match_limit <= 0:
+        match_limit = None
+    match_window_start = str(match_window_start or "").strip() or None
+    match_window_end = str(match_window_end or "").strip() or None
+    render_key=("public-core-snapshot", tournament_id, include_matches, include_teams, match_limit, match_window_start, match_window_end)
     if render_key in _DERIVED_RENDER_CACHE:
         _PERF["derived_hits"] += 1
         return _DERIVED_RENDER_CACHE[render_key]
@@ -3929,39 +3978,235 @@ def public_core_snapshot(tournament_id, *, include_matches=True, include_teams=T
         # v487: Cupinfo can request neither matches nor teams. In that case,
         # avoid opening a remote DB connection that would execute no SQL.
         if not include_matches and not include_teams:
-            return {"matches": [], "teams": []}
+            return {"matches": [], "teams": [], "match_total": 0, "matches_complete": True}
         started=time.perf_counter()
         with db() as con:
-            if include_matches:
-                matches=_rows_from_cursor(con.execute(
-                    """SELECT m.id,m.tournament_id,m.group_id,m.bracket_id,m.stage,m.round_no,m.match_no,
-                              m.home_source,m.away_source,m.home_score,m.away_score,
-                              m.home_penalties,m.away_penalties,m.referee_id,m.schedule_published,
-                              m.decided_winner_id,m.scheduled_start,m.pitch_number,
-                              r.name AS referee_name,
-                              COALESCE(p.name, 'Plan ' || CAST(m.pitch_number AS TEXT)) AS pitch_name
-                       FROM matches m
+            feed_matches=None
+            played_count=None
+            total_goals=None
+            # v530: Matcher-sidan behöver både publicerade matcher och lag. Mot
+            # Turso kostade de tidigare två separata execute-anrop trots att de
+            # alltid hörde till samma första paint. Slå ihop dem till ett enda
+            # UNION ALL-resultat och dela upp raderna lokalt. Det kapar en
+            # blockerande remote roundtrip utan att minska datan eller ändra UI.
+            if include_matches and include_teams and match_limit is not None and match_window_start and match_window_end:
+                # v533: Cup-day first paint. Transfer only the first visible batch
+                # plus a small time window around "now" for the live/next feed.
+                # Aggregate totals stay exact in the same remote roundtrip.
+                _combined_sql = """WITH public_base AS (
+                           SELECT m.*
+                           FROM matches m
+                           WHERE m.tournament_id=? AND m.scheduled_start IS NOT NULL AND m.schedule_published=1
+                       ),
+                       public_stats AS (
+                           SELECT COUNT(*) AS match_total,
+                                  SUM(CASE WHEN home_score IS NOT NULL AND away_score IS NOT NULL THEN 1 ELSE 0 END) AS played_count,
+                                  SUM(CASE WHEN home_score IS NOT NULL AND away_score IS NOT NULL
+                                           THEN COALESCE(home_score,0)+COALESCE(away_score,0) ELSE 0 END) AS total_goals,
+                                  (SELECT COUNT(*) FROM teams WHERE tournament_id=?) AS team_total
+                           FROM public_base
+                       ),
+                       first_matches AS (
+                           SELECT * FROM public_base
+                           ORDER BY scheduled_start,pitch_number,id
+                           LIMIT ?
+                       ),
+                       feed_matches AS (
+                           SELECT * FROM public_base
+                           WHERE scheduled_start>=? AND scheduled_start<=?
+                           ORDER BY scheduled_start,pitch_number,id
+                           LIMIT 18
+                       )
+                       SELECT 'match' AS row_kind,
+                              m.id AS id,m.group_id AS group_id,m.stage AS stage,m.match_no AS match_no,
+                              m.home_source AS home_source,m.away_source AS away_source,
+                              m.home_score AS home_score,m.away_score AS away_score,
+                              m.home_penalties AS home_penalties,m.away_penalties AS away_penalties,
+                              m.schedule_published AS schedule_published,
+                              m.decided_winner_id AS decided_winner_id,m.scheduled_start AS scheduled_start,
+                              m.pitch_number AS pitch_number,r.name AS referee_name,
+                              COALESCE(p.name, 'Plan ' || CAST(m.pitch_number AS TEXT)) AS pitch_name,
+                              NULL AS name,NULL AS age_class,NULL AS primary_color,NULL AS secondary_color,
+                              NULL AS home_pattern,NULL AS home_color_2,NULL AS away_pattern,NULL AS away_color_2,
+                              s.match_total AS match_total,s.played_count AS played_count,s.total_goals AS total_goals,s.team_total AS team_total
+                       FROM first_matches m CROSS JOIN public_stats s
                        LEFT JOIN referees r ON r.id=m.referee_id
                        LEFT JOIN pitches p ON p.tournament_id=m.tournament_id AND p.pitch_number=m.pitch_number
-                       WHERE m.tournament_id=? AND m.scheduled_start IS NOT NULL AND m.schedule_published=1
-                       ORDER BY m.scheduled_start,m.pitch_number,m.id""",
-                    (tournament_id,),
+                       UNION ALL
+                       SELECT 'feed' AS row_kind,
+                              m.id,m.group_id,m.stage,m.match_no,
+                              m.home_source,m.away_source,m.home_score,m.away_score,m.home_penalties,m.away_penalties,
+                              m.schedule_published,m.decided_winner_id,m.scheduled_start,m.pitch_number,
+                              r.name AS referee_name,COALESCE(p.name, 'Plan ' || CAST(m.pitch_number AS TEXT)) AS pitch_name,
+                              NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,
+                              s.match_total,s.played_count,s.total_goals,s.team_total
+                       FROM feed_matches m CROSS JOIN public_stats s
+                       LEFT JOIN referees r ON r.id=m.referee_id
+                       LEFT JOIN pitches p ON p.tournament_id=m.tournament_id AND p.pitch_number=m.pitch_number
+                       UNION ALL
+                       SELECT 'team' AS row_kind,
+                              t.id,t.group_id,
+                              NULL AS stage,NULL AS match_no,
+                              NULL AS home_source,NULL AS away_source,NULL AS home_score,NULL AS away_score,
+                              NULL AS home_penalties,NULL AS away_penalties,NULL AS schedule_published,
+                              NULL AS decided_winner_id,NULL AS scheduled_start,NULL AS pitch_number,
+                              NULL AS referee_name,NULL AS pitch_name,
+                              t.name,t.age_class,t.primary_color,t.secondary_color,t.home_pattern,t.home_color_2,t.away_pattern,t.away_color_2,
+                              s.match_total,s.played_count,s.total_goals,s.team_total
+                       FROM teams t CROSS JOIN public_stats s WHERE t.tournament_id=?
+                       ORDER BY row_kind,scheduled_start,pitch_number,id,name"""
+                combined_rows = _rows_from_cursor(con.execute(
+                    _combined_sql,
+                    (tournament_id, tournament_id, match_limit, match_window_start, match_window_end, tournament_id),
                 ))
-            else:
                 matches=[]
-            if include_teams:
-                teams=_rows_from_cursor(con.execute(
-                    """SELECT id,name,group_id,age_class,
-                              primary_color,secondary_color,home_pattern,home_color_2,away_pattern,away_color_2
-                       FROM teams WHERE tournament_id=? ORDER BY name""",
-                    (tournament_id,),
-                ))
-            else:
+                feed_matches=[]
                 teams=[]
+                match_total=0
+                played_count=0
+                total_goals=0
+                team_total=0
+                match_columns=(
+                    'id','group_id','stage','match_no',
+                    'home_source','away_source','home_score','away_score','home_penalties','away_penalties',
+                    'schedule_published','decided_winner_id','scheduled_start','pitch_number',
+                    'referee_name','pitch_name',
+                )
+                team_columns=(
+                    'id','name','group_id','age_class','primary_color','secondary_color',
+                    'home_pattern','home_color_2','away_pattern','away_color_2',
+                )
+                for row in combined_rows:
+                    match_total=max(match_total, int(_row_value(row, 'match_total', 0) or 0))
+                    played_count=max(played_count, int(_row_value(row, 'played_count', 0) or 0))
+                    total_goals=max(total_goals, int(_row_value(row, 'total_goals', 0) or 0))
+                    team_total=max(team_total, int(_row_value(row, 'team_total', 0) or 0))
+                    row_kind=_row_value(row, 'row_kind', '')
+                    if row_kind == 'match':
+                        matches.append({column: _row_value(row, column, None) for column in match_columns})
+                    elif row_kind == 'feed':
+                        feed_matches.append({column: _row_value(row, column, None) for column in match_columns})
+                    else:
+                        teams.append({column: _row_value(row, column, None) for column in team_columns})
+                matches.sort(key=lambda row: (str(row.get('scheduled_start') or ''), int(row.get('pitch_number') or 0), int(row.get('id') or 0)))
+                feed_matches.sort(key=lambda row: (str(row.get('scheduled_start') or ''), int(row.get('pitch_number') or 0), int(row.get('id') or 0)))
+                teams.sort(key=lambda row: str(row.get('name') or '').lower())
+            elif include_matches and include_teams:
+                # v532: On the ordinary public Matches landing view, only the
+                # first visible batch is needed for first paint. COUNT(*) OVER()
+                # keeps the real published total in the same remote roundtrip,
+                # while LIMIT avoids transferring the full tournament schedule.
+                _match_limit_sql = " LIMIT ?" if match_limit is not None else ""
+                _combined_sql = f"""WITH public_matches AS (
+                           SELECT m.*, COUNT(*) OVER() AS match_total
+                           FROM matches m
+                           WHERE m.tournament_id=? AND m.scheduled_start IS NOT NULL AND m.schedule_published=1
+                           ORDER BY m.scheduled_start,m.pitch_number,m.id{_match_limit_sql}
+                       ),
+                       team_stats AS (SELECT COUNT(*) AS team_total FROM teams WHERE tournament_id=?),
+                       referenced_team_ids AS (
+                           SELECT CAST(SUBSTR(home_source, 6) AS INTEGER) AS team_id FROM public_matches WHERE home_source LIKE 'team:%'
+                           UNION SELECT CAST(SUBSTR(away_source, 6) AS INTEGER) FROM public_matches WHERE away_source LIKE 'team:%'
+                       )
+                       SELECT 'match' AS row_kind,
+                              m.id AS id,m.group_id AS group_id,m.stage AS stage,m.match_no AS match_no,
+                              m.home_source AS home_source,m.away_source AS away_source,
+                              m.home_score AS home_score,m.away_score AS away_score,
+                              m.home_penalties AS home_penalties,m.away_penalties AS away_penalties,
+                              m.schedule_published AS schedule_published,
+                              m.decided_winner_id AS decided_winner_id,m.scheduled_start AS scheduled_start,
+                              m.pitch_number AS pitch_number,r.name AS referee_name,
+                              COALESCE(p.name, 'Plan ' || CAST(m.pitch_number AS TEXT)) AS pitch_name,
+                              m.match_total AS match_total,(SELECT team_total FROM team_stats) AS team_total,
+                              NULL AS name,NULL AS age_class,NULL AS primary_color,NULL AS secondary_color,
+                              NULL AS home_pattern,NULL AS home_color_2,NULL AS away_pattern,NULL AS away_color_2
+                       FROM public_matches m
+                       LEFT JOIN referees r ON r.id=m.referee_id
+                       LEFT JOIN pitches p ON p.tournament_id=m.tournament_id AND p.pitch_number=m.pitch_number
+                       UNION ALL
+                       SELECT 'team' AS row_kind,
+                              t.id AS id,t.group_id AS group_id,
+                              NULL AS stage,NULL AS match_no,
+                              NULL AS home_source,NULL AS away_source,NULL AS home_score,NULL AS away_score,
+                              NULL AS home_penalties,NULL AS away_penalties,NULL AS schedule_published,
+                              NULL AS decided_winner_id,NULL AS scheduled_start,NULL AS pitch_number,
+                              NULL AS referee_name,NULL AS pitch_name,NULL AS match_total,(SELECT team_total FROM team_stats) AS team_total,
+                              t.name AS name,t.age_class AS age_class,t.primary_color AS primary_color,
+                              t.secondary_color AS secondary_color,t.home_pattern AS home_pattern,
+                              t.home_color_2 AS home_color_2,t.away_pattern AS away_pattern,t.away_color_2 AS away_color_2
+                       FROM teams t WHERE t.tournament_id=? AND t.id IN (SELECT team_id FROM referenced_team_ids)
+                       ORDER BY row_kind,scheduled_start,pitch_number,id,name"""
+                _combined_params = (tournament_id, match_limit, tournament_id, tournament_id) if match_limit is not None else (tournament_id, tournament_id, tournament_id)
+                combined_rows = _rows_from_cursor(con.execute(_combined_sql, _combined_params))
+                matches=[]
+                teams=[]
+                match_total=0
+                team_total=0
+                match_columns=(
+                    'id','group_id','stage','match_no',
+                    'home_source','away_source','home_score','away_score','home_penalties','away_penalties',
+                    'schedule_published','decided_winner_id','scheduled_start','pitch_number',
+                    'referee_name','pitch_name',
+                )
+                team_columns=(
+                    'id','name','group_id','age_class','primary_color','secondary_color',
+                    'home_pattern','home_color_2','away_pattern','away_color_2',
+                )
+                for row in combined_rows:
+                    team_total=max(team_total, int(_row_value(row, 'team_total', 0) or 0))
+                    if _row_value(row, 'row_kind', '') == 'match':
+                        match_total=max(match_total, int(_row_value(row, 'match_total', 0) or 0))
+                        matches.append({column: _row_value(row, column, None) for column in match_columns})
+                    else:
+                        teams.append({column: _row_value(row, column, None) for column in team_columns})
+                matches.sort(key=lambda row: (str(row.get('scheduled_start') or ''), int(row.get('pitch_number') or 0), int(row.get('id') or 0)))
+                teams.sort(key=lambda row: str(row.get('name') or '').lower())
+            else:
+                if include_matches:
+                    _match_limit_sql = " LIMIT ?" if match_limit is not None else ""
+                    _match_sql = f"""SELECT m.id,m.tournament_id,m.group_id,m.bracket_id,m.stage,m.round_no,m.match_no,
+                                  m.home_source,m.away_source,m.home_score,m.away_score,
+                                  m.home_penalties,m.away_penalties,m.referee_id,m.schedule_published,
+                                  m.decided_winner_id,m.scheduled_start,m.pitch_number,
+                                  r.name AS referee_name,
+                                  COALESCE(p.name, 'Plan ' || CAST(m.pitch_number AS TEXT)) AS pitch_name,
+                                  COUNT(*) OVER() AS match_total
+                           FROM matches m
+                           LEFT JOIN referees r ON r.id=m.referee_id
+                           LEFT JOIN pitches p ON p.tournament_id=m.tournament_id AND p.pitch_number=m.pitch_number
+                           WHERE m.tournament_id=? AND m.scheduled_start IS NOT NULL AND m.schedule_published=1
+                           ORDER BY m.scheduled_start,m.pitch_number,m.id{_match_limit_sql}"""
+                    _match_params = (tournament_id, match_limit) if match_limit is not None else (tournament_id,)
+                    _match_rows=_rows_from_cursor(con.execute(_match_sql, _match_params))
+                    match_total=max((int(_row_value(row, 'match_total', 0) or 0) for row in _match_rows), default=0)
+                    matches=[{key: value for key, value in dict(row).items() if key != 'match_total'} for row in _match_rows]
+                else:
+                    matches=[]
+                    match_total=0
+                if include_teams:
+                    teams=_rows_from_cursor(con.execute(
+                        """SELECT id,name,group_id,age_class,
+                                  primary_color,secondary_color,home_pattern,home_color_2,away_pattern,away_color_2
+                           FROM teams WHERE tournament_id=? ORDER BY name""",
+                        (tournament_id,),
+                    ))
+                else:
+                    teams=[]
+        if 'team_total' not in locals():
+            team_total = len(teams) if include_teams else 0
         _record_db_call(started)
-        return {"matches":matches,"teams":teams}
+        return {
+            "matches": matches,
+            "feed_matches": list(feed_matches if feed_matches is not None else matches),
+            "teams": teams,
+            "team_total": int(team_total if include_teams else 0),
+            "match_total": int(match_total if include_matches else 0),
+            "played_count": int(played_count) if played_count is not None else None,
+            "total_goals": int(total_goals) if total_goals is not None else None,
+            "matches_complete": bool(not include_matches or match_limit is None or len(matches) >= int(match_total or 0)),
+        }
 
-    session_key = f"_cupnavi_public_core_v434_{tournament_id}_{int(include_matches)}_{int(include_teams)}"
+    session_key = f"_cupnavi_public_core_v534_{tournament_id}_{int(include_matches)}_{int(include_teams)}_{match_limit or 0}_{match_window_start or ''}_{match_window_end or ''}"
     value = _session_ttl_get(session_key, 6.0, _load_public_core)
     _DERIVED_RENDER_CACHE[render_key]=value
     return value
@@ -5953,13 +6198,45 @@ def render_public_info_section(tournament_id, tournament, published_matches, *, 
     )
 
 @st.fragment
+def render_public_matches_isolated_fragment(**kwargs):
+    """v537: Rerun only the Matches workspace for match-page widget interactions.
+
+    The parent public workspace still owns routing and core-data selection on a full
+    public navigation run. Once the Matches page is mounted, paging/weather/events/
+    highlights/filter widgets rerun this child fragment instead of re-running the
+    entire public workspace shell.
+    """
+    return render_public_matches_fragment_module(**kwargs)
+
+
+@st.fragment
 def render_public_view(tournament_id, tournament):
     """Render the public workspace as one fragment so public widget clicks avoid a full app rerun."""
     # v323: fragment reruns no longer recreate app-level query dictionaries. Keep
     # a short freshness window so rapid public navigation can reuse Turso reads,
     # while live results/statistics automatically become query-fresh again within
     # a few seconds instead of remaining cached for the lifetime of the session.
-    public_cache_epoch = int(time.monotonic() // 3)
+    # v536: public widget interactions rerun this fragment. Static/future cups do not
+    # need the same 3-second cache churn as an active cup day. Reuse render-level
+    # query/derived snapshots longer outside the live window so filters, paging and
+    # toggles avoid needless recomputation/remote reads while cup-day freshness stays fast.
+    _cache_epoch_seconds = 3
+    try:
+        _today = date.today()
+        _start_text = str(_row_value(tournament, "start_date", "") or _row_value(tournament, "tournament_date", "") or "").strip()
+        _end_text = str(_row_value(tournament, "end_date", "") or _start_text or "").strip()
+        _start_date = datetime.fromisoformat(_start_text[:10]).date() if _start_text else None
+        _end_date = datetime.fromisoformat(_end_text[:10]).date() if _end_text else _start_date
+        if _start_date and _end_date:
+            if _start_date <= _today <= _end_date:
+                _cache_epoch_seconds = 3
+            elif _today < _start_date:
+                _cache_epoch_seconds = 12
+            else:
+                _cache_epoch_seconds = 30
+    except (TypeError, ValueError):
+        _cache_epoch_seconds = 3
+    public_cache_epoch = int(time.monotonic() // _cache_epoch_seconds)
     public_cache_epoch_key = f"_cupnavi_public_cache_epoch_{int(tournament_id)}"
     if st.session_state.get(public_cache_epoch_key) != public_cache_epoch:
         _clear_render_query_cache()
@@ -6001,7 +6278,7 @@ def render_public_view(tournament_id, tournament):
             render_public_info_section=render_public_info_section,
             render_public_match_cards_module=render_public_match_cards_module,
             render_public_match_filters_module=render_public_match_filters_module,
-            render_public_matches_fragment_module=render_public_matches_fragment_module,
+            render_public_matches_fragment_module=render_public_matches_isolated_fragment,
             render_public_screen_mode=render_public_screen_mode,
             render_public_share_control=render_public_share_control,
             render_public_statistics_section=render_public_statistics_section,
@@ -8079,9 +8356,9 @@ if view_mode == "Admin" and st.session_state.get("admin_entry_mode") == "create"
     st.sidebar.caption("Du skapar en ny cup. När grunduppgifterna är sparade tar den guidade setupen över.")
 
 if view_mode == "Admin" and st.session_state.get("admin_entry_mode") == "manage" and st.session_state.get("admin_manage_tournament_confirmed"):
-    clone_sources = all_rows(
-        "SELECT * FROM tournaments WHERE COALESCE(lifecycle_status,'draft')!='trashed' ORDER BY COALESCE(start_date,tournament_date) DESC,name"
-    )
+    # v526: reuse the same short-lived tournament shell that powers the
+    # canonical Admin selector instead of paying a second Turso roundtrip.
+    clone_sources = admin_tournament_list_snapshot()
     if clone_sources:
         with st.sidebar.expander("Duplicera tidigare cup"):
             source_id = st.selectbox(
@@ -8221,19 +8498,23 @@ requested_cup_id = None
 _requested_public_row = None
 
 if view_mode in ("Admin", "Matchrapportör", "Lagportal"):
-    _tournament_access_sql = "SELECT * FROM tournaments WHERE COALESCE(lifecycle_status,'draft')!='trashed'"
-    _tournament_access_params = ()
-    if view_mode == "Matchrapportör" and st.session_state.get("reporter_auth_scope") == "test_only":
-        _tournament_access_sql += " AND COALESCE(environment_type,'production')='test'"
-    if view_mode == "Matchrapportör" and st.session_state.get("reporter_auth_scope") == "tournament":
-        _tournament_access_sql += " AND id=?"
-        _tournament_access_params = (int(st.session_state["reporter_tournament_id"]),)
-    tournaments = all_rows(
-        _tournament_access_sql
-        + " ORDER BY CASE COALESCE(lifecycle_status,'draft') WHEN 'live' THEN 0 WHEN 'published' THEN 1 WHEN 'draft' THEN 2 WHEN 'completed' THEN 3 ELSE 4 END, "
-          "COALESCE(start_date,tournament_date) DESC,name",
-        _tournament_access_params,
-    )
+    if view_mode == "Admin":
+        # v526: the admin shell and clone picker share one cached tournament list.
+        tournaments = admin_tournament_list_snapshot()
+    else:
+        _tournament_access_sql = "SELECT * FROM tournaments WHERE COALESCE(lifecycle_status,'draft')!='trashed'"
+        _tournament_access_params = ()
+        if view_mode == "Matchrapportör" and st.session_state.get("reporter_auth_scope") == "test_only":
+            _tournament_access_sql += " AND COALESCE(environment_type,'production')='test'"
+        if view_mode == "Matchrapportör" and st.session_state.get("reporter_auth_scope") == "tournament":
+            _tournament_access_sql += " AND id=?"
+            _tournament_access_params = (int(st.session_state["reporter_tournament_id"]),)
+        tournaments = all_rows(
+            _tournament_access_sql
+            + " ORDER BY CASE COALESCE(lifecycle_status,'draft') WHEN 'live' THEN 0 WHEN 'published' THEN 1 WHEN 'draft' THEN 2 WHEN 'completed' THEN 3 ELSE 4 END, "
+              "COALESCE(start_date,tournament_date) DESC,name",
+            _tournament_access_params,
+        )
 else:
     if cup_query_text:
         try:
@@ -8271,11 +8552,9 @@ else:
         tournaments = [_requested_public_row]
         requested_cup_id = int(_requested_public_row["id"])
     else:
-        tournaments = all_rows(
-            "SELECT * FROM tournaments WHERE is_published=1 AND COALESCE(lifecycle_status,'published') IN ('published','live','completed') "
-            "ORDER BY CASE COALESCE(lifecycle_status,'published') WHEN 'live' THEN 0 WHEN 'published' THEN 1 WHEN 'completed' THEN 2 ELSE 3 END, "
-            "COALESCE(start_date,tournament_date) DESC,name"
-        )
+        # v526: public discovery without a direct cup link is stable across quick
+        # interactions, so avoid repeating the same remote list read every rerun.
+        tournaments = public_tournament_list_snapshot()
 
 if view_mode == "Admin" and st.session_state.get("admin_entry_mode") == "manage":
     if not tournaments:
@@ -9468,8 +9747,9 @@ if _flow_index is not None:
                  (SELECT COUNT(*) FROM matches WHERE tournament_id=? AND scheduled_start IS NOT NULL AND scheduled_start<=?
                     AND (home_score IS NULL OR away_score IS NULL)) AS missing_results_n,
                  (SELECT COUNT(*) FROM matches WHERE tournament_id=? AND scheduled_start IS NOT NULL AND scheduled_start<?
-                    AND (home_score IS NULL OR away_score IS NULL)) AS delayed_n""",
-            (tid,tid,tid,tid,tid,tid,tid,tid,tid,tid,tid,tid,tid,tid,_now_iso,tid,_now_iso,tid,_delayed_cutoff_iso),
+                    AND (home_score IS NULL OR away_score IS NULL)) AS delayed_n,
+                 (SELECT referee_mode FROM schedule_rules WHERE tournament_id=? LIMIT 1) AS referee_mode""",
+            (tid,tid,tid,tid,tid,tid,tid,tid,tid,tid,tid,tid,tid,tid,_now_iso,tid,_now_iso,tid,_delayed_cutoff_iso,tid),
             ),
         )
         _DERIVED_RENDER_CACHE[("admin-workflow-counts", int(tid))] = _flow_counts
@@ -9625,14 +9905,23 @@ def _load_admin_sidebar_rules():
         )
     return row
 
-# v442: this shell snapshot used to pay a remote DB roundtrip on every admin
-# navigation click. Reuse it for a few seconds; all local writes invalidate the
-# admin cache immediately through run().
-sidebar_rules = _session_ttl_get(
-    f"_cupnavi_admin_cache_sidebar_rules_{int(tid)}",
-    6.0,
-    _load_admin_sidebar_rules,
-)
+# v527: the guided primary flow already owns a compact counts snapshot. Do not
+# immediately follow it with a second remote schedule_rules/count query on
+# Cupinfo, Lag, Grupper or Planer & tider. Full rules are only required where
+# schedule validation/editing actually consumes them (Schema/Kontroll), or on
+# secondary admin pages that do not have the primary-flow snapshot. This removes
+# one blocking Turso roundtrip from the most common setup navigation clicks.
+_need_full_sidebar_rules = admin_page in {"Skapa och publicera schema", "Kontroller"} or _flow_index is None
+if _need_full_sidebar_rules:
+    sidebar_rules = _session_ttl_get(
+        f"_cupnavi_admin_cache_sidebar_rules_{int(tid)}",
+        6.0,
+        _load_admin_sidebar_rules,
+    )
+elif _flow_counts is not None:
+    sidebar_rules = _flow_counts
+else:
+    sidebar_rules = {}
 
 # Primärflödet har redan räknat schemalagda matcher. På sekundära sidor kommer
 # samma värde från rules-snapshoten, utan ett extra DB-anrop.
@@ -10125,6 +10414,7 @@ elif admin_page == "Adminöversikt":
         schedule_dirty=bool(tournament["schedule_dirty"]),
         published=bool(tournament["is_published"]),
         checkin_enabled=checkin_enabled,
+        referee_mode=str(_row_value(sidebar_rules, "referee_mode", "Automatisk") or "Automatisk"),
     )
     # Publiceringsstatus is already visible above and is handled by the primary next step.
     attention = [item for item in attention if item["target"] != "Kontroller"]
@@ -10520,12 +10810,21 @@ elif admin_page == "Adminöversikt":
                             0, 180, int(overview_rules["consecutive_match_break_minutes"]),
                             disabled=_prod_history_locked or not edited_avoid_consecutive,
                         )
+                    _referee_modes = ["Automatisk", "Manuell", "Senare"]
+                    _saved_referee_mode = str(overview_rules["referee_mode"] or "Automatisk")
                     edited_referee_mode = st.selectbox(
                         "Domartillsättning",
-                        ["Automatisk", "Manuell"],
-                        index=0 if overview_rules["referee_mode"] == "Automatisk" else 1,
+                        _referee_modes,
+                        index=_referee_modes.index(_saved_referee_mode) if _saved_referee_mode in _referee_modes else 1,
+                        format_func=lambda value: {
+                            "Automatisk": "CupNavi fördelar registrerade domare automatiskt",
+                            "Manuell": "Jag fördelar domare själv",
+                            "Senare": "Domare tillsätts senare",
+                        }[value],
                         disabled=_prod_history_locked,
                     )
+                    if edited_referee_mode == "Senare":
+                        st.caption("Domare kan lämnas otillsatta nu. Det blockerar inte setup, schemaläggning eller publicering.")
                     edited_match_minutes = (edited_halves * edited_minutes_half) + ((edited_halves - 1) * edited_halftime)
                     st.info(f"Med dessa regler tar en match {edited_match_minutes} minuter från avspark till slutsignal.")
                     st.caption("Antal planer och tillgänglig start-/sluttid för varje plan och cupdag anges under Konfigurera turneringen.")
@@ -13671,7 +13970,30 @@ if admin_page == "Åtkomst & koder":
 
 if admin_page == "Domare":
     st.header("Domare")
-    st.caption("Lägg till domare för automatisk eller manuell matchtilldelning.")
+    st.caption("Lägg till domare nu eller välj att tillsätta dem senare. Cupen får publiceras även om domarna inte är klara.")
+    _ref_rules = one_row("SELECT * FROM schedule_rules WHERE tournament_id=?", (tid,))
+    if _ref_rules:
+        _ref_mode_options = ["Automatisk", "Manuell", "Senare"]
+        _ref_saved_mode = str(_row_value(_ref_rules, "referee_mode", "Automatisk") or "Automatisk")
+        _ref_mode_key = f"referee_mode_page_{tid}"
+        def _save_referee_mode_from_page():
+            _selected = str(st.session_state.get(_ref_mode_key, _ref_saved_mode) or _ref_saved_mode)
+            run("UPDATE schedule_rules SET referee_mode=? WHERE tournament_id=?", (_selected, tid))
+            st.session_state["_validation_dirty"] = True
+        _ref_mode = st.selectbox(
+            "Domartillsättning",
+            _ref_mode_options,
+            index=_ref_mode_options.index(_ref_saved_mode) if _ref_saved_mode in _ref_mode_options else 1,
+            format_func=lambda value: {
+                "Automatisk": "CupNavi fördelar registrerade domare automatiskt",
+                "Manuell": "Jag fördelar domare själv",
+                "Senare": "Domare tillsätts senare",
+            }[value],
+            key=_ref_mode_key,
+            on_change=_save_referee_mode_from_page,
+        )
+        if _ref_mode == "Senare":
+            st.info("Cupen kan fortsätta genom setupen och publiceras utan domare. När du är redo väljer du automatisk eller manuell tillsättning här.")
 
     _focus_kind = st.session_state.get(f"admin_search_focus_kind_{tid}")
     _focus_entity = st.session_state.get(f"admin_search_focus_entity_{tid}")

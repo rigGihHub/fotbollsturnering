@@ -7,8 +7,8 @@ VERSION = (ROOT / "VERSION.txt").read_text(encoding="utf-8").strip()
 
 
 def test_v392_version():
-    assert VERSION == "2026.09.07-524-PRIMARY-FLOW-PITCH-COUNT-FIX"
-    assert 'APP_BUILD_VERSION = "2026.09.07-524-PRIMARY-FLOW-PITCH-COUNT-FIX"' in APP
+    assert VERSION == "2026.09.07-525-OPTIONAL-REFEREE-SETUP"
+    assert 'APP_BUILD_VERSION = "2026.09.07-525-OPTIONAL-REFEREE-SETUP"' in APP
 
 
 def test_new_tournament_enters_wizard_mode():

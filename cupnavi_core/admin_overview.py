@@ -89,6 +89,7 @@ def build_progress_and_attention(
     schedule_dirty: bool,
     published: bool,
     checkin_enabled: bool,
+    referee_mode: str = "Automatisk",
 ) -> tuple[dict[str, Any], list[dict[str, Any]]]:
     progress = workflow_progress(
         teams_ready=bool(_count(counts, "teams_n")),
@@ -97,7 +98,7 @@ def build_progress_and_attention(
         referees_ready=bool(_count(counts, "refs_n")),
         published=bool(published),
     )
-    missing_refs = _count(counts, "missing_refs_n")
+    missing_refs = 0 if str(referee_mode or "").strip().casefold() == "senare" else _count(counts, "missing_refs_n")
     unchecked = _count(counts, "unchecked_n") if checkin_enabled else 0
     attention = attention_items(
         missing_referees=missing_refs,

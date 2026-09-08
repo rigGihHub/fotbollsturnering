@@ -6,7 +6,7 @@ VERSION=(ROOT/"VERSION.txt").read_text().strip()
 APP=(ROOT/"app.py").read_text()
 
 def test_version():
- assert VERSION=="2026.09.07-524-PRIMARY-FLOW-PITCH-COUNT-FIX"
+ assert VERSION=="2026.09.07-525-OPTIONAL-REFEREE-SETUP"
  assert f'APP_BUILD_VERSION = "{VERSION}"' in APP
 
 def test_visual_continuity():

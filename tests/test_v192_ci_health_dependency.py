@@ -1,7 +1,7 @@
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-RELEASE = "2026.09.07-524-PRIMARY-FLOW-PITCH-COUNT-FIX"
+RELEASE = "2026.09.07-525-OPTIONAL-REFEREE-SETUP"
 
 
 def test_health_contract_testclient_dependency_is_declared():

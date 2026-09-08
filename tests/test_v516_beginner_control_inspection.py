@@ -24,4 +24,4 @@ def test_problem_destination_routes_core_blockers():
 
 
 def test_version_516():
-    assert (ROOT / "VERSION.txt").read_text(encoding="utf-8").strip() == "2026.09.07-524-PRIMARY-FLOW-PITCH-COUNT-FIX"
+    assert (ROOT / "VERSION.txt").read_text(encoding="utf-8").strip() == "2026.09.07-525-OPTIONAL-REFEREE-SETUP"

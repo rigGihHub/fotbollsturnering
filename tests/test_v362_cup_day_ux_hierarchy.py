@@ -61,4 +61,4 @@ def test_live_and_upcoming_cards_are_mobile_first_without_side_column_buttons():
 
 
 def test_version():
-    assert 'APP_BUILD_VERSION = "2026.09.07-524-PRIMARY-FLOW-PITCH-COUNT-FIX"' in APP
+    assert 'APP_BUILD_VERSION = "2026.09.07-525-OPTIONAL-REFEREE-SETUP"' in APP

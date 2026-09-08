@@ -23,4 +23,4 @@ def test_control_center_shares_lazy_match_snapshot():
 
 
 def test_release_version_305():
-    assert '2026.09.07-524-PRIMARY-FLOW-PITCH-COUNT-FIX' in APP
+    assert '2026.09.07-525-OPTIONAL-REFEREE-SETUP' in APP

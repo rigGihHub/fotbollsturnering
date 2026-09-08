@@ -17,5 +17,5 @@ def test_optional_service_fields_use_progressive_disclosure():
     assert "if show_prices_enabled:" in SETUP
 
 def test_release_is_v214():
-    assert VERSION=="2026.09.07-524-PRIMARY-FLOW-PITCH-COUNT-FIX"
+    assert VERSION=="2026.09.07-525-OPTIONAL-REFEREE-SETUP"
     assert "release_ui_label(APP_BUILD_VERSION)" in APP

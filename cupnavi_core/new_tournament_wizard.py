@@ -300,6 +300,51 @@ def render_new_tournament_wizard(tournament_id, tournament, *, deps):
                 if checked != verified:
                     run("UPDATE pitches SET address_verified=? WHERE tournament_id=? AND pitch_number=?", (1 if checked else 0,tournament_id,pitch))
                 if not checked: unverified += 1
+        st.markdown("**Domare**")
+        st.caption("Domare är en del av cupsetupen, men du behöver inte ha dem klara för att fortsätta eller publicera cupen.")
+        _saved_referee_mode = str(_row_value(rules, "referee_mode", "Automatisk") or "Automatisk")
+        _referee_timing_options = ["Lägg till domare nu", "Domare tillsätts senare"]
+        _referee_timing = st.radio(
+            "När vill du lägga till domare?",
+            _referee_timing_options,
+            index=1 if _saved_referee_mode == "Senare" else 0,
+            key=f"wizard_referee_timing_{tournament_id}",
+            horizontal=True,
+        )
+        if _referee_timing == "Domare tillsätts senare":
+            if _saved_referee_mode != "Senare":
+                run("UPDATE schedule_rules SET referee_mode='Senare' WHERE tournament_id=?", (int(tournament_id),))
+                rules = one_row("SELECT * FROM schedule_rules WHERE tournament_id=?", (int(tournament_id),))
+            st.info("Du kan fortsätta genom setupen och publicera cupen utan tillsatta domare. Matcher kan stå som **Ej tillsatt** tills du bemannar dem senare.")
+        else:
+            _assignment_options = ["CupNavi fördelar automatiskt", "Jag fördelar domare själv"]
+            _assignment_mode = st.radio(
+                "Hur ska registrerade domare fördelas?",
+                _assignment_options,
+                index=0 if _saved_referee_mode == "Automatisk" else 1,
+                key=f"wizard_referee_assignment_{tournament_id}",
+                horizontal=True,
+            )
+            _new_referee_mode = "Automatisk" if _assignment_mode.startswith("CupNavi") else "Manuell"
+            if _new_referee_mode != _saved_referee_mode:
+                run("UPDATE schedule_rules SET referee_mode=? WHERE tournament_id=?", (_new_referee_mode, int(tournament_id)))
+                rules = one_row("SELECT * FROM schedule_rules WHERE tournament_id=?", (int(tournament_id),))
+            _wizard_refs = all_rows("SELECT id,name FROM referees WHERE tournament_id=? ORDER BY name", (int(tournament_id),))
+            if _wizard_refs:
+                st.caption(f"{len(_wizard_refs)} domare registrerade: " + ", ".join(str(r["name"]) for r in _wizard_refs[:8]) + (" …" if len(_wizard_refs) > 8 else ""))
+            _ref_col, _ref_btn = st.columns([3, 1])
+            _ref_name = _ref_col.text_input("Lägg till domare", key=f"wizard_referee_name_{tournament_id}", placeholder="Namn")
+            if _ref_btn.button("Lägg till", use_container_width=True, key=f"wizard_add_referee_{tournament_id}"):
+                if _ref_name.strip():
+                    _exists = one_row("SELECT id FROM referees WHERE tournament_id=? AND lower(name)=lower(?)", (int(tournament_id), _ref_name.strip()))
+                    if _exists:
+                        st.info("Den domaren finns redan i cupen.")
+                    else:
+                        run("INSERT INTO referees(tournament_id,name,phone,email) VALUES(?,?,?,?)", (int(tournament_id), _ref_name.strip(), "", ""))
+                        st.rerun()
+                else:
+                    st.warning("Skriv domarens namn först.")
+
         if pitch_count > 1:
             st.markdown("**Restid mellan planer**")
             _travel_saved=bool(_row_value(rules,"consider_pitch_travel",0))
@@ -449,7 +494,13 @@ def render_new_tournament_wizard(tournament_id, tournament, *, deps):
     _timing_summary = "synkroniserade avsparkstider" if bool(_row_value(rules, "synchronized_pitch_times", 0)) else "dynamiska plantider"
     _pitch_size_summary = str(_row_value(rules, "pitch_size_format", "") or "").strip()
     _pitch_size_part = f" · **{_pitch_size_summary}**" if _pitch_size_summary else ""
-    st.markdown(f"**{summary_type}** · {summary_results} · cirka **{planned_total} lag** · **{pitch_count} plan(er)**{_pitch_size_part} · **{_timing_summary}**")
+    _referee_mode_summary = str(_row_value(rules, "referee_mode", "Automatisk") or "Automatisk")
+    _referee_summary = {
+        "Automatisk": "domare fördelas automatiskt",
+        "Manuell": "domare fördelas manuellt",
+        "Senare": "domare tillsätts senare",
+    }.get(_referee_mode_summary, "domare hanteras manuellt")
+    st.markdown(f"**{summary_type}** · {summary_results} · cirka **{planned_total} lag** · **{pitch_count} plan(er)**{_pitch_size_part} · **{_timing_summary}** · **{_referee_summary}**")
 
     # v396: the consequence preview now lives in the actual first-run wizard,
     # not only in the later full setup editor. Reuse the already loaded rules
@@ -508,6 +559,13 @@ def render_new_tournament_wizard(tournament_id, tournament, *, deps):
     ]
     for ok, label, text in checks:
         st.markdown(f"{'✓' if ok else '⚠️'} **{label}** · {text}")
+    _ref_count = len(all_rows("SELECT id FROM referees WHERE tournament_id=?", (int(tournament_id),)))
+    if _referee_mode_summary == "Senare":
+        st.markdown("✓ **Domare** · tillsätts senare och blockerar inte publicering")
+    elif _ref_count:
+        st.markdown(f"✓ **Domare** · {_ref_count} registrerade")
+    else:
+        st.markdown("ℹ️ **Domare** · inga registrerade ännu; du kan fortfarande fortsätta och ändra till ‘tillsätts senare’")
     capacity_ok = preview["margin_tone"] != "over"
     if not capacity_ok:
         checks.append((False, "Kapacitet", "upplägget behöver mer plantid eller färre matcher"))

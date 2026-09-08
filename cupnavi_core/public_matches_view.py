@@ -28,8 +28,14 @@ def render_public_matches_fragment(
     tournament_id: int,
     tournament: Mapping[str, Any],
     published_matches: Sequence[Any],
+    feed_matches: Sequence[Any] | None = None,
+    published_match_total: int | None = None,
+    published_matches_complete: bool = True,
     played_matches: Sequence[Any],
+    played_match_total: int | None = None,
+    total_goals: int | None = None,
     public_teams: Sequence[Any],
+    public_team_total: int | None,
     public_team_names: Mapping[int, str],
     requested_team_id: int | None,
     requested_pitch_no: int | None,
@@ -54,16 +60,23 @@ def render_public_matches_fragment(
     db_calls_before = int(perf["db_calls"])
     db_ms_before = float(perf["db_ms"])
 
-    team_count = len(public_teams)
-    total_goals = sum(
-        int(match["home_score"] or 0) + int(match["away_score"] or 0)
-        for match in played_matches
-    )
+    team_count = len(public_teams) if public_team_total is None else int(public_team_total or 0)
+    # v538: cup-day bounded snapshots already carry exact aggregate totals.
+    # Do not rescan every played row on each fragment click when the database
+    # has already supplied the answer in the same first-paint roundtrip.
+    if total_goals is None:
+        summary_total_goals = sum(
+            int(match["home_score"] or 0) + int(match["away_score"] or 0)
+            for match in played_matches
+        )
+    else:
+        summary_total_goals = int(total_goals or 0)
+    summary_played_count = len(played_matches) if played_match_total is None else int(played_match_total or 0)
     stage_timings: dict[str, float] = {}
 
     stage_started = time.perf_counter()
     live_now, next_matches, recent_results = classify_public_match_feed(
-        published_matches,
+        list(feed_matches) if feed_matches is not None else published_matches,
         now=now,
         match_duration_minutes=match_duration_minutes(tournament),
     )
@@ -86,62 +99,32 @@ def render_public_matches_fragment(
         st.markdown(feed_html, unsafe_allow_html=True)
     stage_timings["live_feed_ms"] = round((time.perf_counter() - stage_started) * 1000, 1)
 
-    # v391/v444: Team attack/defence are calculated from already-loaded results.
-    # The scorer now uses a scorer-only snapshot; the old combined overview also
-    # counted active visitors even though Matches no longer rendered that metric.
-    overview_started = time.perf_counter()
-    # v443: before the first result exists there cannot be a scorer leader.
-    # Skip the remote overview query entirely on that common pre-cup/early-cup
-    # path instead of asking the database to confirm an empty leaderboard.
-    scorer_enabled = bool(row_value(tournament, "enable_scorer_leaderboard", 1)) and bool(played_matches)
-    overview = load_overview(tournament_id) if scorer_enabled else {"leader_rows": []}
-    stage_timings["overview_db_ms"] = round((time.perf_counter() - overview_started) * 1000, 1)
-    stage_timings["visitors_ms"] = 0.0
-
-    highlights_started = time.perf_counter()
-    team_totals: dict[int, dict[str, int]] = {}
-    for match in played_matches:
-        home_id = source_team_id(match["home_source"])
-        away_id = source_team_id(match["away_source"])
-        if home_id is None or away_id is None:
-            continue
-        home_score = int(match["home_score"] or 0)
-        away_score = int(match["away_score"] or 0)
-        home_stats = team_totals.setdefault(int(home_id), {"gf": 0, "ga": 0, "played": 0})
-        away_stats = team_totals.setdefault(int(away_id), {"gf": 0, "ga": 0, "played": 0})
-        home_stats["gf"] += home_score; home_stats["ga"] += away_score; home_stats["played"] += 1
-        away_stats["gf"] += away_score; away_stats["ga"] += home_score; away_stats["played"] += 1
-
-    highlights: dict[str, Any] = {}
-    if team_totals:
-        max_goals = max(stats["gf"] for stats in team_totals.values())
-        min_conceded = min(stats["ga"] for stats in team_totals.values() if stats["played"] > 0)
-        attack_names = sorted(public_team_names[team_id] for team_id, stats in team_totals.items() if stats["gf"] == max_goals and team_id in public_team_names)
-        defence_names = sorted(public_team_names[team_id] for team_id, stats in team_totals.items() if stats["ga"] == min_conceded and stats["played"] > 0 and team_id in public_team_names)
-        if attack_names:
-            highlights["attack"] = {"names": attack_names, "value": max_goals}
-        if defence_names:
-            highlights["defence"] = {"names": defence_names, "value": min_conceded}
-    leader_rows = list(overview.get("leader_rows", []))
-    if leader_rows:
-        leader = leader_rows[0]
-        if int(leader.get("goals") or 0) > 0:
-            highlights["scorer"] = {"player": str(leader.get("player_name") or ""), "team": str(leader.get("team_name") or ""), "value": int(leader.get("goals") or 0)}
-    highlights_html = build_highlights_html(highlights, tr=tr)
-    stage_timings["highlights_ms"] = round((time.perf_counter() - highlights_started) * 1000, 1)
-
+    # v529: keep scorer/highlight work completely off the first-paint path.
+    # The match list is the primary public task; render its compact summary
+    # immediately from already-loaded core data and defer all highlight
+    # calculations/DB reads until the visitor explicitly asks for them.
     stage_started = time.perf_counter()
     summary_html = build_summary_html(
         team_count=team_count,
-        played_count=len(played_matches),
-        total_matches=len(published_matches),
-        total_score=total_goals,
+        played_count=summary_played_count,
+        total_matches=max(len(published_matches), int(published_match_total or 0)),
+        total_score=summary_total_goals,
         score_label=sport_profile(row_value(tournament, "sport", "Fotboll"))["score_label"],
         tr=tr,
-        highlights_html=highlights_html,
+        highlights_html="",
     )
     st.markdown(summary_html, unsafe_allow_html=True)
     stage_timings["summary_share_ms"] = round((time.perf_counter() - stage_started) * 1000, 1)
+    stage_timings["overview_db_ms"] = 0.0
+    stage_timings["highlights_ms"] = 0.0
+    stage_timings["visitors_ms"] = 0.0
+
+    def _rerun_full_public_app() -> None:
+        # Isolated fragments are fast for local display toggles, but controls
+        # that change the required dataset must let the workspace rebuild its
+        # server-side snapshot. Without this, a 12-row first-paint batch could
+        # incorrectly remain the whole universe for Played/Upcoming/highlights.
+        st.rerun(scope="app")
 
     requested_match_view = str(st.query_params.get("matches", "all")) if hasattr(st, "query_params") else "all"
     requested_match_view = requested_match_view if requested_match_view in {"all", "upcoming", "played"} else "all"
@@ -156,6 +139,7 @@ def render_public_matches_fragment(
         [tr("Alla"), tr("Kommande"), tr("Spelade")],
         default=match_view_labels[requested_match_view],
         key=f"public_match_view_v144_{tournament_id}",
+        on_change=_rerun_full_public_app,
     ) or match_view_labels[requested_match_view]
     selected_match_view = match_key_by_label.get(match_view, "all")
 
@@ -226,15 +210,21 @@ def render_public_matches_fragment(
     )
     limit_key = f"public_match_render_limit_v270_{tournament_id}"
     signature_key = f"public_match_render_signature_v270_{tournament_id}"
-    if st.session_state.get(signature_key) != match_ids_signature:
-        st.session_state[signature_key] = match_ids_signature
-        st.session_state[limit_key] = PUBLIC_MATCH_INITIAL_BATCH
-
-    match_list, visible_match_count = visible_match_batch(
-        all_filtered_matches,
-        st.session_state.get(limit_key, PUBLIC_MATCH_INITIAL_BATCH),
-    )
-    total_filtered_matches = len(all_filtered_matches)
+    if published_matches_complete:
+        if st.session_state.get(signature_key) != match_ids_signature:
+            st.session_state[signature_key] = match_ids_signature
+            st.session_state[limit_key] = PUBLIC_MATCH_INITIAL_BATCH
+        match_list, visible_match_count = visible_match_batch(
+            all_filtered_matches,
+            st.session_state.get(limit_key, PUBLIC_MATCH_INITIAL_BATCH),
+        )
+        total_filtered_matches = len(all_filtered_matches)
+    else:
+        # v532: rows are already bounded by the DB query. Do not reset the
+        # render limit merely because "Visa fler" returned a larger server batch.
+        match_list = list(all_filtered_matches)
+        visible_match_count = len(match_list)
+        total_filtered_matches = max(visible_match_count, int(published_match_total or 0))
     if visible_match_count < total_filtered_matches:
         st.caption(
             f"{tr('Visar')} {visible_match_count} av {total_filtered_matches} "
@@ -267,7 +257,7 @@ def render_public_matches_fragment(
     if requested_match_id and _event_details_enabled:
         show_match_events = True
     elif visible_played_match_ids and _event_details_enabled:
-        show_match_events = bool(st.session_state.get(_events_toggle_key, True))
+        show_match_events = bool(st.session_state.get(_events_toggle_key, False))
     else:
         show_match_events = False
     public_events_by_match = (
@@ -328,6 +318,9 @@ def render_public_matches_fragment(
         next_batch_size = min(PUBLIC_MATCH_BATCH_SIZE, remaining_matches)
         def _show_more_public_matches() -> None:
             st.session_state[limit_key] = next_visible_count(visible_match_count, total_filtered_matches)
+            # v538: bounded first-paint rows live in the parent workspace.
+            # A full rerun is required to ask Turso for the next server batch.
+            st.rerun(scope="app")
 
         st.button(
             f"Visa {next_batch_size} fler matcher",
@@ -336,6 +329,67 @@ def render_public_matches_fragment(
             on_click=_show_more_public_matches,
         )
     stage_timings["cards_weather_ms"] = round((time.perf_counter() - stage_started) * 1000, 1)
+
+    # v529: secondary tournament highlights live below the match list and are
+    # opt-in. This removes the scorer leaderboard roundtrip from normal first
+    # paint while preserving the feature for visitors who want it.
+    _highlights_key = f"public_highlights_v529_{tournament_id}"
+    if played_matches:
+        show_highlights = st.toggle(
+            tr("Visa turneringshöjdpunkter"),
+            value=False,
+            key=_highlights_key,
+            help=tr("Laddar skytteligaledare och laghöjdpunkter först när du ber om det."),
+            on_change=_rerun_full_public_app,
+        )
+    else:
+        show_highlights = False
+
+    if show_highlights:
+        highlights_started = time.perf_counter()
+        team_totals: dict[int, dict[str, int]] = {}
+        for match in played_matches:
+            home_id = source_team_id(match["home_source"])
+            away_id = source_team_id(match["away_source"])
+            if home_id is None or away_id is None:
+                continue
+            home_score = int(match["home_score"] or 0)
+            away_score = int(match["away_score"] or 0)
+            home_stats = team_totals.setdefault(int(home_id), {"gf": 0, "ga": 0, "played": 0})
+            away_stats = team_totals.setdefault(int(away_id), {"gf": 0, "ga": 0, "played": 0})
+            home_stats["gf"] += home_score; home_stats["ga"] += away_score; home_stats["played"] += 1
+            away_stats["gf"] += away_score; away_stats["ga"] += home_score; away_stats["played"] += 1
+
+        highlights: dict[str, Any] = {}
+        if team_totals:
+            max_goals = max(stats["gf"] for stats in team_totals.values())
+            min_conceded = min(stats["ga"] for stats in team_totals.values() if stats["played"] > 0)
+            attack_names = sorted(public_team_names[team_id] for team_id, stats in team_totals.items() if stats["gf"] == max_goals and team_id in public_team_names)
+            defence_names = sorted(public_team_names[team_id] for team_id, stats in team_totals.items() if stats["ga"] == min_conceded and stats["played"] > 0 and team_id in public_team_names)
+            if attack_names:
+                highlights["attack"] = {"names": attack_names, "value": max_goals}
+            if defence_names:
+                highlights["defence"] = {"names": defence_names, "value": min_conceded}
+
+        scorer_enabled = bool(row_value(tournament, "enable_scorer_leaderboard", 1))
+        if scorer_enabled:
+            overview_started = time.perf_counter()
+            overview = load_overview(tournament_id)
+            stage_timings["overview_db_ms"] = round((time.perf_counter() - overview_started) * 1000, 1)
+            leader_rows = list(overview.get("leader_rows", []))
+            if leader_rows:
+                leader = leader_rows[0]
+                if int(leader.get("goals") or 0) > 0:
+                    highlights["scorer"] = {
+                        "player": str(leader.get("player_name") or ""),
+                        "team": str(leader.get("team_name") or ""),
+                        "value": int(leader.get("goals") or 0),
+                    }
+
+        highlights_html = build_highlights_html(highlights, tr=tr)
+        if highlights_html:
+            st.markdown(highlights_html, unsafe_allow_html=True)
+        stage_timings["highlights_ms"] = round((time.perf_counter() - highlights_started) * 1000, 1)
 
     elapsed_ms = (time.perf_counter() - fragment_started) * 1000
     public_perf_snapshot = {

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
 import html
 from typing import Any, Callable
 
@@ -258,13 +258,75 @@ def render_public_workspace(tournament_id: int, tournament: Any, deps: PublicWor
     # full schedule for its first paint. Avoid those remote reads entirely; the
     # optional cup summary loads the schedule only on demand.
     _needs_public_teams = public_page != "Info" or bool(_active_public_search)
+    # v532: The ordinary public Matches landing view renders only 12 cards.
+    # Ask Turso for exactly that first batch instead of transferring the entire
+    # published schedule. Any explicit filter/deep-link/highlights request falls
+    # back to the complete snapshot so behavior stays unchanged. "Visa fler"
+    # increases the server-side batch on the next rerun.
+    _public_match_limit = None
+    if public_page == "Matcher" and _needs_public_matches:
+        _match_mode_key = f"public_matches_mode_{tournament_id}"
+        _match_limit_key = f"public_match_render_limit_v270_{tournament_id}"
+        _default_match_mode = tr("Alla matcher")
+        _has_forced_team_filter = bool(st.session_state.get(f"public_force_team_filter_{tournament_id}"))
+        _showing_highlights = bool(st.session_state.get(f"public_highlights_v529_{tournament_id}", False))
+        _cup_start_text = str(_row_value(tournament, "start_date", "") or _row_value(tournament, "tournament_date", "") or "").strip()
+        try:
+            _cup_start_date = datetime.fromisoformat(_cup_start_text[:10]).date() if _cup_start_text else None
+        except (TypeError, ValueError):
+            _cup_start_date = None
+        _today = datetime.now().date()
+        _cup_end_text = str(_row_value(tournament, "end_date", "") or _cup_start_text or "").strip()
+        try:
+            _cup_end_date = datetime.fromisoformat(_cup_end_text[:10]).date() if _cup_end_text else _cup_start_date
+        except (TypeError, ValueError):
+            _cup_end_date = _cup_start_date
+        _future_cup = bool(_cup_start_date and _cup_start_date > _today)
+        _cup_day = bool(_cup_start_date and _cup_end_date and _cup_start_date <= _today <= _cup_end_date)
+        _requested_match_view = str(st.query_params.get("matches", "all")) if hasattr(st, "query_params") else "all"
+        _segmented_match_view = st.session_state.get(f"public_match_view_v144_{tournament_id}", tr("Alla"))
+        _can_server_batch = all((
+            (_future_cup or _cup_day),
+            not screen_mode,
+            not _active_public_search,
+            requested_team_id is None,
+            requested_pitch_no is None,
+            requested_match_id is None,
+            not _has_forced_team_filter,
+            not _showing_highlights,
+            st.session_state.get(_match_mode_key, _default_match_mode) == _default_match_mode,
+            _requested_match_view == "all",
+            _segmented_match_view == tr("Alla"),
+        ))
+        if _can_server_batch:
+            try:
+                _public_match_limit = max(12, int(st.session_state.get(_match_limit_key, 12) or 12))
+            except (TypeError, ValueError):
+                _public_match_limit = 12
+
+    _public_match_window_start = None
+    _public_match_window_end = None
+    if _public_match_limit is not None and locals().get("_cup_day", False):
+        _window_now = datetime.now()
+        _public_match_window_start = (_window_now - timedelta(hours=2)).isoformat(timespec="seconds")
+        _public_match_window_end = (_window_now + timedelta(hours=6)).isoformat(timespec="seconds")
+
     _public_core = public_core_snapshot(
         tournament_id,
         include_matches=_needs_public_matches,
         include_teams=_needs_public_teams,
+        match_limit=_public_match_limit,
+        match_window_start=_public_match_window_start,
+        match_window_end=_public_match_window_end,
     )
     published_matches = _public_core["matches"]
+    _public_feed_matches = _public_core.get("feed_matches", published_matches)
+    _published_match_total = int(_public_core.get("match_total", len(published_matches)) or 0)
+    _published_team_total = int(_public_core.get("team_total", len(_public_core.get("teams", []))) or 0)
+    _published_matches_complete = bool(_public_core.get("matches_complete", True))
     played_matches = [m for m in published_matches if m["home_score"] is not None and m["away_score"] is not None]
+    _published_played_total = _public_core.get("played_count", None)
+    _published_total_goals = _public_core.get("total_goals", None)
     public_teams = _public_core["teams"]
     public_team_by_id = {row["id"]: row for row in public_teams}
     public_team_names = {row["id"]: row["name"] for row in public_teams}
@@ -444,6 +506,13 @@ def render_public_workspace(tournament_id: int, tournament: Any, deps: PublicWor
                 bool(_row_value(tournament, "enable_assist_leaderboard", 1)),
                 bool(_row_value(tournament, "enable_card_statistics", 1)),
             )),
+            # v538: the DB/public-core projection is already chronological and
+            # every filter below preserves input order. Avoid O(n log n) resorting
+            # the same schedule on each isolated-fragment interaction. A filter
+            # mode change itself must re-enter the app so the workspace can widen
+            # a bounded first-paint snapshot before offering team/group/class data.
+            on_filter_mode_change=lambda: st.rerun(scope="app"),
+            input_already_sorted=True,
         )
 
     def _render_public_match_cards(matches, show_results=None, show_weather=False, events_by_match=None):
@@ -478,8 +547,14 @@ def render_public_workspace(tournament_id: int, tournament: Any, deps: PublicWor
                 tournament_id=tournament_id,
                 tournament=tournament,
                 published_matches=published_matches,
+                feed_matches=_public_feed_matches,
+                published_match_total=_published_match_total,
+                published_matches_complete=_published_matches_complete,
                 played_matches=played_matches,
+                played_match_total=_published_played_total,
+                total_goals=_published_total_goals,
                 public_teams=public_teams,
+                public_team_total=_published_team_total,
                 public_team_names=public_team_names,
                 requested_team_id=requested_team_id,
                 requested_pitch_no=requested_pitch_no,

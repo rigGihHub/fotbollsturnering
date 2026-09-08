@@ -20,6 +20,8 @@ def render_public_match_filters(
     filter_matches,
     sort_public_matches,
     show_event_details_toggle=True,
+    on_filter_mode_change=None,
+    input_already_sorted=False,
 ):
     """Gemensamt filter för den sammanslagna matchsidan."""
     filtered = list(base_matches)
@@ -45,6 +47,7 @@ def render_public_match_filters(
             horizontal=True,
             key=f"{key_prefix}_mode_{tournament_id}",
             label_visibility="collapsed",
+            on_change=on_filter_mode_change,
         )
 
         if forced_team_id and filter_mode == tr("Alla matcher"):
@@ -140,22 +143,27 @@ def render_public_match_filters(
 
         st.divider()
         display_col1, display_col2 = st.columns(2)
+        # v528: weather is secondary data and can trigger forecast lookups for
+        # several visible cards. Keep it explicitly opt-in so first paint stays
+        # on the already-loaded schedule snapshot.
         show_weather = display_col1.toggle(
             "🌦️ " + tr("Visa väderprognos"),
-            value=True,
+            value=False,
             key=f"public_matches_weather_{tournament_id}",
             help="Visar väderprognos på matchkorten när prognosdata finns.",
         )
         if show_event_details_toggle:
+            # v528: event details require an extra match-events read. Do not pay
+            # that remote roundtrip until the visitor asks for the details.
             display_col2.toggle(
                 "⚽ Målskyttar och kort",
-                value=True,
+                value=False,
                 key=f"public_match_events_v444_{tournament_id}",
                 help="Visar registrerade målskyttar och kort för spelade matcher.",
             )
 
     return (
-        sort_public_matches(filtered),
+        list(filtered) if input_already_sorted else sort_public_matches(filtered),
         filter_mode,
         filter_label,
         show_weather,

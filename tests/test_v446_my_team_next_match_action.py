@@ -7,7 +7,7 @@ LOGIC = (ROOT / "cupnavi_core/public_team_follow.py").read_text(encoding="utf-8"
 
 
 def test_v446_contract_survives_current_release():
-    assert VERSION == "2026.09.07-524-PRIMARY-FLOW-PITCH-COUNT-FIX"
+    assert VERSION == "2026.09.07-525-OPTIONAL-REFEREE-SETUP"
 
 
 def test_next_match_has_direct_single_rerun_action():
