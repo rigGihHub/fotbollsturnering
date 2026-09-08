@@ -34,7 +34,7 @@ def attention_items(*, missing_referees: int = 0, unchecked_teams: int = 0, sche
     if schedule_dirty:
         items.append({"level": "critical", "text": "Schemat behöver uppdateras", "target": "Skapa och publicera schema"})
     if missing_referees:
-        items.append({"level": "warning", "text": f"{missing_referees} matcher saknar domare", "target": "Domare"})
+        items.append({"level": "info", "text": f"{missing_referees} matcher saknar domare · valfritt före publicering", "target": "Domare"})
     if unchecked_teams:
         items.append({"level": "warning", "text": f"{unchecked_teams} lag/deltagare är inte incheckade", "target": "Lag"})
     if unpublished:

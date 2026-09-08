@@ -1,6 +1,6 @@
 import re
 
-APP_VERSION = "2026.09.08-547-BIG-SCOREBOARD-REPORTER-UI"
+APP_VERSION = "2026.09.08-551-ALWAYS-VISIBLE-ADMIN-FLOW"
 
 
 def release_ui_label(build_version: str = APP_VERSION) -> str:

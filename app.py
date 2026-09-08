@@ -178,7 +178,7 @@ def inject_v266_public_mobile_css():
     return _inject_v266_public_mobile_css_impl(st)
 def inject_v198_visual_system():
     return _inject_v198_visual_system_impl(st)
-APP_BUILD_VERSION = "2026.09.08-548-REPORTER-NETWORK-RESILIENCE"
+APP_BUILD_VERSION = "2026.09.08-551-ALWAYS-VISIBLE-ADMIN-FLOW"
 APP_VERSION = APP_BUILD_VERSION
 
 def _set_session_state_values(values):
@@ -5968,9 +5968,6 @@ def generate_schedule(tournament_id, tournament, rules, preserve_existing=False,
             break
 
     warning = locals().get("warning", "")
-    if rules["referee_mode"] == "Automatisk" and not referees:
-        referee_warning = "Schemat skapades utan domare eftersom inga domare är registrerade."
-        warning = f"{warning} {referee_warning}".strip()
     if forced_consecutive:
         consecutive_warning = (
             f"Schemat behövde placera {forced_consecutive} match(er) efter en match med samma lag; "
@@ -6034,8 +6031,6 @@ def validate_schedule(tournament_id, tournament, rules):
             errors.append(f"Match {number} slutar {(start_at + match_duration).strftime('%H:%M')}, efter planens sluttid {day_last.strftime('%H:%M')}.")
         if not match_row["pitch_number"] or not 1 <= match_row["pitch_number"] <= rules["pitch_count"]:
             errors.append(f"Match {number} har en ogiltig plan.")
-        if rules["referee_mode"] == "Automatisk" and not match_row["referee_id"]:
-            warnings.append(f"Match {number} saknar domare.")
         if kit_color_conflict(home_team, away_team):
             warnings.append(
                 f"Möjlig färglikhet i match {number}: {away_team['name']}s ordinarie ställ och bortaställ ligger nära hemmalagets färger. "
@@ -9603,7 +9598,7 @@ _BEGINNER_ROUTE_TO_STEP.update({
     "Trupper": "Lag", "Import": "Lag", "Önskemålscentral": "Lag",
     "Slutspel": "Schema", "Cupdagen": "Publicera", "Matcher och resultat": "Publicera",
     "Matchhändelser": "Publicera", "Tabeller": "Publicera", "Skytteligor": "Publicera",
-    "Åtkomst & koder": "Publicera", "Domare": "Publicera", "Funktionärer": "Publicera",
+    "Åtkomst & koder": "Publicera", "Domare": "Planer & tider", "Funktionärer": "Publicera",
 })
 admin_flow_key = f"admin_beginner_journey_{tid}"
 _pending_admin_page = st.session_state.pop(f"pending_admin_page_{tid}", None)
@@ -9620,22 +9615,60 @@ def _sync_beginner_journey():
     st.session_state[f"pending_admin_page_{tid}"] = target
 
 _current_journey_step = _journey_step_for_page(st.session_state[admin_page_key])
-# Do not overwrite a freshly user-selected widget value after instantiation.
-if admin_flow_key not in st.session_state:
-    st.session_state[admin_flow_key] = _current_journey_step
-elif st.session_state.get(admin_flow_key) != _current_journey_step and _pending_admin_page:
-    st.session_state[admin_flow_key] = _current_journey_step
+# v551: the journey navigator is authoritative on every admin page. Always sync
+# it from the actual route before rendering; internal links must never leave the
+# visible step indicator behind on a previous step.
+st.session_state[admin_flow_key] = _current_journey_step
 
-st.markdown("<div class='cn-admin-flow-kicker'>Din väg till publicerad cup</div>", unsafe_allow_html=True)
-st.selectbox(
-    "Cupens steg",
-    [label for label, _ in _BEGINNER_JOURNEY],
-    key=admin_flow_key,
-    format_func=lambda value: f"{[x[0] for x in _BEGINNER_JOURNEY].index(value)+1} · {value}",
-    on_change=_sync_beginner_journey,
-    help="Du kan gå tillbaka till ett tidigare steg när som helst. Rött i vänsterflanken visar bara sådant som faktiskt stoppar publicering.",
-)
-st.caption("Du kan ändra tidigare steg när som helst. CupNavi ändrar aldrig ett befintligt schema automatiskt.")
+_BEGINNER_SUBPAGE_LABELS = {
+    "Trupper": "Trupper",
+    "Import": "Import",
+    "Önskemålscentral": "Önskemål",
+    "Domare": "Domare (valfritt)",
+    "Funktionärer": "Funktionärer",
+    "Slutspel": "Slutspel",
+    "Cupdagen": "Cupdagen",
+    "Matcher och resultat": "Matcher och resultat",
+    "Matchhändelser": "Matchhändelser",
+    "Tabeller": "Tabeller",
+    "Skytteligor": "Skytteligor",
+    "Åtkomst & koder": "Åtkomst & koder",
+}
+
+def _go_to_journey_step(step_label):
+    target = next((page for label, page in _BEGINNER_JOURNEY if label == step_label), "Cupinställningar")
+    st.session_state[admin_page_key] = target
+    st.session_state[admin_flow_key] = step_label
+    st.session_state[f"pending_admin_page_{tid}"] = target
+
+_step_labels = [label for label, _ in _BEGINNER_JOURNEY]
+_step_no = _step_labels.index(_current_journey_step) + 1
+_current_route = st.session_state[admin_page_key]
+_subpage = _BEGINNER_SUBPAGE_LABELS.get(_current_route)
+_here_text = f"Du är här: Steg {_step_no} av 7 · {_current_journey_step}"
+if _subpage:
+    _here_text += f" › {_subpage}"
+st.markdown("<div class='cn-admin-flow-kicker'>Hela cupflödet</div>", unsafe_allow_html=True)
+st.markdown(f"**{_here_text}**")
+
+# Always expose all seven primary steps. Two compact rows stay usable on narrow
+# screens while avoiding seven squeezed phone-width columns.
+for _journey_row in (_BEGINNER_JOURNEY[:4], _BEGINNER_JOURNEY[4:]):
+    _journey_cols = st.columns(len(_journey_row))
+    for _journey_col, (_step_label, _target_page) in zip(_journey_cols, _journey_row):
+        _idx = _step_labels.index(_step_label) + 1
+        _active = _step_label == _current_journey_step
+        _button_label = f"✓ {_idx} · {_step_label}" if _active else f"{_idx} · {_step_label}"
+        _journey_col.button(
+            _button_label,
+            key=f"admin_journey_step_{tid}_{_idx}",
+            use_container_width=True,
+            type="primary" if _active else "secondary",
+            on_click=_go_to_journey_step,
+            args=(_step_label,),
+            disabled=_active,
+        )
+st.caption("Alla steg är alltid åtkomliga. Du kan gå bakåt eller framåt utan att CupNavi ändrar ett befintligt schema automatiskt.")
 def _open_admin_search_hit(target_page, kind, entity_id, team_id=None):
     """Navigate from global search and carry the selected entity into its target view."""
     st.session_state[admin_page_key] = target_page
@@ -10830,6 +10863,10 @@ elif admin_page == "Adminöversikt":
                     )
                     if edited_referee_mode == "Senare":
                         st.caption("Domare kan lämnas otillsatta nu. Det blockerar inte setup, schemaläggning eller publicering.")
+                    if st.button("Hantera domare (valfritt) →", key=f"overview_open_referees_{tid}", use_container_width=True):
+                        st.session_state[admin_page_key] = "Domare"
+                        st.session_state[f"pending_admin_page_{tid}"] = "Domare"
+                        st.rerun()
                     edited_match_minutes = (edited_halves * edited_minutes_half) + ((edited_halves - 1) * edited_halftime)
                     st.info(f"Med dessa regler tar en match {edited_match_minutes} minuter från avspark till slutsignal.")
                     st.caption("Antal planer och tillgänglig start-/sluttid för varje plan och cupdag anges under Konfigurera turneringen.")
@@ -10969,11 +11006,14 @@ elif admin_page == "Adminöversikt":
                     (unassigned_n == 0, "Alla lag är placerade i en grupp"),
                     (admin_matches_n > 0, "Matcher är skapade"),
                     (unscheduled_n == 0, "Alla matcher som kan planeras har en schematid"),
-                    (missing_refs_n == 0, "Alla schemalagda matcher har domare"),
                     (unpublished_n == 0, "Det aktuella schemat är godkänt och publicerat"),
                 ]
                 for passed, label in checks:
                     st.write(f"{'✅' if passed else '⚠️'} {label}")
+                if missing_refs_n:
+                    st.info(f"ℹ️ {missing_refs_n} schemalagda match(er) saknar domare. Det stoppar inte publicering; domare kan tillsättas senare.")
+                else:
+                    st.caption("Domare: alla schemalagda matcher är bemannade.")
                 if scheduled_n == 0:
                     st.caption("Nästa steg: skapa schemat under Schema.")
                 elif overview_schedule_errors:
@@ -13974,8 +14014,18 @@ if admin_page == "Åtkomst & koder":
             st.rerun()
 
 if admin_page == "Domare":
-    st.header("Domare")
-    st.caption("Lägg till domare nu eller välj att tillsätta dem senare. Cupen får publiceras även om domarna inte är klara.")
+    st.caption("Steg 4 · Planer & tider  /  Domare (valfritt)")
+    st.header("Domare · valfritt")
+    st.caption("Domare är en del av planeringen, men de behöver inte vara klara för att du ska kunna skapa schema eller publicera cupen.")
+    _ref_nav_left, _ref_nav_right = st.columns(2)
+    if _ref_nav_left.button("← Till Planer & tider", key=f"ref_back_to_planning_{tid}", use_container_width=True):
+        st.session_state[admin_page_key] = "Adminöversikt"
+        st.session_state[f"pending_admin_page_{tid}"] = "Adminöversikt"
+        st.rerun()
+    if _ref_nav_right.button("Fortsätt till Schema →", key=f"ref_continue_to_schedule_{tid}", type="primary", use_container_width=True):
+        st.session_state[admin_page_key] = "Skapa och publicera schema"
+        st.session_state[f"pending_admin_page_{tid}"] = "Skapa och publicera schema"
+        st.rerun()
     _ref_rules = one_row("SELECT * FROM schedule_rules WHERE tournament_id=?", (tid,))
     if _ref_rules:
         _ref_mode_options = ["Automatisk", "Manuell", "Senare"]
