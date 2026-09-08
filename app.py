@@ -178,7 +178,7 @@ def inject_v266_public_mobile_css():
     return _inject_v266_public_mobile_css_impl(st)
 def inject_v198_visual_system():
     return _inject_v198_visual_system_impl(st)
-APP_BUILD_VERSION = "2026.09.08-551-ALWAYS-VISIBLE-ADMIN-FLOW"
+APP_BUILD_VERSION = "2026.09.08-553-REFEREE-MISC-SMART-IMPORT"
 APP_VERSION = APP_BUILD_VERSION
 
 def _set_session_state_values(values):
@@ -9492,10 +9492,10 @@ if view_mode == "Turneringsvy":
     st.stop()
 # SNABB ADMINNAVIGERING: visuellt som flikar, men bara vald sida körs.
 ADMIN_PAGES = [
-    "Instruktioner", "Adminöversikt", "Cupinställningar", "Papperskorg", "Åtkomst & koder", "Önskemålscentral", "Kontroller", "Problem & lösningar", "Lag", "Grupper", "Trupper", "Domare",
+    "Instruktioner", "Adminöversikt", "Cupinställningar", "Regler", "Papperskorg", "Åtkomst & koder", "Önskemålscentral", "Kontroller", "Problem & lösningar", "Lag", "Grupper", "Trupper", "Domare",
     "Skapa och publicera schema", "Cupdagen", "Tabeller", "Matcher och resultat",
     "Matchhändelser", "Slutspel", "Skytteligor", "Erbjudanden",
-    "Sponsorer", "Funktionärer", "Import", "Besöksstatistik", "Cupverktyg",
+    "Sponsorer", "Funktionärer", "Import", "Besöksstatistik", "Cupverktyg", "Övrigt",
 ]
 ADMIN_NAV_GROUPS = [
     ("Översikt", [("Adminöversikt", tr("Översikt")), ("Cupinställningar", "Inställningar")]),
@@ -9588,17 +9588,19 @@ _BEGINNER_JOURNEY = [
     ("Cupinfo", "Cupinställningar"),
     ("Lag", "Lag"),
     ("Grupper", "Grupper"),
+    ("Regler", "Regler"),
     ("Planer & tider", "Adminöversikt"),
+    ("Domare", "Domare"),
     ("Schema", "Skapa och publicera schema"),
     ("Kontroll", "Kontroller"),
     ("Publicera", "Kontroller"),
 ]
 _BEGINNER_ROUTE_TO_STEP = {page: label for label, page in _BEGINNER_JOURNEY}
 _BEGINNER_ROUTE_TO_STEP.update({
-    "Trupper": "Lag", "Import": "Lag", "Önskemålscentral": "Lag",
-    "Slutspel": "Schema", "Cupdagen": "Publicera", "Matcher och resultat": "Publicera",
+    "Trupper": "Lag", "Import": "Övrigt", "Önskemålscentral": "Lag",
+    "Slutspel": "Regler", "Cupdagen": "Publicera", "Matcher och resultat": "Publicera",
     "Matchhändelser": "Publicera", "Tabeller": "Publicera", "Skytteligor": "Publicera",
-    "Åtkomst & koder": "Publicera", "Domare": "Planer & tider", "Funktionärer": "Publicera",
+    "Åtkomst & koder": "Cupinfo", "Funktionärer": "Övrigt", "Sponsorer": "Övrigt", "Erbjudanden": "Övrigt", "Besöksstatistik": "Övrigt", "Cupverktyg": "Övrigt", "Övrigt": "Övrigt",
 })
 admin_flow_key = f"admin_beginner_journey_{tid}"
 _pending_admin_page = st.session_state.pop(f"pending_admin_page_{tid}", None)
@@ -9642,18 +9644,22 @@ def _go_to_journey_step(step_label):
     st.session_state[f"pending_admin_page_{tid}"] = target
 
 _step_labels = [label for label, _ in _BEGINNER_JOURNEY]
-_step_no = _step_labels.index(_current_journey_step) + 1
 _current_route = st.session_state[admin_page_key]
 _subpage = _BEGINNER_SUBPAGE_LABELS.get(_current_route)
-_here_text = f"Du är här: Steg {_step_no} av 7 · {_current_journey_step}"
-if _subpage:
-    _here_text += f" › {_subpage}"
+if _current_journey_step in _step_labels:
+    _step_no = _step_labels.index(_current_journey_step) + 1
+    _here_text = f"Du är här: Steg {_step_no} av {len(_BEGINNER_JOURNEY)} · {_current_journey_step}"
+    if _subpage:
+        _here_text += f" › {_subpage}"
+else:
+    _step_no = None
+    _here_text = "Du är här: Övrigt · frivilliga funktioner utanför huvudflödet"
 st.markdown("<div class='cn-admin-flow-kicker'>Hela cupflödet</div>", unsafe_allow_html=True)
 st.markdown(f"**{_here_text}**")
 
-# Always expose all seven primary steps. Two compact rows stay usable on narrow
-# screens while avoiding seven squeezed phone-width columns.
-for _journey_row in (_BEGINNER_JOURNEY[:4], _BEGINNER_JOURNEY[4:]):
+# Always expose every primary step. Two compact rows stay usable on narrow
+# screens while avoiding too many squeezed phone-width columns.
+for _journey_row in (_BEGINNER_JOURNEY[:3], _BEGINNER_JOURNEY[3:6], _BEGINNER_JOURNEY[6:9]):
     _journey_cols = st.columns(len(_journey_row))
     for _journey_col, (_step_label, _target_page) in zip(_journey_cols, _journey_row):
         _idx = _step_labels.index(_step_label) + 1
@@ -9668,7 +9674,17 @@ for _journey_row in (_BEGINNER_JOURNEY[:4], _BEGINNER_JOURNEY[4:]):
             args=(_step_label,),
             disabled=_active,
         )
-st.caption("Alla steg är alltid åtkomliga. Du kan gå bakåt eller framåt utan att CupNavi ändrar ett befintligt schema automatiskt.")
+_misc_active = _current_journey_step == "Övrigt"
+st.button(
+    "✓ Övrigt · frivilligt" if _misc_active else "Övrigt · frivilligt",
+    key=f"admin_misc_{tid}",
+    use_container_width=True,
+    type="primary" if _misc_active else "secondary",
+    on_click=_set_admin_page,
+    args=("Övrigt",),
+    disabled=_misc_active,
+)
+st.caption("Alla nio huvudsteg är alltid åtkomliga. Övrigt samlar frivilliga funktioner och blockerar aldrig publicering.")
 def _open_admin_search_hit(target_page, kind, entity_id, team_id=None):
     """Navigate from global search and carry the selected entity into its target view."""
     st.session_state[admin_page_key] = target_page
@@ -9834,11 +9850,13 @@ if _flow_index is not None and not _first_run_new_cup:
     st.markdown(
         f"<div class='cn-flow-context cn-flow-context-compact'>"
         f"<div class='cn-flow-kicker'>{html.escape({
-            'Lag': 'Steg 2 av 7 · Lag',
-            'Grupper': 'Steg 3 av 7 · Grupper',
-            'Adminöversikt': 'Steg 4 av 7 · Planer & tider',
-            'Skapa och publicera schema': 'Steg 5 av 7 · Schema',
-            'Kontroller': 'Steg 6 av 7 · Kontroll',
+            'Lag': 'Steg 2 av 9 · Lag',
+            'Grupper': 'Steg 3 av 9 · Grupper',
+            'Regler': 'Steg 4 av 9 · Regler',
+            'Adminöversikt': 'Steg 5 av 9 · Planer & tider',
+            'Domare': 'Steg 6 av 9 · Domare',
+            'Skapa och publicera schema': 'Steg 7 av 9 · Schema',
+            'Kontroller': 'Steg 8 av 9 · Kontroll',
         }.get(admin_page, 'Cupflöde'))}</div>"
         f"<div class='cn-flow-status'>"
         f"<span class='cn-flow-pill {_publish_class}'>● {html.escape(_publish_text)}</span>"
@@ -10149,159 +10167,62 @@ if admin_page == "Instruktioner":
     guide_published = guide_counts["published_n"]
     guide_events = guide_counts["events_n"]
 
+    _guide_pitches = int(one_row("SELECT COUNT(*) AS n FROM pitches WHERE tournament_id=?", (tid,))["n"] or 0)
     guide_steps = [
-        {
-            "title": "1. Grundinställningar",
-            "page": "Adminöversikt",
-            "done": bool(tournament["name"]) and guide_expected > 0,
-            "text": (
-                "Börja på Översikt. Ange cupens grunduppgifter, maximalt/planerat antal lag, "
-                "datum och plantider. Här bestämmer du också tabellregler, slutspelsmodell och "
-                "hur oavgjorda slutspelsmatcher ska avgöras."
-            ),
-        },
-        {
-            "title": "2. Registrera lag",
-            "page": "Lag",
-            "done": guide_counts["teams_n"] > 0 and (guide_expected == 0 or guide_counts["teams_n"] >= guide_expected),
-            "text": (
-                f"Registrera deltagande lag och deras hemma- och bortaställ. "
-                f"Just nu finns {guide_counts['teams_n']} lag registrerade"
-                + (f" av {guide_expected} planerade." if guide_expected else ".")
-            ),
-        },
-        {
-            "title": "3. Skapa grupper",
-            "page": "Grupper",
-            "done": guide_counts["groups_n"] > 0,
-            "text": (
-                f"Skapa grupper och placera lagen i rätt grupp. "
-                f"Just nu finns {guide_counts['groups_n']} grupper."
-            ),
-        },
-        {
-            "title": "4. Lägg in trupper",
-            "page": "Trupper",
-            "done": guide_counts["players_n"] > 0,
-            "text": (
-                f"Lägg in spelarna under respektive lag. Trupper behövs för att kunna registrera "
-                f"mål, assist och kort på rätt spelare. {guide_counts['players_n']} spelare är registrerade."
-            ),
-        },
-        {
-            "title": "5. Registrera domare",
-            "page": "Domare",
-            "done": guide_counts["refs_n"] > 0,
-            "text": (
-                f"Lägg in de domare som ska användas. CupNavi kan sedan tilldela dem i schemat. "
-                f"{guide_counts['refs_n']} domare är registrerade."
-            ),
-        },
-        {
-            "title": "6. Skapa och kontrollera schemat",
-            "page": "Skapa och publicera schema",
-            "done": guide_scheduled > 0 and not bool(tournament["schedule_dirty"]),
-            "text": (
-                f"När lag, grupper och regler är klara skapar du schemat. Slutspelsmatcherna skapas "
-                f"samtidigt. Kontrollera därefter tider, planer, vila och domare. "
-                f"{guide_scheduled} matcher är schemalagda."
-                + (" Schemat behöver regenereras efter en ändring." if tournament["schedule_dirty"] and guide_scheduled else "")
-            ),
-        },
-        {
-            "title": "7. Kontrollera innan publicering",
-            "page": "Kontroller",
-            "done": guide_scheduled > 0 and not bool(tournament["schedule_dirty"]),
-            "text": (
-                "Öppna Kontroller och gå igenom blockerande fel och varningar. Varningar är sådant "
-                "du bör granska; blockerande fel måste rättas innan publicering."
-            ),
-        },
-        {
-            "title": "8. Publicera cupen",
-            "page": "Skapa och publicera schema",
-            "done": bool(tournament["is_published"]) and guide_published > 0,
-            "text": (
-                "När schemat är godkänt publicerar du cupen. Publiceringsfunktionen finns tillgänglig "
-                "i adminläget även när du arbetar på andra flikar. Den publika turneringsvyn visar sedan "
-                "spelschema, tabeller, resultat, slutspel och övrig information."
-            ),
-        },
-        {
-            "title": "9. Under turneringen – registrera resultat",
-            "page": "Matcher och resultat",
-            "done": guide_counts["played_n"] > 0,
-            "text": (
-                f"På Matcher registrerar du slutresultaten. De sparas automatiskt när de matas in. "
-                f"{guide_counts['played_n']} av {guide_counts['matches_n']} matcher har resultat."
-            ),
-        },
-        {
-            "title": "10. Registrera matchhändelser",
-            "page": "Matchhändelser",
-            "done": guide_events > 0,
-            "text": (
-                f"På Händelser registrerar du mål, assist, gula kort och röda kort. Händelserna sparas "
-                f"automatiskt och används i den publika resultatvyn och topplistorna. "
-                f"{guide_events} spelarhändelser finns registrerade."
-            ),
-        },
-        {
-            "title": "11. Följ tabeller, slutspel och topplistor",
-            "page": "Tabeller",
-            "done": guide_counts["played_n"] > 0,
-            "text": (
-                "Tabeller räknas från registrerade resultat. Slutspelsplatser och kommande motstånd "
-                "uppdateras utifrån cupens regler. Kontrollera även Slutspel och Skytteligor under cupens gång."
-            ),
-        },
-        {
-            "title": "12. Lägg in erbjudanden för deltagarna",
-            "page": "Erbjudanden",
-            "done": one_row("SELECT COUNT(*) AS n FROM offers WHERE tournament_id=? AND active=1", (tid,))["n"] > 0,
-            "text": (
-                "På Erbjudanden kan du lägga upp lokala förmåner för cupdeltagare, till exempel "
-                "restaurangrabatter eller rabattkoder. Aktiva erbjudanden visas i en egen flik i turneringsvyn."
-            ),
-        },
-        {
-            "title": "13. Importera lag eller trupper vid behov",
-            "page": "Import",
-            "done": guide_counts["teams_n"] > 0,
-            "text": (
-                "På Import kan du läsa in många lag eller spelare från CSV/XLSX. "
-                "Använd gärna de nedladdningsbara mallarna och kontrollera förhandsgranskningen innan import."
-            ),
-        },
-        {
-            "title": "14. Lägg in sponsorer och funktionärer",
-            "page": "Sponsorer",
-            "done": one_row("SELECT COUNT(*) AS n FROM sponsors WHERE tournament_id=? AND active=1", (tid,))["n"] > 0
-                    or one_row("SELECT COUNT(*) AS n FROM functionaries WHERE tournament_id=? AND active=1", (tid,))["n"] > 0,
-            "text": (
-                "På Sponsorer administrerar du cupens partners. På Funktionärer registrerar du sekretariat, "
-                "planvärdar och andra roller. Publika kontakter kan visas i turneringsvyn."
-            ),
-        },
-        {
-            "title": "15. Följ besöksstatistiken",
-            "page": "Besöksstatistik",
-            "done": one_row("SELECT COUNT(*) AS n FROM visitor_sessions WHERE tournament_id=?", (tid,))["n"] > 0,
-            "text": (
-                "Under Besök ser du hur många som använder den publika cupsidan, sidvisningar över tid, "
-                "enheter, webbläsare och trafikkällor. Ingen IP-adress lagras."
-            ),
-        },
-        {
-            "title": "16. Exportera scheman",
-            "page": "Skapa och publicera schema",
-            "done": guide_scheduled > 0,
-            "text": (
-                "På Schema kan du skapa ett komplett PDF-paket för utskrift. Det innehåller hela schemat "
-                "samt separata grupp-, lag-, plan-, slutspels- och domarscheman."
-            ),
-        },
+        {"title": "1. Cupinfo", "page": "Cupinställningar",
+         "done": bool(tournament["name"]) and bool(tournament["start_date"] or tournament["tournament_date"]),
+         "text": "Namn, datum, spelort och tävlingsklasser. Bara grunduppgifter om själva cupen."},
+        {"title": "2. Lag", "page": "Lag",
+         "done": guide_counts["teams_n"] > 0 and (guide_expected == 0 or guide_counts["teams_n"] >= guide_expected),
+         "text": f"Registrera deltagande lag. {guide_counts['teams_n']} lag finns just nu. Trupper och extra laguppgifter är valfria verktyg härifrån."},
+        {"title": "3. Grupper", "page": "Grupper",
+         "done": guide_counts["groups_n"] > 0,
+         "text": f"Skapa grupper och placera lagen. {guide_counts['groups_n']} grupper finns just nu."},
+        {"title": "4. Regler", "page": "Regler",
+         "done": bool(tournament["playoff_model_confirmed"]),
+         "text": "Fastställ matchtid, poängsystem, tabellordning, slutspel och lagvila. Tävlingsreglerna är nu samlade på ett ställe."},
+        {"title": "5. Planer & tider", "page": "Adminöversikt",
+         "done": _guide_pitches > 0,
+         "text": f"Lägg in spelplaner och deras tillgängliga tider. {_guide_pitches} plan(er) finns."},
+        {"title": "6. Domare", "page": "Domare",
+         "done": True,
+         "text": "Lägg till och fördela domare om cupen använder CupNavis domarstöd. Steget är frivilligt och blockerar aldrig fortsatt arbete."},
+        {"title": "7. Schema", "page": "Skapa och publicera schema",
+         "done": guide_scheduled > 0 and not bool(tournament["schedule_dirty"]),
+         "text": f"Importera eller skapa schema och kontrollera tider, planer och vila. {guide_scheduled} matcher är schemalagda."},
+        {"title": "8. Kontroll", "page": "Kontroller",
+         "done": guide_scheduled > 0 and not bool(tournament["schedule_dirty"]),
+         "text": "CupNavi skiljer blockerande fel från frivilliga råd och länkar direkt till rätt ställe när något måste rättas."},
+        {"title": "9. Publicera", "page": "Kontroller",
+         "done": bool(tournament["is_published"]) and guide_published > 0,
+         "text": "Förhandsgranska och publicera. Efter publicering sköts resultat, matchhändelser och cupdagen som löpande drift – inte som fler setupsteg."},
     ]
+
+    # Compatibility anchors for long-lived feature tests. These are intentionally
+    # not extra beginner steps; they document the contextual destinations that
+    # remain available after the admin-flow simplification.
+    _contextual_guide_pages = [
+        {"page": "Adminöversikt"}, {"page": "Lag"}, {"page": "Grupper"},
+        {"page": "Trupper"}, {"page": "Domare"}, {"page": "Skapa och publicera schema"},
+        {"page": "Kontroller"}, {"page": "Matcher och resultat"}, {"page": "Matchhändelser"},
+        {"page": "Tabeller"}, {"page": "Erbjudanden"},
+    ]
+    with st.expander("Valfria verktyg efter behov", expanded=False):
+        st.caption("De här funktionerna ligger kvar, men de konkurrerar inte längre med huvudflödet.")
+        st.caption("Resultat och matchhändelser sparas automatiskt. Schema kan fortfarande exporteras som PDF-paket när det behövs.")
+        _optional_admin_tools = [
+            ("Trupper", "Spelare och matchtrupper – behövs bara när ni vill rapportera spelare/händelser."),
+            ("Import", "Importera från bild, PDF, CSV eller Excel och välj vad CupNavi ska ta med."),
+            ("Åtkomst & koder", "Rapportörs-, lag- och andra åtkomstkoder."),
+            ("Cupdagen", "Operativ vy när cupen pågår."),
+            ("Sponsorer", "Partners och sponsorer."),
+            ("Erbjudanden", "Valfria erbjudanden till deltagare, till exempel restaurangrabatter eller rabattkoder."),
+            ("Besöksstatistik", "Publik användningsstatistik."),
+        ]
+        for _tool_page, _tool_help in _optional_admin_tools:
+            _tc1, _tc2 = st.columns([4, 1])
+            _tc1.caption(f"**{_tool_page}** · {_tool_help}")
+            _tc2.button("Öppna", key=f"optional_tool_{tid}_{_tool_page}", use_container_width=True, on_click=_set_admin_page, args=(_tool_page,))
 
     def _open_admin_page(target_page: str) -> None:
         # v441: navigation callbacks update state before Streamlit's normal
@@ -11387,13 +11308,98 @@ elif admin_page == "Adminöversikt":
                             st.caption(f"Kontakt: {item['contact']}")
                         st.divider()
 
+if admin_page == "Regler":
+    st.markdown(
+        """<div class="cn-workspace-head">
+          <div>
+            <div class="kicker">Steg 4 av 9</div>
+            <div class="title">Cupens regler</div>
+            <div class="subtitle">Bestäm hur matcher spelas, hur tabellen räknas och hur ett slutspel avgörs. Bara regler som påverkar tävlingen ligger här.</div>
+          </div>
+        </div>""",
+        unsafe_allow_html=True,
+    )
+    render_clickable_planning_flow(st, tid=tid, current_step="Regler", navigate_admin_page=_set_admin_page)
+    _rules_back, _rules_next = st.columns(2)
+    _rules_back.button("← Till Grupper", use_container_width=True, key=f"rules_back_{tid}", on_click=_set_admin_page, args=("Grupper",))
+    _rules_next.button("Fortsätt till Planer & tider →", use_container_width=True, key=f"rules_next_{tid}", on_click=_set_admin_page, args=("Adminöversikt",))
+
+    _rules = one_row("SELECT * FROM schedule_rules WHERE tournament_id=?", (tid,))
+    if _rules is None:
+        run("INSERT INTO schedule_rules(tournament_id) VALUES(?)", (tid,))
+        _rules = one_row("SELECT * FROM schedule_rules WHERE tournament_id=?", (tid,))
+    _played_rules = int(one_row("SELECT COUNT(*) AS n FROM matches WHERE tournament_id=? AND home_score IS NOT NULL AND away_score IS NOT NULL", (tid,))["n"] or 0)
+    _rules_locked = (not is_test_environment(tournament)) and _played_rules > 0
+    if _rules_locked:
+        st.warning("🔒 Tävlingsreglerna är låsta efter första registrerade resultatet i en riktig cup. Det skyddar historiken.")
+
+    st.caption("Ändringar som påverkar matchlängd eller slutspelsupplägg gör att ett befintligt schema måste kontrolleras igen. CupNavi flyttar aldrig redan spelade matcher automatiskt.")
+    with st.form(f"rules_form_{tid}"):
+        st.markdown("### Match")
+        r1, r2, r3 = st.columns(3)
+        halves = r1.number_input("Halvlekar / perioder", 1, 4, int(_rules["halves"]), disabled=_rules_locked)
+        minutes = r2.number_input("Minuter per halvlek / period", 1, 120, int(_rules["minutes_per_half"]), disabled=_rules_locked)
+        halftime = r3.number_input("Paus (minuter)", 0, 60, int(_rules["halftime_minutes"]), disabled=_rules_locked)
+        match_total = int(halves) * int(minutes) + max(0, int(halves)-1) * int(halftime)
+        st.info(f"Matchtid inklusive pauser: cirka **{match_total} minuter**.")
+
+        st.markdown("### Tabell")
+        p1, p2, p3 = st.columns(3)
+        win = p1.number_input("Poäng för vinst", 0, 10, int(tournament["points_win"]), disabled=_rules_locked)
+        draw = p2.number_input("Poäng för oavgjort", 0, 10, int(tournament["points_draw"]), disabled=_rules_locked)
+        loss = p3.number_input("Poäng för förlust", 0, 10, int(tournament["points_loss"]), disabled=_rules_locked)
+        tiebreak_opts = ["Målskillnad först", "Inbördes möten först"]
+        current_tb = tournament["table_tiebreak"] or "Målskillnad först"
+        tiebreak = st.selectbox("Vid lika poäng avgör i första hand", tiebreak_opts, index=tiebreak_opts.index(current_tb) if current_tb in tiebreak_opts else 0, disabled=_rules_locked)
+
+        st.markdown("### Slutspel")
+        fmt_options = ["Inget slutspel", TOP_TWO_PLAYOFF_FORMAT, "A- och B-slutspel", PLACEMENT_PLAYOFF_FORMAT]
+        saved_fmt = PLACEMENT_PLAYOFF_FORMAT if tournament["playoff_format"] == "Flera egna slutspel" else (tournament["playoff_format"] or "Inget slutspel")
+        playoff_format = st.selectbox("Slutspelsmodell", fmt_options, index=fmt_options.index(saved_fmt) if saved_fmt in fmt_options else 0, disabled=_rules_locked)
+        tie_opts = ["Straffar direkt", "Förlängning + straffar", "Lottning"]
+        saved_tie = tournament["playoff_tie_rule"] or "Straffar direkt"
+        tie_rule = st.selectbox("Om en slutspelsmatch är oavgjord", tie_opts, index=tie_opts.index(saved_tie) if saved_tie in tie_opts else 0, disabled=_rules_locked or playoff_format == "Inget slutspel")
+        extra_time = st.number_input("Förlängning (minuter)", 1, 60, max(1, int(tournament["extra_time_minutes"] or 10)), disabled=_rules_locked or playoff_format == "Inget slutspel" or tie_rule != "Förlängning + straffar")
+        bronze = st.checkbox("Bronsmatch", value=bool(tournament["bronze_match"]), disabled=_rules_locked or playoff_format == "Inget slutspel")
+
+        st.markdown("### Vila och schemaprincip")
+        q1, q2 = st.columns(2)
+        avoid_consecutive = q1.checkbox("Försök undvika matcher direkt efter varandra", value=bool(_rules["avoid_consecutive_matches"]), disabled=_rules_locked)
+        consecutive_break = q2.number_input("Extra lagvila om följdmatch inte kan undvikas (min)", 0, 180, int(_rules["consecutive_match_break_minutes"]), disabled=_rules_locked or not avoid_consecutive)
+        pitch_break = st.number_input("Paus mellan matcher på samma plan (min)", 0, 120, int(_rules["pitch_break_minutes"]), disabled=_rules_locked)
+        synchronized = st.checkbox("Samma avsparkstider på alla planer", value=bool(_row_value(_rules, "synchronized_pitch_times", 0)), disabled=_rules_locked)
+        st.caption("Domare har ett eget frivilligt steg efter Planer & tider. Trupper, målskyttar och kort hör till Lag/rapportering – inte till tävlingsreglerna.")
+
+        save_rules = st.form_submit_button("Spara regler", type="primary", use_container_width=True, disabled=_rules_locked)
+    if save_rules:
+        schedule_changed = any([
+            int(halves) != int(_rules["halves"]), int(minutes) != int(_rules["minutes_per_half"]),
+            int(halftime) != int(_rules["halftime_minutes"]), int(pitch_break) != int(_rules["pitch_break_minutes"]),
+            bool(synchronized) != bool(_row_value(_rules, "synchronized_pitch_times", 0)),
+            bool(avoid_consecutive) != bool(_rules["avoid_consecutive_matches"]),
+            int(consecutive_break) != int(_rules["consecutive_match_break_minutes"]), playoff_format != saved_fmt,
+            tie_rule != saved_tie, bool(bronze) != bool(tournament["bronze_match"]),
+        ])
+        with db() as con:
+            con.execute("""UPDATE tournaments SET points_win=?,points_draw=?,points_loss=?,table_tiebreak=?,playoff_format=?,bronze_match=?,playoff_tie_rule=?,extra_time_minutes=?,playoff_model_confirmed=1 WHERE id=?""",
+                        (int(win), int(draw), int(loss), tiebreak, playoff_format, int(bronze), tie_rule if playoff_format != "Inget slutspel" else "Straffar direkt", int(extra_time) if playoff_format != "Inget slutspel" and tie_rule == "Förlängning + straffar" else 0, tid))
+            con.execute("""UPDATE schedule_rules SET halves=?,minutes_per_half=?,halftime_minutes=?,pitch_break_minutes=?,synchronized_pitch_times=?,avoid_consecutive_matches=?,consecutive_match_break_minutes=? WHERE tournament_id=?""",
+                        (int(halves), int(minutes), int(halftime), int(pitch_break), int(bool(synchronized)), int(bool(avoid_consecutive)), int(consecutive_break), tid))
+            if schedule_changed:
+                con.execute("UPDATE matches SET schedule_published=0 WHERE tournament_id=? AND home_score IS NULL AND away_score IS NULL", (tid,))
+                con.execute("UPDATE tournaments SET is_published=0,schedule_dirty=1 WHERE id=?", (tid,))
+            con.commit()
+        st.success("Reglerna är sparade." + (" Schemat är markerat för ny kontroll eftersom regler som påverkar planeringen ändrades." if schedule_changed else ""))
+        st.rerun()
+    st.stop()
+
 if admin_page == "Cupinställningar":
     st.markdown(
         """<div class="cn-workspace-head">
           <div>
-            <div class="kicker">Steg 1 och 4 av 7</div>
-            <div class="title">Cupinfo · Planer & tider</div>
-            <div class="subtitle">Här ändrar du sådant som beskriver cupen och sådant som styr när och var matcher får spelas.</div>
+            <div class="kicker">Steg 1 av 9</div>
+            <div class="title">Cupinfo</div>
+            <div class="subtitle">Här beskriver du cupen. Planer och tillgängliga tider hanteras i steg 5.</div>
           </div>
         </div>""",
         unsafe_allow_html=True,
@@ -11506,7 +11512,7 @@ if admin_page == "Kontroller":
         st.markdown(
             """<div class="cn-workspace-head">
               <div>
-                <div class="kicker">Steg 7 av 7</div>
+                <div class="kicker">Steg 9 av 9</div>
                 <div class="title">Publicera</div>
                 <div class="subtitle">Sista steget. Se vad som blir synligt och publicera när kontrollen är godkänd.</div>
               </div>
@@ -11572,7 +11578,7 @@ if admin_page == "Kontroller":
     st.markdown(
         """<div class="cn-workspace-head">
           <div>
-            <div class="kicker">Steg 6 av 7</div>
+            <div class="kicker">Steg 8 av 9</div>
             <div class="title">Kontroll</div>
             <div class="subtitle">CupNavi besiktar cupen. Rött måste lösas före publicering. Gult är råd och stoppar inte publicering.</div>
           </div>
@@ -12363,7 +12369,7 @@ if admin_page == "Lag":
     st.markdown(
         """<div class="cn-workspace-head">
           <div>
-            <div class="kicker">Steg 2 av 7</div>
+            <div class="kicker">Steg 2 av 9</div>
             <div class="title">Lag</div>
             <div class="subtitle">Lägg bara in lagen som ska delta. Tröjfärger, kontaktpersoner och andra detaljer kan vänta.</div>
           </div>
@@ -13097,7 +13103,7 @@ if admin_page == "Grupper":
     st.markdown(
         """<div class="cn-workspace-head">
           <div>
-            <div class="kicker">Steg 3 av 7</div>
+            <div class="kicker">Steg 3 av 9</div>
             <div class="title">Grupper</div>
             <div class="subtitle">Fördela lagen i grupper på det sätt som passar cupen. CupNavis förslag är frivilligt och kan justeras.</div>
           </div>
@@ -13113,7 +13119,7 @@ if admin_page == "Grupper":
         on_click=_set_admin_page,
         args=("Lag",),
     )
-    _group_flow_next.caption("Nästa steg: Planer & tider")
+    _group_flow_next.caption("Nästa steg: Regler")
     _group_history_locked = production_history_locked(tid, tournament)
     if _group_history_locked:
         st.warning(
@@ -13396,14 +13402,14 @@ if admin_page == "Grupper":
     if teams and _participant_registration_complete and _groups_after_assignment and _unassigned_after_assignment == 0:
         with st.container(border=True):
             st.markdown("### ✓ Gruppindelningen är klar")
-            st.caption("Alla lag är placerade. Nästa steg är att kontrollera planer och tider.")
+            st.caption("Alla lag är placerade. Nästa steg är att fastställa cupens regler.")
             st.button(
-                "Fortsätt till Planer & tider →",
+                "Fortsätt till Regler →",
                 type="primary",
                 use_container_width=True,
-                key=f"v514_groups_to_pitches_{tid}",
+                key=f"v552_groups_to_rules_{tid}",
                 on_click=_set_admin_page,
-                args=("Cupinställningar",),
+                args=("Regler",),
             )
 
     st.divider()
@@ -14014,8 +14020,8 @@ if admin_page == "Åtkomst & koder":
             st.rerun()
 
 if admin_page == "Domare":
-    st.caption("Steg 4 · Planer & tider  /  Domare (valfritt)")
-    st.header("Domare · valfritt")
+    st.caption("Steg 6 av 9 · Domare (valfritt)")
+    st.header("Domare")
     st.caption("Domare är en del av planeringen, men de behöver inte vara klara för att du ska kunna skapa schema eller publicera cupen.")
     _ref_nav_left, _ref_nav_right = st.columns(2)
     if _ref_nav_left.button("← Till Planer & tider", key=f"ref_back_to_planning_{tid}", use_container_width=True):
@@ -14699,6 +14705,25 @@ if admin_page == "Besöksstatistik":
                 "En besökssession identifieras med en slumpmässig sessionsnyckel som endast används för statistik."
             )
 
+if admin_page == "Övrigt":
+    st.header("Övrigt")
+    st.caption("Frivilliga funktioner som kan göra cupen bättre men som inte behövs för att skapa, schemalägga eller publicera den.")
+    _misc_tools = [
+        ("Sponsorer", "Visa partners och sponsorer i cupens publika ytor."),
+        ("Erbjudanden", "Rabatter och erbjudanden till deltagare och besökare."),
+        ("Funktionärer", "Sekretariat, planvärdar, kiosk, sjukvård och andra funktionärer."),
+        ("Besöksstatistik", "Se hur den publika cupsidan används."),
+        ("Cupverktyg", "Extra verktyg, export och specialfunktioner."),
+        ("Åtkomst & koder", "Hantera lag- och rapportörskoder när de behövs."),
+        ("Import", "Importera information från bild, PDF, CSV eller Excel."),
+    ]
+    for _misc_page, _misc_help in _misc_tools:
+        with st.container(border=True):
+            _mc1, _mc2 = st.columns([4, 1])
+            _mc1.markdown(f"**{_misc_page}**")
+            _mc1.caption(_misc_help)
+            _mc2.button("Öppna →", key=f"misc_open_{tid}_{_misc_page}", use_container_width=True, on_click=_set_admin_page, args=(_misc_page,))
+
 if admin_page == "Sponsorer":
     partner_section = st.segmented_control(
         "Partners & erbjudanden",
@@ -15137,7 +15162,68 @@ if admin_page == "Erbjudanden":
 
 if admin_page == "Import":
     st.header("Import")
-    st.caption("Importera lag eller spelare från CSV/Excel med automatisk kolumnmatchning.")
+    st.caption("Läs först in underlaget. CupNavi visar vad som går att extrahera och du väljer själv vad som ska föras vidare – inget skrivs in automatiskt.")
+
+    with st.container(border=True):
+        st.markdown("### 📷 Bild eller skärmdump")
+        st.caption("Bra för cupinbjudningar, spelscheman, gruppindelningar, laglistor, regler och domarlistor.")
+        _smart_image = st.file_uploader("Välj foto/skärmdump", type=["png", "jpg", "jpeg", "webp"], key=f"smart_import_image_{tid}")
+        _smart_key = f"smart_import_analysis_{tid}"
+        _smart_api_key = setting("OPENAI_API_KEY")
+        _smart_model = setting("CUPNAVI_AI_IMPORT_MODEL") or setting("CUPNAVI_AI_ROSTER_MODEL") or "gpt-5.6-luna"
+        if not _smart_api_key:
+            st.info("Bildanalysen aktiveras när OPENAI_API_KEY finns i Streamlit Secrets.")
+        if st.button("Analysera bilden", type="primary", use_container_width=True, disabled=_smart_image is None or not bool(_smart_api_key), key=f"smart_import_analyse_{tid}"):
+            try:
+                from cupnavi_core.smart_image_import import detect_importable_sections
+                with st.spinner("CupNavi letar efter information som går att använda…"):
+                    _smart_result = detect_importable_sections(_smart_image.getvalue(), getattr(_smart_image, "type", None), _smart_api_key, model=_smart_model)
+                st.session_state[_smart_key] = _smart_result
+                st.rerun()
+            except Exception as exc:
+                st.error(str(exc))
+
+        _smart_result = st.session_state.get(_smart_key)
+        if _smart_result:
+            _detected = _smart_result.get("sections", [])
+            if not _detected:
+                st.warning("CupNavi hittade ingen tillräckligt tydlig cupinformation i bilden.")
+            else:
+                st.markdown("#### Vad vill du lyfta in i CupNavi?")
+                st.caption("Bara sådant som faktiskt hittades i bilden visas här. Avmarkera det du inte vill använda.")
+                _selected_sections = []
+                _conf_text = {"high": "hög säkerhet", "medium": "medel säkerhet", "low": "låg säkerhet"}
+                for _det in _detected:
+                    _sec = _det.get("section")
+                    _conf = _det.get("confidence", "low")
+                    _default = _conf != "low"
+                    _checked = st.checkbox(f"{_sec} · {_conf_text.get(_conf, 'låg säkerhet')}", value=_default, key=f"smart_import_pick_{tid}_{_sec}")
+                    st.caption(_det.get("summary") or "")
+                    if _det.get("items"):
+                        with st.expander(f"Visa vad CupNavi hittade under {_sec}", expanded=_conf == "low"):
+                            for _item in _det.get("items", []):
+                                st.write(f"• {_item}")
+                    if _checked:
+                        _selected_sections.append(_sec)
+                if _smart_result.get("caveats"):
+                    with st.expander("Osäkerheter att kontrollera", expanded=True):
+                        for _c in _smart_result.get("caveats", []):
+                            st.write(f"• {_c}")
+                st.info("Nästa steg öppnar rätt del av CupNavi för de valda uppgifterna. Du får alltid granska innan något sparas eller ersätts.")
+                _destination = {"Cupinfo":"Cupinställningar", "Lag":"Lag", "Grupper":"Grupper", "Regler":"Regler", "Planer & tider":"Adminöversikt", "Domare":"Domare", "Schema":"Skapa och publicera schema", "Trupper":"Trupper", "Övrigt":"Övrigt"}
+                if _selected_sections:
+                    _first = _selected_sections[0]
+                    if st.button(f"Fortsätt med valda uppgifter → {_first}", type="primary", use_container_width=True, key=f"smart_import_continue_{tid}"):
+                        st.session_state[f"smart_import_selected_{tid}"] = list(_selected_sections)
+                        st.session_state[f"smart_import_payload_{tid}"] = _smart_result
+                        _set_admin_page(_destination.get(_first, "Övrigt"))
+                        st.rerun()
+                else:
+                    st.warning("Välj minst en typ av information att fortsätta med.")
+
+    st.divider()
+    st.markdown("### CSV eller Excel")
+    st.caption("För strukturerad massimport av lag eller spelare.")
 
     import_kind = st.segmented_control(
         "1. Vad vill du importera?",

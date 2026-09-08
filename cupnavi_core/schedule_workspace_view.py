@@ -220,14 +220,14 @@ def render_schedule_workspace(tid, tournament, *, deps: ScheduleWorkspaceDepende
     rules_snapshot = deps.rules_snapshot
     validation_snapshot = deps.validation_snapshot
 
-    # Planning flow contract: ["Cupinfo", "Lag", "Grupper", "Planer & tider", "Schema", "Kontroll", "Publicera"]
-    # v514: Schema is step five in the single seven-step beginner journey.
+    # Planning flow contract: ["Cupinfo", "Lag", "Grupper", "Regler", "Planer & tider", "Domare", "Schema", "Kontroll", "Publicera"]
+    # v514: Schema is step seven in the single nine-step beginner journey.
     # Keep location and backwards navigation visible instead of reverting to the old
     # isolated "Steg 3 av 5" schedule workspace.
     st.markdown(
         """<div class="cn-workspace-head">
           <div>
-            <div class="kicker">Steg 5 av 7</div>
+            <div class="kicker">Steg 7 av 9</div>
             <div class="title">Schema</div>
             <div class="subtitle">Här använder du ett importerat schema eller skapar ett nytt. CupNavi skriver aldrig över ett befintligt schema automatiskt.</div>
           </div>
@@ -245,7 +245,7 @@ def render_schedule_workspace(tid, tournament, *, deps: ScheduleWorkspaceDepende
             use_container_width=True,
             key=f"v514_schedule_back_to_pitches_{tid}",
             on_click=navigate_admin_page,
-            args=("Cupinställningar",),
+            args=("Adminöversikt",),
         )
     else:
         _schedule_flow_back.caption("Föregående steg: Planer & tider")

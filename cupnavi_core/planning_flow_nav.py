@@ -1,11 +1,13 @@
 from __future__ import annotations
 
-FLOW_STEPS = ["Cupinfo", "Lag", "Grupper", "Planer & tider", "Schema", "Kontroll", "Publicera"]
+FLOW_STEPS = ["Cupinfo", "Lag", "Grupper", "Regler", "Planer & tider", "Domare", "Schema", "Kontroll", "Publicera"]
 FLOW_ROUTES = {
     "Cupinfo": "Cupinställningar",
     "Lag": "Lag",
     "Grupper": "Grupper",
-    "Planer & tider": "Cupinställningar",
+    "Regler": "Regler",
+    "Planer & tider": "Adminöversikt",
+    "Domare": "Domare",
     "Schema": "Skapa och publicera schema",
     "Kontroll": "Kontroller",
     # Publicering ligger på kontrollsidan direkt under kvalitetskontrollen.
@@ -14,34 +16,30 @@ FLOW_ROUTES = {
 
 
 def render_clickable_planning_flow(st, *, tid: int, current_step: str, navigate_admin_page) -> None:
-    """Render the single seven-step beginner journey as real navigation buttons.
-
-    The visual labels mirror the old progress pills, but every non-current step is
-    directly clickable and routes to the relevant admin workspace.
-    """
-    cols = st.columns(len(FLOW_STEPS))
+    """Render the single nine-step beginner journey as real navigation buttons."""
     current_index = FLOW_STEPS.index(current_step) if current_step in FLOW_STEPS else -1
-    for idx, (col, label) in enumerate(zip(cols, FLOW_STEPS), start=1):
-        is_current = label == current_step
-        done = current_index >= 0 and idx - 1 < current_index
-        prefix = "✓" if done else str(idx)
-        with col:
-            def _go(target_label=label, target_page=FLOW_ROUTES[label]):
-                # Kontroller and Publicera share one admin workspace, so remember
-                # which beginner step the organiser explicitly chose.
-                if target_page == "Kontroller":
-                    st.session_state[f"planning_control_focus_{tid}"] = target_label
-                navigate_admin_page(target_page)
+    for row_start in range(0, len(FLOW_STEPS), 3):
+        row_steps = FLOW_STEPS[row_start:row_start + 3]
+        cols = st.columns(len(row_steps))
+        for offset, (col, label) in enumerate(zip(cols, row_steps)):
+            idx = row_start + offset + 1
+            is_current = label == current_step
+            done = current_index >= 0 and idx - 1 < current_index
+            prefix = "✓" if done else str(idx)
+            with col:
+                def _go(target_label=label, target_page=FLOW_ROUTES[label]):
+                    if target_page == "Kontroller":
+                        st.session_state[f"planning_control_focus_{tid}"] = target_label
+                    navigate_admin_page(target_page)
 
-            st.button(
-                f"{prefix} {label}",
-                key=f"planning_flow_nav_{tid}_{current_step}_{label}",
-                use_container_width=True,
-                type="primary" if is_current else "secondary",
-                disabled=is_current,
-                on_click=_go,
-            )
-
+                st.button(
+                    f"{prefix} {label}",
+                    key=f"planning_flow_nav_{tid}_{current_step}_{label}",
+                    use_container_width=True,
+                    type="primary" if is_current else "secondary",
+                    disabled=is_current,
+                    on_click=_go,
+                )
 
 def render_problem_actions(st, *, tid: int, navigate_admin_page, needs_teams: bool = False,
                            needs_groups: bool = False, needs_schedule: bool = False,

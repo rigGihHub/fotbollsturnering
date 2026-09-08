@@ -1,6 +1,6 @@
 import re
 
-APP_VERSION = "2026.09.08-551-ALWAYS-VISIBLE-ADMIN-FLOW"
+APP_VERSION = "2026.09.08-553-REFEREE-MISC-SMART-IMPORT"
 
 
 def release_ui_label(build_version: str = APP_VERSION) -> str:

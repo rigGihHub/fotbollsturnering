@@ -9,8 +9,8 @@ release. This runner keeps those tests intact and instead executes:
 1. compileall,
 2. all evergreen/non-release-specific test modules,
 3. a current replacement for the one superseded weather-default contract,
-4. selected recent v540-v551 functional/safety contracts (not version pins),
-5. the v551 current-release contract.
+4. selected recent v540-v553 functional/safety contracts (not version pins),
+5. the v553 current-release contract.
 
 A failing selected test is a release blocker. Historical tests are not deleted
 or rewritten just to make the suite green.
@@ -76,7 +76,7 @@ def main() -> int:
         "tests/test_v548_reporter_network_resilience.py::test_reporter_has_live_browser_network_probe",
         "tests/test_v548_reporter_network_resilience.py::test_uncertain_write_requires_server_refresh_not_automatic_retry",
         "tests/test_v548_reporter_network_resilience.py::test_existing_safety_contracts_are_retained",
-        "tests/test_current_release_gate_v551.py",
+        "tests/test_current_release_gate_v553.py",
     ]
     run([sys.executable, "-m", "pytest", *recent_nodes])
     print("CURRENT RELEASE GATE: PASS")
