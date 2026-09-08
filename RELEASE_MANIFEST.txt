@@ -1,5 +1,5 @@
 # CupNavi release manifest
-# version: 2026.09.08-538-FRAGMENT-DATASET-RERUN-GUARD
+# version: 2026.09.08-539-IMPORT-HOTFIX
 # sha256  path
 09d10e3cd398e08f77021447659639aefe5ee697f821e75a2460717e64c6ae89  ./.github/workflows/ci.yml
 e3f74dd978bf48b5042debb14cafa43c713656c743e07bbb8dc1644b15b24b0c  ./.github/workflows/cross-browser.yml
@@ -8,7 +8,7 @@ cce59ab541f83780be9e9a10f1b9266b3984c6cfcb1843da4ac5a4ec516d6ea5  ./.github/work
 6e4b3b16b894f96ad49c2ba875db2adc79b7e12045a34f8c605a1d462570a566  ./.github/workflows/v139-quality.yml
 a722a2d1f98a62f91ddbcbf4e0cc1cc41c6186f1b5e740f42860fe00b9d8f981  ./.gitignore
 ed900e83747e5c2ea7ed30c5d310fd4ee00363e1179bb178c2b7476beb2581e0  ./.streamlit/config.toml
-a2dbb0ad34af59deef8824244b153e599ff920600c2e3358d3162515ee083b79  ./app.py
+9715ad94125ab8a95f4dbb829525ce63d6b2e10ad3c156ae9a1ad65e517d6be3  ./app.py
 d157a215c04704ef55de0c78d854deb3ad7eddd368ac7f4c84dc8a46d84428d1  ./assets/cupnavi_logo.png
 6d1189a1422906f7e4c4b6dfcb225a10e51cfbf48b5c393404db3fb3d36f9fd2  ./CLEANUP_LEGACY_DUPLICATES.bat
 e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855  ./cupnavi_api/__init__.py
@@ -125,7 +125,7 @@ af563f8511cf0e7bf5ab86e8d0b416fe2d6c2e43a4ae209223f5afea810b9636  ./cupnavi_core
 072e3af2459e84614fcd34d92fae65aee6ca52d040406367a204c341881cdb74  ./cupnavi_core/ui_logic.py
 1cf09ed6bcbec1b1874a86dbd26a6718bf04f5b3200a2c0e5b9a521881783a26  ./cupnavi_core/ux2.py
 23b7422368be6dc3f2f03da144f92d40817c752fa0388c633508ac6f5d2f7482  ./cupnavi_core/v137.py
-a5002efbe1042fb5dfba57de0c907497cc6a1657b51f107ce64800e7c07996bb  ./cupnavi_core/version.py
+78f3789f0845df4ff5abd853045eff813807b2951c683eb550374bb2bf61d78b  ./cupnavi_core/version.py
 2a88bc2bbaf9ee09d2b1c2bc14daf33acb34939374579d01999cad8e8913f6e6  ./docker-compose.staging.yml
 ad06322d3cb2b8b625c5194681d6f6c1c760cab3262cf6c019adfc641ff36cfa  ./Dockerfile.api
 02b4ef428bf58952a652a917ad2d7ee5f10d8fd7e4e2c957ea30daaa479b6c63  ./e2e/test_cross_browser_matrix.py
@@ -693,5 +693,6 @@ cd6cff9f6a3970456d007bf26f52ab998e15e6a9bf97f138b1c204a3260624f0  ./tests/test_v
 508cca6a95f3f5201b60a7b601269805132f4abc6e09526decf1c68c16bec088  ./tests/test_v536_adaptive_public_rerun_cache.py
 8a2084c462dd738eab03cb70bc6687db9a4c676502e01c0fbaff2d896ccab461  ./tests/test_v537_isolated_matches_fragment.py
 923038c72cb7d4b4787b6df3b6c74adea392ef87e02bd9106a34e4e7643feebe  ./tests/test_v538_fragment_dataset_rerun_guard.py
+2eda41c4d32e0738dca52469a6295bf5283eda5d898a2e5334190fa88b0eb42d  ./tests/test_v539_import_hotfix.py
 19c190772eec254a2695a2dfa696ff9d10a54a9a4863c2250d280f8963575a2a  ./tests/test_visitor_analytics_v79.py
-7f9dabcacd6cc905bca2039cb185183e0cc40d16b220e7bf8c51e244dba2874c  ./VERSION.txt
+53884b9720d57f3ead417d14a1eb8b3fadaa7c1e2b735054dd352eea38e86f08  ./VERSION.txt

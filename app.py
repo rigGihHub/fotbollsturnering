@@ -178,7 +178,7 @@ def inject_v266_public_mobile_css():
     return _inject_v266_public_mobile_css_impl(st)
 def inject_v198_visual_system():
     return _inject_v198_visual_system_impl(st)
-APP_BUILD_VERSION = "2026.09.08-537-ISOLATED-MATCHES-FRAGMENT"
+APP_BUILD_VERSION = "2026.09.08-539-IMPORT-HOTFIX"
 APP_VERSION = APP_BUILD_VERSION
 
 def _set_session_state_values(values):
