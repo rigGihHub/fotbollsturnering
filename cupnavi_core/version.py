@@ -1,1 +1,6 @@
-APP_VERSION = "2026.09.09-595-SCHEDULE-UX-VISUAL-PASS"
+APP_VERSION = "2026.09.09-596-IMPORT-HOTFIX"
+
+
+def release_ui_label(version: str) -> str:
+    """Return the human-readable release label used in the CupNavi UI."""
+    return f"CupNavi {version}"

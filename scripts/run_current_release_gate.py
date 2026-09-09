@@ -205,6 +205,7 @@ def main() -> int:
         "tests/test_v588_admin_overview_3.py::test_revision_import_and_operational_attention_are_progressively_disclosed",
         "tests/test_v588_admin_overview_3.py::test_advanced_overview_does_not_duplicate_step_guide",
         "tests/test_v589_team_flow_ux_pass.py",
+        "tests/test_current_release_gate_v596.py",
     ]
     run([sys.executable, "-m", "pytest", *recent_nodes])
     print("CURRENT RELEASE GATE: PASS")

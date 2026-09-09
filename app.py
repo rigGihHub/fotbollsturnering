@@ -183,7 +183,7 @@ def inject_v571_design_system_2():
     return _inject_v571_design_system_2_impl(st)
 def inject_v198_visual_system():
     return _inject_v198_visual_system_impl(st)
-APP_BUILD_VERSION = "2026.09.09-595-SCHEDULE-UX-VISUAL-PASS"
+APP_BUILD_VERSION = "2026.09.09-596-IMPORT-HOTFIX"
 APP_VERSION = APP_BUILD_VERSION
 
 def _set_session_state_values(values):
