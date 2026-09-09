@@ -95,6 +95,8 @@ from cupnavi_core.style_system import (
     inject_v193_product_design_system as _inject_v193_product_design_system_impl,
     inject_v266_public_mobile_css as _inject_v266_public_mobile_css_impl,
     inject_v571_design_system_2 as _inject_v571_design_system_2_impl,
+    inject_v599_desktop_density as _inject_v599_desktop_density_impl,
+    inject_v600_public_shell_milestone as _inject_v600_public_shell_milestone_impl,
     inject_v198_visual_system as _inject_v198_visual_system_impl,
     inject_public_experience_styles,
 )
@@ -181,9 +183,14 @@ def inject_v266_public_mobile_css():
     return _inject_v266_public_mobile_css_impl(st)
 def inject_v571_design_system_2():
     return _inject_v571_design_system_2_impl(st)
+def inject_v599_desktop_density():
+    return _inject_v599_desktop_density_impl(st)
+
+def inject_v600_public_shell_milestone():
+    return _inject_v600_public_shell_milestone_impl(st)
 def inject_v198_visual_system():
     return _inject_v198_visual_system_impl(st)
-APP_BUILD_VERSION = "2026.09.09-596-IMPORT-HOTFIX"
+APP_BUILD_VERSION = "2026.09.09-602-FULL-VISUAL-THEME-ACCESS-FIX"
 APP_VERSION = APP_BUILD_VERSION
 
 def _set_session_state_values(values):
@@ -2155,6 +2162,62 @@ def render_persistent_brand():
     )
 
 render_persistent_brand()
+
+# v602: FULL VISUAL THEME PASS — one final, coherent shell override after the
+# historical component styles.  Text-TV remains strongest in sport-data areas,
+# while forms/admin use a modern dark CupNavi workspace.
+st.html("""
+<style id="cupnavi-v602-full-theme">
+:root {
+  --cn-bg:#06111d; --cn-bg2:#081725; --cn-surface:#0b1b2b; --cn-surface2:#0f2437;
+  --cn-ink:#f3f8fc; --cn-muted:#9fb2c3; --cn-border:#24445c;
+  --cn-cyan:#19d7f2; --cn-cyan-soft:#12384a; --cn-green:#20d47a; --cn-yellow:#f2df35;
+  --cn-red:#ff6b73; --cn-radius:10px;
+}
+html, body, [data-testid="stAppViewContainer"], .stApp { background:var(--cn-bg) !important; color:var(--cn-ink) !important; }
+[data-testid="stAppViewContainer"] { background:linear-gradient(180deg,#071421 0%,#06111d 48%,#050d16 100%) !important; }
+[data-testid="stHeader"] { background:rgba(6,17,29,.92) !important; }
+[data-testid="stSidebar"] { background:#071724 !important; border-right:1px solid #18364b !important; }
+[data-testid="stSidebar"] * { color:var(--cn-ink); }
+.stApp .block-container { max-width:1600px !important; padding-left:2.1rem !important; padding-right:2.1rem !important; }
+h1,h2,h3,h4,h5,h6,p,label,.stMarkdown,.stCaptionContainer,[data-testid="stCaptionContainer"] { color:var(--cn-ink) !important; }
+.stCaptionContainer,[data-testid="stCaptionContainer"], small { color:var(--cn-muted) !important; }
+hr { border-color:#17364b !important; }
+[data-testid="stForm"], [data-testid="stExpander"], [data-testid="stVerticalBlockBorderWrapper"] > div { background:var(--cn-surface) !important; border-color:var(--cn-border) !important; }
+[data-testid="stExpander"] { border-radius:10px !important; }
+[data-baseweb="input"] > div, [data-baseweb="textarea"] > div, [data-baseweb="select"] > div,
+.stTextInput input, .stNumberInput input, .stTextArea textarea { background:#071521 !important; color:var(--cn-ink) !important; border-color:#31566f !important; }
+.stTextInput input::placeholder, .stTextArea textarea::placeholder { color:#71889a !important; }
+[data-baseweb="select"] span, [data-baseweb="select"] svg { color:var(--cn-ink) !important; fill:var(--cn-ink) !important; }
+[data-baseweb="popover"] ul, [role="listbox"] { background:#0a1a29 !important; color:var(--cn-ink) !important; }
+.stButton > button, .stDownloadButton > button, [data-testid="stFormSubmitButton"] > button {
+  border-radius:8px !important; border:1px solid #31566f !important; background:#0b1d2d !important; color:#eaf6ff !important;
+  min-height:42px; box-shadow:none !important; font-weight:750 !important;
+}
+.stButton > button:hover, .stDownloadButton > button:hover { border-color:var(--cn-cyan) !important; color:#fff !important; background:#103149 !important; }
+.stButton > button[kind="primary"], [data-testid="stFormSubmitButton"] > button[kind="primary"] {
+  background:linear-gradient(90deg,#087a48,#0aa55c) !important; border-color:#18cf79 !important; color:#fff !important;
+}
+.stTabs [data-baseweb="tab-list"] { gap:4px; background:transparent !important; border-bottom:1px solid #1f4057; }
+.stTabs [data-baseweb="tab"] { background:#091a29 !important; color:#b7c8d5 !important; border:1px solid #1d4057 !important; border-bottom:none !important; border-radius:8px 8px 0 0 !important; }
+.stTabs [aria-selected="true"] { background:#0d3448 !important; color:#fff !important; box-shadow:inset 0 -2px 0 var(--cn-cyan) !important; }
+[data-testid="stAlert"] { background:#0e2536 !important; border:1px solid #31566f !important; color:var(--cn-ink) !important; }
+[data-testid="stAlert"] * { color:var(--cn-ink) !important; }
+.cn-status-card,.cn-step,.cn-about-card,.cn-admin-match { background:var(--cn-surface) !important; border-color:var(--cn-border) !important; color:var(--cn-ink) !important; }
+.cn-status-card .cn-value,.cn-step .title,.cn-about-card .title { color:var(--cn-ink) !important; }
+.cn-status-card .cn-label,.cn-status-card .cn-sub,.cn-step .meta,.cn-about-card .body { color:var(--cn-muted) !important; }
+.cn-persistent-brand { background:#071724 !important; border-color:#1f4c65 !important; box-shadow:0 6px 18px rgba(0,0,0,.24) !important; }
+/* Dataframes/tables that are not custom Text-TV should still belong to the same shell. */
+[data-testid="stDataFrame"], [data-testid="stTable"] { background:#071521 !important; border:1px solid #24445c !important; border-radius:8px !important; }
+/* Keep error messages readable on dark shell. */
+[data-testid="stException"] { background:#35171d !important; color:#ffd9dd !important; border:1px solid #82414a !important; }
+@media (max-width:760px) {
+  .stApp .block-container { padding-left:.85rem !important; padding-right:.85rem !important; }
+  .stButton > button, .stDownloadButton > button, [data-testid="stFormSubmitButton"] > button { min-height:44px; }
+}
+@media (prefers-reduced-motion:reduce) { * { scroll-behavior:auto !important; transition:none !important; animation:none !important; } }
+</style>
+""")
 
 # v1.266: mobil publikvy – ta bort Streamlit Cloud-chrome som visar bl.a. "Fork",
 # fäst cupnavigeringen upptill och säkra responsiviteten i summeringsrutorna.
@@ -10091,7 +10154,7 @@ ADMIN_NAV_GROUPS = [
     # v338: keep the global participant navigation focused on the two recurring
     # organizer tasks. Roster, wishes and import remain available from Lag as
     # contextual tools instead of competing as top-level destinations.
-    ("Deltagare", [("Lag", tr("Lag")), ("Tröj setup", "Tröj setup"), ("Grupper", tr("Grupper"))]),
+    ("Deltagare", [("Lag", tr("Lag")), ("Tröj setup", "👕 Tröjfärger · NYTT"), ("Grupper", tr("Grupper"))]),
     # v339: the recurring match workflow has three destinations. Detailed events
     # and statistics remain contextual tools inside Resultat instead of global pages.
     ("Matcher", [("Skapa och publicera schema", tr("Schema")), ("Cupdagen", "Cupdagen"), ("Matcher och resultat", "Resultat"), ("Slutspel", tr("Slutspel"))]),
@@ -13435,6 +13498,11 @@ if admin_page == "Önskemålscentral":
     st.stop()
 
 if admin_page == "Lag":
+    # v598: make the new kit workflow discoverable instead of hiding it in secondary navigation.
+    with st.container(border=True):
+        _kit_cta_a, _kit_cta_b = st.columns([3, 1])
+        _kit_cta_a.markdown("""<div class="cn-kit-discovery"><div class="cn-kit-kicker">NY FUNKTION · MATCHSTÄLL</div><div class="cn-kit-title">👕 Tröjfärger & färgkrockar</div><div class="cn-kit-copy">Se lagens tröjor, ange hemma-/bortaställ och låt CupNavi varna när två lag riskerar att spela i för lika färger.</div></div>""", unsafe_allow_html=True)
+        _kit_cta_b.button("Öppna tröjfärger →", type="primary", use_container_width=True, key=f"v598_kit_discovery_{tid}", on_click=_set_admin_page, args=("Tröj setup",))
     # Planning flow contract: ["Grundsetup", "Lag", "Grupper", "Schema", "Kontroll", "Publicera"]
     # Historical QA anchors retained after UX copy simplification:
     # st.header("Lägg till lag")
@@ -14188,9 +14256,9 @@ if admin_page == "Lag":
             st.info("Det finns inga lag att redigera.")
 
 if admin_page == "Tröj setup":
-    st.header("👕 Tröj setup")
-    st.caption("Låt CupNavi söka på nätet efter lagens aktuella hemma- och bortaställ. Inget sparas förrän du godkänner förslaget.")
-    st.info("CupNavi ger ett förslag – inte ett facit. Kontrollera färger och mönster före godkännande. Du kan alltid redigera tröjorna senare under Lag.")
+    st.header("👕 Tröjfärger & matchställ")
+    st.caption("Ny funktion · CupNavi kan föreslå lagens hemma- och bortaställ, visa dem som fotbollströjor och hjälpa dig upptäcka färgkrockar. Inget sparas förrän du godkänner.")
+    st.info("⚡ v601: snabbare multikällesökning, parallell sökning för hela cupen och hårdare källkrav per hemma-/bortaställ. CupNavi ger fortfarande ett förslag – inte ett facit.")
     _kit_api_key = setting("OPENAI_API_KEY")
     _kit_model = setting("CUPNAVI_AI_KIT_MODEL") or setting("CUPNAVI_AI_ROSTER_MODEL") or "gpt-5.6-luna"
     _kit_teams = all_rows("SELECT * FROM teams WHERE tournament_id=? ORDER BY name", (tid,))
@@ -14208,20 +14276,47 @@ if admin_page == "Tröj setup":
         c3.metric("Förslag att granska", len(_kit_suggestions))
 
         scan_col, clear_col = st.columns([2, 1])
-        if scan_col.button("🌐 Scanna nätet för alla lag", type="primary", use_container_width=True, disabled=not bool(_kit_api_key)):
+        if scan_col.button("⚡ Snabbsök tröjor för alla lag", type="primary", use_container_width=True, disabled=not bool(_kit_api_key)):
+            from concurrent.futures import ThreadPoolExecutor, as_completed
             from cupnavi_core.ai_kit_suggestion import suggest_team_kit
-            progress = st.progress(0, text="Startar Tröj setup…")
-            for index, team in enumerate(_kit_teams, 1):
-                progress.progress((index - 1) / max(1, len(_kit_teams)), text=f"Söker efter {team['name']}…")
-                try:
-                    proposal = suggest_team_kit(team["name"], _kit_api_key, model=_kit_model, location=_row_value(tournament, "location", ""), country_code=_row_value(tournament, "country_code", ""), age_class=_row_value(team, "age_class", ""), search_hint=st.session_state.get(f"kit_search_hint_{team['id']}", ""))
-                    if proposal.get("found"):
-                        _kit_suggestions[str(team["id"])] = proposal
-                    else:
-                        _kit_suggestions[str(team["id"])] = {**proposal, "found": False}
-                except Exception as exc:
-                    _kit_suggestions[str(team["id"])] = {"found": False, "confidence": "low", "reason": str(exc), "sources": []}
-            progress.progress(1.0, text="Sökningen är klar – granska förslagen nedan.")
+
+            progress = st.progress(0, text="Startar snabb tröjsökning…")
+            location = _row_value(tournament, "location", "")
+            country_code = _row_value(tournament, "country_code", "")
+
+            jobs = [
+                {
+                    "team": team,
+                    "hint": st.session_state.get(f"kit_search_hint_{team['id']}", ""),
+                    "age_class": _row_value(team, "age_class", ""),
+                }
+                for team in _kit_teams
+            ]
+
+            def _scan_team_kit(job):
+                team = job["team"]
+                return suggest_team_kit(
+                    team["name"], _kit_api_key, model=_kit_model,
+                    location=location, country_code=country_code,
+                    age_class=job["age_class"], search_hint=job["hint"],
+                )
+
+            # Network-bound searches can safely overlap. Keep concurrency modest to
+            # avoid rate-limit spikes while cutting total cup scan time sharply.
+            workers = min(4, max(1, len(jobs)))
+            completed = 0
+            with ThreadPoolExecutor(max_workers=workers, thread_name_prefix="kit-search") as pool:
+                futures = {pool.submit(_scan_team_kit, job): job["team"] for job in jobs}
+                for future in as_completed(futures):
+                    team = futures[future]
+                    try:
+                        proposal = future.result()
+                        _kit_suggestions[str(team["id"])] = proposal if proposal.get("found") else {**proposal, "found": False}
+                    except Exception as exc:
+                        _kit_suggestions[str(team["id"])] = {"found": False, "confidence": "low", "reason": str(exc), "sources": [], "home_sources": [], "away_sources": []}
+                    completed += 1
+                    progress.progress(completed / max(1, len(_kit_teams)), text=f"Klart {completed}/{len(_kit_teams)} · {team['name']}")
+            progress.progress(1.0, text="Snabbsökningen är klar – granska förslagen nedan.")
             st.rerun()
         if clear_col.button("Rensa förslag", use_container_width=True, disabled=not bool(_kit_suggestions)):
             st.session_state[_kit_suggestions_key] = {}
@@ -14269,8 +14364,10 @@ if admin_page == "Tröj setup":
                 _verified_parts.append("Hemma hittat" if proposal.get("home_verified") else "Hemma ej verifierat")
                 _verified_parts.append("Borta hittat" if proposal.get("away_verified") else "Borta ej verifierat")
                 st.caption(f"Säkerhet: {confidence_label} · {' · '.join(_verified_parts)}. {proposal.get('reason') or ''}")
-                if proposal.get("search_strategy"):
-                    st.caption(f"Hittat via: {proposal.get('search_strategy')} · {proposal.get('search_attempts', 1)} sökförsök")
+                if proposal.get("cache_hit"):
+                    st.caption("⚡ Omedelbart svar från CupNavis sökcache")
+                elif proposal.get("search_strategy"):
+                    st.caption(f"Hittat via: {proposal.get('search_strategy')} · {proposal.get('search_attempts', 1)} nätanrop")
                 if proposal.get("club_match"):
                     st.caption(f"Matchad klubb: {proposal.get('club_match')}")
                 hp_default = proposal["home_pattern"] if proposal.get("home_verified") else _row_value(team, "home_pattern", "Helfärgad")
@@ -14298,9 +14395,24 @@ if admin_page == "Tröj setup":
                     st.markdown(kit_preview_html(ap, ac1, ac2, "Bortaställ"), unsafe_allow_html=True)
                 sources = proposal.get("sources") or []
                 if sources:
-                    with st.expander("Källor som CupNavi använde"):
-                        for source in sources:
-                            st.markdown(f"- {source}")
+                    with st.expander("Källor & bevis som CupNavi använde"):
+                        home_sources = proposal.get("home_sources") or []
+                        away_sources = proposal.get("away_sources") or []
+                        if home_sources:
+                            st.markdown("**Hemmaställ**")
+                            if proposal.get("home_evidence"):
+                                st.caption(proposal.get("home_evidence"))
+                            for source in home_sources:
+                                st.markdown(f"- {source}")
+                        if away_sources:
+                            st.markdown("**Bortaställ**")
+                            if proposal.get("away_evidence"):
+                                st.caption(proposal.get("away_evidence"))
+                            for source in away_sources:
+                                st.markdown(f"- {source}")
+                        if not home_sources and not away_sources:
+                            for source in sources:
+                                st.markdown(f"- {source}")
                 approve_col, edit_later_col = st.columns([2, 1])
                 if approve_col.button("✓ Godkänn och spara", type="primary", key=f"kit_approve_{team_key}", use_container_width=True):
                     run("""UPDATE teams SET primary_color=?,home_pattern=?,home_color_2=?,secondary_color=?,away_pattern=?,away_color_2=?,kit_confirmed_at=? WHERE id=? AND tournament_id=?""",
@@ -15314,9 +15426,10 @@ if admin_page == "Åtkomst & koder":
             _pending_invites = all_rows(
                 """SELECT id,email,display_name,created_at,expires_at
                    FROM tournament_admin_invitations
-                   WHERE tournament_id=? AND accepted_at IS NULL AND revoked_at IS NULL AND expires_at>?
+                   WHERE tournament_id=? AND accepted_at IS NULL AND revoked_at IS NULL
+                     AND expires_at > strftime('%Y-%m-%dT%H:%M:%S','now')
                    ORDER BY created_at DESC""",
-                (tid, datetime.now().isoformat(timespec="seconds")),
+                (tid,),
             )
             if _pending_invites:
                 st.markdown("##### Väntande inbjudningar")
@@ -19167,3 +19280,5 @@ if view_mode == "Admin" and admin_page == "Adminöversikt":
 
 inject_v198_visual_system()
 inject_v571_design_system_2()
+inject_v599_desktop_density()
+inject_v600_public_shell_milestone()

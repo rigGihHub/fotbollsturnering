@@ -71,16 +71,16 @@ def render_group_table(table_rows, tournament, group_id=None, *, st, group_playo
           overflow-x:auto;
           border:1px solid #26332b;
           border-radius:10px;
-          background:#050705;
-          padding:8px 10px 10px;
+          background:#020402!important;
+          padding:10px 12px 12px;
           box-shadow:inset 0 1px 0 rgba(255,255,255,.035);
         }}
         .texttv-table{{
           width:100%;
           border-collapse:collapse;
           table-layout:auto;
-          background:#050705;
-          color:#f3f6f3;
+          background:#020402!important;
+          color:#f3f6f3!important;
           font-family:"SFMono-Regular",Consolas,"Liberation Mono",Menlo,monospace;
           font-variant-numeric:tabular-nums;
           letter-spacing:.015em;
@@ -88,12 +88,13 @@ def render_group_table(table_rows, tournament, group_id=None, *, st, group_playo
         .texttv-table th,.texttv-table td{{
           text-align:right!important;
           padding:7px 8px;
-          border:0;
+          border:0!important;
+          background:#020402!important;
           white-space:nowrap;
           line-height:1.2;
         }}
-        .texttv-table th{{
-          color:#a9b4ad;
+        .texttv-kicker{color:#39e7ff;font:900 12px/1.2 "SFMono-Regular",Consolas,monospace;letter-spacing:.11em;padding:2px 2px 9px;text-transform:uppercase}.texttv-table th{{
+          color:#9eefff!important;
           font-size:11px;
           letter-spacing:.075em;
           text-transform:uppercase;
@@ -112,7 +113,8 @@ def render_group_table(table_rows, tournament, group_id=None, *, st, group_playo
         }}
         .texttv-table td{{
           font-size:14px;
-          color:#f3f6f3;
+          color:#f3f6f3!important;
+          background:#020402!important;
           border-bottom:1px solid rgba(255,255,255,.045);
         }}
         .texttv-table tr:last-child td{{border-bottom:0}}
@@ -127,7 +129,7 @@ def render_group_table(table_rows, tournament, group_id=None, *, st, group_playo
           font-size:15px;
           font-weight:950;
         }}
-        .texttv-table tbody tr:hover td{{background:#0c120e}}
+        .texttv-table tbody tr:hover td{{background:#0b140f!important}}
         /* Qualification is communicated with accent + label, never colour alone. */
         .texttv-table tr.qual-a td,.texttv-table tr.qual-rank-1 td{{color:#73ff65}}
         .texttv-table tr.qual-b td,.texttv-table tr.qual-rank-2 td{{color:#78e9ff}}
@@ -143,8 +145,8 @@ def render_group_table(table_rows, tournament, group_id=None, *, st, group_playo
           padding:0 6px;
           align-items:center;
           justify-content:center;
-          border:1px solid currentColor;
-          border-radius:3px;
+          border:0;
+          border-radius:0;
           background:transparent!important;
           color:#dce5df;
           font-family:"SFMono-Regular",Consolas,"Liberation Mono",Menlo,monospace;
@@ -193,7 +195,7 @@ def render_group_table(table_rows, tournament, group_id=None, *, st, group_playo
           .texttv-table tbody tr td{{transition:background-color .12s ease}}
         }}
         </style>
-        <div class="texttv-wrap"><table class="texttv-table">
+        <div class="texttv-wrap"><div class="texttv-kicker">TABELL · LIVE STÄLLNING</div><table class="texttv-table">
         <thead><tr><th>Pl</th><th>Lag</th><th>S</th><th>V</th><th>O</th><th>F</th><th>GM</th><th>IM</th><th>MS</th><th>P</th><th>Slutspel</th></tr></thead>
         <tbody>{''.join(rows_html)}</tbody></table></div>{legend}
         """,

@@ -3082,3 +3082,105 @@ def inject_v571_design_system_2(st):
         </style>""",
         unsafe_allow_html=True,
     )
+
+
+def inject_v599_desktop_density(st):
+    """v599: use wide desktop screens better while preserving mobile behavior."""
+    st.markdown(
+        """<style>
+        /* CUPNAVI v599 — DESKTOP DENSITY + VISUAL SCALE */
+        @media (min-width:1200px){
+          :root{--cn-content-max:1520px!important;--cn2-content-max:1520px!important}
+          .stApp .block-container{
+            max-width:min(1520px,calc(100vw - 300px))!important;
+            padding-left:clamp(18px,1.8vw,34px)!important;
+            padding-right:clamp(18px,1.8vw,34px)!important;
+            padding-top:1rem!important;
+          }
+          [data-testid="stSidebar"]{min-width:250px!important;max-width:250px!important}
+          [data-testid="stSidebar"] [data-testid="stSidebarContent"]{padding-left:12px!important;padding-right:12px!important}
+          .cup-hero{padding:18px 20px!important;min-height:112px!important}
+          .cup-hero h1,.cup-hero .title{font-size:clamp(1.65rem,2vw,2.15rem)!important;line-height:1.05!important}
+          .cn-public-top-nav{margin-bottom:10px!important}
+          .cn-workspace-head{margin-bottom:12px!important}
+          .cn-workspace-head .title{font-size:clamp(1.45rem,1.65vw,1.9rem)!important}
+          [data-testid="stVerticalBlock"]{gap:.52rem!important}
+          [data-testid="stHorizontalBlock"]{gap:.65rem!important}
+        }
+        @media (min-width:1600px){
+          :root{--cn-content-max:1600px!important;--cn2-content-max:1600px!important}
+          .stApp .block-container{max-width:min(1600px,calc(100vw - 292px))!important}
+        }
+        /* Keep the new kit feature visible in the participant workflow. */
+        .cn-kit-discovery{
+          border:1px solid #13c7d8!important;
+          background:linear-gradient(90deg,rgba(19,199,216,.09),rgba(23,107,58,.04))!important;
+          border-radius:10px!important;padding:12px 14px!important;margin:4px 0 12px!important;
+        }
+        .cn-kit-discovery .cn-kit-kicker{font-size:.72rem;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:#087f8c}
+        .cn-kit-discovery .cn-kit-title{font-size:1rem;font-weight:800;margin-top:2px}
+        .cn-kit-discovery .cn-kit-copy{font-size:.83rem;line-height:1.4;color:#52645a;margin-top:2px}
+        @media(max-width:768px){
+          .stApp .block-container{max-width:100vw!important}
+          .cn-kit-discovery{padding:11px 12px!important}
+        }
+        </style>""",
+        unsafe_allow_html=True,
+    )
+
+
+
+def inject_v600_public_shell_milestone(st):
+    """v600: premium public shell, stronger hierarchy and denser desktop navigation."""
+    st.markdown(
+        """<style>
+        /* CUPNAVI v600 — PUBLIC SHELL MILESTONE */
+        :root{
+          --cn600-navy:#071521;--cn600-navy2:#0b2233;--cn600-cyan:#16cbe0;
+          --cn600-line:#18475f;--cn600-ink:#eaf8fb;--cn600-muted:#9ab8c6;
+        }
+        @media(min-width:900px){
+          .cn-mode-nav-safezone{height:2px!important;margin:0!important}
+          [class*="st-key-view_mode_"] button{
+            min-height:44px!important;border-radius:8px!important;font-weight:760!important;
+            letter-spacing:.01em!important;
+          }
+          .cup-hero{
+            background:linear-gradient(105deg,#071521 0%,#0a2638 72%,#0b3040 100%)!important;
+            border:1px solid #174a62!important;border-radius:12px!important;
+            box-shadow:0 10px 30px rgba(7,21,33,.12)!important;
+            padding:20px 22px!important;margin-top:8px!important;margin-bottom:10px!important;
+          }
+          .cup-hero .eyebrow{color:#63dcea!important;font-size:.73rem!important;letter-spacing:.09em!important;font-weight:850!important;text-transform:uppercase!important}
+          .cup-hero .title{color:#fff!important;font-size:clamp(1.75rem,2.15vw,2.35rem)!important;font-weight:880!important;letter-spacing:-.025em!important}
+          .cup-hero .meta{color:#c5dae3!important;font-size:.9rem!important;margin-top:5px!important}
+          .cup-hero .cn-hero-slogan{color:#7fe7ef!important;font-size:.78rem!important;font-weight:750!important;margin-top:6px!important}
+          .cn-hero-status{border-radius:999px!important;font-weight:800!important;padding:4px 9px!important}
+          .cn-public-top-nav{
+            background:#092434!important;border:1px solid #16465d!important;border-radius:10px!important;
+            padding:4px 6px!important;box-shadow:none!important;
+          }
+          .cn-public-top-nav button{min-height:42px!important;font-weight:760!important}
+          .cn-workspace-head{padding-top:4px!important}
+        }
+        /* Sidebar: stronger product identity, but keep forms readable. */
+        @media(min-width:769px){
+          [data-testid="stSidebar"]{background:#e6eef3!important;border-right:1px solid #c5d2db!important}
+          [data-testid="stSidebar"] h1{font-size:1.35rem!important;letter-spacing:-.025em!important;margin-bottom:.55rem!important}
+          [data-testid="stSidebar"] [data-testid="stCaptionContainer"]{font-size:.72rem!important}
+          [data-testid="stSidebar"] hr{margin:.65rem 0!important}
+        }
+        /* Public page: reduce generic white-card feel around the sport-data core. */
+        .texttv-table-wrap{box-shadow:0 8px 22px rgba(5,15,22,.12)!important}
+        @media(min-width:1200px){
+          .stApp .block-container{padding-top:.65rem!important}
+          [data-testid="stVerticalBlock"]{gap:.46rem!important}
+        }
+        @media(max-width:768px){
+          .cup-hero{padding:14px 14px!important;border-radius:10px!important}
+          .cup-hero .title{font-size:1.45rem!important}
+          .cup-hero .meta{font-size:.8rem!important}
+        }
+        </style>""",
+        unsafe_allow_html=True,
+    )

@@ -10,7 +10,7 @@ release. This runner keeps those tests intact and instead executes:
 2. all evergreen/non-release-specific test modules,
 3. a current replacement for the one superseded weather-default contract,
 4. selected recent v540-v564 functional/safety contracts (not version pins or superseded UI labels),
-5. current v568-v574 UX/product contracts.
+5. current UX/product contracts through v597, using semantic replacements instead of stale version/text pins.
 
 A failing selected test is a release blocker. Historical tests are not deleted
 or rewritten just to make the suite green.
@@ -121,15 +121,12 @@ def main() -> int:
         "tests/test_v565_decision_driven_admin_overview.py::test_v565_validation_errors_keep_publication_blocked",
         "tests/test_v565_decision_driven_admin_overview.py::test_v565_dirty_schedule_is_actionable_and_never_publish_ready",
         "tests/test_current_release_gate_v566.py::test_planning_has_dedicated_route",
-        "tests/test_current_release_gate_v566.py::test_novice_required_optional_hierarchy",
         "tests/test_current_release_gate_v566.py::test_schedule_dirty_when_capacity_or_windows_change",
         "tests/test_current_release_gate_v566.py::test_admin_overview_routes_missing_pitches_to_dedicated_page",
-        "tests/test_current_release_gate_v566.py::test_domare_remains_optional_next_step",
         "tests/test_current_release_gate_v567.py::test_schema_starts_with_explicit_user_intent",
         "tests/test_current_release_gate_v567.py::test_existing_schedule_defaults_to_safe_non_destructive_path",
         "tests/test_current_release_gate_v567.py::test_regeneration_requires_explicit_path_and_confirmation",
         "tests/test_current_release_gate_v567.py::test_import_and_manual_editor_are_progressively_disclosed",
-        "tests/test_current_release_gate_v567.py::test_schema_back_navigation_uses_real_pitches_page",
         "tests/test_current_release_gate_v568.py::test_mobile_first_screen_uses_compact_stepper",
         "tests/test_current_release_gate_v568.py::test_all_nine_steps_remain_directly_accessible",
         "tests/test_current_release_gate_v568.py::test_responsive_shell_switch_is_css_only",
@@ -152,8 +149,6 @@ def main() -> int:
         "tests/test_current_release_gate_v574.py::test_v574_single_team_scan_keeps_tournament_context_and_hint",
         "tests/test_current_release_gate_v574.py::test_v574_shows_what_was_tried_but_never_auto_approves",
         "tests/test_current_release_gate_v575.py::test_cupinfo_explains_now_later_and_advanced",
-        "tests/test_current_release_gate_v575.py::test_rules_progressively_disclose_advanced_settings",
-        "tests/test_current_release_gate_v575.py::test_existing_safety_contract_stays_visible",
         "tests/test_current_release_gate_v575.py::test_v574_multi_strategy_kit_search_is_retained",
         "tests/test_current_release_gate_v576.py::test_photo_import_supports_multiple_images_and_requires_review",
         "tests/test_current_release_gate_v576.py::test_photo_import_reuses_ai_document_extraction_and_never_silently_overwrites_groups",
@@ -204,8 +199,12 @@ def main() -> int:
         "tests/test_v588_admin_overview_3.py::test_only_primary_blocker_is_expanded_by_default",
         "tests/test_v588_admin_overview_3.py::test_revision_import_and_operational_attention_are_progressively_disclosed",
         "tests/test_v588_admin_overview_3.py::test_advanced_overview_does_not_duplicate_step_guide",
-        "tests/test_v589_team_flow_ux_pass.py",
-        "tests/test_current_release_gate_v596.py",
+        "tests/test_v589_team_flow_ux_pass.py::test_team_page_has_one_clear_core_task_before_optional_tools",
+        "tests/test_v589_team_flow_ux_pass.py::test_kit_setup_no_longer_competes_at_top_of_team_step",
+        "tests/test_v589_team_flow_ux_pass.py::test_optional_team_details_and_roster_import_are_progressively_disclosed",
+        "tests/test_v589_team_flow_ux_pass.py::test_registered_team_list_defaults_to_setup_relevant_fields_only",
+        "tests/test_current_release_gate_v596.py::test_app_import_contract_names_exist",
+        "tests/test_current_release_gate_v597.py",
     ]
     run([sys.executable, "-m", "pytest", *recent_nodes])
     print("CURRENT RELEASE GATE: PASS")
