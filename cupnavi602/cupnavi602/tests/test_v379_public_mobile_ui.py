@@ -1,0 +1,35 @@
+from pathlib import Path
+from cupnavi_core.public_view_logic import public_navigation_specs
+
+ROOT=Path(__file__).resolve().parents[1]
+WORKSPACE=(ROOT/"cupnavi_core/public_workspace_view.py").read_text(encoding="utf-8")
+FOLLOW=(ROOT/"cupnavi_core/public_team_follow_view.py").read_text(encoding="utf-8")
+STYLE=(ROOT/"cupnavi_core/style_system.py").read_text(encoding="utf-8")
+VERSION=(ROOT/"VERSION.txt").read_text().strip()
+
+def test_release_version():
+    assert VERSION=="2026.09.07-525-OPTIONAL-REFEREE-SETUP"
+
+def test_public_navigation_is_task_first_and_short():
+    specs=public_navigation_specs()
+    assert [x[0] for x in specs]==["Info","Matcher","Mitt lag","Tabeller","Slutspel"]
+    assert [x[2] for x in specs]==["Info","Matcher","Mina lag","Tabell","Slutspel"]
+    assert [x[1] for x in specs]==["info","matches","team","tables","playoffs"]
+
+def test_public_navigation_keeps_native_fast_rerun():
+    assert "st.segmented_control(" in WORKSPACE
+    assert "on_change=_sync_public_primary_navigation" in WORKSPACE
+
+def test_mitt_lag_is_visually_explained_without_new_queries():
+    assert "cn-public-follow-intro" in FOLLOW
+    assert "Följ ett eller flera lag – även i olika klasser." in FOLLOW
+    assert 'favorite_team_ids = st.multiselect(' in FOLLOW
+
+def test_mobile_navigation_and_team_card_have_responsive_styles():
+    assert '[class*="st-key-cn_public_primary_nav_shell_"]' in STYLE
+    assert "position:sticky" in STYLE
+    assert ".cn-public-follow-anchor{" in STYLE
+    assert ".cn-follow-shell{" in STYLE
+    assert "@media(max-width:680px)" in STYLE
+    assert "/* v385 — Logical flow + no-scroll public primary navigation */" in STYLE
+    assert "min-width:0!important" in STYLE

@@ -1,18 +1,7 @@
-# CupNavi v602 – Full Visual Theme + Access Fix
+# CupNavi 2026.09.09-602-KIT-IDENTITY-DISAMBIGUATION
 
-## P0 bug fix
-- Fixes the `Åtkomst & koder` crash when loading pending administrator invitations.
-- The pending-invitation read now compares expiry against the database clock with SQLite/Turso `strftime(...)` and binds only the tournament id, avoiding the failing Python datetime parameter path shown in production.
-- Invitation creation/revocation behavior is unchanged.
+CupNavi now handles ambiguous team names before trusting kit colours. If several plausible clubs are found, the organiser selects the correct club from 2–4 sourced candidates and CupNavi then runs a targeted shirt search. Ambiguous results are never presented as verified shirts.
 
-## Full visual theme pass
-- Adds a final coherent dark CupNavi shell after historical component styles so old light Streamlit defaults no longer dominate pages.
-- Dark navy/near-black background, cyan CupNavi accent, white primary text, muted blue-grey secondary text.
-- Restyles sidebar, header, forms, inputs, selects, tabs, expanders, alerts, buttons and generic cards.
-- Keeps green for primary/save actions and preserves Text-TV as the strongest visual language in sport-data views.
-- Preserves responsive mobile spacing and reduced-motion accessibility.
+The change keeps v601's fast path: candidate discovery is part of the same initial web-search response, the 12-hour cache remains, the search still has a maximum of two evidence passes, and whole-tournament scans remain parallelized up to four teams.
 
-## Verification
-- Python compile/compileall: PASS.
-- v602 current release gate: PASS.
-- v602 focused regression tests: PASS.
+Current release gate: PASS (302 evergreen passed / 2 intentional deselections + 166 selected current regression tests passed).

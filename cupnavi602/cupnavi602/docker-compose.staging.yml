@@ -1,0 +1,36 @@
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    restart: unless-stopped
+    environment:
+      TURSO_DATABASE_URL: ${TURSO_DATABASE_URL}
+      TURSO_AUTH_TOKEN: ${TURSO_AUTH_TOKEN}
+      CUPNAVI_PWA_ORIGINS: ${CUPNAVI_PWA_ORIGINS:-https://${CUPNAVI_STAGING_HOST}}
+    healthcheck:
+      test: ["CMD","python","-c","import urllib.request; urllib.request.urlopen('http://127.0.0.1:8001/health', timeout=3).read()"]
+      interval: 20s
+      timeout: 5s
+      retries: 5
+
+  web:
+    image: caddy:2.8-alpine
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_healthy
+    environment:
+      CUPNAVI_STAGING_HOST: ${CUPNAVI_STAGING_HOST:-http://localhost:8080}
+    ports:
+      - "${CUPNAVI_STAGING_HTTP_PORT:-8080}:80"
+      - "${CUPNAVI_STAGING_HTTPS_PORT:-8443}:443"
+    volumes:
+      - ./staging/Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./public_pwa:/srv/public_pwa:ro
+      - caddy_data:/data
+      - caddy_config:/config
+
+volumes:
+  caddy_data:
+  caddy_config:

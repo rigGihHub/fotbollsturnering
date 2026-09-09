@@ -76,7 +76,7 @@ from cupnavi_core.public_competition import calculate_group_table
 from cupnavi_core.initial_setup_view import InitialSetupDependencies, render_initial_tournament_setup as render_initial_tournament_setup_module
 from cupnavi_core.new_tournament_wizard import render_new_tournament_wizard as render_new_tournament_wizard_module
 from cupnavi_core.home_away import orientation_balance_score
-from cupnavi_core.migrations import apply_migrations, LATEST_SCHEMA_VERSION, ensure_competition_class_schema_compat, ensure_v16_setup_schema_compat, ensure_v18_pitch_names_schema_compat, ensure_v19_schema_compat, ensure_v20_schema_compat, ensure_v21_schema_compat, ensure_v26_schema_compat
+from cupnavi_core.migrations import apply_migrations, LATEST_SCHEMA_VERSION, ensure_competition_class_schema_compat, ensure_v16_setup_schema_compat, ensure_v18_pitch_names_schema_compat, ensure_v19_schema_compat, ensure_v20_schema_compat, ensure_v21_schema_compat, ensure_v26_schema_compat, ensure_v34_schema_compat
 from cupnavi_core.health import collect_database_health
 from cupnavi_core.backup import build_backup_bytes, validate_backup_bytes, restore_backup_as_new_tournament
 from cupnavi_core.rate_limit import consume_rate_limit
@@ -190,7 +190,7 @@ def inject_v600_public_shell_milestone():
     return _inject_v600_public_shell_milestone_impl(st)
 def inject_v198_visual_system():
     return _inject_v198_visual_system_impl(st)
-APP_BUILD_VERSION = "2026.09.09-602-FULL-VISUAL-THEME-ACCESS-FIX"
+APP_BUILD_VERSION = "2026.09.09-604-VISUAL-QA-CONTRAST-HOTFIX"
 APP_VERSION = APP_BUILD_VERSION
 
 def _set_session_state_values(values):
@@ -2163,62 +2163,6 @@ def render_persistent_brand():
 
 render_persistent_brand()
 
-# v602: FULL VISUAL THEME PASS — one final, coherent shell override after the
-# historical component styles.  Text-TV remains strongest in sport-data areas,
-# while forms/admin use a modern dark CupNavi workspace.
-st.html("""
-<style id="cupnavi-v602-full-theme">
-:root {
-  --cn-bg:#06111d; --cn-bg2:#081725; --cn-surface:#0b1b2b; --cn-surface2:#0f2437;
-  --cn-ink:#f3f8fc; --cn-muted:#9fb2c3; --cn-border:#24445c;
-  --cn-cyan:#19d7f2; --cn-cyan-soft:#12384a; --cn-green:#20d47a; --cn-yellow:#f2df35;
-  --cn-red:#ff6b73; --cn-radius:10px;
-}
-html, body, [data-testid="stAppViewContainer"], .stApp { background:var(--cn-bg) !important; color:var(--cn-ink) !important; }
-[data-testid="stAppViewContainer"] { background:linear-gradient(180deg,#071421 0%,#06111d 48%,#050d16 100%) !important; }
-[data-testid="stHeader"] { background:rgba(6,17,29,.92) !important; }
-[data-testid="stSidebar"] { background:#071724 !important; border-right:1px solid #18364b !important; }
-[data-testid="stSidebar"] * { color:var(--cn-ink); }
-.stApp .block-container { max-width:1600px !important; padding-left:2.1rem !important; padding-right:2.1rem !important; }
-h1,h2,h3,h4,h5,h6,p,label,.stMarkdown,.stCaptionContainer,[data-testid="stCaptionContainer"] { color:var(--cn-ink) !important; }
-.stCaptionContainer,[data-testid="stCaptionContainer"], small { color:var(--cn-muted) !important; }
-hr { border-color:#17364b !important; }
-[data-testid="stForm"], [data-testid="stExpander"], [data-testid="stVerticalBlockBorderWrapper"] > div { background:var(--cn-surface) !important; border-color:var(--cn-border) !important; }
-[data-testid="stExpander"] { border-radius:10px !important; }
-[data-baseweb="input"] > div, [data-baseweb="textarea"] > div, [data-baseweb="select"] > div,
-.stTextInput input, .stNumberInput input, .stTextArea textarea { background:#071521 !important; color:var(--cn-ink) !important; border-color:#31566f !important; }
-.stTextInput input::placeholder, .stTextArea textarea::placeholder { color:#71889a !important; }
-[data-baseweb="select"] span, [data-baseweb="select"] svg { color:var(--cn-ink) !important; fill:var(--cn-ink) !important; }
-[data-baseweb="popover"] ul, [role="listbox"] { background:#0a1a29 !important; color:var(--cn-ink) !important; }
-.stButton > button, .stDownloadButton > button, [data-testid="stFormSubmitButton"] > button {
-  border-radius:8px !important; border:1px solid #31566f !important; background:#0b1d2d !important; color:#eaf6ff !important;
-  min-height:42px; box-shadow:none !important; font-weight:750 !important;
-}
-.stButton > button:hover, .stDownloadButton > button:hover { border-color:var(--cn-cyan) !important; color:#fff !important; background:#103149 !important; }
-.stButton > button[kind="primary"], [data-testid="stFormSubmitButton"] > button[kind="primary"] {
-  background:linear-gradient(90deg,#087a48,#0aa55c) !important; border-color:#18cf79 !important; color:#fff !important;
-}
-.stTabs [data-baseweb="tab-list"] { gap:4px; background:transparent !important; border-bottom:1px solid #1f4057; }
-.stTabs [data-baseweb="tab"] { background:#091a29 !important; color:#b7c8d5 !important; border:1px solid #1d4057 !important; border-bottom:none !important; border-radius:8px 8px 0 0 !important; }
-.stTabs [aria-selected="true"] { background:#0d3448 !important; color:#fff !important; box-shadow:inset 0 -2px 0 var(--cn-cyan) !important; }
-[data-testid="stAlert"] { background:#0e2536 !important; border:1px solid #31566f !important; color:var(--cn-ink) !important; }
-[data-testid="stAlert"] * { color:var(--cn-ink) !important; }
-.cn-status-card,.cn-step,.cn-about-card,.cn-admin-match { background:var(--cn-surface) !important; border-color:var(--cn-border) !important; color:var(--cn-ink) !important; }
-.cn-status-card .cn-value,.cn-step .title,.cn-about-card .title { color:var(--cn-ink) !important; }
-.cn-status-card .cn-label,.cn-status-card .cn-sub,.cn-step .meta,.cn-about-card .body { color:var(--cn-muted) !important; }
-.cn-persistent-brand { background:#071724 !important; border-color:#1f4c65 !important; box-shadow:0 6px 18px rgba(0,0,0,.24) !important; }
-/* Dataframes/tables that are not custom Text-TV should still belong to the same shell. */
-[data-testid="stDataFrame"], [data-testid="stTable"] { background:#071521 !important; border:1px solid #24445c !important; border-radius:8px !important; }
-/* Keep error messages readable on dark shell. */
-[data-testid="stException"] { background:#35171d !important; color:#ffd9dd !important; border:1px solid #82414a !important; }
-@media (max-width:760px) {
-  .stApp .block-container { padding-left:.85rem !important; padding-right:.85rem !important; }
-  .stButton > button, .stDownloadButton > button, [data-testid="stFormSubmitButton"] > button { min-height:44px; }
-}
-@media (prefers-reduced-motion:reduce) { * { scroll-behavior:auto !important; transition:none !important; animation:none !important; } }
-</style>
-""")
-
 # v1.266: mobil publikvy – ta bort Streamlit Cloud-chrome som visar bl.a. "Fork",
 # fäst cupnavigeringen upptill och säkra responsiviteten i summeringsrutorna.
 
@@ -4103,6 +4047,10 @@ def init_db():
         ensure_v19_schema_compat(con)
         ensure_v20_schema_compat(con)
         ensure_v21_schema_compat(con)
+        # v603: repair invitation schema on every startup. Cloud databases can carry
+        # a migration marker from a partial deploy while the concrete table/columns
+        # are missing; the compatibility helper is idempotent and cheap.
+        ensure_v34_schema_compat(con)
         con.commit()
     return schema_key
 
@@ -9533,6 +9481,50 @@ _a11y_css.append("button,[role='button'],input,select,textarea{min-height:44px;}
 if _a11y_css:
     st.markdown("<style>" + "".join(_a11y_css) + "</style><div class='cn-sr-only' role='status' aria-live='polite'>CupNavi är redo. Navigation och formulär kan användas med tangentbord och skärmläsare.</div>", unsafe_allow_html=True)
 
+# v603 — GLOBAL DARK SPORT SHELL
+# One coherent visual language across public, admin, reporter and setup surfaces.
+# Text-TV remains strongest in dense sports data, while forms use a modern dark control system.
+st.markdown("""
+<style>
+:root{
+  --cn-bg:#06111a;--cn-bg-2:#081722;--cn-panel:#0b1b28;--cn-panel-2:#0e2231;
+  --cn-line:#17394d;--cn-line-strong:#1e526a;--cn-text:#edf7fb;--cn-muted:#91a9b8;
+  --cn-cyan:#16d9f6;--cn-cyan-soft:#0b6074;--cn-green:#27e47a;--cn-yellow:#ffe13b;
+}
+.stApp{background:linear-gradient(180deg,#06111a 0%,#07151f 100%)!important;color:var(--cn-text)!important;color-scheme:dark!important;}
+.stApp [data-testid="stMainBlockContainer"]{background:transparent!important;}
+[data-testid="stSidebar"]{background:linear-gradient(180deg,#071722 0%,#08131c 100%)!important;border-right:1px solid #123349!important;}
+[data-testid="stSidebar"] *{color:var(--cn-text)!important;}
+.stApp h1,.stApp h2,.stApp h3,.stApp h4,.stApp h5,.stApp h6,.stApp p,.stApp label,.stApp span{color:var(--cn-text);}
+[data-testid="stCaptionContainer"], [data-testid="stCaptionContainer"] p,.stCaption,.stCaption p{color:var(--cn-muted)!important;opacity:1!important;}
+[data-testid="stWidgetLabel"] p,[data-testid="stWidgetLabel"] label,label[data-testid="stWidgetLabel"]{color:#cde2ec!important;font-weight:650!important;}
+[data-testid="stExpander"]{background:#0a1a26!important;border:1px solid var(--cn-line)!important;border-radius:10px!important;}
+[data-testid="stExpander"] summary{color:#dff4fb!important;}
+[data-testid="stForm"]{background:#0a1a26!important;border:1px solid var(--cn-line)!important;border-radius:12px!important;padding:12px 14px!important;}
+[data-baseweb="input"]>div,[data-baseweb="select"]>div,[data-testid="stTextArea"] textarea,[data-testid="stNumberInput"] input{background:#08141e!important;color:#edf7fb!important;border-color:#2a4b5d!important;}
+[data-baseweb="input"] input,[data-baseweb="select"] input,[data-testid="stTextArea"] textarea,[data-testid="stNumberInput"] input{color:#edf7fb!important;-webkit-text-fill-color:#edf7fb!important;}
+[data-baseweb="select"] svg{fill:#cfe8f2!important;color:#cfe8f2!important;}
+[data-baseweb="popover"]:not(:has([data-baseweb="calendar"]))>div{background:#0b1b28!important;color:#edf7fb!important;border-color:#214356!important;}
+[role="option"]{background:#0b1b28!important;color:#edf7fb!important;}
+[role="option"]:hover,[aria-selected="true"][role="option"]{background:#123247!important;}
+[data-testid="stButton"] button,[data-testid="stDownloadButton"] button,[data-testid="stLinkButton"] a{background:#0a1a26!important;color:#eaf7fb!important;border:1px solid #28536a!important;border-radius:8px!important;box-shadow:none!important;}
+[data-testid="stButton"] button:hover,[data-testid="stDownloadButton"] button:hover,[data-testid="stLinkButton"] a:hover{background:#103147!important;border-color:#16d9f6!important;color:#fff!important;}
+[data-testid="stButton"] button[kind="primary"]{background:linear-gradient(180deg,#11cfe9 0%,#08a9c4 100%)!important;border-color:#16d9f6!important;color:#021219!important;font-weight:850!important;}
+[data-testid="stTabs"] [data-baseweb="tab-list"]{background:transparent!important;border-bottom:1px solid #16384a!important;gap:3px!important;}
+[data-testid="stTabs"] [data-baseweb="tab"]{background:#091a26!important;color:#bcd3df!important;border:1px solid #17384b!important;border-bottom:none!important;border-radius:8px 8px 0 0!important;}
+[data-testid="stTabs"] [aria-selected="true"]{background:#12cde8!important;color:#031219!important;font-weight:850!important;}
+[data-testid="stAlert"]{background:#0b1d2a!important;border:1px solid #24485b!important;color:#eaf7fb!important;}
+[data-testid="stAlert"] *{color:inherit!important;}
+[data-testid="stDataFrame"],[data-testid="stTable"]{background:#07141d!important;border-color:#17394d!important;}
+hr{border-color:#17394d!important;}
+.cn-workspace-head{background:linear-gradient(135deg,#0b1d2a,#0a1721)!important;border-color:#1a4258!important;border-left-color:#16d9f6!important;box-shadow:none!important;}
+.cn-workspace-head .kicker{color:#20d9f6!important}.cn-workspace-head .title{color:#f1fbff!important}.cn-workspace-head .subtitle{color:#9eb4c1!important;}
+/* Keep destructive semantics unmistakable. */
+.stApp [data-testid="stAlert"]:has(svg[aria-label*="error" i]){border-color:#8f3c48!important;}
+@media(max-width:700px){[data-testid="stSidebar"]{border-right:none!important}.stApp .block-container{padding-left:.75rem!important;padding-right:.75rem!important;}}
+</style>
+""", unsafe_allow_html=True)
+
 # v321: public reruns do not need the large BaseWeb datepicker/admin CSS payload.
 # Keep public readability + public legacy polish, while admin/role views retain the
 # calendar override. This reduces pre-route Streamlit work on every public nav click.
@@ -10042,6 +10034,86 @@ label[data-testid="stWidgetLabel"] {
 }
 </style>
 """, unsafe_allow_html=True)
+# v603 final cascade: keep the dark shell authoritative after legacy/public CSS blocks.
+st.markdown("""
+<style>
+body .stApp{background:linear-gradient(180deg,#06111a,#07151f)!important;color:#edf7fb!important;}
+body .stApp [data-testid="stSidebar"]{background:#071722!important;border-right:1px solid #14384c!important;}
+body .stApp [data-testid="stCaptionContainer"] p,body .stApp .stCaption p{color:#91a9b8!important;}
+body .stApp [data-testid="stWidgetLabel"] p,body .stApp label[data-testid="stWidgetLabel"]{color:#cde2ec!important;}
+body .stApp [data-testid="stExpander"]{background:#0a1a26!important;border-color:#17394d!important;}
+body .stApp [data-testid="stForm"]{background:#0a1a26!important;border-color:#17394d!important;}
+body .stApp [data-baseweb="input"]>div,body .stApp [data-baseweb="select"]>div,body .stApp textarea,body .stApp [data-testid="stNumberInput"] input{background:#08141e!important;color:#edf7fb!important;border-color:#2a4b5d!important;}
+body .stApp [data-testid="stButton"] button[kind="secondary"],body .stApp [data-testid="stDownloadButton"] button,body .stApp [data-testid="stLinkButton"] a{background:#0a1a26!important;color:#eaf7fb!important;border-color:#28536a!important;}
+body .stApp [data-testid="stButton"] button[kind="primary"]{background:#10c9e5!important;color:#03141b!important;border-color:#20dcf7!important;}
+body .stApp .cup-hero{background:linear-gradient(135deg,#0b2436 0%,#0a1a28 100%)!important;border:1px solid #1d4c64!important;color:#eefaff!important;box-shadow:none!important;}
+body .stApp .cup-hero .title,body .stApp .cup-hero .meta,body .stApp .cup-hero .eyebrow{color:#eefaff!important;}
+body .stApp .cn-public-top-nav + div [data-testid="stButton"] button[kind="secondary"]{background:#091b28!important;color:#dceef6!important;border-color:#1a4258!important;}
+body .stApp .cn-public-top-nav + div [data-testid="stButton"] button[kind="primary"]{background:#12cde8!important;color:#031219!important;border-color:#18daf5!important;}
+body .stApp [data-testid="stExpander"]:has(.cn-public-filter-marker){background:#091a26!important;border-color:#17394d!important;}
+/* Calendar deliberately stays light for date legibility. */
+body [data-baseweb="calendar"],body [data-baseweb="calendar"] *{color-scheme:light;}
+</style>
+""", unsafe_allow_html=True)
+
+# v604 visual QA: fix selectors that were too narrowly scoped in v603 and
+# remove light landing-page islands / low-contrast legacy text.
+st.markdown("""
+<style>
+/* Sidebar is mounted outside .stApp in some Streamlit versions. */
+body [data-testid="stSidebar"]{
+  background:linear-gradient(180deg,#06131d 0%,#071722 100%)!important;
+  border-right:1px solid #16384b!important;
+}
+body [data-testid="stSidebar"] *{color:#dcecf4!important;}
+body [data-testid="stSidebar"] [data-baseweb="select"]>div,
+body [data-testid="stSidebar"] [data-baseweb="input"]>div{
+  background:#081722!important;color:#f2fbff!important;border-color:#2a5164!important;
+}
+body [data-testid="stSidebar"] svg{color:#8edff0!important;fill:currentColor!important;}
+
+/* Generic bordered Streamlit containers must belong to the dark shell. */
+body .stApp [data-testid="stVerticalBlockBorderWrapper"],
+body .stApp [data-testid="stHorizontalBlock"] [data-testid="stVerticalBlockBorderWrapper"]{
+  background:#091924!important;border-color:#18394b!important;box-shadow:none!important;
+}
+body .stApp [data-testid="stVerticalBlockBorderWrapper"] h1,
+body .stApp [data-testid="stVerticalBlockBorderWrapper"] h2,
+body .stApp [data-testid="stVerticalBlockBorderWrapper"] h3,
+body .stApp [data-testid="stVerticalBlockBorderWrapper"] p{color:#eaf6fb!important;}
+body .stApp [data-testid="stVerticalBlockBorderWrapper"] [data-testid="stCaptionContainer"] p{color:#8fa9b7!important;}
+
+/* The marketing landing was still shipping its old light theme inline. */
+body .stApp .cn-home-hero{
+  border-color:#1b4a60!important;
+  background:radial-gradient(circle at 86% 12%,rgba(18,205,232,.15),transparent 30%),linear-gradient(145deg,#0a2030 0%,#081722 72%)!important;
+  box-shadow:0 18px 50px rgba(0,0,0,.18)!important;
+}
+body .stApp .cn-home-kicker{color:#42dff2!important;}
+body .stApp .cn-home-title{color:#f4fbff!important;}
+body .stApp .cn-home-lead{color:#b8ced9!important;}
+body .stApp .cn-home-section-title{color:#eaf7fb!important;}
+body .stApp .cn-home-mini{color:#9eb4c0!important;}
+
+/* Legacy markdown headings/text had dark hard-coded colors and disappeared. */
+body .stApp .block-container>div h1,
+body .stApp .block-container>div h2,
+body .stApp .block-container>div h3,
+body .stApp .block-container>div h4{color:#eef9fd!important;}
+body .stApp .block-container>div [data-testid="stMarkdownContainer"] p{color:#c9dce5;}
+body .stApp .block-container>div [data-testid="stCaptionContainer"] p{color:#8fa9b7!important;}
+
+/* Top mode switch / secondary buttons should never flash as white bars. */
+body .stApp [data-testid="stButton"] button[kind="secondary"],
+body .stApp [data-testid="stLinkButton"] a{background:#0a1b27!important;color:#eaf7fb!important;border-color:#285166!important;}
+body .stApp [data-testid="stButton"] button[kind="secondary"]:hover,
+body .stApp [data-testid="stLinkButton"] a:hover{background:#0d2636!important;border-color:#1fb8d1!important;}
+
+/* Keep intentional light calendar isolated from the global dark text rules. */
+body [data-baseweb="calendar"],body [data-baseweb="calendar"] *{color:#172033!important;}
+</style>
+""", unsafe_allow_html=True)
+
 def render_initial_tournament_setup(tournament_id, tournament):
     """Render first-run wizard for a new cup; keep the full editor for later changes."""
     deps = InitialSetupDependencies(
@@ -14258,7 +14330,7 @@ if admin_page == "Lag":
 if admin_page == "Tröj setup":
     st.header("👕 Tröjfärger & matchställ")
     st.caption("Ny funktion · CupNavi kan föreslå lagens hemma- och bortaställ, visa dem som fotbollströjor och hjälpa dig upptäcka färgkrockar. Inget sparas förrän du godkänner.")
-    st.info("⚡ v601: snabbare multikällesökning, parallell sökning för hela cupen och hårdare källkrav per hemma-/bortaställ. CupNavi ger fortfarande ett förslag – inte ett facit.")
+    st.info("⚡ v604: CupNavi skiljer nu på klubbidentitet och tröjbevis. Vid tvetydiga lagnamn får du välja rätt klubb innan färger föreslås. Det minskar felträffar utan att göra standardsökningen långsammare.")
     _kit_api_key = setting("OPENAI_API_KEY")
     _kit_model = setting("CUPNAVI_AI_KIT_MODEL") or setting("CUPNAVI_AI_ROSTER_MODEL") or "gpt-5.6-luna"
     _kit_teams = all_rows("SELECT * FROM teams WHERE tournament_id=? ORDER BY name", (tid,))
@@ -14349,7 +14421,48 @@ if admin_page == "Tröj setup":
                         st.rerun()
                     continue
                 if not proposal.get("found"):
-                    st.info("CupNavi har provat flera sökvägar men hittade inget tillräckligt belagt. Det är vanligt för lokala ungdomslag – lägg gärna till en sökledtråd ovan och försök igen.")
+                    candidates = proposal.get("candidate_matches") or []
+                    if proposal.get("identity_status") == "ambiguous" and candidates:
+                        st.warning("CupNavi hittade flera möjliga klubbar. Välj rätt klubb först – inga tröjfärger används innan identiteten är bestämd.")
+                        labels = []
+                        for candidate in candidates:
+                            place = ", ".join(part for part in [candidate.get("location"), candidate.get("country")] if part)
+                            labels.append(f"{candidate.get('name')}{' · ' + place if place else ''}")
+                        selected_idx = st.radio(
+                            "Vilken klubb är rätt?",
+                            options=list(range(len(candidates))),
+                            format_func=lambda idx: labels[idx],
+                            key=f"kit_candidate_{team_key}",
+                        )
+                        selected = candidates[int(selected_idx)]
+                        if selected.get("reason"):
+                            st.caption(selected.get("reason"))
+                        if selected.get("source_url"):
+                            st.caption(f"Identitetskälla: {selected.get('source_url')}")
+                        choose_col, retry_col = st.columns([2, 1])
+                        if choose_col.button("✓ Använd denna klubb och sök tröjor", type="primary", key=f"kit_choose_candidate_{team_key}", use_container_width=True, disabled=not bool(_kit_api_key)):
+                            from cupnavi_core.ai_kit_suggestion import suggest_team_kit
+                            with st.spinner(f"Söker tröjor för {selected.get('name')}…"):
+                                try:
+                                    _kit_suggestions[team_key] = suggest_team_kit(
+                                        team["name"], _kit_api_key, model=_kit_model,
+                                        location=_row_value(tournament, "location", ""),
+                                        country_code=_row_value(tournament, "country_code", ""),
+                                        age_class=_row_value(team, "age_class", ""),
+                                        search_hint=_kit_hint,
+                                        resolved_club=f"{selected.get('name')} · {selected.get('location') or ''} · {selected.get('country') or ''}",
+                                        resolved_source_url=selected.get("source_url") or "",
+                                        use_cache=False,
+                                    )
+                                except Exception as exc:
+                                    _kit_suggestions[team_key] = {"found": False, "confidence": "low", "reason": str(exc), "sources": [], "candidate_matches": []}
+                            st.rerun()
+                        if retry_col.button("Sök om", key=f"kit_retry_identity_{team_key}", use_container_width=True, disabled=not bool(_kit_api_key)):
+                            _kit_suggestions.pop(team_key, None)
+                            st.rerun()
+                        continue
+
+                    st.info("CupNavi hittade inget tillräckligt belagt. För lokala ungdomslag hjälper ofta ort, klubbwebb eller distriktsförbund som sökledtråd.")
                     if proposal.get("attempted_strategies"):
                         st.caption("Sökvägar provade: " + " → ".join(proposal.get("attempted_strategies") or []))
                     if proposal.get("reason"):
@@ -15423,14 +15536,31 @@ if admin_page == "Åtkomst & koder":
                 st.code(_invite_url)
                 st.caption("När personen öppnar länken kan hen logga in eller skapa sin profil och får därefter automatiskt åtkomst till just den här cupen.")
 
-            _pending_invites = all_rows(
-                """SELECT id,email,display_name,created_at,expires_at
-                   FROM tournament_admin_invitations
-                   WHERE tournament_id=? AND accepted_at IS NULL AND revoked_at IS NULL
-                     AND expires_at > strftime('%Y-%m-%dT%H:%M:%S','now')
-                   ORDER BY created_at DESC""",
-                (tid,),
-            )
+            try:
+                _pending_invites = all_rows(
+                    """SELECT id,email,display_name,created_at,expires_at
+                       FROM tournament_admin_invitations
+                       WHERE tournament_id=? AND accepted_at IS NULL AND revoked_at IS NULL AND expires_at>?
+                       ORDER BY created_at DESC""",
+                    (tid, datetime.now().isoformat(timespec="seconds")),
+                )
+            except Exception:
+                # v603: a stale/partially migrated Turso schema must never crash the
+                # entire Access & codes page. Repair once, then retry the read.
+                try:
+                    with db() as _invite_con:
+                        ensure_v34_schema_compat(_invite_con)
+                        _invite_con.commit()
+                    _pending_invites = all_rows(
+                        """SELECT id,email,display_name,created_at,expires_at
+                           FROM tournament_admin_invitations
+                           WHERE tournament_id=? AND accepted_at IS NULL AND revoked_at IS NULL AND expires_at>?
+                           ORDER BY created_at DESC""",
+                        (tid, datetime.now().isoformat(timespec="seconds")),
+                    )
+                except Exception:
+                    _pending_invites = []
+                    st.warning("Väntande administratörsinbjudningar kunde inte läsas just nu. Övrig åtkomsthantering fungerar fortfarande.")
             if _pending_invites:
                 st.markdown("##### Väntande inbjudningar")
                 render_centered_table(pd.DataFrame([
