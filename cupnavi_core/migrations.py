@@ -9,7 +9,7 @@ Regel:
 from dataclasses import dataclass
 from datetime import datetime, timezone
 
-LATEST_SCHEMA_VERSION = 33
+LATEST_SCHEMA_VERSION = 36
 # Historical QA anchor: LATEST_SCHEMA_VERSION = 27
 
 
@@ -543,6 +543,21 @@ MIGRATIONS = (
         "organizer_accounts_and_tournament_memberships",
         (),
     ),
+    Migration(
+        34,
+        "tournament_admin_invitations",
+        (),
+    ),
+    Migration(
+        35,
+        "tournament_setup_import_snapshots",
+        (),
+    ),
+    Migration(
+        36,
+        "playoff_match_timing_overrides",
+        (),
+    ),
 
 )
 
@@ -946,6 +961,63 @@ def ensure_v33_schema_compat(con):
     con.execute("CREATE INDEX IF NOT EXISTS idx_tournament_members_account ON tournament_members(organizer_account_id,tournament_id)")
     con.execute("CREATE INDEX IF NOT EXISTS idx_tournament_members_tournament ON tournament_members(tournament_id,organizer_account_id)")
 
+
+def ensure_v34_schema_compat(con):
+    """Idempotent invitation links for local tournament administrators."""
+    con.execute("""CREATE TABLE IF NOT EXISTS tournament_admin_invitations (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        tournament_id INTEGER NOT NULL REFERENCES tournaments(id) ON DELETE CASCADE,
+        email TEXT NOT NULL,
+        display_name TEXT,
+        role TEXT NOT NULL DEFAULT 'admin',
+        token_hash TEXT NOT NULL UNIQUE,
+        created_by_account_id INTEGER REFERENCES organizer_accounts(id) ON DELETE SET NULL,
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        expires_at TEXT NOT NULL,
+        accepted_at TEXT,
+        revoked_at TEXT
+    )""")
+    con.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_admin_invite_token_hash ON tournament_admin_invitations(token_hash)")
+    con.execute("CREATE INDEX IF NOT EXISTS idx_admin_invites_tournament ON tournament_admin_invitations(tournament_id,accepted_at,revoked_at,expires_at)")
+    con.execute("CREATE INDEX IF NOT EXISTS idx_admin_invites_email ON tournament_admin_invitations(email,tournament_id)")
+
+
+def ensure_v35_schema_compat(con):
+    """Persist the initial photo/document scan so later setup steps can reuse it."""
+    con.execute("""CREATE TABLE IF NOT EXISTS tournament_setup_imports (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        tournament_id INTEGER NOT NULL REFERENCES tournaments(id) ON DELETE CASCADE,
+        import_kind TEXT NOT NULL DEFAULT 'initial_setup',
+        source_name TEXT,
+        payload_json TEXT NOT NULL,
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    )""")
+    con.execute(
+        "CREATE INDEX IF NOT EXISTS idx_setup_imports_tournament_kind "
+        "ON tournament_setup_imports(tournament_id,import_kind,id)"
+    )
+
+
+def ensure_v36_schema_compat(con):
+    """Allow playoffs to use a different match structure than group play."""
+    try:
+        cols = {row[1] for row in con.execute("PRAGMA table_info(schedule_rules)").fetchall()}
+    except Exception:
+        cols = set()
+    if not cols:
+        con.execute("CREATE TABLE schedule_rules(tournament_id INTEGER PRIMARY KEY)")
+        cols = {"tournament_id"}
+    additions = {
+        "playoff_halves": "INTEGER",
+        "playoff_minutes_per_half": "INTEGER",
+        "playoff_halftime_minutes": "INTEGER",
+        "playoff_pitch_break_minutes": "INTEGER",
+    }
+    for column, sql_type in additions.items():
+        if column not in cols:
+            con.execute(f"ALTER TABLE schedule_rules ADD COLUMN {column} {sql_type}")
+
+
 def apply_migrations(con):
     """Applicera alla saknade migreringar och returnera nya versionsnummer."""
     ensure_migration_table(con)
@@ -979,6 +1051,12 @@ def apply_migrations(con):
             ensure_v32_schema_compat(con)
         if migration.version == 33:
             ensure_v33_schema_compat(con)
+        if migration.version == 34:
+            ensure_v34_schema_compat(con)
+        if migration.version == 35:
+            ensure_v35_schema_compat(con)
+        if migration.version == 36:
+            ensure_v36_schema_compat(con)
         for statement in migration.statements:
             _execute(con, statement)
         _execute(

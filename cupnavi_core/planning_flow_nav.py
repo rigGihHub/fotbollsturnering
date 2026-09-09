@@ -6,7 +6,7 @@ FLOW_ROUTES = {
     "Lag": "Lag",
     "Grupper": "Grupper",
     "Regler": "Regler",
-    "Planer & tider": "Adminöversikt",
+    "Planer & tider": "Planer & tider",
     "Domare": "Domare",
     "Schema": "Skapa och publicera schema",
     "Kontroll": "Kontroller",
@@ -16,7 +16,14 @@ FLOW_ROUTES = {
 
 
 def render_clickable_planning_flow(st, *, tid: int, current_step: str, navigate_admin_page) -> None:
-    """Render the single nine-step beginner journey as real navigation buttons."""
+    """Render the nine-step journey only when the global admin shell is absent.
+
+    v587 keeps this helper for isolated workspaces/tests, but the main admin page
+    already renders the authoritative journey above every workspace. Rendering it
+    again inside Lag/Grupper/Regler/etc created two competing navigators.
+    """
+    if st.session_state.get(f"_global_admin_flow_rendered_{tid}"):
+        return
     current_index = FLOW_STEPS.index(current_step) if current_step in FLOW_STEPS else -1
     for row_start in range(0, len(FLOW_STEPS), 3):
         row_steps = FLOW_STEPS[row_start:row_start + 3]

@@ -12,8 +12,13 @@ def render_publish_preview(
     all_rows: Callable[..., Any],
     row_value: Callable[..., Any],
     cup_date_label: Callable[..., str],
+    show_heading: bool = True,
 ) -> None:
-    """Show the essentials an organiser should verify before publishing."""
+    """Show the essentials an organiser should verify before publishing.
+
+    v570: the same visitor-facing preview is reused by both Kontroll and
+    Publicera. ``show_heading`` lets the caller own the surrounding hierarchy.
+    """
     teams = all_rows(
         """SELECT t.name AS team_name, COALESCE(g.name,'Ej gruppindelad') AS group_name
            FROM teams t LEFT JOIN groups g ON g.id=t.group_id
@@ -33,8 +38,9 @@ def render_publish_preview(
         (tournament_id,),
     )
 
-    st.markdown("### Förhandsgranska före publicering")
-    st.caption("Kontrollera det publiken och lagen kommer att möta. Förhandsgranskningen ändrar ingenting.")
+    if show_heading:
+        st.markdown("### Förhandsgranska före publicering")
+        st.caption("Kontrollera det publiken och lagen kommer att möta. Förhandsgranskningen ändrar ingenting.")
     with st.container(border=True):
         c1, c2, c3, c4 = st.columns(4)
         c1.metric("Cup", str(row_value(tournament, "name", "–") or "–"))
@@ -43,6 +49,29 @@ def render_publish_preview(
         c4.metric("Matcher", len(matches))
         place = str(row_value(tournament, "location", "") or row_value(tournament, "place", "") or "Ej angiven")
         st.caption(f"{row_value(tournament, 'sport', 'Sport ej angiven')} · {place}")
+
+    # v570: show the public information architecture before the organiser dives
+    # into detailed rows. This mirrors the visitor's mental model and makes
+    # optional statistics explicit instead of hiding them in setup.
+    enabled_features = ["Cupinfo", "Matcher & schema", "Grupper & tabeller"]
+    if bool(row_value(tournament, "enable_scorer_leaderboard", 1)):
+        enabled_features.append("Skytteliga")
+    if bool(row_value(tournament, "enable_assist_leaderboard", 1)):
+        enabled_features.append("Assistliga")
+    if bool(row_value(tournament, "enable_card_statistics", 1)):
+        enabled_features.append("Kortstatistik")
+    with st.container(border=True):
+        st.markdown("**Publikt innehåll**")
+        st.write(" · ".join(f"✓ {label}" for label in enabled_features))
+        hidden = []
+        if not bool(row_value(tournament, "enable_scorer_leaderboard", 1)):
+            hidden.append("Skytteliga")
+        if not bool(row_value(tournament, "enable_assist_leaderboard", 1)):
+            hidden.append("Assistliga")
+        if not bool(row_value(tournament, "enable_card_statistics", 1)):
+            hidden.append("Kortstatistik")
+        if hidden:
+            st.caption("Dolt enligt cupens inställningar: " + ", ".join(hidden) + ".")
 
     with st.expander("Lag och grupper", expanded=True):
         if not teams:

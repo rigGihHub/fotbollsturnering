@@ -38,6 +38,7 @@ def _normalize(result):
                 value = ''
         result[key] = value or None
     result['venues'] = [str(v).strip() for v in (result.get('venues') or []) if str(v).strip()]
+    result['pitch_windows'] = [dict(v) for v in (result.get('pitch_windows') or []) if isinstance(v, dict)]
     result['matches'] = [dict(v) for v in (result.get('matches') or []) if isinstance(v, dict)]
     result['playoff_matches'] = [dict(v) for v in (result.get('playoff_matches') or []) if isinstance(v, dict)]
     result['rules'] = [str(v).strip() for v in (result.get('rules') or []) if str(v).strip()]
@@ -75,6 +76,10 @@ def extract_cup_setup_from_document(raw, filename, mime_type, api_key, *, model=
             'start_date': {'type': ['string', 'null'], 'description': 'ISO YYYY-MM-DD when explicitly inferable from document, otherwise null'},
             'end_date': {'type': ['string', 'null']},
             'venues': {'type': 'array', 'items': {'type': 'string'}},
+            'pitch_windows': {'type': 'array', 'items': {'type': 'object', 'properties': {
+                'venue': {'type': ['string', 'null']}, 'date': {'type': ['string', 'null']},
+                'start_time': {'type': ['string', 'null']}, 'end_time': {'type': ['string', 'null']}
+            }, 'required': ['venue','date','start_time','end_time'], 'additionalProperties': False}},
             'teams': {'type': 'array', 'items': {'type': 'object', 'properties': {
                 'name': {'type': 'string'}, 'group_name': {'type': ['string', 'null']}
             }, 'required': ['name', 'group_name'], 'additionalProperties': False}},
@@ -90,15 +95,31 @@ def extract_cup_setup_from_document(raw, filename, mime_type, api_key, *, model=
                 'away_source': {'type': ['string', 'null']}, 'duration': {'type': ['string', 'null']}
             }, 'required': ['time','venue','label','home_source','away_source','duration'], 'additionalProperties': False}},
             'rules': {'type': 'array', 'items': {'type': 'string'}},
+            'rule_values': {'type': 'object', 'properties': {
+                'halves': {'type': ['integer', 'null']},
+                'minutes_per_half': {'type': ['integer', 'null']},
+                'halftime_minutes': {'type': ['integer', 'null']},
+                'points_win': {'type': ['integer', 'null']},
+                'points_draw': {'type': ['integer', 'null']},
+                'points_loss': {'type': ['integer', 'null']}
+            }, 'required': ['halves','minutes_per_half','halftime_minutes','points_win','points_draw','points_loss'], 'additionalProperties': False},
+            'playoff_rule_values': {'type': 'object', 'properties': {
+                'halves': {'type': ['integer', 'null']},
+                'minutes_per_half': {'type': ['integer', 'null']},
+                'halftime_minutes': {'type': ['integer', 'null']},
+                'pitch_break_minutes': {'type': ['integer', 'null']},
+                'tie_rule': {'type': ['string', 'null']},
+                'extra_time_minutes': {'type': ['integer', 'null']}
+            }, 'required': ['halves','minutes_per_half','halftime_minutes','pitch_break_minutes','tie_rule','extra_time_minutes'], 'additionalProperties': False},
             'warnings': {'type': 'array', 'items': {'type': 'string'}},
         },
-        'required': ['tournament_name','location','start_date','end_date','venues','teams','matches','playoff_matches','rules','warnings'],
+        'required': ['tournament_name','location','start_date','end_date','venues','pitch_windows','teams','matches','playoff_matches','rules','rule_values','playoff_rule_values','warnings'],
         'additionalProperties': False,
     }
     instruction = (
         'Du läser ett cupprogram för CupNavi. Extrahera bara uppgifter som faktiskt framgår. '
         'Prioritera cupnamn, spelort/område, datum, planer/anläggningar, alla deltagande lagnamn och eventuell grupp. '
-        'Extrahera också gruppspelsmatcher med tid, plan, grupp, hemma/borta, spelfas och matchtid när detta faktiskt framgår, samt slutspelsmatcher med källor som 1:a grupp A eller Vinnare semi 1. Extrahera korta uttryckliga regler. Gissa aldrig. Ta inte med rubriker som lag. Behåll lagnamn exakt som i dokumentet. '
+        'Extrahera också gruppspelsmatcher med tid, plan, grupp, hemma/borta, spelfas och matchtid när detta faktiskt framgår, samt slutspelsmatcher med källor som 1:a grupp A eller Vinnare semi 1. Extrahera korta uttryckliga regler. Fyll rule_values bara när respektive värde uttryckligen framgår för gruppspelet (antal halvlekar/perioder, minuter per halvlek/period, paus samt poäng för vinst/oavgjort/förlust); annars null. Om slutspelet har annan matchtid, annan paus, annan planpaus, särskild oavgjortregel eller förlängning ska detta läggas i playoff_rule_values. Extrahera pitch_windows när dokumentet uttryckligen anger en plans/anläggnings tillgängliga start- och sluttid. Gissa aldrig. Ta inte med rubriker som lag. Behåll lagnamn exakt som i dokumentet. '
         'Om årtal saknas i datum ska start_date/end_date vara null och datumproblemet nämnas i warnings.'
     )
     content = [{'type': 'input_text', 'text': instruction + ('\n\nDOKUMENTTEXT:\n' + text[:60000] if text is not None else '')}]
@@ -146,6 +167,7 @@ def extract_cup_setup_from_documents(documents, api_key, *, model='gpt-5.6-luna'
             'Prioritera cupnamn, spelort/område, datum, planer/anläggningar, alla deltagande lagnamn och eventuell grupp. '
             'Extrahera gruppspelsmatcher med tid, plan, grupp, hemma/borta, spelfas och matchtid när detta framgår, '
             'samt slutspelsmatcher med källor som 1:a grupp A eller Vinnare semi 1. Extrahera korta uttryckliga regler. '
+            'Skilj på gruppspelets rule_values och playoff_rule_values om slutspelet har andra matchtider/pauser/förutsättningar. Extrahera pitch_windows bara när tider för plan/anläggning uttryckligen framgår. '
             'Gissa aldrig. Ta inte med rubriker som lag. Behåll lagnamn exakt som i dokumenten. '
             'Om filer motsäger varandra ska du inte välja på måfå: använd warnings. Om årtal saknas ska datumfält vara null.'
         ),
@@ -188,6 +210,10 @@ def extract_cup_setup_from_documents(documents, api_key, *, model='gpt-5.6-luna'
             'start_date': {'type': ['string', 'null']},
             'end_date': {'type': ['string', 'null']},
             'venues': {'type': 'array', 'items': {'type': 'string'}},
+            'pitch_windows': {'type': 'array', 'items': {'type': 'object', 'properties': {
+                'venue': {'type': ['string', 'null']}, 'date': {'type': ['string', 'null']},
+                'start_time': {'type': ['string', 'null']}, 'end_time': {'type': ['string', 'null']}
+            }, 'required': ['venue','date','start_time','end_time'], 'additionalProperties': False}},
             'teams': {'type': 'array', 'items': {'type': 'object', 'properties': {
                 'name': {'type': 'string'}, 'group_name': {'type': ['string', 'null']}
             }, 'required': ['name', 'group_name'], 'additionalProperties': False}},
@@ -203,9 +229,25 @@ def extract_cup_setup_from_documents(documents, api_key, *, model='gpt-5.6-luna'
                 'away_source': {'type': ['string', 'null']}, 'duration': {'type': ['string', 'null']}
             }, 'required': ['time','venue','label','home_source','away_source','duration'], 'additionalProperties': False}},
             'rules': {'type': 'array', 'items': {'type': 'string'}},
+            'rule_values': {'type': 'object', 'properties': {
+                'halves': {'type': ['integer', 'null']},
+                'minutes_per_half': {'type': ['integer', 'null']},
+                'halftime_minutes': {'type': ['integer', 'null']},
+                'points_win': {'type': ['integer', 'null']},
+                'points_draw': {'type': ['integer', 'null']},
+                'points_loss': {'type': ['integer', 'null']}
+            }, 'required': ['halves','minutes_per_half','halftime_minutes','points_win','points_draw','points_loss'], 'additionalProperties': False},
+            'playoff_rule_values': {'type': 'object', 'properties': {
+                'halves': {'type': ['integer', 'null']},
+                'minutes_per_half': {'type': ['integer', 'null']},
+                'halftime_minutes': {'type': ['integer', 'null']},
+                'pitch_break_minutes': {'type': ['integer', 'null']},
+                'tie_rule': {'type': ['string', 'null']},
+                'extra_time_minutes': {'type': ['integer', 'null']}
+            }, 'required': ['halves','minutes_per_half','halftime_minutes','pitch_break_minutes','tie_rule','extra_time_minutes'], 'additionalProperties': False},
             'warnings': {'type': 'array', 'items': {'type': 'string'}},
         },
-        'required': ['tournament_name','location','start_date','end_date','venues','teams','matches','playoff_matches','rules','warnings'],
+        'required': ['tournament_name','location','start_date','end_date','venues','pitch_windows','teams','matches','playoff_matches','rules','rule_values','playoff_rule_values','warnings'],
         'additionalProperties': False,
     }
     body = {

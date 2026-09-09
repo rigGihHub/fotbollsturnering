@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import html
 from dataclasses import dataclass
-from typing import Any, Iterable, Mapping
+from typing import Any, Iterable, Mapping, Sequence
 
 from cupnavi_core.product_foundation import organizer_workflow, workflow_summary
 from cupnavi_core.ux2 import attention_items, workflow_progress
@@ -42,6 +42,109 @@ class AdminNextStep:
     title: str
     target: str
     text: str
+
+
+@dataclass(frozen=True)
+class AdminDecisionSummary:
+    status: str
+    title: str
+    text: str
+    target: str
+    action_label: str
+    missing: tuple[tuple[str, str, str], ...]
+    publish_ready: bool
+
+
+def build_admin_decision_summary(
+    counts: Any,
+    *,
+    cupinfo_ready: bool,
+    expected_teams: int,
+    rules_confirmed: bool,
+    schedule_dirty: bool,
+    published: bool,
+    validation_ready: bool = False,
+    validation_errors: Sequence[str] = (),
+) -> AdminDecisionSummary:
+    """One novice-facing decision model for the admin overview.
+
+    The overview should answer three questions without forcing the organiser to
+    interpret counters: What should I do now? What is still missing? Can I
+    publish? Validation is deliberately not recomputed here; a known-fresh
+    validation snapshot can promote the state to publish-ready, otherwise the
+    organiser is sent to the explicit Kontroll step.
+    """
+    teams_n = _count(counts, "teams_n")
+    groups_n = _count(counts, "groups_n")
+    unassigned_n = _count(counts, "unassigned_n")
+    pitches_n = _count(counts, "pitches_n")
+    matches_n = _count(counts, "matches_n")
+    scheduled_n = _count(counts, "scheduled_n")
+    played_n = _count(counts, "played_n")
+
+    teams_ready = teams_n > 0 and (not int(expected_teams or 0) or teams_n >= int(expected_teams or 0))
+    groups_ready = groups_n > 0 and unassigned_n == 0
+    schedule_ready = matches_n > 0 and scheduled_n > 0 and not bool(schedule_dirty)
+
+    missing: list[tuple[str, str, str]] = []
+    if not cupinfo_ready:
+        missing.append(("Cupinfo", "Namn och cupdatum behöver vara klara.", "Cupinställningar"))
+    if not teams_ready:
+        if expected_teams:
+            detail = f"{teams_n}/{int(expected_teams)} lag registrerade."
+        else:
+            detail = "Lägg till de deltagande lagen."
+        missing.append(("Lag", detail, "Lag"))
+    if teams_ready and not groups_ready:
+        detail = f"{unassigned_n} lag saknar grupp." if unassigned_n else "Skapa grupper och placera lagen."
+        missing.append(("Grupper", detail, "Grupper"))
+    if not rules_confirmed:
+        missing.append(("Regler", "Spara cupens match- och slutspelsregler.", "Regler"))
+    if pitches_n <= 0:
+        missing.append(("Planer & tider", "Minst en spelplan med tillgängliga tider behövs.", "Planer & tider"))
+    if matches_n <= 0 or scheduled_n <= 0:
+        missing.append(("Schema", "Spelschema saknas.", "Skapa och publicera schema"))
+    elif schedule_dirty:
+        missing.append(("Schema", "Förutsättningarna har ändrats. Granska schemat innan publicering.", "Skapa och publicera schema"))
+
+    if published:
+        if matches_n and played_n >= matches_n:
+            return AdminDecisionSummary(
+                "complete", "Alla matcher är rapporterade",
+                "Cupen är publicerad och samtliga matcher har resultat. Granska tabell och slutspel.",
+                "Tabeller", "Öppna tabeller och slutspel", tuple(missing), False,
+            )
+        return AdminDecisionSummary(
+            "published", "Cupen är publicerad",
+            "Publiken ser cupen. Fortsätt med resultat och cupdagsarbete när matcherna spelas.",
+            "Matcher och resultat", "Öppna matcher och resultat", tuple(missing), False,
+        )
+
+    if missing:
+        label, detail, target = missing[0]
+        return AdminDecisionSummary(
+            "setup", f"Nästa: {label}", detail, target, f"Fortsätt till {label}", tuple(missing), False
+        )
+
+    if not validation_ready:
+        return AdminDecisionSummary(
+            "control", "Grundflödet är klart – gör sista kontrollen",
+            "CupNavi behöver köra den fullständiga schemakontrollen innan vi kan säga att cupen är redo att publiceras.",
+            "Kontroller", "Kör Kontroll", tuple(), False,
+        )
+
+    if validation_errors:
+        return AdminDecisionSummary(
+            "blocked", "Kontrollen hittade blockerande fel",
+            f"{len(validation_errors)} blockerande fel måste åtgärdas före publicering.",
+            "Kontroller", "Visa och åtgärda fel", tuple(), False,
+        )
+
+    return AdminDecisionSummary(
+        "publish", "Cupen är redo att publiceras",
+        "Alla obligatoriska steg är klara och den senaste kontrollen har inga blockerande fel.",
+        "Kontroller", "Gå till Publicera", tuple(), True,
+    )
 
 
 def rules_ready(rules: Any) -> bool:

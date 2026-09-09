@@ -969,6 +969,9 @@ def inject_ux2_css(st, components):
         .cn-rule-type{font-size:11px;font-weight:900;letter-spacing:.05em;text-transform:uppercase}
         .cn-flow-context{background:#fff;border:1px solid var(--cn-border);border-radius:16px;padding:14px 16px;margin:8px 0 12px;box-shadow:0 4px 14px rgba(15,23,42,.045)}
         .cn-flow-kicker{font-size:11px;font-weight:900;text-transform:uppercase;letter-spacing:.07em;color:#64748b;margin-bottom:3px}
+        .cn-admin-flow-kicker{font-size:11px;font-weight:900;text-transform:uppercase;letter-spacing:.07em;color:#64748b;margin:2px 0 2px}
+        .cn-admin-current-step{font-size:13px;font-weight:760;color:#334155;margin:0 0 7px;line-height:1.35}
+        [class*="st-key-admin_flow_mobile_"]{display:none!important}
         .cn-flow-title{font-size:17px;font-weight:850;color:#132033;margin-bottom:3px}
         .cn-flow-copy{font-size:13px;line-height:1.45;color:#64748b}
         .cn-flow-status{display:flex;gap:7px;flex-wrap:wrap;margin-top:10px}
@@ -979,6 +982,10 @@ def inject_ux2_css(st, components):
         .cn-next-action b{color:#14532d}.cn-next-action span{color:#475569;font-size:13px}
 
         @media(max-width:760px){
+          [class*="st-key-admin_full_flow_desktop_"]{display:none!important}
+          [class*="st-key-admin_flow_mobile_"]{display:block!important;margin-bottom:6px!important}
+          .cn-admin-flow-kicker{margin-top:0!important}
+          .cn-admin-current-step{font-size:.8rem!important;margin-bottom:5px!important}
           .cn-setup-hero{padding:14px 14px 12px;margin-bottom:9px}.cn-setup-title{font-size:1.16rem}.cn-setup-copy{font-size:.86rem;line-height:1.4;margin-bottom:10px}.cn-setup-progress-grid{grid-template-columns:1fr 1fr}
           /* v400: keep all five wizard steps visible in one compact mobile row.
              Only the current step keeps its text label, which removes a large
@@ -2042,6 +2049,10 @@ def inject_v198_visual_system(st):
         .cn-overview-next::before{
           content:"";position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--cn98-primary);
         }
+        .cn-overview-next[data-state="good"]::before{background:var(--cn98-success);}
+        .cn-overview-next[data-state="good"] .eyebrow{color:var(--cn98-success);}
+        .cn-overview-next[data-state="warn"]::before{background:var(--cn98-warning);}
+        .cn-overview-next[data-state="warn"] .eyebrow{color:var(--cn98-warning);}
         .cn-overview-next .eyebrow{
           font-size:.68rem;font-weight:840;letter-spacing:.08em;text-transform:uppercase;color:var(--cn98-primary);
         }
@@ -2878,6 +2889,195 @@ def inject_public_experience_styles(st):
           .cn-follow-mini{grid-template-columns:1fr 1fr 1fr;gap:6px}
           .cn-follow-mini>div{padding:8px}
           [class*="st-key-public_favorite_team_"] label{font-size:.82rem!important}
+        }
+        </style>""",
+        unsafe_allow_html=True,
+    )
+
+
+def inject_v571_design_system_2(st):
+    """Final presentation override for the v571 CupNavi Design System 2.0.
+
+    This layer deliberately sits last in the CSS cascade. CupNavi has many
+    historical presentation layers; v571 gives current surfaces one canonical
+    set of tokens and interaction rules without deleting archaeological CSS.
+    """
+    st.markdown(
+        """<style>
+        /* CUPNAVI DESIGN SYSTEM 2.0 · v571
+           One hierarchy: page -> section -> control -> status.
+           Colour communicates meaning; neutral surfaces carry structure. */
+        :root{
+          --cn2-brand:#176b3a;
+          --cn2-brand-hover:#12572f;
+          --cn2-brand-soft:#edf7f0;
+          --cn2-ink:#17231d;
+          --cn2-ink-2:#4f6057;
+          --cn2-ink-3:#718078;
+          --cn2-bg:#f6f8f7;
+          --cn2-surface:#ffffff;
+          --cn2-surface-2:#f9fbfa;
+          --cn2-border:#dbe4df;
+          --cn2-border-strong:#bccbc3;
+          --cn2-success:#176b3a;
+          --cn2-warning:#925c0b;
+          --cn2-danger:#b42318;
+          --cn2-info:#315b7d;
+          --cn2-radius-control:10px;
+          --cn2-radius-card:14px;
+          --cn2-touch:42px;
+          --cn2-section-gap:24px;
+          --cn2-control-gap:8px;
+        }
+
+        /* Typography and vertical rhythm. */
+        .stApp{background:var(--cn2-bg)!important;color:var(--cn2-ink)!important}
+        .stApp .block-container{max-width:1220px!important}
+        .stApp h1{font-weight:790!important;letter-spacing:-.03em!important;margin-bottom:6px!important}
+        .stApp h2{font-weight:750!important;letter-spacing:-.02em!important;margin-top:var(--cn2-section-gap)!important;margin-bottom:8px!important}
+        .stApp h3{font-weight:720!important;margin-top:18px!important;margin-bottom:6px!important}
+        .stApp [data-testid="stCaptionContainer"],
+        .stApp [data-testid="stCaptionContainer"] p{color:var(--cn2-ink-3)!important;line-height:1.45!important}
+        .cn-section-head{
+          color:var(--cn2-ink)!important;font-size:.78rem!important;font-weight:800!important;
+          letter-spacing:.055em!important;text-transform:uppercase!important;margin:18px 0 8px!important;
+        }
+        .cn-admin-flow-kicker,.cn-admin-nav-group-title,.cn-admin-section-label,.cn-flow-kicker{
+          color:var(--cn2-ink-3)!important;letter-spacing:.06em!important;font-weight:780!important;
+        }
+        .cn-admin-current-step{color:var(--cn2-ink-2)!important;font-weight:700!important}
+
+        /* One control language. Primary is reserved for the next action. */
+        [data-testid="stButton"] button,
+        [data-testid="stFormSubmitButton"] button,
+        [data-testid="stDownloadButton"] button,
+        [data-testid="stLinkButton"] a,
+        [data-testid="stPopover"] button{
+          min-height:var(--cn2-touch)!important;border-radius:var(--cn2-radius-control)!important;
+          padding:8px 13px!important;font-size:.86rem!important;font-weight:680!important;
+          box-shadow:none!important;letter-spacing:0!important;
+        }
+        [data-testid="stButton"] button[kind="primary"],
+        [data-testid="stFormSubmitButton"] button[kind="primary"]{
+          background:var(--cn2-brand)!important;border-color:var(--cn2-brand)!important;color:#fff!important;
+        }
+        [data-testid="stButton"] button[kind="primary"] *,
+        [data-testid="stFormSubmitButton"] button[kind="primary"] *{color:#fff!important}
+        [data-testid="stButton"] button[kind="primary"]:hover,
+        [data-testid="stFormSubmitButton"] button[kind="primary"]:hover{
+          background:var(--cn2-brand-hover)!important;border-color:var(--cn2-brand-hover)!important;
+        }
+        [data-testid="stButton"] button[kind="secondary"],
+        [data-testid="stFormSubmitButton"] button[kind="secondary"],
+        [data-testid="stDownloadButton"] button,
+        [data-testid="stLinkButton"] a,
+        [data-testid="stPopover"] button{
+          background:var(--cn2-surface)!important;border:1px solid var(--cn2-border-strong)!important;color:#32453a!important;
+        }
+        [data-testid="stButton"] button[kind="secondary"]:hover,
+        [data-testid="stDownloadButton"] button:hover,
+        [data-testid="stLinkButton"] a:hover,
+        [data-testid="stPopover"] button:hover{
+          background:#f1f5f3!important;border-color:#91a69a!important;color:#20342a!important;
+        }
+        button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible,
+        [role="combobox"]:focus-visible,[role="tab"]:focus-visible,[role="radio"]:focus-visible{
+          outline:3px solid rgba(23,107,58,.22)!important;outline-offset:2px!important;
+        }
+
+        /* Forms: labels above controls, quiet helper copy, clear focus. */
+        [data-testid="stWidgetLabel"],[data-testid="stWidgetLabel"] p{
+          color:var(--cn2-ink)!important;font-size:.84rem!important;font-weight:680!important;line-height:1.3!important;
+        }
+        [data-testid="stTextInput"] input,[data-testid="stNumberInput"] input,
+        [data-testid="stTextArea"] textarea,[data-testid="stDateInput"] input,
+        [data-testid="stTimeInput"] input,[data-baseweb="select"]>div{
+          min-height:var(--cn2-touch)!important;background:var(--cn2-surface)!important;
+          border:1px solid var(--cn2-border-strong)!important;border-radius:var(--cn2-radius-control)!important;box-shadow:none!important;
+        }
+        [data-testid="stTextInput"] input:focus,[data-testid="stNumberInput"] input:focus,
+        [data-testid="stTextArea"] textarea:focus,[data-testid="stDateInput"] input:focus,
+        [data-testid="stTimeInput"] input:focus,[data-baseweb="select"]>div:focus-within{
+          border-color:var(--cn2-brand)!important;box-shadow:0 0 0 3px rgba(23,107,58,.10)!important;
+        }
+        [data-testid="stForm"]{
+          background:var(--cn2-surface)!important;border:1px solid var(--cn2-border)!important;
+          border-radius:var(--cn2-radius-card)!important;padding-top:4px!important;box-shadow:none!important;
+        }
+        [data-testid="stRadio"] label{
+          min-height:38px!important;border-radius:var(--cn2-radius-control)!important;border-color:var(--cn2-border)!important;
+          background:var(--cn2-surface)!important;
+        }
+
+        /* Cards and containers: neutral structure, not decoration. */
+        [data-testid="stVerticalBlockBorderWrapper"],details[data-testid="stExpander"],
+        [data-testid="stMetric"],.cn-recommend-card,.cn-progress-hero,.cn-attention-row,
+        .cn-flow-context,.cn-follow-shell,.cn-next-card,.cn-venue-card,.cn-live-card,.public-match-card{
+          background:var(--cn2-surface)!important;border-color:var(--cn2-border)!important;
+          border-radius:var(--cn2-radius-card)!important;box-shadow:none!important;
+        }
+        details[data-testid="stExpander"] summary{
+          min-height:42px!important;background:var(--cn2-surface-2)!important;font-weight:690!important;
+        }
+        [data-testid="stMetric"]{padding:12px 14px!important}
+        [data-testid="stMetricLabel"],[data-testid="stMetricLabel"] *{color:var(--cn2-ink-3)!important;font-size:.78rem!important}
+        [data-testid="stMetricValue"],[data-testid="stMetricValue"] *{color:var(--cn2-ink)!important;font-weight:780!important}
+
+        /* Alerts retain Streamlit's semantic colour but use the same shape and type. */
+        [data-testid="stAlert"]{
+          border-radius:var(--cn2-radius-card)!important;border-width:1px!important;box-shadow:none!important;
+          padding:11px 13px!important;margin:6px 0 10px!important;
+        }
+        [data-testid="stAlert"] p{font-size:.85rem!important;line-height:1.42!important}
+
+        /* Tabs and segmented choices should read as navigation, not card buttons. */
+        [data-testid="stTabs"] [role="tablist"]{gap:2px!important;border-bottom:1px solid var(--cn2-border)!important}
+        [data-testid="stTabs"] button[role="tab"]{
+          min-height:40px!important;padding:7px 11px!important;border-radius:8px 8px 0 0!important;
+          color:var(--cn2-ink-2)!important;font-weight:660!important;
+        }
+        [data-testid="stTabs"] button[role="tab"][aria-selected="true"]{color:var(--cn2-brand)!important;font-weight:760!important}
+        [data-testid="stButtonGroup"] button{
+          min-height:38px!important;border-color:var(--cn2-border)!important;background:var(--cn2-surface)!important;color:var(--cn2-ink-2)!important;
+        }
+        [data-testid="stButtonGroup"] button[aria-pressed="true"],
+        [data-testid="stButtonGroup"] button[aria-checked="true"],
+        [data-testid="stButtonGroup"] [data-selected="true"]{
+          background:var(--cn2-brand-soft)!important;border-color:#9fc4ad!important;color:#14552f!important;font-weight:720!important;
+        }
+
+        /* Empty states are informative and quiet. */
+        .cn-empty-state{
+          background:var(--cn2-surface-2)!important;border:1px dashed var(--cn2-border-strong)!important;
+          border-radius:var(--cn2-radius-card)!important;padding:18px!important;box-shadow:none!important;
+        }
+        .cn-empty-state .icon{background:var(--cn2-brand-soft)!important;border-radius:10px!important}
+        .cn-empty-state b{color:var(--cn2-ink)!important;font-size:.95rem!important}
+        .cn-empty-state p{color:var(--cn2-ink-2)!important;font-size:.84rem!important;line-height:1.42!important}
+
+        /* Dense tables use quiet headers and visible row rhythm. */
+        [data-testid="stDataFrame"],.texttv-table-wrap{
+          background:var(--cn2-surface)!important;border:1px solid var(--cn2-border)!important;
+          border-radius:var(--cn2-radius-card)!important;box-shadow:none!important;overflow:auto!important;
+        }
+        [data-testid="stDataFrame"] [role="columnheader"],.texttv-table th{
+          background:#eef3f0!important;color:var(--cn2-ink)!important;font-size:.78rem!important;font-weight:740!important;
+        }
+        .texttv-table td,.texttv-table th{border-bottom-color:#e5ebe7!important}
+
+        /* Mobile: touch comfort without turning every element into a large card. */
+        @media(max-width:768px){
+          :root{--cn2-touch:46px;--cn2-section-gap:20px}
+          .stApp .block-container{padding-left:max(10px,env(safe-area-inset-left))!important;padding-right:max(10px,env(safe-area-inset-right))!important}
+          [data-testid="stHorizontalBlock"]{gap:7px!important}
+          [data-testid="stButton"] button,[data-testid="stFormSubmitButton"] button,
+          [data-testid="stDownloadButton"] button,[data-testid="stLinkButton"] a{font-size:.84rem!important}
+          [data-testid="stMetric"]{padding:10px 11px!important}
+          [data-testid="stTabs"] [role="tablist"]{overflow-x:auto!important;scrollbar-width:none!important}
+          [data-testid="stTabs"] button[role="tab"]{white-space:nowrap!important}
+        }
+        @media(prefers-reduced-motion:reduce){
+          *,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}
         }
         </style>""",
         unsafe_allow_html=True,

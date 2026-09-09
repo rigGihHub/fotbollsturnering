@@ -65,57 +65,132 @@ def render_group_table(table_rows, tournament, group_id=None, *, st, group_playo
     st.markdown(
         f"""
         <style>
-        .texttv-wrap{{overflow-x:auto;border:1px solid #dbe4de;border-radius:12px;background:#fff;padding:0}}
-        .texttv-table{{width:100%;border-collapse:collapse;font-family:inherit;color:#172033}}
-        .texttv-table th,.texttv-table td{{text-align:center!important;padding:9px 8px;border-bottom:1px solid #e6ece8}}
-        .texttv-table th{{background:#f3f7f4;color:#64748b;font-size:11px;letter-spacing:.04em;text-transform:uppercase;font-weight:800}}
-        .texttv-table td{{font-size:13px;color:#334155}}
-        .texttv-table td:first-child{{font-weight:850;color:#64748b}}
-        .texttv-table td.team{{text-align:left!important;font-weight:800;color:#172033}}
-        .texttv-table td:nth-child(10){{font-size:15px;color:#172033}}
+        /* v592 — Text-TV 330 × modern sports data UI.
+           The table borrows the information hierarchy, not the limitations, of classic Text-TV. */
+        .texttv-wrap{{
+          overflow-x:auto;
+          border:1px solid #26332b;
+          border-radius:10px;
+          background:#050705;
+          padding:8px 10px 10px;
+          box-shadow:inset 0 1px 0 rgba(255,255,255,.035);
+        }}
+        .texttv-table{{
+          width:100%;
+          border-collapse:collapse;
+          table-layout:auto;
+          background:#050705;
+          color:#f3f6f3;
+          font-family:"SFMono-Regular",Consolas,"Liberation Mono",Menlo,monospace;
+          font-variant-numeric:tabular-nums;
+          letter-spacing:.015em;
+        }}
+        .texttv-table th,.texttv-table td{{
+          text-align:right!important;
+          padding:7px 8px;
+          border:0;
+          white-space:nowrap;
+          line-height:1.2;
+        }}
+        .texttv-table th{{
+          color:#a9b4ad;
+          font-size:11px;
+          letter-spacing:.075em;
+          text-transform:uppercase;
+          font-weight:800;
+          border-bottom:1px solid #2a362e;
+        }}
+        .texttv-table th:first-child,.texttv-table td:first-child{{
+          width:32px;
+          text-align:right!important;
+          color:#a9b4ad;
+          padding-left:2px;
+        }}
+        .texttv-table th:nth-child(2),.texttv-table td.team{{
+          text-align:left!important;
+          padding-left:10px;
+        }}
+        .texttv-table td{{
+          font-size:14px;
+          color:#f3f6f3;
+          border-bottom:1px solid rgba(255,255,255,.045);
+        }}
         .texttv-table tr:last-child td{{border-bottom:0}}
-        .texttv-table tr.qual-a td{{background:#dcfce7!important;color:#14532d!important}}
-        .texttv-table tr.qual-b td{{background:#dbeafe!important;color:#1e3a8a!important}}
-        .texttv-table tr.qual-rank-1 td{{background:#dcfce7!important;color:#14532d!important}}
-        .texttv-table tr.qual-rank-2 td{{background:#dbeafe!important;color:#1e3a8a!important}}
-        .texttv-table tr.qual-rank-3 td{{background:#fef3c7!important;color:#78350f!important}}
-        .texttv-table tr.qual-rank-4 td{{background:#f1f5f9!important;color:#334155!important}}
-        .texttv-table tr.qual-playoff td{{background:#fef3c7!important;color:#78350f!important}}
-        .qualifier{{display:inline-flex;width:24px;height:24px;align-items:center;justify-content:center;border-radius:4px;color:#fff;font-weight:900}}
-        .qualifier.a,.texttv-legend i.a{{background:#16a34a}}
-        .qualifier.b,.texttv-legend i.b{{background:#2563eb}}
-        .qualifier.rank-1{{background:#15803d;min-width:28px;width:auto;padding:0 6px}}
-        .qualifier.rank-2{{background:#2563eb;min-width:28px;width:auto;padding:0 6px}}
-        .qualifier.rank-3{{background:#d97706;min-width:28px;width:auto;padding:0 6px}}
-        .qualifier.rank-4{{background:#64748b;min-width:28px;width:auto;padding:0 6px}}
-        .qualifier.playoff{{background:#d97706;min-width:28px;width:auto;padding:0 6px}}
-        .texttv-legend{{display:flex;gap:18px;margin-top:7px;color:#334155;font-size:13px}}
-        .texttv-legend span{{display:flex;align-items:center;gap:6px}}
-        .texttv-legend i{{width:13px;height:13px;border-radius:2px;display:inline-block}}
+        .texttv-table td.team{{
+          color:#fff;
+          font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;
+          font-weight:760;
+          letter-spacing:0;
+        }}
+        .texttv-table td:nth-child(10){{
+          color:#fff;
+          font-size:15px;
+          font-weight:950;
+        }}
+        .texttv-table tbody tr:hover td{{background:#0c120e}}
+        /* Qualification is communicated with accent + label, never colour alone. */
+        .texttv-table tr.qual-a td,.texttv-table tr.qual-rank-1 td{{color:#73ff65}}
+        .texttv-table tr.qual-b td,.texttv-table tr.qual-rank-2 td{{color:#78e9ff}}
+        .texttv-table tr.qual-rank-3 td,.texttv-table tr.qual-playoff td{{color:#fff06a}}
+        .texttv-table tr.qual-rank-4 td{{color:#c6d0c9}}
+        .texttv-table tr.qual-a td.team,.texttv-table tr.qual-rank-1 td.team{{color:#73ff65}}
+        .texttv-table tr.qual-b td.team,.texttv-table tr.qual-rank-2 td.team{{color:#78e9ff}}
+        .texttv-table tr.qual-rank-3 td.team,.texttv-table tr.qual-playoff td.team{{color:#fff06a}}
+        .qualifier{{
+          display:inline-flex;
+          min-width:26px;
+          height:22px;
+          padding:0 6px;
+          align-items:center;
+          justify-content:center;
+          border:1px solid currentColor;
+          border-radius:3px;
+          background:transparent!important;
+          color:#dce5df;
+          font-family:"SFMono-Regular",Consolas,"Liberation Mono",Menlo,monospace;
+          font-size:11px;
+          font-weight:950;
+        }}
+        .qualifier.a{{color:#73ff65}}.qualifier.b{{color:#78e9ff}}
+        .qualifier.rank-1{{color:#73ff65}}.qualifier.rank-2{{color:#78e9ff}}
+        .qualifier.rank-3,.qualifier.playoff{{color:#fff06a}}.qualifier.rank-4{{color:#c6d0c9}}
+        .texttv-legend{{
+          display:flex;
+          gap:18px;
+          margin:8px 2px 0;
+          color:#a9b4ad;
+          font:600 12px/1.2 "SFMono-Regular",Consolas,"Liberation Mono",Menlo,monospace;
+        }}
+        .texttv-legend span{{display:flex;align-items:center;gap:7px}}
+        .texttv-legend i{{width:8px;height:8px;border-radius:1px;display:inline-block}}
+        .texttv-legend i.a{{background:#73ff65}}.texttv-legend i.b{{background:#78e9ff}}
         .qualifier-mobile{{display:none}}
         @media(max-width:600px){{
-          .texttv-wrap{{overflow-x:hidden;border-width:1px;border-radius:11px}}
-          .texttv-table{{table-layout:fixed;font-size:12px}}
-          .texttv-table th,.texttv-table td{{padding:8px 4px;white-space:nowrap}}
-          .texttv-table th:nth-child(1),.texttv-table td:nth-child(1){{width:27px}}
+          .texttv-wrap{{overflow-x:hidden;border-radius:8px;padding:6px 7px 8px}}
+          .texttv-table{{table-layout:fixed}}
+          .texttv-table th,.texttv-table td{{padding:7px 3px}}
+          .texttv-table th{{font-size:9px;letter-spacing:.035em}}
+          .texttv-table td{{font-size:12px}}
+          .texttv-table th:nth-child(1),.texttv-table td:nth-child(1){{width:24px}}
           .texttv-table th:nth-child(2),.texttv-table td:nth-child(2){{width:42%;text-align:left!important;overflow:hidden;text-overflow:ellipsis}}
-          .texttv-table td.team{{font-size:12px!important;max-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}}
+          .texttv-table td.team{{font-size:12px!important;max-width:0;overflow:hidden;text-overflow:ellipsis}}
           .texttv-table th:nth-child(4),.texttv-table td:nth-child(4),
           .texttv-table th:nth-child(5),.texttv-table td:nth-child(5),
           .texttv-table th:nth-child(6),.texttv-table td:nth-child(6),
           .texttv-table th:nth-child(7),.texttv-table td:nth-child(7),
           .texttv-table th:nth-child(8),.texttv-table td:nth-child(8){{display:none}}
-          .texttv-table th:nth-child(3),.texttv-table td:nth-child(3){{width:28px}}
-          .texttv-table th:nth-child(9),.texttv-table td:nth-child(9){{width:34px}}
-          .texttv-table th:nth-child(10),.texttv-table td:nth-child(10){{width:34px;font-weight:900}}
-          .texttv-table th:nth-child(11),.texttv-table td:nth-child(11){{width:52px}}
+          .texttv-table th:nth-child(3),.texttv-table td:nth-child(3){{width:27px}}
+          .texttv-table th:nth-child(9),.texttv-table td:nth-child(9){{width:33px}}
+          .texttv-table th:nth-child(10),.texttv-table td:nth-child(10){{width:31px;font-size:13px;font-weight:950}}
+          .texttv-table th:nth-child(11),.texttv-table td:nth-child(11){{width:45px}}
           .texttv-table th:nth-child(11){{font-size:0}}
-          .texttv-table th:nth-child(11)::after{{content:'Vidare';font-size:10px}}
-          .qualifier{{min-width:28px!important;width:auto!important;height:22px!important;padding:0 5px!important;font-size:10px!important;line-height:1!important}}
-          .qualifier-desktop{{display:none}}
-          .qualifier-mobile{{display:inline}}
-          .texttv-legend{{gap:9px;font-size:10px;flex-wrap:wrap;margin-top:5px}}
-          .texttv-table th,.texttv-table td{{height:38px}}
+          .texttv-table th:nth-child(11)::after{{content:'Vidare';font-size:8px;letter-spacing:0}}
+          .qualifier{{min-width:24px!important;height:20px!important;padding:0 4px!important;font-size:9px!important}}
+          .qualifier-desktop{{display:none}}.qualifier-mobile{{display:inline}}
+          .texttv-legend{{gap:10px;font-size:9px;flex-wrap:wrap;margin-top:6px}}
+        }}
+        @media (prefers-reduced-motion:no-preference){{
+          .texttv-table tbody tr td{{transition:background-color .12s ease}}
         }}
         </style>
         <div class="texttv-wrap"><table class="texttv-table">

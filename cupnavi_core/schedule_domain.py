@@ -10,11 +10,13 @@ class ScheduleWindow:
     end_date: object
     latest_pitch_time: object
     group_match_duration: timedelta
+    playoff_match_duration: timedelta
     playoff_extra_minutes: int
 
     def duration_for_stage(self, stage):
-        extra = self.playoff_extra_minutes if stage != "Gruppspel" else 0
-        return self.group_match_duration + timedelta(minutes=extra)
+        if stage == "Gruppspel":
+            return self.group_match_duration
+        return self.playoff_match_duration + timedelta(minutes=self.playoff_extra_minutes)
 
 
 def build_schedule_window(tournament, rules):
@@ -39,6 +41,27 @@ def build_schedule_window(tournament, rules):
         minutes=(halves * minutes_per_half)
         + ((halves - 1) * halftime_minutes)
     )
+
+    def rule_value(name, default=None):
+        try:
+            value = rules[name]
+        except (KeyError, TypeError, IndexError):
+            try:
+                value = rules.get(name, default)
+            except AttributeError:
+                value = default
+        return default if value is None else value
+
+    playoff_halves = int(rule_value("playoff_halves", halves) or halves)
+    playoff_minutes_per_half = int(rule_value("playoff_minutes_per_half", minutes_per_half) or minutes_per_half)
+    raw_playoff_halftime = rule_value("playoff_halftime_minutes", halftime_minutes)
+    playoff_halftime_minutes = halftime_minutes if raw_playoff_halftime is None else int(raw_playoff_halftime)
+    if playoff_halves < 1 or playoff_minutes_per_half < 1 or playoff_halftime_minutes < 0:
+        raise ValueError("Slutspelstiderna är ogiltiga.")
+    playoff_duration = timedelta(
+        minutes=(playoff_halves * playoff_minutes_per_half)
+        + ((playoff_halves - 1) * playoff_halftime_minutes)
+    )
     extra = (
         int(tournament.get("extra_time_minutes") or 0)
         if tournament.get("playoff_tie_rule", "") == "Förlängning + straffar"
@@ -52,6 +75,7 @@ def build_schedule_window(tournament, rules):
         end_date=end_date,
         latest_pitch_time=latest_pitch_time,
         group_match_duration=duration,
+        playoff_match_duration=playoff_duration,
         playoff_extra_minutes=extra,
     )
 

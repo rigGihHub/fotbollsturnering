@@ -238,33 +238,26 @@ def render_schedule_workspace(tid, tournament, *, deps: ScheduleWorkspaceDepende
         render_clickable_planning_flow(
             st, tid=tid, current_step="Schema", navigate_admin_page=navigate_admin_page
         )
-    _schedule_flow_back, _schedule_flow_next = st.columns(2)
+    # v595: Keep backwards navigation available, but reserve the single primary
+    # forward action for the end of the workspace. Schema is a decision-heavy
+    # page and a top-level "continue" button competed with generation/review.
     if navigate_admin_page is not None:
-        _schedule_flow_back.button(
-            "← Till Planer & tider",
-            use_container_width=True,
-            key=f"v514_schedule_back_to_pitches_{tid}",
+        st.button(
+            "← Till Domare",
+            key=f"v595_schedule_back_to_referees_{tid}",
             on_click=navigate_admin_page,
-            args=("Adminöversikt",),
+            args=("Domare",),
         )
     else:
-        _schedule_flow_back.caption("Föregående steg: Planer & tider")
-    # v512: Never strand the administrator on Schema. Control is a review step,
-    # not a reward for having a perfect setup. It must always be reachable so
-    # imported schedules and blockers can be inspected and resolved.
-    if navigate_admin_page is not None:
-        _schedule_flow_next.button(
-            "Fortsätt till Kontroll →",
-            use_container_width=True,
-            key=f"schedule_flow_next_to_control_{tid}",
-            on_click=navigate_admin_page,
-            args=("Kontroll",),
-        )
-    else:
-        _schedule_flow_next.caption("Nästa steg: Kontroll")
+        st.caption("Föregående steg: Domare")
     if "schedule_message" in st.session_state:
         message_type, message_text = st.session_state.pop("schedule_message")
         getattr(st, message_type)(message_text)
+
+    # v567: Make the main decision explicit before exposing schedule machinery.
+    # New organisers should not have to infer whether import, generation or editing
+    # is the correct path from a long mixed workspace.
+    _schedule_intent_key = f"schedule_primary_intent_{tid}"
 
     # v436: Admin shell already fetched the same schedule_rules row for the
     # publication/control snapshot. Reuse it on Schema instead of paying a
@@ -352,6 +345,53 @@ def render_schedule_workspace(tid, tournament, *, deps: ScheduleWorkspaceDepende
     scheduled_total = int(_schedule_counts["scheduled_n"] or 0)
     unpublished_total = int(_schedule_counts["unpublished_n"] or 0)
     played_result_total = int(_schedule_counts["played_n"] or 0)
+
+    # v567: Three clear paths. The default is deliberately non-destructive when
+    # a schedule already exists. Regeneration is never the default choice.
+    if scheduled_total > 0:
+        _intent_options = [
+            "Behåll och granska befintligt schema",
+            "Ändra enstaka matcher",
+            "Bygg om återstående schema",
+        ]
+        _intent_help = (
+            "Behåll är säkrast och ändrar ingenting. Ändra enstaka matcher öppnar den manuella editorn. "
+            "Bygg om kräver en separat bekräftelse innan ospelade tider får ersättas."
+        )
+    else:
+        _intent_options = [
+            "CupNavi skapar schemat åt mig",
+            "Jag har redan ett schema",
+        ]
+        _intent_help = (
+            "Välj CupNavi om du vill generera ett nytt schema från lag, grupper, regler och plantider. "
+            "Välj befintligt schema om du har foto, PDF eller matchprogram som ska användas som grund."
+        )
+
+    _current_intent = st.session_state.get(_schedule_intent_key)
+    if _current_intent not in _intent_options:
+        _current_intent = _intent_options[0]
+    with st.container(border=True):
+        st.markdown("### 1. Vad vill du göra med schemat?")
+        st.caption("Välj en väg. CupNavi visar bara det som behövs för just den vägen.")
+        _schedule_intent = st.radio(
+            "Schemaåtgärd",
+            _intent_options,
+            index=_intent_options.index(_current_intent),
+            key=_schedule_intent_key,
+            help=_intent_help,
+        )
+        if scheduled_total > 0 and _schedule_intent == "Behåll och granska befintligt schema":
+            st.success("Säkert val: inga matcher flyttas eller ersätts. Fortsätt till Kontroll när du är nöjd.")
+        elif scheduled_total > 0 and _schedule_intent == "Ändra enstaka matcher":
+            st.info("Ändra bara de matcher du väljer. Resten av schemat lämnas orört.")
+        elif scheduled_total > 0:
+            st.warning("Detta kan ersätta ospelade schematider. Spelade matcher och resultat är alltid skyddade.")
+        elif _schedule_intent == "Jag har redan ett schema":
+            st.info("Använd matchprogrammet du redan har. Importen granskas innan något sparas.")
+        else:
+            st.success("CupNavi bygger ett nytt schema från dina sparade cupinställningar.")
+
     # v436: validate_schedule is one of the most expensive admin reads (full
     # scheduled-match scan + conflict/rest analysis). The admin shell already
     # computes and invalidates this snapshot when schedule/rules change, so do
@@ -387,10 +427,10 @@ def render_schedule_workspace(tid, tournament, *, deps: ScheduleWorkspaceDepende
     # v510: A schedule imported from photo/PDF is a real schedule, but it must
     # still be editable by the organizer. Surface that action here instead of
     # hiding it among advanced/detail tools.
-    if scheduled_total > 0:
+    if scheduled_total > 0 and _schedule_intent == "Ändra enstaka matcher":
         with st.expander(
             "✏️ Redigera befintligt schema manuellt",
-            expanded=bool(st.session_state.get(f"manual_schedule_edit_open_{tid}", False)),
+            expanded=bool(st.session_state.get(f"manual_schedule_edit_open_{tid}", False)) or _schedule_intent == "Ändra enstaka matcher",
         ):
             st.markdown("#### Redigera befintligt schema manuellt")
             st.caption(
@@ -516,7 +556,7 @@ def render_schedule_workspace(tid, tournament, *, deps: ScheduleWorkspaceDepende
 
     # Historical QA anchor: CupNavis rekommendation
     # st.markdown("#### Skapa eller uppdatera schema")
-    st.markdown("#### Nästa steg")
+    st.markdown("### 2. Kontrollera att allt är redo")
     with st.container(border=True):
         _rec_left, _rec_right = st.columns([2, 1])
         _rec_left.markdown(f"### {_next_step['title']}")
@@ -532,7 +572,8 @@ def render_schedule_workspace(tid, tournament, *, deps: ScheduleWorkspaceDepende
         elif _next_step["state"] == "review":
             st.info("Schemat finns. Nästa värdefulla steg är granskning, inte ny schemagenerering.")
 
-    st.markdown("#### Schema")
+    st.markdown("### 3. Skapa, granska eller justera schemat")
+    st.caption("CupNavi skyddar spelade matcher och skriver aldrig över ett befintligt schema utan ditt godkännande.")
     with st.container(border=True):
         status1, status2, status3 = st.columns(3)
         status1.metric("Gruppspelsmatcher", group_match_total)
@@ -551,7 +592,9 @@ def render_schedule_workspace(tid, tournament, *, deps: ScheduleWorkspaceDepende
         # forward in session state. Show its review immediately instead of asking
         # the organiser to upload/read the same photo again. The uploader below is
         # retained only as a recovery path for genuinely older cups.
-        if scheduled_total == 0 and setting is not None and deps.db is not None:
+        if scheduled_total == 0 and _schedule_intent == "Jag har redan ett schema" and setting is not None and deps.db is not None:
+            st.markdown("### Använd ett schema du redan har")
+            st.caption("Foto, PDF eller tidigare matchprogram granskas först. Inget schema sparas utan din bekräftelse.")
             _prefill_key = f"schedule_existing_import_prefill_{tid}"
             _prefill_from_smart = bool(st.session_state.get(f"schedule_existing_import_from_smart_{tid}"))
             _already_prepared = bool(st.session_state.get(_prefill_key))
@@ -691,6 +734,7 @@ def render_schedule_workspace(tid, tournament, *, deps: ScheduleWorkspaceDepende
             if not 1 <= int(match_number) <= len(_issue_match_rows):
                 return
             match_id = int(_issue_match_rows[int(match_number) - 1]["id"])
+            st.session_state[_schedule_intent_key] = "Ändra enstaka matcher"
             st.session_state[f"manual_schedule_edit_open_{tid}"] = True
             st.session_state[f"manual_schedule_match_{tid}"] = match_id
 
@@ -757,7 +801,11 @@ def render_schedule_workspace(tid, tournament, *, deps: ScheduleWorkspaceDepende
         _confirm_regenerate = True
         _schedule_action_disabled = False
 
-        if not create_disabled:
+        _show_generation_action = (
+            (scheduled_total == 0 and _schedule_intent == "CupNavi skapar schemat åt mig")
+            or (scheduled_total > 0 and _schedule_intent == "Bygg om återstående schema")
+        )
+        if not create_disabled and _show_generation_action:
             with st.container(border=True):
                 st.markdown("### Nästa steg")
                 if played_result_total:
@@ -850,7 +898,7 @@ def render_schedule_workspace(tid, tournament, *, deps: ScheduleWorkspaceDepende
                         f"Schemagenereringen avbröts efter {elapsed:.1f} sekunder: {exc}",
                     )
                 st.rerun()
-        if create_disabled:
+        if create_disabled and _show_generation_action:
             problems = []
             if not participant_list_complete:
                 if expected_team_count:
@@ -934,6 +982,30 @@ def render_schedule_workspace(tid, tournament, *, deps: ScheduleWorkspaceDepende
                     })
                 if group_status_rows:
                     render_centered_table(pd.DataFrame(group_status_rows))
+
+    # v595: The only forward action sits after the core schedule work. Control is
+    # intentionally reachable even with warnings so the organiser can inspect
+    # blockers there; publication remains protected by validation.
+    st.markdown("### 4. Gå vidare till kontroll")
+    if schedule_errors:
+        st.warning(f"Schemat har {len(schedule_errors)} blockerande fel. Du kan gå vidare och granska dem i Kontroll, men publicering förblir spärrad.")
+    elif schedule_warnings:
+        st.info(f"Schemat har {len(schedule_warnings)} varningar. Granska dem här eller fortsätt till Kontroll.")
+    elif scheduled_total:
+        st.success("Schemat är redo för nästa kontrollsteg.")
+    else:
+        st.info("Du kan gå vidare till Kontroll även innan schemat är klart för att se vad som återstår.")
+    if navigate_admin_page is not None:
+        st.button(
+            "Fortsätt till Kontroll →",
+            type="primary",
+            use_container_width=True,
+            key=f"v595_schedule_next_to_control_{tid}",
+            on_click=navigate_admin_page,
+            args=("Kontroll",),
+        )
+    else:
+        st.caption("Nästa steg: Kontroll")
 
     st.divider()
     st.markdown('<div class="cn-section-head">Valfria schemaverktyg</div>', unsafe_allow_html=True)
@@ -1845,24 +1917,28 @@ def render_schedule_workspace(tid, tournament, *, deps: ScheduleWorkspaceDepende
             switched_kit_total = sum(1 for row in schedule_rows if row.get("Tröjstatus") == "resolved")
             st.markdown(
                 f"""<div class="cn-kit-summary {'attention' if unresolved_kit_total else 'clear'}">
-                  <div><span class="value">{unresolved_kit_total}</span><span class="label">färgkrockar kräver åtgärd</span></div>
+                  <div><span class="value">{unresolved_kit_total}</span><span class="label">möjliga färgkrockar · info</span></div>
                   <div><span class="value">{switched_kit_total}</span><span class="label">matcher lösta med bortaställ</span></div>
                 </div>""",
                 unsafe_allow_html=True,
             )
-            st.caption("CupNavi rekommenderar ställ automatiskt. Endast kvarvarande färgkrockar behöver arrangörens åtgärd.")
+            st.caption("Färgkrockar är bara information. De blockerar aldrig schema eller publicering; lagen avgör ställ på plats.")
             for row in schedule_rows:
                 issues = []
                 if row["Domare"] == "Ej tillsatt":
                     issues.append("Domare saknas")
+                kit_info = []
                 if row.get("Tröjstatus") == "conflict":
-                    issues.append("Färgkrock")
+                    kit_info.append("Info: möjlig färgkrock")
                 if row["Hemmalag"].startswith(("Vinnaren i ", "Vinnare match ", "Förlorare match ")):
                     issues.append("Hemmalag ej avgjort")
                 if row["Bortalag"].startswith(("Vinnaren i ", "Vinnare match ", "Förlorare match ")):
                     issues.append("Bortalag ej avgjort")
                 issue_html = "".join(
                     f"<span class='cn-issue-pill'>{html.escape(issue)}</span>" for issue in issues
+                )
+                issue_html += "".join(
+                    f"<span class='cn-issue-pill'>{html.escape(note)}</span>" for note in kit_info
                 )
                 card_class = "cn-admin-match issue" if issues else "cn-admin-match"
                 st.markdown(

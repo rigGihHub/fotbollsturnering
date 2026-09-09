@@ -18,14 +18,14 @@ def build_kit_guidance(
     if unresolved_conflict:
         return {
             "state": "conflict",
-            "label": "Färgkrock kvar",
-            "short": f"{away_name} behöver annat/extraställ",
+            "label": "Möjlig färgkrock",
+            "short": f"Info: {away_name} kan behöva annat ställ",
             "detail": (
                 f"{home_name}s hemmaställ ligger för nära både {away_name}s hemma- och bortaställ. "
-                "Samordna ett annat/extraställ före matchen."
+                "Detta är bara information till arrangören; ställvalet avgörs av lagen på plats."
             ),
             "away_kit": "extra",
-            "needs_action": True,
+            "needs_action": False,
         }
 
     if home_home_conflict and away_kit_used:
