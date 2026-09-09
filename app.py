@@ -190,7 +190,7 @@ def inject_v600_public_shell_milestone():
     return _inject_v600_public_shell_milestone_impl(st)
 def inject_v198_visual_system():
     return _inject_v198_visual_system_impl(st)
-APP_BUILD_VERSION = "2026.09.09-604-VISUAL-QA-CONTRAST-HOTFIX"
+APP_BUILD_VERSION = "2026.09.09-606-PREMIUM-SPORTS-DESIGN-SYSTEM"
 APP_VERSION = APP_BUILD_VERSION
 
 def _set_session_state_values(values):
@@ -10114,6 +10114,176 @@ body [data-baseweb="calendar"],body [data-baseweb="calendar"] *{color:#172033!im
 </style>
 """, unsafe_allow_html=True)
 
+# v605 — authoritative CupNavi design-system cascade.
+# This is intentionally last: legacy page CSS may style individual modules,
+# but shell, typography, controls and surfaces must resolve to one theme.
+st.markdown("""
+<style>
+:root{
+  --cn-bg:#06111a; --cn-bg-2:#071722; --cn-surface:#0a1b27; --cn-surface-2:#0d2432;
+  --cn-surface-3:#102c3b; --cn-line:#21465a; --cn-line-strong:#2d6178;
+  --cn-text:#f1f8fb; --cn-text-2:#c7dae3; --cn-muted:#8ea8b6;
+  --cn-cyan:#20d8f2; --cn-cyan-2:#0fb7cf; --cn-green:#31d978;
+  --cn-yellow:#f4d84a; --cn-red:#ff6b73; --cn-radius:10px;
+}
+html,body,[data-testid="stAppViewContainer"],body .stApp{
+  background:linear-gradient(180deg,var(--cn-bg) 0%,#07151f 100%)!important;
+  color:var(--cn-text)!important; color-scheme:dark!important;
+}
+body .stApp header[data-testid="stHeader"]{background:rgba(6,17,26,.96)!important;border-bottom:1px solid #102c3b!important;}
+body .stApp .block-container{max-width:1600px!important;padding-top:1.15rem!important;}
+body [data-testid="stSidebar"]{background:linear-gradient(180deg,#06131d,var(--cn-bg-2))!important;border-right:1px solid var(--cn-line)!important;}
+body [data-testid="stSidebar"] h1,body [data-testid="stSidebar"] h2,body [data-testid="stSidebar"] h3,body [data-testid="stSidebar"] p,body [data-testid="stSidebar"] span,body [data-testid="stSidebar"] label{color:var(--cn-text-2)!important;}
+
+/* Typography: restore readable hierarchy even when old modules carry hard-coded dark colors. */
+body .stApp h1,body .stApp h2,body .stApp h3,body .stApp h4,body .stApp h5,body .stApp h6{color:var(--cn-text)!important;}
+body .stApp [data-testid="stMarkdownContainer"] p,body .stApp [data-testid="stMarkdownContainer"] li{color:var(--cn-text-2)!important;}
+body .stApp [data-testid="stCaptionContainer"] p,body .stApp .stCaption p{color:var(--cn-muted)!important;opacity:1!important;}
+body .stApp [data-testid="stWidgetLabel"] p,body .stApp [data-testid="stWidgetLabel"] label{color:var(--cn-text-2)!important;opacity:1!important;}
+
+/* One surface system. */
+body .stApp [data-testid="stVerticalBlockBorderWrapper"],
+body .stApp [data-testid="stForm"],body .stApp [data-testid="stExpander"],
+body .stApp [data-testid="stPopoverBody"]{background:var(--cn-surface)!important;border:1px solid var(--cn-line)!important;box-shadow:none!important;border-radius:var(--cn-radius)!important;}
+body .stApp [data-testid="stExpander"] summary,body .stApp [data-testid="stExpander"] summary *{color:var(--cn-text-2)!important;}
+body .stApp [data-testid="stAlert"]{background:var(--cn-surface-2)!important;border-color:var(--cn-line)!important;color:var(--cn-text-2)!important;}
+body .stApp [data-testid="stAlert"] *{color:inherit!important;}
+
+/* Inputs. */
+body .stApp [data-baseweb="input"]>div,body .stApp [data-baseweb="select"]>div,body .stApp textarea,
+body .stApp [data-testid="stNumberInput"] input,body .stApp input{background:#081720!important;color:var(--cn-text)!important;border-color:#31566a!important;}
+body .stApp input::placeholder,body .stApp textarea::placeholder{color:#7893a3!important;opacity:1!important;}
+
+/* Buttons: cyan = navigation/current action, green = commit/save, neutral = secondary. */
+body .stApp [data-testid="stButton"] button,body .stApp [data-testid="stDownloadButton"] button,body .stApp [data-testid="stLinkButton"] a{
+  min-height:38px!important;border-radius:8px!important;font-weight:720!important;box-shadow:none!important;
+}
+body .stApp [data-testid="stButton"] button[kind="secondary"],body .stApp [data-testid="stDownloadButton"] button,body .stApp [data-testid="stLinkButton"] a{background:var(--cn-surface)!important;color:var(--cn-text-2)!important;border:1px solid #2a5267!important;}
+body .stApp [data-testid="stButton"] button[kind="secondary"]:hover,body .stApp [data-testid="stLinkButton"] a:hover{background:var(--cn-surface-2)!important;color:#fff!important;border-color:var(--cn-cyan-2)!important;}
+body .stApp [data-testid="stButton"] button[kind="primary"]{background:linear-gradient(180deg,var(--cn-cyan),#16bfd8)!important;color:#021319!important;border:1px solid #4ae6f8!important;}
+body .stApp [data-testid="stButton"] button:disabled{opacity:1!important;background:#0a1a24!important;color:#76909e!important;border-color:#1d3d4f!important;}
+body .stApp [data-testid="stButton"] button:disabled *{color:#76909e!important;}
+
+/* Admin mode + compact nine-step rail. */
+.cn-admin-flow-kicker{color:#6fdff0!important;letter-spacing:.10em!important;font-weight:850!important;text-transform:uppercase!important;font-size:.68rem!important;margin-top:8px!important;}
+.cn-admin-current-step{color:var(--cn-text-2)!important;font-weight:750!important;margin:2px 0 6px!important;}
+body .stApp [class*="st-key-admin_full_flow_desktop_"] [data-testid="stHorizontalBlock"]{gap:5px!important;}
+body .stApp [class*="st-key-admin_full_flow_desktop_"] [data-testid="stButton"] button{min-height:36px!important;padding:5px 7px!important;font-size:.69rem!important;white-space:normal!important;line-height:1.05!important;}
+body .stApp [class*="st-key-admin_full_flow_desktop_"] [data-testid="stButton"] button[kind="primary"],
+body .stApp [class*="st-key-admin_full_flow_desktop_"] [data-testid="stButton"] button:disabled{background:var(--cn-cyan)!important;color:#03141b!important;border-color:#53e8fa!important;font-weight:900!important;}
+body .stApp [class*="st-key-admin_full_flow_desktop_"] [data-testid="stButton"] button:disabled *{color:#03141b!important;}
+
+/* Hero / marketing and public shell now share the same product. */
+body .stApp .cn-home-hero,body .stApp .cup-hero{background:radial-gradient(circle at 88% 10%,rgba(32,216,242,.13),transparent 30%),linear-gradient(145deg,#0b2535,#081722 72%)!important;border:1px solid #1b4c62!important;color:var(--cn-text)!important;box-shadow:none!important;}
+body .stApp .cn-home-title,body .stApp .cup-hero .title{color:#f7fcff!important;}
+body .stApp .cn-home-lead,body .stApp .cup-hero .meta{color:#bcd1dc!important;}
+body .stApp .cn-home-kicker,body .stApp .cup-hero .eyebrow{color:#53e4f5!important;}
+
+/* Remove white legacy islands, except intentional data/document surfaces and calendar. */
+body .stApp .public-metric,body .stApp .cn-public-highlight,body .stApp .cn-home-card,body .stApp .cn-home-step{background:var(--cn-surface)!important;border-color:var(--cn-line)!important;color:var(--cn-text-2)!important;}
+body [data-baseweb="calendar"],body [data-baseweb="calendar"] *{color-scheme:light!important;color:#172033!important;}
+body [data-baseweb="calendar"]{background:#fff!important;}
+
+/* Keep Text-TV sport surfaces blacker than the application shell. */
+body .stApp .cn-texttv-table,body .stApp .cn-tt-table,body .stApp .texttv-table{background:#020607!important;}
+
+@media(max-width:900px){
+  body .stApp .block-container{padding-left:14px!important;padding-right:14px!important;}
+  body .stApp [class*="st-key-admin_full_flow_desktop_"]{display:none!important;}
+}
+@media(min-width:901px){body .stApp [class*="st-key-admin_flow_mobile_"]{display:none!important;}}
+</style>
+""", unsafe_allow_html=True)
+
+# v606 — Premium Sports Design System.
+# Calm Nordic sports palette chosen for sustained viewing: deep navy chrome,
+# soft high-contrast neutrals, cyan for interaction and semantic status colors.
+st.markdown("""
+<style>
+:root{
+  --cn-bg:#07141D; --cn-bg-deep:#041018;
+  --cn-surface:#0D1F2A; --cn-surface-raised:#122A37; --cn-surface-hover:#173441;
+  --cn-border:#284553; --cn-border-soft:#1B3440;
+  --cn-text:#F4F8FA; --cn-text-secondary:#B7C8D0; --cn-text-muted:#8EA6B1;
+  --cn-accent:#3BC7D6; --cn-accent-soft:#163A43;
+  --cn-success:#43C77A; --cn-warning:#F2C14E; --cn-danger:#F06A6A;
+  --cn-shadow:0 10px 30px rgba(0,0,0,.18); --cn-radius:10px;
+}
+/* v606 shell: restrained contrast, no neon wash. */
+html,body,[data-testid="stAppViewContainer"],body .stApp{
+  background:var(--cn-bg)!important;color:var(--cn-text)!important;
+}
+body .stApp header[data-testid="stHeader"]{background:rgba(7,20,29,.96)!important;border-bottom:1px solid var(--cn-border-soft)!important;}
+body [data-testid="stSidebar"]{background:var(--cn-bg-deep)!important;border-right:1px solid var(--cn-border-soft)!important;}
+body .stApp .block-container{max-width:1540px!important;padding-top:1rem!important;padding-bottom:3rem!important;}
+
+/* Type hierarchy: readable for long tournament days. */
+body .stApp h1{font-weight:850!important;letter-spacing:-.035em!important;line-height:1.05!important;}
+body .stApp h2,body .stApp h3{font-weight:780!important;letter-spacing:-.018em!important;}
+body .stApp h1,body .stApp h2,body .stApp h3,body .stApp h4{color:var(--cn-text)!important;}
+body .stApp [data-testid="stMarkdownContainer"] p,body .stApp [data-testid="stMarkdownContainer"] li{color:var(--cn-text-secondary)!important;line-height:1.5!important;}
+body .stApp [data-testid="stCaptionContainer"] p,body .stApp .stCaption p{color:var(--cn-text-muted)!important;}
+
+/* Premium surfaces: hierarchy by luminance, not decorative glow. */
+body .stApp [data-testid="stVerticalBlockBorderWrapper"],body .stApp [data-testid="stForm"],body .stApp [data-testid="stExpander"],body .stApp [data-testid="stPopoverBody"]{
+  background:var(--cn-surface)!important;border:1px solid var(--cn-border-soft)!important;border-radius:var(--cn-radius)!important;box-shadow:none!important;
+}
+body .stApp [data-testid="stExpander"]:hover{border-color:var(--cn-border)!important;}
+body .stApp [data-testid="stAlert"]{background:var(--cn-surface-raised)!important;border:1px solid var(--cn-border)!important;border-radius:8px!important;}
+
+/* Controls. Cyan signals interaction; green is reserved for committed success. */
+body .stApp [data-baseweb="input"]>div,body .stApp [data-baseweb="select"]>div,body .stApp textarea,body .stApp input{
+  background:#091923!important;color:var(--cn-text)!important;border-color:var(--cn-border)!important;
+}
+body .stApp [data-baseweb="input"]>div:focus-within,body .stApp [data-baseweb="select"]>div:focus-within,body .stApp textarea:focus,body .stApp input:focus{
+  border-color:var(--cn-accent)!important;box-shadow:0 0 0 2px rgba(59,199,214,.16)!important;
+}
+body .stApp [data-testid="stButton"] button,body .stApp [data-testid="stDownloadButton"] button,body .stApp [data-testid="stLinkButton"] a{
+  border-radius:8px!important;min-height:40px!important;transition:background .14s ease,border-color .14s ease,transform .14s ease!important;
+}
+body .stApp [data-testid="stButton"] button[kind="secondary"],body .stApp [data-testid="stDownloadButton"] button,body .stApp [data-testid="stLinkButton"] a{
+  background:var(--cn-surface)!important;color:var(--cn-text-secondary)!important;border:1px solid var(--cn-border)!important;
+}
+body .stApp [data-testid="stButton"] button[kind="secondary"]:hover,body .stApp [data-testid="stLinkButton"] a:hover{
+  background:var(--cn-surface-hover)!important;color:var(--cn-text)!important;border-color:#397083!important;
+}
+body .stApp [data-testid="stButton"] button[kind="primary"]{
+  background:var(--cn-accent)!important;color:#04171C!important;border:1px solid #65D5DF!important;font-weight:800!important;
+}
+body .stApp [data-testid="stButton"] button[kind="primary"]:hover{background:#55D0DD!important;}
+
+/* Hero: premium sports control room, not marketing-card white. */
+body .stApp .cn-home-hero,body .stApp .cup-hero{
+  background:linear-gradient(135deg,#102A36 0%,#0B1D27 62%,#0A2530 100%)!important;
+  border:1px solid var(--cn-border)!important;box-shadow:var(--cn-shadow)!important;color:var(--cn-text)!important;
+}
+body .stApp .cn-home-title,body .stApp .cup-hero .title{color:var(--cn-text)!important;}
+body .stApp .cn-home-lead,body .stApp .cup-hero .meta{color:var(--cn-text-secondary)!important;}
+body .stApp .cn-home-kicker,body .stApp .cup-hero .eyebrow{color:var(--cn-accent)!important;}
+
+/* Admin flow: completed/current/future must be readable without relying on color alone. */
+body .stApp [class*="st-key-admin_full_flow_desktop_"] [data-testid="stButton"] button{background:#0A1B25!important;color:var(--cn-text-secondary)!important;border-color:var(--cn-border-soft)!important;}
+body .stApp [class*="st-key-admin_full_flow_desktop_"] [data-testid="stButton"] button[kind="primary"]{background:var(--cn-accent)!important;color:#04171C!important;border-color:#65D5DF!important;}
+body .stApp [class*="st-key-admin_full_flow_desktop_"] [data-testid="stButton"] button:disabled{background:#0A1A23!important;color:#77919D!important;border-color:#1D3642!important;}
+
+/* Semantic statuses. Never use hue as the only signal in copy/components. */
+.cn-status-success,.cn-admin-status-pill{color:var(--cn-success)!important;}
+.cn-status-warning{color:var(--cn-warning)!important;}.cn-status-danger{color:var(--cn-danger)!important;}
+
+/* Text-TV is intentionally the darkest and highest-density visual layer. */
+body .stApp .cn-texttv-table,body .stApp .cn-tt-table,body .stApp .texttv-table{
+  background:#010506!important;border-color:#263A3E!important;box-shadow:inset 0 0 0 1px rgba(255,255,255,.025)!important;
+}
+
+/* Keep intentional light calendar isolated. */
+body [data-baseweb="calendar"]{background:#fff!important;color-scheme:light!important;}
+body [data-baseweb="calendar"] *{color:#172033!important;}
+
+@media (prefers-reduced-motion:reduce){body .stApp *{scroll-behavior:auto!important;transition:none!important;animation:none!important;}}
+@media(max-width:900px){body .stApp .block-container{padding-left:14px!important;padding-right:14px!important;padding-top:.7rem!important;}}
+</style>
+""", unsafe_allow_html=True)
+
 def render_initial_tournament_setup(tournament_id, tournament):
     """Render first-run wizard for a new cup; keep the full editor for later changes."""
     deps = InitialSetupDependencies(
@@ -10441,21 +10611,23 @@ st.markdown(f"<div class='cn-admin-current-step'>{html.escape(_here_text.replace
 # screen is reserved for the task the organizer is actually doing. Both shells
 # are rendered server-side; responsive CSS only chooses which shell is visible.
 with st.container(key=f"admin_full_flow_desktop_{tid}"):
-    for _journey_row in (_BEGINNER_JOURNEY[:3], _BEGINNER_JOURNEY[3:6], _BEGINNER_JOURNEY[6:9]):
-        _journey_cols = st.columns(len(_journey_row))
-        for _journey_col, (_step_label, _target_page) in zip(_journey_cols, _journey_row):
-            _idx = _step_labels.index(_step_label) + 1
-            _active = _step_label == _current_journey_step
-            _button_label = f"✓ {_idx} · {_step_label}" if _active else f"{_idx} · {_step_label}"
-            _journey_col.button(
-                _button_label,
-                key=f"admin_journey_step_{tid}_{_idx}",
-                use_container_width=True,
-                type="primary" if _active else "secondary",
-                on_click=_go_to_journey_step,
-                args=(_step_label,),
-                disabled=_active,
-            )
+    # v605: one compact desktop rail instead of a 3x3 button matrix.
+    # Keep every step directly reachable while giving the current task visual priority.
+    _journey_cols = st.columns(len(_BEGINNER_JOURNEY), gap="small")
+    for _journey_col, (_step_label, _target_page) in zip(_journey_cols, _BEGINNER_JOURNEY):
+        _idx = _step_labels.index(_step_label) + 1
+        _active = _step_label == _current_journey_step
+        _button_label = f"✓ {_idx} {_step_label}" if _active else f"{_idx} {_step_label}"
+        _journey_col.button(
+            _button_label,
+            key=f"admin_journey_step_{tid}_{_idx}",
+            use_container_width=True,
+            type="primary" if _active else "secondary",
+            on_click=_go_to_journey_step,
+            args=(_step_label,),
+            disabled=_active,
+            help=f"Steg {_idx} av {len(_BEGINNER_JOURNEY)} · {_step_label}",
+        )
 
 with st.container(key=f"admin_flow_mobile_{tid}"):
     if _step_no is not None:
