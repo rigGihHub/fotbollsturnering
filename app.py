@@ -190,7 +190,7 @@ def inject_v600_public_shell_milestone():
     return _inject_v600_public_shell_milestone_impl(st)
 def inject_v198_visual_system():
     return _inject_v198_visual_system_impl(st)
-APP_BUILD_VERSION = "2026.09.09-606-PREMIUM-SPORTS-DESIGN-SYSTEM"
+APP_BUILD_VERSION = "2026.09.10-611-SIGNATURE-PUBLIC-STAGE"
 APP_VERSION = APP_BUILD_VERSION
 
 def _set_session_state_values(values):
@@ -10196,91 +10196,652 @@ body .stApp .cn-texttv-table,body .stApp .cn-tt-table,body .stApp .texttv-table{
 """, unsafe_allow_html=True)
 
 # v606 — Premium Sports Design System.
-# Calm Nordic sports palette chosen for sustained viewing: deep navy chrome,
-# soft high-contrast neutrals, cyan for interaction and semantic status colors.
+# Palette tuned for prolonged viewing: soft navy rather than pure black,
+# restrained aqua for focus, and semantic colors reserved for status.
 st.markdown("""
 <style>
 :root{
-  --cn-bg:#07141D; --cn-bg-deep:#041018;
-  --cn-surface:#0D1F2A; --cn-surface-raised:#122A37; --cn-surface-hover:#173441;
-  --cn-border:#284553; --cn-border-soft:#1B3440;
-  --cn-text:#F4F8FA; --cn-text-secondary:#B7C8D0; --cn-text-muted:#8EA6B1;
-  --cn-accent:#3BC7D6; --cn-accent-soft:#163A43;
-  --cn-success:#43C77A; --cn-warning:#F2C14E; --cn-danger:#F06A6A;
-  --cn-shadow:0 10px 30px rgba(0,0,0,.18); --cn-radius:10px;
+  --cn-bg:#08131c; --cn-bg-deep:#061019;
+  --cn-surface:#0d1d28; --cn-surface-2:#112633; --cn-surface-3:#173140;
+  --cn-border:#244657; --cn-border-soft:#183542;
+  --cn-text:#edf5f7; --cn-text-2:#c1d1d7; --cn-muted:#8da4ae;
+  --cn-accent:#42c9d8; --cn-accent-hover:#63d6e2; --cn-accent-soft:rgba(66,201,216,.12);
+  --cn-success:#5bd38a; --cn-warning:#e8bd5b; --cn-danger:#ee777f; --cn-info:#76bde8;
+  --cn-radius-sm:8px; --cn-radius-md:12px; --cn-radius-lg:18px;
 }
-/* v606 shell: restrained contrast, no neon wash. */
 html,body,[data-testid="stAppViewContainer"],body .stApp{
-  background:var(--cn-bg)!important;color:var(--cn-text)!important;
+  background:linear-gradient(180deg,var(--cn-bg-deep) 0%,var(--cn-bg) 100%)!important;
+  color:var(--cn-text)!important;
 }
-body .stApp header[data-testid="stHeader"]{background:rgba(7,20,29,.96)!important;border-bottom:1px solid var(--cn-border-soft)!important;}
-body [data-testid="stSidebar"]{background:var(--cn-bg-deep)!important;border-right:1px solid var(--cn-border-soft)!important;}
-body .stApp .block-container{max-width:1540px!important;padding-top:1rem!important;padding-bottom:3rem!important;}
+body .stApp .block-container{max-width:1480px!important;padding-top:1rem!important;padding-bottom:3rem!important;}
+body [data-testid="stSidebar"]{
+  background:#07141d!important;border-right:1px solid var(--cn-border-soft)!important;
+}
+body [data-testid="stSidebar"] [data-testid="stSidebarContent"]{padding-top:.65rem!important;}
 
-/* Type hierarchy: readable for long tournament days. */
-body .stApp h1{font-weight:850!important;letter-spacing:-.035em!important;line-height:1.05!important;}
-body .stApp h2,body .stApp h3{font-weight:780!important;letter-spacing:-.018em!important;}
-body .stApp h1,body .stApp h2,body .stApp h3,body .stApp h4{color:var(--cn-text)!important;}
-body .stApp [data-testid="stMarkdownContainer"] p,body .stApp [data-testid="stMarkdownContainer"] li{color:var(--cn-text-secondary)!important;line-height:1.5!important;}
-body .stApp [data-testid="stCaptionContainer"] p,body .stApp .stCaption p{color:var(--cn-text-muted)!important;}
+/* Calm, high-contrast typography. Pure white is intentionally avoided for long viewing. */
+body .stApp h1,body .stApp h2,body .stApp h3,body .stApp h4{color:var(--cn-text)!important;letter-spacing:-.018em!important;}
+body .stApp [data-testid="stMarkdownContainer"] p,body .stApp [data-testid="stMarkdownContainer"] li{color:var(--cn-text-2)!important;}
+body .stApp [data-testid="stCaptionContainer"] p,body .stApp .stCaption p{color:var(--cn-muted)!important;}
 
-/* Premium surfaces: hierarchy by luminance, not decorative glow. */
-body .stApp [data-testid="stVerticalBlockBorderWrapper"],body .stApp [data-testid="stForm"],body .stApp [data-testid="stExpander"],body .stApp [data-testid="stPopoverBody"]{
-  background:var(--cn-surface)!important;border:1px solid var(--cn-border-soft)!important;border-radius:var(--cn-radius)!important;box-shadow:none!important;
+/* Three elevations, no glass/glow gimmicks. */
+body .stApp [data-testid="stVerticalBlockBorderWrapper"],body .stApp [data-testid="stForm"],body .stApp [data-testid="stExpander"]{
+  background:var(--cn-surface)!important;border:1px solid var(--cn-border-soft)!important;border-radius:var(--cn-radius-md)!important;
+  box-shadow:0 1px 0 rgba(255,255,255,.025)!important;
 }
-body .stApp [data-testid="stExpander"]:hover{border-color:var(--cn-border)!important;}
-body .stApp [data-testid="stAlert"]{background:var(--cn-surface-raised)!important;border:1px solid var(--cn-border)!important;border-radius:8px!important;}
+body .stApp [data-testid="stPopoverBody"]{background:var(--cn-surface-2)!important;border:1px solid var(--cn-border)!important;border-radius:var(--cn-radius-md)!important;}
 
-/* Controls. Cyan signals interaction; green is reserved for committed success. */
-body .stApp [data-baseweb="input"]>div,body .stApp [data-baseweb="select"]>div,body .stApp textarea,body .stApp input{
-  background:#091923!important;color:var(--cn-text)!important;border-color:var(--cn-border)!important;
+/* Aqua means focus/navigation. Green is reserved for success/commit. */
+body .stApp [data-testid="stButton"] button[kind="primary"]{
+  background:var(--cn-accent)!important;color:#06151a!important;border:1px solid #72dbe5!important;
 }
-body .stApp [data-baseweb="input"]>div:focus-within,body .stApp [data-baseweb="select"]>div:focus-within,body .stApp textarea:focus,body .stApp input:focus{
-  border-color:var(--cn-accent)!important;box-shadow:0 0 0 2px rgba(59,199,214,.16)!important;
-}
-body .stApp [data-testid="stButton"] button,body .stApp [data-testid="stDownloadButton"] button,body .stApp [data-testid="stLinkButton"] a{
-  border-radius:8px!important;min-height:40px!important;transition:background .14s ease,border-color .14s ease,transform .14s ease!important;
-}
-body .stApp [data-testid="stButton"] button[kind="secondary"],body .stApp [data-testid="stDownloadButton"] button,body .stApp [data-testid="stLinkButton"] a{
-  background:var(--cn-surface)!important;color:var(--cn-text-secondary)!important;border:1px solid var(--cn-border)!important;
+body .stApp [data-testid="stButton"] button[kind="primary"]:hover{background:var(--cn-accent-hover)!important;}
+body .stApp [data-testid="stButton"] button[kind="secondary"],body .stApp [data-testid="stLinkButton"] a,body .stApp [data-testid="stDownloadButton"] button{
+  background:#0b1b25!important;color:var(--cn-text-2)!important;border:1px solid var(--cn-border)!important;
 }
 body .stApp [data-testid="stButton"] button[kind="secondary"]:hover,body .stApp [data-testid="stLinkButton"] a:hover{
-  background:var(--cn-surface-hover)!important;color:var(--cn-text)!important;border-color:#397083!important;
+  background:var(--cn-surface-2)!important;color:var(--cn-text)!important;border-color:#39768b!important;
 }
-body .stApp [data-testid="stButton"] button[kind="primary"]{
-  background:var(--cn-accent)!important;color:#04171C!important;border:1px solid #65D5DF!important;font-weight:800!important;
+body .stApp [data-testid="stButton"] button:focus-visible,body .stApp input:focus-visible,body .stApp textarea:focus-visible{
+  outline:2px solid var(--cn-accent)!important;outline-offset:2px!important;
 }
-body .stApp [data-testid="stButton"] button[kind="primary"]:hover{background:#55D0DD!important;}
 
-/* Hero: premium sports control room, not marketing-card white. */
+/* Marketing/public hero: premium editorial scale, restrained accent. */
 body .stApp .cn-home-hero,body .stApp .cup-hero{
-  background:linear-gradient(135deg,#102A36 0%,#0B1D27 62%,#0A2530 100%)!important;
-  border:1px solid var(--cn-border)!important;box-shadow:var(--cn-shadow)!important;color:var(--cn-text)!important;
+  background:linear-gradient(145deg,#102936 0%,#0a1b25 72%)!important;
+  border:1px solid #285264!important;border-radius:var(--cn-radius-lg)!important;
+  box-shadow:0 18px 44px rgba(0,0,0,.16)!important;
 }
-body .stApp .cn-home-title,body .stApp .cup-hero .title{color:var(--cn-text)!important;}
-body .stApp .cn-home-lead,body .stApp .cup-hero .meta{color:var(--cn-text-secondary)!important;}
-body .stApp .cn-home-kicker,body .stApp .cup-hero .eyebrow{color:var(--cn-accent)!important;}
+body .stApp .cn-home-kicker,body .stApp .cup-hero .eyebrow{color:#6fd6df!important;}
+body .stApp .cn-home-title{max-width:900px!important;line-height:1.02!important;letter-spacing:-.035em!important;}
+body .stApp .cn-home-lead{max-width:760px!important;color:#bfd0d6!important;line-height:1.55!important;}
 
-/* Admin flow: completed/current/future must be readable without relying on color alone. */
-body .stApp [class*="st-key-admin_full_flow_desktop_"] [data-testid="stButton"] button{background:#0A1B25!important;color:var(--cn-text-secondary)!important;border-color:var(--cn-border-soft)!important;}
-body .stApp [class*="st-key-admin_full_flow_desktop_"] [data-testid="stButton"] button[kind="primary"]{background:var(--cn-accent)!important;color:#04171C!important;border-color:#65D5DF!important;}
-body .stApp [class*="st-key-admin_full_flow_desktop_"] [data-testid="stButton"] button:disabled{background:#0A1A23!important;color:#77919D!important;border-color:#1D3642!important;}
+/* Compact control-room journey: current step gets accent, completed context stays calm. */
+.cn-admin-flow-kicker{color:#6fd6df!important;}
+.cn-admin-current-step{color:#d7e5e9!important;}
+body .stApp [class*="st-key-admin_full_flow_desktop_"]{background:#091923!important;border:1px solid var(--cn-border-soft)!important;border-radius:12px!important;padding:6px!important;}
+body .stApp [class*="st-key-admin_full_flow_desktop_"] [data-testid="stHorizontalBlock"]{gap:4px!important;}
+body .stApp [class*="st-key-admin_full_flow_desktop_"] [data-testid="stButton"] button{min-height:34px!important;border-radius:7px!important;font-size:.67rem!important;}
+body .stApp [class*="st-key-admin_full_flow_desktop_"] [data-testid="stButton"] button[kind="primary"],
+body .stApp [class*="st-key-admin_full_flow_desktop_"] [data-testid="stButton"] button:disabled{
+  background:var(--cn-accent)!important;color:#06151a!important;border-color:#79dce5!important;
+}
 
-/* Semantic statuses. Never use hue as the only signal in copy/components. */
-.cn-status-success,.cn-admin-status-pill{color:var(--cn-success)!important;}
-.cn-status-warning{color:var(--cn-warning)!important;}.cn-status-danger{color:var(--cn-danger)!important;}
+/* Semantic surfaces: color communicates meaning, never decoration. */
+body .stApp [data-testid="stAlert"]{background:var(--cn-surface-2)!important;border-color:var(--cn-border)!important;}
+body .stApp [data-testid="stAlert"] svg{color:var(--cn-info)!important;}
 
-/* Text-TV is intentionally the darkest and highest-density visual layer. */
+/* Text-TV 330 remains the deliberately harder black sports-data layer. */
 body .stApp .cn-texttv-table,body .stApp .cn-tt-table,body .stApp .texttv-table{
-  background:#010506!important;border-color:#263A3E!important;box-shadow:inset 0 0 0 1px rgba(255,255,255,.025)!important;
+  background:#020506!important;border-color:#19353d!important;
 }
 
-/* Keep intentional light calendar isolated. */
-body [data-baseweb="calendar"]{background:#fff!important;color-scheme:light!important;}
-body [data-baseweb="calendar"] *{color:#172033!important;}
+/* Motion is feedback, not spectacle. */
+body .stApp button,body .stApp a,body .stApp input,body .stApp [data-testid="stExpander"]{
+  transition:background-color 150ms ease,border-color 150ms ease,color 150ms ease,transform 150ms ease!important;
+}
+body .stApp [data-testid="stButton"] button:not(:disabled):active{transform:translateY(1px)!important;}
+@media(prefers-reduced-motion:reduce){body .stApp *,body .stApp *::before,body .stApp *::after{transition:none!important;animation:none!important;}}
 
-@media (prefers-reduced-motion:reduce){body .stApp *{scroll-behavior:auto!important;transition:none!important;animation:none!important;}}
-@media(max-width:900px){body .stApp .block-container{padding-left:14px!important;padding-right:14px!important;padding-top:.7rem!important;}}
+/* Never let legacy white islands return outside the intentionally light calendar. */
+body .stApp .cn-home-card,body .stApp .cn-home-step,body .stApp .public-metric,body .stApp .cn-public-highlight{
+  background:var(--cn-surface)!important;color:var(--cn-text-2)!important;border-color:var(--cn-border-soft)!important;
+}
+body [data-baseweb="calendar"],body [data-baseweb="calendar"] *{color-scheme:light!important;color:#172033!important;}
+body [data-baseweb="calendar"]{background:#fff!important;}
+</style>
+""", unsafe_allow_html=True)
+
+# v607 — Broadcast Control visual rebuild.
+# Streamlit is treated as the runtime, not the visual system: the main shell,
+# navigation, cards and native widgets are explicitly normalized here.
+st.markdown("""
+<style>
+:root{
+  --bc-canvas:#07111a;
+  --bc-canvas-2:#0a1620;
+  --bc-panel:#0d1c27;
+  --bc-panel-2:#112431;
+  --bc-panel-3:#162c3a;
+  --bc-line:#234456;
+  --bc-line-soft:#173542;
+  --bc-text:#f2f7f8;
+  --bc-text-2:#c7d5da;
+  --bc-muted:#8ea3ad;
+  --bc-cyan:#4fd1df;
+  --bc-cyan-strong:#6ce0ea;
+  --bc-green:#55cf8a;
+  --bc-amber:#e7bb59;
+  --bc-red:#ef7d84;
+  --bc-radius:14px;
+}
+
+/* 1. ONE uninterrupted canvas. This is intentionally broader than the legacy theme. */
+html,body,#root,.stApp,[data-testid="stAppViewContainer"],
+[data-testid="stAppViewContainer"]>section,
+[data-testid="stMain"],section.main,.main{
+  background:var(--bc-canvas)!important;
+  color:var(--bc-text)!important;
+}
+[data-testid="stHeader"]{
+  background:rgba(7,17,26,.94)!important;
+  border-bottom:1px solid var(--bc-line-soft)!important;
+  backdrop-filter:blur(12px)!important;
+}
+[data-testid="stToolbar"], [data-testid="stDecoration"]{background:transparent!important;}
+[data-testid="stMainBlockContainer"],.main .block-container,.stApp .block-container{
+  background:transparent!important;
+  max-width:1380px!important;
+  padding-top:1.15rem!important;
+  padding-left:clamp(18px,2.6vw,42px)!important;
+  padding-right:clamp(18px,2.6vw,42px)!important;
+}
+
+/* 2. Sidebar becomes a quiet rail, not a second dashboard. */
+[data-testid="stSidebar"]{
+  background:#061019!important;
+  border-right:1px solid var(--bc-line-soft)!important;
+  box-shadow:18px 0 50px rgba(0,0,0,.08)!important;
+}
+[data-testid="stSidebar"] [data-testid="stSidebarContent"]{padding:14px 12px 24px!important;}
+[data-testid="stSidebar"] h1,[data-testid="stSidebar"] h2,[data-testid="stSidebar"] h3{
+  font-size:1.02rem!important;letter-spacing:-.02em!important;color:var(--bc-text)!important;
+}
+[data-testid="stSidebar"] p,[data-testid="stSidebar"] label,[data-testid="stSidebar"] span{color:var(--bc-text-2)!important;}
+
+/* 3. Typography: fewer weights, stronger hierarchy, no washed-out labels. */
+.stApp h1{font-size:clamp(1.8rem,2.5vw,2.65rem)!important;line-height:1.02!important;font-weight:760!important;}
+.stApp h2{font-size:clamp(1.35rem,1.8vw,1.9rem)!important;line-height:1.1!important;font-weight:720!important;}
+.stApp h3{font-size:1.05rem!important;font-weight:690!important;}
+.stApp h1,.stApp h2,.stApp h3,.stApp h4{color:var(--bc-text)!important;letter-spacing:-.025em!important;}
+.stApp [data-testid="stMarkdownContainer"] p,.stApp [data-testid="stMarkdownContainer"] li{color:var(--bc-text-2)!important;}
+.stApp [data-testid="stCaptionContainer"] p,.stApp .stCaption p{color:var(--bc-muted)!important;}
+
+/* 4. Native Streamlit widgets are part of the product, not white islands. */
+.stApp [data-testid="stVerticalBlockBorderWrapper"],
+.stApp [data-testid="stForm"],
+.stApp [data-testid="stExpander"],
+.stApp [data-testid="stMetric"],
+.stApp [data-testid="stDataFrame"],
+.stApp [data-testid="stTable"]{
+  background:linear-gradient(180deg,var(--bc-panel) 0%,#0b1923 100%)!important;
+  border:1px solid var(--bc-line-soft)!important;
+  border-radius:var(--bc-radius)!important;
+  box-shadow:0 10px 28px rgba(0,0,0,.12)!important;
+}
+.stApp [data-testid="stMetricLabel"],.stApp [data-testid="stMetricDelta"]{color:var(--bc-muted)!important;}
+.stApp [data-testid="stMetricValue"]{color:var(--bc-text)!important;}
+
+.stApp input,.stApp textarea,.stApp [data-baseweb="select"]>div,.stApp [data-baseweb="base-input"]{
+  background:#0a1822!important;color:var(--bc-text)!important;border-color:var(--bc-line)!important;
+}
+.stApp input::placeholder,.stApp textarea::placeholder{color:#708792!important;}
+.stApp [role="listbox"],.stApp [data-baseweb="popover"]{background:var(--bc-panel-2)!important;color:var(--bc-text)!important;}
+
+/* 5. Buttons: accent is directional, not decorative. */
+.stApp [data-testid="stButton"] button,.stApp [data-testid="stLinkButton"] a,.stApp [data-testid="stDownloadButton"] button{
+  min-height:40px!important;border-radius:10px!important;font-weight:650!important;box-shadow:none!important;
+}
+.stApp [data-testid="stButton"] button[kind="primary"]{
+  background:var(--bc-cyan)!important;color:#041116!important;border:1px solid #77e1e9!important;
+}
+.stApp [data-testid="stButton"] button[kind="primary"]:hover{background:var(--bc-cyan-strong)!important;}
+.stApp [data-testid="stButton"] button[kind="secondary"],.stApp [data-testid="stLinkButton"] a,.stApp [data-testid="stDownloadButton"] button{
+  background:var(--bc-panel)!important;color:var(--bc-text-2)!important;border:1px solid var(--bc-line)!important;
+}
+.stApp [data-testid="stButton"] button[kind="secondary"]:hover,.stApp [data-testid="stLinkButton"] a:hover{
+  background:var(--bc-panel-2)!important;color:var(--bc-text)!important;border-color:#3e7186!important;
+}
+.stApp button:disabled{opacity:.48!important;filter:saturate(.7)!important;}
+
+/* 6. Admin journey reads like one compact control strip. */
+.stApp [class*="st-key-admin_full_flow_desktop_"]{
+  background:#081720!important;border:1px solid var(--bc-line-soft)!important;border-radius:12px!important;padding:5px!important;
+}
+.stApp [class*="st-key-admin_full_flow_desktop_"] [data-testid="stHorizontalBlock"]{gap:4px!important;}
+.stApp [class*="st-key-admin_full_flow_desktop_"] [data-testid="stButton"] button{
+  min-height:36px!important;background:#0b1d28!important;color:#b8cbd2!important;border-color:#1c3b4b!important;font-size:.69rem!important;
+}
+.stApp [class*="st-key-admin_full_flow_desktop_"] [data-testid="stButton"] button[kind="primary"],
+.stApp [class*="st-key-admin_full_flow_desktop_"] [data-testid="stButton"] button:disabled{
+  background:var(--bc-cyan)!important;color:#061318!important;border-color:#7be1e9!important;opacity:1!important;
+}
+
+/* 7. Marketing + cup headers move from 'boxed webpage' to broadcast panel. */
+.stApp .cn-home-hero,.stApp .cup-hero{
+  position:relative!important;overflow:hidden!important;
+  background:linear-gradient(135deg,#102734 0%,#0a1923 64%,#0b1f2a 100%)!important;
+  border:1px solid #285266!important;border-radius:20px!important;
+  box-shadow:0 26px 70px rgba(0,0,0,.2)!important;
+}
+.stApp .cn-home-hero:after,.stApp .cup-hero:after{
+  content:"";position:absolute;right:-80px;top:-100px;width:300px;height:300px;border-radius:50%;
+  background:radial-gradient(circle,rgba(79,209,223,.16),rgba(79,209,223,0) 68%);pointer-events:none;
+}
+.stApp .cn-home-title{color:var(--bc-text)!important;max-width:850px!important;}
+.stApp .cn-home-lead{color:var(--bc-text-2)!important;}
+.stApp .cn-home-kicker,.stApp .cup-hero .eyebrow{color:#74dce5!important;}
+
+/* 8. Alerts and semantic states feel integrated, not Bootstrap-like. */
+.stApp [data-testid="stAlert"]{
+  background:var(--bc-panel-2)!important;border:1px solid var(--bc-line)!important;border-radius:12px!important;color:var(--bc-text-2)!important;
+}
+
+/* 9. Known legacy marketing/stat cards are forced onto product surfaces. */
+.stApp .cn-home-card,.stApp .cn-home-step,.stApp .public-metric,.stApp .cn-public-highlight,
+.stApp .cn-about-card,.stApp [class*="metric-card"],.stApp [class*="overview-card"]{
+  background:var(--bc-panel)!important;color:var(--bc-text-2)!important;border:1px solid var(--bc-line-soft)!important;
+  box-shadow:none!important;
+}
+
+/* 10. Text-TV remains an intentional black broadcast layer. */
+.stApp .cn-texttv-table,.stApp .cn-tt-table,.stApp .texttv-table{
+  background:#010405!important;border-color:#1a3842!important;box-shadow:inset 0 0 0 1px rgba(255,255,255,.015)!important;
+}
+
+/* Calendar is the only deliberately light native overlay. */
+[data-baseweb="calendar"]{background:#fff!important;color-scheme:light!important;}
+[data-baseweb="calendar"] *{color:#172033!important;}
+
+@media(max-width:900px){
+  [data-testid="stMainBlockContainer"],.main .block-container,.stApp .block-container{padding-left:14px!important;padding-right:14px!important;}
+  [data-testid="stHeader"]{backdrop-filter:none!important;}
+}
+@media(prefers-reduced-motion:reduce){.stApp *, .stApp *::before,.stApp *::after{transition:none!important;animation:none!important;}}
+</style>
+""", unsafe_allow_html=True)
+
+
+# v608 — CupNavi signature visual identity: Comic × Football Cards × Text-TV × Future.
+# Light-first, highly legible, deliberately ownable. This final cascade is the
+# authoritative visual layer and intentionally overrides v607's dark shell.
+st.markdown("""
+<style>
+:root{
+  /* Paper + ink foundation — warm rather than sterile white. */
+  --cn26-paper:#F5F2E8;
+  --cn26-paper-2:#FFFDF7;
+  --cn26-paper-3:#EEE9DC;
+  --cn26-ink:#13232D;
+  --cn26-ink-2:#334852;
+  --cn26-muted:#667982;
+  --cn26-line:#CBD0C8;
+  --cn26-line-strong:#172A34;
+  /* Signature accents: sports-card blue, broadcast cyan, comic yellow/red. */
+  --cn26-blue:#2257D6;
+  --cn26-cyan:#00A6B6;
+  --cn26-green:#267A4B;
+  --cn26-yellow:#E7B82E;
+  --cn26-red:#C94338;
+  --cn26-black:#071014;
+  --cn26-shadow:5px 5px 0 rgba(19,35,45,.10);
+  --cn26-r:12px;
+}
+
+/* A. LIGHT-FIRST CANVAS — removes every dark-shell inheritance from v607. */
+html,body,#root,.stApp,[data-testid="stAppViewContainer"],
+[data-testid="stAppViewContainer"]>section,[data-testid="stMain"],section.main,.main{
+  background:var(--cn26-paper)!important;color:var(--cn26-ink)!important;color-scheme:light!important;
+}
+[data-testid="stHeader"]{
+  background:rgba(245,242,232,.96)!important;border-bottom:2px solid var(--cn26-ink)!important;
+  backdrop-filter:blur(10px)!important;
+}
+[data-testid="stMainBlockContainer"],.main .block-container,.stApp .block-container{
+  background:transparent!important;max-width:1440px!important;
+}
+
+/* B. TYPOGRAPHY — editorial/comic energy without sacrificing readability. */
+.stApp h1,.stApp h2,.stApp h3,.stApp h4{color:var(--cn26-ink)!important;letter-spacing:-.03em!important;}
+.stApp h1{font-weight:850!important;line-height:.98!important;}
+.stApp h2{font-weight:820!important;}
+.stApp h3{font-weight:760!important;}
+.stApp [data-testid="stMarkdownContainer"] p,.stApp [data-testid="stMarkdownContainer"] li,
+.stApp label,.stApp [data-testid="stWidgetLabel"] p{color:var(--cn26-ink-2)!important;}
+.stApp [data-testid="stCaptionContainer"] p,.stApp .stCaption p{color:var(--cn26-muted)!important;}
+
+/* C. SIDEBAR — looks like the edge/spine of a football card binder. */
+[data-testid="stSidebar"]{
+  background:var(--cn26-paper-2)!important;border-right:3px solid var(--cn26-ink)!important;box-shadow:none!important;
+}
+[data-testid="stSidebar"] [data-testid="stSidebarContent"]{padding:14px 12px 26px!important;}
+[data-testid="stSidebar"] h1,[data-testid="stSidebar"] h2,[data-testid="stSidebar"] h3,
+[data-testid="stSidebar"] p,[data-testid="stSidebar"] label,[data-testid="stSidebar"] span{color:var(--cn26-ink)!important;}
+[data-testid="stSidebar"] hr{border-color:var(--cn26-line)!important;}
+
+/* D. PANELS — comic panels + collectible card construction. */
+.stApp [data-testid="stVerticalBlockBorderWrapper"],.stApp [data-testid="stForm"],
+.stApp [data-testid="stExpander"],.stApp [data-testid="stMetric"],
+.stApp .cn-home-card,.stApp .cn-home-step,.stApp .public-metric,.stApp .cn-public-highlight,
+.stApp .cn-about-card,.stApp [class*="metric-card"],.stApp [class*="overview-card"]{
+  background:var(--cn26-paper-2)!important;color:var(--cn26-ink)!important;
+  border:2px solid var(--cn26-ink)!important;border-radius:var(--cn26-r)!important;
+  box-shadow:var(--cn26-shadow)!important;
+}
+.stApp [data-testid="stExpander"]{overflow:hidden!important;}
+.stApp [data-testid="stExpander"] summary{background:var(--cn26-paper-2)!important;color:var(--cn26-ink)!important;}
+.stApp [data-testid="stMetricLabel"],.stApp [data-testid="stMetricDelta"]{color:var(--cn26-muted)!important;}
+.stApp [data-testid="stMetricValue"]{color:var(--cn26-ink)!important;font-weight:850!important;}
+
+/* E. HERO — signature CupNavi cover-card. Subtle halftone + foil stripe, no neon. */
+.stApp .cn-home-hero,.stApp .cup-hero{
+  position:relative!important;overflow:hidden!important;isolation:isolate!important;
+  background:
+    radial-gradient(circle at 82% 20%,rgba(34,87,214,.11) 0 1px,transparent 1.6px) 0 0/12px 12px,
+    linear-gradient(132deg,#FFFDF7 0%,#F7F3E8 68%,#E8F5F5 100%)!important;
+  color:var(--cn26-ink)!important;border:3px solid var(--cn26-ink)!important;border-radius:18px!important;
+  box-shadow:8px 8px 0 rgba(19,35,45,.12)!important;
+}
+.stApp .cn-home-hero:before,.stApp .cup-hero:before{
+  content:"";position:absolute;left:0;top:0;width:8px;height:100%;
+  background:linear-gradient(180deg,var(--cn26-blue),var(--cn26-cyan),var(--cn26-yellow));z-index:-1;
+}
+.stApp .cn-home-hero:after,.stApp .cup-hero:after{
+  content:"";position:absolute!important;right:-50px!important;top:-85px!important;width:240px!important;height:240px!important;
+  border:18px solid rgba(34,87,214,.07)!important;border-radius:50%!important;background:transparent!important;z-index:-1!important;
+}
+.stApp .cn-home-title,.stApp .cn-home-lead{color:var(--cn26-ink)!important;}
+.stApp .cn-home-kicker,.stApp .cup-hero .eyebrow{
+  display:inline-flex!important;width:auto!important;background:var(--cn26-yellow)!important;color:var(--cn26-black)!important;
+  border:2px solid var(--cn26-ink)!important;border-radius:6px!important;padding:3px 8px!important;font-weight:850!important;
+  letter-spacing:.055em!important;text-transform:uppercase!important;
+}
+
+/* F. BUTTONS — physical card/tab feel, high contrast in every state. */
+.stApp [data-testid="stButton"] button,.stApp [data-testid="stLinkButton"] a,.stApp [data-testid="stDownloadButton"] button{
+  min-height:40px!important;border-radius:9px!important;font-weight:780!important;box-shadow:3px 3px 0 rgba(19,35,45,.12)!important;
+}
+.stApp [data-testid="stButton"] button[kind="primary"]{
+  background:var(--cn26-blue)!important;color:#fff!important;border:2px solid var(--cn26-ink)!important;
+}
+.stApp [data-testid="stButton"] button[kind="primary"]:hover{background:#1849BC!important;color:#fff!important;transform:translate(-1px,-1px)!important;}
+.stApp [data-testid="stButton"] button[kind="secondary"],.stApp [data-testid="stLinkButton"] a,.stApp [data-testid="stDownloadButton"] button{
+  background:var(--cn26-paper-2)!important;color:var(--cn26-ink)!important;border:2px solid var(--cn26-ink)!important;
+}
+.stApp [data-testid="stButton"] button[kind="secondary"]:hover,.stApp [data-testid="stLinkButton"] a:hover{
+  background:#EAF6F7!important;color:var(--cn26-ink)!important;border-color:var(--cn26-cyan)!important;
+}
+.stApp button:disabled{background:var(--cn26-paper-3)!important;color:#728087!important;border-color:#9AA59F!important;opacity:1!important;box-shadow:none!important;}
+
+/* G. INPUTS — clean card-label fields. */
+.stApp input,.stApp textarea,.stApp [data-baseweb="select"]>div,.stApp [data-baseweb="base-input"]{
+  background:#fff!important;color:var(--cn26-ink)!important;border:2px solid #9EAAA4!important;border-radius:8px!important;
+}
+.stApp input::placeholder,.stApp textarea::placeholder{color:#7C898F!important;}
+.stApp input:focus,.stApp textarea:focus,.stApp [data-baseweb="select"]>div:focus-within{border-color:var(--cn26-blue)!important;box-shadow:0 0 0 3px rgba(34,87,214,.12)!important;}
+.stApp [role="listbox"],.stApp [data-baseweb="popover"]{background:#fff!important;color:var(--cn26-ink)!important;}
+
+/* H. ADMIN FLOW — trading-card tabs with a clear current step. */
+.stApp [class*="st-key-admin_full_flow_desktop_"]{
+  background:#ECE8DC!important;border:2px solid var(--cn26-ink)!important;border-radius:12px!important;padding:6px!important;box-shadow:4px 4px 0 rgba(19,35,45,.08)!important;
+}
+.stApp [class*="st-key-admin_full_flow_desktop_"] [data-testid="stHorizontalBlock"]{gap:5px!important;}
+.stApp [class*="st-key-admin_full_flow_desktop_"] [data-testid="stButton"] button{
+  min-height:36px!important;background:#FFFDF7!important;color:var(--cn26-ink)!important;border:1.5px solid #7B898A!important;font-size:.70rem!important;box-shadow:none!important;
+}
+.stApp [class*="st-key-admin_full_flow_desktop_"] [data-testid="stButton"] button[kind="primary"],
+.stApp [class*="st-key-admin_full_flow_desktop_"] [data-testid="stButton"] button:disabled{
+  background:var(--cn26-cyan)!important;color:#071014!important;border:2px solid var(--cn26-ink)!important;opacity:1!important;font-weight:850!important;
+}
+
+/* I. ALERTS — comic callouts, semantic but never low-contrast. */
+.stApp [data-testid="stAlert"]{
+  background:#FFFDF7!important;color:var(--cn26-ink)!important;border:2px solid var(--cn26-ink)!important;border-left-width:7px!important;border-radius:10px!important;box-shadow:3px 3px 0 rgba(19,35,45,.07)!important;
+}
+.stApp [data-testid="stAlert"] p,.stApp [data-testid="stAlert"] div{color:var(--cn26-ink)!important;}
+
+/* J. TEXT-TV — the deliberate black live-data island; brightest legibility here. */
+.stApp .cn-texttv-table,.stApp .cn-tt-table,.stApp .texttv-table{
+  background:#030708!important;color:#F6FFF8!important;border:3px solid var(--cn26-ink)!important;border-radius:8px!important;
+  box-shadow:5px 5px 0 rgba(19,35,45,.12)!important;
+}
+.stApp .cn-texttv-table *,.stApp .cn-tt-table *,.stApp .texttv-table *{color:#F6FFF8!important;}
+.stApp .cn-texttv-table th,.stApp .cn-tt-table th,.stApp .texttv-table th{color:#69EAF2!important;}
+
+/* K. TABLES / DATA — paper/card shell; Text-TV classes above remain black. */
+.stApp [data-testid="stDataFrame"],.stApp [data-testid="stTable"]{
+  background:#fff!important;color:var(--cn26-ink)!important;border:2px solid var(--cn26-ink)!important;border-radius:10px!important;box-shadow:4px 4px 0 rgba(19,35,45,.08)!important;
+}
+
+/* L. Accessibility contract — no decorative treatment may reduce readability. */
+.stApp a{color:#154DBE!important;}
+.stApp a:focus-visible,.stApp button:focus-visible,.stApp input:focus-visible,.stApp textarea:focus-visible{outline:3px solid var(--cn26-yellow)!important;outline-offset:2px!important;}
+[data-baseweb="calendar"]{background:#fff!important;color-scheme:light!important;}
+[data-baseweb="calendar"] *{color:#172033!important;}
+
+/* M. Tiny motion only: like handling a card, never gamey. */
+.stApp button,.stApp a{transition:transform 120ms ease,background-color 120ms ease,border-color 120ms ease!important;}
+@media(max-width:900px){
+  [data-testid="stHeader"]{backdrop-filter:none!important;}
+  .stApp .cn-home-hero,.stApp .cup-hero{border-width:2px!important;box-shadow:5px 5px 0 rgba(19,35,45,.10)!important;}
+  [data-testid="stSidebar"]{border-right-width:2px!important;}
+}
+@media(prefers-reduced-motion:reduce){.stApp *, .stApp *::before,.stApp *::after{transition:none!important;animation:none!important;}}
+</style>
+""", unsafe_allow_html=True)
+
+# v609 — Signature Light Polish: editorial comic × football card × Text-TV × future.
+# Refines v608 into a calmer, more premium component language. Decorative texture
+# is constrained to identity surfaces; reading surfaces remain clean and high contrast.
+st.markdown("""
+<style>
+:root{
+  --cn609-canvas:#F4F1E8;--cn609-card:#FFFEFA;--cn609-ink:#102630;--cn609-muted:#5B7079;
+  --cn609-blue:#3157C8;--cn609-cyan:#00A7B7;--cn609-yellow:#F2C94C;--cn609-green:#248357;
+  --cn609-red:#C74A42;--cn609-line:#B9C3BF;--cn609-soft:#E8E4D9;--cn609-tv:#020708;
+}
+/* Softer canvas and more editorial spacing. */
+html,body,#root,.stApp,[data-testid="stAppViewContainer"],[data-testid="stMain"],section.main,.main{background:var(--cn609-canvas)!important;color:var(--cn609-ink)!important;}
+[data-testid="stMainBlockContainer"],.main .block-container,.stApp .block-container{max-width:1360px!important;padding-top:1.15rem!important;}
+.stApp h1{font-size:clamp(2rem,4vw,3.65rem)!important;letter-spacing:-.055em!important;line-height:.92!important;}
+.stApp h2{letter-spacing:-.04em!important}.stApp h3{letter-spacing:-.025em!important}
+
+/* Cards: collectible construction, not cartoon boxes. */
+.stApp [data-testid="stVerticalBlockBorderWrapper"],.stApp [data-testid="stForm"],.stApp [data-testid="stExpander"],
+.stApp [data-testid="stMetric"],.stApp .cn-home-card,.stApp .cn-home-step,.stApp .public-metric,.stApp .cn-public-highlight,
+.stApp .cn-about-card,.stApp [class*="metric-card"],.stApp [class*="overview-card"]{
+  border:1.5px solid var(--cn609-line)!important;border-radius:14px!important;background:var(--cn609-card)!important;
+  box-shadow:0 2px 0 rgba(16,38,48,.08),0 10px 28px rgba(16,38,48,.055)!important;
+}
+.stApp [data-testid="stVerticalBlockBorderWrapper"]:hover,.stApp .cn-home-card:hover{border-color:#8FA29F!important;}
+
+/* Signature cover card: halftone + diagonal collector stripe + clipped corner. */
+.stApp .cn-home-hero,.stApp .cup-hero,.stApp .cn609-admin-cover{
+  position:relative!important;overflow:hidden!important;background:
+   radial-gradient(circle,rgba(16,38,48,.10) 0 1px,transparent 1.25px) calc(100% - 12px) 12px/10px 10px no-repeat,
+   linear-gradient(118deg,#FFFEFA 0 72%,#E8F7F5 72% 79%,#F2C94C 79% 82%,#EEF2FF 82% 100%)!important;
+  border:2px solid var(--cn609-ink)!important;border-radius:16px 16px 16px 5px!important;
+  box-shadow:5px 6px 0 rgba(16,38,48,.10)!important;color:var(--cn609-ink)!important;
+}
+.stApp .cn-home-hero:before,.stApp .cup-hero:before{width:6px!important;background:linear-gradient(180deg,var(--cn609-blue),var(--cn609-cyan),var(--cn609-yellow))!important;}
+.stApp .cn609-admin-cover{padding:18px 20px 16px;margin:0 0 14px;}
+.cn609-admin-kicker{display:flex;gap:7px;align-items:center;font:800 11px/1.1 ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.09em;text-transform:uppercase;color:#31515C;margin-bottom:8px;}
+.cn609-admin-kicker:before{content:"";width:24px;height:5px;background:var(--cn609-cyan);border:1px solid var(--cn609-ink);}
+.cn609-admin-title{font-size:clamp(1.75rem,3.5vw,3rem);line-height:.95;font-weight:900;letter-spacing:-.055em;color:var(--cn609-ink);margin:0 0 10px;}
+.cn609-admin-meta{display:flex;gap:8px 16px;flex-wrap:wrap;color:#425D67;font-weight:650;font-size:.86rem;}
+.cn609-admin-meta b{color:var(--cn609-ink);}
+
+/* Sidebar = album index, restrained. */
+[data-testid="stSidebar"]{background:#FBF9F2!important;border-right:1.5px solid var(--cn609-ink)!important;}
+[data-testid="stSidebar"] [data-testid="stButton"] button{box-shadow:none!important;border-width:1px!important;border-color:#C8CFCA!important;background:transparent!important;}
+[data-testid="stSidebar"] [data-testid="stButton"] button:hover{background:#EEF7F5!important;border-color:var(--cn609-cyan)!important;transform:none!important;}
+
+/* Controls: future precision, less chunky comic styling. */
+.stApp [data-testid="stButton"] button,.stApp [data-testid="stLinkButton"] a,.stApp [data-testid="stDownloadButton"] button{
+  border-radius:9px!important;box-shadow:none!important;letter-spacing:-.01em!important;transition:transform 120ms ease,box-shadow 120ms ease,background 120ms ease!important;
+}
+.stApp [data-testid="stButton"] button[kind="primary"]{background:var(--cn609-blue)!important;border-color:#17316F!important;box-shadow:0 3px 0 #17316F!important;}
+.stApp [data-testid="stButton"] button[kind="primary"]:hover{background:#284DBB!important;transform:translateY(-1px)!important;box-shadow:0 4px 0 #17316F!important;}
+.stApp input,.stApp textarea,.stApp [data-baseweb="select"]>div,.stApp [data-baseweb="base-input"]{border:1.5px solid #AEBBB6!important;border-radius:9px!important;box-shadow:inset 0 1px 0 rgba(16,38,48,.04)!important;}
+
+/* Setup rail reads like card-set numbering. */
+.stApp [class*="st-key-admin_full_flow_desktop_"]{background:#EAE6DB!important;border:1.5px solid var(--cn609-ink)!important;border-radius:11px!important;box-shadow:none!important;}
+.stApp [class*="st-key-admin_full_flow_desktop_"] [data-testid="stButton"] button{border:0!important;border-radius:7px!important;background:#F9F7F0!important;font-family:ui-monospace,SFMono-Regular,Menlo,monospace!important;}
+.stApp [class*="st-key-admin_full_flow_desktop_"] [data-testid="stButton"] button[kind="primary"],
+.stApp [class*="st-key-admin_full_flow_desktop_"] [data-testid="stButton"] button:disabled{background:var(--cn609-cyan)!important;color:#04181D!important;box-shadow:inset 0 -3px 0 rgba(0,0,0,.12)!important;}
+
+/* Status strip: broadcast lower-third rather than pills everywhere. */
+.cn-admin-status-strip{background:var(--cn609-ink)!important;color:#F8FCFA!important;padding:7px 9px!important;border-radius:7px!important;margin:0 0 12px!important;font-family:ui-monospace,SFMono-Regular,Menlo,monospace!important;}
+.cn-admin-status-strip>span{color:#F8FCFA!important}.cn-admin-status-pill{background:var(--cn609-green)!important;color:white!important;border:0!important;border-radius:4px!important;text-transform:uppercase!important;letter-spacing:.05em!important;}
+
+/* Text-TV is the live-data signature, isolated and unmistakable. */
+.stApp .cn-texttv-table,.stApp .cn-tt-table,.stApp .texttv-table{background:var(--cn609-tv)!important;border:2px solid var(--cn609-ink)!important;border-radius:5px!important;box-shadow:4px 5px 0 rgba(16,38,48,.11)!important;}
+.stApp .cn-texttv-table th,.stApp .cn-tt-table th,.stApp .texttv-table th{color:#66EFF4!important;letter-spacing:.035em!important;}
+
+/* Small collectible details, only where they aid hierarchy. */
+.stApp [data-testid="stMetric"]{position:relative!important;overflow:hidden!important;}
+.stApp [data-testid="stMetric"]:after{content:"";position:absolute;right:0;top:0;width:30px;height:4px;background:linear-gradient(90deg,var(--cn609-cyan),var(--cn609-yellow));}
+.stApp [data-testid="stAlert"]{box-shadow:none!important;border-width:1.5px!important;border-left-width:6px!important;}
+
+@media(max-width:900px){
+ .stApp .cn609-admin-cover{padding:15px 14px 13px!important;border-radius:12px 12px 12px 4px!important;box-shadow:3px 4px 0 rgba(16,38,48,.09)!important;}
+ .cn609-admin-title{font-size:2rem!important}.cn609-admin-meta{font-size:.78rem!important;gap:6px 12px!important;}
+ .stApp [data-testid="stVerticalBlockBorderWrapper"]{box-shadow:0 2px 0 rgba(16,38,48,.06)!important;}
+}
+@media(prefers-reduced-motion:reduce){.stApp *, .stApp *::before,.stApp *::after{transition:none!important;animation:none!important;}}
+</style>
+""", unsafe_allow_html=True)
+
+
+# v610 — Signature Matchday Layer: the public sports surfaces now carry CupNavi's
+# own comic × collector-card × Text-TV × future identity, while keeping the light base.
+st.markdown("""
+<style>
+:root{
+  --cn610-paper:#F5F1E7;--cn610-card:#FFFDF8;--cn610-ink:#102630;--cn610-line:#9FAEAA;
+  --cn610-blue:#3157C8;--cn610-cyan:#00A7B7;--cn610-yellow:#F2C94C;--cn610-green:#248357;
+  --cn610-red:#C74A42;--cn610-tv:#020708;--cn610-tvtext:#F4FFF8;
+}
+/* Match cards = football collector cards, not generic white panels. */
+.stApp .public-match-card{
+  position:relative!important;overflow:hidden!important;background:var(--cn610-card)!important;color:var(--cn610-ink)!important;
+  border:1.5px solid var(--cn610-line)!important;border-radius:16px 16px 16px 6px!important;
+  padding:14px 15px 13px!important;margin:10px 0!important;
+  box-shadow:0 2px 0 rgba(16,38,48,.08),0 10px 24px rgba(16,38,48,.055)!important;
+}
+.stApp .public-match-card:before{content:"";position:absolute;left:0;top:0;bottom:0;width:5px;background:var(--cn610-blue)}
+.stApp .public-match-card:after{content:attr(data-match-no);position:absolute;right:9px;bottom:6px;font:800 9px/1 ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.08em;color:#96A39F;opacity:.72}
+.stApp .public-match-card.is-live{border-color:#4E777B!important;box-shadow:0 2px 0 rgba(16,38,48,.08),0 0 0 3px rgba(0,167,183,.10),0 12px 26px rgba(16,38,48,.07)!important}
+.stApp .public-match-card.is-live:before{background:linear-gradient(180deg,var(--cn610-yellow),var(--cn610-cyan))}
+.stApp .public-match-card.is-finished:before{background:var(--cn610-green)}
+.stApp .public-match-card .cn-match-time{font-size:1.18rem!important;font-weight:950!important;letter-spacing:-.045em!important;color:var(--cn610-ink)!important}
+.stApp .public-match-card .cn-match-place{font:800 10px/1.2 ui-monospace,SFMono-Regular,Menlo,monospace!important;text-transform:uppercase!important;letter-spacing:.06em!important;color:#5D7077!important;margin-top:3px}
+.stApp .public-match-card .cn-match-context .match-stage{font-size:10px!important;font-weight:900!important;letter-spacing:.09em!important;color:#31515C!important}
+.stApp .public-match-card .cn-match-context .match-number{font:750 9px/1.2 ui-monospace,SFMono-Regular,Menlo,monospace!important;color:#71858C!important}
+.stApp .public-match-card .cn-match-teams{margin-top:12px!important;gap:10px!important}
+.stApp .public-match-card .public-team-name{font-size:clamp(15px,2vw,18px)!important;font-weight:900!important;letter-spacing:-.025em!important;color:var(--cn610-ink)!important}
+/* Shirt silhouette instead of a generic colour rectangle. */
+.stApp .public-match-card .cn-match-kit{width:20px!important;height:18px!important;flex:0 0 20px!important;border:1.4px solid #53666D!important;border-radius:2px!important;clip-path:polygon(24% 0,40% 0,44% 12%,56% 12%,60% 0,76% 0,100% 22%,82% 43%,72% 34%,72% 100%,28% 100%,28% 34%,18% 43%,0 22%)!important;box-shadow:inset 0 0 0 1px rgba(255,255,255,.30)!important}
+/* Score is the tiny Text-TV broadcast island inside the card. */
+.stApp .public-match-card .match-score{min-width:56px;padding:7px 9px!important;background:var(--cn610-tv)!important;color:var(--cn610-tvtext)!important;border:1.5px solid var(--cn610-ink)!important;border-radius:6px!important;font:950 19px/1 ui-monospace,SFMono-Regular,Menlo,monospace!important;text-align:center!important;letter-spacing:-.06em!important;box-shadow:2px 2px 0 rgba(16,38,48,.12)!important}
+.stApp .public-match-card.is-upcoming .match-score{background:#EEF4F1!important;color:#31515C!important;border-color:#A9B9B4!important;box-shadow:none!important;font-size:13px!important;letter-spacing:.08em!important}
+.stApp .public-match-card .status-pill{border-radius:4px!important;font:850 9px/1 ui-monospace,SFMono-Regular,Menlo,monospace!important;letter-spacing:.075em!important;text-transform:uppercase!important;padding:5px 7px!important}
+.stApp .public-match-card .public-match-secondary{border-top:1px dashed #C8D0CC!important;padding-top:7px!important;margin-top:9px!important;color:#5D7077!important}
+
+/* Playoff mobile = a vertical stack of numbered collector-card rounds. */
+.stApp .cn-playoff-mobile-round{position:relative!important;padding-left:10px!important}
+.stApp .cn-playoff-mobile-round:before{content:"";position:absolute;left:0;top:2px;bottom:8px;width:3px;background:linear-gradient(var(--cn610-blue),var(--cn610-cyan))}
+.stApp .cn-playoff-mobile-round .round-head h4{font-weight:950!important;color:var(--cn610-ink)!important;letter-spacing:.075em!important}
+.stApp .cn-playoff-mobile-round .round-head>span{background:#E9E5DA!important;color:#415B64!important;border:1px solid #B9C3BF!important;border-radius:5px!important;font-family:ui-monospace,SFMono-Regular,Menlo,monospace!important}
+.stApp .cn-playoff-mobile-match{background:var(--cn610-card)!important;border:1.5px solid #AEBBB6!important;border-radius:13px 13px 13px 5px!important;box-shadow:0 2px 0 rgba(16,38,48,.07),0 8px 18px rgba(16,38,48,.045)!important}
+.stApp .cn-playoff-mobile-match .meta{background:#EDE9DE!important;color:#415A63!important;border-bottom:1px solid #C8D0CC!important;font-family:ui-monospace,SFMono-Regular,Menlo,monospace!important;letter-spacing:.025em!important}
+.stApp .cn-playoff-mobile-match .meta b{border-radius:4px!important;background:#DDE5E2!important;color:#35505A!important}
+.stApp .cn-playoff-mobile-match.live{border-color:var(--cn610-cyan)!important;box-shadow:0 0 0 3px rgba(0,167,183,.09)!important}
+.stApp .cn-playoff-mobile-match.live .meta b{background:var(--cn610-yellow)!important;color:#3D3100!important}
+.stApp .cn-playoff-mobile-match.finished .meta b{background:#DDEFE4!important;color:#1E6543!important}
+.stApp .cn-playoff-mobile-match .team{border-top:1px solid #E3E6E1!important}
+.stApp .cn-playoff-mobile-match .team span,.stApp .cn-playoff-mobile-match .team b{color:var(--cn610-ink)!important}
+.stApp .cn-playoff-mobile-match .team.winner{background:#EAF5EE!important}
+
+/* Public big-screen cards: same family, calmer at distance. */
+.stApp .cn-screen-grid{gap:14px!important}
+.stApp .cn-screen-card{background:var(--cn610-card)!important;border:1.5px solid #AEBBB6!important;border-radius:15px 15px 15px 5px!important;box-shadow:0 2px 0 rgba(16,38,48,.08),0 10px 24px rgba(16,38,48,.05)!important;overflow:hidden!important}
+.stApp .cn-screen-card h3{font-size:13px!important;text-transform:uppercase!important;letter-spacing:.07em!important;color:var(--cn610-ink)!important;border-bottom:4px solid var(--cn610-cyan)!important;padding-bottom:9px!important}
+.stApp .cn-screen-score{display:inline-block!important;background:var(--cn610-tv)!important;color:#F5FFF8!important;border-radius:5px!important;padding:2px 7px!important;font-family:ui-monospace,SFMono-Regular,Menlo,monospace!important}
+
+/* Text-TV tables stay intentionally stark; add a collector-card frame around the island. */
+.stApp .texttv-wrap,.stApp .texttv-table-wrap{border-radius:7px!important;box-shadow:4px 5px 0 rgba(16,38,48,.11)!important}
+.stApp .texttv-kicker{position:relative!important;padding-left:13px!important}
+.stApp .texttv-kicker:before{content:"";position:absolute;left:0;top:2px;width:6px;height:10px;background:var(--cn610-yellow)!important}
+
+@media(max-width:760px){
+ .stApp .public-match-card{padding:11px 11px 11px 13px!important;border-radius:13px 13px 13px 5px!important;margin:7px 0!important;box-shadow:0 2px 0 rgba(16,38,48,.07)!important}
+ .stApp .public-match-card:before{width:4px}.stApp .public-match-card:after{display:none}
+ .stApp .public-match-card .cn-match-kit{width:18px!important;height:16px!important;flex-basis:18px!important}
+ .stApp .public-match-card .match-score{min-width:49px!important;padding:6px 7px!important;font-size:17px!important}
+ .stApp .cn-playoff-mobile-round{padding-left:8px!important}
+}
+@media(prefers-reduced-motion:reduce){.stApp .public-match-card{scroll-behavior:auto!important}}
+</style>
+""", unsafe_allow_html=True)
+
+# v611 — Signature Public Stage: sharpen the ownable CupNavi identity where spectators live.
+st.markdown("""
+<style>
+:root{
+  --cn611-paper:#F4F0E6;--cn611-card:#FFFDF8;--cn611-ink:#102630;--cn611-ink2:#36505A;
+  --cn611-muted:#667982;--cn611-blue:#3157C8;--cn611-cyan:#00A7B7;--cn611-yellow:#F2C94C;
+  --cn611-green:#248357;--cn611-red:#C74A42;--cn611-tv:#020708;--cn611-line:#AAB7B2;
+}
+/* Public cover: a tournament programme cover, not a generic dashboard banner. */
+.stApp .cn611-public-cover{
+  padding:0!important;background:
+    radial-gradient(circle at 83% 18%,rgba(49,87,200,.10) 0 1px,transparent 1.6px) 0 0/13px 13px,
+    linear-gradient(135deg,#fffdf8 0%,#f7f2e7 70%,#e9f5f3 100%)!important;
+  border:2px solid var(--cn611-ink)!important;border-radius:20px 20px 20px 7px!important;
+  box-shadow:0 3px 0 rgba(16,38,48,.12),0 18px 38px rgba(16,38,48,.065)!important;
+}
+.stApp .cn611-public-cover:before{display:none!important}
+.stApp .cn611-cover-kicker{display:flex;align-items:center;gap:9px;padding:10px 15px 9px;border-bottom:1px solid #bbc5c1;background:rgba(255,253,248,.78)}
+.stApp .cn611-cover-brand{display:inline-flex;align-items:center;background:var(--cn611-ink);color:#fff!important;padding:5px 7px;border-radius:4px;font:950 10px/1 ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.12em}
+.stApp .cn611-cover-edition{color:#4e646d!important;font:800 9px/1 ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.085em;text-transform:uppercase}
+.stApp .cn611-cover-main{display:flex;align-items:flex-end;justify-content:space-between;gap:24px;padding:24px 24px 20px}
+.stApp .cn611-cover-copy{min-width:0}
+.stApp .cn611-public-cover .title{margin:0!important;color:var(--cn611-ink)!important;font-size:clamp(2rem,4.6vw,4.25rem)!important;line-height:.92!important;font-weight:950!important;letter-spacing:-.055em!important;max-width:980px}
+.stApp .cn611-public-cover .meta{margin-top:9px!important;color:#48616b!important;font-size:.9rem!important;font-weight:680!important;letter-spacing:-.01em!important}
+.stApp .cn611-cover-status{flex:0 0 auto;padding-bottom:2px}
+.stApp .cn611-public-cover .cn-hero-status{display:inline-flex!important;align-items:center!important;min-height:34px!important;padding:7px 10px!important;border:1.5px solid var(--cn611-ink)!important;border-radius:5px!important;box-shadow:2px 2px 0 rgba(16,38,48,.12)!important;font:900 10px/1 ui-monospace,SFMono-Regular,Menlo,monospace!important;letter-spacing:.07em!important;text-transform:uppercase!important;color:var(--cn611-ink)!important;background:#fff!important}
+.stApp .cn611-public-cover .cn-hero-status.live{background:var(--cn611-yellow)!important;color:#3d3100!important}
+.stApp .cn611-public-cover .cn-hero-status.completed{background:#dcefe3!important;color:#155a3b!important}
+.stApp .cn611-cover-footer{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:12px;padding:9px 15px;border-top:1px solid #bbc5c1;background:#ebe7dc}
+.stApp .cn611-cover-footer span{font:800 9px/1.2 ui-monospace,SFMono-Regular,Menlo,monospace!important;letter-spacing:.07em!important;text-transform:uppercase!important}
+.stApp .cn611-cover-sport{color:#fff!important;background:var(--cn611-blue);border-radius:3px;padding:4px 6px}
+.stApp .cn611-cover-slogan{color:#425b64!important;text-align:left}
+.stApp .cn611-cover-index{color:#74858a!important;text-align:right}
+
+/* Primary spectator nav behaves like the tabs on a premium match programme. */
+.stApp [class*="st-key-cn_public_primary_nav_shell_"]{margin:10px 0 6px!important}
+.stApp [class*="st-key-cn_public_primary_nav_shell_"] [data-testid="stSegmentedControl"]{background:#e8e4d9!important;border:1.5px solid #9daca7!important;border-radius:10px!important;padding:4px!important;box-shadow:0 2px 0 rgba(16,38,48,.07)!important}
+.stApp [class*="st-key-cn_public_primary_nav_shell_"] [data-testid="stSegmentedControl"] button{min-height:36px!important;border-radius:6px!important;font-size:.78rem!important;font-weight:850!important;color:#49616a!important}
+.stApp [class*="st-key-cn_public_primary_nav_shell_"] [data-testid="stSegmentedControl"] button[aria-pressed="true"]{background:var(--cn611-ink)!important;color:#fff!important;box-shadow:none!important}
+
+/* Search is a utility rail, visually quieter than the tournament itself. */
+.stApp [class*="st-key-public_global_search_form_"]{background:transparent!important;border:0!important;box-shadow:none!important;padding:0!important}
+.stApp [class*="st-key-public_global_search_form_"] input{background:#fffdf8!important;border:1.5px solid #aebbb6!important;border-radius:8px!important;color:var(--cn611-ink)!important;box-shadow:inset 0 1px 0 rgba(16,38,48,.03)!important}
+
+/* Desktop playoff gets the same programme/card/broadcast language as match cards. */
+.stApp .classic-bracket-scroll{padding:5px 3px 16px!important}
+.stApp .classic-bracket:after{content:"CUPNAVI / PLAYOFF";position:absolute;right:12px;bottom:9px;color:#9ba7a4;font:800 8px/1 ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.11em}
+.stApp .classic-match{transition:transform .14s ease,box-shadow .14s ease}
+@media (hover:hover) and (prefers-reduced-motion:no-preference){.stApp .classic-match:hover{transform:translateY(-2px);box-shadow:0 3px 0 rgba(16,38,48,.09),0 12px 25px rgba(16,38,48,.08)!important}}
+.stApp .classic-match.final-match .classic-meta{border-bottom-color:var(--cn611-yellow)!important}
+.stApp .classic-bronze{color:var(--cn611-ink)!important}
+
+/* Public first screen: tighter, more editorial, more mobile-first. */
+@media(max-width:760px){
+  .stApp .cn611-cover-main{padding:17px 14px 14px;align-items:flex-start;gap:10px;flex-direction:column}
+  .stApp .cn611-public-cover .title{font-size:clamp(2rem,11.5vw,3.15rem)!important;line-height:.94!important}
+  .stApp .cn611-public-cover .meta{font-size:.78rem!important;margin-top:7px!important}
+  .stApp .cn611-cover-status{position:absolute;right:11px;top:9px;padding:0}
+  .stApp .cn611-cover-kicker{padding-right:92px}
+  .stApp .cn611-cover-footer{grid-template-columns:auto 1fr;padding:8px 10px;gap:8px}
+  .stApp .cn611-cover-index{display:none}
+  .stApp .cn611-cover-slogan{text-align:right;font-size:8px!important}
+  .stApp [class*="st-key-cn_public_primary_nav_shell_"] [data-testid="stSegmentedControl"]{overflow-x:auto!important;justify-content:flex-start!important;scrollbar-width:none}
+  .stApp [class*="st-key-cn_public_primary_nav_shell_"] [data-testid="stSegmentedControl"]::-webkit-scrollbar{display:none}
+  .stApp [class*="st-key-cn_public_primary_nav_shell_"] [data-testid="stSegmentedControl"] button{flex:0 0 auto!important;min-height:34px!important;padding:0 10px!important;font-size:.72rem!important}
+}
+@media(prefers-reduced-motion:reduce){.stApp .classic-match{transition:none!important}}
 </style>
 """, unsafe_allow_html=True)
 
@@ -10352,7 +10913,16 @@ if view_mode == "Admin" and st.session_state.get("new_tournament_setup_id") == t
     render_initial_tournament_setup(tid, tournament)
     st.stop()
 if view_mode == "Admin":
-    st.title(f"🏆 {tournament['name']}")
+    _cn609_name = html.escape(str(tournament["name"] or "CupNavi"))
+    _cn609_place = html.escape(str(tournament["location"] or "Spelort saknas"))
+    _cn609_date = html.escape(str(cup_date_label(tournament)))
+    _cn609_teams = html.escape(str(tournament["expected_team_count"] or "—"))
+    st.markdown(
+        f"<section class='cn609-admin-cover'><div class='cn609-admin-kicker'>CUPNAVI · CONTROL DESK</div>"
+        f"<div class='cn609-admin-title'>{_cn609_name}</div>"
+        f"<div class='cn609-admin-meta'><span>📍 <b>{_cn609_place}</b></span><span>◷ {_cn609_date}</span><span>◫ {_cn609_teams} planerade lag</span></div></section>",
+        unsafe_allow_html=True,
+    )
     tournament_environment = str(_row_value(tournament, "environment_type", "production") or "production")
     if tournament_environment == "test":
         st.warning("🧪 TESTMILJÖ – denna cup är avsedd för test och kan raderas fritt.")

@@ -458,28 +458,28 @@ def render_bracket_tree(
         f"""
         <style>
           .classic-bracket-scroll {{overflow-x:auto;padding:4px 3px 12px}}
-          .classic-bracket {{position:relative;width:{canvas_width}px;min-width:{canvas_width}px;max-width:100%;height:{canvas_height}px;background:#fff;border:1px solid #e2e8f0;border-radius:14px}}
-          .classic-stage-title {{position:absolute;top:12px;text-align:center;font-size:14px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:#334155}}
-          .classic-match {{position:absolute;z-index:2;box-sizing:border-box;background:#fff;border:1px solid #cbd5e1;border-radius:8px;box-shadow:0 3px 10px rgba(15,23,42,.11);overflow:hidden}}
-          .classic-match.final-match {{border:2px solid #d4a017;box-shadow:0 4px 14px rgba(180,120,0,.18)}}
-          .classic-meta {{padding:5px 9px;background:#0f5132;color:#fff;font-size:10px;font-weight:650;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}}
-          .classic-team {{display:grid;grid-template-columns:12px 1fr 25px;gap:7px;align-items:center;min-height:29px;padding:2px 8px;border-bottom:1px solid #e5e7eb;font-size:13px;color:#334155}}
-          .classic-team i {{width:11px;height:18px;border:1px solid #64748b;border-radius:2px}}
+          .classic-bracket {{position:relative;width:{canvas_width}px;min-width:{canvas_width}px;max-width:100%;height:{canvas_height}px;background:linear-gradient(180deg,#fffdf8,#f5f1e7);border:1.5px solid #9faeaa;border-radius:18px 18px 18px 7px;box-shadow:0 2px 0 rgba(16,38,48,.08),0 14px 34px rgba(16,38,48,.055);overflow:hidden}}
+          .classic-stage-title {{position:absolute;top:11px;text-align:left;padding-left:11px;font:950 12px/1.2 ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.075em;text-transform:uppercase;color:#102630;border-left:5px solid #00a7b7}}
+          .classic-match {{position:absolute;z-index:2;box-sizing:border-box;background:#fffdf8;border:1.5px solid #aebbb6;border-radius:13px 13px 13px 5px;box-shadow:0 2px 0 rgba(16,38,48,.08),0 8px 18px rgba(16,38,48,.05);overflow:hidden}}
+          .classic-match.final-match {{border:2px solid #d1a92f;box-shadow:0 0 0 3px rgba(242,201,76,.15),0 10px 24px rgba(16,38,48,.07)}}
+          .classic-meta {{padding:6px 9px;background:#102630;color:#f4fff8;font:800 9px/1.2 ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.035em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;border-bottom:3px solid #00a7b7}}
+          .classic-team {{display:grid;grid-template-columns:18px 1fr 34px;gap:8px;align-items:center;min-height:31px;padding:3px 8px;border-bottom:1px solid #e1e5e0;font-size:13px;color:#233b45}}
+          .classic-team i {{width:16px;height:15px;border:1.2px solid #53666d;border-radius:2px;clip-path:polygon(24% 0,40% 0,44% 12%,56% 12%,60% 0,76% 0,100% 22%,82% 43%,72% 34%,72% 100%,28% 100%,28% 34%,18% 43%,0 22%);box-shadow:inset 0 0 0 1px rgba(255,255,255,.28)}}
           .classic-team span {{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}}
-          .classic-team b {{font-size:15px;text-align:center;color:#0f172a}}
-          .classic-team.winner {{background:#ecfdf5;color:#065f46;font-weight:800}}
-          .classic-team.winner b {{color:#047857}}
-          .classic-referee {{padding:3px 8px;color:#64748b;font-size:9px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}}
+          .classic-team b {{font:950 15px/1 ui-monospace,SFMono-Regular,Menlo,monospace;text-align:center;color:#f4fff8;background:#020708;border-radius:4px;padding:4px 3px}}
+          .classic-team.winner {{background:#e8f3eb;color:#1f6144;font-weight:900}}
+          .classic-team.winner b {{color:#9ff1bd;background:#071410}}
+          .classic-referee {{padding:4px 8px;color:#667982;font:700 8.5px/1.2 ui-monospace,SFMono-Regular,Menlo,monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;background:#f4f0e6}}
           .bracket-penalties {{position:absolute;right:34px;bottom:3px;color:#9a3412;font-size:9px;font-weight:700}}
           .line {{position:absolute;z-index:1;display:block;box-sizing:border-box}}
-          .line.horizontal {{border-top:2px solid #94a3b8}}
-          .line.vertical {{border-left:2px solid #94a3b8}}
-          .classic-bronze {{display:grid;grid-template-columns:1fr 32px;gap:4px 10px;max-width:330px;margin-top:12px;padding:12px 14px;background:#fffbeb;border:1px solid #fcd34d;border-left:5px solid #b45309;border-radius:9px}}
-          .classic-bronze div {{grid-column:1 / 3;display:flex;justify-content:space-between;margin-bottom:4px;color:#92400e}}
-          .classic-bronze small {{color:#a16207}}
+          .line.horizontal {{border-top:2px solid #6b9ca3}}
+          .line.vertical {{border-left:2px solid #6b9ca3}}
+          .classic-bronze {{display:grid;grid-template-columns:1fr 36px;gap:5px 10px;max-width:340px;margin-top:12px;padding:12px 14px;background:#fff8d9;border:1.5px solid #c6a538;border-left:6px solid #f2c94c;border-radius:12px 12px 12px 4px;box-shadow:0 2px 0 rgba(16,38,48,.07)}}
+          .classic-bronze div {{grid-column:1 / 3;display:flex;justify-content:space-between;margin-bottom:4px;color:#5b4b10;font:900 11px/1.2 ui-monospace,SFMono-Regular,Menlo,monospace;text-transform:uppercase;letter-spacing:.05em}}
+          .classic-bronze small {{color:#76631f}}
           .classic-bronze span {{font-size:13px}}
           .classic-bronze span.winner {{font-weight:850;color:#065f46}}
-          .classic-bronze b {{text-align:center}}
+          .classic-bronze b {{text-align:center;background:#020708;color:#f4fff8;border-radius:4px;padding:3px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace}}
           .classic-bronze em {{grid-column:1 / 3;font-style:normal;font-size:10px;font-weight:750;color:#9a3412}}
         </style>
         <style>

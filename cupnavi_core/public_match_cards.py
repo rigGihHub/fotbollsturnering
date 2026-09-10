@@ -201,8 +201,7 @@ def render_public_match_cards(
             else ("is-finished" if row_show_results or explicit_status == MATCH_FINISHED else "is-upcoming")
         )
         card_html = (
-            f'<div class="public-match-card {card_state_class}" style="border:1px solid #d1d5db;border-radius:14px;'
-            'padding:14px;margin:10px 0;background:#ffffff;color:#172033">'
+            f'<div class="public-match-card {card_state_class}" data-match-no="MATCH {html.escape(str(match_number))}">'
             '<div class="cn-match-card-top">'
             f'<div><div class="cn-match-time">{html.escape(time_label)}</div>'
             f'<div class="cn-match-place">{html.escape(pitch_text)}</div></div>'

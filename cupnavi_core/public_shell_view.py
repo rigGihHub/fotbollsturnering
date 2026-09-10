@@ -32,14 +32,25 @@ def build_public_hero_html(
 
     location = html.escape(tournament["location"] or "Spelort ej angiven")
     hero_meta = f"{html.escape(str(cup_date_label(tournament)))} · {location}"
+    sport = html.escape(str(row_value(tournament, "sport", "Fotboll")))
     return (
-        "<div class='cup-hero'>"
-        f"<div class='eyebrow'>CupNavi · {html.escape(translate('Turneringsöversikt'))}</div>"
-        "<div class='cn-hero-title-row'>"
-        f"<div class='title'>{html.escape(tournament['name'])}</div>{status_html}</div>"
-        f"<div class='meta'>{hero_meta} · {html.escape(str(row_value(tournament, 'sport', 'Fotboll')))}</div>"
-        "<div class='cn-hero-slogan'>Mer cup. Mindre kaos.</div>"
+        "<section class='cup-hero cn611-public-cover'>"
+        "<div class='cn611-cover-kicker'>"
+        f"<span class='cn611-cover-brand'>CUPNAVI</span><span class='cn611-cover-edition'>{html.escape(translate('Turneringsöversikt'))}</span>"
         "</div>"
+        "<div class='cn611-cover-main'>"
+        "<div class='cn611-cover-copy'>"
+        f"<div class='title'>{html.escape(tournament['name'])}</div>"
+        f"<div class='meta'>{hero_meta}</div>"
+        "</div>"
+        f"<div class='cn611-cover-status'>{status_html}</div>"
+        "</div>"
+        "<div class='cn611-cover-footer'>"
+        f"<span class='cn611-cover-sport'>{sport}</span>"
+        "<span class='cn611-cover-slogan'>Mer cup. Mindre kaos.</span>"
+        "<span class='cn611-cover-index'>MATCHDAY / 01</span>"
+        "</div>"
+        "</section>"
     )
 
 
@@ -87,9 +98,9 @@ def render_public_screen_mode(
           .stApp .block-container {max-width:1600px !important;padding:1.2rem 2rem 2rem !important;}
           .cn-persistent-brand,.cn-fixed-share {display:none !important;}
           .cn-screen-head{display:flex;justify-content:space-between;align-items:center;gap:20px;margin-bottom:18px}
-          .cn-screen-title{font-size:34px;font-weight:900;color:#0f172a}.cn-screen-meta{color:#475569;font-size:16px}
-          .cn-screen-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}.cn-screen-card{background:white;border:1px solid #dbe3ea;border-radius:16px;padding:16px;box-shadow:0 6px 18px rgba(15,23,42,.06)}
-          .cn-screen-card h3{margin:0 0 10px;color:#0f172a}.cn-screen-match{padding:10px 0;border-top:1px solid #edf2f7}.cn-screen-match:first-of-type{border-top:0}.cn-screen-score{font-size:26px;font-weight:900;color:#14532d}.cn-screen-time{font-weight:800;color:#0f172a}.cn-screen-muted{color:#64748b}
+          .cn-screen-title{font-size:36px;font-weight:950;letter-spacing:-.04em;color:#102630}.cn-screen-meta{color:#536a72;font-size:14px;font-weight:700}
+          .cn-screen-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}.cn-screen-card{background:#fffdf8;border:1.5px solid #aebbb6;border-radius:16px 16px 16px 6px;padding:16px;box-shadow:0 2px 0 rgba(16,38,48,.08),0 10px 24px rgba(16,38,48,.05)}
+          .cn-screen-card h3{margin:0 0 10px;padding-bottom:9px;border-bottom:4px solid #00a7b7;color:#102630;font:950 13px/1.2 ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.07em;text-transform:uppercase}.cn-screen-match{padding:10px 0;border-top:1px solid #e1e5e0}.cn-screen-match:first-of-type{border-top:0}.cn-screen-score{display:inline-block;background:#020708;color:#f4fff8;border-radius:5px;padding:3px 7px;font:950 24px/1 ui-monospace,SFMono-Regular,Menlo,monospace}.cn-screen-time{font:900 14px/1 ui-monospace,SFMono-Regular,Menlo,monospace;color:#102630}.cn-screen-muted{color:#667982}
           @media(max-width:900px){.cn-screen-grid{grid-template-columns:1fr}.cn-screen-title{font-size:27px}}
         </style>""",
         unsafe_allow_html=True,
