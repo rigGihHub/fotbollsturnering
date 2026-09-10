@@ -1,0 +1,1 @@
+Admin navigation + parity map only. No fabricated backend behavior.
