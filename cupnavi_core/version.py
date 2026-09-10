@@ -1,4 +1,4 @@
-APP_VERSION = "2026.09.10-620-PUBLIC-STATISTICS-API"
+APP_VERSION = "2026.09.10-620-PUBLIC-STATISTICS-PARITY"
 
 
 def release_ui_label(version: str | None = None) -> str:
