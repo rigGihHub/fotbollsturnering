@@ -1,0 +1,6 @@
+[x] dead sidebar links removed
+[x] all known admin areas represented
+[x] unfinished writes remain disabled
+[x] mobile layout covered
+[x] parity gates documented
+[ ] authenticated write API (next release)
