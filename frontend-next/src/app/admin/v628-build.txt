@@ -1,0 +1,1 @@
+No local build executed by connector; PR CI must be authoritative.
