@@ -1,4 +1,4 @@
-import { CupSnapshot, StandingRow } from "./types";
+import { CupSnapshot, PublicStatistics, StandingRow } from "./types";
 
 const API_BASE = (process.env.CUPNAVI_API_BASE || process.env.NEXT_PUBLIC_CUPNAVI_API_BASE || "http://localhost:8000").replace(/\/$/, "");
 
@@ -14,6 +14,10 @@ export function getCup(publicKey: string) {
 
 export function getStandings(publicKey: string) {
   return apiGet<{groups:Array<{group:{id:number;name:string};rows:StandingRow[]}>}>(`/api/public/cups/${encodeURIComponent(publicKey)}/standings`);
+}
+
+export function getStatistics(publicKey: string) {
+  return apiGet<PublicStatistics>(`/api/public/cups/${encodeURIComponent(publicKey)}/statistics`);
 }
 
 export function getTeamSummary(publicKey: string, teamId: number) {

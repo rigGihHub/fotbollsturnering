@@ -64,7 +64,6 @@ def _dict_rows(cursor):
         return []
     if isinstance(rows[0], sqlite3.Row):
         return [dict(r) for r in rows]
-    # libsql follows DB-API cursor.description for tuple rows.
     columns=[item[0] for item in (cursor.description or [])]
     if columns:
         return [dict(zip(columns,row)) for row in rows]
@@ -135,6 +134,62 @@ def public_notifications(tournament_id,team_id):
            ORDER BY created_at DESC,id DESC LIMIT 20""",
         (int(tournament_id),int(team_id)),
     )
+
+def public_statistics(tournament_id):
+    """Return public player/team leaderboards from registered match events.
+
+    Uses only persisted player_match_stats. No score-derived or synthetic player events
+    are invented when a goal has not been assigned to a player.
+    """
+    tid=int(tournament_id)
+    rows=all_rows(
+        """SELECT p.id AS player_id,p.name AS player_name,p.player_number,
+                  t.id AS team_id,t.name AS team_name,
+                  COALESCE(SUM(pms.goals),0) AS goals,
+                  COALESCE(SUM(pms.assists),0) AS assists,
+                  COALESCE(SUM(pms.yellow_cards),0) AS yellow_cards,
+                  COALESCE(SUM(pms.red_cards),0) AS red_cards
+           FROM player_match_stats pms
+           JOIN matches m ON m.id=pms.match_id
+           JOIN players p ON p.id=pms.player_id
+           JOIN teams t ON t.id=p.team_id
+           WHERE m.tournament_id=?
+           GROUP BY p.id,p.name,p.player_number,t.id,t.name""",
+        (tid,),
+    )
+    normalized=[]
+    for row in rows:
+        item=dict(row)
+        for key in ("goals","assists","yellow_cards","red_cards"):
+            item[key]=int(item.get(key) or 0)
+        normalized.append(item)
+
+    def ranked(metric):
+        return sorted(
+            [row for row in normalized if int(row.get(metric) or 0)>0],
+            key=lambda row:(-int(row.get(metric) or 0),str(row.get("player_name") or "").casefold()),
+        )
+
+    team_cards={}
+    for row in normalized:
+        team_id=int(row["team_id"])
+        bucket=team_cards.setdefault(team_id,{"team_id":team_id,"team_name":row["team_name"],"yellow_cards":0,"red_cards":0})
+        bucket["yellow_cards"]+=int(row["yellow_cards"])
+        bucket["red_cards"]+=int(row["red_cards"])
+
+    discipline=sorted(
+        team_cards.values(),
+        key=lambda row:(int(row["red_cards"]),int(row["yellow_cards"]),str(row["team_name"]).casefold()),
+    )
+    return {
+        "scorers":ranked("goals"),
+        "assists":ranked("assists"),
+        "cards":sorted(
+            [row for row in normalized if int(row["yellow_cards"])+int(row["red_cards"])>0],
+            key=lambda row:(-int(row["red_cards"]),-int(row["yellow_cards"]),str(row["player_name"]).casefold()),
+        ),
+        "discipline":discipline,
+    }
 
 def group_teams(group_id):
     return all_rows(

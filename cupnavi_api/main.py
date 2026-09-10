@@ -7,7 +7,8 @@ from cupnavi_core.version import APP_VERSION
 from cupnavi_core.public_competition import calculate_group_table, team_competition_summary
 from .repository import (
     public_tournament, public_teams, public_groups, public_matches, public_venue_points,
-    public_notifications, public_brackets, public_snapshot, backend_name, standings_inputs, database_probe
+    public_notifications, public_brackets, public_snapshot, public_statistics,
+    backend_name, standings_inputs, database_probe
 )
 
 app=FastAPI(title="CupNavi Public API",version=APP_VERSION,docs_url="/docs",redoc_url=None)
@@ -82,6 +83,22 @@ def playoffs(public_key:str):
     if not tournament:
         raise HTTPException(status_code=404,detail="Cup not found or not published")
     return {"playoff_format":tournament.get("playoff_format"),"brackets":public_brackets(int(tournament["id"]))}
+
+@app.get("/api/public/cups/{public_key}/statistics")
+def statistics(public_key:str):
+    tournament=public_tournament(public_key)
+    if not tournament:
+        raise HTTPException(status_code=404,detail="Cup not found or not published")
+    payload=public_statistics(int(tournament["id"]))
+    return {
+        "enabled":{
+            "scorers":bool(tournament.get("show_scorer_stats")),
+            "assists":bool(tournament.get("show_assist_stats")),
+            "cards":bool(tournament.get("show_card_stats")),
+            "fairness":bool(tournament.get("show_fairness")),
+        },
+        **payload,
+    }
 
 @app.get("/api/public/cups/{public_key}/teams/{team_id}/summary")
 def team_summary(public_key:str,team_id:int):
