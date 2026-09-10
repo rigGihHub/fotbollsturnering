@@ -12,6 +12,7 @@ export default function Home() {
           <article><span>330</span><strong>Se läget live</strong><p>Tabeller och resultat med CupNavis Text-TV-lager.</p></article>
         </div>
         <p className="landing__hint">Öppna cupen via länken som arrangören har delat.</p>
+        <p className="landing__admin-link"><a href="/admin">Arrangör? Öppna admin →</a></p>
       </section>
     </main>
   );
