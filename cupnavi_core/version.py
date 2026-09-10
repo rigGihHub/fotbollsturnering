@@ -1,4 +1,4 @@
-APP_VERSION = "2026.09.10-620-PUBLIC-STATISTICS-PARITY"
+APP_VERSION = "2026.09.10-623-WEATHER-QR-PARITY"
 
 
 def release_ui_label(version: str | None = None) -> str:
