@@ -67,8 +67,10 @@ cupnavi_core/static/
 cupnavi_core/tests/
 cupnavi_core/app.py
 
-# Next.js local/build files
+# Local generated files
 frontend-next/node_modules/
 frontend-next/.next/
 frontend-next/.vercel/
 frontend-next/.env*
+__pycache__/
+*.pyc

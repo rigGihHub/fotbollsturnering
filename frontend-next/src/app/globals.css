@@ -49,3 +49,38 @@
 .landing__cards strong{display:block;font-size:21px;letter-spacing:-.035em;margin-bottom:7px}.landing__cards p{font-size:14px!important;line-height:1.45;margin:0!important}
 .landing__hint{margin-top:22px;font-size:13px!important;font-weight:750;color:var(--ink-2)!important}
 @media(max-width:760px){.page-shell{max-width:none}.cup-cover{padding:16px;border-radius:19px}.cup-cover__content{margin-top:22px}.section-heading--compact{grid-template-columns:1fr}.favorite-strip>div:first-child{display:block}.next-match-hero .match-card__body{min-height:108px}.next-match-hero .score-window strong{font-size:30px}.landing--editorial{padding:34px 0 84px}.landing__issue{margin-bottom:28px}.landing__cards{grid-template-columns:1fr;margin-top:28px}.landing__cards article{min-height:132px}.landing__cards span{margin-bottom:22px}}
+
+/* v616 — matchday polish: tighter hierarchy, clearer favorites, stronger live card */
+.page-shell--matchday{padding-top:22px}
+.edition-nav--desktop{position:sticky;top:49px;z-index:15;background:rgba(244,241,232,.94);backdrop-filter:blur(10px);padding:8px 0;margin:14px 0 28px}
+.edition-nav--desktop button{min-height:52px;background:rgba(251,250,245,.7)}
+.edition-nav--desktop button.is-active{background:var(--ink)}
+.matchday{gap:14px}
+.section-heading--compact{align-items:center}
+.section-heading--compact h2{margin-bottom:2px}
+.favorite-strip{border-radius:14px;padding:12px 13px}
+.favorite-strip__head{display:flex!important;align-items:center!important;justify-content:space-between!important;gap:12px!important;margin-bottom:9px!important}
+.favorite-strip__head>div{min-width:0}.favorite-strip__head strong{font-size:14px}.favorite-strip__head span{font-size:12px}
+.favorite-clear{border:0;background:transparent;color:var(--ink-2);font-size:11px;font-weight:850;text-decoration:underline;text-underline-offset:3px;cursor:pointer;padding:4px 0;white-space:nowrap}
+.favorite-chips{gap:6px}
+.favorite-chip{display:inline-flex;align-items:center;gap:5px;padding:6px 9px;font-size:11px;border-radius:10px;background:rgba(255,255,255,.52)}
+.favorite-chip span{font-size:12px;line-height:1;color:var(--blue)}
+.favorite-chip.is-selected{background:var(--ink);color:#fff}.favorite-chip.is-selected span{color:#fff36b}
+.next-match-hero{background:linear-gradient(180deg,#fbfaf5 0%,#f8f7f0 100%);padding:9px;border-radius:18px}
+.next-match-hero__label{font:950 10px/1 ui-monospace,SFMono-Regular,Consolas,monospace;letter-spacing:.11em;padding:3px 4px 8px}
+.next-match-hero .match-card{border-width:1.5px;border-radius:12px}
+.next-match-hero .match-card__body{min-height:118px;grid-template-columns:1fr 86px 1fr}
+.next-match-hero .team{padding:15px}
+.next-match-hero .team strong{font-size:clamp(18px,2vw,22px)}
+.next-match-hero .score-window strong{font-size:36px}
+.next-match-actions{gap:7px;padding-top:7px}
+.next-match-actions a,.next-match-actions button,.next-match-actions>span{min-height:38px;border-radius:9px;font-size:12px;gap:5px}
+.subsection-label{display:flex;align-items:center;justify-content:space-between;margin-top:3px;padding:0 2px;color:var(--ink-2);font:850 10px/1 ui-monospace,SFMono-Regular,Consolas,monospace;letter-spacing:.1em}.subsection-label strong{color:var(--ink);letter-spacing:0}
+.my-teams-grid{grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+.team-pass{min-height:106px;padding:12px;border-radius:12px;box-shadow:2px 3px 0 rgba(16,38,48,.08)}
+.team-pass h3{font-size:18px;margin:17px 0 8px}
+.team-pass__facts{font-size:10px;gap:7px}
+.match-grid{gap:12px}
+.match-card__body{min-height:108px}.match-card__topline{padding:8px 10px}.match-card__footer{padding:8px 10px}
+@media(min-width:1000px){.page-shell--matchday{max-width:1080px}.cup-cover{min-height:192px}.cup-cover__content{margin-top:24px}.cup-cover h1{font-size:64px}.cup-cover__meta{font-size:14px}.matchday>.section-heading--compact{grid-template-columns:130px minmax(0,1fr)}.matchday>.section-heading--compact h2{font-size:46px}}
+@media(max-width:760px){.page-shell--matchday{padding-top:12px}.cup-cover{box-shadow:3px 4px 0 rgba(16,38,48,.10)}.cup-cover__eyebrow{font-size:8px}.cup-cover h1{font-size:clamp(36px,12vw,54px)}.cup-cover__meta{font-size:11px;line-height:1.35}.collectible-stamp{width:54px;height:68px}.collectible-stamp strong{font-size:22px}.section-heading--compact{padding-top:0}.section-heading--compact h2{font-size:36px}.section-heading--compact p{font-size:12px}.favorite-strip{padding:10px;margin-left:0;margin-right:0}.favorite-strip__head span{display:block;margin-top:2px}.favorite-chip{font-size:11px;padding:7px 9px}.next-match-hero{margin-left:0;margin-right:0;border-width:1.5px;padding:7px}.next-match-hero .match-card__body{grid-template-columns:1fr 66px 1fr;min-height:96px}.next-match-hero .team{padding:10px}.next-match-hero .team strong{font-size:15px}.next-match-hero .score-window strong{font-size:26px}.next-match-actions{grid-template-columns:1.1fr .9fr}.next-match-actions a,.next-match-actions button,.next-match-actions>span{min-height:40px;font-size:11px}.my-teams-grid{gap:8px}.team-pass{min-height:94px}.mobile-bottom-nav{left:8px;right:8px;bottom:max(8px,env(safe-area-inset-bottom));border-radius:14px}}
