@@ -190,7 +190,7 @@ def inject_v600_public_shell_milestone():
     return _inject_v600_public_shell_milestone_impl(st)
 def inject_v198_visual_system():
     return _inject_v198_visual_system_impl(st)
-APP_BUILD_VERSION = "2026.09.10-611-SIGNATURE-PUBLIC-STAGE"
+APP_BUILD_VERSION = "2026.09.10-613-NEXT-FRONTEND-FOUNDATION"
 APP_VERSION = APP_BUILD_VERSION
 
 def _set_session_state_values(values):
@@ -8479,33 +8479,21 @@ def render_new_tournament_creator(*, key_prefix="sidebar"):
     if not creator_compact:
         st.markdown(
             """
-            <style>
-              .cn-create-hero {
-                border: 1px solid #e4e9e6; border-radius: 18px; padding: 18px 20px;
-                background: linear-gradient(180deg,#ffffff 0%,#fbfdfc 100%);
-                box-shadow: 0 8px 30px rgba(20,45,30,.06); margin: 4px 0 16px 0;
-              }
-              .cn-create-eyebrow {font-size:.78rem;font-weight:750;letter-spacing:.06em;text-transform:uppercase;color:#178342;margin-bottom:5px;}
-              .cn-create-title {font-size:1.48rem;font-weight:800;color:#142019;line-height:1.15;margin:0 0 6px 0;}
-              .cn-create-copy {color:#56635b;font-size:.94rem;line-height:1.5;margin:0;}
-              .cn-create-steps {display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:14px 0 4px 0;}
-              .cn-create-step {border:1px solid #e3e8e5;border-radius:12px;padding:9px 10px;background:#fff;color:#68736c;font-size:.78rem;font-weight:650;}
-              .cn-create-step strong {display:inline-flex;width:20px;height:20px;align-items:center;justify-content:center;border-radius:999px;background:#edf7f0;color:#14783b;margin-right:5px;}
-              .cn-create-step.active {border-color:#a9d7b8;background:#f4fbf6;color:#174d2c;}
-              .cn-test-banner {border:1px solid #a9d7b8;border-radius:14px;padding:13px 15px;background:#f2fbf5;margin:8px 0 14px 0;}
-              .cn-test-banner-title {font-weight:800;color:#126b34;margin-bottom:3px;}
-              .cn-test-banner-copy {color:#486052;font-size:.88rem;line-height:1.42;}
-              @media(max-width:640px){.cn-create-steps{grid-template-columns:1fr 1fr}.cn-create-hero{padding:15px}.cn-create-title{font-size:1.25rem}}
-            </style>
-            <div class="cn-create-hero">
-              <div class="cn-create-eyebrow">Ny turnering</div>
-              <div class="cn-create-title">Skapa ny cup</div>
-              <p class="cn-create-copy">Börja med grunderna. CupNavi guidar dig vidare och låter avancerade val vänta tills de faktiskt behövs.</p>
-              <div class="cn-create-steps">
-                <div class="cn-create-step active"><strong>1</strong>Grund</div>
-                <div class="cn-create-step"><strong>2</strong>Tävlingsklasser</div>
-                <div class="cn-create-step"><strong>3</strong>Kapacitet</div>
-                <div class="cn-create-step"><strong>4</strong>Regler</div>
+            <div class="cn612-create-cover">
+              <div class="cn612-create-topline"><span>CN / NEW CUP</span><span>SET 01</span></div>
+              <div class="cn612-create-grid">
+                <div>
+                  <div class="cn612-create-kicker">Ny turnering</div>
+                  <div class="cn612-create-title">Skapa din cup.</div>
+                  <p class="cn612-create-copy">Fyra grunduppgifter räcker för att börja. CupNavi bygger sedan vidare steg för steg.</p>
+                </div>
+                <div class="cn612-create-badge" aria-hidden="true"><span>CUP</span><strong>01</strong></div>
+              </div>
+              <div class="cn612-create-steps" aria-label="Cupflöde">
+                <div class="cn612-create-step active"><b>01</b><span>Grund</span></div>
+                <div class="cn612-create-step"><b>02</b><span>Klasser</span></div>
+                <div class="cn612-create-step"><b>03</b><span>Kapacitet</span></div>
+                <div class="cn612-create-step"><b>04</b><span>Regler</span></div>
               </div>
             </div>
             """,
@@ -10845,6 +10833,68 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
+# v612 — Signature Admin Studio: CupNavi's light identity moves into creation and admin.
+# Design recipe: editorial comic framing + football-card indexing + Text-TV data islands + future precision.
+st.markdown("""
+<style>
+:root{
+ --cn612-paper:#F3F0E6;--cn612-card:#FFFDF8;--cn612-ink:#102630;--cn612-ink2:#405861;
+ --cn612-blue:#3157C8;--cn612-cyan:#009AA8;--cn612-yellow:#F2C94C;--cn612-green:#237A52;
+ --cn612-red:#B9423B;--cn612-line:#91A39F;--cn612-line2:#C7D0CC;--cn612-tv:#020708;
+}
+/* Admin and create surfaces share one ownable language. */
+.cn612-create-cover,.cn612-admin-deck,.cn612-first-run{
+ position:relative;overflow:hidden;background:var(--cn612-card);color:var(--cn612-ink);
+ border:1.5px solid var(--cn612-ink);border-radius:18px 18px 18px 6px;
+ box-shadow:4px 5px 0 rgba(16,38,48,.10);margin:4px 0 16px;
+}
+.cn612-create-cover:after,.cn612-admin-deck:after,.cn612-first-run:after{
+ content:"";position:absolute;right:-28px;top:-22px;width:120px;height:120px;opacity:.38;pointer-events:none;
+ background:radial-gradient(circle,rgba(16,38,48,.18) 0 1px,transparent 1.35px);background-size:9px 9px;
+ transform:rotate(8deg);
+}
+.cn612-create-cover{padding:13px 18px 17px;background:linear-gradient(115deg,#FFFDF8 0 73%,#EAF7F5 73% 82%,#F7D96C 82% 85%,#EEF2FF 85% 100%)}
+.cn612-create-topline,.cn612-admin-index{display:flex;justify-content:space-between;gap:12px;padding-bottom:9px;border-bottom:1px solid var(--cn612-line2);font:800 10px/1 ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.08em;text-transform:uppercase;color:#587078}
+.cn612-create-grid,.cn612-admin-main{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:18px;align-items:end;padding-top:18px}
+.cn612-create-kicker,.cn612-admin-kicker,.cn612-first-run-kicker{font:900 11px/1.1 ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.10em;text-transform:uppercase;color:var(--cn612-cyan);margin-bottom:7px}
+.cn612-create-title,.cn612-admin-title,.cn612-first-run-title{font-weight:950;letter-spacing:-.055em;line-height:.92;color:var(--cn612-ink)}
+.cn612-create-title{font-size:clamp(2rem,4vw,3.45rem)}.cn612-admin-title{font-size:clamp(1.8rem,3vw,2.7rem)}.cn612-first-run-title{font-size:clamp(1.65rem,3vw,2.55rem)}
+.cn612-create-copy,.cn612-first-run-copy{max-width:720px;margin:10px 0 0;color:var(--cn612-ink2);font-size:.94rem;line-height:1.5;font-weight:580}
+.cn612-create-badge,.cn612-admin-cardno{width:78px;min-width:78px;aspect-ratio:5/6;border:1.5px solid var(--cn612-ink);border-radius:10px 10px 10px 3px;background:var(--cn612-tv);color:#F3FFF8;display:flex;flex-direction:column;justify-content:space-between;padding:9px;box-shadow:3px 3px 0 var(--cn612-yellow)}
+.cn612-create-badge span,.cn612-admin-cardno small{font:800 9px/1 ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.08em;color:#62E4EA}.cn612-create-badge strong,.cn612-admin-cardno strong{font:950 2rem/.9 ui-monospace,SFMono-Regular,Menlo,monospace;color:#F8E06B}
+.cn612-create-steps,.cn612-first-run-steps{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:7px;margin-top:18px}
+.cn612-create-step,.cn612-first-step{min-width:0;border-top:3px solid var(--cn612-line2);padding:8px 4px 2px;color:#65777E;font-size:.74rem;font-weight:750;display:flex;gap:7px;align-items:center}
+.cn612-create-step b{font:900 10px/1 ui-monospace,SFMono-Regular,Menlo,monospace;color:#7A8C92}.cn612-create-step.active,.cn612-first-step.active{border-color:var(--cn612-cyan);color:var(--cn612-ink)}.cn612-create-step.active b{color:var(--cn612-cyan)}
+.cn-test-banner{border:1.5px solid #78A992!important;border-radius:11px!important;padding:11px 13px!important;background:#EFF8F2!important;margin:9px 0 14px!important}.cn-test-banner-title{font-weight:900!important;color:#1D6847!important}.cn-test-banner-copy{color:#405E50!important;font-size:.86rem!important;line-height:1.42!important}
+/* Admin = an indexed control card, not a generic dashboard banner. */
+.cn612-admin-deck{padding:12px 16px 15px;background:linear-gradient(118deg,#FFFDF8 0 78%,#EDF8F6 78% 100%)}
+.cn612-admin-meta{margin-top:8px;color:#4E656D;font:750 12px/1.35 ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.005em}.cn612-admin-meta i{font-style:normal;color:var(--cn612-cyan);padding:0 3px}
+.cn612-admin-cardno{width:68px;min-width:68px;box-shadow:3px 3px 0 #BFE9E6}.cn612-admin-cardno strong{font-size:1.7rem;color:#F8E06B}
+/* Make the overview read as a sequence: status -> next action -> blockers. */
+.stApp .cn-section-head{font:900 10px/1.2 ui-monospace,SFMono-Regular,Menlo,monospace!important;letter-spacing:.09em!important;text-transform:uppercase!important;color:#536A72!important;margin:15px 0 7px!important;padding-left:10px!important;border-left:4px solid var(--cn612-cyan)!important}
+.stApp .cn-overview-next{border:1.5px solid var(--cn612-ink)!important;border-radius:13px 13px 13px 4px!important;background:#FFFDF8!important;box-shadow:3px 4px 0 rgba(16,38,48,.08)!important;padding:14px 15px!important;position:relative!important;overflow:hidden!important}
+.stApp .cn-overview-next:after{content:"NEXT";position:absolute;right:9px;top:8px;font:900 9px/1 ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.08em;color:#789097!important}
+.stApp .cn-overview-next .eyebrow{color:var(--cn612-cyan)!important;font:900 10px/1.2 ui-monospace,SFMono-Regular,Menlo,monospace!important;letter-spacing:.08em!important;text-transform:uppercase!important}.stApp .cn-overview-next .title{font-size:1.22rem!important;font-weight:900!important;color:var(--cn612-ink)!important}.stApp .cn-overview-next .copy{color:#50666E!important}
+.stApp .cn-overview-attention-row{border-radius:10px!important;border:1px solid #D1A05D!important;background:#FFF8E9!important;color:#593B1C!important;box-shadow:none!important}.stApp .cn-overview-attention-row .text,.stApp .cn-overview-attention-row b{color:#593B1C!important}
+/* Metrics become tiny stat cards; numbers remain dominant and readable. */
+.stApp [data-testid="stMetric"]{border:1.5px solid var(--cn612-line)!important;border-radius:12px 12px 12px 4px!important;background:#FFFDF8!important;box-shadow:none!important;padding:10px 12px!important}.stApp [data-testid="stMetric"] [data-testid="stMetricLabel"]{font:850 10px/1.2 ui-monospace,SFMono-Regular,Menlo,monospace!important;letter-spacing:.06em!important;text-transform:uppercase!important;color:#60757D!important}.stApp [data-testid="stMetric"] [data-testid="stMetricValue"]{font-weight:950!important;letter-spacing:-.04em!important;color:var(--cn612-ink)!important}
+/* First-run card: fewer words, one strong journey. */
+.cn612-first-run{padding:16px 17px 14px;background:linear-gradient(118deg,#FFFDF8 0 82%,#F3F0E6 82% 100%)}
+.cn612-first-run-steps{grid-template-columns:repeat(9,minmax(0,1fr));margin-top:15px}.cn612-first-step{font:800 9px/1.2 ui-monospace,SFMono-Regular,Menlo,monospace!important;display:block!important;white-space:normal!important}.cn612-first-step.active{color:var(--cn612-ink)!important}
+/* Sidebar is the album index; hierarchy before decoration. */
+[data-testid="stSidebar"] h3{font-size:.76rem!important;text-transform:uppercase!important;letter-spacing:.08em!important;color:#536B73!important;font-family:ui-monospace,SFMono-Regular,Menlo,monospace!important}
+[data-testid="stSidebar"] [data-testid="stButton"] button{min-height:34px!important;border-radius:8px!important;font-size:.82rem!important;font-weight:720!important}
+/* Inputs on the light canvas must never inherit pale text. */
+.stApp input,.stApp textarea,.stApp [data-baseweb="select"] input,.stApp [data-baseweb="select"] span{color:var(--cn612-ink)!important}.stApp label,.stApp [data-testid="stWidgetLabel"]{color:var(--cn612-ink)!important}
+@media(max-width:760px){
+ .cn612-create-cover,.cn612-admin-deck,.cn612-first-run{border-radius:13px 13px 13px 4px;box-shadow:3px 3px 0 rgba(16,38,48,.09)}
+ .cn612-create-cover{padding:11px 13px 14px}.cn612-create-grid,.cn612-admin-main{gap:10px;padding-top:14px}.cn612-create-badge,.cn612-admin-cardno{width:58px;min-width:58px;padding:7px}.cn612-create-badge strong{font-size:1.5rem}
+ .cn612-create-steps{grid-template-columns:repeat(2,minmax(0,1fr));gap:5px 9px}.cn612-admin-deck{padding:10px 12px 13px}.cn612-admin-title{font-size:1.75rem}.cn612-admin-meta{font-size:10px}
+ .cn612-first-run-steps{grid-template-columns:repeat(3,minmax(0,1fr));gap:5px 8px}.cn612-first-step{min-height:28px}
+}
+</style>
+""", unsafe_allow_html=True)
+
 def render_initial_tournament_setup(tournament_id, tournament):
     """Render first-run wizard for a new cup; keep the full editor for later changes."""
     deps = InitialSetupDependencies(
@@ -12076,20 +12126,20 @@ elif admin_page == "Adminöversikt":
 
     if first_run_new_cup:
         st.markdown(
-            f"""<div class="cn-first-run-hero">
-              <div class="kicker">Ny cup · kom igång</div>
-              <div class="title">{html.escape(tournament['name'])} är skapad!</div>
-              <div class="copy">CupNavi guidar dig från första laget till publicerat schema. Du behöver inte kunna hur en cup ska planeras – börja enkelt, avancerade inställningar kan vänta.</div>
-              <div class="cn-first-run-steps">
-                <div class="step active">1 · Cupinfo</div>
-                <div class="step">2 · Lag</div>
-                <div class="step">3 · Grupper</div>
-                <div class="step">4 · Regler</div>
-                <div class="step">5 · Planer & tider</div>
-                <div class="step">6 · Domare · valfritt</div>
-                <div class="step">7 · Schema</div>
-                <div class="step">8 · Kontroll</div>
-                <div class="step">9 · Publicera</div>
+            f"""<div class="cn612-first-run">
+              <div class="cn612-first-run-kicker">ORIGIN CARD · Ny cup</div>
+              <div class="cn612-first-run-title">{html.escape(tournament['name'])} är skapad.</div>
+              <div class="cn612-first-run-copy">Nästa uppgift är tydlig: fyll cupinformationen. CupNavi håller resten i bakgrunden tills det behövs.</div>
+              <div class="cn612-first-run-steps">
+                <div class="cn612-first-step active">1 · Cupinfo</div>
+                <div class="cn612-first-step">2 · Lag</div>
+                <div class="cn612-first-step">3 · Grupper</div>
+                <div class="cn612-first-step">4 · Regler</div>
+                <div class="cn612-first-step">5 · Planer & tider</div>
+                <div class="cn612-first-step">6 · Domare · valfritt</div>
+                <div class="cn612-first-step">7 · Schema</div>
+                <div class="cn612-first-step">8 · Kontroll</div>
+                <div class="cn612-first-step">9 · Publicera</div>
               </div>
             </div>""",
             unsafe_allow_html=True,
@@ -12135,11 +12185,15 @@ elif admin_page == "Adminöversikt":
         # 1) Var står cupen? 2) Vad gör jag nu? 3) Vad blockerar?
         # Djupare checklistor och verktyg ligger bakom progressiv disclosure.
         st.markdown(
-            f"""<div class="cn-admin-overview-head">
-              <div>
-                <div class="kicker">{html.escape(mode_labels.get(current_admin_mode, 'Planeringsläge'))}</div>
-                <div class="title">Adminöversikt</div>
-                <div class="meta">{teams_n} lag · {groups_n} grupper · {played_n}/{matches_n} resultat · {html.escape(publication_label)}</div>
+            f"""<div class="cn612-admin-deck">
+              <div class="cn612-admin-index"><span>CN / CONTROL</span><span>{html.escape(mode_labels.get(current_admin_mode, 'Planeringsläge'))}</span></div>
+              <div class="cn612-admin-main">
+                <div>
+                  <div class="cn612-admin-kicker">Turneringskontroll</div>
+                  <div class="cn612-admin-title">{html.escape(tournament['name'])}</div>
+                  <div class="cn612-admin-meta">{teams_n} lag <i>·</i> {groups_n} grupper <i>·</i> {played_n}/{matches_n} resultat <i>·</i> {html.escape(publication_label)}</div>
+                </div>
+                <div class="cn612-admin-cardno"><small>ADMIN</small><strong>{int(tid):02d}</strong></div>
               </div>
             </div>""",
             unsafe_allow_html=True,
