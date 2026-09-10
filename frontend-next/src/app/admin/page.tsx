@@ -1,12 +1,13 @@
 const STREAMLIT_ADMIN = "https://cupnavi.streamlit.app/";
+const PUBLIC_CUP = "/cup/slottskampen-2026";
 
 const adminModules = [
-  { n: "01", title: "Cupöversikt", text: "Cupnamn, datum, anläggningar och publiceringsstatus." },
-  { n: "02", title: "Lag & grupper", text: "Lag, klasser, grupper, tröjfärger och import." },
-  { n: "03", title: "Schema", text: "Planer, tider, domare, viloregler och manuella justeringar." },
-  { n: "04", title: "Slutspel", text: "A/B-slutspel, bronsmatch och kvalificeringsregler." },
-  { n: "05", title: "Roller & koder", text: "Domare, matchrapportörer och lagledarkoder samlade på ett ställe." },
-  { n: "06", title: "Publicera", text: "Förhandsgranskning, checklista och publicering till publikvyn." },
+  { n: "01", title: "Inloggning & koder", text: "Admin-, domar-, matchrapportör- och lagkoder.", status: "NÄSTA" },
+  { n: "02", title: "Cupinfo", text: "Cupnamn, datum, anläggningar, kontakt och publiceringsstatus.", status: "NÄSTA" },
+  { n: "03", title: "Lag & grupper", text: "Lag, klasser, grupper, tröjfärger och import.", status: "KÖ" },
+  { n: "04", title: "Planer & schema", text: "Planer, tider, viloregler, domare och manuella justeringar.", status: "KÖ" },
+  { n: "05", title: "Slutspel & rapportering", text: "A/B-slutspel, brons, resultat, mål, assist och kort.", status: "KÖ" },
+  { n: "06", title: "Publicera & export", text: "Checklista, förhandsgranskning, publicering, delning och PDF.", status: "KÖ" },
 ];
 
 export default function AdminPage() {
@@ -20,9 +21,9 @@ export default function AdminPage() {
         <div className="admin-hero__content">
           <div>
             <p className="kicker">CupNavi arrangör</p>
-            <h1>Admin. På väg hem.</h1>
+            <h1>Admin flyttar in i CupNavi.</h1>
             <p className="admin-hero__lead">
-              Den publika CupNavi-vyn kör nu i Next.js. Administrationsdelen flyttas stegvis hit utan att störa den fungerande cupdriften.
+              Vi migrerar administrationen modul för modul. En funktion markeras inte som klar förrän den använder riktig CupNavi-data, kan spara säkert och är testad.
             </p>
           </div>
           <div className="admin-status-card" aria-label="Migreringsstatus">
@@ -35,25 +36,26 @@ export default function AdminPage() {
 
       <section className="admin-now">
         <div>
-          <span className="admin-now__eyebrow">ADMIN JUST NU</span>
-          <h2>Fortsätt administrera i Streamlit</h2>
-          <p>Inga adminfunktioner har stängts av. Den gamla adminsidan är fortfarande den aktiva kontrollpanelen tills motsvarande Next.js-flöden är klara.</p>
+          <span className="admin-now__eyebrow">DRIFT JUST NU</span>
+          <h2>Gamla admin är fortfarande kontrollpanelen</h2>
+          <p>Next-admin byggs nu, men vi låtsas inte att funktioner är migrerade innan skrivning, behörighet och tester finns. Använd Streamlit för skarpa ändringar tills respektive modul är klar.</p>
         </div>
-        <a className="admin-primary-cta" href={STREAMLIT_ADMIN} target="_blank" rel="noreferrer">
-          Öppna CupNavi Admin <span>↗</span>
-        </a>
+        <div style={{display:"flex", gap:"10px", flexWrap:"wrap"}}>
+          <a className="admin-primary-cta" href={STREAMLIT_ADMIN} target="_blank" rel="noreferrer">Öppna aktiv Admin <span>↗</span></a>
+          <a className="admin-primary-cta" href={PUBLIC_CUP}>Öppna testcup <span>→</span></a>
+        </div>
       </section>
 
       <section className="admin-module-section">
         <div className="section-heading section-heading--compact">
           <span>CN//CONTROL</span>
-          <h2>Nya adminytan</h2>
-          <p>Det här är strukturen som flyttas in härnäst.</p>
+          <h2>Migreringsordning</h2>
+          <p>Först autentisering och Cupinfo. Sedan bygger vi vidare på samma riktiga dataflöde.</p>
         </div>
         <div className="admin-module-grid">
           {adminModules.map((item) => (
             <article className="admin-module" key={item.n}>
-              <div className="admin-module__meta"><span>{item.n}</span><span>PLANERAD</span></div>
+              <div className="admin-module__meta"><span>{item.n}</span><span>{item.status}</span></div>
               <h3>{item.title}</h3>
               <p>{item.text}</p>
             </article>
@@ -62,9 +64,9 @@ export default function AdminPage() {
       </section>
 
       <section className="admin-migration-note">
-        <span>CN//MIGRATION RULE</span>
-        <strong>Ingen big-bang-migrering.</strong>
-        <p>Varje adminmodul flyttas först när den har funktionell parity, testad dataskrivning och säker behörighetskontroll. Streamlit ligger kvar som fallback under övergången.</p>
+        <span>CN//MIGRATION GATE</span>
+        <strong>Riktig funktion före grön etikett.</strong>
+        <p>Nästa tekniska leverans är autentiserat admin-API och redigerbar Cupinfo. Streamlit tas inte bort förrän kritisk funktionell parity finns i Next.</p>
       </section>
     </main>
   );
