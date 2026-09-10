@@ -190,7 +190,7 @@ def inject_v600_public_shell_milestone():
     return _inject_v600_public_shell_milestone_impl(st)
 def inject_v198_visual_system():
     return _inject_v198_visual_system_impl(st)
-APP_BUILD_VERSION = "2026.09.10-613-NEXT-FRONTEND-FOUNDATION"
+APP_BUILD_VERSION = "2026.09.10-615-NEXT-VISUAL-RUNTIME-HARDENING"
 APP_VERSION = APP_BUILD_VERSION
 
 def _set_session_state_values(values):

@@ -15,3 +15,7 @@ export function getCup(publicKey: string) {
 export function getStandings(publicKey: string) {
   return apiGet<{groups:Array<{group:{id:number;name:string};rows:StandingRow[]}>}>(`/api/public/cups/${encodeURIComponent(publicKey)}/standings`);
 }
+
+export function getTeamSummary(publicKey: string, teamId: number) {
+  return apiGet<import("./types").TeamSummaryPayload>(`/api/public/cups/${encodeURIComponent(publicKey)}/teams/${teamId}/summary`);
+}

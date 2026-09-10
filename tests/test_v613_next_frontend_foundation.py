@@ -1,7 +1,7 @@
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-EXPECTED = "2026.09.10-613-NEXT-FRONTEND-FOUNDATION"
+EXPECTED = "2026.09.10-615-NEXT-VISUAL-RUNTIME-HARDENING"
 
 def test_version_sync():
     assert EXPECTED in (ROOT / "VERSION.txt").read_text()
