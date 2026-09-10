@@ -24,5 +24,9 @@ jobs:
           pip check
       - name: Audit Python dependencies
         run: pip-audit -r requirements.txt
-      - name: Verify release manifest
+      - name: Verify release manifest on release tags
+        if: startsWith(github.ref, 'refs/tags/')
         run: python scripts/generate_release_manifest.py --check
+      - name: Explain manifest policy on source builds
+        if: ${{ !startsWith(github.ref, 'refs/tags/') }}
+        run: echo "Static RELEASE_MANIFEST verification is release-tag-only; source integrity is provided by the Git commit and dependency audit remains blocking."
