@@ -1,4 +1,4 @@
-﻿import sqlite3
+import sqlite3
 import html
 import base64
 import hmac
@@ -241,39 +241,39 @@ def sport_setup_recommendation(sport):
     profiles={
         "football":{
             "group_sizes":[4,5,3,6],
-            "match_note":"Kortare cupmatcher med tvÃ¥ halvlekar Ã¤r vanligast.",
-            "rest_note":"Lagvila Ã¤r en central schemabegrÃ¤nsning.",
-            "discipline_label":"Gula/rÃ¶da kort",
-            "relevant_stats":["MÃ¥l","Assist","Gula/rÃ¶da kort"],
-            "playoff_note":"Gruppspel fÃ¶ljt av A/B-slutspel eller placeringsslutspel fungerar bra.",
+            "match_note":"Kortare cupmatcher med två halvlekar är vanligast.",
+            "rest_note":"Lagvila är en central schemabegränsning.",
+            "discipline_label":"Gula/röda kort",
+            "relevant_stats":["Mål","Assist","Gula/röda kort"],
+            "playoff_note":"Gruppspel följt av A/B-slutspel eller placeringsslutspel fungerar bra.",
             "venue_label":"Planer",
         },
         "floorball":{
             "group_sizes":[4,5,3,6],
-            "match_note":"Cupmatcher spelas lÃ¤mpligen i perioder; CupNavi fÃ¶reslÃ¥r sportprofilens periodantal.",
-            "rest_note":"Undvik tÃ¤ta matcher och lÃ¥nga vÃ¤ntetider mellan periodintensiva matcher.",
+            "match_note":"Cupmatcher spelas lämpligen i perioder; CupNavi föreslår sportprofilens periodantal.",
+            "rest_note":"Undvik täta matcher och långa väntetider mellan periodintensiva matcher.",
             "discipline_label":"Utvisningar/straffminuter",
-            "relevant_stats":["MÃ¥l","Assist"],
-            "playoff_note":"Gruppspel fÃ¶ljt av direkt slutspel Ã¤r normalt mest lÃ¤ttÃ¶verskÃ¥dligt.",
+            "relevant_stats":["Mål","Assist"],
+            "playoff_note":"Gruppspel följt av direkt slutspel är normalt mest lättöverskådligt.",
             "venue_label":"Spelplaner/hallar",
         },
         "handball":{
             "group_sizes":[4,5,3,6],
-            "match_note":"TvÃ¥ halvlekar med kort cupmatchtid ger vanligtvis bÃ¤st flÃ¶de.",
-            "rest_note":"Lagvila och hallkapacitet bÃ¶r prioriteras hÃ¶gt.",
+            "match_note":"Två halvlekar med kort cupmatchtid ger vanligtvis bäst flöde.",
+            "rest_note":"Lagvila och hallkapacitet bör prioriteras högt.",
             "discipline_label":"2-minutersutvisningar/kort",
-            "relevant_stats":["MÃ¥l","Kort/utvisningar"],
-            "playoff_note":"Gruppspel och semifinal/final Ã¤r ett tydligt standardupplÃ¤gg.",
+            "relevant_stats":["Mål","Kort/utvisningar"],
+            "playoff_note":"Gruppspel och semifinal/final är ett tydligt standardupplägg.",
             "venue_label":"Spelplaner/hallar",
         },
     }
     generic={
         "group_sizes":[4,5,3,6],
-        "match_note":"CupNavi anvÃ¤nder sportprofilens perioder/set som startvÃ¤rde.",
+        "match_note":"CupNavi använder sportprofilens perioder/set som startvärde.",
         "rest_note":"Vila och kapacitet anpassas efter sportprofilen.",
-        "discipline_label":"DisciplinhÃ¤ndelser",
+        "discipline_label":"Disciplinhändelser",
         "relevant_stats":["Resultat"],
-        "playoff_note":"CupNavi fÃ¶reslÃ¥r ett slutspel som ryms i tillgÃ¤nglig kapacitet.",
+        "playoff_note":"CupNavi föreslår ett slutspel som ryms i tillgänglig kapacitet.",
         "venue_label":"Spelytor",
     }
     extra=profiles.get(sport_id,generic)
@@ -282,7 +282,7 @@ def sport_setup_recommendation(sport):
         "display_name":definition.get("sv") or str(sport),
         "participant_type":definition.get("participant_type","team"),
         "period_label":definition.get("period_label",{}).get("sv","perioder"),
-        "score_label":definition.get("score_label",{}).get("sv","poÃ¤ng"),
+        "score_label":definition.get("score_label",{}).get("sv","poäng"),
         "periods":int(definition.get("periods") or 2),
         "minutes_per_period":int(definition.get("minutes_per_period") or 20),
         "break_minutes":int(definition.get("break_minutes") or 5),
@@ -343,9 +343,9 @@ def recommend_tournament_format(*, sport, team_count, pitch_count, available_min
     options=[candidate(size) for size in preferred_group_sizes if size <= max(n,3)]
     best=min(options,key=lambda item:item["score"])
     label = (
-        "Ã…ttondelsfinal â†’ kvartsfinal â†’ semifinal â†’ final" if best["playoff_size"] >= 16 else
-        "Kvartsfinal â†’ semifinal â†’ final" if best["playoff_size"] >= 8 else
-        "Semifinal â†’ final" if best["playoff_size"] >= 4 else
+        "Åttondelsfinal → kvartsfinal → semifinal → final" if best["playoff_size"] >= 16 else
+        "Kvartsfinal → semifinal → final" if best["playoff_size"] >= 8 else
+        "Semifinal → final" if best["playoff_size"] >= 4 else
         "Final"
     )
     return {**best,"playoff_format_label":label,"sport":sport}
@@ -357,7 +357,7 @@ def public_cup_url(tournament_id):
     return f"{PUBLIC_APP_URL}?cup={quote(str(public_key))}"
 
 def parse_age_classes(value):
-    """BakÃ¥tkompatibel parser fÃ¶r tÃ¤vlingsklasser frÃ¥n JSON eller kommaseparerad text."""
+    """Bakåtkompatibel parser för tävlingsklasser från JSON eller kommaseparerad text."""
     if value is None:
         return []
     if isinstance(value, (list, tuple)):
@@ -388,7 +388,7 @@ def youth_competition_class_label(category, year):
     return f"{prefix}{int(year)}"
 
 def add_competition_class(tournament_id, category, year, planned_team_count=0, difficulty="Medel"):
-    """LÃ¤gg till en ungdomsklass med eget planerat antal lag."""
+    """Lägg till en ungdomsklass med eget planerat antal lag."""
     label = youth_competition_class_label(category, year)
     current = [competition_class_label(row) for row in competition_classes(tournament_id)]
     if label.casefold() in {item.casefold() for item in current}:
@@ -405,14 +405,14 @@ def add_competition_class(tournament_id, category, year, planned_team_count=0, d
     return True, f"{label} tillagd."
 
 def remove_competition_class(tournament_id, class_id):
-    """Ta bort en oanvÃ¤nd tÃ¤vlingsklass. AnvÃ¤nda klasser raderas aldrig blint."""
+    """Ta bort en oanvänd tävlingsklass. Använda klasser raderas aldrig blint."""
     row = one_row("SELECT id,name FROM competition_classes WHERE id=? AND tournament_id=?", (class_id, tournament_id))
     if row is None:
-        return False, "TÃ¤vlingsklassen finns inte lÃ¤ngre."
+        return False, "Tävlingsklassen finns inte längre."
     team_count = int(one_row("SELECT COUNT(*) AS n FROM teams WHERE tournament_id=? AND competition_class_id=?", (tournament_id, class_id))["n"] or 0)
     group_count = int(one_row("SELECT COUNT(*) AS n FROM groups WHERE tournament_id=? AND competition_class_id=?", (tournament_id, class_id))["n"] or 0)
     if team_count or group_count:
-        return False, f"{row['name']} anvÃ¤nds av {team_count} lag och {group_count} grupper. Flytta eller ta bort dessa kopplingar fÃ¶rst."
+        return False, f"{row['name']} används av {team_count} lag och {group_count} grupper. Flytta eller ta bort dessa kopplingar först."
     run("DELETE FROM competition_classes WHERE id=? AND tournament_id=?", (class_id, tournament_id))
     remaining = [competition_class_label(item) for item in competition_classes(tournament_id)]
     run("UPDATE tournaments SET age_classes_json=? WHERE id=?", (json.dumps(remaining, ensure_ascii=False), tournament_id))
@@ -449,7 +449,7 @@ def competition_classes(tournament_id):
             return normalized
 
 def sync_competition_classes(tournament_id, labels=None):
-    """Synka Ã¤ldre tÃ¤vlingsklassdata till den nya klassmodellen utan att radera anvÃ¤nda klasser."""
+    """Synka äldre tävlingsklassdata till den nya klassmodellen utan att radera använda klasser."""
     tournament_id = int(tournament_id)
     if labels is None:
         row = one_row("SELECT age_classes_json FROM tournaments WHERE id=?", (tournament_id,))
@@ -464,7 +464,7 @@ def sync_competition_classes(tournament_id, labels=None):
             )
         else:
             run("UPDATE competition_classes SET sort_order=? WHERE id=?", (order, existing[label.casefold()]["id"]))
-    # Koppla Ã¤ldre textfÃ¤lt till klass-ID nÃ¤r det gÃ¥r. TextfÃ¤lten behÃ¥lls tills vidare fÃ¶r bakÃ¥tkompatibilitet.
+    # Koppla äldre textfält till klass-ID när det går. Textfälten behålls tills vidare för bakåtkompatibilitet.
     run(
         """UPDATE teams SET competition_class_id=(SELECT cc.id FROM competition_classes cc WHERE cc.tournament_id=teams.tournament_id AND cc.name=teams.age_class LIMIT 1)
              WHERE tournament_id=? AND competition_class_id IS NULL AND age_class IS NOT NULL AND TRIM(age_class)<>''""",
@@ -489,7 +489,7 @@ def sync_expected_team_count_from_classes(tournament_id):
     run("UPDATE tournaments SET expected_team_count=? WHERE id=?",(total,int(tournament_id)))
     return total
 
-DIFFICULTY_LEVELS = ["LÃ¤tt", "Medel", "SvÃ¥r", "Extra svÃ¥r"]
+DIFFICULTY_LEVELS = ["Lätt", "Medel", "Svår", "Extra svår"]
 
 def tournament_day_windows(tournament_id):
     return all_rows("SELECT tournament_id,play_date,start_time,end_time,confirmed FROM tournament_day_windows WHERE tournament_id=? ORDER BY play_date", (int(tournament_id),))
@@ -532,7 +532,7 @@ def ensure_pitch_day_windows(tournament_id, tournament, pitch_count, default_sta
 
 def save_pitch_day_window(tournament_id,pitch_number,play_date,start_time,end_time,confirmed=True):
     if start_time >= end_time:
-        raise ValueError("Sluttiden mÃ¥ste vara senare Ã¤n starttiden.")
+        raise ValueError("Sluttiden måste vara senare än starttiden.")
     run("""INSERT INTO pitch_day_windows(tournament_id,pitch_number,play_date,start_time,end_time,confirmed) VALUES(?,?,?,?,?,?)
            ON CONFLICT(tournament_id,pitch_number,play_date) DO UPDATE SET start_time=excluded.start_time,end_time=excluded.end_time,confirmed=excluded.confirmed""",
         (int(tournament_id),int(pitch_number),str(play_date),str(start_time),str(end_time),1 if confirmed else 0))
@@ -615,14 +615,14 @@ def calculate_pitch_travel_times(tournament_id, buffer_minutes=10):
     except Exception:
         api_key = ""
     if not api_key:
-        return False, "Google Routes Ã¤r inte konfigurerat. LÃ¤gg GOOGLE_MAPS_API_KEY i Streamlit Secrets fÃ¶r automatisk restid.", []
+        return False, "Google Routes är inte konfigurerat. Lägg GOOGLE_MAPS_API_KEY i Streamlit Secrets för automatisk restid.", []
     pitches = all_rows(
         "SELECT pitch_number,name,address,address_verified FROM pitches WHERE tournament_id=? ORDER BY pitch_number",
         (int(tournament_id),),
     )
     usable = [row for row in pitches if str(_row_value(row,"address","") or "").strip() and bool(_row_value(row,"address_verified",0))]
     if len(usable) < 2:
-        return False, "Verifiera adresser fÃ¶r minst tvÃ¥ planer fÃ¶rst.", []
+        return False, "Verifiera adresser för minst två planer först.", []
     endpoint = "https://routes.googleapis.com/directions/v2:computeRoutes"
     results = []
     for i, origin in enumerate(usable):
@@ -647,7 +647,7 @@ def calculate_pitch_travel_times(tournament_id, buffer_minutes=10):
                     data = json.load(response)
                 routes = data.get("routes") or []
                 if not routes:
-                    raise ValueError("ingen kÃ¶rbar rutt hittades")
+                    raise ValueError("ingen körbar rutt hittades")
                 seconds = float(str(routes[0].get("duration") or "0s").rstrip("s") or 0)
                 route_minutes = max(1, int((seconds + 59) // 60))
                 buffer = max(0, int(buffer_minutes or 0))
@@ -655,8 +655,8 @@ def calculate_pitch_travel_times(tournament_id, buffer_minutes=10):
                 save_pitch_travel_time(tournament_id, int(origin["pitch_number"]), int(destination["pitch_number"]), total_minutes)
                 results.append({"from": str(origin["name"]), "to": str(destination["name"]), "route_minutes": route_minutes, "buffer_minutes": buffer, "total_minutes": total_minutes})
             except Exception as exc:
-                return False, f"CupNavi kunde inte berÃ¤kna restiden mellan {origin['name']} och {destination['name']}: {type(exc).__name__}.", results
-    return True, f"Restider berÃ¤knade fÃ¶r {len(results)} planpar.", results
+                return False, f"CupNavi kunde inte beräkna restiden mellan {origin['name']} och {destination['name']}: {type(exc).__name__}.", results
+    return True, f"Restider beräknade för {len(results)} planpar.", results
 
 def pitch_name_map(tournament_id,pitch_count=None):
     key=("pitch-name-map", int(tournament_id), int(pitch_count) if pitch_count else None)
@@ -673,15 +673,15 @@ def pitch_label(tournament_id,pitch_number,names=None):
     return names.get(pitch_number,f"Plan {pitch_number}")
 
 REQUEST_TYPE_LABELS = {
-    "late_start": "Ã–nskar sen fÃ¶rsta match",
-    "latest_finish": "Ã–nskar vara klar senast",
-    "preferred_pitch": "Ã–nskar viss plan",
-    "extra_rest": "Ã–nskar extra lagvila",
+    "late_start": "Önskar sen första match",
+    "latest_finish": "Önskar vara klar senast",
+    "preferred_pitch": "Önskar viss plan",
+    "extra_rest": "Önskar extra lagvila",
     "avoid_late_group": "Undvik sen gruppmatch",
 }
 
 def schedule_request_label(row):
-    label=REQUEST_TYPE_LABELS.get(str(_row_value(row,"request_type","")),str(_row_value(row,"request_type","Ã–nskemÃ¥l")))
+    label=REQUEST_TYPE_LABELS.get(str(_row_value(row,"request_type","")),str(_row_value(row,"request_type","Önskemål")))
     value=str(_row_value(row,"request_value","") or "").strip()
     return f"{label}: {value}" if value else label
 
@@ -698,11 +698,11 @@ def _team_matches_for_request(tournament_id, team_id):
 def evaluate_schedule_request(tournament_id, request_row, rules):
     matches=[m for m in _team_matches_for_request(tournament_id,request_row["team_id"]) if m.get("scheduled_start")]
     if not matches:
-        return None,"Inga schemalagda matcher Ã¤nnu."
+        return None,"Inga schemalagda matcher ännu."
 
     rtype=str(request_row["request_type"])
     value=str(request_row["request_value"] or "").strip()
-    strength=str(request_row["strength"] or "Ã–nskemÃ¥l")
+    strength=str(request_row["strength"] or "Önskemål")
     starts=[datetime.fromisoformat(str(m["scheduled_start"])) for m in matches]
     starts.sort()
 
@@ -712,7 +712,7 @@ def evaluate_schedule_request(tournament_id, request_row, rules):
         except ValueError:
             return None,"Ogiltig tid."
         ok=starts[0].time() >= wanted
-        return ok, f"FÃ¶rsta match {starts[0].strftime('%H:%M')} Â· Ã¶nskat tidigast {value}"
+        return ok, f"Första match {starts[0].strftime('%H:%M')} · önskat tidigast {value}"
 
     if rtype=="latest_finish":
         try:
@@ -722,7 +722,7 @@ def evaluate_schedule_request(tournament_id, request_row, rules):
         duration_minutes=max(1,int(rules["halves"] or 1)*int(rules["minutes_per_half"] or 0)+max(0,int(rules["halves"] or 1)-1)*int(rules["halftime_minutes"] or 0))
         last_end=max(starts)+timedelta(minutes=duration_minutes)
         ok=last_end.time() <= wanted
-        return ok, f"Sista match slut cirka {last_end.strftime('%H:%M')} Â· Ã¶nskat senast {value}"
+        return ok, f"Sista match slut cirka {last_end.strftime('%H:%M')} · önskat senast {value}"
 
     if rtype=="preferred_pitch":
         try:
@@ -731,10 +731,10 @@ def evaluate_schedule_request(tournament_id, request_row, rules):
             return None,"Ogiltigt plannummer."
         pitches=[int(m["pitch_number"]) for m in matches if m.get("pitch_number")]
         if not pitches:
-            return None,"Inga planplaceringar Ã¤nnu."
+            return None,"Inga planplaceringar ännu."
         share=sum(1 for p in pitches if p==wanted_pitch)/len(pitches)
-        threshold=1.0 if strength=="HÃ¥rt krav" else 0.5
-        return share >= threshold, f"{sum(1 for p in pitches if p==wanted_pitch)}/{len(pitches)} matcher pÃ¥ Plan {wanted_pitch}"
+        threshold=1.0 if strength=="Hårt krav" else 0.5
+        return share >= threshold, f"{sum(1 for p in pitches if p==wanted_pitch)}/{len(pitches)} matcher på Plan {wanted_pitch}"
 
     if rtype=="extra_rest":
         try:
@@ -748,7 +748,7 @@ def evaluate_schedule_request(tournament_id, request_row, rules):
         for a,b in zip(starts,starts[1:]):
             gaps.append(int((b-(a+timedelta(minutes=duration_minutes))).total_seconds()//60))
         minimum=min(gaps) if gaps else 9999
-        return minimum >= wanted, f"Minsta faktisk vila {minimum} min Â· Ã¶nskat {wanted} min"
+        return minimum >= wanted, f"Minsta faktisk vila {minimum} min · önskat {wanted} min"
 
     if rtype=="avoid_late_group":
         group_starts=[datetime.fromisoformat(str(m["scheduled_start"])) for m in matches if m.get("stage")=="Gruppspel"]
@@ -767,9 +767,9 @@ def evaluate_schedule_request(tournament_id, request_row, rules):
         if latest_boundary is None:
             latest_boundary=datetime.strptime("17:00","%H:%M").time()
         late=[dt for dt in group_starts if dt.time() >= latest_boundary]
-        return not late, f"{len(late)} sena gruppmatcher enligt sista fjÃ¤rdedelen av speldagen"
+        return not late, f"{len(late)} sena gruppmatcher enligt sista fjärdedelen av speldagen"
 
-    return None,"Ã–nskemÃ¥lstypen har Ã¤nnu ingen automatisk kontroll."
+    return None,"Önskemålstypen har ännu ingen automatisk kontroll."
 
 def schedule_score_report(tournament_id, rules):
     matches=[dict(r) for r in all_rows("SELECT * FROM matches WHERE tournament_id=? ORDER BY id",(int(tournament_id),))]
@@ -785,7 +785,7 @@ def schedule_score_report(tournament_id, rules):
         late_preferences=late_preferences,
     )
     requests=all_rows(
-        "SELECT * FROM schedule_requests WHERE tournament_id=? AND status='GodkÃ¤nd' ORDER BY priority,id",
+        "SELECT * FROM schedule_requests WHERE tournament_id=? AND status='Godkänd' ORDER BY priority,id",
         (int(tournament_id),),
     )
     evaluated=[]
@@ -796,13 +796,13 @@ def schedule_score_report(tournament_id, rules):
         evaluated.append((dict(req),ok,detail))
         if ok is True:
             fulfilled += 1
-        elif ok is False and str(req["strength"])=="HÃ¥rt krav":
+        elif ok is False and str(req["strength"])=="Hårt krav":
             hard_failed += 1
 
     request_total=sum(1 for _,ok,_ in evaluated if ok is not None)
     request_score=100 if request_total==0 else round(100*fulfilled/request_total)
     score=max(0,min(100,round(quality["score"]*0.7 + request_score*0.3 - hard_failed*15)))
-    grade=("UtmÃ¤rkt" if score>=95 else "Mycket bra" if score>=85 else "Bra" if score>=75 else "BehÃ¶ver fÃ¶rbÃ¤ttras" if score>=60 else "Svagt")
+    grade=("Utmärkt" if score>=95 else "Mycket bra" if score>=85 else "Bra" if score>=75 else "Behöver förbättras" if score>=60 else "Svagt")
     return {
         "score":score,
         "grade":grade,
@@ -866,7 +866,7 @@ def _schedule_recovery_context(tournament_id, tournament, rules, unresolved):
     }
 
 def _rerun_schedule_after_recovery(tournament_id, tournament, rules, action_label):
-    """KÃ¶r om schemat direkt efter en fÃ¶reslagen Ã¥terstÃ¤llningsÃ¥tgÃ¤rd."""
+    """Kör om schemat direkt efter en föreslagen återställningsåtgärd."""
     fresh_rules = one_row("SELECT * FROM schedule_rules WHERE tournament_id=?", (int(tournament_id),)) or rules
     started = time.perf_counter()
     try:
@@ -878,17 +878,17 @@ def _rerun_schedule_after_recovery(tournament_id, tournament, rules, action_labe
             detail = f" {warning}" if warning else ""
             st.session_state["schedule_message"] = (
                 "warning",
-                f"{action_label} genomfÃ¶rdes och schemat genererades om pÃ¥ {elapsed:.1f} s. "
-                f"{count} matcher fick tid, men {unresolved} Ã¥terstÃ¥r.{detail} NÃ¤sta bÃ¤sta lÃ¶sning visas nedan.",
+                f"{action_label} genomfördes och schemat genererades om på {elapsed:.1f} s. "
+                f"{count} matcher fick tid, men {unresolved} återstår.{detail} Nästa bästa lösning visas nedan.",
             )
         else:
             st.session_state.pop("schedule_recovery", None)
             st.session_state["schedule_message"] = (
                 "success",
-                f"{action_label} genomfÃ¶rdes. Hela schemat gick nu ihop ({count} matcher) pÃ¥ {elapsed:.1f} s.",
+                f"{action_label} genomfördes. Hela schemat gick nu ihop ({count} matcher) på {elapsed:.1f} s.",
             )
     except Exception as exc:
-        st.session_state["schedule_message"] = ("error", f"Ã…tgÃ¤rden sparades men omgenereringen misslyckades: {exc}")
+        st.session_state["schedule_message"] = ("error", f"Åtgärden sparades men omgenereringen misslyckades: {exc}")
     st.rerun()
 
 def _apply_schedule_recovery_extend(tournament_id, tournament, rules, context, minutes):
@@ -903,12 +903,12 @@ def _apply_schedule_recovery_extend(tournament_id, tournament, rules, context, m
         if new > row["end_time"]:
             save_pitch_day_window(tournament_id, int(row["pitch_number"]), row["play_date"], row["start_time"], new, True)
             changed += 1
-    _rerun_schedule_after_recovery(tournament_id, tournament, rules, f"Plantiderna fÃ¶rlÃ¤ngdes pÃ¥ {changed} plan(er) med upp till {minutes} minuter")
+    _rerun_schedule_after_recovery(tournament_id, tournament, rules, f"Plantiderna förlängdes på {changed} plan(er) med upp till {minutes} minuter")
 
 def _apply_schedule_recovery_late_first(tournament_id, tournament, rules, context):
     run("UPDATE teams SET late_first_match=0,earliest_first_time=NULL WHERE tournament_id=? AND late_first_match=1", (int(tournament_id),))
     run("UPDATE tournaments SET schedule_dirty=1,is_published=0 WHERE id=?", (int(tournament_id),))
-    _rerun_schedule_after_recovery(tournament_id, tournament, rules, "Lagens Ã¶nskemÃ¥l om senare fÃ¶rsta match togs bort")
+    _rerun_schedule_after_recovery(tournament_id, tournament, rules, "Lagens önskemål om senare första match togs bort")
 
 def _apply_schedule_recovery_break(tournament_id, tournament, rules, context):
     run("UPDATE schedule_rules SET consecutive_match_break_minutes=0 WHERE tournament_id=?", (int(tournament_id),))
@@ -942,7 +942,7 @@ def _autosave_tournament_field(tournament_id, column, key, cast=None, dirty=Fals
     run(f"UPDATE tournaments SET {column}=?{',schedule_dirty=1,is_published=0' if dirty else ''} WHERE id=?", (value, int(tournament_id)))
     if dirty:
         run("UPDATE matches SET schedule_published=0 WHERE tournament_id=?", (int(tournament_id),))
-    st.session_state[f"autosave_notice_{tournament_id}"] = "âœ“ Sparat automatiskt"
+    st.session_state[f"autosave_notice_{tournament_id}"] = "✓ Sparat automatiskt"
 
 def _autosave_rule_field(tournament_id, column, key, cast=None):
     value = st.session_state.get(key)
@@ -951,12 +951,12 @@ def _autosave_rule_field(tournament_id, column, key, cast=None):
     run(f"UPDATE schedule_rules SET {column}=? WHERE tournament_id=?", (value, int(tournament_id)))
     run("UPDATE tournaments SET schedule_dirty=1,is_published=0 WHERE id=?", (int(tournament_id),))
     run("UPDATE matches SET schedule_published=0 WHERE tournament_id=?", (int(tournament_id),))
-    st.session_state[f"autosave_notice_{tournament_id}"] = "âœ“ Sparat automatiskt"
+    st.session_state[f"autosave_notice_{tournament_id}"] = "✓ Sparat automatiskt"
 
 def weekday_short(value):
     if value is None:
         return ""
-    names_sv = ["mÃ¥n", "tis", "ons", "tors", "fre", "lÃ¶r", "sÃ¶n"]
+    names_sv = ["mån", "tis", "ons", "tors", "fre", "lör", "sön"]
     names_en = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
     names = names_en if current_language() == "en" else names_sv
     return names[value.weekday()]
@@ -965,7 +965,7 @@ def date_with_weekday(value):
     return f"{weekday_short(value)} {value.isoformat()}" if value else ""
 
 def _visitor_header(name):
-    """LÃ¤s en HTTP-header om Streamlit exponerar den, annars tom strÃ¤ng."""
+    """Läs en HTTP-header om Streamlit exponerar den, annars tom sträng."""
     try:
         headers = st.context.headers
         return str(headers.get(name, "") or headers.get(name.lower(), "") or "").strip()
@@ -992,12 +992,12 @@ def _visitor_browser(user_agent):
         return "Safari"
     if "firefox/" in ua:
         return "Firefox"
-    return "Ã–vrig"
+    return "Övrig"
 
 def _visitor_source(referrer):
     ref = (referrer or "").lower()
     if not ref:
-        return "Direkt / okÃ¤nd"
+        return "Direkt / okänd"
     if "google." in ref:
         return "Google"
     if "facebook." in ref or "messenger." in ref or "l.facebook." in ref:
@@ -1009,13 +1009,13 @@ def _visitor_source(referrer):
     return "Annan webbplats"
 
 def track_public_visit(tournament_id):
-    """IntegritetsvÃ¤nlig besÃ¶ksmÃ¤tning utan blockerande write pÃ¥ fÃ¶rsta paint.
+    """Integritetsvänlig besöksmätning utan blockerande write på första paint.
 
-    v531 prioriterar cupinnehÃ¥llet: fÃ¶rsta renderingen markerar bara sessionen
-    lokalt. BesÃ¶ks-UPSERten sker fÃ¶rst vid nÃ¤sta Streamlit-rerun/interaktion.
-    DÃ¤rmed ligger ingen analytics-write pÃ¥ den publika sidans kritiska vÃ¤g.
-    En besÃ¶kare som lÃ¤mnar utan nÃ¥gon interaktion kan dÃ¤rfÃ¶r saknas i
-    statistiken, vilket Ã¤r en avsiktlig precision-vs-latency-avvÃ¤gning.
+    v531 prioriterar cupinnehållet: första renderingen markerar bara sessionen
+    lokalt. Besöks-UPSERten sker först vid nästa Streamlit-rerun/interaktion.
+    Därmed ligger ingen analytics-write på den publika sidans kritiska väg.
+    En besökare som lämnar utan någon interaktion kan därför saknas i
+    statistiken, vilket är en avsiktlig precision-vs-latency-avvägning.
     """
     first_paint_key = f"_cupnavi_visit_first_paint_seen_{tournament_id}"
     if not st.session_state.get(first_paint_key):
@@ -1045,8 +1045,8 @@ def track_public_visit(tournament_id):
     browser = _visitor_browser(user_agent)
     source = _visitor_source(referrer)
 
-    # Ett enda atomiskt UPSERT i stÃ¤llet fÃ¶r SELECT + INSERT/UPDATE. Det sparar
-    # ett helt remote DB-varv pÃ¥ fÃ¶rsta publika sidladdningen och vid 5-minutersrÃ¤kning.
+    # Ett enda atomiskt UPSERT i stället för SELECT + INSERT/UPDATE. Det sparar
+    # ett helt remote DB-varv på första publika sidladdningen och vid 5-minutersräkning.
     run(
         """INSERT INTO visitor_sessions(
                tournament_id,session_token,first_seen,last_seen,view_count,
@@ -1197,7 +1197,7 @@ def _open_public_pdf_read_connection():
     """Open a dedicated read connection safe for Streamlit's download worker."""
     if TURSO_CONFIG_PARTIAL:
         missing = "TURSO_AUTH_TOKEN" if TURSO_DATABASE_URL else "TURSO_DATABASE_URL"
-        raise RuntimeError(f"Turso-konfigurationen Ã¤r ofullstÃ¤ndig: {missing} saknas.")
+        raise RuntimeError(f"Turso-konfigurationen är ofullständig: {missing} saknas.")
     if CLOUD_DATABASE_ENABLED:
         return _new_cloud_raw_connection()
     con = sqlite3.connect(DB_FILE)
@@ -1215,9 +1215,9 @@ def _build_public_cup_program_pdf_bytes(tournament_id, tournament):
 def render_public_share_control(tournament_id, tournament, *, in_sidebar=False):
     """Render the public share action as a compact, polished rail control."""
     share_url = public_cup_url(tournament_id)
-    share_text = f"{tr('FÃ¶lj cupen')}: {tournament['name']} â€“ {share_url}"
+    share_text = f"{tr('Följ cupen')}: {tournament['name']} – {share_url}"
     whatsapp_href = "https://wa.me/?text=" + quote(share_text)
-    email_href = "mailto:?subject=" + quote(f"CupNavi â€“ {tournament['name']}") + "&body=" + quote(share_text)
+    email_href = "mailto:?subject=" + quote(f"CupNavi – {tournament['name']}") + "&body=" + quote(share_text)
     sms_href = "sms:?&body=" + quote(share_text)
 
     st.markdown(
@@ -1273,7 +1273,7 @@ def render_public_share_control(tournament_id, tournament, *, in_sidebar=False):
                     key=f"cn_share_pdf_download_{int(tournament_id)}",
                     use_container_width=True,
                     on_click="ignore",
-                    help="Skapar ett aktuellt cupprogram fÃ¶rst nÃ¤r du klickar och laddar sedan ned det direkt.",
+                    help="Skapar ett aktuellt cupprogram först när du klickar och laddar sedan ned det direkt.",
                 )
         else:
             st.download_button(
@@ -1287,15 +1287,15 @@ def render_public_share_control(tournament_id, tournament, *, in_sidebar=False):
             )
         screen_url = public_cup_url(tournament_id) + ("&" if "?" in public_cup_url(tournament_id) else "?") + "screen=1"
         st.link_button(
-            "ðŸ–¥ InformationsskÃ¤rm",
+            "🖥 Informationsskärm",
             screen_url,
             use_container_width=True,
-            help="Ã–ppnar en ren vy fÃ¶r stor skÃ¤rm vid cupomrÃ¥det.",
+            help="Öppnar en ren vy för stor skärm vid cupområdet.",
         )
 
 @st.cache_data(show_spinner=False)
 def qr_png_bytes(value):
-    """QR-bilden Ã¤r deterministisk och qrcode laddas fÃ¶rst nÃ¤r delning anvÃ¤nds."""
+    """QR-bilden är deterministisk och qrcode laddas först när delning används."""
     try:
         import qrcode
     except ImportError:
@@ -1311,7 +1311,7 @@ def normalize_website_url(value):
     if not value:
         return None
 
-    # GÃ¶r det enklare fÃ¶r arrangÃ¶ren: example.se blir https://example.se
+    # Gör det enklare för arrangören: example.se blir https://example.se
     candidate = value if "://" in value else f"https://{value}"
     parsed = urlparse(candidate)
 
@@ -1333,79 +1333,79 @@ def image_data_uri(uploaded_file):
         return None
     raw = uploaded_file.getvalue()
     if len(raw) > 1_500_000:
-        raise ValueError("Logotypen fÃ¥r vara hÃ¶gst 1,5 MB.")
+        raise ValueError("Logotypen får vara högst 1,5 MB.")
     mime = uploaded_file.type or "image/png"
     if mime not in {"image/png", "image/jpeg", "image/webp"}:
-        raise ValueError("Logotypen mÃ¥ste vara PNG, JPG eller WEBP.")
+        raise ValueError("Logotypen måste vara PNG, JPG eller WEBP.")
     return f"data:{mime};base64,{base64.b64encode(raw).decode('ascii')}"
 
 TRANSLATIONS = {
     "sv": {},
     "en": {
-        "VÃ¤lj sprÃ¥k": "Choose language", "Turneringar": "Tournaments",
-        "VÃ¤lj lÃ¤ge": "Choose mode", "Turneringsvy": "Tournament view", "Om": "About",
-        "MatchrapportÃ¶r": "Match reporter", "VisningslÃ¤ge": "Mode",
+        "Välj språk": "Choose language", "Turneringar": "Tournaments",
+        "Välj läge": "Choose mode", "Turneringsvy": "Tournament view", "Om": "About",
+        "Matchrapportör": "Match reporter", "Visningsläge": "Mode",
         "Aktiv turnering": "Active tournament", "Instruktioner": "Instructions",
-        "Ã–versikt": "Overview", "Kontroller": "Checks", "Lag": "Teams",
+        "Översikt": "Overview", "Kontroller": "Checks", "Lag": "Teams",
         "Grupper": "Groups", "Trupper": "Squads", "Domare": "Referees",
         "Schema": "Schedule", "Tabeller": "Standings", "Matcher": "Matches",
-        "HÃ¤ndelser": "Events", "Slutspel": "Playoffs", "Skytteligor": "Leaderboards",
-        "Erbjudanden": "Offers", "Sponsorer": "Sponsors", "FunktionÃ¤rer": "Staff",
-        "Import": "Import", "BesÃ¶k": "Visitors", "BesÃ¶ksstatistik": "Visitor analytics",
+        "Händelser": "Events", "Slutspel": "Playoffs", "Skytteligor": "Leaderboards",
+        "Erbjudanden": "Offers", "Sponsorer": "Sponsors", "Funktionärer": "Staff",
+        "Import": "Import", "Besök": "Visitors", "Besöksstatistik": "Visitor analytics",
         "Spelschema": "Schedule", "Resultat": "Results", "Topplistor": "Statistics",
         "Spelschema & resultat": "Schedule & results", "Tabeller gruppspel": "Group-stage tables",
         "Partners": "Partners", "Information": "Information", "Alla matcher": "All matches",
         "En grupp": "A group", "Ett lag": "A team", "En plan": "A pitch",
-        "Vad vill du visa?": "What do you want to show?", "VÃ¤lj grupp": "Choose group",
-        "VÃ¤lj lag": "Choose team", "Alla lag": "All teams", "Visa alla lag": "Show all teams", "VÃ¤lj plan": "Choose pitch", "Plan": "Pitch",
+        "Vad vill du visa?": "What do you want to show?", "Välj grupp": "Choose group",
+        "Välj lag": "Choose team", "Alla lag": "All teams", "Visa alla lag": "Show all teams", "Välj plan": "Choose pitch", "Plan": "Pitch",
         "Skytteliga": "Top scorers", "Assistliga": "Assists",
         "Varningar och utvisningar": "Cards", "Praktisk information": "Practical information",
         "Cupens partners": "Tournament partners",
-        "Erbjudanden fÃ¶r cupdeltagare": "Offers for tournament participants",
-        "MatchhÃ¤ndelser": "Match events", "Arena": "Venue", "Kiosk": "Refreshments",
-        "Kontakta arrangÃ¶ren": "Contact the organizer",
-        "FrÃ¥gor eller feedback": "Questions or feedback", "FÃ¶lj cupen": "Follow the tournament",
-        "LÃ¶senord": "Password", "AdminlÃ¶senord": "Admin password",
-        "Logga in": "Sign in", "Logga ut": "Sign out", "Fel lÃ¶senord.": "Incorrect password.",
-        "Inloggad som administratÃ¶r": "Signed in as administrator",
-        "Inloggad som matchrapportÃ¶r": "Signed in as match reporter",
-        "AdministratÃ¶rsinloggning": "Administrator sign-in",
+        "Erbjudanden för cupdeltagare": "Offers for tournament participants",
+        "Matchhändelser": "Match events", "Arena": "Venue", "Kiosk": "Refreshments",
+        "Kontakta arrangören": "Contact the organizer",
+        "Frågor eller feedback": "Questions or feedback", "Följ cupen": "Follow the tournament",
+        "Lösenord": "Password", "Adminlösenord": "Admin password",
+        "Logga in": "Sign in", "Logga ut": "Sign out", "Fel lösenord.": "Incorrect password.",
+        "Inloggad som administratör": "Signed in as administrator",
+        "Inloggad som matchrapportör": "Signed in as match reporter",
+        "Administratörsinloggning": "Administrator sign-in",
         "Administration": "Administration", "Period": "Period",
         "Senaste 7 dagarna": "Last 7 days", "Senaste 30 dagarna": "Last 30 days",
         "Senaste 90 dagarna": "Last 90 days", "All tid": "All time",
         "Unika sessioner": "Unique sessions", "Sidvisningar": "Page views",
-        "BesÃ¶k idag": "Visits today", "Sidvisningar idag": "Page views today", "BesÃ¶kare nu": "Visitors now",
-        "Aktiva senaste 30 min": "Active in last 30 min", "Utveckling Ã¶ver tid": "Trend over time",
-        "Enheter": "Devices", "WebblÃ¤sare": "Browsers", "TrafikkÃ¤lla": "Traffic source",
-        "Senaste besÃ¶ken": "Recent visits", "Mobil": "Mobile", "Dator": "Desktop",
-        "Surfplatta": "Tablet", "Direkt / okÃ¤nd": "Direct / unknown",
+        "Besök idag": "Visits today", "Sidvisningar idag": "Page views today", "Besökare nu": "Visitors now",
+        "Aktiva senaste 30 min": "Active in last 30 min", "Utveckling över tid": "Trend over time",
+        "Enheter": "Devices", "Webbläsare": "Browsers", "Trafikkälla": "Traffic source",
+        "Senaste besöken": "Recent visits", "Mobil": "Mobile", "Dator": "Desktop",
+        "Surfplatta": "Tablet", "Direkt / okänd": "Direct / unknown",
         "Skapa": "Create", "Spara": "Save", "Avbryt": "Cancel", "Publicera": "Publish",
         "Avpublicera": "Unpublish", "Namn": "Name", "Namn *": "Name *", "Telefon": "Phone",
         "E-post": "Email", "Webbplats": "Website", "Rubrik": "Title", "Rubrik *": "Title *",
         "Beskrivning / villkor": "Description / terms", "Kort beskrivning": "Short description",
         "Visningsordning": "Display order", "Grupp": "Group", "Gruppnamn": "Group name",
-        "Lagnamn": "Team name", "Spelare": "Player", "TrÃ¶jnummer": "Shirt number",
-        "FÃ¶delseÃ¥r": "Birth year", "Position": "Position", "Roll": "Role", "Roll *": "Role *",
+        "Lagnamn": "Team name", "Spelare": "Player", "Tröjnummer": "Shirt number",
+        "Födelseår": "Birth year", "Position": "Position", "Roll": "Role", "Roll *": "Role *",
         "Datum": "Date", "Avspark": "Kick-off", "Antal planer": "Number of pitches",
-        "FÃ¶rsta matchstart": "First kick-off", "Spelort": "Location",
+        "Första matchstart": "First kick-off", "Spelort": "Location",
         "Turneringens namn": "Tournament name", "Planerat antal lag": "Planned number of teams",
-        "FÃ¶rsta cupdag": "First tournament day", "Sista cupdag": "Last tournament day",
-        "Arenaadress": "Venue address", "ArrangÃ¶rens telefonnummer": "Organizer phone number",
-        "E-post fÃ¶r feedback": "Feedback email", "Ã–vrig information": "Other information",
-        "MÃ¥l": "Goals", "Assist": "Assists", "Varningar": "Yellow cards",
+        "Första cupdag": "First tournament day", "Sista cupdag": "Last tournament day",
+        "Arenaadress": "Venue address", "Arrangörens telefonnummer": "Organizer phone number",
+        "E-post för feedback": "Feedback email", "Övrig information": "Other information",
+        "Mål": "Goals", "Assist": "Assists", "Varningar": "Yellow cards",
         "Utvisningar": "Red cards", "Match": "Match", "Fas": "Stage",
-        "Hemmalag": "Home team", "Bortalag": "Away team", "HemmamÃ¥l": "Home goals",
-        "BortamÃ¥l": "Away goals", "Publicerad": "Published", "Publicerade": "Published",
+        "Hemmalag": "Home team", "Bortalag": "Away team", "Hemmamål": "Home goals",
+        "Bortamål": "Away goals", "Publicerad": "Published", "Publicerade": "Published",
         "Ej publicerade": "Unpublished", "Schemalagda": "Scheduled",
         "Schemalagda matcher": "Scheduled matches", "Gruppspelsmatcher": "Group-stage matches",
         "CupNavi Score": "CupNavi Score", "Domarcentral": "Referee centre",
         "Offlineutkast": "Offline draft", "Cupverktyg": "Tournament tools",
-        "CupflÃ¶de": "Tournament feed", "Cupkarta": "Tournament map",
-        "Kvalitet": "Quality", "FÃ¶rsening": "Delay", "Historik": "History",
+        "Cupflöde": "Tournament feed", "Cupkarta": "Tournament map",
+        "Kvalitet": "Quality", "Försening": "Delay", "Historik": "History",
         "Summering": "Summary", "Sport": "Sport", "av": "of",
-        "PoÃ¤ngledare": "Points leader", "Minst inslÃ¤ppta": "Fewest conceded",
+        "Poängledare": "Points leader", "Minst insläppta": "Fewest conceded",
         "Skytteligaledare": "Top scorer", "Assistledare": "Assist leader",
-        "poÃ¤ng": "pts", "inslÃ¤ppta": "conceded",
+        "poäng": "pts", "insläppta": "conceded",
     }
 }
 
@@ -1413,42 +1413,42 @@ EN_PHRASES = {
     "Skapa och publicera schema": "Create and publish schedule",
     "Matcher och resultat": "Matches and results",
     "Registrera resultat och domare": "Enter results and referees",
-    "Registrera mÃ¥l, assist, varningar och utvisningar": "Enter goals, assists, yellow cards and red cards",
+    "Registrera mål, assist, varningar och utvisningar": "Enter goals, assists, yellow cards and red cards",
     "Dela cupen med QR-kod": "Share tournament with QR code",
-    "LÃ¤gg till": "Add", "Ta bort": "Delete", "Redigera": "Edit",
-    "Spara Ã¤ndringar": "Save changes", "Spara alla": "Save all", "Ladda ner": "Download",
-    "VÃ¤lj turnering": "Choose tournament", "VÃ¤lj match": "Choose match",
-    "VÃ¤lj och spara": "Choose and save", "Ange ett": "Enter a", "Ange en": "Enter a",
-    "Ange": "Enter", "Det finns Ã¤nnu inga": "There are no", "Det finns Ã¤nnu ingen": "There is no",
+    "Lägg till": "Add", "Ta bort": "Delete", "Redigera": "Edit",
+    "Spara ändringar": "Save changes", "Spara alla": "Save all", "Ladda ner": "Download",
+    "Välj turnering": "Choose tournament", "Välj match": "Choose match",
+    "Välj och spara": "Choose and save", "Ange ett": "Enter a", "Ange en": "Enter a",
+    "Ange": "Enter", "Det finns ännu inga": "There are no", "Det finns ännu ingen": "There is no",
     "Det finns inga": "There are no", "Det finns ingen": "There is no",
-    "HÃ¤r visas": "This page shows", "HÃ¤r kan du": "Here you can",
-    "HÃ¤r stÃ¤ller du in": "Here you configure", "HÃ¤r granskar du": "Here you review",
-    "Klicka pÃ¥": "Click", "GÃ¥ till": "Go to", "under fliken": "under the tab",
+    "Här visas": "This page shows", "Här kan du": "Here you can",
+    "Här ställer du in": "Here you configure", "Här granskar du": "Here you review",
+    "Klicka på": "Click", "Gå till": "Go to", "under fliken": "under the tab",
     "i den publika turneringsvyn": "in the public tournament view",
     "i turneringsvyn": "in the tournament view", "den publika turneringsvyn": "the public tournament view",
     "spelschemat": "the schedule", "schemat": "the schedule", "turneringen": "the tournament",
     "gruppen": "the group", "laget": "the team", "matchen": "the match", "spelaren": "the player",
     "domaren": "the referee", "publikt": "publicly", "automatiskt": "automatically",
-    "manuellt": "manually", "fÃ¶re publicering": "before publishing", "efter publicering": "after publishing",
-    "kan inte": "cannot", "mÃ¥ste": "must", "behÃ¶ver": "needs to", "sparas": "is saved",
+    "manuellt": "manually", "före publicering": "before publishing", "efter publicering": "after publishing",
+    "kan inte": "cannot", "måste": "must", "behöver": "needs to", "sparas": "is saved",
     "skapade": "created", "skapats": "been created", "publiceras": "is published",
     "registrerade": "registered", "registreras": "are registered", "uppdateras": "is updated",
-    "Ã¤ndras": "changes", "kontrolleras": "is checked", "visas": "is shown", "saknas": "is missing",
-    "resultat": "results", "matchhÃ¤ndelser": "match events", "slutspel": "playoffs",
+    "ändras": "changes", "kontrolleras": "is checked", "visas": "is shown", "saknas": "is missing",
+    "resultat": "results", "matchhändelser": "match events", "slutspel": "playoffs",
     "gruppspel": "group stage", "grupper": "groups", "spelare": "players",
     "domare": "referees", "matcher": "matches", "schema": "schedule",
     "turnering": "tournament", "varningar": "warnings", "utvisningar": "red cards",
-    "mÃ¥l": "goals", "assist": "assists", "poÃ¤ng": "points", "planer": "pitches",
+    "mål": "goals", "assist": "assists", "poäng": "points", "planer": "pitches",
 }
 
 EN_WORDS = {
-    "och": "and", "eller": "or", "fÃ¶r": "for", "frÃ¥n": "from", "till": "to",
-    "med": "with", "utan": "without", "Ã¤r": "is", "har": "has", "ska": "should",
+    "och": "and", "eller": "or", "för": "for", "från": "from", "till": "to",
+    "med": "with", "utan": "without", "är": "is", "har": "has", "ska": "should",
     "kan": "can", "inte": "not", "alla": "all", "hela": "entire", "vald": "selected",
     "valda": "selected", "aktuell": "current", "aktuella": "current", "ny": "new",
-    "nya": "new", "fÃ¶rsta": "first", "sista": "last", "innan": "before", "efter": "after",
+    "nya": "new", "första": "first", "sista": "last", "innan": "before", "efter": "after",
     "ovan": "above", "nedan": "below", "direkt": "directly", "endast": "only",
-    "Ã¤ven": "also", "inga": "no", "ingen": "no", "ett": "a", "en": "a",
+    "även": "also", "inga": "no", "ingen": "no", "ett": "a", "en": "a",
     "den": "the", "det": "it", "de": "the", "du": "you", "din": "your", "ditt": "your",
 }
 
@@ -1553,7 +1553,7 @@ def _install_streamlit_translation_hooks():
 
     st._cupnavi_translation_hooks = True
 
-st.set_page_config(page_title="CupNavi", page_icon="ðŸ†", layout="wide")
+st.set_page_config(page_title="CupNavi", page_icon="🏆", layout="wide")
 
 st.html("""
 <style>
@@ -1790,7 +1790,7 @@ div[role="dialog"] .stButton > button:not([kind="primary"]) * {
             background:#ffffff;
           }
 
-          /* ===== PUBLIKA MATCHHÃ„NDELSER v56 ===== */
+          /* ===== PUBLIKA MATCHHÄNDELSER v56 ===== */
           .cn-match-events {
             margin-top:10px;
             padding-top:9px;
@@ -2048,11 +2048,11 @@ div[role="dialog"] .stButton > button:not([kind="primary"]) * {
 </style>
 """)
 
-# Global arbetsindikator: visas automatiskt medan Streamlit kÃ¶r om sidan efter interaktion.
+# Global arbetsindikator: visas automatiskt medan Streamlit kör om sidan efter interaktion.
 st.html("""
 <style>
 /* Streamlits running-status finns medan Python-skriptet arbetar.
-   FÃ¶rstÃ¤rk den till en tydlig CupNavi-indikator utan att blockera sidan. */
+   Förstärk den till en tydlig CupNavi-indikator utan att blockera sidan. */
 [data-testid="stStatusWidget"] {
     position: fixed !important;
     top: 12px !important;
@@ -2067,7 +2067,7 @@ st.html("""
     box-shadow: 0 8px 24px rgba(15,23,42,.22) !important;
 }
 [data-testid="stStatusWidget"]::after {
-    content: "  CupNavi arbetarâ€¦";
+    content: "  CupNavi arbetar…";
     color: #ffffff;
     font-weight: 800;
     white-space: nowrap;
@@ -2097,8 +2097,8 @@ inject_v191_design_system()
 
 inject_v193_product_design_system()
 
-# Global CupNavi-identitet. Logotypen ligger lokalt i releasen sÃ¥ den inte krÃ¤ver
-# nÃ¤tverksanrop. Den renderas som en liten integrerad brand-rad i appskalet och
+# Global CupNavi-identitet. Logotypen ligger lokalt i releasen så den inte kräver
+# nätverksanrop. Den renderas som en liten integrerad brand-rad i appskalet och
 # ligger kvar i alla vyer under scrollning.
 CUPNAVI_LOGO_FILE = Path(__file__).with_name("assets") / "cupnavi_logo.png"
 
@@ -2163,15 +2163,15 @@ def render_persistent_brand():
 
 render_persistent_brand()
 
-# v1.266: mobil publikvy â€“ ta bort Streamlit Cloud-chrome som visar bl.a. "Fork",
-# fÃ¤st cupnavigeringen upptill och sÃ¤kra responsiviteten i summeringsrutorna.
+# v1.266: mobil publikvy – ta bort Streamlit Cloud-chrome som visar bl.a. "Fork",
+# fäst cupnavigeringen upptill och säkra responsiviteten i summeringsrutorna.
 
 inject_v266_public_mobile_css()
 # APP_VERSION centraliseras i cupnavi_core/version.py
 DB_FILE = Path(os.getenv("CUPNAVI_DB_PATH") or Path(__file__).with_name("turnering.db"))
 
 def setting(name):
-    """HÃ¤mta en hemlighet frÃ¥n Streamlit Secrets eller en miljÃ¶variabel."""
+    """Hämta en hemlighet från Streamlit Secrets eller en miljövariabel."""
     try:
         value = st.secrets.get(name)
     except (FileNotFoundError, KeyError):
@@ -2185,7 +2185,7 @@ CLOUD_DATABASE_ENABLED = bool(TURSO_DATABASE_URL and TURSO_AUTH_TOKEN)
 ADMIN_ACCESS_CONFIGURED = bool(setting("ADMIN_PASSWORD"))
 
 def _client_identity_hash(scope):
-    """Hashad klientnyckel fÃ¶r rate limiting; rÃ¥ IP lagras aldrig."""
+    """Hashad klientnyckel för rate limiting; rå IP lagras aldrig."""
     forwarded = ""
     user_agent = ""
     try:
@@ -2353,43 +2353,43 @@ def require_admin_access():
     invite_token = str(st.query_params.get("invite", "")).strip() if hasattr(st, "query_params") else ""
     invite = _pending_admin_invitation(invite_token) if invite_token else None
     if invite_token and not invite:
-        st.error("InbjudningslÃ¤nken Ã¤r ogiltig, har gÃ¥tt ut eller har redan anvÃ¤nts.")
+        st.error("Inbjudningslänken är ogiltig, har gått ut eller har redan använts.")
         if st.button("Till vanlig inloggning", key="invalid_invite_login_v563"):
             st.query_params.pop("invite", None)
             st.rerun()
         st.stop()
     if invite:
         st.title("Inbjudan till CupNavi")
-        st.success(f"Du Ã¤r inbjuden som lokal administratÃ¶r fÃ¶r {invite['tournament_name']}.")
-        st.caption(f"Inbjudan gÃ¤ller {invite['email']} och gÃ¥r ut {str(invite['expires_at']).replace('T', ' ')}.")
+        st.success(f"Du är inbjuden som lokal administratör för {invite['tournament_name']}.")
+        st.caption(f"Inbjudan gäller {invite['email']} och går ut {str(invite['expires_at']).replace('T', ' ')}.")
         account_id = _current_organizer_account_id()
         if account_id is not None:
             account = one_row("SELECT email FROM organizer_accounts WHERE id=?", (int(account_id),))
             if account and _normalize_account_email(account["email"]) == _normalize_account_email(invite["email"]):
-                if st.button("Acceptera och Ã¶ppna cupen", type="primary", use_container_width=True, key=f"accept_invite_v563_{invite['id']}"):
+                if st.button("Acceptera och öppna cupen", type="primary", use_container_width=True, key=f"accept_invite_v563_{invite['id']}"):
                     if _accept_admin_invitation(int(invite["id"]), int(account_id)):
                         st.query_params.pop("invite", None)
                         st.session_state["admin_entry_mode"] = "manage"
                         st.session_state["admin_manage_tournament_confirmed"] = True
                         st.session_state["preferred_tournament_id"] = int(invite["tournament_id"] )
                         st.rerun()
-                    st.error("Inbjudan kunde inte accepteras. Ladda om sidan och fÃ¶rsÃ¶k igen.")
+                    st.error("Inbjudan kunde inte accepteras. Ladda om sidan och försök igen.")
             else:
-                st.warning("Du Ã¤r inloggad med en annan e-postadress Ã¤n den som inbjudan skickades till.")
-                if st.button("Logga ut och fortsÃ¤tt", use_container_width=True, key="invite_logout_v563"):
+                st.warning("Du är inloggad med en annan e-postadress än den som inbjudan skickades till.")
+                if st.button("Logga ut och fortsätt", use_container_width=True, key="invite_logout_v563"):
                     _logout_admin_identity()
                     st.rerun()
             st.stop()
         existing = one_row("SELECT id FROM organizer_accounts WHERE email=?", (_normalize_account_email(invite["email"]),))
         if existing:
-            st.info("Kontot finns redan. Logga in med den inbjudna e-postadressen fÃ¶r att acceptera.")
+            st.info("Kontot finns redan. Logga in med den inbjudna e-postadressen för att acceptera.")
         else:
-            st.info("Skapa din profil nedan. NÃ¤r profilen Ã¤r skapad kopplas du automatiskt till cupen.")
+            st.info("Skapa din profil nedan. När profilen är skapad kopplas du automatiskt till cupen.")
         login_tab, create_tab = st.tabs(["Logga in", "Skapa profil"])
         with login_tab:
             with st.form(f"invite_login_v563_{invite['id']}"):
                 login_email = st.text_input("E-post", value=str(invite["email"]), disabled=True)
-                login_password = st.text_input("LÃ¶senord", type="password")
+                login_password = st.text_input("Lösenord", type="password")
                 login_submit = st.form_submit_button("Logga in och acceptera", type="primary", use_container_width=True)
             if login_submit:
                 account = one_row("SELECT id,email,display_name,password_salt,password_hash,disabled_at FROM organizer_accounts WHERE email=?", (_normalize_account_email(login_email),))
@@ -2406,21 +2406,21 @@ def require_admin_access():
                     st.session_state["preferred_tournament_id"] = int(invite["tournament_id"] )
                     st.rerun()
                 else:
-                    st.error("Fel lÃ¶senord eller inbjudan kunde inte accepteras.")
+                    st.error("Fel lösenord eller inbjudan kunde inte accepteras.")
         with create_tab:
             if existing:
-                st.caption("Det finns redan ett konto med den hÃ¤r e-postadressen. AnvÃ¤nd Logga in.")
+                st.caption("Det finns redan ett konto med den här e-postadressen. Använd Logga in.")
             else:
                 with st.form(f"invite_create_v563_{invite['id']}"):
                     display_name = st.text_input("Namn", value=str(invite["display_name"] or ""))
-                    new_password = st.text_input("VÃ¤lj lÃ¶senord", type="password")
-                    new_password2 = st.text_input("Upprepa lÃ¶senord", type="password")
+                    new_password = st.text_input("Välj lösenord", type="password")
+                    new_password2 = st.text_input("Upprepa lösenord", type="password")
                     create_submit = st.form_submit_button("Skapa profil och acceptera", type="primary", use_container_width=True)
                 if create_submit:
                     if len(new_password) < 10:
-                        st.error("LÃ¶senordet mÃ¥ste vara minst 10 tecken.")
+                        st.error("Lösenordet måste vara minst 10 tecken.")
                     elif new_password != new_password2:
-                        st.error("LÃ¶senorden Ã¤r inte lika.")
+                        st.error("Lösenorden är inte lika.")
                     else:
                         salt = os.urandom(16).hex()
                         try:
@@ -2437,11 +2437,11 @@ def require_admin_access():
                                 st.session_state["admin_manage_tournament_confirmed"] = True
                                 st.session_state["preferred_tournament_id"] = int(invite["tournament_id"] )
                                 st.rerun()
-                            st.error("Profilen skapades men inbjudan kunde inte accepteras. Kontakta cupÃ¤garen.")
+                            st.error("Profilen skapades men inbjudan kunde inte accepteras. Kontakta cupägaren.")
         st.stop()
     account_id = _current_organizer_account_id()
     if account_id is not None:
-        label = st.session_state.get("organizer_account_name") or st.session_state.get("organizer_account_email") or "ArrangÃ¶r"
+        label = st.session_state.get("organizer_account_name") or st.session_state.get("organizer_account_email") or "Arrangör"
         st.sidebar.success(f"Inloggad: {label}")
         if st.sidebar.button("Logga ut", use_container_width=True, key="organizer_logout_v554"):
             _logout_admin_identity()
@@ -2456,17 +2456,17 @@ def require_admin_access():
         return
 
     st.title("Logga in till CupNavi")
-    st.caption("Varje arrangÃ¶rskonto ser bara de turneringar kontot har behÃ¶righet till.")
-    login_tab, create_tab = st.tabs(["Logga in", "Skapa arrangÃ¶rskonto"])
+    st.caption("Varje arrangörskonto ser bara de turneringar kontot har behörighet till.")
+    login_tab, create_tab = st.tabs(["Logga in", "Skapa arrangörskonto"])
     with login_tab:
         with st.form("organizer_login_v554"):
             email = st.text_input("E-post", key="organizer_login_email_v554")
-            password = st.text_input("LÃ¶senord", type="password", key="organizer_login_password_v554")
+            password = st.text_input("Lösenord", type="password", key="organizer_login_password_v554")
             submitted = st.form_submit_button("Logga in", type="primary", use_container_width=True)
         if submitted:
             allowed, retry_after, _ = _rate_allowed("organizer-login", 10, 600)
             if not allowed:
-                st.error(f"FÃ¶r mÃ¥nga inloggningsfÃ¶rsÃ¶k. FÃ¶rsÃ¶k igen om cirka {max(1, retry_after // 60)} minut(er).")
+                st.error(f"För många inloggningsförsök. Försök igen om cirka {max(1, retry_after // 60)} minut(er).")
             else:
                 normalized = _normalize_account_email(email)
                 account = one_row(
@@ -2484,23 +2484,23 @@ def require_admin_access():
                     st.session_state["admin_entry_mode"] = None
                     st.rerun()
                 else:
-                    st.error("Fel e-post eller lÃ¶senord.")
+                    st.error("Fel e-post eller lösenord.")
     with create_tab:
-        st.caption("Kontot anvÃ¤nds fÃ¶r att hÃ¥lla dina turneringar Ã¥tskilda frÃ¥n andra arrangÃ¶rers.")
+        st.caption("Kontot används för att hålla dina turneringar åtskilda från andra arrangörers.")
         with st.form("organizer_create_v554"):
             display_name = st.text_input("Namn", key="organizer_create_name_v554")
             email = st.text_input("E-post", key="organizer_create_email_v554")
-            password = st.text_input("LÃ¶senord", type="password", key="organizer_create_password_v554")
-            password2 = st.text_input("Upprepa lÃ¶senord", type="password", key="organizer_create_password2_v554")
+            password = st.text_input("Lösenord", type="password", key="organizer_create_password_v554")
+            password2 = st.text_input("Upprepa lösenord", type="password", key="organizer_create_password2_v554")
             submitted = st.form_submit_button("Skapa konto", type="primary", use_container_width=True)
         if submitted:
             normalized = _normalize_account_email(email)
             if "@" not in normalized or "." not in normalized.split("@")[-1]:
                 st.error("Ange en giltig e-postadress.")
             elif len(password) < 10:
-                st.error("LÃ¶senordet mÃ¥ste vara minst 10 tecken.")
+                st.error("Lösenordet måste vara minst 10 tecken.")
             elif password != password2:
-                st.error("LÃ¶senorden Ã¤r inte lika.")
+                st.error("Lösenorden är inte lika.")
             elif one_row("SELECT id FROM organizer_accounts WHERE email=?", (normalized,)):
                 st.error("Det finns redan ett konto med den e-postadressen.")
             else:
@@ -2519,17 +2519,17 @@ def require_admin_access():
     admin_password = setting("ADMIN_PASSWORD")
     if admin_password:
         with st.expander("CupNavi driftadmin", expanded=False):
-            st.caption("Endast fÃ¶r CupNavi-drift. Dela inte detta lÃ¶senord med arrangÃ¶rer.")
+            st.caption("Endast för CupNavi-drift. Dela inte detta lösenord med arrangörer.")
             with st.form("superadmin_login_v554"):
-                entered_password = st.text_input("DriftlÃ¶senord", type="password")
+                entered_password = st.text_input("Driftlösenord", type="password")
                 super_submitted = st.form_submit_button("Logga in som driftadmin", use_container_width=True)
             if super_submitted:
                 if hmac.compare_digest(entered_password, admin_password):
                     st.session_state["admin_authenticated"] = True
                     st.rerun()
-                st.error("Fel driftlÃ¶senord.")
+                st.error("Fel driftlösenord.")
     elif CLOUD_DATABASE_ENABLED:
-        st.info("Driftadmin Ã¤r inte konfigurerad. ArrangÃ¶rskonton fungerar Ã¤ndÃ¥.")
+        st.info("Driftadmin är inte konfigurerad. Arrangörskonton fungerar ändå.")
     st.stop()
 
 def _verify_tournament_role_code(table_name, tournament_id, entered_code):
@@ -2544,7 +2544,7 @@ def _verify_tournament_role_code(table_name, tournament_id, entered_code):
     return None
 
 def require_match_reporter_access():
-    """MatchrapportÃ¶r loggar normalt in med en turneringsspecifik fyrsiffrig kod."""
+    """Matchrapportör loggar normalt in med en turneringsspecifik fyrsiffrig kod."""
     reporter_password = setting("MATCH_REPORTER_PASSWORD")
     test_password = setting("TEST_MATCH_REPORTER_PASSWORD") or "123"
 
@@ -2574,17 +2574,17 @@ def require_match_reporter_access():
                 st.session_state.pop("reporter_auth_scope", None)
                 st.session_state.pop("reporter_tournament_id", None)
                 st.session_state.pop("reporter_credential_hash", None)
-                st.warning("MatchrapportÃ¶rskoden har Ã¤ndrats. Logga in med den nya koden.")
+                st.warning("Matchrapportörskoden har ändrats. Logga in med den nya koden.")
                 st.rerun()
             st.sidebar.success(
                 "Inloggad som domare"
                 if st.session_state.get("reporter_role") == "referee"
-                else "Inloggad som matchrapportÃ¶r"
+                else "Inloggad som matchrapportör"
             )
         else:
             st.sidebar.success(
-                "Inloggad som matchrapportÃ¶r"
-                + (" Â· endast testmiljÃ¶er" if auth_scope == "test_only" else "")
+                "Inloggad som matchrapportör"
+                + (" · endast testmiljöer" if auth_scope == "test_only" else "")
             )
         if st.sidebar.button("Logga ut", key="reporter_logout", use_container_width=True):
             st.session_state["reporter_authenticated"] = False
@@ -2595,8 +2595,8 @@ def require_match_reporter_access():
             st.rerun()
         return
 
-    st.title(tr("MatchrapportÃ¶r"))
-    st.caption("VÃ¤lj turnering och ange din fyrsiffriga matchrapportÃ¶rs- eller domarkod.")
+    st.title(tr("Matchrapportör"))
+    st.caption("Välj turnering och ange din fyrsiffriga matchrapportörs- eller domarkod.")
 
     reporter_tournaments = all_rows(
         """SELECT id,name,environment_type FROM tournaments
@@ -2607,7 +2607,7 @@ def require_match_reporter_access():
                     COALESCE(start_date,tournament_date) DESC,name"""
     )
     if not reporter_tournaments:
-        st.info("Det finns ingen turnering att rapportera Ã¤nnu.")
+        st.info("Det finns ingen turnering att rapportera ännu.")
         st.stop()
 
     reporter_ids = [int(row["id"]) for row in reporter_tournaments]
@@ -2662,12 +2662,12 @@ def require_match_reporter_access():
         )
         if not allowed:
             st.error(
-                f"FÃ¶r mÃ¥nga misslyckade fÃ¶rsÃ¶k. FÃ¶rsÃ¶k igen om cirka "
+                f"För många misslyckade försök. Försök igen om cirka "
                 f"{max(1, retry_after // 60)} minut(er)."
             )
         else:
             if credential is None:
-                st.error("Ingen matchrapportÃ¶rskod Ã¤r skapad fÃ¶r den hÃ¤r turneringen Ã¤nnu.")
+                st.error("Ingen matchrapportörskod är skapad för den här turneringen ännu.")
             else:
                 st.error("Fel kod.")
     st.stop()
@@ -2679,7 +2679,7 @@ def _discard_cloud_raw_connection(raw=None):
         st.session_state.pop("_cupnavi_turso_connection", None)
 
 class CloudConnection:
-    """DB-API-adapter som Ã¥teranvÃ¤nder Turso-anslutningen under Streamlit-sessionen."""
+    """DB-API-adapter som återanvänder Turso-anslutningen under Streamlit-sessionen."""
     def __init__(self, raw):
         self.raw = raw
         self._dirty = False
@@ -2688,8 +2688,8 @@ class CloudConnection:
         return self
 
     def __exit__(self, exc_type, exc, tb):
-        # Turso-anslutningen hÃ¥lls Ã¶ppen mellan appens reruns. Att Ã¶ppna/stÃ¤nga en
-        # nÃ¤tverksanslutning fÃ¶r varje SELECT var den stÃ¶rsta prestandaflaskhalsen.
+        # Turso-anslutningen hålls öppen mellan appens reruns. Att öppna/stänga en
+        # nätverksanslutning för varje SELECT var den största prestandaflaskhalsen.
         if exc_type is None:
             if self._dirty:
                 self.commit()
@@ -2709,8 +2709,8 @@ class CloudConnection:
         try:
             return self.raw.execute(sql, params)
         except Exception:
-            # LÃ¤sningar fÃ¥r exakt ett reconnect-fÃ¶rsÃ¶k. Skrivningar retryas aldrig:
-            # vi kan inte sÃ¤kert veta om servern tog emot skrivningen innan anslutningen fÃ¶ll.
+            # Läsningar får exakt ett reconnect-försök. Skrivningar retryas aldrig:
+            # vi kan inte säkert veta om servern tog emot skrivningen innan anslutningen föll.
             if is_write:
                 _discard_cloud_raw_connection(self.raw)
                 self._dirty = False
@@ -2741,8 +2741,8 @@ class CloudConnection:
         try:
             result = self.raw.commit()
         except Exception:
-            # Commit-fel Ã¤r ett okÃ¤nt utfall. Ã…teranvÃ¤nd aldrig samma connection och
-            # automat-retrya aldrig commiten; anvÃ¤ndaren mÃ¥ste lÃ¤sa om fÃ¤rskt lÃ¤ge fÃ¶rst.
+            # Commit-fel är ett okänt utfall. Återanvänd aldrig samma connection och
+            # automat-retrya aldrig commiten; användaren måste läsa om färskt läge först.
             _discard_cloud_raw_connection(self.raw)
             self._dirty = False
             raise
@@ -2761,8 +2761,8 @@ class CloudConnection:
             return None
 
     def close(self):
-        # Medvetet no-op i webbdrift. Sessionens anslutning Ã¥teranvÃ¤nds fÃ¶r att
-        # slippa nÃ¤tverks-handshake vid varje liten databasfrÃ¥ga.
+        # Medvetet no-op i webbdrift. Sessionens anslutning återanvänds för att
+        # slippa nätverks-handshake vid varje liten databasfråga.
         return None
 
 def _new_cloud_raw_connection():
@@ -2770,13 +2770,13 @@ def _new_cloud_raw_connection():
         import libsql
     except ImportError as exc:
         raise RuntimeError(
-            "Turso Ã¤r konfigurerat men Python-paketet libsql saknas. "
+            "Turso är konfigurerat men Python-paketet libsql saknas. "
             "Installera requirements.txt."
         ) from exc
     return libsql.connect(database=TURSO_DATABASE_URL, auth_token=TURSO_AUTH_TOKEN)
 
 def _cloud_raw_connection():
-    """Ã…teranvÃ¤nd Turso-anslutningen utan ett extra nÃ¤tverksanrop fÃ¶re varje frÃ¥ga."""
+    """Återanvänd Turso-anslutningen utan ett extra nätverksanrop före varje fråga."""
     raw = st.session_state.get("_cupnavi_turso_connection")
     if raw is None:
         raw = _new_cloud_raw_connection()
@@ -2784,15 +2784,15 @@ def _cloud_raw_connection():
     return raw
 
 def db():
-    """AnvÃ¤nd Turso i molnet och lokal SQLite pÃ¥ utvecklingsdatorn.
+    """Använd Turso i molnet och lokal SQLite på utvecklingsdatorn.
 
-    En halv Turso-konfiguration fÃ¥r aldrig tyst falla tillbaka till lokal SQLite.
+    En halv Turso-konfiguration får aldrig tyst falla tillbaka till lokal SQLite.
     """
     if TURSO_CONFIG_PARTIAL:
         missing = "TURSO_AUTH_TOKEN" if TURSO_DATABASE_URL else "TURSO_DATABASE_URL"
         raise RuntimeError(
-            f"Turso-konfigurationen Ã¤r ofullstÃ¤ndig: {missing} saknas. "
-            "CupNavi vÃ¤grar anvÃ¤nda lokal fallback tills konfigurationen Ã¤r komplett."
+            f"Turso-konfigurationen är ofullständig: {missing} saknas. "
+            "CupNavi vägrar använda lokal fallback tills konfigurationen är komplett."
         )
     if CLOUD_DATABASE_ENABLED:
         return CloudConnection(_cloud_raw_connection())
@@ -2894,7 +2894,7 @@ def _reset_unused_playoff_downstream_match(tournament_id, match_id):
             (match_id, tournament_id),
         ).fetchone()
         if row is None or row["bracket_id"] is None:
-            return {"reset": False, "message": "Slutspelsmatchen finns inte lÃ¤ngre."}
+            return {"reset": False, "message": "Slutspelsmatchen finns inte längre."}
 
         allowed, reason = recovery_eligibility(row, row_value=_row_value)
         if not allowed:
@@ -2913,7 +2913,7 @@ def _reset_unused_playoff_downstream_match(tournament_id, match_id):
         )
         if getattr(cur, "rowcount", 1) == 0:
             con.rollback()
-            return {"reset": False, "message": "Matchen Ã¤ndrades pÃ¥ en annan enhet och Ã¥terstÃ¤lldes inte."}
+            return {"reset": False, "message": "Matchen ändrades på en annan enhet och återställdes inte."}
         con.commit()
 
     _clear_render_query_cache()
@@ -2921,13 +2921,13 @@ def _reset_unused_playoff_downstream_match(tournament_id, match_id):
         tournament_id,
         "playoff_downstream_reset",
         "match",
-        f"Ã…terstÃ¤llde oanvÃ¤nd slutspelsmatch {match_id} infÃ¶r resultatkorrigering",
+        f"Återställde oanvänd slutspelsmatch {match_id} inför resultatkorrigering",
         entity_id=match_id,
         actor="Admin",
     )
     return {
         "reset": True,
-        "message": f"Match {match_id} Ã¥terstÃ¤lldes. Korrigera nu det tidigare slutspelsresultatet igen.",
+        "message": f"Match {match_id} återställdes. Korrigera nu det tidigare slutspelsresultatet igen.",
     }
 
 def update_match_result_if_unchanged(
@@ -3058,7 +3058,7 @@ def update_player_match_stats_if_unchanged(
     return values == [int(goals), int(assists), int(yellow_cards), int(red_cards)]
 
 def _rows_from_cursor(cursor):
-    """Normalisera bÃ¥de sqlite3.Row och libsql-tupler till dictionary-liknande rader."""
+    """Normalisera både sqlite3.Row och libsql-tupler till dictionary-liknande rader."""
     rows = cursor.fetchall()
     if not rows:
         return []
@@ -3105,7 +3105,7 @@ def _result_event_integrity(con, match_row, home_score, away_score):
     )
 
 def execute_script(con, script):
-    """KÃ¶r ett SQL-script Ã¤ven nÃ¤r anslutningen saknar sqlite3.executescript."""
+    """Kör ett SQL-script även när anslutningen saknar sqlite3.executescript."""
     if not CLOUD_DATABASE_ENABLED and hasattr(con, "executescript"):
         return con.executescript(script)
     buffer = ""
@@ -3130,12 +3130,12 @@ def _connection_columns(con, table):
 
 def ensure_v96_experience_schema_compat(con):
     """
-    SjÃ¤lvlÃ¤kande kompatibilitetslager fÃ¶r v96+-data.
+    Självläkande kompatibilitetslager för v96+-data.
 
-    Det hÃ¤r skyddar sÃ¤rskilt mot en ofullstÃ¤ndig GitHub-upload dÃ¤r ny app.py
-    har publicerats tillsammans med en Ã¤ldre migrationsmodul. Alla operationer
-    Ã¤r idempotenta och migration 5 markeras fÃ¶rst efter att hela minimischemat
-    finns pÃ¥ plats.
+    Det här skyddar särskilt mot en ofullständig GitHub-upload där ny app.py
+    har publicerats tillsammans med en äldre migrationsmodul. Alla operationer
+    är idempotenta och migration 5 markeras först efter att hela minimischemat
+    finns på plats.
     """
     con.execute(
         """CREATE TABLE IF NOT EXISTS cupnavi_schema_migrations (
@@ -3198,7 +3198,7 @@ def ensure_v96_experience_schema_compat(con):
         CREATE TABLE IF NOT EXISTS venue_points (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             tournament_id INTEGER NOT NULL REFERENCES tournaments(id) ON DELETE CASCADE,
-            kind TEXT NOT NULL DEFAULT 'Ã–vrigt',
+            kind TEXT NOT NULL DEFAULT 'Övrigt',
             label TEXT NOT NULL,
             detail TEXT,
             url TEXT,
@@ -3225,7 +3225,7 @@ def ensure_v96_experience_schema_compat(con):
     )
 
 def ensure_v99_team_portal_schema_compat(con):
-    """Idempotent skydd fÃ¶r Lagportalens schema Ã¤ven vid blandade releasefiler."""
+    """Idempotent skydd för Lagportalens schema även vid blandade releasefiler."""
     tournament_cols = _connection_columns(con, "tournaments")
     team_cols = _connection_columns(con, "teams")
     tournament_additions = {
@@ -3282,7 +3282,7 @@ def ensure_v99_team_portal_schema_compat(con):
     )
 
 def ensure_v106_participant_privacy_schema_compat(con):
-    """Idempotent kontakt-, spelarnamn-, integritets- och admin-kodfÃ¤lt fÃ¶r v106."""
+    """Idempotent kontakt-, spelarnamn-, integritets- och admin-kodfält för v106."""
     team_cols = _connection_columns(con, "teams")
     player_cols = _connection_columns(con, "players")
     credential_cols = _connection_columns(con, "participant_access_credentials")
@@ -3311,7 +3311,7 @@ def ensure_v106_participant_privacy_schema_compat(con):
     )
 
 def ensure_v108_team_messages_schema_compat(con):
-    """Idempotent intern meddelandefunktion mellan lag och arrangÃ¶r."""
+    """Idempotent intern meddelandefunktion mellan lag och arrangör."""
     execute_script(
         con,
         """
@@ -3346,11 +3346,11 @@ def ensure_v108_team_messages_schema_compat(con):
 
 def _message_party_label(row, team_names):
     if row["sender_type"] == "organizer":
-        sender = "ArrangÃ¶ren"
+        sender = "Arrangören"
     else:
         sender = team_names.get(int(row["sender_team_id"]), "Lag") if row["sender_team_id"] is not None else "Lag"
     if row["recipient_type"] == "organizer":
-        recipient = "ArrangÃ¶ren"
+        recipient = "Arrangören"
     else:
         recipient = team_names.get(int(row["recipient_team_id"]), "Lag") if row["recipient_team_id"] is not None else "Lag"
     return sender, recipient
@@ -3379,30 +3379,30 @@ def _send_team_message(
     request_token=str(request_token or "").strip() or None
 
     if sender_type not in {"team","organizer"}:
-        raise ValueError("Ogiltig avsÃ¤ndare.")
+        raise ValueError("Ogiltig avsändare.")
     if recipient_type not in {"team","organizer"}:
         raise ValueError("Ogiltig mottagare.")
     if not subject or not message:
-        raise ValueError("Ã„mne och meddelande krÃ¤vs.")
+        raise ValueError("Ämne och meddelande krävs.")
     if len(subject) > 200:
-        raise ValueError("Ã„mnet fÃ¥r vara hÃ¶gst 200 tecken.")
+        raise ValueError("Ämnet får vara högst 200 tecken.")
     if len(message) > 3000:
-        raise ValueError("Meddelandet fÃ¥r vara hÃ¶gst 3000 tecken.")
+        raise ValueError("Meddelandet får vara högst 3000 tecken.")
 
     sender_team_id=int(sender_team_id) if sender_team_id is not None else None
     recipient_team_id=int(recipient_team_id) if recipient_team_id is not None else None
 
     if sender_type == "team":
         if sender_team_id is None:
-            raise ValueError("AvsÃ¤ndande lag saknas.")
+            raise ValueError("Avsändande lag saknas.")
         sender_team=one_row(
             "SELECT id FROM teams WHERE id=? AND tournament_id=?",
             (sender_team_id,tournament_id),
         )
         if sender_team is None:
-            raise ValueError("AvsÃ¤ndande lag tillhÃ¶r inte turneringen.")
+            raise ValueError("Avsändande lag tillhör inte turneringen.")
     elif sender_team_id is not None:
-        raise ValueError("ArrangÃ¶rsmeddelanden fÃ¥r inte ha avsÃ¤ndande lag.")
+        raise ValueError("Arrangörsmeddelanden får inte ha avsändande lag.")
 
     recipient=None
     if recipient_type == "team":
@@ -3413,11 +3413,11 @@ def _send_team_message(
             (recipient_team_id,tournament_id),
         )
         if recipient is None:
-            raise ValueError("Mottagande lag tillhÃ¶r inte turneringen.")
+            raise ValueError("Mottagande lag tillhör inte turneringen.")
         if sender_type == "team" and sender_team_id == recipient_team_id:
-            raise ValueError("Ett lag kan inte skicka meddelande till sig sjÃ¤lvt.")
+            raise ValueError("Ett lag kan inte skicka meddelande till sig självt.")
     elif recipient_team_id is not None:
-        raise ValueError("ArrangÃ¶ren har inget mottagande lag-id.")
+        raise ValueError("Arrangören har inget mottagande lag-id.")
 
     created_at=datetime.now().isoformat(timespec="microseconds")
     email_status="pending" if recipient_type == "team" else "not_applicable"
@@ -3466,7 +3466,7 @@ def _send_team_message(
             )
             if not same_payload:
                 con.rollback()
-                raise ValueError("MeddelandefÃ¶rfrÃ¥gan Ã¤r inte lÃ¤ngre giltig. FÃ¶rsÃ¶k igen.")
+                raise ValueError("Meddelandeförfrågan är inte längre giltig. Försök igen.")
             con.commit()
         else:
             cursor=con.execute(
@@ -3493,8 +3493,8 @@ def _send_team_message(
                 email,
                 f"Nytt meddelande i CupNavi: {subject}",
                 f"Hej {(_row_value(recipient,'responsible_name','') or '').strip() or 'lagansvarig'},\n\n"
-                f"{recipient['name']} har fÃ¥tt ett nytt meddelande i CupNavi. "
-                f"Logga in i lagportalen fÃ¶r att lÃ¤sa det.\n\nÃ„mne: {subject}",
+                f"{recipient['name']} har fått ett nytt meddelande i CupNavi. "
+                f"Logga in i lagportalen för att läsa det.\n\nÄmne: {subject}",
             )
             run(
                 "UPDATE team_messages SET email_status=?,email_error=? WHERE id=?",
@@ -3508,7 +3508,7 @@ def _send_team_message(
     return message_id
 
 def _player_display_name(player_row, public=False):
-    """Gemensam namnvisning med stÃ¶d fÃ¶r skyddade spelare och legacy-fÃ¤ltet name."""
+    """Gemensam namnvisning med stöd för skyddade spelare och legacy-fältet name."""
     if public and bool(_row_value(player_row, "is_protected", 0)):
         return "Skyddad spelare"
     first = str(_row_value(player_row, "first_name", "") or "").strip()
@@ -3613,7 +3613,7 @@ def _schema_fast_path_ready(con):
 
 @st.cache_resource(show_spinner=False)
 def init_db():
-    """Initiera schema/migreringar en gÃ¥ng per app-process, inte en gÃ¥ng per besÃ¶kare."""
+    """Initiera schema/migreringar en gång per app-process, inte en gång per besökare."""
     schema_key = f"{APP_VERSION}:{'cloud' if CLOUD_DATABASE_ENABLED else 'local'}"
     with db() as con:
         # v322: healthy current databases take a read-only cold-start fast path.
@@ -3645,7 +3645,7 @@ def init_db():
                 organizer_phone TEXT,
                 feedback_email TEXT,
                 instagram_url TEXT,
-                table_tiebreak TEXT NOT NULL DEFAULT 'MÃ¥lskillnad fÃ¶rst',
+                table_tiebreak TEXT NOT NULL DEFAULT 'Målskillnad först',
                 playoff_tie_rule TEXT NOT NULL DEFAULT 'Straffar direkt',
                 extra_time_minutes INTEGER NOT NULL DEFAULT 0,
                 playoff_model_confirmed INTEGER NOT NULL DEFAULT 0,
@@ -3703,8 +3703,8 @@ def init_db():
                 last_seen TEXT NOT NULL,
                 view_count INTEGER NOT NULL DEFAULT 1,
                 device_type TEXT NOT NULL DEFAULT 'Dator',
-                browser TEXT NOT NULL DEFAULT 'Ã–vrig',
-                source TEXT NOT NULL DEFAULT 'Direkt / okÃ¤nd',
+                browser TEXT NOT NULL DEFAULT 'Övrig',
+                source TEXT NOT NULL DEFAULT 'Direkt / okänd',
                 UNIQUE(tournament_id, session_token)
             );
             CREATE TABLE IF NOT EXISTS groups (
@@ -3718,9 +3718,9 @@ def init_db():
                 name TEXT NOT NULL,
                 primary_color TEXT NOT NULL DEFAULT '#111827',
                 secondary_color TEXT NOT NULL DEFAULT '#FFFFFF',
-                home_pattern TEXT NOT NULL DEFAULT 'HelfÃ¤rgad',
+                home_pattern TEXT NOT NULL DEFAULT 'Helfärgad',
                 home_color_2 TEXT NOT NULL DEFAULT '#FFFFFF',
-                away_pattern TEXT NOT NULL DEFAULT 'HelfÃ¤rgad',
+                away_pattern TEXT NOT NULL DEFAULT 'Helfärgad',
                 away_color_2 TEXT NOT NULL DEFAULT '#111827',
                 group_id INTEGER REFERENCES groups(id) ON DELETE SET NULL,
                 distance_km INTEGER NOT NULL DEFAULT 0,
@@ -3734,8 +3734,8 @@ def init_db():
                 team_id INTEGER NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
                 request_type TEXT NOT NULL,
                 request_value TEXT,
-                strength TEXT NOT NULL DEFAULT 'Ã–nskemÃ¥l',
-                status TEXT NOT NULL DEFAULT 'GodkÃ¤nd',
+                strength TEXT NOT NULL DEFAULT 'Önskemål',
+                status TEXT NOT NULL DEFAULT 'Godkänd',
                 priority INTEGER NOT NULL DEFAULT 100,
                 note TEXT,
                 created_at TEXT NOT NULL
@@ -3851,7 +3851,7 @@ def init_db():
             END;
             """
         )
-    # Uppgradera databasen frÃ¥n den tidigare versionen utan att radera data.
+    # Uppgradera databasen från den tidigare versionen utan att radera data.
     team_cols = columns("teams")
     tournament_cols = columns("tournaments")
     match_cols = columns("matches")
@@ -3884,7 +3884,7 @@ def init_db():
         if "instagram_url" not in tournament_cols:
             con.execute("ALTER TABLE tournaments ADD COLUMN instagram_url TEXT")
         if "table_tiebreak" not in tournament_cols:
-            con.execute("ALTER TABLE tournaments ADD COLUMN table_tiebreak TEXT NOT NULL DEFAULT 'MÃ¥lskillnad fÃ¶rst'")
+            con.execute("ALTER TABLE tournaments ADD COLUMN table_tiebreak TEXT NOT NULL DEFAULT 'Målskillnad först'")
         if "playoff_tie_rule" not in tournament_cols:
             con.execute("ALTER TABLE tournaments ADD COLUMN playoff_tie_rule TEXT NOT NULL DEFAULT 'Straffar direkt'")
         if "extra_time_minutes" not in tournament_cols:
@@ -3895,7 +3895,7 @@ def init_db():
             con.execute("ALTER TABLE tournaments ADD COLUMN schedule_dirty INTEGER NOT NULL DEFAULT 1")
         con.execute(
             "UPDATE tournaments SET playoff_format=? WHERE playoff_format=?",
-            ("Placeringsslutspel â€“ ettor mot ettor osv.", "Flera egna slutspel"),
+            ("Placeringsslutspel – ettor mot ettor osv.", "Flera egna slutspel"),
         )
         con.execute(
             "UPDATE tournaments SET playoff_format='Inget slutspel' WHERE playoff_format='Ett gemensamt slutspel'"
@@ -3907,11 +3907,11 @@ def init_db():
         if "secondary_color" not in team_cols:
             con.execute("ALTER TABLE teams ADD COLUMN secondary_color TEXT NOT NULL DEFAULT '#FFFFFF'")
         if "home_pattern" not in team_cols:
-            con.execute("ALTER TABLE teams ADD COLUMN home_pattern TEXT NOT NULL DEFAULT 'HelfÃ¤rgad'")
+            con.execute("ALTER TABLE teams ADD COLUMN home_pattern TEXT NOT NULL DEFAULT 'Helfärgad'")
         if "home_color_2" not in team_cols:
             con.execute("ALTER TABLE teams ADD COLUMN home_color_2 TEXT NOT NULL DEFAULT '#FFFFFF'")
         if "away_pattern" not in team_cols:
-            con.execute("ALTER TABLE teams ADD COLUMN away_pattern TEXT NOT NULL DEFAULT 'HelfÃ¤rgad'")
+            con.execute("ALTER TABLE teams ADD COLUMN away_pattern TEXT NOT NULL DEFAULT 'Helfärgad'")
         if "away_color_2" not in team_cols:
             con.execute("ALTER TABLE teams ADD COLUMN away_color_2 TEXT NOT NULL DEFAULT '#111827'")
         if "distance_km" not in team_cols:
@@ -3960,7 +3960,7 @@ def init_db():
         if "request_priority" not in team_cols:
             con.execute("ALTER TABLE teams ADD COLUMN request_priority INTEGER NOT NULL DEFAULT 100")
         con.execute("UPDATE tournaments SET start_date=COALESCE(start_date,tournament_date), end_date=COALESCE(end_date,tournament_date)")
-        # Ã„ndringar som pÃ¥verkar schemafÃ¶rutsÃ¤ttningarna markerar automatiskt schemat som inaktuellt.
+        # Ändringar som påverkar schemaförutsättningarna markerar automatiskt schemat som inaktuellt.
         execute_script(con, """
             DROP TRIGGER IF EXISTS cupnavi_dirty_team_insert;
             DROP TRIGGER IF EXISTS cupnavi_dirty_team_update;
@@ -4024,8 +4024,8 @@ def init_db():
               OR OLD.extra_time_minutes IS NOT NEW.extra_time_minutes
             BEGIN UPDATE tournaments SET schedule_dirty=1 WHERE id=NEW.id; END;
         """)
-        # V96+ mÃ¥ste Ã¤ven tÃ¥la blandade releasefiler i drift. SÃ¤kerstÃ¤ll dÃ¤rfÃ¶r
-        # erfarenhets-/multisportschemat innan den versionsstyrda migreringen kÃ¶rs.
+        # V96+ måste även tåla blandade releasefiler i drift. Säkerställ därför
+        # erfarenhets-/multisportschemat innan den versionsstyrda migreringen körs.
         ensure_v96_experience_schema_compat(con)
         ensure_v99_team_portal_schema_compat(con)
         ensure_v106_participant_privacy_schema_compat(con)
@@ -4033,9 +4033,9 @@ def init_db():
         ensure_v100_international_schema_compat(con)
         ensure_v102_lifecycle_schema_compat(con)
 
-        # FrÃ¥n och med Stabilisering 1.0 registreras schemaÃ¤ndringar versionsstyrt.
-        # Den Ã¤ldre bootstrap-koden ovan behÃ¥lls tills alla tidigare installationer
-        # har migrerats sÃ¤kert till den nya modellen.
+        # Från och med Stabilisering 1.0 registreras schemaändringar versionsstyrt.
+        # Den äldre bootstrap-koden ovan behålls tills alla tidigare installationer
+        # har migrerats säkert till den nya modellen.
         apply_migrations(con)
         # Defensive repair for mixed/partial cloud deployments. If v14 is
         # already marked but objects are missing, make the schema complete.
@@ -4054,11 +4054,11 @@ def init_db():
         con.commit()
     return schema_key
 
-# Cache endast under ett enskilt Streamlit-renderingsvarv. Den Ã¥terstÃ¤lls vid rerun,
-# sÃ¥ administratÃ¶ren ser alltid nya data efter en skrivning utan lÃ¥nglivad cache.
+# Cache endast under ett enskilt Streamlit-renderingsvarv. Den återställs vid rerun,
+# så administratören ser alltid nya data efter en skrivning utan långlivad cache.
 _RENDER_QUERY_CACHE = {}
-# HÃ¤rledd data (tabeller, matchnummer, source resolution etc.) Ã¤r ocksÃ¥ giltig
-# endast under pÃ¥gÃ¥ende renderingsvarv. Det undviker omrÃ¤kning utan stale data.
+# Härledd data (tabeller, matchnummer, source resolution etc.) är också giltig
+# endast under pågående renderingsvarv. Det undviker omräkning utan stale data.
 _DERIVED_RENDER_CACHE = {}
 _PERF = {"db_calls": 0, "db_ms": 0.0, "cache_hits": 0, "derived_hits": 0, "writes": 0}
 
@@ -4294,11 +4294,11 @@ def public_core_snapshot(tournament_id, *, include_matches=True, include_teams=T
             feed_matches=None
             played_count=None
             total_goals=None
-            # v530: Matcher-sidan behÃ¶ver bÃ¥de publicerade matcher och lag. Mot
-            # Turso kostade de tidigare tvÃ¥ separata execute-anrop trots att de
-            # alltid hÃ¶rde till samma fÃ¶rsta paint. SlÃ¥ ihop dem till ett enda
+            # v530: Matcher-sidan behöver både publicerade matcher och lag. Mot
+            # Turso kostade de tidigare två separata execute-anrop trots att de
+            # alltid hörde till samma första paint. Slå ihop dem till ett enda
             # UNION ALL-resultat och dela upp raderna lokalt. Det kapar en
-            # blockerande remote roundtrip utan att minska datan eller Ã¤ndra UI.
+            # blockerande remote roundtrip utan att minska datan eller ändra UI.
             if include_matches and include_teams and match_limit is not None and match_window_start and match_window_end:
                 # v533: Cup-day first paint. Transfer only the first visible batch
                 # plus a small time window around "now" for the live/next feed.
@@ -4538,8 +4538,8 @@ def insert_tournament_compat(payload):
     """Skapa cup mot det faktiska tournaments-schemat i drift.
 
     Turso-installationer kan under en deploy kortvarigt ligga efter med en eller
-    flera nya kolumner. Skapandet fÃ¥r dÃ¥ inte krascha; befintliga kolumner skrivs
-    och nya fÃ¤lt fÃ¥r sina databaskonfigurerade defaults tills migreringen Ã¤r klar.
+    flera nya kolumner. Skapandet får då inte krascha; befintliga kolumner skrivs
+    och nya fält får sina databaskonfigurerade defaults tills migreringen är klar.
     """
     _clear_render_query_cache()
     started = time.perf_counter()
@@ -4566,7 +4566,7 @@ def _json_snapshot(value):
 
 def record_audit(tournament_id, action_type, entity_type, description, *, entity_id=None,
                  before=None, after=None, reversible=False, actor="Admin"):
-    """Spara en kompakt Ã¤ndringspost fÃ¶r nya CupNavi-verktyg."""
+    """Spara en kompakt ändringspost för nya CupNavi-verktyg."""
     return run(
         """INSERT INTO audit_log(
                tournament_id,created_at,actor,action_type,entity_type,entity_id,description,
@@ -4618,9 +4618,9 @@ def create_notification_subscription(tournament_id, team_id, email, *,
     confirm_url = _notification_public_url(tournament_id, verify_token, "confirm")
     return send_notification_email(
         email,
-        "BekrÃ¤fta CupNavi-notiser",
-        "Du har valt att fÃ¶lja ett lag i CupNavi.\n\n"
-        f"BekrÃ¤fta prenumerationen hÃ¤r:\n{confirm_url}\n\n"
+        "Bekräfta CupNavi-notiser",
+        "Du har valt att följa ett lag i CupNavi.\n\n"
+        f"Bekräfta prenumerationen här:\n{confirm_url}\n\n"
         "Om du inte gjorde detta kan du ignorera mejlet.",
     )
 
@@ -4667,8 +4667,8 @@ def _deliver_team_notification_emails(tournament_id, team_id, notification_id, t
             )
             con.commit()
         unsubscribe_url = _notification_public_url(tournament_id, unsubscribe_token, "unsubscribe")
-        body = f"{message}\n\nÃ–ppna cupen: {public_cup_url(tournament_id)}\n\nAvsluta notiser: {unsubscribe_url}"
-        ok, error = send_notification_email(sub["email"], f"CupNavi Â· {title}", body)
+        body = f"{message}\n\nÖppna cupen: {public_cup_url(tournament_id)}\n\nAvsluta notiser: {unsubscribe_url}"
+        ok, error = send_notification_email(sub["email"], f"CupNavi · {title}", body)
         run(
             """INSERT OR IGNORE INTO notification_deliveries(
                  subscription_id,notification_id,created_at,category,subject,body,status,attempted_at,error)
@@ -4678,7 +4678,7 @@ def _deliver_team_notification_emails(tournament_id, team_id, notification_id, t
         )
 
 def add_team_notification(tournament_id, team_id, title, message, event_key=None):
-    """Spara notisen fÃ¶rst; e-post till verifierade fÃ¶ljare dÃ¤refter."""
+    """Spara notisen först; e-post till verifierade följare därefter."""
     try:
         notification_id = run(
             """INSERT INTO notifications(tournament_id,team_id,created_at,title,message,event_key)
@@ -4721,7 +4721,7 @@ def _goal_push_kwargs(tournament_id, match_row, expected, home_score, away_score
     }
 
 def schedule_repository():
-    """Repository-grÃ¤ns fÃ¶r all SQL som hÃ¶r till schemadomÃ¤nen."""
+    """Repository-gräns för all SQL som hör till schemadomänen."""
     return ScheduleRepository(
         fetch_all=all_rows,
         connection_factory=db,
@@ -4734,11 +4734,11 @@ class TeamLimitReachedError(Exception):
 def insert_team_with_limit(tournament_id, name, primary_color, secondary_color,
                            home_pattern, home_color_2, away_pattern, away_color_2,
                            distance_km, late_first_match, earliest_first_time, travel_note, avoid_late_group_match=False):
-    """LÃ¤gg till ett lag atomiskt och respektera alltid turneringens sparade maxantal."""
+    """Lägg till ett lag atomiskt och respektera alltid turneringens sparade maxantal."""
     con = db()
     try:
-        # Lokalt lÃ¥ser BEGIN IMMEDIATE bort samtidiga SQLite-skrivningar.
-        # I Turso Ã¤r triggern den slutliga atomiska spÃ¤rren pÃ¥ serversidan.
+        # Lokalt låser BEGIN IMMEDIATE bort samtidiga SQLite-skrivningar.
+        # I Turso är triggern den slutliga atomiska spärren på serversidan.
         if not CLOUD_DATABASE_ENABLED:
             con.execute("BEGIN IMMEDIATE")
         tournament_row = _one_from_cursor(con.execute(
@@ -4746,7 +4746,7 @@ def insert_team_with_limit(tournament_id, name, primary_color, secondary_color,
             (tournament_id,),
         ))
         if tournament_row is None:
-            raise ValueError("Turneringen finns inte lÃ¤ngre.")
+            raise ValueError("Turneringen finns inte längre.")
         max_teams = int(tournament_row["max_teams"] or 0)
         current_count_row = _one_from_cursor(con.execute(
             "SELECT COUNT(*) AS n FROM teams WHERE tournament_id=?", (tournament_id,)
@@ -4781,7 +4781,7 @@ def calculate_table(group_id, tournament):
         int(tournament["points_win"] or 0),
         int(tournament["points_draw"] or 0),
         int(tournament["points_loss"] or 0),
-        str(_row_value(tournament, "table_tiebreak", "MÃ¥lskillnad fÃ¶rst") or "MÃ¥lskillnad fÃ¶rst"),
+        str(_row_value(tournament, "table_tiebreak", "Målskillnad först") or "Målskillnad först"),
     )
     if table_key in _DERIVED_RENDER_CACHE:
         _PERF["derived_hits"] += 1
@@ -4797,21 +4797,21 @@ def calculate_table(group_id, tournament):
         points_win=int(tournament["points_win"] or 0),
         points_draw=int(tournament["points_draw"] or 0),
         points_loss=int(tournament["points_loss"] or 0),
-        table_tiebreak=str(_row_value(tournament, "table_tiebreak", "MÃ¥lskillnad fÃ¶rst") or "MÃ¥lskillnad fÃ¶rst"),
+        table_tiebreak=str(_row_value(tournament, "table_tiebreak", "Målskillnad först") or "Målskillnad först"),
     )
     result = [(row["team_id"], {key:value for key,value in row.items() if key not in {"team_id","position"}}) for row in rows]
     _DERIVED_RENDER_CACHE[table_key] = result
     return result
 
 def calculate_all_group_tables(tournament_id, tournament):
-    """BerÃ¤kna samtliga grupptabeller med tre queries i stÃ¤llet fÃ¶r 2Ã—N queries."""
+    """Beräkna samtliga grupptabeller med tre queries i stället för 2×N queries."""
     cache_key = (
         "all-group-tables",
         int(tournament_id),
         int(tournament["points_win"] or 0),
         int(tournament["points_draw"] or 0),
         int(tournament["points_loss"] or 0),
-        str(_row_value(tournament, "table_tiebreak", "MÃ¥lskillnad fÃ¶rst") or "MÃ¥lskillnad fÃ¶rst"),
+        str(_row_value(tournament, "table_tiebreak", "Målskillnad först") or "Målskillnad först"),
     )
     if cache_key in _DERIVED_RENDER_CACHE:
         _PERF["derived_hits"] += 1
@@ -4847,7 +4847,7 @@ def calculate_all_group_tables(tournament_id, tournament):
             points_win=int(tournament["points_win"] or 0),
             points_draw=int(tournament["points_draw"] or 0),
             points_loss=int(tournament["points_loss"] or 0),
-            table_tiebreak=str(_row_value(tournament, "table_tiebreak", "MÃ¥lskillnad fÃ¶rst") or "MÃ¥lskillnad fÃ¶rst"),
+            table_tiebreak=str(_row_value(tournament, "table_tiebreak", "Målskillnad först") or "Målskillnad först"),
         )
         normalized = [
             (row["team_id"], {key: value for key, value in row.items() if key not in {"team_id", "position"}})
@@ -4859,7 +4859,7 @@ def calculate_all_group_tables(tournament_id, tournament):
             int(tournament["points_win"] or 0),
             int(tournament["points_draw"] or 0),
             int(tournament["points_loss"] or 0),
-            str(_row_value(tournament, "table_tiebreak", "MÃ¥lskillnad fÃ¶rst") or "MÃ¥lskillnad fÃ¶rst"),
+            str(_row_value(tournament, "table_tiebreak", "Målskillnad först") or "Målskillnad först"),
         )] = normalized
     _DERIVED_RENDER_CACHE[cache_key] = {"groups": groups, "tables": result}
     return _DERIVED_RENDER_CACHE[cache_key]
@@ -4910,7 +4910,7 @@ def final_ranking_rows(tournament_id, tournament):
     remaining = [team_id for team_id in team_by_id if team_id not in pinned]
     remaining.sort(key=lambda team_id: (-depth.get(team_id,0), group_metrics.get(team_id,{}).get("pos",999), -group_metrics.get(team_id,{}).get("P",0), -group_metrics.get(team_id,{}).get("MS",0), -group_metrics.get(team_id,{}).get("GM",0), str(team_by_id[team_id]["name"]).casefold()))
     class_map = {row["id"]: row["name"] for row in competition_classes(tournament_id)}
-    return [{"Placering": i, "Lag": team_by_id[team_id]["name"], "TÃ¤vlingsklass": class_map.get(_row_value(team_by_id[team_id], "competition_class_id", None), "â€“")} for i, team_id in enumerate(pinned + remaining, 1)]
+    return [{"Placering": i, "Lag": team_by_id[team_id]["name"], "Tävlingsklass": class_map.get(_row_value(team_by_id[team_id], "competition_class_id", None), "–")} for i, team_id in enumerate(pinned + remaining, 1)]
 
 def result_winner(match_row, want_loser=False):
     home_id = resolve_source(match_row["home_source"])
@@ -4940,7 +4940,7 @@ def result_winner(match_row, want_loser=False):
     return loser if want_loser else winner
 
 def group_table_is_final(group_id):
-    """En gruppplacering fÃ¥r inte lÃ¶sas till ett lag fÃ¶rrÃ¤n hela gruppspelet Ã¤r klart."""
+    """En gruppplacering får inte lösas till ett lag förrän hela gruppspelet är klart."""
     team_count = one_row("SELECT COUNT(*) AS n FROM teams WHERE group_id=?", (group_id,))["n"]
     expected_matches = team_count * (team_count - 1) // 2
     if expected_matches == 0:
@@ -4982,7 +4982,7 @@ def _source_label_uncached(source):
     team_id = resolve_source(source)
     if team_id:
         selected = team(team_id)
-        return selected["name"] if selected else "OkÃ¤nt lag"
+        return selected["name"] if selected else "Okänt lag"
     parts = source.split(":") if source else []
     if parts and parts[0] == "group":
         group = one_row("SELECT name FROM groups WHERE id=?", (int(parts[1]),))
@@ -4994,16 +4994,16 @@ def _source_label_uncached(source):
         source_match = one_row("SELECT * FROM matches WHERE id=?", (int(parts[1]),))
         if source_match:
             schedule_text, _ = match_meta(source_match)
-            match_name = schedule_text.split(" Â· ", 1)[0]
+            match_name = schedule_text.split(" · ", 1)[0]
             return f"Vinnare {match_name.lower()}"
         return "Vinnare i match"
     if parts and parts[0] == "loser":
         source_match = one_row("SELECT * FROM matches WHERE id=?", (int(parts[1]),))
         if source_match:
             schedule_text, _ = match_meta(source_match)
-            match_name = schedule_text.split(" Â· ", 1)[0]
-            return f"FÃ¶rlorare {match_name.lower()}"
-        return "FÃ¶rlorare i match"
+            match_name = schedule_text.split(" · ", 1)[0]
+            return f"Förlorare {match_name.lower()}"
+        return "Förlorare i match"
     return "Ej klart"
 
 def source_label(source):
@@ -5043,7 +5043,7 @@ def match_meta(match_row):
         referee = {"name": referee_name} if referee_name else None
     if match_row["scheduled_start"]:
         start = swedish_datetime(match_row["scheduled_start"])
-        schedule_text = f"Match {match_number} Â· {start} Â· {pitch_label(match_row['tournament_id'],match_row['pitch_number'])}"
+        schedule_text = f"Match {match_number} · {start} · {pitch_label(match_row['tournament_id'],match_row['pitch_number'])}"
     else:
         schedule_text = "Ej schemalagd"
     return schedule_text, referee["name"] if referee else "Ej tillsatt"
@@ -5051,17 +5051,17 @@ def match_meta(match_row):
 def match_result_label(match_row):
     schedule_text, referee = match_meta(match_row)
     return (
-        f"{schedule_text} Â· {match_row['stage']}: "
-        f"{source_label(match_row['home_source'])} {match_row['home_score']}â€“{match_row['away_score']} "
-        f"{source_label(match_row['away_source'])} Â· Domare: {referee}"
+        f"{schedule_text} · {match_row['stage']}: "
+        f"{source_label(match_row['home_source'])} {match_row['home_score']}–{match_row['away_score']} "
+        f"{source_label(match_row['away_source'])} · Domare: {referee}"
     )
 
-SWEDISH_WEEKDAYS = ["MÃ¥ndag", "Tisdag", "Onsdag", "Torsdag", "Fredag", "LÃ¶rdag", "SÃ¶ndag"]
+SWEDISH_WEEKDAYS = ["Måndag", "Tisdag", "Onsdag", "Torsdag", "Fredag", "Lördag", "Söndag"]
 SWEDISH_MONTHS = ["januari", "februari", "mars", "april", "maj", "juni", "juli", "augusti", "september", "oktober", "november", "december"]
 
 def swedish_datetime(value):
     moment = datetime.fromisoformat(value) if isinstance(value, str) else value
-    return f"{SWEDISH_WEEKDAYS[moment.weekday()]} {moment.day} {SWEDISH_MONTHS[moment.month - 1]} {moment.year} Â· {moment.strftime('%H:%M')}"
+    return f"{SWEDISH_WEEKDAYS[moment.weekday()]} {moment.day} {SWEDISH_MONTHS[moment.month - 1]} {moment.year} · {moment.strftime('%H:%M')}"
 
 def cup_date_label(tournament):
     start_text = tournament["start_date"] or tournament["tournament_date"]
@@ -5072,24 +5072,24 @@ def cup_date_label(tournament):
     end = datetime.fromisoformat(end_text)
     if start.date() == end.date():
         return f"{SWEDISH_WEEKDAYS[start.weekday()]} {start.day} {SWEDISH_MONTHS[start.month - 1]} {start.year}"
-    return f"{start.day} {SWEDISH_MONTHS[start.month - 1]} {start.year}â€“{end.day} {SWEDISH_MONTHS[end.month - 1]} {end.year}"
+    return f"{start.day} {SWEDISH_MONTHS[start.month - 1]} {start.year}–{end.day} {SWEDISH_MONTHS[end.month - 1]} {end.year}"
 
 WEATHER_CODES = {
-    0: ("â˜€ï¸", "Klart"), 1: ("ðŸŒ¤ï¸", "Mestadels klart"), 2: ("â›…", "VÃ¤xlande molnighet"),
-    3: ("â˜ï¸", "Mulet"), 45: ("ðŸŒ«ï¸", "Dimma"), 48: ("ðŸŒ«ï¸", "Rimfrost och dimma"),
-    51: ("ðŸŒ¦ï¸", "LÃ¤tt duggregn"), 53: ("ðŸŒ¦ï¸", "Duggregn"), 55: ("ðŸŒ§ï¸", "Kraftigt duggregn"),
-    56: ("ðŸŒ§ï¸", "Underkylt duggregn"), 57: ("ðŸŒ§ï¸", "Kraftigt underkylt duggregn"),
-    61: ("ðŸŒ¦ï¸", "LÃ¤tt regn"), 63: ("ðŸŒ§ï¸", "Regn"), 65: ("ðŸŒ§ï¸", "Kraftigt regn"),
-    66: ("ðŸŒ§ï¸", "Underkylt regn"), 67: ("ðŸŒ§ï¸", "Kraftigt underkylt regn"),
-    71: ("ðŸŒ¨ï¸", "LÃ¤tt snÃ¶fall"), 73: ("ðŸŒ¨ï¸", "SnÃ¶fall"), 75: ("â„ï¸", "Kraftigt snÃ¶fall"),
-    77: ("ðŸŒ¨ï¸", "SnÃ¶korn"), 80: ("ðŸŒ¦ï¸", "LÃ¤tta regnskurar"), 81: ("ðŸŒ§ï¸", "Regnskurar"),
-    82: ("â›ˆï¸", "Kraftiga regnskurar"), 85: ("ðŸŒ¨ï¸", "LÃ¤tta snÃ¶byar"), 86: ("â„ï¸", "Kraftiga snÃ¶byar"),
-    95: ("â›ˆï¸", "Ã…ska"), 96: ("â›ˆï¸", "Ã…ska med lÃ¤tt hagel"), 99: ("â›ˆï¸", "Ã…ska med kraftigt hagel"),
+    0: ("☀️", "Klart"), 1: ("🌤️", "Mestadels klart"), 2: ("⛅", "Växlande molnighet"),
+    3: ("☁️", "Mulet"), 45: ("🌫️", "Dimma"), 48: ("🌫️", "Rimfrost och dimma"),
+    51: ("🌦️", "Lätt duggregn"), 53: ("🌦️", "Duggregn"), 55: ("🌧️", "Kraftigt duggregn"),
+    56: ("🌧️", "Underkylt duggregn"), 57: ("🌧️", "Kraftigt underkylt duggregn"),
+    61: ("🌦️", "Lätt regn"), 63: ("🌧️", "Regn"), 65: ("🌧️", "Kraftigt regn"),
+    66: ("🌧️", "Underkylt regn"), 67: ("🌧️", "Kraftigt underkylt regn"),
+    71: ("🌨️", "Lätt snöfall"), 73: ("🌨️", "Snöfall"), 75: ("❄️", "Kraftigt snöfall"),
+    77: ("🌨️", "Snökorn"), 80: ("🌦️", "Lätta regnskurar"), 81: ("🌧️", "Regnskurar"),
+    82: ("⛈️", "Kraftiga regnskurar"), 85: ("🌨️", "Lätta snöbyar"), 86: ("❄️", "Kraftiga snöbyar"),
+    95: ("⛈️", "Åska"), 96: ("⛈️", "Åska med lätt hagel"), 99: ("⛈️", "Åska med kraftigt hagel"),
 }
 
 @st.cache_data(ttl=86400, show_spinner=False)
 def _weather_geocode(place):
-    """Geokodning Ã¤ndras sÃ¤llan; hÃ¥ll den separat frÃ¥n den kortare prognoscachen."""
+    """Geokodning ändras sällan; håll den separat från den kortare prognoscachen."""
     geocode_url = "https://geocoding-api.open-meteo.com/v1/search?" + urlencode({
         "name": place.strip(), "count": 1, "language": "sv", "format": "json",
     })
@@ -5101,7 +5101,7 @@ def _weather_geocode(place):
 
 @st.cache_data(ttl=1800, refresh_mode="background", show_spinner=False)
 def fetch_weather_forecast(place):
-    """HÃ¤mta timprognos; utgÃ¥ngen cache uppdateras i bakgrunden utan att blockera sidan."""
+    """Hämta timprognos; utgången cache uppdateras i bakgrunden utan att blockera sidan."""
     if not place or not place.strip():
         return {}, "Spelort saknas"
     try:
@@ -5131,10 +5131,10 @@ def fetch_weather_forecast(place):
         resolved_place = location.get("name", place)
         return {"place": resolved_place, "hours": values}, ""
     except Exception:
-        return {}, "VÃ¤derprognosen kan inte hÃ¤mtas just nu."
+        return {}, "Väderprognosen kan inte hämtas just nu."
 
 def weather_for_match(forecast, scheduled_start):
-    """Returnera prognos fÃ¶r matchen utan att publikvyn kan krascha pÃ¥ gammal/ofullstÃ¤ndig data."""
+    """Returnera prognos för matchen utan att publikvyn kan krascha på gammal/ofullständig data."""
     if not forecast or not scheduled_start:
         return None
     try:
@@ -5148,15 +5148,15 @@ def weather_for_match(forecast, scheduled_start):
 
 def weather_label(weather):
     if not weather:
-        return "Prognos tillgÃ¤nglig nÃ¤rmare matchdagen"
-    icon, description = WEATHER_CODES.get(weather.get("weather_code"), ("ðŸŒ¡ï¸", "VÃ¤der"))
-    temperature = "â€“" if weather.get("temperature") is None else f"{round(weather['temperature'])} Â°C"
-    rain = "â€“" if weather.get("rain_probability") is None else f"{round(weather['rain_probability'])} % regnrisk"
-    wind = "â€“" if weather.get("wind_speed") is None else f"{round(weather['wind_speed'])} km/h vind"
-    return f"{icon} {description} Â· {temperature} Â· {rain} Â· {wind}"
+        return "Prognos tillgänglig närmare matchdagen"
+    icon, description = WEATHER_CODES.get(weather.get("weather_code"), ("🌡️", "Väder"))
+    temperature = "–" if weather.get("temperature") is None else f"{round(weather['temperature'])} °C"
+    rain = "–" if weather.get("rain_probability") is None else f"{round(weather['rain_probability'])} % regnrisk"
+    wind = "–" if weather.get("wind_speed") is None else f"{round(weather['wind_speed'])} km/h vind"
+    return f"{icon} {description} · {temperature} · {rain} · {wind}"
 
 def _row_value(row, key, default=None):
-    """LÃ¤s ett fÃ¤lt sÃ¤kert frÃ¥n sqlite/libsql-rader, dictar och Ã¤ldre schema."""
+    """Läs ett fält säkert från sqlite/libsql-rader, dictar och äldre schema."""
     if not row:
         return default
     try:
@@ -5168,7 +5168,7 @@ def _row_value(row, key, default=None):
     return default if value is None else value
 
 def _team_value(team_row, key, default=None):
-    """BakÃ¥tkompatibel wrapper fÃ¶r lagrader."""
+    """Bakåtkompatibel wrapper för lagrader."""
     return _row_value(team_row, key, default)
 
 def is_test_environment(tournament_row):
@@ -5182,7 +5182,7 @@ def played_match_count(tournament_id):
     return int(_row_value(row, "n", 0) or 0)
 
 def production_history_locked(tournament_id, tournament_row):
-    """Historikskydd gÃ¤ller fÃ¶rst nÃ¤r en riktig cup har minst ett registrerat resultat."""
+    """Historikskydd gäller först när en riktig cup har minst ett registrerat resultat."""
     return (not is_test_environment(tournament_row)) and played_match_count(tournament_id) > 0
 
 def team_has_played_result(tournament_id, team_id):
@@ -5195,24 +5195,24 @@ def team_has_played_result(tournament_id, team_id):
     )
     return int(_row_value(row, "n", 0) or 0) > 0
 
-KIT_PATTERNS = ["HelfÃ¤rgad", "Vertikala rÃ¤nder", "Horisontella rÃ¤nder", "Rutigt", "Delad"]
+KIT_PATTERNS = ["Helfärgad", "Vertikala ränder", "Horisontella ränder", "Rutigt", "Delad"]
 
 KIT_COLOR_PRESETS = {
-    "âš« Svart": "#111827",
-    "âšª Vit": "#FFFFFF",
-    "ðŸ”´ RÃ¶d": "#DC2626",
-    "ðŸ”µ BlÃ¥": "#2563EB",
-    "ðŸ”· MÃ¶rkblÃ¥": "#1E3A8A",
-    "ðŸ©µ LjusblÃ¥": "#38BDF8",
-    "ðŸŸ¢ GrÃ¶n": "#16A34A",
-    "ðŸŸ¡ Gul": "#FACC15",
-    "ðŸŸ  Orange": "#F97316",
-    "ðŸŸ£ Lila": "#7C3AED",
-    "ðŸ©· Rosa": "#EC4899",
-    "ðŸŸ¤ VinrÃ¶d": "#7F1D1D",
-    "â—»ï¸ GrÃ¥": "#9CA3AF",
+    "⚫ Svart": "#111827",
+    "⚪ Vit": "#FFFFFF",
+    "🔴 Röd": "#DC2626",
+    "🔵 Blå": "#2563EB",
+    "🔷 Mörkblå": "#1E3A8A",
+    "🩵 Ljusblå": "#38BDF8",
+    "🟢 Grön": "#16A34A",
+    "🟡 Gul": "#FACC15",
+    "🟠 Orange": "#F97316",
+    "🟣 Lila": "#7C3AED",
+    "🩷 Rosa": "#EC4899",
+    "🟤 Vinröd": "#7F1D1D",
+    "◻️ Grå": "#9CA3AF",
 }
-KIT_CUSTOM_COLOR = "ðŸŽ¨ Egen fÃ¤rgâ€¦"
+KIT_CUSTOM_COLOR = "🎨 Egen färg…"
 
 def _normalize_kit_hex(value, fallback="#111827"):
     text = str(value or "").strip().upper()
@@ -5237,33 +5237,33 @@ def kit_color_selector(label, key, default_color, help_text=None):
         st.session_state[custom_key] = default_color
     selected = st.selectbox(label, options, key=mode_key, help=help_text)
     if selected == KIT_CUSTOM_COLOR:
-        return st.color_picker("Exakt fÃ¤rg", key=custom_key, help="AnvÃ¤nd bara detta om snabbvalen inte rÃ¤cker.")
+        return st.color_picker("Exakt färg", key=custom_key, help="Använd bara detta om snabbvalen inte räcker.")
     return KIT_COLOR_PRESETS[selected]
 
 def kit_colors(team_row, kit="home"):
-    """Returnera de fÃ¤rger som faktiskt syns i ett hemma- eller bortastÃ¤ll."""
+    """Returnera de färger som faktiskt syns i ett hemma- eller bortaställ."""
     if not team_row:
         return ["#9CA3AF"]
     if kit == "away":
-        pattern = _team_value(team_row, "away_pattern", "HelfÃ¤rgad")
+        pattern = _team_value(team_row, "away_pattern", "Helfärgad")
         color_1 = _team_value(team_row, "secondary_color", "#FFFFFF")
         color_2 = _team_value(team_row, "away_color_2", "#111827")
     else:
-        pattern = _team_value(team_row, "home_pattern", "HelfÃ¤rgad")
+        pattern = _team_value(team_row, "home_pattern", "Helfärgad")
         color_1 = _team_value(team_row, "primary_color", "#111827")
         color_2 = _team_value(team_row, "home_color_2", "#FFFFFF")
-    return [color_1] if pattern == "HelfÃ¤rgad" else [color_1, color_2]
+    return [color_1] if pattern == "Helfärgad" else [color_1, color_2]
 
 def kit_pattern(team_row, kit="home"):
     if kit == "away":
-        return _team_value(team_row, "away_pattern", "HelfÃ¤rgad")
-    return _team_value(team_row, "home_pattern", "HelfÃ¤rgad")
+        return _team_value(team_row, "away_pattern", "Helfärgad")
+    return _team_value(team_row, "home_pattern", "Helfärgad")
 
 def kit_background(pattern, color_1, color_2):
-    """CSS-bakgrund som visuellt Ã¥terger valt trÃ¶jmÃ¶nster."""
-    if pattern == "Vertikala rÃ¤nder":
+    """CSS-bakgrund som visuellt återger valt tröjmönster."""
+    if pattern == "Vertikala ränder":
         return f"repeating-linear-gradient(90deg,{color_1} 0 8px,{color_2} 8px 16px)"
-    if pattern == "Horisontella rÃ¤nder":
+    if pattern == "Horisontella ränder":
         return f"repeating-linear-gradient(0deg,{color_1} 0 7px,{color_2} 7px 14px)"
     if pattern == "Rutigt":
         return f"conic-gradient({color_1} 25%,{color_2} 0 50%,{color_1} 0 75%,{color_2} 0) 0 0/16px 16px"
@@ -5284,10 +5284,10 @@ def _kit_shirt_svg(pattern, color_1, color_2, *, width=58, height=50):
     pid = "kitfill"
     defs = ""
     fill = c1
-    if pattern == "Vertikala rÃ¤nder":
+    if pattern == "Vertikala ränder":
         defs = f"<pattern id='{pid}' width='12' height='48' patternUnits='userSpaceOnUse'><rect width='6' height='48' fill='{c1}'/><rect x='6' width='6' height='48' fill='{c2}'/></pattern>"
         fill = f"url(#{pid})"
-    elif pattern == "Horisontella rÃ¤nder":
+    elif pattern == "Horisontella ränder":
         defs = f"<pattern id='{pid}' width='58' height='12' patternUnits='userSpaceOnUse'><rect width='58' height='6' fill='{c1}'/><rect y='6' width='58' height='6' fill='{c2}'/></pattern>"
         fill = f"url(#{pid})"
     elif pattern == "Rutigt":
@@ -5335,7 +5335,7 @@ def _hex_rgb(value):
         return None
 
 def colors_similar(color_a, color_b, threshold=72):
-    """Praktisk fÃ¤rgkrock: fÃ¥nga Ã¤ven tydligt nÃ¤rliggande nyanser, inte bara identiska hexvÃ¤rden."""
+    """Praktisk färgkrock: fånga även tydligt närliggande nyanser, inte bara identiska hexvärden."""
     a, b = _hex_rgb(color_a), _hex_rgb(color_b)
     if not a or not b:
         return str(color_a).casefold() == str(color_b).casefold()
@@ -5346,7 +5346,7 @@ def kits_conflict(team_a, kit_a, team_b, kit_b):
     return any(colors_similar(a, b) for a in kit_colors(team_a, kit_a) for b in kit_colors(team_b, kit_b))
 
 def match_kit_colors(home_team, away_team):
-    """BehÃ¥ll kompatibel returtyp men vÃ¤lj bortastÃ¤ll utifrÃ¥n alla synliga fÃ¤rger."""
+    """Behåll kompatibel returtyp men välj bortaställ utifrån alla synliga färger."""
     if not home_team or not away_team:
         return "#9CA3AF", "#FFFFFF", False
     use_away_kit = kits_conflict(home_team, "home", away_team, "home")
@@ -5355,7 +5355,7 @@ def match_kit_colors(home_team, away_team):
     return home_color, away_color, use_away_kit
 
 def kit_color_conflict(home_team, away_team):
-    """Kontrollera om bortalagets valda stÃ¤ll fortfarande krockar med hemmastÃ¤llet."""
+    """Kontrollera om bortalagets valda ställ fortfarande krockar med hemmastället."""
     if not home_team or not away_team:
         return False
     use_away_kit = kits_conflict(home_team, "home", away_team, "home")
@@ -5366,9 +5366,9 @@ def optimize_group_home_away(tournament_id):
     """
     Optimera hemma/borta i gruppspelet.
 
-    Prioritet 1: vÃ¤lj den riktning som undviker fÃ¤rgkrock nÃ¤r endast en riktning gÃ¶r det.
-    Prioritet 2: bland fÃ¤rgmÃ¤ssigt likvÃ¤rdiga riktningar, jÃ¤mna ut hemma/borta per lag.
-    Matcher med registrerat resultat lÃ¤mnas helt orÃ¶rda men rÃ¤knas in i balansen.
+    Prioritet 1: välj den riktning som undviker färgkrock när endast en riktning gör det.
+    Prioritet 2: bland färgmässigt likvärdiga riktningar, jämna ut hemma/borta per lag.
+    Matcher med registrerat resultat lämnas helt orörda men räknas in i balansen.
     """
     teams = {
         row["id"]: row
@@ -5397,7 +5397,7 @@ def optimize_group_home_away(tournament_id):
         away_counts = {}
         editable = []
 
-        # Spelade matcher Ã¤r lÃ¥sta, men deras hemma/borta-fÃ¶rdelning pÃ¥verkar fortsatt balans.
+        # Spelade matcher är låsta, men deras hemma/borta-fördelning påverkar fortsatt balans.
         for match_row in matches:
             try:
                 home_id = int(match_row["home_source"].split(":")[1])
@@ -5414,7 +5414,7 @@ def optimize_group_home_away(tournament_id):
         forced = []
         flexible = []
 
-        # FÃ¤rg bedÃ¶ms i bÃ¥da riktningarna. Om bara en riktning krockar Ã¤r valet tvingande.
+        # Färg bedöms i båda riktningarna. Om bara en riktning krockar är valet tvingande.
         for match_row, team_a_id, team_b_id in editable:
             team_a = teams.get(team_a_id)
             team_b = teams.get(team_b_id)
@@ -5431,18 +5431,18 @@ def optimize_group_home_away(tournament_id):
                 else:
                     forced.append((match_row, team_b_id, team_a_id))
             else:
-                # BÃ¥da riktningar Ã¤r lika bra fÃ¤rgmÃ¤ssigt: anvÃ¤nd dem fÃ¶r balans.
+                # Båda riktningar är lika bra färgmässigt: använd dem för balans.
                 flexible.append((match_row, team_a_id, team_b_id))
 
         orientations = {}
 
-        # Tvingade fÃ¤rgval gÃ¥r fÃ¶rst eftersom fÃ¤rgkrockar har hÃ¶gre prioritet.
+        # Tvingade färgval går först eftersom färgkrockar har högre prioritet.
         for match_row, home_id, away_id in forced:
             orientations[match_row["id"]] = [home_id, away_id, False]
             home_counts[home_id] = home_counts.get(home_id, 0) + 1
             away_counts[away_id] = away_counts.get(away_id, 0) + 1
 
-        # DÃ¤refter balanseras matcher dÃ¤r bÃ¥da riktningarna Ã¤r fÃ¤rgmÃ¤ssigt likvÃ¤rdiga.
+        # Därefter balanseras matcher där båda riktningarna är färgmässigt likvärdiga.
         for match_row, team_a_id, team_b_id in flexible:
             score_ab = orientation_balance_score(
                 team_a_id, team_b_id, home_counts, away_counts
@@ -5456,7 +5456,7 @@ def optimize_group_home_away(tournament_id):
             elif score_ba < score_ab:
                 home_id, away_id = team_b_id, team_a_id
             else:
-                # Stabil tie-break: laget med fÃ¤rre hemmamatcher fÃ¥r hemma.
+                # Stabil tie-break: laget med färre hemmamatcher får hemma.
                 a_home = home_counts.get(team_a_id, 0)
                 b_home = home_counts.get(team_b_id, 0)
                 if a_home < b_home:
@@ -5464,7 +5464,7 @@ def optimize_group_home_away(tournament_id):
                 elif b_home < a_home:
                     home_id, away_id = team_b_id, team_a_id
                 else:
-                    # Alternera deterministiskt fÃ¶r att undvika ID-bias.
+                    # Alternera deterministiskt för att undvika ID-bias.
                     if int(match_row["match_no"] or match_row["id"]) % 2:
                         home_id, away_id = team_a_id, team_b_id
                     else:
@@ -5474,8 +5474,8 @@ def optimize_group_home_away(tournament_id):
             home_counts[home_id] = home_counts.get(home_id, 0) + 1
             away_counts[away_id] = away_counts.get(away_id, 0) + 1
 
-        # Lokal fÃ¶rbÃ¤ttring: vÃ¤nd endast flexibla matcher om den totala obalansen minskar.
-        # FÃ¤rgresultatet kan dÃ¥ inte fÃ¶rsÃ¤mras eftersom dessa matcher var fÃ¤rgmÃ¤ssigt likvÃ¤rdiga.
+        # Lokal förbättring: vänd endast flexibla matcher om den totala obalansen minskar.
+        # Färgresultatet kan då inte försämras eftersom dessa matcher var färgmässigt likvärdiga.
         for _ in range(6):
             improved = False
             for match_id, orientation in orientations.items():
@@ -5586,7 +5586,7 @@ def render_centered_table(dataframe, empty_text="Ingen data att visa."):
     st.markdown(html_block, unsafe_allow_html=True)
 
 def brackets_for_display(tournament_id):
-    """Visa hÃ¶gst ett A- och ett B-slutspel utan N+1-frÃ¥gor mot matchtabellen."""
+    """Visa högst ett A- och ett B-slutspel utan N+1-frågor mot matchtabellen."""
     rows = all_rows("SELECT * FROM brackets WHERE tournament_id=? ORDER BY id", (tournament_id,))
     stats_rows = all_rows(
         """SELECT bracket_id,
@@ -5737,21 +5737,21 @@ def create_bracket(tournament_id, name, size, bronze, first_sources):
             (tournament_id, bracket_id, "Bronsmatch", round_no, 1, f"loser:{semifinal_ids[0]}", f"loser:{semifinal_ids[1]}"),
         )
 
-PLACEMENT_PLAYOFF_FORMAT = "Placeringsslutspel â€“ ettor mot ettor osv."
-TOP_TWO_PLAYOFF_FORMAT = "Slutspel â€“ bara ettor och tvÃ¥or"
+PLACEMENT_PLAYOFF_FORMAT = "Placeringsslutspel – ettor mot ettor osv."
+TOP_TWO_PLAYOFF_FORMAT = "Slutspel – bara ettor och tvåor"
 MANUAL_PLAYOFF_FORMAT = "Manuellt slutspel"
 
 def placement_playoff_specs(tournament_id):
-    """Bygg dynamiska placeringsslutspel fÃ¶r tvÃ¥, fyra eller Ã¥tta grupper."""
+    """Bygg dynamiska placeringsslutspel för två, fyra eller åtta grupper."""
     groups = all_rows("SELECT * FROM groups WHERE tournament_id=? ORDER BY name", (tournament_id,))
     team_counts = {
         group["id"]: one_row("SELECT COUNT(*) AS n FROM teams WHERE group_id=?", (group["id"],))["n"]
         for group in groups
     }
     if len(groups) not in {2, 4, 8} or any(team_counts[group["id"]] < 2 for group in groups):
-        return [], "Placeringsslutspel krÃ¤ver tvÃ¥, fyra eller Ã¥tta grupper med minst tvÃ¥ lag i varje grupp."
+        return [], "Placeringsslutspel kräver två, fyra eller åtta grupper med minst två lag i varje grupp."
     max_rank = min(team_counts.values())
-    rank_names = {1: "Ettornas slutspel", 2: "TvÃ¥ornas slutspel", 3: "Treornas slutspel", 4: "Fyrornas slutspel"}
+    rank_names = {1: "Ettornas slutspel", 2: "Tvåornas slutspel", 3: "Treornas slutspel", 4: "Fyrornas slutspel"}
     specs = []
     for rank in range(1, max_rank + 1):
         name = rank_names.get(rank, f"Placering {rank}-slutspel")
@@ -5759,7 +5759,7 @@ def placement_playoff_specs(tournament_id):
     return specs, ""
 
 def playoff_specs_for_tournament(tournament_id, tournament):
-    """Returnera Ã¶nskat slutspel utifrÃ¥n den modell som valts pÃ¥ AdminÃ¶versikten."""
+    """Returnera önskat slutspel utifrån den modell som valts på Adminöversikten."""
     fmt = tournament["playoff_format"]
     if fmt == "Inget slutspel":
         return [], ""
@@ -5770,7 +5770,7 @@ def playoff_specs_for_tournament(tournament_id, tournament):
     if fmt == TOP_TWO_PLAYOFF_FORMAT:
         groups = all_rows("SELECT * FROM groups WHERE tournament_id=? ORDER BY name", (tournament_id,))
         if len(groups) not in {2, 4, 8}:
-            return [], "Slutspel fÃ¶r ettor och tvÃ¥or krÃ¤ver tvÃ¥, fyra eller Ã¥tta grupper."
+            return [], "Slutspel för ettor och tvåor kräver två, fyra eller åtta grupper."
         count_rows = all_rows(
             """SELECT group_id,COUNT(*) AS n FROM teams
                WHERE tournament_id=? AND group_id IS NOT NULL
@@ -5779,10 +5779,10 @@ def playoff_specs_for_tournament(tournament_id, tournament):
         )
         counts = {row["group_id"]: int(row["n"] or 0) for row in count_rows}
         if any(counts.get(group["id"], 0) < 2 for group in groups):
-            return [], "Slutspel fÃ¶r ettor och tvÃ¥or krÃ¤ver minst tvÃ¥ lag i varje grupp."
+            return [], "Slutspel för ettor och tvåor kräver minst två lag i varje grupp."
         sources = []
-        # Para grupper tvÃ¥ och tvÃ¥. Gruppettan mÃ¶ter tvÃ¥an i grann-gruppen,
-        # sÃ¥ lag frÃ¥n samma grupp inte mÃ¶ts direkt i fÃ¶rsta slutspelsmatchen.
+        # Para grupper två och två. Gruppettan möter tvåan i grann-gruppen,
+        # så lag från samma grupp inte möts direkt i första slutspelsmatchen.
         for idx in range(0, len(groups), 2):
             group_a, group_b = groups[idx], groups[idx + 1]
             sources.extend([
@@ -5793,7 +5793,7 @@ def playoff_specs_for_tournament(tournament_id, tournament):
     if fmt == "A- och B-slutspel":
         groups = all_rows("SELECT * FROM groups WHERE tournament_id=? ORDER BY name", (tournament_id,))
         if len(groups) != 2:
-            return [], "A- och B-slutspel krÃ¤ver exakt tvÃ¥ grupper."
+            return [], "A- och B-slutspel kräver exakt två grupper."
         count_rows = all_rows(
             """SELECT group_id,COUNT(*) AS n FROM teams
                WHERE tournament_id=? AND group_id IS NOT NULL
@@ -5802,7 +5802,7 @@ def playoff_specs_for_tournament(tournament_id, tournament):
         )
         counts = {row["group_id"]: int(row["n"] or 0) for row in count_rows}
         if any(counts.get(group["id"], 0) < 4 for group in groups):
-            return [], "A- och B-slutspel krÃ¤ver minst fyra lag i vardera gruppen."
+            return [], "A- och B-slutspel kräver minst fyra lag i vardera gruppen."
         group_a, group_b = groups
         return [
             ("A-slutspel", 4, [
@@ -5816,10 +5816,10 @@ def playoff_specs_for_tournament(tournament_id, tournament):
         ], ""
     if fmt == PLACEMENT_PLAYOFF_FORMAT:
         return placement_playoff_specs(tournament_id)
-    return [], "OkÃ¤nd slutspelsmodell."
+    return [], "Okänd slutspelsmodell."
 
 def ensure_playoffs_for_schedule(tournament_id, tournament):
-    """Skapa/uppdatera slutspel automatiskt nÃ¤r hela schemat genereras."""
+    """Skapa/uppdatera slutspel automatiskt när hela schemat genereras."""
     if tournament["playoff_format"] == MANUAL_PLAYOFF_FORMAT:
         # v426: the scheduler must never delete or replace an organiser-built bracket.
         return True, ""
@@ -5846,7 +5846,7 @@ def ensure_playoffs_for_schedule(tournament_id, tournament):
         (tournament_id,),
     )["n"]
     if played:
-        return False, "Slutspelsmodellen kan inte byggas om eftersom slutspelsresultat redan Ã¤r registrerade."
+        return False, "Slutspelsmodellen kan inte byggas om eftersom slutspelsresultat redan är registrerade."
 
     run("DELETE FROM brackets WHERE tournament_id=?", (tournament_id,))
     for bracket_name, bracket_size, bracket_sources in specs:
@@ -5887,8 +5887,8 @@ def group_playoff_qualifiers(tournament_id, group_id):
                 mapping[rank] = ("B", "qual-b")
             elif "ettornas" in lower_name or "1:ornas" in lower_name or "1ornas" in lower_name:
                 mapping[rank] = (bracket_name or "Ettornas slutspel", "qual-rank-1")
-            elif "tvÃ¥ornas" in lower_name or "2:ornas" in lower_name or "2ornas" in lower_name:
-                mapping[rank] = (bracket_name or "TvÃ¥ornas slutspel", "qual-rank-2")
+            elif "tvåornas" in lower_name or "2:ornas" in lower_name or "2ornas" in lower_name:
+                mapping[rank] = (bracket_name or "Tvåornas slutspel", "qual-rank-2")
             elif "treornas" in lower_name or "3:ornas" in lower_name or "3ornas" in lower_name:
                 mapping[rank] = (bracket_name or "Treornas slutspel", "qual-rank-3")
             elif "fyrornas" in lower_name or "4:ornas" in lower_name or "4ornas" in lower_name:
@@ -5897,7 +5897,7 @@ def group_playoff_qualifiers(tournament_id, group_id):
                 mapping.setdefault(rank, (bracket_name or "Slutspel", "qual-playoff"))
     return mapping
 
-def render_empty_state(title, description, *, symbol="â€¢"):
+def render_empty_state(title, description, *, symbol="•"):
     st.markdown(
         f"<div class='cn-empty-state' role='status'>"
         f"<div class='icon' aria-hidden='true'>{html.escape(symbol)}</div>"
@@ -5924,7 +5924,7 @@ def generate_schedule(tournament_id, tournament, rules, preserve_existing=False,
     try:
         schedule_window = build_schedule_window(tournament, rules)
     except (TypeError, ValueError, KeyError):
-        return 0, 0, "Turneringen mÃ¥ste ha giltiga cupdatum och tillgÃ¤ngliga tider fÃ¶r planerna."
+        return 0, 0, "Turneringen måste ha giltiga cupdatum och tillgängliga tider för planerna."
 
     start = schedule_window.start
     end_date = schedule_window.end_date
@@ -5965,8 +5965,8 @@ def generate_schedule(tournament_id, tournament, rules, preserve_existing=False,
             if next_day>end_date: return None
             candidate=datetime.combine(next_day,pitch_bounds(next_day,pitch)[0])
         return None
-    # Databasen Ã¤ndras fÃ¶rst nÃ¤r hela schemalÃ¤ggningspasset Ã¤r fÃ¤rdigberÃ¤knat.
-    # Det minskar risken fÃ¶r ett halvuppdaterat schema om ett ovÃ¤ntat fel intrÃ¤ffar.
+    # Databasen ändras först när hela schemaläggningspasset är färdigberäknat.
+    # Det minskar risken för ett halvuppdaterat schema om ett oväntat fel inträffar.
     schedule_updates = []
     pitch_gap = timedelta(minutes=rules["pitch_break_minutes"])
     playoff_pitch_gap = timedelta(minutes=int(_row_value(rules, "playoff_pitch_break_minutes", None) if _row_value(rules, "playoff_pitch_break_minutes", None) is not None else rules["pitch_break_minutes"]))
@@ -5994,7 +5994,7 @@ def generate_schedule(tournament_id, tournament, rules, preserve_existing=False,
         preference = travel_preferences.get(team_id)
         if not preference or not preference["late_first_match"] or not preference["earliest_first_time"]:
             return candidate
-        # Ã–nskemÃ¥let gÃ¤ller bara lagets fÃ¶rsta match i turneringen.
+        # Önskemålet gäller bara lagets första match i turneringen.
         if team_id in team_last_end:
             return candidate
         try:
@@ -6065,14 +6065,14 @@ def generate_schedule(tournament_id, tournament, rules, preserve_existing=False,
         home_id = schedule_source_id(match_row["home_source"])
         away_id = schedule_source_id(match_row["away_source"])
         if not home_id or not away_id:
-            # Slutspelsmatcher ska Ã¤ndÃ¥ fÃ¥ tid, plan och matchnummer redan innan lagen Ã¤r klara.
+            # Slutspelsmatcher ska ändå få tid, plan och matchnummer redan innan lagen är klara.
             placeholder_matches.append(match_row)
             continue
         remaining.append((match_row, home_id, away_id))
-    # Optimera ordningen pÃ¥ konkreta matcher fÃ¶re exakt placering. OR-Tools
-    # lÃ¶ser parallella schemavÃ¥gor nÃ¤r biblioteket finns tillgÃ¤ngligt; den
-    # befintliga schemalÃ¤ggaren ansvarar fortfarande fÃ¶r exakta tider, lÃ¥sta
-    # matcher, domare, reseÃ¶nskemÃ¥l och slutspelsberoenden.
+    # Optimera ordningen på konkreta matcher före exakt placering. OR-Tools
+    # löser parallella schemavågor när biblioteket finns tillgängligt; den
+    # befintliga schemaläggaren ansvarar fortfarande för exakta tider, låsta
+    # matcher, domare, reseönskemål och slutspelsberoenden.
     if remaining:
         optimized_order, optimization_engine = optimize_match_order(
             remaining,
@@ -6126,7 +6126,7 @@ def generate_schedule(tournament_id, tournament, rules, preserve_existing=False,
     def scheduling_candidate_key(item):
         candidate_start, consecutive_penalty, late_penalty, request_penalty, order, pitch, referee_id = item
         penalties = {
-            "Tillgodose lagens startÃ¶nskemÃ¥l": request_penalty,
+            "Tillgodose lagens startönskemål": request_penalty,
             "Undvik matcher direkt efter varandra": consecutive_penalty,
             "Minimera sena gruppmatcher": late_penalty,
         }
@@ -6180,19 +6180,19 @@ def generate_schedule(tournament_id, tournament, rules, preserve_existing=False,
             reasons = []
             if len(matches) > theoretical_capacity:
                 reasons.append(
-                    f"det finns teoretiskt hÃ¶gst {theoretical_capacity} planplatser fÃ¶r {len(matches)} matcher med nuvarande tider"
+                    f"det finns teoretiskt högst {theoretical_capacity} planplatser för {len(matches)} matcher med nuvarande tider"
                 )
             if rules["referee_mode"] == "Automatisk" and not referees:
-                reasons.append("inga domare Ã¤r registrerade fÃ¶r automatisk tillsÃ¤ttning")
+                reasons.append("inga domare är registrerade för automatisk tillsättning")
             late_requests = sum(1 for pref in travel_preferences.values() if pref["late_first_match"] and pref["earliest_first_time"])
             if late_requests:
-                reasons.append(f"{late_requests} lag har Ã¶nskemÃ¥l om senare fÃ¶rsta match")
+                reasons.append(f"{late_requests} lag har önskemål om senare första match")
             if avoid_consecutive:
-                reasons.append(f"kravet pÃ¥ extra lagvila Ã¤r {rules['consecutive_match_break_minutes']} minuter")
-            reason_text = "; ".join(reasons) if reasons else "kombinationen av plan-, lag-, domar- och tidsbegrÃ¤nsningar"
+                reasons.append(f"kravet på extra lagvila är {rules['consecutive_match_break_minutes']} minuter")
+            reason_text = "; ".join(reasons) if reasons else "kombinationen av plan-, lag-, domar- och tidsbegränsningar"
             warning = (
-                "Alla matcher fick inte plats inom cupens datumintervall och planernas tillgÃ¤ngliga tider. "
-                f"MÃ¶jliga orsaker: {reason_text}."
+                "Alla matcher fick inte plats inom cupens datumintervall och planernas tillgängliga tider. "
+                f"Möjliga orsaker: {reason_text}."
             )
             break
         match_start, consecutive_penalty, _late_penalty, _request_penalty, order, pitch, referee_id = min(candidates, key=scheduling_candidate_key)
@@ -6215,8 +6215,8 @@ def generate_schedule(tournament_id, tournament, rules, preserve_existing=False,
             referee_ready[referee_id] = match_end + pitch_gap_for_match(match_row)
         scheduled += 1
 
-    # SchemalÃ¤gg dÃ¤refter slutspelsplatshÃ¥llare. De fÃ¥r riktiga tider och lÃ¶pnummer
-    # Ã¤ven om gruppvinnare/semifinalvinnare Ã¤nnu inte Ã¤r kÃ¤nda.
+    # Schemalägg därefter slutspelsplatshållare. De får riktiga tider och löpnummer
+    # även om gruppvinnare/semifinalvinnare ännu inte är kända.
     scheduled_start_by_id = {}
     scheduled_end_by_id = {}
     for existing_match in matches:
@@ -6293,22 +6293,22 @@ def generate_schedule(tournament_id, tournament, rules, preserve_existing=False,
             unresolved += len(pending_placeholders)
             warning = (
                 (locals().get("warning", "") + " ").strip()
-                + f"{len(pending_placeholders)} slutspelsmatch(er) kunde inte fÃ¥ en tid inom cupens plantider."
+                + f"{len(pending_placeholders)} slutspelsmatch(er) kunde inte få en tid inom cupens plantider."
             ).strip()
             break
 
     warning = locals().get("warning", "")
     if forced_consecutive:
         consecutive_warning = (
-            f"Schemat behÃ¶vde placera {forced_consecutive} match(er) efter en match med samma lag; "
-            f"den angivna extrapusen pÃ¥ {rules['consecutive_match_break_minutes']} minuter lades in."
+            f"Schemat behövde placera {forced_consecutive} match(er) efter en match med samma lag; "
+            f"den angivna extrapusen på {rules['consecutive_match_break_minutes']} minuter lades in."
         )
         warning = f"{warning} {consecutive_warning}".strip()
 
     if optimization_engine == "greedy-fallback":
-        warning = f"{warning} OR-Tools var inte tillgÃ¤ngligt; sÃ¤ker standardoptimering anvÃ¤ndes.".strip()
+        warning = f"{warning} OR-Tools var inte tillgängligt; säker standardoptimering användes.".strip()
 
-    # Spara hela schemalÃ¤ggningspasset atomiskt via repository-lagret.
+    # Spara hela schemaläggningspasset atomiskt via repository-lagret.
     try:
         repo.persist_generated_schedule(
             tournament_id=tournament_id,
@@ -6318,17 +6318,17 @@ def generate_schedule(tournament_id, tournament, rules, preserve_existing=False,
             replace_locked=replace_locked,
         )
     except Exception as exc:
-        return 0, len(schedule_updates) + unresolved, f"Schemat kunde inte sparas och inga schemaÃ¤ndringar genomfÃ¶rdes: {exc}"
+        return 0, len(schedule_updates) + unresolved, f"Schemat kunde inte sparas och inga schemaändringar genomfördes: {exc}"
 
     return scheduled, unresolved, warning
 
 def validate_schedule(tournament_id, tournament, rules):
-    """Kontrollera schemat och sammanstÃ¤ll vÃ¤ntetid och belastning per lag."""
+    """Kontrollera schemat och sammanställ väntetid och belastning per lag."""
     rows = schedule_repository().scheduled_matches(tournament_id)
     duration = timedelta(minutes=(rules["halves"] * rules["minutes_per_half"]) + ((rules["halves"] - 1) * rules["halftime_minutes"]))
     playoff_extra = timedelta(
         minutes=int(tournament["extra_time_minutes"] or 0)
-        if tournament["playoff_tie_rule"] == "FÃ¶rlÃ¤ngning + straffar" else 0
+        if tournament["playoff_tie_rule"] == "Förlängning + straffar" else 0
     )
     pitch_gap = timedelta(minutes=rules["pitch_break_minutes"])
     avoid_consecutive = bool(rules["avoid_consecutive_matches"])
@@ -6338,8 +6338,8 @@ def validate_schedule(tournament_id, tournament, rules):
     first_time = datetime.strptime(rules["first_match_time"], "%H:%M").time()
     latest_time = datetime.strptime(rules["latest_kickoff_time"], "%H:%M").time()
     validation_windows = {(str(r["play_date"]),int(r["pitch_number"])): (datetime.strptime(r["start_time"], "%H:%M").time(), datetime.strptime(r["end_time"], "%H:%M").time()) for r in ensure_pitch_day_windows(tournament_id, tournament, rules["pitch_count"], rules["first_match_time"], rules["latest_kickoff_time"])}
-    # v1.260: validering lÃ¤ser lag i en batch. team() per unikt lag var sÃ¤rskilt
-    # dyrt mot Turso Ã¤ven om render-cachen fÃ¶rhindrade exakt dubbla queries.
+    # v1.260: validering läser lag i en batch. team() per unikt lag var särskilt
+    # dyrt mot Turso även om render-cachen förhindrade exakt dubbla queries.
     validation_teams = {int(r["id"]): r for r in all_rows("SELECT * FROM teams WHERE tournament_id=?", (tournament_id,))}
     def validation_team(team_id):
         return validation_teams.get(int(team_id)) if team_id else None
@@ -6352,19 +6352,19 @@ def validate_schedule(tournament_id, tournament, rules):
         home_team, away_team = validation_team(home_id), validation_team(away_id)
         events.append({"number": number, "row": match_row, "start": start_at, "end": start_at + match_duration, "teams": {home_id, away_id} - {None}})
         if not cup_start <= start_at.date() <= cup_end:
-            errors.append(f"Match {number} ligger utanfÃ¶r cupens datumintervall.")
+            errors.append(f"Match {number} ligger utanför cupens datumintervall.")
         pitch_no=int(match_row["pitch_number"] or 0)
         day_first, day_last = validation_windows.get((start_at.date().isoformat(),pitch_no), (first_time, latest_time))
         if start_at.time() < day_first:
-            errors.append(f"Match {number} har avspark {start_at.strftime('%H:%M')} fÃ¶re planens tillÃ¥tna starttid {day_first.strftime('%H:%M')}.")
+            errors.append(f"Match {number} har avspark {start_at.strftime('%H:%M')} före planens tillåtna starttid {day_first.strftime('%H:%M')}.")
         if (start_at + match_duration) > datetime.combine(start_at.date(), day_last):
             errors.append(f"Match {number} slutar {(start_at + match_duration).strftime('%H:%M')}, efter planens sluttid {day_last.strftime('%H:%M')}.")
         if not match_row["pitch_number"] or not 1 <= match_row["pitch_number"] <= rules["pitch_count"]:
             errors.append(f"Match {number} har en ogiltig plan.")
         if kit_color_conflict(home_team, away_team):
             warnings.append(
-                f"MÃ¶jlig fÃ¤rglikhet i match {number}: {away_team['name']}s ordinarie stÃ¤ll och bortastÃ¤ll ligger nÃ¤ra hemmalagets fÃ¤rger. "
-                f"Ett ytterligare avvikande stÃ¤ll behÃ¶ver anvÃ¤ndas."
+                f"Möjlig färglikhet i match {number}: {away_team['name']}s ordinarie ställ och bortaställ ligger nära hemmalagets färger. "
+                f"Ett ytterligare avvikande ställ behöver användas."
             )
     for index, first in enumerate(events):
         for second in events[index + 1:]:
@@ -6375,7 +6375,7 @@ def validate_schedule(tournament_id, tournament, rules):
             if first["row"]["referee_id"] and first["row"]["referee_id"] == second["row"]["referee_id"] and second["start"] < first["end"]:
                 errors.append(f"Domarkrock mellan match {first['number']} och {second['number']}.")
             if first["teams"] & second["teams"] and second["start"] < first["end"]:
-                errors.append(f"Ett lag Ã¤r dubbelbokat i match {first['number']} och {second['number']}.")
+                errors.append(f"Ett lag är dubbelbokat i match {first['number']} och {second['number']}.")
     team_events = {}
     for event in events:
         for team_id in event["teams"]:
@@ -6393,7 +6393,7 @@ def validate_schedule(tournament_id, tournament, rules):
             waits.append(rest_minutes)
             if avoid_consecutive and rest_minutes < consecutive_break_minutes:
                 errors.append(
-                    f"{validation_team(team_id)['name']} saknar den obligatoriska extrapusen pÃ¥ {consecutive_break_minutes} minuter "
+                    f"{validation_team(team_id)['name']} saknar den obligatoriska extrapusen på {consecutive_break_minutes} minuter "
                     f"mellan match {previous['number']} och {current['number']}."
                 )
             if rest_minutes <= rules["pitch_break_minutes"]:
@@ -6407,8 +6407,8 @@ def validate_schedule(tournament_id, tournament, rules):
                 first_event = team_matches[0]
                 if first_event["start"].date() == cup_start and first_event["start"].time() < preferred_time:
                     warnings.append(
-                        f"{team_row['name']} Ã¶nskar sin fÃ¶rsta match tidigast {preferred_time.strftime('%H:%M')}, "
-                        f"men Ã¤r schemalagt {first_event['start'].strftime('%H:%M')}."
+                        f"{team_row['name']} önskar sin första match tidigast {preferred_time.strftime('%H:%M')}, "
+                        f"men är schemalagt {first_event['start'].strftime('%H:%M')}."
                     )
             except (TypeError, ValueError):
                 pass
@@ -6457,10 +6457,10 @@ def render_about_page():
     st.markdown("</div>", unsafe_allow_html=True)
 
     labels = {
-        "organizer": "FÃ¶r arrangÃ¶ren" if language == "sv" else "For organizers",
-        "teams": "FÃ¶r lag och deltagare" if language == "sv" else "For teams and participants",
-        "officials": "FÃ¶r domare och rapportÃ¶rer" if language == "sv" else "For officials and reporters",
-        "audience": "FÃ¶r publik" if language == "sv" else "For spectators",
+        "organizer": "För arrangören" if language == "sv" else "For organizers",
+        "teams": "För lag och deltagare" if language == "sv" else "For teams and participants",
+        "officials": "För domare och rapportörer" if language == "sv" else "For officials and reporters",
+        "audience": "För publik" if language == "sv" else "For spectators",
         "platform": "Plattformen" if language == "sv" else "The platform",
     }
     grouped = {}
@@ -6481,8 +6481,8 @@ def render_about_page():
                 )
     st.markdown("---")
     st.markdown(
-        "**CupNavi** Â· " + (
-            "Byggd fÃ¶r att kunna vÃ¤xa frÃ¥n lokala cuper till internationella multisportturneringar." if language == "sv"
+        "**CupNavi** · " + (
+            "Byggd för att kunna växa från lokala cuper till internationella multisportturneringar." if language == "sv"
             else "Built to grow from local tournaments to international multi-sport events."
         )
     )
@@ -6669,10 +6669,10 @@ def _reporter_save_quick_result(tournament_id, quick_match, home_score, away_sco
         return False
     quick_home_name = source_label(quick_match["home_source"])
     quick_away_name = source_label(quick_match["away_source"])
-    description = f"{quick_home_name}â€“{quick_away_name} {home_score}â€“{away_score}"
+    description = f"{quick_home_name}–{quick_away_name} {home_score}–{away_score}"
     record_audit(
         tournament_id, "result", "match", description, entity_id=quick_match_id,
-        before=before, after={"home_score": home_score, "away_score": away_score}, actor="MatchrapportÃ¶r"
+        before=before, after={"home_score": home_score, "away_score": away_score}, actor="Matchrapportör"
     )
     add_feed_item(tournament_id, f"Slut: {description}", category="Resultat", related_match_id=quick_match_id)
     for team_id in _match_team_ids(quick_match):
@@ -6740,9 +6740,9 @@ def _reporter_save_bulk_results(tournament_id, original_by_id, updates):
         if home_score is None or away_score is None:
             continue
         changed_match = original_by_id[changed_match_id]
-        description = f"{source_label(changed_match['home_source'])}â€“{source_label(changed_match['away_source'])} {home_score}â€“{away_score}"
+        description = f"{source_label(changed_match['home_source'])}–{source_label(changed_match['away_source'])} {home_score}–{away_score}"
         if home_penalties is not None and away_penalties is not None:
-            description += f" ({home_penalties}â€“{away_penalties} str.)"
+            description += f" ({home_penalties}–{away_penalties} str.)"
         add_feed_item(tournament_id, f"Slut: {description}", category="Resultat", related_match_id=changed_match_id)
         for team_id in _match_team_ids(changed_match):
             add_team_notification(
@@ -6754,12 +6754,12 @@ def _reporter_save_bulk_results(tournament_id, original_by_id, updates):
         first_dependency_message = str(dependency_blocks[0].get("dependency_message") or "").strip()
         st.session_state["reporter_result_warning"] = (
             f"{len(dependency_blocks)} slutspelsresultat sparades inte. "
-            + (first_dependency_message or "En senare beroende match mÃ¥ste rÃ¤ttas fÃ¶rst.")
+            + (first_dependency_message or "En senare beroende match måste rättas först.")
         )
     elif integrity_blocks:
         st.session_state["reporter_result_warning"] = (
-            f"{len(integrity_blocks)} resultat sparades inte eftersom de inte stÃ¤mmer med registrerade mÃ¥lskyttar. "
-            "Korrigera matchhÃ¤ndelserna fÃ¶rst."
+            f"{len(integrity_blocks)} resultat sparades inte eftersom de inte stämmer med registrerade målskyttar. "
+            "Korrigera matchhändelserna först."
         )
     return {
         "saved": len(saved_updates),
@@ -6781,12 +6781,12 @@ def _reporter_live_goal_transaction(tournament_id, match_row, team_id, player_id
     player_id = int(player_id)
     delta = int(delta)
     if delta not in {-1, 1}:
-        return {"saved": False, "message": "Ogiltig mÃ¥lÃ¤ndring."}
+        return {"saved": False, "message": "Ogiltig måländring."}
 
     home_team_id = resolve_source(match_row["home_source"])
     away_team_id = resolve_source(match_row["away_source"])
     if team_id not in {home_team_id, away_team_id}:
-        return {"saved": False, "message": "Laget hÃ¶r inte till den hÃ¤r matchen."}
+        return {"saved": False, "message": "Laget hör inte till den här matchen."}
 
     before = result_snapshot(match_row)
     try:
@@ -6807,7 +6807,7 @@ def _reporter_live_goal_transaction(tournament_id, match_row, team_id, player_id
     }
     new_goals = previous_stats["goals"] + delta
     if new_goals < 0:
-        return {"saved": False, "message": "Spelaren har inget mÃ¥l att Ã¥ngra."}
+        return {"saved": False, "message": "Spelaren har inget mål att ångra."}
 
     goal_push = _goal_push_kwargs(tournament_id, match_row, before, new_home, new_away)
     con = db()
@@ -6819,10 +6819,10 @@ def _reporter_live_goal_transaction(tournament_id, match_row, team_id, player_id
         ))
         if current_match is None or int(current_match["tournament_id"]) != tournament_id:
             con.rollback()
-            return {"saved": False, "message": "Matchen finns inte lÃ¤ngre i den hÃ¤r cupen."}
+            return {"saved": False, "message": "Matchen finns inte längre i den här cupen."}
         if delta > 0 and normalize_match_status(current_match["match_status"]) == MATCH_FINISHED:
             con.rollback()
-            return {"saved": False, "message": "Matchen Ã¤r avslutad. Komplettera mÃ¥lskytt mot slutresultatet i stÃ¤llet."}
+            return {"saved": False, "message": "Matchen är avslutad. Komplettera målskytt mot slutresultatet i stället."}
 
         valid_player = _one_from_cursor(con.execute(
             """SELECT p.id FROM players p
@@ -6832,7 +6832,7 @@ def _reporter_live_goal_transaction(tournament_id, match_row, team_id, player_id
         ))
         if valid_player is None:
             con.rollback()
-            return {"saved": False, "message": "Spelaren tillhÃ¶r inte det valda laget."}
+            return {"saved": False, "message": "Spelaren tillhör inte det valda laget."}
 
         score_saved = update_match_result_if_unchanged(
             con, match_id, before,
@@ -6842,7 +6842,7 @@ def _reporter_live_goal_transaction(tournament_id, match_row, team_id, player_id
         )
         if not score_saved:
             con.rollback()
-            return {"saved": False, "message": "Resultatet Ã¤ndrades pÃ¥ en annan enhet. Senaste vÃ¤rden laddas om."}
+            return {"saved": False, "message": "Resultatet ändrades på en annan enhet. Senaste värden laddas om."}
 
         stats_saved = update_player_match_stats_if_unchanged(
             con, match_id, player_id, previous_stats,
@@ -6851,7 +6851,7 @@ def _reporter_live_goal_transaction(tournament_id, match_row, team_id, player_id
         )
         if not stats_saved:
             con.rollback()
-            return {"saved": False, "message": "MÃ¥lskytten Ã¤ndrades pÃ¥ en annan enhet. Ingen del av mÃ¥let sparades."}
+            return {"saved": False, "message": "Målskytten ändrades på en annan enhet. Ingen del av målet sparades."}
 
         if delta > 0:
             now_iso = datetime.now().isoformat(timespec="seconds")
@@ -6878,15 +6878,15 @@ def _reporter_live_goal_transaction(tournament_id, match_row, team_id, player_id
 
     _clear_render_query_cache()
     action = "live_goal" if delta > 0 else "live_goal_undo"
-    verb = "MÃ¥l" if delta > 0 else "MÃ¥l Ã¥ngrat"
+    verb = "Mål" if delta > 0 else "Mål ångrat"
     player_row = one_row("SELECT name,player_number FROM players WHERE id=?", (player_id,))
-    player_label = f"#{_row_value(player_row, 'player_number', 'â€“') or 'â€“'} {_row_value(player_row, 'name', '')}"
-    description = f"{verb}: {player_label} Â· {source_label(match_row['home_source'])}â€“{source_label(match_row['away_source'])} {new_home}â€“{new_away}"
+    player_label = f"#{_row_value(player_row, 'player_number', '–') or '–'} {_row_value(player_row, 'name', '')}"
+    description = f"{verb}: {player_label} · {source_label(match_row['home_source'])}–{source_label(match_row['away_source'])} {new_home}–{new_away}"
     record_audit(
         tournament_id, action, "match", description, entity_id=match_id,
         before={"home_score": before.get("home_score"), "away_score": before.get("away_score"), "player_goals": previous_stats["goals"]},
         after={"home_score": new_home, "away_score": new_away, "player_goals": new_goals},
-        actor="MatchrapportÃ¶r",
+        actor="Matchrapportör",
     )
     return {"saved": True, "home_score": new_home, "away_score": new_away, "player_goals": new_goals}
 
@@ -6923,11 +6923,11 @@ def _reporter_acknowledge_referee(tournament_id, referee_id, match_id):
         (tournament_id, referee_id, match_id, datetime.now().isoformat(timespec="seconds")),
     )
     record_audit(
-        tournament_id, "referee_ack", "match", "Domaruppdrag bekrÃ¤ftat",
+        tournament_id, "referee_ack", "match", "Domaruppdrag bekräftat",
         entity_id=match_id, actor="Domare",
     )
 
-def _reporter_set_match_status(tournament_id, match_row, new_status, actor="MatchrapportÃ¶r"):
+def _reporter_set_match_status(tournament_id, match_row, new_status, actor="Matchrapportör"):
     """Persist one explicit match lifecycle transition with optimistic locking."""
     from cupnavi_core.match_status import (
         MATCH_FINISHED, MATCH_LIVE, MATCH_NOT_STARTED, MATCH_STATUSES, normalize_match_status,
@@ -6967,7 +6967,7 @@ def _reporter_set_match_status(tournament_id, match_row, new_status, actor="Matc
         tournament_id,
         "match_status",
         "match",
-        f"Matchstatus: {expected} â†’ {wanted}",
+        f"Matchstatus: {expected} → {wanted}",
         entity_id=match_id,
         actor=actor,
     )
@@ -7006,7 +7006,7 @@ def _participant_role_label(tournament):
 def _portal_match_label(match_row):
     when = swedish_datetime(match_row["scheduled_start"]) if match_row["scheduled_start"] else "Tid ej satt"
     pitch = pitch_label(match_row['tournament_id'],match_row['pitch_number'])
-    return f"{when} Â· {pitch} Â· {source_label(match_row['home_source'])} â€“ {source_label(match_row['away_source'])}"
+    return f"{when} · {pitch} · {source_label(match_row['home_source'])} – {source_label(match_row['away_source'])}"
 
 def _save_match_roster_if_unchanged(
     match_id,
@@ -7415,9 +7415,9 @@ def _team_kit_snapshot(team_row):
         "kit_confirmed_at": _row_value(team_row,"kit_confirmed_at",None),
         "primary_color": _team_value(team_row,"primary_color","") or "",
         "secondary_color": _team_value(team_row,"secondary_color","") or "",
-        "home_pattern": _team_value(team_row,"home_pattern","HelfÃ¤rgad") or "HelfÃ¤rgad",
+        "home_pattern": _team_value(team_row,"home_pattern","Helfärgad") or "Helfärgad",
         "home_color_2": _team_value(team_row,"home_color_2","#FFFFFF") or "#FFFFFF",
-        "away_pattern": _team_value(team_row,"away_pattern","HelfÃ¤rgad") or "HelfÃ¤rgad",
+        "away_pattern": _team_value(team_row,"away_pattern","Helfärgad") or "Helfärgad",
         "away_color_2": _team_value(team_row,"away_color_2","#111827") or "#111827",
     }
 
@@ -7431,18 +7431,18 @@ def _confirm_team_kit_if_unchanged(team_id, expected):
                  AND kit_confirmed_at IS ?
                  AND COALESCE(primary_color,'')=?
                  AND COALESCE(secondary_color,'')=?
-                 AND COALESCE(home_pattern,'HelfÃ¤rgad')=?
+                 AND COALESCE(home_pattern,'Helfärgad')=?
                  AND COALESCE(home_color_2,'#FFFFFF')=?
-                 AND COALESCE(away_pattern,'HelfÃ¤rgad')=?
+                 AND COALESCE(away_pattern,'Helfärgad')=?
                  AND COALESCE(away_color_2,'#111827')=?""",
             (
                 confirmed_at,int(team_id),
                 expected.get("kit_confirmed_at"),
                 expected.get("primary_color",""),
                 expected.get("secondary_color",""),
-                expected.get("home_pattern","HelfÃ¤rgad"),
+                expected.get("home_pattern","Helfärgad"),
                 expected.get("home_color_2","#FFFFFF"),
-                expected.get("away_pattern","HelfÃ¤rgad"),
+                expected.get("away_pattern","Helfärgad"),
                 expected.get("away_color_2","#111827"),
             ),
         )
@@ -7460,9 +7460,9 @@ def _admin_team_snapshot(team_row):
         "name": _team_value(team_row, "name", "") or "",
         "primary_color": _team_value(team_row, "primary_color", "") or "",
         "secondary_color": _team_value(team_row, "secondary_color", "") or "",
-        "home_pattern": _team_value(team_row, "home_pattern", "HelfÃ¤rgad") or "HelfÃ¤rgad",
+        "home_pattern": _team_value(team_row, "home_pattern", "Helfärgad") or "Helfärgad",
         "home_color_2": _team_value(team_row, "home_color_2", "#FFFFFF") or "#FFFFFF",
-        "away_pattern": _team_value(team_row, "away_pattern", "HelfÃ¤rgad") or "HelfÃ¤rgad",
+        "away_pattern": _team_value(team_row, "away_pattern", "Helfärgad") or "Helfärgad",
         "away_color_2": _team_value(team_row, "away_color_2", "#111827") or "#111827",
         "distance_km": int(_team_value(team_row, "distance_km", 0) or 0),
         "late_first_match": int(_team_value(team_row, "late_first_match", 0) or 0),
@@ -7517,9 +7517,9 @@ def _admin_update_team_if_unchanged(
                  AND COALESCE(name,'')=?
                  AND COALESCE(primary_color,'')=?
                  AND COALESCE(secondary_color,'')=?
-                 AND COALESCE(home_pattern,'HelfÃ¤rgad')=?
+                 AND COALESCE(home_pattern,'Helfärgad')=?
                  AND COALESCE(home_color_2,'#FFFFFF')=?
-                 AND COALESCE(away_pattern,'HelfÃ¤rgad')=?
+                 AND COALESCE(away_pattern,'Helfärgad')=?
                  AND COALESCE(away_color_2,'#111827')=?
                  AND COALESCE(distance_km,0)=?
                  AND COALESCE(late_first_match,0)=?
@@ -7539,8 +7539,8 @@ def _admin_update_team_if_unchanged(
                 responsible_name,responsible_phone,responsible_email,age_class,competition_class_id,
                 competition_class_id,int(team_id),int(tournament_id),
                 expected.get("name",""),expected.get("primary_color",""),expected.get("secondary_color",""),
-                expected.get("home_pattern","HelfÃ¤rgad"),expected.get("home_color_2","#FFFFFF"),
-                expected.get("away_pattern","HelfÃ¤rgad"),expected.get("away_color_2","#111827"),
+                expected.get("home_pattern","Helfärgad"),expected.get("home_color_2","#FFFFFF"),
+                expected.get("away_pattern","Helfärgad"),expected.get("away_color_2","#111827"),
                 int(expected.get("distance_km",0) or 0),int(expected.get("late_first_match",0) or 0),
                 expected.get("earliest_first_time"),expected.get("travel_note",""),
                 int(expected.get("avoid_late_group_match",0) or 0),
@@ -7704,8 +7704,8 @@ def _set_schedule_request_status_if_current(
     new_status,
 ):
     """Atomic request-state transition; stale Admin buttons do nothing."""
-    if new_status not in {"GodkÃ¤nd","Nekad"}:
-        raise ValueError("Ogiltig Ã¶nskemÃ¥lsstatus.")
+    if new_status not in {"Godkänd","Nekad"}:
+        raise ValueError("Ogiltig önskemålsstatus.")
     with db() as con:
         cursor=con.execute(
             """UPDATE schedule_requests SET status=?
@@ -8272,7 +8272,7 @@ def _delete_trashed_tournament_if_current(tournament_id,expected_name,expected_t
     return False,"conflict"
 
 def render_team_portal(tournament_id, tournament):
-    """BegrÃ¤nsad portal fÃ¶r ett enda lag/deltagare i en enda cup."""
+    """Begränsad portal för ett enda lag/deltagare i en enda cup."""
     deps = TeamPortalDependencies(
         all_rows=all_rows,
         one_row=one_row,
@@ -8305,14 +8305,14 @@ def render_team_portal(tournament_id, tournament):
 init_db()
 
 # SIDOMENY OCH TURNERING
-st.sidebar.title(f"ðŸ† {tr('Turneringar')}")
+st.sidebar.title(f"🏆 {tr('Turneringar')}")
 language_options = {"sv": "Svenska", "en": "English"}
 
 def _sync_language_selector():
     st.session_state["language"] = st.session_state.get("language_selector", current_language())
 
 selected_language = st.sidebar.selectbox(
-    "ðŸŒ " + tr("VÃ¤lj sprÃ¥k"),
+    "🌐 " + tr("Välj språk"),
     list(language_options),
     index=0 if current_language() == "sv" else 1,
     format_func=lambda code: language_options[code],
@@ -8328,9 +8328,9 @@ _direct_admin_invite = bool(str(st.query_params.get("invite", "")).strip()) if h
 mode_options = (
     ["Turneringsvy", "Om"]
     if public_app_mode
-    else (["Turneringsvy", "Lagportal", "MatchrapportÃ¶r", "Admin", "Om"]
+    else (["Turneringsvy", "Lagportal", "Matchrapportör", "Admin", "Om"]
           if CLOUD_DATABASE_ENABLED
-          else ["Admin", "Lagportal", "MatchrapportÃ¶r", "Turneringsvy", "Om"])
+          else ["Admin", "Lagportal", "Matchrapportör", "Turneringsvy", "Om"])
 )
 if _direct_admin_invite and not public_app_mode:
     # Invitation links are account onboarding links and must open Admin directly,
@@ -8346,8 +8346,8 @@ st.sidebar.caption(release_ui_label(APP_BUILD_VERSION))
 
 def _set_view_mode(mode):
     st.session_state["view_mode"] = mode
-    # Turneringsvyn ska vara sÃ¥ ren som mÃ¶jligt. Admin Ã¶ppnar den utÃ¶kade
-    # rollnavigationen och den ligger kvar tills anvÃ¤ndaren Ã¥tergÃ¥r publikt.
+    # Turneringsvyn ska vara så ren som möjligt. Admin öppnar den utökade
+    # rollnavigationen och den ligger kvar tills användaren återgår publikt.
     if mode == "Admin":
         st.session_state["role_nav_expanded"] = True
         # v426: every explicit Admin entry starts with one deliberate choice.
@@ -8355,8 +8355,8 @@ def _set_view_mode(mode):
         st.session_state["admin_entry_mode"] = None
     elif mode == "Turneringsvy":
         st.session_state["role_nav_expanded"] = False
-        # En aktiv cup mÃ¥ste fÃ¶lja med explicit till den publika vyn. URL-parametern
-        # Ã¤r den deterministiska sanningskÃ¤llan och fungerar Ã¤ven i en ny browser/session.
+        # En aktiv cup måste följa med explicit till den publika vyn. URL-parametern
+        # är den deterministiska sanningskällan och fungerar även i en ny browser/session.
         _active_cup = (
             st.session_state.get("active_tournament_selector")
             or st.session_state.get("preferred_tournament_id")
@@ -8364,9 +8364,9 @@ def _set_view_mode(mode):
         if _active_cup and hasattr(st, "query_params"):
             st.query_params["cup"] = str(_active_cup)
 
-# v160: cupens huvudflÃ¶de. Specialfunktioner finns kvar i gruppnavigationen.
+# v160: cupens huvudflöde. Specialfunktioner finns kvar i gruppnavigationen.
 ADMIN_PRIMARY_FLOW = [
-    ("AdminÃ¶versikt", "Ã–versikt"),
+    ("Adminöversikt", "Översikt"),
     ("Lag", "Lag"),
     ("Grupper", "Grupper"),
     ("Skapa och publicera schema", "Schema"),
@@ -8376,22 +8376,22 @@ ADMIN_PRIMARY_FLOW = [
 ]
 
 ADMIN_PAGE_COPY = {
-    "AdminÃ¶versikt": ("Ã–versikt", "Se status och nÃ¤sta steg."),
-    "Lag": ("LÃ¤gg in deltagarna", "Skapa eller importera lag. NÃ¤r lagen Ã¤r klara gÃ¥r du vidare till gruppindelningen."),
-    "Grupper": ("Bygg tÃ¤vlingsstrukturen", "FÃ¶rdela lagen i grupper och kontrollera att gruppindelningen Ã¤r komplett."),
+    "Adminöversikt": ("Översikt", "Se status och nästa steg."),
+    "Lag": ("Lägg in deltagarna", "Skapa eller importera lag. När lagen är klara går du vidare till gruppindelningen."),
+    "Grupper": ("Bygg tävlingsstrukturen", "Fördela lagen i grupper och kontrollera att gruppindelningen är komplett."),
     "Skapa och publicera schema": ("Schema", "Skapa och justera matchschemat."),
-    "Matcher och resultat": ("Resultat", "Registrera och fÃ¶lj resultaten."),
-    "MatchhÃ¤ndelser": ("Fyll pÃ¥ matchdetaljer", "Registrera mÃ¥l, assist och kort efter att matchresultatet Ã¤r sparat."),
-    "Tabeller": ("Tabeller", "FÃ¶lj tÃ¤vlingslÃ¤get."),
-    "Slutspel": ("Slutspel", "FÃ¶lj vÃ¤gen mot final."),
-    "CupinstÃ¤llningar": ("CupinstÃ¤llningar", "Se vad som Ã¤r lÃ¥st, vad som kan Ã¤ndras och vilka Ã¤ndringar som krÃ¤ver omplanering."),
-    "Planer & tider": ("Planer & tider", "Ange hur mÃ¥nga spelytor ni har och nÃ¤r de gÃ¥r att anvÃ¤nda. Adresser och restider Ã¤r frivilliga."),
-    "Ã–nskemÃ¥lscentral": ("Ã–nskemÃ¥lscentral", "Samla, godkÃ¤nn och prioritera lagens schemakrav och Ã¶nskemÃ¥l pÃ¥ ett stÃ¤lle."),
-    "Problem & lÃ¶sningar": ("LÃ¶s det som blockerar cupen", "CupNavi visar problem och fÃ¶reslÃ¥r Ã¥tgÃ¤rder i prioriterad ordning."),
-    "Cupdagen": ("Cupdagen", "FÃ¶lj det som hÃ¤nder nu och agera pÃ¥ fÃ¶rseningar, resultat och kommande matcher."),
-    "Domare": ("Bemanna matcherna", "LÃ¤gg till domare och kontrollera att matcherna kan genomfÃ¶ras utan krockar."),
-    "Trupper": ("Hantera spelarna", "Registrera spelare och trupper fÃ¶r de lag som behÃ¶ver det."),
-    "Instruktioner": ("Guide genom CupNavi", "FÃ¶lj cupen steg fÃ¶r steg om du vill ha extra vÃ¤gledning."),
+    "Matcher och resultat": ("Resultat", "Registrera och följ resultaten."),
+    "Matchhändelser": ("Fyll på matchdetaljer", "Registrera mål, assist och kort efter att matchresultatet är sparat."),
+    "Tabeller": ("Tabeller", "Följ tävlingsläget."),
+    "Slutspel": ("Slutspel", "Följ vägen mot final."),
+    "Cupinställningar": ("Cupinställningar", "Se vad som är låst, vad som kan ändras och vilka ändringar som kräver omplanering."),
+    "Planer & tider": ("Planer & tider", "Ange hur många spelytor ni har och när de går att använda. Adresser och restider är frivilliga."),
+    "Önskemålscentral": ("Önskemålscentral", "Samla, godkänn och prioritera lagens schemakrav och önskemål på ett ställe."),
+    "Problem & lösningar": ("Lös det som blockerar cupen", "CupNavi visar problem och föreslår åtgärder i prioriterad ordning."),
+    "Cupdagen": ("Cupdagen", "Följ det som händer nu och agera på förseningar, resultat och kommande matcher."),
+    "Domare": ("Bemanna matcherna", "Lägg till domare och kontrollera att matcherna kan genomföras utan krockar."),
+    "Trupper": ("Hantera spelarna", "Registrera spelare och trupper för de lag som behöver det."),
+    "Instruktioner": ("Guide genom CupNavi", "Följ cupen steg för steg om du vill ha extra vägledning."),
 }
 
 def _primary_flow_index(page):
@@ -8400,7 +8400,7 @@ def _primary_flow_index(page):
 current_mode = st.session_state["view_mode"]
 st.markdown("<div class='cn-mode-nav-safezone'></div>", unsafe_allow_html=True)
 if public_app_mode:
-    # Public-only-lÃ¤get behÃ¥ller sin separata, begrÃ¤nsade navigation.
+    # Public-only-läget behåller sin separata, begränsade navigation.
     mode_col1, mode_col2 = st.columns(2)
     mode_col1.button(tr("Turneringsvy"), key="view_mode_public_button", type="primary" if current_mode == "Turneringsvy" else "secondary", use_container_width=True, on_click=_set_view_mode, args=("Turneringsvy",))
     mode_col2.button(tr("Om"), key="view_mode_about_button", type="primary" if current_mode == "Om" else "secondary", use_container_width=True, on_click=_set_view_mode, args=("Om",))
@@ -8409,18 +8409,18 @@ else:
         st.session_state.get("role_nav_expanded", current_mode != "Turneringsvy")
     )
     if current_mode == "Turneringsvy" and not role_nav_expanded:
-        # Publik Turneringsvy: endast de tvÃ¥ vÃ¤gar som behÃ¶vs ska konkurrera om
-        # uppmÃ¤rksamheten. Admin krÃ¤ver fortfarande vanlig admininloggning.
+        # Publik Turneringsvy: endast de två vägar som behövs ska konkurrera om
+        # uppmärksamheten. Admin kräver fortfarande vanlig admininloggning.
         mode_col1, mode_col2 = st.columns(2)
         mode_col1.button(tr("Turneringsvy"), key="view_mode_public_button", type="primary", use_container_width=True, on_click=_set_view_mode, args=("Turneringsvy",))
         mode_col2.button(tr("Admin"), key="view_mode_admin_button", type="secondary", use_container_width=True, on_click=_set_view_mode, args=("Admin",))
     else:
-        # Efter att Admin Ã¶ppnats visas rollvÃ¤xlarna och ligger kvar tills
-        # anvÃ¤ndaren gÃ¥r tillbaka till Turneringsvy.
+        # Efter att Admin öppnats visas rollväxlarna och ligger kvar tills
+        # användaren går tillbaka till Turneringsvy.
         mode_col1, mode_col2, mode_col3, mode_col4, mode_col5 = st.columns(5)
         mode_col1.button(tr("Turneringsvy"), key="view_mode_public_button", type="primary" if current_mode == "Turneringsvy" else "secondary", use_container_width=True, on_click=_set_view_mode, args=("Turneringsvy",))
         mode_col2.button("Lagportal", key="view_mode_team_portal_button", type="primary" if current_mode == "Lagportal" else "secondary", use_container_width=True, on_click=_set_view_mode, args=("Lagportal",))
-        mode_col3.button(tr("MatchrapportÃ¶r"), key="view_mode_reporter_button", type="primary" if current_mode == "MatchrapportÃ¶r" else "secondary", use_container_width=True, on_click=_set_view_mode, args=("MatchrapportÃ¶r",))
+        mode_col3.button(tr("Matchrapportör"), key="view_mode_reporter_button", type="primary" if current_mode == "Matchrapportör" else "secondary", use_container_width=True, on_click=_set_view_mode, args=("Matchrapportör",))
         mode_col4.button(tr("Admin"), key="view_mode_admin_button", type="primary" if current_mode == "Admin" else "secondary", use_container_width=True, on_click=_set_view_mode, args=("Admin",))
         mode_col5.button(tr("Om"), key="view_mode_about_button", type="primary" if current_mode == "Om" else "secondary", use_container_width=True, on_click=_set_view_mode, args=("Om",))
 view_mode = st.session_state["view_mode"]
@@ -8430,15 +8430,15 @@ if view_mode == "Om":
 
 if RELEASE_FILES_MISMATCH and view_mode == "Admin":
     st.sidebar.error(
-        f"Releasefilerna Ã¤r inte synkade\n\n"
+        f"Releasefilerna är inte synkade\n\n"
         f"app.py: {APP_BUILD_VERSION}\n\n"
         f"cupnavi_core/version.py: {CORE_APP_VERSION}\n\n"
-        "Kontrollen lÃ¤ser versionsfilen direkt frÃ¥n den deployade disken. "
-        "CupNavi laddar automatiskt om egna Pythonmoduler nÃ¤r kÃ¤llkoden Ã¤ndras. "
-        "Om denna varning kvarstÃ¥r har den deployade filuppsÃ¤ttningen faktiskt olika versioner."
+        "Kontrollen läser versionsfilen direkt från den deployade disken. "
+        "CupNavi laddar automatiskt om egna Pythonmoduler när källkoden ändras. "
+        "Om denna varning kvarstår har den deployade filuppsättningen faktiskt olika versioner."
     )
 
-if view_mode == "MatchrapportÃ¶r":
+if view_mode == "Matchrapportör":
     require_match_reporter_access()
 
 if view_mode == "Admin":
@@ -8458,19 +8458,19 @@ if view_mode == "Admin":
     if st.session_state.get("admin_environment") not in {"test", "production"}:
         st.session_state["admin_environment"] = "test"
     st.session_state["admin_environment_selector"] = st.session_state["admin_environment"]
-    st.sidebar.markdown("### MiljÃ¶")
+    st.sidebar.markdown("### Miljö")
     st.sidebar.radio(
-        "ArbetsmiljÃ¶",
+        "Arbetsmiljö",
         ["test", "production"],
-        format_func=lambda value: "ðŸ§ª TestmiljÃ¶" if value == "test" else "ðŸŸ¢ Skarp miljÃ¶",
+        format_func=lambda value: "🧪 Testmiljö" if value == "test" else "🟢 Skarp miljö",
         key="admin_environment_selector",
         on_change=_change_admin_environment,
         label_visibility="collapsed",
     )
     if st.session_state.get("admin_environment") == "production":
-        st.sidebar.warning("Skarp miljÃ¶ Â· Ã¤ndringar pÃ¥verkar riktiga cuper.")
+        st.sidebar.warning("Skarp miljö · ändringar påverkar riktiga cuper.")
     else:
-        st.sidebar.caption("TestmiljÃ¶ Â· sÃ¤kert fÃ¶r prov och Ã¶vning.")
+        st.sidebar.caption("Testmiljö · säkert för prov och övning.")
 
 def render_new_tournament_creator(*, key_prefix="sidebar"):
     """Render the same safe creation flow in sidebar or main content/mobile."""
@@ -8485,11 +8485,11 @@ def render_new_tournament_creator(*, key_prefix="sidebar"):
                 <div>
                   <div class="cn612-create-kicker">Ny turnering</div>
                   <div class="cn612-create-title">Skapa din cup.</div>
-                  <p class="cn612-create-copy">Fyra grunduppgifter rÃ¤cker fÃ¶r att bÃ¶rja. CupNavi bygger sedan vidare steg fÃ¶r steg.</p>
+                  <p class="cn612-create-copy">Fyra grunduppgifter räcker för att börja. CupNavi bygger sedan vidare steg för steg.</p>
                 </div>
                 <div class="cn612-create-badge" aria-hidden="true"><span>CUP</span><strong>01</strong></div>
               </div>
-              <div class="cn612-create-steps" aria-label="CupflÃ¶de">
+              <div class="cn612-create-steps" aria-label="Cupflöde">
                 <div class="cn612-create-step active"><b>01</b><span>Grund</span></div>
                 <div class="cn612-create-step"><b>02</b><span>Klasser</span></div>
                 <div class="cn612-create-step"><b>03</b><span>Kapacitet</span></div>
@@ -8508,18 +8508,18 @@ def render_new_tournament_creator(*, key_prefix="sidebar"):
             list(TOURNAMENT_TEMPLATES),
             format_func=lambda key: TOURNAMENT_TEMPLATES[key]["label_sv"],
             key=f"{key_prefix}_new_tournament_template",
-            help="Mallen sÃ¤tter bara bra startvÃ¤rden. Du kan justera Ã¶vriga regler efter att cupen skapats.",
+            help="Mallen sätter bara bra startvärden. Du kan justera övriga regler efter att cupen skapats.",
         )
         selected_template = template_definition(template_id)
         st.caption(selected_template["description_sv"])
     else:
-        with st.expander("Startmall Â· valfritt", expanded=False):
+        with st.expander("Startmall · valfritt", expanded=False):
             template_id = st.selectbox(
                 "Startmall",
                 list(TOURNAMENT_TEMPLATES),
                 format_func=lambda key: TOURNAMENT_TEMPLATES[key]["label_sv"],
                 key=f"{key_prefix}_new_tournament_template",
-                help="Mallen sÃ¤tter bara bra startvÃ¤rden. Du kan justera Ã¶vriga regler efter att cupen skapats.",
+                help="Mallen sätter bara bra startvärden. Du kan justera övriga regler efter att cupen skapats.",
             )
             selected_template = template_definition(template_id)
             st.caption(selected_template["description_sv"])
@@ -8541,44 +8541,44 @@ def render_new_tournament_creator(*, key_prefix="sidebar"):
                 sports_list,
                 index=sports_list.index(suggested_sport),
                 key=f"{key_prefix}_new_tournament_sport",
-                help="Sport vÃ¤ljs nÃ¤r cupen skapas och lÃ¥ses dÃ¤refter, eftersom den styr matchmodell, terminologi och sportregler.",
+                help="Sport väljs när cupen skapas och låses därefter, eftersom den styr matchmodell, terminologi och sportregler.",
             )
             start_date = st.date_input("Cupdag")
         else:
             create_col1, create_col2 = st.columns(2)
             with create_col1:
-                n = st.text_input("Namn pÃ¥ cup *", value=str(doc_prefill.get("tournament_name") or ""), placeholder="Exempel: Sommarcupen 2026")
+                n = st.text_input("Namn på cup *", value=str(doc_prefill.get("tournament_name") or ""), placeholder="Exempel: Sommarcupen 2026")
                 sport = st.selectbox(
                     "Sport *",
                     sports_list,
                     index=sports_list.index(suggested_sport),
                     key=f"{key_prefix}_new_tournament_sport",
-                    help="Sport vÃ¤ljs nÃ¤r cupen skapas och lÃ¥ses dÃ¤refter, eftersom den styr matchmodell, terminologi och sportregler.",
+                    help="Sport väljs när cupen skapas och låses därefter, eftersom den styr matchmodell, terminologi och sportregler.",
                 )
             with create_col2:
-                place = st.text_input("Spelort", value=str(doc_prefill.get("location") or ""), placeholder="Exempel: Ã–rebro")
+                place = st.text_input("Spelort", value=str(doc_prefill.get("location") or ""), placeholder="Exempel: Örebro")
                 start_date = st.date_input("Cupdag", value=_doc_date or date.today())
 
-        multi_day = st.checkbox("Cupen pÃ¥gÃ¥r flera dagar", value=False, key=f"{key_prefix}_new_tournament_multi_day")
+        multi_day = st.checkbox("Cupen pågår flera dagar", value=False, key=f"{key_prefix}_new_tournament_multi_day")
         end_date = st.date_input("Sista cupdag", value=start_date) if multi_day else start_date
 
-        # De flesta arrangÃ¶rer behÃ¶ver aldrig Ã¤ndra dessa grundvÃ¤rden.
-        # TestmiljÃ¶ Ã¤r medvetet standard fÃ¶r alla nya cuper. Produktion vÃ¤ljs
-        # aktivt fÃ¶rst nÃ¤r arrangÃ¶ren verkligen vill skapa en riktig cup.
+        # De flesta arrangörer behöver aldrig ändra dessa grundvärden.
+        # Testmiljö är medvetet standard för alla nya cuper. Produktion väljs
+        # aktivt först när arrangören verkligen vill skapa en riktig cup.
         with st.expander("Fler alternativ", expanded=os.environ.get("CUPNAVI_E2E") == "1"):
-            st.caption("Internationell grund och miljÃ¶val. TestmiljÃ¶ Ã¤r standard fÃ¶r nya cuper.")
+            st.caption("Internationell grund och miljöval. Testmiljö är standard för nya cuper.")
             _creator_env = str(st.session_state.get("admin_environment", "test") or "test")
             environment_type = st.radio(
-                "MiljÃ¶",
+                "Miljö",
                 ["production", "test"],
                 index=0 if _creator_env == "production" else 1,
-                format_func=lambda value: "Riktig cup" if value == "production" else "TestmiljÃ¶",
+                format_func=lambda value: "Riktig cup" if value == "production" else "Testmiljö",
                 horizontal=True,
                 key=f"{key_prefix}_new_tournament_environment",
-                help="TestmiljÃ¶ Ã¤r standard. VÃ¤lj Riktig cup fÃ¶rst nÃ¤r cupen ska anvÃ¤ndas skarpt.",
+                help="Testmiljö är standard. Välj Riktig cup först när cupen ska användas skarpt.",
             )
             create_locale = st.selectbox(
-                "SprÃ¥k/region",
+                "Språk/region",
                 list(SUPPORTED_LOCALES),
                 index=list(SUPPORTED_LOCALES).index(DEFAULT_LOCALE) if DEFAULT_LOCALE in SUPPORTED_LOCALES else 0,
                 key=f"{key_prefix}_new_tournament_locale",
@@ -8587,7 +8587,7 @@ def render_new_tournament_creator(*, key_prefix="sidebar"):
                 "Tidszon",
                 value=DEFAULT_TIMEZONE,
                 key=f"{key_prefix}_new_tournament_timezone",
-                help="IANA-tidszon, exempelvis Europe/Stockholm. BehÃ¶ver normalt inte Ã¤ndras.",
+                help="IANA-tidszon, exempelvis Europe/Stockholm. Behöver normalt inte ändras.",
             )
             create_country = st.text_input(
                 "Landkod",
@@ -8596,36 +8596,36 @@ def render_new_tournament_creator(*, key_prefix="sidebar"):
                 key=f"{key_prefix}_new_tournament_country",
             ).upper().strip()
             if environment_type == "test":
-                st.caption("TestmiljÃ¶ mÃ¤rks tydligt och kan fyllas med demodata.")
-            st.caption("Sport, sprÃ¥k/region, tidszon och land Ã¤r grundegenskaper och kan inte Ã¤ndras efter skapandet.")
+                st.caption("Testmiljö märks tydligt och kan fyllas med demodata.")
+            st.caption("Sport, språk/region, tidszon och land är grundegenskaper och kan inte ändras efter skapandet.")
 
         if not creator_compact:
             if environment_type == "test":
                 st.markdown(
-                    """<div class="cn-test-banner"><div class="cn-test-banner-title">ðŸ§ª TestmiljÃ¶ Â· standard</div><div class="cn-test-banner-copy">Den nya cupen skapas sÃ¤kert som testmiljÃ¶. Du kan arbeta klart upplÃ¤gget innan den anvÃ¤nds skarpt.</div></div>""",
+                    """<div class="cn-test-banner"><div class="cn-test-banner-title">🧪 Testmiljö · standard</div><div class="cn-test-banner-copy">Den nya cupen skapas säkert som testmiljö. Du kan arbeta klart upplägget innan den används skarpt.</div></div>""",
                     unsafe_allow_html=True,
                 )
             else:
-                st.info("Riktig cup vald. Den hÃ¤r cupen Ã¤r avsedd fÃ¶r skarp anvÃ¤ndning.")
+                st.info("Riktig cup vald. Den här cupen är avsedd för skarp användning.")
 
-        # Service-/arrangemangsval gÃ¶rs senare i den guidade setupen.
+        # Service-/arrangemangsval görs senare i den guidade setupen.
         create_team_checkin = False
         create_final_ranking = False
         create_changing_rooms = False
         create_show_prices = False
-        st.caption("NÃ¤r cupen Ã¤r skapad guidar CupNavi dig vidare genom vilka som ska spela, planer/tider och lag.")
+        st.caption("När cupen är skapad guidar CupNavi dig vidare genom vilka som ska spela, planer/tider och lag.")
         expected_teams = 0
-        # Antal lag anges per tÃ¤vlingsklass i den guidade setupen; inget globalt lagantal hÃ¤r.
+        # Antal lag anges per tävlingsklass i den guidade setupen; inget globalt lagantal här.
         if st.form_submit_button("Skapa cup", type="primary", use_container_width=True):
             normalized_timezone = valid_timezone(create_timezone)
             if not n.strip():
                 st.error("Ange ett namn.")
             elif end_date < start_date:
-                st.error("Sista cupdagen fÃ¥r inte ligga fÃ¶re fÃ¶rsta cupdagen.")
+                st.error("Sista cupdagen får inte ligga före första cupdagen.")
             elif normalized_timezone != create_timezone.strip():
-                st.error("Ogiltig tidszon. AnvÃ¤nd ett IANA-namn, exempelvis Europe/Stockholm.")
+                st.error("Ogiltig tidszon. Använd ett IANA-namn, exempelvis Europe/Stockholm.")
             elif create_country and (len(create_country) != 2 or not create_country.isalpha()):
-                st.error("Landkod ska vara tvÃ¥ bokstÃ¤ver enligt ISO-format, exempelvis SE, GB eller US.")
+                st.error("Landkod ska vara två bokstäver enligt ISO-format, exempelvis SE, GB eller US.")
             else:
                 participant_type = str(sport_definition(sport)["participant_type"])
                 # Release-contract compatibility: the creation payload still contains
@@ -8665,18 +8665,18 @@ def render_new_tournament_creator(*, key_prefix="sidebar"):
                 if doc_prefill:
                     from cupnavi_core.cup_document_creator_view import save_setup_import_snapshot
                     save_setup_import_snapshot(db, new_tournament_id, doc_prefill, import_kind="initial_setup")
-                    add_feed_item(new_tournament_id, "FÃ¶rsta foto-/dokumentimporten sparad", "Cupinfo, lag, grupper och Ã¶vriga hittade uppgifter kan Ã¥teranvÃ¤ndas i rÃ¤tt setupsteg", category="Import")
+                    add_feed_item(new_tournament_id, "Första foto-/dokumentimporten sparad", "Cupinfo, lag, grupper och övriga hittade uppgifter kan återanvändas i rätt setupsteg", category="Import")
                 if st.session_state.get(doc_use_teams_key, False) and doc_prefill.get("teams"):
                     from cupnavi_core.cup_document_creator_view import apply_document_teams
-                    # Gruppindelning frÃ¥n fÃ¶rsta scanningen ska normalt granskas i Steg 3.
-                    # Om ett komplett importerat matchschema anvÃ¤nds mÃ¥ste grupperna finnas
-                    # redan nÃ¤r matcherna skapas, sÃ¥ dÃ¥ fÃ¶ljer de med som strukturellt beroende.
+                    # Gruppindelning från första scanningen ska normalt granskas i Steg 3.
+                    # Om ett komplett importerat matchschema används måste grupperna finnas
+                    # redan när matcherna skapas, så då följer de med som strukturellt beroende.
                     _imported_team_count = apply_document_teams(db, new_tournament_id, doc_prefill, assign_groups=_use_doc_matches)
-                    add_feed_item(new_tournament_id, f"{_imported_team_count} lag importerade frÃ¥n dokument", str(doc_prefill.get("source_name") or "Cupprogram"), category="Import")
+                    add_feed_item(new_tournament_id, f"{_imported_team_count} lag importerade från dokument", str(doc_prefill.get("source_name") or "Cupprogram"), category="Import")
                 if _use_doc_matches:
                     from cupnavi_core.cup_document_creator_view import apply_document_matches
                     _imported_match_count = apply_document_matches(db, new_tournament_id, doc_prefill, start_date)
-                    add_feed_item(new_tournament_id, f"{_imported_match_count} matcher importerade och lÃ¥sta", "Importerat schema â€“ Ã¤ndras aldrig automatiskt", category="Import")
+                    add_feed_item(new_tournament_id, f"{_imported_match_count} matcher importerade och låsta", "Importerat schema – ändras aldrig automatiskt", category="Import")
                 defaults = sport_profile(sport)
                 run(
                     """INSERT INTO schedule_rules(
@@ -8718,10 +8718,10 @@ _LEGACY_CREATOR_BOUNDARY = """if view_mode == "Admin":
     st.sidebar.caption"""
 _LEGACY_CLONE_BOUNDARY = """if view_mode == "Admin":
     clone_sources"""
-# Ny cup skapas hÃ¤r med bara grunduppgifter
+# Ny cup skapas här med bara grunduppgifter
 
 if view_mode == "Admin" and st.session_state.get("admin_entry_mode") == "create":
-    st.sidebar.caption("Du skapar en ny cup. NÃ¤r grunduppgifterna Ã¤r sparade tar den guidade setupen Ã¶ver.")
+    st.sidebar.caption("Du skapar en ny cup. När grunduppgifterna är sparade tar den guidade setupen över.")
 
 if view_mode == "Admin" and st.session_state.get("admin_entry_mode") == "manage" and st.session_state.get("admin_manage_tournament_confirmed"):
     # v526: reuse the same short-lived tournament shell that powers the
@@ -8730,22 +8730,22 @@ if view_mode == "Admin" and st.session_state.get("admin_entry_mode") == "manage"
     if clone_sources:
         with st.sidebar.expander("Duplicera tidigare cup"):
             source_id = st.selectbox(
-                "Kopiera frÃ¥n",
+                "Kopiera från",
                 [row["id"] for row in clone_sources],
                 format_func=lambda value: next(row["name"] for row in clone_sources if row["id"] == value),
                 key="clone_source_tournament",
             )
             source = next(row for row in clone_sources if row["id"] == source_id)
-            default_clone_name = f"{source['name']} â€“ ny upplaga"
-            clone_name = st.text_input("Namn pÃ¥ ny cup", value=default_clone_name, key="clone_tournament_name")
-            clone_start = st.date_input("FÃ¶rsta cupdag", key="clone_tournament_start")
-            st.caption(f"ðŸ“… {date_with_weekday(clone_start)}")
+            default_clone_name = f"{source['name']} – ny upplaga"
+            clone_name = st.text_input("Namn på ny cup", value=default_clone_name, key="clone_tournament_name")
+            clone_start = st.date_input("Första cupdag", key="clone_tournament_start")
+            st.caption(f"📅 {date_with_weekday(clone_start)}")
             clone_end = st.date_input("Sista cupdag", value=clone_start, key="clone_tournament_end")
-            st.caption(f"ðŸ“… {date_with_weekday(clone_end)}")
+            st.caption(f"📅 {date_with_weekday(clone_end)}")
             copy_teams = st.checkbox("Kopiera deltagare/lag", value=False, key="clone_copy_teams")
             copy_refs = st.checkbox("Kopiera domare", value=False, key="clone_copy_refs")
             clone_environment = st.radio(
-                "Ny miljÃ¶",
+                "Ny miljö",
                 ["production", "test"],
                 index=1,
                 format_func=lambda value: "Riktig cup" if value == "production" else "Testkopia",
@@ -8755,9 +8755,9 @@ if view_mode == "Admin" and st.session_state.get("admin_entry_mode") == "manage"
             st.caption("Schema, resultat, grupper, matchtrupper och historik kopieras aldrig. Den nya cupen skapas alltid som utkast.")
             if st.button("Skapa ny upplaga", key="clone_tournament_button", use_container_width=True):
                 if not clone_name.strip():
-                    st.error("Ange namn pÃ¥ den nya cupen.")
+                    st.error("Ange namn på den nya cupen.")
                 elif clone_end < clone_start:
-                    st.error("Sista cupdagen fÃ¥r inte ligga fÃ¶re fÃ¶rsta cupdagen.")
+                    st.error("Sista cupdagen får inte ligga före första cupdagen.")
                 else:
                     payload = clone_tournament_payload(
                         dict(source),
@@ -8820,13 +8820,13 @@ def _open_admin_entry_tournament(tournament_id):
 if view_mode == "Admin" and st.session_state.get("admin_entry_mode") is None:
     _my_cups = admin_tournament_list_snapshot()
     _env = str(st.session_state.get("admin_environment", "test") or "test")
-    _env_label = "ðŸ§ª TestmiljÃ¶" if _env == "test" else "ðŸŸ¢ Skarp miljÃ¶"
+    _env_label = "🧪 Testmiljö" if _env == "test" else "🟢 Skarp miljö"
 
     st.markdown(
         f"""<div class="cn-create-hero">
           <div class="cn-create-eyebrow">{_env_label}</div>
           <div class="cn-create-title">Mina cuper</div>
-          <p class="cn-create-copy">Ã–ppna en cup direkt eller skapa en ny. Du ser bara cuper som du har behÃ¶righet till i vald miljÃ¶.</p>
+          <p class="cn-create-copy">Öppna en cup direkt eller skapa en ny. Du ser bara cuper som du har behörighet till i vald miljö.</p>
         </div>""",
         unsafe_allow_html=True,
     )
@@ -8836,12 +8836,12 @@ if view_mode == "Admin" and st.session_state.get("admin_entry_mode") is None:
     _live = sum(1 for row in _my_cups if normalize_status(_row_value(row, "lifecycle_status", "draft"), is_published=bool(_row_value(row, "is_published", 0))) == "live")
     _m1, _m2, _m3 = st.columns(3)
     _m1.metric("Cuper", len(_my_cups))
-    _m2.metric("Jag Ã¤ger", _owned if not _is_cupnavi_superadmin() else "Driftadmin")
-    _m3.metric("PÃ¥gÃ¥r nu", _live)
+    _m2.metric("Jag äger", _owned if not _is_cupnavi_superadmin() else "Driftadmin")
+    _m3.metric("Pågår nu", _live)
 
     _entry_create, _entry_manage = st.columns(2)
     _entry_create.button(
-        "ï¼‹ Skapa ny cup",
+        "＋ Skapa ny cup",
         type="primary",
         use_container_width=True,
         key="admin_entry_create_v562",
@@ -8858,7 +8858,7 @@ if view_mode == "Admin" and st.session_state.get("admin_entry_mode") is None:
     )
 
     if not _my_cups:
-        st.info("Du har inga cuper i den hÃ¤r miljÃ¶n Ã¤nnu. Skapa en ny cup eller byt miljÃ¶ i vÃ¤nsterflanken.")
+        st.info("Du har inga cuper i den här miljön ännu. Skapa en ny cup eller byt miljö i vänsterflanken.")
         st.stop()
 
     st.markdown("### Senaste cuper")
@@ -8867,19 +8867,19 @@ if view_mode == "Admin" and st.session_state.get("admin_entry_mode") is None:
         _status = normalize_status(_row_value(_row, "lifecycle_status", "draft"), is_published=bool(_row_value(_row, "is_published", 0)))
         _status_text = status_label(_status, current_language())
         _role = str(_row_value(_row, "access_role", "") or "").lower()
-        _role_text = {"owner": "Ã„gare", "admin": "Lokal admin", "driftadmin": "Driftadmin"}.get(_role, "BehÃ¶rig")
+        _role_text = {"owner": "Ägare", "admin": "Lokal admin", "driftadmin": "Driftadmin"}.get(_role, "Behörig")
         _date_value = str(_row_value(_row, "start_date", "") or _row_value(_row, "tournament_date", "") or "").strip()
         with st.container(border=True):
             _c1, _c2 = st.columns([4, 1])
             with _c1:
                 st.markdown(f"### {_row['name']}")
-                _meta = f"{_role_text} Â· {_status_text}"
+                _meta = f"{_role_text} · {_status_text}"
                 if _date_value:
-                    _meta += f" Â· {_date_value[:10]}"
+                    _meta += f" · {_date_value[:10]}"
                 st.caption(_meta)
             with _c2:
                 st.button(
-                    "Ã–ppna â†’",
+                    "Öppna →",
                     type="primary" if _status == "live" else "secondary",
                     use_container_width=True,
                     key=f"admin_my_cup_open_v562_{_cup_id}",
@@ -8888,13 +8888,13 @@ if view_mode == "Admin" and st.session_state.get("admin_entry_mode") is None:
                 )
 
     if len(_my_cups) > 8:
-        st.caption(f"Visar 8 av {len(_my_cups)} cuper. VÃ¤lj â€˜Visa som listaâ€™ fÃ¶r hela listan.")
+        st.caption(f"Visar 8 av {len(_my_cups)} cuper. Välj ‘Visa som lista’ för hela listan.")
     st.stop()
 
 if view_mode == "Admin" and st.session_state.get("admin_entry_mode") == "create":
     st.markdown("### Skapa ny cup")
     st.button(
-        "â† Tillbaka",
+        "← Tillbaka",
         key="admin_entry_create_back_v426",
         on_click=_set_admin_entry_mode,
         args=(None,),
@@ -8936,9 +8936,9 @@ def render_cupnavi_marketing_landing():
         .cn-home-mini {font-size:.91rem;color:#65756c;line-height:1.45;}
         </style>
         <section class="cn-home-hero">
-          <div class="cn-home-kicker">Skapa Â· planera Â· genomfÃ¶r</div>
+          <div class="cn-home-kicker">Skapa · planera · genomför</div>
           <div class="cn-home-title">Cupen ska vara rolig.<br>Inte administrationen.</div>
-          <p class="cn-home-lead">CupNavi hjÃ¤lper fÃ¶reningar att bygga en cup steg fÃ¶r steg, skapa eller lÃ¤sa in schema, dela information och hÃ¥lla resultat och cupdag samlade pÃ¥ ett stÃ¤lle.</p>
+          <p class="cn-home-lead">CupNavi hjälper föreningar att bygga en cup steg för steg, skapa eller läsa in schema, dela information och hålla resultat och cupdag samlade på ett ställe.</p>
         </section>
         """,
         unsafe_allow_html=True,
@@ -8946,10 +8946,10 @@ def render_cupnavi_marketing_landing():
 
     cta1, cta2 = st.columns([1, 1])
     if public_app_mode:
-        cta1.info("ArrangÃ¶r? Ã–ppna CupNavi utan public_only-lÃ¤ge fÃ¶r att skapa och administrera en cup.")
+        cta1.info("Arrangör? Öppna CupNavi utan public_only-läge för att skapa och administrera en cup.")
     else:
         cta1.button(
-            "ðŸ† Skapa eller administrera en cup",
+            "🏆 Skapa eller administrera en cup",
             type="primary",
             use_container_width=True,
             key="marketing_home_admin_v560",
@@ -8957,38 +8957,38 @@ def render_cupnavi_marketing_landing():
             args=("Admin",),
         )
     cta2.button(
-        "ðŸ”Ž Se publicerade cuper",
+        "🔎 Se publicerade cuper",
         use_container_width=True,
         key="marketing_home_cups_v560",
         on_click=lambda: st.session_state.__setitem__("marketing_show_public_cups", True),
     )
 
-    st.markdown('<div class="cn-home-section-title">FrÃ¥n fÃ¶rsta idÃ© till sista slutsignal</div>', unsafe_allow_html=True)
+    st.markdown('<div class="cn-home-section-title">Från första idé till sista slutsignal</div>', unsafe_allow_html=True)
     f1, f2, f3 = st.columns(3)
     with f1:
         with st.container(border=True):
-            st.markdown("### ðŸ“¸ BÃ¶rja med det du redan har")
-            st.write("LÃ¤s in foto eller PDF och vÃ¤lj sjÃ¤lv vilka lag, grupper, planer, regler eller matcher som ska lyftas in i CupNavi.")
+            st.markdown("### 📸 Börja med det du redan har")
+            st.write("Läs in foto eller PDF och välj själv vilka lag, grupper, planer, regler eller matcher som ska lyftas in i CupNavi.")
     with f2:
         with st.container(border=True):
-            st.markdown("### ðŸ—“ï¸ Bygg ett tryggt schema")
-            st.write("Skapa schema stegvis eller behÃ¥ll ett importerat matchprogram. CupNavi hjÃ¤lper till att hitta krockar utan att skriva Ã¶ver spelade matcher.")
+            st.markdown("### 🗓️ Bygg ett tryggt schema")
+            st.write("Skapa schema stegvis eller behåll ett importerat matchprogram. CupNavi hjälper till att hitta krockar utan att skriva över spelade matcher.")
     with f3:
         with st.container(border=True):
-            st.markdown("### ðŸ“± KÃ¶r cupen frÃ¥n mobilen")
-            st.write("Lag, publik, matchrapportÃ¶rer och arrangÃ¶rer fÃ¥r rÃ¤tt vy fÃ¶r sin uppgift â€“ frÃ¥n matchstart till tabell och slutspel.")
+            st.markdown("### 📱 Kör cupen från mobilen")
+            st.write("Lag, publik, matchrapportörer och arrangörer får rätt vy för sin uppgift – från matchstart till tabell och slutspel.")
 
-    st.markdown('<div class="cn-home-section-title">CupNavi hÃ¥ller ihop hela flÃ¶det</div>', unsafe_allow_html=True)
+    st.markdown('<div class="cn-home-section-title">CupNavi håller ihop hela flödet</div>', unsafe_allow_html=True)
     p1, p2, p3, p4 = st.columns(4)
     for col, number, title, body in [
-        (p1, "1", "SÃ¤tt upp cupen", "Cupinfo, lag, grupper, regler, planer och domare."),
-        (p2, "2", "FÃ¥ schemat pÃ¥ plats", "Generera, importera, granska och justera utan dolda Ã¶verskrivningar."),
-        (p3, "3", "Publicera", "Dela en permanent cuplÃ¤nk med deltagare och publik."),
-        (p4, "4", "GenomfÃ¶r", "Rapportera resultat och fÃ¶lj tabeller, slutspel och cupdagen live."),
+        (p1, "1", "Sätt upp cupen", "Cupinfo, lag, grupper, regler, planer och domare."),
+        (p2, "2", "Få schemat på plats", "Generera, importera, granska och justera utan dolda överskrivningar."),
+        (p3, "3", "Publicera", "Dela en permanent cuplänk med deltagare och publik."),
+        (p4, "4", "Genomför", "Rapportera resultat och följ tabeller, slutspel och cupdagen live."),
     ]:
         with col:
             with st.container(border=True):
-                st.markdown(f"### {number} Â· {title}")
+                st.markdown(f"### {number} · {title}")
                 st.caption(body)
 
     public_rows = public_tournament_list_snapshot()
@@ -8997,25 +8997,25 @@ def render_cupnavi_marketing_landing():
         if normalize_status(_row_value(row, "lifecycle_status", "published"), is_published=True) in {"live", "published"}
     ]
     if active_rows or st.session_state.get("marketing_show_public_cups"):
-        st.markdown('<div class="cn-home-section-title">PÃ¥gÃ¥ende och kommande cuper</div>', unsafe_allow_html=True)
+        st.markdown('<div class="cn-home-section-title">Pågående och kommande cuper</div>', unsafe_allow_html=True)
         if not active_rows:
-            st.info("Det finns inga pÃ¥gÃ¥ende eller kommande publicerade cuper just nu.")
+            st.info("Det finns inga pågående eller kommande publicerade cuper just nu.")
         else:
             for row in active_rows[:6]:
                 status = normalize_status(_row_value(row, "lifecycle_status", "published"), is_published=True)
                 date_value = str(_row_value(row, "start_date", "") or _row_value(row, "tournament_date", "") or "").strip()
-                status_text = "ðŸ”´ PÃ¥gÃ¥r nu" if status == "live" else "ðŸ—“ï¸ Kommande"
+                status_text = "🔴 Pågår nu" if status == "live" else "🗓️ Kommande"
                 with st.container(border=True):
                     a, b = st.columns([4, 1])
                     with a:
                         st.markdown(f"### {row['name']}")
-                        st.caption(f"{status_text}{' Â· ' + date_value[:10] if date_value else ''}")
+                        st.caption(f"{status_text}{' · ' + date_value[:10] if date_value else ''}")
                     with b:
-                        st.link_button("Ã–ppna cup â†’", public_cup_url(int(row["id"])), use_container_width=True)
+                        st.link_button("Öppna cup →", public_cup_url(int(row["id"])), use_container_width=True)
 
     st.divider()
-    st.markdown("### FÃ¶r arrangÃ¶rer som vill lÃ¤gga tiden pÃ¥ cupen â€“ inte pÃ¥ kalkylblad")
-    st.caption("Direkta cuplÃ¤nkar gÃ¥r alltid direkt till rÃ¤tt turnering. Startsidan pÃ¥ cup-navi.com Ã¤r CupNavis entrÃ© och presentation.")
+    st.markdown("### För arrangörer som vill lägga tiden på cupen – inte på kalkylblad")
+    st.caption("Direkta cuplänkar går alltid direkt till rätt turnering. Startsidan på cup-navi.com är CupNavis entré och presentation.")
 
 
 # v560: the bare public root is a product landing page. A permanent ?cup= link
@@ -9024,16 +9024,16 @@ if view_mode == "Turneringsvy" and not cup_query_text:
     render_cupnavi_marketing_landing()
     st.stop()
 
-if view_mode in ("Admin", "MatchrapportÃ¶r", "Lagportal"):
+if view_mode in ("Admin", "Matchrapportör", "Lagportal"):
     if view_mode == "Admin":
         # v526: the admin shell and clone picker share one cached tournament list.
         tournaments = admin_tournament_list_snapshot()
     else:
         _tournament_access_sql = "SELECT * FROM tournaments WHERE COALESCE(lifecycle_status,'draft')!='trashed'"
         _tournament_access_params = ()
-        if view_mode == "MatchrapportÃ¶r" and st.session_state.get("reporter_auth_scope") == "test_only":
+        if view_mode == "Matchrapportör" and st.session_state.get("reporter_auth_scope") == "test_only":
             _tournament_access_sql += " AND COALESCE(environment_type,'production')='test'"
-        if view_mode == "MatchrapportÃ¶r" and st.session_state.get("reporter_auth_scope") == "tournament":
+        if view_mode == "Matchrapportör" and st.session_state.get("reporter_auth_scope") == "tournament":
             _tournament_access_sql += " AND id=?"
             _tournament_access_params = (int(st.session_state["reporter_tournament_id"]),)
         tournaments = all_rows(
@@ -9088,10 +9088,10 @@ else:
 if view_mode == "Admin" and st.session_state.get("admin_entry_mode") == "manage":
     if not tournaments:
         st.markdown("### Administrera befintlig cup")
-        st.info("Det finns ingen befintlig cup att administrera Ã¤nnu.")
+        st.info("Det finns ingen befintlig cup att administrera ännu.")
         c_back, c_new = st.columns(2)
         c_back.button(
-            "â† Tillbaka",
+            "← Tillbaka",
             use_container_width=True,
             key="admin_manage_empty_back_v426",
             on_click=_set_admin_entry_mode,
@@ -9112,7 +9112,7 @@ if view_mode == "Admin" and st.session_state.get("admin_entry_mode") == "manage"
         _seed = st.session_state.get("preferred_tournament_id")
         _manage_index = _admin_manage_ids.index(int(_seed)) if _seed in _admin_manage_ids else 0
         _manage_choice = st.selectbox(
-            "VÃ¤lj cup",
+            "Välj cup",
             _admin_manage_ids,
             index=_manage_index,
             format_func=lambda value: next(row["name"] for row in tournaments if int(row["id"]) == int(value)),
@@ -9120,14 +9120,14 @@ if view_mode == "Admin" and st.session_state.get("admin_entry_mode") == "manage"
         )
         _m1, _m2 = st.columns(2)
         _m1.button(
-            "â† Tillbaka",
+            "← Tillbaka",
             use_container_width=True,
             key="admin_manage_back_v426",
             on_click=_set_admin_entry_mode,
             args=(None,),
         )
         _m2.button(
-            "Ã–ppna cup",
+            "Öppna cup",
             type="primary",
             use_container_width=True,
             key="admin_manage_open_v426",
@@ -9137,21 +9137,21 @@ if view_mode == "Admin" and st.session_state.get("admin_entry_mode") == "manage"
         st.stop()
 
 if not tournaments:
-    st.title("ðŸ† CupNavi")
+    st.title("🏆 CupNavi")
     if view_mode == "Admin":
         render_empty_state(
-            "Skapa din fÃ¶rsta cup",
-            "Du behÃ¶ver bara namn, spelort, sport och cupdag fÃ¶r att komma igÃ¥ng.",
-            symbol="ðŸ†",
+            "Skapa din första cup",
+            "Du behöver bara namn, spelort, sport och cupdag för att komma igång.",
+            symbol="🏆",
         )
-        with st.expander("âž• Skapa ny turnering", expanded=True):
+        with st.expander("➕ Skapa ny turnering", expanded=True):
             render_new_tournament_creator(key_prefix="mobile_empty")
-    elif view_mode == "MatchrapportÃ¶r":
-        st.info("Det finns ingen turnering att rapportera Ã¤nnu.")
+    elif view_mode == "Matchrapportör":
+        st.info("Det finns ingen turnering att rapportera ännu.")
     elif view_mode == "Lagportal":
-        st.info("Det finns ingen turnering med registrerade lag Ã¤nnu.")
+        st.info("Det finns ingen turnering med registrerade lag ännu.")
     else:
-        st.info("Ingen turnering Ã¤r publicerad Ã¤nnu.")
+        st.info("Ingen turnering är publicerad ännu.")
     st.stop()
 
 # Resolve cup= against the actual accessible rows also for Admin/role views.
@@ -9199,9 +9199,9 @@ def _tournament_selector_label(tournament_id):
     if status == "completed":
         year_source = row["start_date"] or row["tournament_date"] or ""
         year = str(year_source)[:4] if year_source else ""
-        return f"ðŸ† {label}{' Â· ' + year if year else ''} Â· {status_label(status, current_language())}"
+        return f"🏆 {label}{' · ' + year if year else ''} · {status_label(status, current_language())}"
     if status == "live":
-        return f"ðŸ”´ {label} Â· {status_label(status, current_language())}"
+        return f"🔴 {label} · {status_label(status, current_language())}"
     return label
 
 # A direct public cup URL is authoritative in the public view. This prevents a
@@ -9220,7 +9220,7 @@ tid = st.sidebar.selectbox(
 )
 
 if view_mode == "Admin" and not can_administer_tournament(int(tid)):
-    st.error("Du har inte behÃ¶righet till den hÃ¤r turneringen.")
+    st.error("Du har inte behörighet till den här turneringen.")
     st.stop()
 
 # v328: Admin tournament switching must not depend on the sidebar. Streamlit
@@ -9249,16 +9249,16 @@ if view_mode == "Admin":
     st.sidebar.markdown("### Cup")
     st.sidebar.caption(f"Aktiv: {_tournament_selector_label(tid)}")
     st.sidebar.button(
-        "â† Mina cuper",
+        "← Mina cuper",
         key=f"admin_back_to_my_cups_v564_{tid}",
         use_container_width=True,
         on_click=_back_to_my_cups,
-        help="Tillbaka till Ã¶versikten Ã¶ver cuper du har behÃ¶righet till.",
+        help="Tillbaka till översikten över cuper du har behörighet till.",
     )
     # This assignment happens before the main selector widget is instantiated on
     # each rerun, keeping sidebar, URL/deep-link resolution and mobile UI aligned.
     st.session_state["main_active_tournament_selector"] = int(tid)
-    with st.expander(f"ðŸ† Turnering Â· {_tournament_selector_label(tid)}", expanded=False):
+    with st.expander(f"🏆 Turnering · {_tournament_selector_label(tid)}", expanded=False):
         st.selectbox(
             "Byt aktiv turnering",
             tournament_ids,
@@ -9266,10 +9266,10 @@ if view_mode == "Admin":
             key="main_active_tournament_selector",
             on_change=_apply_main_tournament_selection,
         )
-        st.caption("TillgÃ¤nglig i huvudytan Ã¤ven nÃ¤r sidomenyn Ã¤r dold pÃ¥ telefonen.")
+        st.caption("Tillgänglig i huvudytan även när sidomenyn är dold på telefonen.")
 
-    with st.expander("âž• Ny turnering", expanded=False):
-        st.caption("Fungerar Ã¤ven pÃ¥ mobil dÃ¤r sidomenyn kan vara dold.")
+    with st.expander("➕ Ny turnering", expanded=False):
+        st.caption("Fungerar även på mobil där sidomenyn kan vara dold.")
         render_new_tournament_creator(key_prefix="mobile_main")
 
 # A deliberate selector change becomes the session preference and the URL follows
@@ -9320,7 +9320,7 @@ def render_tournament_clock(tournament_row):
           }}).format(now);
           dateText = new Intl.DateTimeFormat(locale, {{
             timeZone: tz, weekday: 'short', day: 'numeric', month: 'short', year: 'numeric'
-          }}).format(now) + ' Â· ' + tz;
+          }}).format(now) + ' · ' + tz;
         }} catch (error) {{
           timeText = now.toLocaleTimeString(locale, {{hour12: false}});
           dateText = now.toLocaleDateString(locale);
@@ -9351,13 +9351,13 @@ with st.sidebar:
                 st.session_state["preferred_tournament_id"] = int(tid)
 
             st.button(
-                "âš™ï¸ Ã„ndra cupsetup",
+                "⚙️ Ändra cupsetup",
                 key=f"sidebar_open_cup_setup_{tid}",
                 use_container_width=True,
                 on_click=_open_sidebar_cup_setup,
-                help="GÃ¥ tillbaka till cupens setup fÃ¶r att Ã¤ndra exempelvis datum, tÃ¤vlingsklasser, planer och tider.",
+                help="Gå tillbaka till cupens setup för att ändra exempelvis datum, tävlingsklasser, planer och tider.",
             )
-            st.caption("Setup, namn och radering ligger hÃ¤r sÃ¥ att du alltid hittar dem.")
+            st.caption("Setup, namn och radering ligger här så att du alltid hittar dem.")
             _sidebar_name = st.text_input(
                 "Cupnamn",
                 value=str(tournament["name"] or ""),
@@ -9371,10 +9371,10 @@ with st.sidebar:
             ):
                 run("UPDATE tournaments SET name=? WHERE id=?", (_sidebar_name, tid))
                 _clear_render_query_cache()
-                st.success("Cupnamnet Ã¤r Ã¤ndrat.")
+                st.success("Cupnamnet är ändrat.")
 
             st.divider()
-            with st.expander("ðŸ—‘ï¸ Radera cup", expanded=False):
+            with st.expander("🗑️ Radera cup", expanded=False):
                 _sidebar_environment = str(_row_value(tournament, "environment_type", "production") or "production")
                 _sidebar_lifecycle = normalize_status(tournament["lifecycle_status"], is_published=bool(tournament["is_published"]))
                 if _sidebar_environment == "test":
@@ -9402,7 +9402,7 @@ with st.sidebar:
                             st.session_state["main_active_tournament_selector"] = _remaining_ids[0]
                         st.rerun()
                 else:
-                    st.caption("Riktiga cuper flyttas fÃ¶rst till papperskorgen sÃ¥ att historik inte fÃ¶rsvinner av misstag.")
+                    st.caption("Riktiga cuper flyttas först till papperskorgen så att historik inte försvinner av misstag.")
                     _sidebar_trash_confirm = st.checkbox(
                         f"Flytta {tournament['name']} till papperskorgen",
                         key=f"sidebar_trash_confirm_{tid}",
@@ -9417,7 +9417,7 @@ with st.sidebar:
                             tid, _sidebar_lifecycle, bool(tournament["is_published"]),
                         )
                         if not changed:
-                            st.warning("Cupens status hade Ã¤ndrats. Ladda om och fÃ¶rsÃ¶k igen.")
+                            st.warning("Cupens status hade ändrats. Ladda om och försök igen.")
                         else:
                             _remaining_ids = [int(row["id"]) for row in tournaments if int(row["id"]) != int(tid)]
                             for _selection_key in ("preferred_tournament_id", "active_tournament_selector", "main_active_tournament_selector"):
@@ -9428,16 +9428,16 @@ with st.sidebar:
                                 st.session_state["main_active_tournament_selector"] = _remaining_ids[0]
                         st.rerun()
 
-                if st.button("Ã–ppna papperskorgen", key=f"sidebar_open_trash_{tid}", use_container_width=True):
+                if st.button("Öppna papperskorgen", key=f"sidebar_open_trash_{tid}", use_container_width=True):
                     st.session_state[f"admin_page_{tid}"] = "Papperskorg"
         st.markdown("**Koder**")
-        st.caption("MatchrapportÃ¶r Â· domare Â· lag")
+        st.caption("Matchrapportör · domare · lag")
         st.button(
-            "Ã–ppna alla koder",
+            "Öppna alla koder",
             key=f"sidebar_open_all_codes_{tid}",
             use_container_width=True,
             on_click=_set_session_state_values,
-            args=({f"pending_admin_page_{tid}": "Ã…tkomst & koder"},),
+            args=({f"pending_admin_page_{tid}": "Åtkomst & koder"},),
         )
 
 st.markdown(
@@ -9453,10 +9453,10 @@ st.markdown(
     unsafe_allow_html=True,
 )
 with st.sidebar.container(key=f"cn_sidebar_a11y_{int(tid)}"):
-    with st.expander("â™¿ TillgÃ¤nglighet", expanded=False):
-        a11y_high_contrast = st.toggle("HÃ¶g kontrast", value=bool(st.session_state.get("a11y_high_contrast", False)), key="a11y_high_contrast")
-        a11y_large_text = st.toggle("StÃ¶rre text", value=bool(st.session_state.get("a11y_large_text", False)), key="a11y_large_text")
-        st.caption("Extra visningshjÃ¤lp fÃ¶r kontrast och textstorlek.")
+    with st.expander("♿ Tillgänglighet", expanded=False):
+        a11y_high_contrast = st.toggle("Hög kontrast", value=bool(st.session_state.get("a11y_high_contrast", False)), key="a11y_high_contrast")
+        a11y_large_text = st.toggle("Större text", value=bool(st.session_state.get("a11y_large_text", False)), key="a11y_large_text")
+        st.caption("Extra visningshjälp för kontrast och textstorlek.")
 
 tournament_lifecycle = normalize_status(tournament["lifecycle_status"], is_published=bool(tournament["is_published"]))
 
@@ -9467,9 +9467,9 @@ if a11y_large_text:
     _a11y_css.append(".stApp{font-size:1.08rem!important;} .stApp p,.stApp label,.stApp input,.stApp textarea,.stApp button{font-size:1.02rem!important;}")
 _a11y_css.append("button,[role='button'],input,select,textarea{min-height:44px;} :focus-visible{outline:3px solid #2563EB!important;outline-offset:2px!important;} .cn-sr-only{position:absolute!important;width:1px!important;height:1px!important;padding:0!important;margin:-1px!important;overflow:hidden!important;clip:rect(0,0,0,0)!important;white-space:nowrap!important;border:0!important;}")
 if _a11y_css:
-    st.markdown("<style>" + "".join(_a11y_css) + "</style><div class='cn-sr-only' role='status' aria-live='polite'>CupNavi Ã¤r redo. Navigation och formulÃ¤r kan anvÃ¤ndas med tangentbord och skÃ¤rmlÃ¤sare.</div>", unsafe_allow_html=True)
+    st.markdown("<style>" + "".join(_a11y_css) + "</style><div class='cn-sr-only' role='status' aria-live='polite'>CupNavi är redo. Navigation och formulär kan användas med tangentbord och skärmläsare.</div>", unsafe_allow_html=True)
 
-# v603 â€” GLOBAL DARK SPORT SHELL
+# v603 — GLOBAL DARK SPORT SHELL
 # One coherent visual language across public, admin, reporter and setup surfaces.
 # Text-TV remains strongest in dense sports data, while forms use a modern dark control system.
 st.markdown("""
@@ -9882,7 +9882,7 @@ label[data-testid="stWidgetLabel"] {
 else:
     st.markdown("""
 <style>
-/* v593 â€” CUPNAVI VISUAL SYSTEM PASS
+/* v593 — CUPNAVI VISUAL SYSTEM PASS
    Modern tournament operations shell. Text-TV styling remains concentrated
    in data-dense sports surfaces instead of turning forms into a retro emulator. */
 :root{
@@ -10102,7 +10102,7 @@ body [data-baseweb="calendar"],body [data-baseweb="calendar"] *{color:#172033!im
 </style>
 """, unsafe_allow_html=True)
 
-# v605 â€” authoritative CupNavi design-system cascade.
+# v605 — authoritative CupNavi design-system cascade.
 # This is intentionally last: legacy page CSS may style individual modules,
 # but shell, typography, controls and surfaces must resolve to one theme.
 st.markdown("""
@@ -10183,7 +10183,7 @@ body .stApp .cn-texttv-table,body .stApp .cn-tt-table,body .stApp .texttv-table{
 </style>
 """, unsafe_allow_html=True)
 
-# v606 â€” Premium Sports Design System.
+# v606 — Premium Sports Design System.
 # Palette tuned for prolonged viewing: soft navy rather than pure black,
 # restrained aqua for focus, and semantic colors reserved for status.
 st.markdown("""
@@ -10280,7 +10280,7 @@ body [data-baseweb="calendar"]{background:#fff!important;}
 </style>
 """, unsafe_allow_html=True)
 
-# v607 â€” Broadcast Control visual rebuild.
+# v607 — Broadcast Control visual rebuild.
 # Streamlit is treated as the runtime, not the visual system: the main shell,
 # navigation, cards and native widgets are explicitly normalized here.
 st.markdown("""
@@ -10440,13 +10440,13 @@ html,body,#root,.stApp,[data-testid="stAppViewContainer"],
 """, unsafe_allow_html=True)
 
 
-# v608 â€” CupNavi signature visual identity: Comic Ã— Football Cards Ã— Text-TV Ã— Future.
+# v608 — CupNavi signature visual identity: Comic × Football Cards × Text-TV × Future.
 # Light-first, highly legible, deliberately ownable. This final cascade is the
 # authoritative visual layer and intentionally overrides v607's dark shell.
 st.markdown("""
 <style>
 :root{
-  /* Paper + ink foundation â€” warm rather than sterile white. */
+  /* Paper + ink foundation — warm rather than sterile white. */
   --cn26-paper:#F5F2E8;
   --cn26-paper-2:#FFFDF7;
   --cn26-paper-3:#EEE9DC;
@@ -10466,7 +10466,7 @@ st.markdown("""
   --cn26-r:12px;
 }
 
-/* A. LIGHT-FIRST CANVAS â€” removes every dark-shell inheritance from v607. */
+/* A. LIGHT-FIRST CANVAS — removes every dark-shell inheritance from v607. */
 html,body,#root,.stApp,[data-testid="stAppViewContainer"],
 [data-testid="stAppViewContainer"]>section,[data-testid="stMain"],section.main,.main{
   background:var(--cn26-paper)!important;color:var(--cn26-ink)!important;color-scheme:light!important;
@@ -10479,7 +10479,7 @@ html,body,#root,.stApp,[data-testid="stAppViewContainer"],
   background:transparent!important;max-width:1440px!important;
 }
 
-/* B. TYPOGRAPHY â€” editorial/comic energy without sacrificing readability. */
+/* B. TYPOGRAPHY — editorial/comic energy without sacrificing readability. */
 .stApp h1,.stApp h2,.stApp h3,.stApp h4{color:var(--cn26-ink)!important;letter-spacing:-.03em!important;}
 .stApp h1{font-weight:850!important;line-height:.98!important;}
 .stApp h2{font-weight:820!important;}
@@ -10488,7 +10488,7 @@ html,body,#root,.stApp,[data-testid="stAppViewContainer"],
 .stApp label,.stApp [data-testid="stWidgetLabel"] p{color:var(--cn26-ink-2)!important;}
 .stApp [data-testid="stCaptionContainer"] p,.stApp .stCaption p{color:var(--cn26-muted)!important;}
 
-/* C. SIDEBAR â€” looks like the edge/spine of a football card binder. */
+/* C. SIDEBAR — looks like the edge/spine of a football card binder. */
 [data-testid="stSidebar"]{
   background:var(--cn26-paper-2)!important;border-right:3px solid var(--cn26-ink)!important;box-shadow:none!important;
 }
@@ -10497,7 +10497,7 @@ html,body,#root,.stApp,[data-testid="stAppViewContainer"],
 [data-testid="stSidebar"] p,[data-testid="stSidebar"] label,[data-testid="stSidebar"] span{color:var(--cn26-ink)!important;}
 [data-testid="stSidebar"] hr{border-color:var(--cn26-line)!important;}
 
-/* D. PANELS â€” comic panels + collectible card construction. */
+/* D. PANELS — comic panels + collectible card construction. */
 .stApp [data-testid="stVerticalBlockBorderWrapper"],.stApp [data-testid="stForm"],
 .stApp [data-testid="stExpander"],.stApp [data-testid="stMetric"],
 .stApp .cn-home-card,.stApp .cn-home-step,.stApp .public-metric,.stApp .cn-public-highlight,
@@ -10511,7 +10511,7 @@ html,body,#root,.stApp,[data-testid="stAppViewContainer"],
 .stApp [data-testid="stMetricLabel"],.stApp [data-testid="stMetricDelta"]{color:var(--cn26-muted)!important;}
 .stApp [data-testid="stMetricValue"]{color:var(--cn26-ink)!important;font-weight:850!important;}
 
-/* E. HERO â€” signature CupNavi cover-card. Subtle halftone + foil stripe, no neon. */
+/* E. HERO — signature CupNavi cover-card. Subtle halftone + foil stripe, no neon. */
 .stApp .cn-home-hero,.stApp .cup-hero{
   position:relative!important;overflow:hidden!important;isolation:isolate!important;
   background:
@@ -10535,7 +10535,7 @@ html,body,#root,.stApp,[data-testid="stAppViewContainer"],
   letter-spacing:.055em!important;text-transform:uppercase!important;
 }
 
-/* F. BUTTONS â€” physical card/tab feel, high contrast in every state. */
+/* F. BUTTONS — physical card/tab feel, high contrast in every state. */
 .stApp [data-testid="stButton"] button,.stApp [data-testid="stLinkButton"] a,.stApp [data-testid="stDownloadButton"] button{
   min-height:40px!important;border-radius:9px!important;font-weight:780!important;box-shadow:3px 3px 0 rgba(19,35,45,.12)!important;
 }
@@ -10551,7 +10551,7 @@ html,body,#root,.stApp,[data-testid="stAppViewContainer"],
 }
 .stApp button:disabled{background:var(--cn26-paper-3)!important;color:#728087!important;border-color:#9AA59F!important;opacity:1!important;box-shadow:none!important;}
 
-/* G. INPUTS â€” clean card-label fields. */
+/* G. INPUTS — clean card-label fields. */
 .stApp input,.stApp textarea,.stApp [data-baseweb="select"]>div,.stApp [data-baseweb="base-input"]{
   background:#fff!important;color:var(--cn26-ink)!important;border:2px solid #9EAAA4!important;border-radius:8px!important;
 }
@@ -10559,7 +10559,7 @@ html,body,#root,.stApp,[data-testid="stAppViewContainer"],
 .stApp input:focus,.stApp textarea:focus,.stApp [data-baseweb="select"]>div:focus-within{border-color:var(--cn26-blue)!important;box-shadow:0 0 0 3px rgba(34,87,214,.12)!important;}
 .stApp [role="listbox"],.stApp [data-baseweb="popover"]{background:#fff!important;color:var(--cn26-ink)!important;}
 
-/* H. ADMIN FLOW â€” trading-card tabs with a clear current step. */
+/* H. ADMIN FLOW — trading-card tabs with a clear current step. */
 .stApp [class*="st-key-admin_full_flow_desktop_"]{
   background:#ECE8DC!important;border:2px solid var(--cn26-ink)!important;border-radius:12px!important;padding:6px!important;box-shadow:4px 4px 0 rgba(19,35,45,.08)!important;
 }
@@ -10572,13 +10572,13 @@ html,body,#root,.stApp,[data-testid="stAppViewContainer"],
   background:var(--cn26-cyan)!important;color:#071014!important;border:2px solid var(--cn26-ink)!important;opacity:1!important;font-weight:850!important;
 }
 
-/* I. ALERTS â€” comic callouts, semantic but never low-contrast. */
+/* I. ALERTS — comic callouts, semantic but never low-contrast. */
 .stApp [data-testid="stAlert"]{
   background:#FFFDF7!important;color:var(--cn26-ink)!important;border:2px solid var(--cn26-ink)!important;border-left-width:7px!important;border-radius:10px!important;box-shadow:3px 3px 0 rgba(19,35,45,.07)!important;
 }
 .stApp [data-testid="stAlert"] p,.stApp [data-testid="stAlert"] div{color:var(--cn26-ink)!important;}
 
-/* J. TEXT-TV â€” the deliberate black live-data island; brightest legibility here. */
+/* J. TEXT-TV — the deliberate black live-data island; brightest legibility here. */
 .stApp .cn-texttv-table,.stApp .cn-tt-table,.stApp .texttv-table{
   background:#030708!important;color:#F6FFF8!important;border:3px solid var(--cn26-ink)!important;border-radius:8px!important;
   box-shadow:5px 5px 0 rgba(19,35,45,.12)!important;
@@ -10586,12 +10586,12 @@ html,body,#root,.stApp,[data-testid="stAppViewContainer"],
 .stApp .cn-texttv-table *,.stApp .cn-tt-table *,.stApp .texttv-table *{color:#F6FFF8!important;}
 .stApp .cn-texttv-table th,.stApp .cn-tt-table th,.stApp .texttv-table th{color:#69EAF2!important;}
 
-/* K. TABLES / DATA â€” paper/card shell; Text-TV classes above remain black. */
+/* K. TABLES / DATA — paper/card shell; Text-TV classes above remain black. */
 .stApp [data-testid="stDataFrame"],.stApp [data-testid="stTable"]{
   background:#fff!important;color:var(--cn26-ink)!important;border:2px solid var(--cn26-ink)!important;border-radius:10px!important;box-shadow:4px 4px 0 rgba(19,35,45,.08)!important;
 }
 
-/* L. Accessibility contract â€” no decorative treatment may reduce readability. */
+/* L. Accessibility contract — no decorative treatment may reduce readability. */
 .stApp a{color:#154DBE!important;}
 .stApp a:focus-visible,.stApp button:focus-visible,.stApp input:focus-visible,.stApp textarea:focus-visible{outline:3px solid var(--cn26-yellow)!important;outline-offset:2px!important;}
 [data-baseweb="calendar"]{background:#fff!important;color-scheme:light!important;}
@@ -10608,7 +10608,7 @@ html,body,#root,.stApp,[data-testid="stAppViewContainer"],
 </style>
 """, unsafe_allow_html=True)
 
-# v609 â€” Signature Light Polish: editorial comic Ã— football card Ã— Text-TV Ã— future.
+# v609 — Signature Light Polish: editorial comic × football card × Text-TV × future.
 # Refines v608 into a calmer, more premium component language. Decorative texture
 # is constrained to identity surfaces; reading surfaces remain clean and high contrast.
 st.markdown("""
@@ -10691,8 +10691,8 @@ html,body,#root,.stApp,[data-testid="stAppViewContainer"],[data-testid="stMain"]
 """, unsafe_allow_html=True)
 
 
-# v610 â€” Signature Matchday Layer: the public sports surfaces now carry CupNavi's
-# own comic Ã— collector-card Ã— Text-TV Ã— future identity, while keeping the light base.
+# v610 — Signature Matchday Layer: the public sports surfaces now carry CupNavi's
+# own comic × collector-card × Text-TV × future identity, while keeping the light base.
 st.markdown("""
 <style>
 :root{
@@ -10763,7 +10763,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# v611 â€” Signature Public Stage: sharpen the ownable CupNavi identity where spectators live.
+# v611 — Signature Public Stage: sharpen the ownable CupNavi identity where spectators live.
 st.markdown("""
 <style>
 :root{
@@ -10833,7 +10833,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# v612 â€” Signature Admin Studio: CupNavi's light identity moves into creation and admin.
+# v612 — Signature Admin Studio: CupNavi's light identity moves into creation and admin.
 # Design recipe: editorial comic framing + football-card indexing + Text-TV data islands + future precision.
 st.markdown("""
 <style>
@@ -10950,13 +10950,13 @@ def _render_with_friendly_error(renderer, *args):
                 con.commit()
         except Exception as log_exc:
             print(f"[{error_id}] diagnostic persistence failed: {type(log_exc).__name__}: {log_exc}")
-        st.error(f"NÃ¥got gick fel nÃ¤r sidan skulle visas. Dina sparade uppgifter pÃ¥verkas inte. FÃ¶rsÃ¶k igen. Fel-ID: {error_id}")
+        st.error(f"Något gick fel när sidan skulle visas. Dina sparade uppgifter påverkas inte. Försök igen. Fel-ID: {error_id}")
         st.caption("Tekniska detaljer loggas internt. Ange Fel-ID om du kontaktar support.")
         print(f"[{error_id}] {type(exc).__name__}: {exc}")
 if view_mode == "Lagportal":
     _render_with_friendly_error(render_team_portal, tid, tournament)
     st.stop()
-if view_mode == "MatchrapportÃ¶r":
+if view_mode == "Matchrapportör":
     _render_with_friendly_error(render_match_reporter_view, tid, tournament)
     st.stop()
 if view_mode == "Admin" and st.session_state.get("new_tournament_setup_id") == tid:
@@ -10966,18 +10966,18 @@ if view_mode == "Admin":
     _cn609_name = html.escape(str(tournament["name"] or "CupNavi"))
     _cn609_place = html.escape(str(tournament["location"] or "Spelort saknas"))
     _cn609_date = html.escape(str(cup_date_label(tournament)))
-    _cn609_teams = html.escape(str(tournament["expected_team_count"] or "â€”"))
+    _cn609_teams = html.escape(str(tournament["expected_team_count"] or "—"))
     st.markdown(
-        f"<section class='cn609-admin-cover'><div class='cn609-admin-kicker'>CUPNAVI Â· CONTROL DESK</div>"
+        f"<section class='cn609-admin-cover'><div class='cn609-admin-kicker'>CUPNAVI · CONTROL DESK</div>"
         f"<div class='cn609-admin-title'>{_cn609_name}</div>"
-        f"<div class='cn609-admin-meta'><span>ðŸ“ <b>{_cn609_place}</b></span><span>â—· {_cn609_date}</span><span>â—« {_cn609_teams} planerade lag</span></div></section>",
+        f"<div class='cn609-admin-meta'><span>📍 <b>{_cn609_place}</b></span><span>◷ {_cn609_date}</span><span>◫ {_cn609_teams} planerade lag</span></div></section>",
         unsafe_allow_html=True,
     )
     tournament_environment = str(_row_value(tournament, "environment_type", "production") or "production")
     if tournament_environment == "test":
-        st.warning("ðŸ§ª TESTMILJÃ– â€“ denna cup Ã¤r avsedd fÃ¶r test och kan raderas fritt.")
+        st.warning("🧪 TESTMILJÖ – denna cup är avsedd för test och kan raderas fritt.")
     admin_status_label = status_label(tournament_lifecycle, current_language())
-    schedule_status_label = tr("Schema aktuellt") if not tournament["schedule_dirty"] else tr("Schema behÃ¶ver uppdateras")
+    schedule_status_label = tr("Schema aktuellt") if not tournament["schedule_dirty"] else tr("Schema behöver uppdateras")
     st.markdown(
         f"<div class='cn-admin-status-strip'>"
         f"<span class='cn-admin-status-pill'>{html.escape(admin_status_label)}</span>"
@@ -10985,52 +10985,52 @@ if view_mode == "Admin":
         f"</div>",
         unsafe_allow_html=True,
     )
-    st.caption(f"{tournament['location'] or 'Spelort saknas'} Â· {cup_date_label(tournament)} Â· Planerat antal lag: {tournament['expected_team_count'] or 'Ej angivet'} (summa tÃ¤vlingsklasser)")
+    st.caption(f"{tournament['location'] or 'Spelort saknas'} · {cup_date_label(tournament)} · Planerat antal lag: {tournament['expected_team_count'] or 'Ej angivet'} (summa tävlingsklasser)")
     if tournament_lifecycle == "completed":
-        st.success("ðŸ† Cupen Ã¤r avslutad och ligger kvar som publik historik. AdminlÃ¤get Ã¤r skrivskyddat tills cupen Ã¥terÃ¶ppnas.")
+        st.success("🏆 Cupen är avslutad och ligger kvar som publik historik. Adminläget är skrivskyddat tills cupen återöppnas.")
         st.caption(f"Permanent publik identifierare: {tournament['public_slug'] or tournament['id']}")
         archive_col1, archive_col2 = st.columns(2)
-        if archive_col1.button("â†©ï¸ Ã…terÃ¶ppna cup", type="primary", use_container_width=True, key=f"reopen_completed_{tid}"):
+        if archive_col1.button("↩️ Återöppna cup", type="primary", use_container_width=True, key=f"reopen_completed_{tid}"):
             run("UPDATE tournaments SET lifecycle_status='published',completed_at=NULL,is_published=1 WHERE id=?", (tid,))
             st.rerun()
-        trash_confirm = archive_col2.checkbox("TillÃ¥t flytt till papperskorg", key=f"archive_trash_confirm_{tid}")
-        if archive_col2.button("ðŸ—‘ï¸ Flytta till papperskorg", disabled=not trash_confirm, use_container_width=True, key=f"archive_trash_{tid}"):
+        trash_confirm = archive_col2.checkbox("Tillåt flytt till papperskorg", key=f"archive_trash_confirm_{tid}")
+        if archive_col2.button("🗑️ Flytta till papperskorg", disabled=not trash_confirm, use_container_width=True, key=f"archive_trash_{tid}"):
             run("UPDATE tournaments SET lifecycle_status='trashed',trashed_at=?,is_published=0 WHERE id=?", (datetime.now().isoformat(timespec="seconds"), tid))
             st.rerun()
-        st.info("VÃ¤xla till Turneringsvy fÃ¶r att se den arkiverade cupsidan precis som besÃ¶karna gÃ¶r.")
+        st.info("Växla till Turneringsvy för att se den arkiverade cupsidan precis som besökarna gör.")
         st.stop()
 if view_mode == "Turneringsvy":
-    # v494: PDF and informationsskÃ¤rm live under Dela in the persistent left rail.
+    # v494: PDF and informationsskärm live under Dela in the persistent left rail.
     # PDF bytes are generated lazily by st.download_button on the actual click.
     _render_with_friendly_error(render_public_view, tid, tournament)
     st.stop()
-# SNABB ADMINNAVIGERING: visuellt som flikar, men bara vald sida kÃ¶rs.
+# SNABB ADMINNAVIGERING: visuellt som flikar, men bara vald sida körs.
 ADMIN_PAGES = [
-    "Instruktioner", "AdminÃ¶versikt", "Planer & tider", "CupinstÃ¤llningar", "Regler", "Papperskorg", "Ã…tkomst & koder", "Ã–nskemÃ¥lscentral", "Kontroller", "Problem & lÃ¶sningar", "Lag", "TrÃ¶j setup", "Grupper", "Trupper", "Domare",
+    "Instruktioner", "Adminöversikt", "Planer & tider", "Cupinställningar", "Regler", "Papperskorg", "Åtkomst & koder", "Önskemålscentral", "Kontroller", "Problem & lösningar", "Lag", "Tröj setup", "Grupper", "Trupper", "Domare",
     "Skapa och publicera schema", "Cupdagen", "Tabeller", "Matcher och resultat",
-    "MatchhÃ¤ndelser", "Slutspel", "Skytteligor", "Erbjudanden",
-    "Sponsorer", "FunktionÃ¤rer", "Import", "BesÃ¶ksstatistik", "Cupverktyg", "Ã–vrigt",
+    "Matchhändelser", "Slutspel", "Skytteligor", "Erbjudanden",
+    "Sponsorer", "Funktionärer", "Import", "Besöksstatistik", "Cupverktyg", "Övrigt",
 ]
 ADMIN_NAV_GROUPS = [
-    ("Ã–versikt", [("AdminÃ¶versikt", tr("Ã–versikt")), ("CupinstÃ¤llningar", "InstÃ¤llningar")]),
+    ("Översikt", [("Adminöversikt", tr("Översikt")), ("Cupinställningar", "Inställningar")]),
     # v338: keep the global participant navigation focused on the two recurring
     # organizer tasks. Roster, wishes and import remain available from Lag as
     # contextual tools instead of competing as top-level destinations.
-    ("Deltagare", [("Lag", tr("Lag")), ("TrÃ¶j setup", "ðŸ‘• TrÃ¶jfÃ¤rger Â· NYTT"), ("Grupper", tr("Grupper"))]),
+    ("Deltagare", [("Lag", tr("Lag")), ("Tröj setup", "👕 Tröjfärger · NYTT"), ("Grupper", tr("Grupper"))]),
     # v339: the recurring match workflow has three destinations. Detailed events
     # and statistics remain contextual tools inside Resultat instead of global pages.
     ("Matcher", [("Skapa och publicera schema", tr("Schema")), ("Cupdagen", "Cupdagen"), ("Matcher och resultat", "Resultat"), ("Slutspel", tr("Slutspel"))]),
-    ("Organisation", [("Domare", tr("Domare")), ("FunktionÃ¤rer", tr("FunktionÃ¤rer"))]),
+    ("Organisation", [("Domare", tr("Domare")), ("Funktionärer", tr("Funktionärer"))]),
     # v342: after the v337-v341 simplification audit there is no longer a useful
     # standalone "Mer" mental model. The remaining low-frequency destinations
     # are contextual: Cupverktyg belongs to Matcher, partners belong to
-    # Organisation, and analytics belongs to Ã–versikt.
+    # Organisation, and analytics belongs to Översikt.
     ("Mer", []),
 ]
 ADMIN_NAV = [item for _, items in ADMIN_NAV_GROUPS for item in items]
 admin_page_key = f"admin_page_{tid}"
 if st.session_state.get(admin_page_key) not in ADMIN_PAGES:
-    st.session_state[admin_page_key] = "AdminÃ¶versikt"
+    st.session_state[admin_page_key] = "Adminöversikt"
 def _set_admin_page(page):
     st.session_state[admin_page_key] = page
     # v504: remember programmatic navigation until the guided widgets are rebuilt.
@@ -11038,42 +11038,42 @@ def _set_admin_page(page):
     # restoring the previous page on the rerun.
     st.session_state[f"pending_admin_page_{tid}"] = page
     # v503: keep the guided admin flow widgets in sync with programmatic
-    # navigation. Without this, a CTA such as "FortsÃ¤tt till Grupper" changes
+    # navigation. Without this, a CTA such as "Fortsätt till Grupper" changes
     # admin_page in its callback, but the existing step selectbox can immediately
     # write the previous page (for example Lag) back on the following rerun.
     # v513: the single beginner journey is synchronized on the next rerun.
     journey_resolver = globals().get("_journey_step_for_page")
     if callable(journey_resolver):
         st.session_state[f"admin_beginner_journey_{tid}"] = journey_resolver(page)
-# TvÃ¥ nivÃ¥er i adminnavigationen: fem tydliga huvudomrÃ¥den och bara relevanta
-# underknappar fÃ¶r valt omrÃ¥de. Det minskar knappmÃ¤ngden utan att gÃ¶mma funktioner.
+# Två nivåer i adminnavigationen: fem tydliga huvudområden och bara relevanta
+# underknappar för valt område. Det minskar knappmängden utan att gömma funktioner.
 def _admin_group_for_page(page):
     # v338: hidden participant tools still belong to Deltagare even though they
     # are no longer rendered as global navigation destinations.
-    if page in {"Trupper", "Ã–nskemÃ¥lscentral", "TrÃ¶j setup"}:
+    if page in {"Trupper", "Önskemålscentral", "Tröj setup"}:
         return "Deltagare"
     # v587: a revised PDF/photo can affect rules, pitches and schedule, so Import
     # is a cup-wide source workspace rather than a participant-only tool.
     if page == "Import":
-        return "Ã–versikt"
+        return "Översikt"
     # v339: hidden result tools still belong to Matcher even though they are
     # opened contextually from Resultat rather than global navigation.
-    if page in {"MatchhÃ¤ndelser", "Tabeller", "Skytteligor"}:
+    if page in {"Matchhändelser", "Tabeller", "Skytteligor"}:
         return "Matcher"
     # v341: these legacy workspaces remain reachable from their owning
     # context, but no longer compete as global "Mer" destinations.
-    if page in {"Kontroller", "Problem & lÃ¶sningar", "Instruktioner"}:
-        return "Ã–versikt"
+    if page in {"Kontroller", "Problem & lösningar", "Instruktioner"}:
+        return "Översikt"
     if page == "Cupverktyg":
         return "Matcher"
-    if page in {"Sponsorer", "Erbjudanden", "Ã…tkomst & koder"}:
+    if page in {"Sponsorer", "Erbjudanden", "Åtkomst & koder"}:
         return "Organisation"
-    if page == "BesÃ¶ksstatistik":
-        return "Ã–versikt"
+    if page == "Besöksstatistik":
+        return "Översikt"
     for group_name, group_items in ADMIN_NAV_GROUPS:
         if any(item_page == page for item_page, _ in group_items):
             return group_name
-    return "Ã–versikt"
+    return "Översikt"
 admin_group_key = f"admin_group_{tid}"
 current_group = _admin_group_for_page(st.session_state[admin_page_key])
 st.session_state[admin_group_key] = current_group
@@ -11094,16 +11094,16 @@ def _sync_admin_group_selector():
     if group_items:
         st.session_state[admin_page_key] = group_items[0][0]
 _ADMIN_GROUP_LABELS = {
-    "Ã–versikt": "âŒ‚ Ã–versikt",
-    "Deltagare": "â—Ž Deltagare",
-    "Matcher": "â–¦ Matcher",
-    "Organisation": "â—‡ Organisation",
+    "Översikt": "⌂ Översikt",
+    "Deltagare": "◎ Deltagare",
+    "Matcher": "▦ Matcher",
+    "Organisation": "◇ Organisation",
 }
 # v513: one beginner-facing journey. The previous five-area flow plus nested
 # page selector exposed two competing mental models. Keep one route only:
 # Cupinfo -> Lag -> Grupper -> Planer & tider -> Schema -> Kontroll -> Publicera.
 _BEGINNER_JOURNEY = [
-    ("Cupinfo", "CupinstÃ¤llningar"),
+    ("Cupinfo", "Cupinställningar"),
     ("Lag", "Lag"),
     ("Grupper", "Grupper"),
     ("Regler", "Regler"),
@@ -11115,10 +11115,10 @@ _BEGINNER_JOURNEY = [
 ]
 _BEGINNER_ROUTE_TO_STEP = {page: label for label, page in _BEGINNER_JOURNEY}
 _BEGINNER_ROUTE_TO_STEP.update({
-    "Trupper": "Lag", "Import": "Ã–vrigt", "Ã–nskemÃ¥lscentral": "Lag",
+    "Trupper": "Lag", "Import": "Övrigt", "Önskemålscentral": "Lag",
     "Slutspel": "Regler", "Cupdagen": "Publicera", "Matcher och resultat": "Publicera",
-    "MatchhÃ¤ndelser": "Publicera", "Tabeller": "Publicera", "Skytteligor": "Publicera",
-    "Ã…tkomst & koder": "Cupinfo", "FunktionÃ¤rer": "Ã–vrigt", "Sponsorer": "Ã–vrigt", "Erbjudanden": "Ã–vrigt", "BesÃ¶ksstatistik": "Ã–vrigt", "Cupverktyg": "Ã–vrigt", "Ã–vrigt": "Ã–vrigt",
+    "Matchhändelser": "Publicera", "Tabeller": "Publicera", "Skytteligor": "Publicera",
+    "Åtkomst & koder": "Cupinfo", "Funktionärer": "Övrigt", "Sponsorer": "Övrigt", "Erbjudanden": "Övrigt", "Besöksstatistik": "Övrigt", "Cupverktyg": "Övrigt", "Övrigt": "Övrigt",
 })
 admin_flow_key = f"admin_beginner_journey_{tid}"
 _pending_admin_page = st.session_state.pop(f"pending_admin_page_{tid}", None)
@@ -11137,7 +11137,7 @@ def _journey_step_for_page(page_name):
 
 def _sync_beginner_journey():
     chosen = st.session_state.get(admin_flow_key, "Cupinfo")
-    target = next((page for label, page in _BEGINNER_JOURNEY if label == chosen), "CupinstÃ¤llningar")
+    target = next((page for label, page in _BEGINNER_JOURNEY if label == chosen), "Cupinställningar")
     st.session_state[admin_page_key] = target
     st.session_state[f"pending_admin_page_{tid}"] = target
 
@@ -11150,20 +11150,20 @@ st.session_state[admin_flow_key] = _current_journey_step
 _BEGINNER_SUBPAGE_LABELS = {
     "Trupper": "Trupper",
     "Import": "Import",
-    "Ã–nskemÃ¥lscentral": "Ã–nskemÃ¥l",
+    "Önskemålscentral": "Önskemål",
     "Domare": "Domare (valfritt)",
-    "FunktionÃ¤rer": "FunktionÃ¤rer",
+    "Funktionärer": "Funktionärer",
     "Slutspel": "Slutspel",
     "Cupdagen": "Cupdagen",
     "Matcher och resultat": "Matcher och resultat",
-    "MatchhÃ¤ndelser": "MatchhÃ¤ndelser",
+    "Matchhändelser": "Matchhändelser",
     "Tabeller": "Tabeller",
     "Skytteligor": "Skytteligor",
-    "Ã…tkomst & koder": "Ã…tkomst & koder",
+    "Åtkomst & koder": "Åtkomst & koder",
 }
 
 def _go_to_journey_step(step_label):
-    target = next((page for label, page in _BEGINNER_JOURNEY if label == step_label), "CupinstÃ¤llningar")
+    target = next((page for label, page in _BEGINNER_JOURNEY if label == step_label), "Cupinställningar")
     if target == "Kontroller":
         st.session_state[f"planning_control_focus_{tid}"] = step_label if step_label in {"Kontroll", "Publicera"} else "Kontroll"
     st.session_state[admin_page_key] = target
@@ -11178,22 +11178,22 @@ _subpage = _BEGINNER_SUBPAGE_LABELS.get(_current_route)
 # Setup remains the authoritative nine-step flow; operational pages are grouped
 # under Cupdagen so a live tournament does not feel like another setup form.
 _CUPDAY_OPERATIONAL_PAGES = {
-    "Cupdagen", "Matcher och resultat", "MatchhÃ¤ndelser", "Cupverktyg",
+    "Cupdagen", "Matcher och resultat", "Matchhändelser", "Cupverktyg",
 }
 _admin_work_mode = "cupday" if _current_route in _CUPDAY_OPERATIONAL_PAGES else "prepare"
 
 def _open_prepare_mode():
     # The decision-driven overview finds the first real setup blocker and is a
     # safer return point than guessing which setup step the organizer wants.
-    _set_admin_page("AdminÃ¶versikt")
+    _set_admin_page("Adminöversikt")
 
 def _open_cupday_mode():
     _set_admin_page("Cupdagen")
 
-st.markdown("<div class='cn-admin-flow-kicker'>ArbetslÃ¤ge</div>", unsafe_allow_html=True)
+st.markdown("<div class='cn-admin-flow-kicker'>Arbetsläge</div>", unsafe_allow_html=True)
 _mode_prepare, _mode_cupday = st.columns(2)
 _mode_prepare.button(
-    "âœ“ ðŸ§­ FÃ¶rbered cupen" if _admin_work_mode == "prepare" else "ðŸ§­ FÃ¶rbered cupen",
+    "✓ 🧭 Förbered cupen" if _admin_work_mode == "prepare" else "🧭 Förbered cupen",
     key=f"admin_mode_prepare_{tid}",
     use_container_width=True,
     type="primary" if _admin_work_mode == "prepare" else "secondary",
@@ -11202,29 +11202,29 @@ _mode_prepare.button(
     help="Cupinfo, lag, grupper, regler, planer, schema, kontroll och publicering.",
 )
 _mode_cupday.button(
-    "âœ“ âš¡ Cupdagen" if _admin_work_mode == "cupday" else "âš¡ Cupdagen",
+    "✓ ⚡ Cupdagen" if _admin_work_mode == "cupday" else "⚡ Cupdagen",
     key=f"admin_mode_cupday_{tid}",
     use_container_width=True,
     type="primary" if _admin_work_mode == "cupday" else "secondary",
     disabled=_admin_work_mode == "cupday",
     on_click=_open_cupday_mode,
-    help="Det operativa lÃ¤get fÃ¶r matcher, resultat, fÃ¶rseningar och problem under cupdagen.",
+    help="Det operativa läget för matcher, resultat, förseningar och problem under cupdagen.",
 )
 if tournament_lifecycle == "live":
-    st.caption("ðŸ”´ Cupen Ã¤r live Â· Cupdagen Ã¤r det operativa arbetslÃ¤get. Setup finns kvar och kan Ã¶ppnas nÃ¤r nÃ¥got behÃ¶ver Ã¤ndras.")
+    st.caption("🔴 Cupen är live · Cupdagen är det operativa arbetsläget. Setup finns kvar och kan öppnas när något behöver ändras.")
 elif _admin_work_mode == "cupday":
-    st.caption("Cupdagen kan fÃ¶rberedas i fÃ¶rvÃ¤g. Inga matcher eller statusar Ã¤ndras bara fÃ¶r att du Ã¶ppnar lÃ¤get.")
+    st.caption("Cupdagen kan förberedas i förväg. Inga matcher eller statusar ändras bara för att du öppnar läget.")
 
 if _current_journey_step in _step_labels:
     _step_no = _step_labels.index(_current_journey_step) + 1
-    _here_text = f"Du Ã¤r hÃ¤r: Steg {_step_no} av {len(_BEGINNER_JOURNEY)} Â· {_current_journey_step}"
+    _here_text = f"Du är här: Steg {_step_no} av {len(_BEGINNER_JOURNEY)} · {_current_journey_step}"
     if _subpage:
-        _here_text += f" â€º {_subpage}"
+        _here_text += f" › {_subpage}"
 else:
     _step_no = None
-    _here_text = "Du Ã¤r hÃ¤r: Ã–vrigt Â· frivilliga funktioner utanfÃ¶r huvudflÃ¶det"
-st.markdown("<div class='cn-admin-flow-kicker'>CupflÃ¶de</div>", unsafe_allow_html=True)
-st.markdown(f"<div class='cn-admin-current-step'>{html.escape(_here_text.replace('Du Ã¤r hÃ¤r: ', ''))}</div>", unsafe_allow_html=True)
+    _here_text = "Du är här: Övrigt · frivilliga funktioner utanför huvudflödet"
+st.markdown("<div class='cn-admin-flow-kicker'>Cupflöde</div>", unsafe_allow_html=True)
+st.markdown(f"<div class='cn-admin-current-step'>{html.escape(_here_text.replace('Du är här: ', ''))}</div>", unsafe_allow_html=True)
 
 # v568: desktop keeps the complete nine-step map visible. On a narrow screen
 # the same map moves behind an explicit "Alla 9 steg" disclosure so the first
@@ -11237,7 +11237,7 @@ with st.container(key=f"admin_full_flow_desktop_{tid}"):
     for _journey_col, (_step_label, _target_page) in zip(_journey_cols, _BEGINNER_JOURNEY):
         _idx = _step_labels.index(_step_label) + 1
         _active = _step_label == _current_journey_step
-        _button_label = f"âœ“ {_idx} {_step_label}" if _active else f"{_idx} {_step_label}"
+        _button_label = f"✓ {_idx} {_step_label}" if _active else f"{_idx} {_step_label}"
         _journey_col.button(
             _button_label,
             key=f"admin_journey_step_{tid}_{_idx}",
@@ -11246,7 +11246,7 @@ with st.container(key=f"admin_full_flow_desktop_{tid}"):
             on_click=_go_to_journey_step,
             args=(_step_label,),
             disabled=_active,
-            help=f"Steg {_idx} av {len(_BEGINNER_JOURNEY)} Â· {_step_label}",
+            help=f"Steg {_idx} av {len(_BEGINNER_JOURNEY)} · {_step_label}",
         )
 
 with st.container(key=f"admin_flow_mobile_{tid}"):
@@ -11256,24 +11256,24 @@ with st.container(key=f"admin_flow_mobile_{tid}"):
         _mobile_prev, _mobile_all, _mobile_next = st.columns([1, 1.35, 1])
         if _prev_label:
             _mobile_prev.button(
-                f"â† {_prev_label}", key=f"admin_mobile_prev_{tid}_{_step_no}",
+                f"← {_prev_label}", key=f"admin_mobile_prev_{tid}_{_step_no}",
                 use_container_width=True, on_click=_go_to_journey_step, args=(_prev_label,),
             )
         else:
-            _mobile_prev.button("â† FÃ¶regÃ¥ende", key=f"admin_mobile_prev_disabled_{tid}", use_container_width=True, disabled=True)
+            _mobile_prev.button("← Föregående", key=f"admin_mobile_prev_disabled_{tid}", use_container_width=True, disabled=True)
         if _next_label:
             _mobile_next.button(
-                f"{_next_label} â†’", key=f"admin_mobile_next_{tid}_{_step_no}",
+                f"{_next_label} →", key=f"admin_mobile_next_{tid}_{_step_no}",
                 use_container_width=True, type="primary", on_click=_go_to_journey_step, args=(_next_label,),
             )
         else:
-            _mobile_next.button("Klart âœ“", key=f"admin_mobile_next_disabled_{tid}", use_container_width=True, disabled=True)
+            _mobile_next.button("Klart ✓", key=f"admin_mobile_next_disabled_{tid}", use_container_width=True, disabled=True)
         with _mobile_all.popover("Alla 9 steg", use_container_width=True):
             st.caption("Hoppa direkt till ett steg")
             for _idx, (_step_label, _target_page) in enumerate(_BEGINNER_JOURNEY, start=1):
                 _active = _step_label == _current_journey_step
                 st.button(
-                    f"âœ“ {_idx}. {_step_label}" if _active else f"{_idx}. {_step_label}",
+                    f"✓ {_idx}. {_step_label}" if _active else f"{_idx}. {_step_label}",
                     key=f"admin_mobile_all_step_{tid}_{_idx}",
                     use_container_width=True,
                     type="primary" if _active else "secondary",
@@ -11284,29 +11284,29 @@ with st.container(key=f"admin_flow_mobile_{tid}"):
 # v587: the authoritative nine-step navigator above is already visible on every
 # admin page. Legacy page-level planning flows should not render a second copy.
 st.session_state[f"_global_admin_flow_rendered_{tid}"] = True
-_misc_active = _current_journey_step == "Ã–vrigt"
-_codes_active = _current_route == "Ã…tkomst & koder"
+_misc_active = _current_journey_step == "Övrigt"
+_codes_active = _current_route == "Åtkomst & koder"
 # Secondary tools must not look like steps 10 and 11. Keep them together in a
 # compact quick-tools row with lower visual priority than the numbered flow.
 _quick_misc, _quick_access = st.columns(2)
 _quick_misc.button(
-    "âœ“ Ã–vrigt Â· frivilligt" if _misc_active else "Ã–vrigt Â· frivilligt",
+    "✓ Övrigt · frivilligt" if _misc_active else "Övrigt · frivilligt",
     key=f"admin_misc_{tid}",
     use_container_width=True,
     type="secondary",
     on_click=_set_admin_page,
-    args=("Ã–vrigt",),
+    args=("Övrigt",),
     disabled=_misc_active,
 )
 _quick_access.button(
-    "âœ“ ðŸ” Ã…tkomst & koder" if _codes_active else "ðŸ” Ã…tkomst & koder",
+    "✓ 🔐 Åtkomst & koder" if _codes_active else "🔐 Åtkomst & koder",
     key=f"admin_all_codes_global_{tid}",
     use_container_width=True,
     type="secondary",
     on_click=_set_admin_page,
-    args=("Ã…tkomst & koder",),
+    args=("Åtkomst & koder",),
     disabled=_codes_active,
-    help="CupadministratÃ¶rer, lagkoder, matchrapportÃ¶rskod och domarkod pÃ¥ ett stÃ¤lle.",
+    help="Cupadministratörer, lagkoder, matchrapportörskod och domarkod på ett ställe.",
 )
 def _open_admin_search_hit(target_page, kind, entity_id, team_id=None):
     """Navigate from global search and carry the selected entity into its target view."""
@@ -11321,17 +11321,17 @@ def _open_admin_search_hit(target_page, kind, entity_id, team_id=None):
     # Clear the search field in the callback (before widgets are rebuilt) so the
     # user sees the destination rather than an apparently unchanged search panel.
     st.session_state[f"global_admin_search_{tid}"] = ""
-with st.expander("ðŸ”Ž SÃ¶k i cupen", expanded=False):
+with st.expander("🔎 Sök i cupen", expanded=False):
     global_query = st.text_input(
-        "SÃ¶k lag/deltagare, spelare, domare eller matchnummer",
+        "Sök lag/deltagare, spelare, domare eller matchnummer",
         key=f"global_admin_search_{tid}",
-        placeholder="Exempel: Ã–SK, Andersson eller 12",
+        placeholder="Exempel: ÖSK, Andersson eller 12",
     ).strip()
     if len(global_query) >= 2:
         like_query = f"%{global_query}%"
         _numeric_match = 1 if global_query.isdigit() else 0
         _match_no = int(global_query) if global_query.isdigit() else -1
-        # v1.259: one search round-trip instead of 3â€“4 sequential queries on
+        # v1.259: one search round-trip instead of 3–4 sequential queries on
         # every keystroke. Each category still has the same per-type ceiling.
         _search_rows = all_rows(
             """WITH
@@ -11341,7 +11341,7 @@ with st.expander("ðŸ”Ž SÃ¶k i cupen", expanded=False):
                  FROM teams WHERE tournament_id=? AND name LIKE ? ORDER BY name LIMIT 8
                ),
                player_hits AS (
-                 SELECT 'Spelare' AS kind, players.name || ' Â· ' || teams.name AS label,
+                 SELECT 'Spelare' AS kind, players.name || ' · ' || teams.name AS label,
                         'Trupper' AS target_page, players.id AS entity_id, players.team_id AS team_id
                  FROM players JOIN teams ON teams.id=players.team_id
                  WHERE teams.tournament_id=? AND players.name LIKE ?
@@ -11353,7 +11353,7 @@ with st.expander("ðŸ”Ž SÃ¶k i cupen", expanded=False):
                  FROM referees WHERE tournament_id=? AND name LIKE ? ORDER BY name LIMIT 8
                ),
                match_hits AS (
-                 SELECT 'Match' AS kind, 'Match ' || match_no || ' Â· ' || stage AS label,
+                 SELECT 'Match' AS kind, 'Match ' || match_no || ' · ' || stage AS label,
                         'Matcher och resultat' AS target_page, id AS entity_id, NULL AS team_id
                  FROM matches
                  WHERE tournament_id=? AND ?=1 AND match_no=? ORDER BY id LIMIT 8
@@ -11373,7 +11373,7 @@ with st.expander("ðŸ”Ž SÃ¶k i cupen", expanded=False):
                     f"**{html.escape(hit['kind'])}:** {html.escape(str(hit['label']))}"
                 )
                 hit_cols[1].button(
-                    "Ã–ppna",
+                    "Öppna",
                     key=f"global_hit_{tid}_{hit_index}",
                     use_container_width=True,
                     on_click=_open_admin_search_hit,
@@ -11385,20 +11385,20 @@ with st.expander("ðŸ”Ž SÃ¶k i cupen", expanded=False):
                     ),
                 )
         else:
-            st.caption("Inga trÃ¤ffar i den aktiva cupen.")
+            st.caption("Inga träffar i den aktiva cupen.")
 admin_page = st.session_state[admin_page_key]
 current_page_label = dict(ADMIN_NAV).get(admin_page, admin_page)
 _flow_index = _primary_flow_index(admin_page)
-_page_title, _page_copy = ADMIN_PAGE_COPY.get(admin_page, (current_page_label, "Administrera den hÃ¤r delen av cupen."))
-# FlÃ¶desrÃ¤knarna anvÃ¤nds bara pÃ¥ de sju primÃ¤ra cupstegen. Tidigare kÃ¶rdes
-# den hÃ¤r femdelade COUNT-frÃ¥gan Ã¤ven pÃ¥ sekundÃ¤ra adminsidor vid varje
-# knapptryckning/navigation, vilket gav ett onÃ¶digt remote DB-varv.
+_page_title, _page_copy = ADMIN_PAGE_COPY.get(admin_page, (current_page_label, "Administrera den här delen av cupen."))
+# Flödesräknarna används bara på de sju primära cupstegen. Tidigare kördes
+# den här femdelade COUNT-frågan även på sekundära adminsidor vid varje
+# knapptryckning/navigation, vilket gav ett onödigt remote DB-varv.
 _flow_counts = None
 _flow_total = _flow_played = _flow_scheduled = 0
 if _flow_index is not None:
-    if admin_page == "AdminÃ¶versikt":
-        # v1.260: AdminÃ¶versikten behÃ¶ver fler rÃ¤knare Ã¤n flÃ¶deslisten. HÃ¤mta dem
-        # i samma remote DB-roundtrip och Ã¥teranvÃ¤nd snapshoten lÃ¤ngre ned.
+    if admin_page == "Adminöversikt":
+        # v1.260: Adminöversikten behöver fler räknare än flödeslisten. Hämta dem
+        # i samma remote DB-roundtrip och återanvänd snapshoten längre ned.
         _now_iso = datetime.now().isoformat(timespec="seconds")
         _delayed_cutoff_iso = (datetime.now() - timedelta(minutes=90)).isoformat(timespec="seconds")
         _flow_counts = _session_ttl_get(
@@ -11461,30 +11461,30 @@ _first_run_new_cup = bool(
     and not bool(tournament["is_published"])
 )
 
-# Sidornas egna rubriker beskriver redan syftet. Globalt visar vi bara flÃ¶deslÃ¤ge
-# och cupstatus pÃ¥ huvudflÃ¶dets sidor, sÃ¥ att samma information inte upprepas.
+# Sidornas egna rubriker beskriver redan syftet. Globalt visar vi bara flödesläge
+# och cupstatus på huvudflödets sidor, så att samma information inte upprepas.
 if _flow_index is not None and not _first_run_new_cup:
     _publish_class = "good" if tournament["is_published"] else "warn"
     _publish_text = "Publicerad" if tournament["is_published"] else "Utkast"
     _schedule_class = "warn" if tournament["schedule_dirty"] else ("good" if _flow_scheduled else "")
-    _schedule_text = "Schema behÃ¶ver uppdateras" if tournament["schedule_dirty"] else ("Schema klart" if _flow_scheduled else "Schema saknas")
+    _schedule_text = "Schema behöver uppdateras" if tournament["schedule_dirty"] else ("Schema klart" if _flow_scheduled else "Schema saknas")
     _result_class = "good" if _flow_total and _flow_played == _flow_total else ""
     _result_text = f"Resultat {_flow_played}/{_flow_total}" if _flow_total else "Inga matcher"
     st.markdown(
         f"<div class='cn-flow-context cn-flow-context-compact'>"
         f"<div class='cn-flow-kicker'>{html.escape({
-            'Lag': 'Steg 2 av 9 Â· Lag',
-            'Grupper': 'Steg 3 av 9 Â· Grupper',
-            'Regler': 'Steg 4 av 9 Â· Regler',
-            'Planer & tider': 'Steg 5 av 9 Â· Planer & tider',
-            'Domare': 'Steg 6 av 9 Â· Domare',
-            'Skapa och publicera schema': 'Steg 7 av 9 Â· Schema',
-            'Kontroller': 'Steg 8 av 9 Â· Kontroll',
-        }.get(admin_page, 'CupflÃ¶de'))}</div>"
+            'Lag': 'Steg 2 av 9 · Lag',
+            'Grupper': 'Steg 3 av 9 · Grupper',
+            'Regler': 'Steg 4 av 9 · Regler',
+            'Planer & tider': 'Steg 5 av 9 · Planer & tider',
+            'Domare': 'Steg 6 av 9 · Domare',
+            'Skapa och publicera schema': 'Steg 7 av 9 · Schema',
+            'Kontroller': 'Steg 8 av 9 · Kontroll',
+        }.get(admin_page, 'Cupflöde'))}</div>"
         f"<div class='cn-flow-status'>"
-        f"<span class='cn-flow-pill {_publish_class}'>â— {html.escape(_publish_text)}</span>"
-        f"<span class='cn-flow-pill {_schedule_class}'>ðŸ—“ {html.escape(_schedule_text)}</span>"
-        f"<span class='cn-flow-pill {_result_class}'>âœ“ {html.escape(_result_text)}</span>"
+        f"<span class='cn-flow-pill {_publish_class}'>● {html.escape(_publish_text)}</span>"
+        f"<span class='cn-flow-pill {_schedule_class}'>🗓 {html.escape(_schedule_text)}</span>"
+        f"<span class='cn-flow-pill {_result_class}'>✓ {html.escape(_result_text)}</span>"
         f"</div></div>",
         unsafe_allow_html=True,
     )
@@ -11496,9 +11496,9 @@ if _flow_index is not None:
     _journey_teams_ready = _journey_teams_n > 0 and (not _journey_expected_n or _journey_teams_n >= _journey_expected_n)
     if not _journey_teams_ready:
         if _journey_expected_n:
-            _recommended_page, _recommended_label = "Lag", f"LÃ¤gg till lag ({_journey_teams_n}/{_journey_expected_n})"
+            _recommended_page, _recommended_label = "Lag", f"Lägg till lag ({_journey_teams_n}/{_journey_expected_n})"
         else:
-            _recommended_page, _recommended_label = "Lag", "LÃ¤gg till lag"
+            _recommended_page, _recommended_label = "Lag", "Lägg till lag"
     elif int(_flow_counts["groups_n"] or 0) == 0:
         _recommended_page, _recommended_label = "Grupper", "Skapa grupper"
     elif _journey_unassigned_n > 0:
@@ -11506,13 +11506,13 @@ if _flow_index is not None:
     elif int(_flow_counts["pitches_n"] or 0) == 0:
         # v518: a beginner should never be sent to Schema before a playable
         # surface exists. Route to the visible Planer & tider step first.
-        _recommended_page, _recommended_label = "Planer & tider", "LÃ¤gg till planer och tider"
+        _recommended_page, _recommended_label = "Planer & tider", "Lägg till planer och tider"
     elif _flow_scheduled == 0 or bool(tournament["schedule_dirty"]):
         _recommended_page, _recommended_label = "Skapa och publicera schema", "Skapa eller uppdatera schemat"
     elif not bool(tournament["is_published"]):
-        # v401: setup-guiden lovar Lag â†’ Grupper â†’ Planer & tider â†’ Schema â†’ Kontroll â†’ Publicera.
-        # LÃ¥t dÃ¤rfÃ¶r inte fÃ¶rsta cupflÃ¶det hoppa direkt frÃ¥n ett fÃ¤rdigt schema
-        # till resultatrapportering innan arrangÃ¶ren har gjort publiceringskontrollen.
+        # v401: setup-guiden lovar Lag → Grupper → Planer & tider → Schema → Kontroll → Publicera.
+        # Låt därför inte första cupflödet hoppa direkt från ett färdigt schema
+        # till resultatrapportering innan arrangören har gjort publiceringskontrollen.
         _recommended_page, _recommended_label = "Kontroller", "Kontrollera och publicera"
     elif _flow_total and _flow_played < _flow_total:
         # v403: Once a published cup reaches its tournament day, the organiser
@@ -11526,23 +11526,23 @@ if _flow_index is not None:
         except (TypeError, ValueError):
             _cup_start = _cup_end = None
         if _cup_start and _cup_end and _cup_start <= _today <= _cup_end:
-            _recommended_page, _recommended_label = "Cupdagen", "Ã–ppna cupdagen"
+            _recommended_page, _recommended_label = "Cupdagen", "Öppna cupdagen"
         else:
-            _recommended_page, _recommended_label = "Matcher och resultat", "Registrera och fÃ¶lj resultat"
+            _recommended_page, _recommended_label = "Matcher och resultat", "Registrera och följ resultat"
     else:
         _recommended_page, _recommended_label = "Tabeller", "Granska tabell och slutspel"
 else:
     _recommended_page = _recommended_label = None
 
-# v337: AdminÃ¶versikten owns the single primary next-step CTA; no duplicate fast-track card here.
-if _flow_index is not None and admin_page not in (_recommended_page, "AdminÃ¶versikt"):
+# v337: Adminöversikten owns the single primary next-step CTA; no duplicate fast-track card here.
+if _flow_index is not None and admin_page not in (_recommended_page, "Adminöversikt"):
     _next_copy_col, _next_button_col = st.columns([3, 2])
     _next_copy_col.markdown(
-        f"<div class='cn-next-action'><b>NÃ¤sta steg</b><br><span>{html.escape(_recommended_label)}</span></div>",
+        f"<div class='cn-next-action'><b>Nästa steg</b><br><span>{html.escape(_recommended_label)}</span></div>",
         unsafe_allow_html=True,
     )
     _next_button_col.button(
-        f"FortsÃ¤tt â†’ {_recommended_label}",
+        f"Fortsätt → {_recommended_label}",
         key=f"v160_recommended_{tid}_{admin_page}",
         type="primary",
         use_container_width=True,
@@ -11557,12 +11557,12 @@ current_schedule_dirty = bool(_row_value(tournament, "schedule_dirty", 0))
 current_schedule_scheduled = _flow_scheduled
 if current_schedule_dirty and current_schedule_scheduled:
     st.warning(
-        "âš ï¸ FÃ¶rutsÃ¤ttningarna fÃ¶r turneringen har Ã¤ndrats efter att schemat skapades. "
-        "Schemat Ã¤r markerat som inaktuellt och bÃ¶r regenereras under Schema innan det publiceras pÃ¥ nytt."
+        "⚠️ Förutsättningarna för turneringen har ändrats efter att schemat skapades. "
+        "Schemat är markerat som inaktuellt och bör regenereras under Schema innan det publiceras på nytt."
     )
 
-# Publicering ska kunna hanteras frÃ¥n samtliga adminflikar.
-# Valideringen cachas i sessionen och rÃ¤knas bara om nÃ¤r nÃ¥got schema-/regelrelaterat Ã¤ndrats.
+# Publicering ska kunna hanteras från samtliga adminflikar.
+# Valideringen cachas i sessionen och räknas bara om när något schema-/regelrelaterat ändrats.
 def _load_admin_sidebar_rules():
     row = one_row(
         """SELECT sr.*,
@@ -11602,8 +11602,8 @@ elif _flow_counts is not None:
 else:
     sidebar_rules = {}
 
-# PrimÃ¤rflÃ¶det har redan rÃ¤knat schemalagda matcher. PÃ¥ sekundÃ¤ra sidor kommer
-# samma vÃ¤rde frÃ¥n rules-snapshoten, utan ett extra DB-anrop.
+# Primärflödet har redan räknat schemalagda matcher. På sekundära sidor kommer
+# samma värde från rules-snapshoten, utan ett extra DB-anrop.
 sidebar_scheduled = _flow_scheduled if _flow_index is not None else int(_row_value(sidebar_rules, "scheduled_n", 0) or 0)
 
 validation_cache_key = f"_schedule_validation_{tid}"
@@ -11681,9 +11681,9 @@ if not _first_run_new_cup:
         validation_ready=_validation_ready,
     )
 
-# Cupens livscykel: publicerad -> pÃ¥gÃ¥r -> avslutad. FÃ¶r utkast behÃ¶vs ingen
-# separat matchrÃ¤kning alls; avsluta-knappen existerar fÃ¶rst efter publicering.
-# v437 sparar dÃ¤rmed ytterligare ett remote DB-anrop pÃ¥ hela setupflÃ¶det.
+# Cupens livscykel: publicerad -> pågår -> avslutad. För utkast behövs ingen
+# separat matchräkning alls; avsluta-knappen existerar först efter publicering.
+# v437 sparar därmed ytterligare ett remote DB-anrop på hela setupflödet.
 if tournament_lifecycle in ("published", "live"):
     lifecycle_counts = _session_ttl_get(
         f"_cupnavi_admin_cache_lifecycle_counts_{int(tid)}",
@@ -11709,7 +11709,7 @@ def _admin_set_public_lifecycle(expected_lifecycle, new_lifecycle):
 def _add_completed_cup_feed_item():
     add_feed_item(
         tid,
-        "Cupen Ã¤r avslutad",
+        "Cupen är avslutad",
         "Resultat och statistik finns kvar i CupNavi-historiken.",
         category="Cup",
     )
@@ -11782,7 +11782,7 @@ def _admin_workflow_counts(tournament_id):
 
 if admin_page == "Instruktioner":
     st.header("Instruktioner")
-    st.caption("FÃ¶lj cupen steg fÃ¶r steg. Guiden anpassas automatiskt efter turneringens aktuella status.")
+    st.caption("Följ cupen steg för steg. Guiden anpassas automatiskt efter turneringens aktuella status.")
 
     guide_counts = _admin_workflow_counts(tid)
     guide_expected = int(tournament["expected_team_count"] or 0)
@@ -11792,60 +11792,60 @@ if admin_page == "Instruktioner":
 
     _guide_pitches = int(one_row("SELECT COUNT(*) AS n FROM pitches WHERE tournament_id=?", (tid,))["n"] or 0)
     guide_steps = [
-        {"title": "1. Cupinfo", "page": "CupinstÃ¤llningar",
+        {"title": "1. Cupinfo", "page": "Cupinställningar",
          "done": bool(tournament["name"]) and bool(tournament["start_date"] or tournament["tournament_date"]),
-         "text": "Namn, datum, spelort och tÃ¤vlingsklasser. Bara grunduppgifter om sjÃ¤lva cupen."},
+         "text": "Namn, datum, spelort och tävlingsklasser. Bara grunduppgifter om själva cupen."},
         {"title": "2. Lag", "page": "Lag",
          "done": guide_counts["teams_n"] > 0 and (guide_expected == 0 or guide_counts["teams_n"] >= guide_expected),
-         "text": f"Registrera deltagande lag. {guide_counts['teams_n']} lag finns just nu. Trupper och extra laguppgifter Ã¤r valfria verktyg hÃ¤rifrÃ¥n."},
+         "text": f"Registrera deltagande lag. {guide_counts['teams_n']} lag finns just nu. Trupper och extra laguppgifter är valfria verktyg härifrån."},
         {"title": "3. Grupper", "page": "Grupper",
          "done": guide_counts["groups_n"] > 0,
          "text": f"Skapa grupper och placera lagen. {guide_counts['groups_n']} grupper finns just nu."},
         {"title": "4. Regler", "page": "Regler",
          "done": bool(tournament["playoff_model_confirmed"]),
-         "text": "FaststÃ¤ll matchtid, poÃ¤ngsystem, tabellordning, slutspel och lagvila. TÃ¤vlingsreglerna Ã¤r nu samlade pÃ¥ ett stÃ¤lle."},
+         "text": "Fastställ matchtid, poängsystem, tabellordning, slutspel och lagvila. Tävlingsreglerna är nu samlade på ett ställe."},
         {"title": "5. Planer & tider", "page": "Planer & tider",
          "done": _guide_pitches > 0,
-         "text": f"LÃ¤gg in spelplaner och deras tillgÃ¤ngliga tider. {_guide_pitches} plan(er) finns."},
+         "text": f"Lägg in spelplaner och deras tillgängliga tider. {_guide_pitches} plan(er) finns."},
         {"title": "6. Domare", "page": "Domare",
          "done": True,
-         "text": "LÃ¤gg till och fÃ¶rdela domare om cupen anvÃ¤nder CupNavis domarstÃ¶d. Steget Ã¤r frivilligt och blockerar aldrig fortsatt arbete."},
+         "text": "Lägg till och fördela domare om cupen använder CupNavis domarstöd. Steget är frivilligt och blockerar aldrig fortsatt arbete."},
         {"title": "7. Schema", "page": "Skapa och publicera schema",
          "done": guide_scheduled > 0 and not bool(tournament["schedule_dirty"]),
-         "text": f"Importera eller skapa schema och kontrollera tider, planer och vila. {guide_scheduled} matcher Ã¤r schemalagda."},
+         "text": f"Importera eller skapa schema och kontrollera tider, planer och vila. {guide_scheduled} matcher är schemalagda."},
         {"title": "8. Kontroll", "page": "Kontroller",
          "done": guide_scheduled > 0 and not bool(tournament["schedule_dirty"]),
-         "text": "CupNavi skiljer blockerande fel frÃ¥n frivilliga rÃ¥d och lÃ¤nkar direkt till rÃ¤tt stÃ¤lle nÃ¤r nÃ¥got mÃ¥ste rÃ¤ttas."},
+         "text": "CupNavi skiljer blockerande fel från frivilliga råd och länkar direkt till rätt ställe när något måste rättas."},
         {"title": "9. Publicera", "page": "Kontroller",
          "done": bool(tournament["is_published"]) and guide_published > 0,
-         "text": "FÃ¶rhandsgranska och publicera. Efter publicering skÃ¶ts resultat, matchhÃ¤ndelser och cupdagen som lÃ¶pande drift â€“ inte som fler setupsteg."},
+         "text": "Förhandsgranska och publicera. Efter publicering sköts resultat, matchhändelser och cupdagen som löpande drift – inte som fler setupsteg."},
     ]
 
     # Compatibility anchors for long-lived feature tests. These are intentionally
     # not extra beginner steps; they document the contextual destinations that
     # remain available after the admin-flow simplification.
     _contextual_guide_pages = [
-        {"page": "AdminÃ¶versikt"}, {"page": "Lag"}, {"page": "Grupper"},
+        {"page": "Adminöversikt"}, {"page": "Lag"}, {"page": "Grupper"},
         {"page": "Trupper"}, {"page": "Domare"}, {"page": "Skapa och publicera schema"},
-        {"page": "Kontroller"}, {"page": "Matcher och resultat"}, {"page": "MatchhÃ¤ndelser"},
+        {"page": "Kontroller"}, {"page": "Matcher och resultat"}, {"page": "Matchhändelser"},
         {"page": "Tabeller"}, {"page": "Erbjudanden"},
     ]
     with st.expander("Valfria verktyg efter behov", expanded=False):
-        st.caption("De hÃ¤r funktionerna ligger kvar, men de konkurrerar inte lÃ¤ngre med huvudflÃ¶det.")
-        st.caption("Resultat och matchhÃ¤ndelser sparas automatiskt. Schema kan fortfarande exporteras som PDF-paket nÃ¤r det behÃ¶vs.")
+        st.caption("De här funktionerna ligger kvar, men de konkurrerar inte längre med huvudflödet.")
+        st.caption("Resultat och matchhändelser sparas automatiskt. Schema kan fortfarande exporteras som PDF-paket när det behövs.")
         _optional_admin_tools = [
-            ("Trupper", "Spelare och matchtrupper â€“ behÃ¶vs bara nÃ¤r ni vill rapportera spelare/hÃ¤ndelser."),
-            ("Import", "Importera frÃ¥n bild, PDF, CSV eller Excel och vÃ¤lj vad CupNavi ska ta med."),
-            ("Ã…tkomst & koder", "RapportÃ¶rs-, lag- och andra Ã¥tkomstkoder."),
-            ("Cupdagen", "Operativ vy nÃ¤r cupen pÃ¥gÃ¥r."),
+            ("Trupper", "Spelare och matchtrupper – behövs bara när ni vill rapportera spelare/händelser."),
+            ("Import", "Importera från bild, PDF, CSV eller Excel och välj vad CupNavi ska ta med."),
+            ("Åtkomst & koder", "Rapportörs-, lag- och andra åtkomstkoder."),
+            ("Cupdagen", "Operativ vy när cupen pågår."),
             ("Sponsorer", "Partners och sponsorer."),
             ("Erbjudanden", "Valfria erbjudanden till deltagare, till exempel restaurangrabatter eller rabattkoder."),
-            ("BesÃ¶ksstatistik", "Publik anvÃ¤ndningsstatistik."),
+            ("Besöksstatistik", "Publik användningsstatistik."),
         ]
         for _tool_page, _tool_help in _optional_admin_tools:
             _tc1, _tc2 = st.columns([4, 1])
-            _tc1.caption(f"**{_tool_page}** Â· {_tool_help}")
-            _tc2.button("Ã–ppna", key=f"optional_tool_{tid}_{_tool_page}", use_container_width=True, on_click=_set_admin_page, args=(_tool_page,))
+            _tc1.caption(f"**{_tool_page}** · {_tool_help}")
+            _tc2.button("Öppna", key=f"optional_tool_{tid}_{_tool_page}", use_container_width=True, on_click=_set_admin_page, args=(_tool_page,))
 
     def _open_admin_page(target_page: str) -> None:
         # v441: navigation callbacks update state before Streamlit's normal
@@ -11854,42 +11854,42 @@ if admin_page == "Instruktioner":
 
     completed_steps = sum(1 for step in guide_steps if step["done"])
     guide_progress = completed_steps / len(guide_steps)
-    st.progress(guide_progress, text=f"{completed_steps} av {len(guide_steps)} steg har pÃ¥bÃ¶rjats eller slutfÃ¶rts")
+    st.progress(guide_progress, text=f"{completed_steps} av {len(guide_steps)} steg har påbörjats eller slutförts")
 
     next_step = next((step for step in guide_steps if not step["done"]), None)
     if next_step:
-        st.info(f"**Rekommenderat nÃ¤sta steg:** {next_step['title']} â€“ {next_step['text']}")
+        st.info(f"**Rekommenderat nästa steg:** {next_step['title']} – {next_step['text']}")
         st.button(
-            f"GÃ¥ till {next_step['page'].replace('Skapa och publicera schema', 'Schema').replace('Matcher och resultat', 'Matcher').replace('MatchhÃ¤ndelser', 'HÃ¤ndelser')}",
+            f"Gå till {next_step['page'].replace('Skapa och publicera schema', 'Schema').replace('Matcher och resultat', 'Matcher').replace('Matchhändelser', 'Händelser')}",
             type="primary",
             key=f"guide_next_{tid}",
             on_click=_open_admin_page,
             args=(next_step["page"],),
         )
     else:
-        st.success("GrundflÃ¶det Ã¤r genomfÃ¶rt. FortsÃ¤tt administrera resultat, hÃ¤ndelser och slutspel under cupen.")
+        st.success("Grundflödet är genomfört. Fortsätt administrera resultat, händelser och slutspel under cupen.")
 
-    st.markdown("### SÃ¥ arbetar du i CupNavi")
+    st.markdown("### Så arbetar du i CupNavi")
     for step_index, step in enumerate(guide_steps, start=1):
-        icon = "âœ“" if step["done"] else "â—‹"
-        status = "Klart/aktivt" if step["done"] else "Ã…terstÃ¥r"
-        with st.expander(f"{icon} {step['title']} Â· {status}", expanded=bool(next_step and step["title"] == next_step["title"])):
+        icon = "✓" if step["done"] else "○"
+        status = "Klart/aktivt" if step["done"] else "Återstår"
+        with st.expander(f"{icon} {step['title']} · {status}", expanded=bool(next_step and step["title"] == next_step["title"])):
             st.write(step["text"])
             st.button(
-                f"Ã–ppna {step['page'].replace('Skapa och publicera schema', 'Schema').replace('Matcher och resultat', 'Matcher').replace('MatchhÃ¤ndelser', 'HÃ¤ndelser')}",
+                f"Öppna {step['page'].replace('Skapa och publicera schema', 'Schema').replace('Matcher och resultat', 'Matcher').replace('Matchhändelser', 'Händelser')}",
                 key=f"guide_open_{tid}_{step_index}_{step['page']}",
                 on_click=_open_admin_page,
                 args=(step["page"],),
             )
 
-    st.markdown("### Viktigt att kÃ¤nna till")
+    st.markdown("### Viktigt att känna till")
     st.markdown(
         """
-        - **Ã„ndrar du lag, grupper, regler eller andra schemafÃ¶rutsÃ¤ttningar efter att schemat skapats** kan schemat markeras som inaktuellt. Regenerera det dÃ¥ pÃ¥ **Schema**.
-        - **FÃ¤rgkrockar Ã¤r en varning, inte ett stopp.** CupNavi fÃ¶rsÃ¶ker vÃ¤lja hemma/borta och matchstÃ¤ll sÃ¥ att krockarna blir sÃ¥ fÃ¥ som mÃ¶jligt.
-        - **Resultat och matchhÃ¤ndelser sparas automatiskt.** Den grÃ¶na bekrÃ¤ftelsen visar att Ã¤ndringen Ã¤r sparad.
-        - **Publicering valideras innan den genomfÃ¶rs.** Om nÃ¥got blockerar publiceringen ska CupNavi tala om exakt vad som behÃ¶ver rÃ¤ttas.
-        - **Matcher Ã¤r samlade pÃ¥ en publik sida.** Kommande och spelade matcher visas i samma flÃ¶de, med resultat och registrerade hÃ¤ndelser nÃ¤r de finns.
+        - **Ändrar du lag, grupper, regler eller andra schemaförutsättningar efter att schemat skapats** kan schemat markeras som inaktuellt. Regenerera det då på **Schema**.
+        - **Färgkrockar är en varning, inte ett stopp.** CupNavi försöker välja hemma/borta och matchställ så att krockarna blir så få som möjligt.
+        - **Resultat och matchhändelser sparas automatiskt.** Den gröna bekräftelsen visar att ändringen är sparad.
+        - **Publicering valideras innan den genomförs.** Om något blockerar publiceringen ska CupNavi tala om exakt vad som behöver rättas.
+        - **Matcher är samlade på en publik sida.** Kommande och spelade matcher visas i samma flöde, med resultat och registrerade händelser när de finns.
         """
     )
 
@@ -11897,7 +11897,7 @@ elif admin_page == "Planer & tider":
     st.markdown(
         """<div class="cn-workspace-head"><div>
         <div class="kicker">Steg 5 av 9</div><div class="title">Planer & tider</div>
-        <div class="subtitle">BÃ¶rja med det obligatoriska: hur mÃ¥nga planer ni har och nÃ¤r de kan anvÃ¤ndas. Adresser och restider Ã¤r frivilliga.</div>
+        <div class="subtitle">Börja med det obligatoriska: hur många planer ni har och när de kan användas. Adresser och restider är frivilliga.</div>
         </div></div>""", unsafe_allow_html=True,
     )
     render_clickable_planning_flow(st, tid=tid, current_step="Planer & tider", navigate_admin_page=_set_admin_page)
@@ -11915,14 +11915,14 @@ elif admin_page == "Planer & tider":
     _initial_plan_hints = document_plan_hints(_initial_plan_import)
     if _initial_plan_hints.get("venues"):
         with st.container(border=True):
-            st.markdown("#### ðŸ“¦ Planer hittade i fÃ¶rsta importen")
-            st.caption(f"KÃ¤lla: {str(_initial_plan_import.get('source_name') or 'foto/dokument')}. CupNavi Ã¥teranvÃ¤nder samma granskade underlag; du behÃ¶ver inte fotografera igen.")
-            st.write(" Â· ".join(f"**{name}**" for name in _initial_plan_hints["venues"]))
+            st.markdown("#### 📦 Planer hittade i första importen")
+            st.caption(f"Källa: {str(_initial_plan_import.get('source_name') or 'foto/dokument')}. CupNavi återanvänder samma granskade underlag; du behöver inte fotografera igen.")
+            st.write(" · ".join(f"**{name}**" for name in _initial_plan_hints["venues"]))
             if _initial_plan_hints.get("match_times"):
                 _times = _initial_plan_hints["match_times"]
-                st.caption(f"Matchtider finns ocksÃ¥ i underlaget ({len(_times)} matcher). De visas som information â€“ CupNavi tolkar inte automatiskt fÃ¶rsta/sista matchtid som planens Ã¶ppettid.")
+                st.caption(f"Matchtider finns också i underlaget ({len(_times)} matcher). De visas som information – CupNavi tolkar inte automatiskt första/sista matchtid som planens öppettid.")
             _existing_named = all(str(_row_value(r,'name','') or '').strip() for r in ensure_pitch_definitions(tid, max(1, int(_row_value(_plan_rules,'pitch_count',1) or 1))))
-            if st.button("âœ“ AnvÃ¤nd hittade planer", type="primary", use_container_width=True, key=f"v578_apply_venues_{tid}"):
+            if st.button("✓ Använd hittade planer", type="primary", use_container_width=True, key=f"v578_apply_venues_{tid}"):
                 _venues = _initial_plan_hints["venues"]
                 run("UPDATE schedule_rules SET pitch_count=? WHERE tournament_id=?", (len(_venues), tid))
                 _rows = ensure_pitch_definitions(tid, len(_venues))
@@ -11930,13 +11930,13 @@ elif admin_page == "Planer & tider":
                     save_pitch_name(tid, _idx, _name)
                 run("UPDATE tournaments SET schedule_dirty=CASE WHEN EXISTS(SELECT 1 FROM matches WHERE tournament_id=?) THEN 1 ELSE schedule_dirty END WHERE id=?", (tid,tid))
                 _clear_render_query_cache()
-                st.success("Planerna frÃ¥n fÃ¶rsta importen Ã¤r sparade. Kontrollera Ã¶ppettiderna nedan.")
+                st.success("Planerna från första importen är sparade. Kontrollera öppettiderna nedan.")
                 st.rerun()
 
-    st.markdown("### 1. Hur mÃ¥nga planer har ni?")
-    st.caption("Det enda CupNavi behÃ¶ver hÃ¤r Ã¤r hur mÃ¥nga matcher som kan spelas samtidigt.")
+    st.markdown("### 1. Hur många planer har ni?")
+    st.caption("Det enda CupNavi behöver här är hur många matcher som kan spelas samtidigt.")
     _old_pitch_count = max(1, int(_row_value(_plan_rules, "pitch_count", 1) or 1))
-    _new_pitch_count = st.number_input("Antal planer/spelytor", 1, 50, _old_pitch_count, key=f"v566_pitch_count_{tid}", help="Hur mÃ¥nga matcher kan spelas samtidigt?")
+    _new_pitch_count = st.number_input("Antal planer/spelytor", 1, 50, _old_pitch_count, key=f"v566_pitch_count_{tid}", help="Hur många matcher kan spelas samtidigt?")
     if int(_new_pitch_count) != _old_pitch_count:
         run("UPDATE schedule_rules SET pitch_count=? WHERE tournament_id=?", (int(_new_pitch_count), tid))
         run("UPDATE tournaments SET schedule_dirty=CASE WHEN EXISTS(SELECT 1 FROM matches WHERE tournament_id=?) THEN 1 ELSE schedule_dirty END WHERE id=?", (tid, tid))
@@ -11949,8 +11949,8 @@ elif admin_page == "Planer & tider":
         int(_pr["pitch_number"]): str(_pr["name"] or f"Plan {int(_pr['pitch_number'])}")
         for _pr in _plan_pitch_rows
     }
-    with st.expander("Namn pÃ¥ planer (valfritt)", expanded=False):
-        st.caption("Standardnamnen Plan 1, Plan 2 osv. fungerar bra. Ã„ndra bara om deltagarna kÃ¤nner planerna under andra namn.")
+    with st.expander("Namn på planer (valfritt)", expanded=False):
+        st.caption("Standardnamnen Plan 1, Plan 2 osv. fungerar bra. Ändra bara om deltagarna känner planerna under andra namn.")
         for _pr in _plan_pitch_rows:
             _pn = int(_pr["pitch_number"])
             _saved_name = str(_pr["name"] or f"Plan {_pn}")
@@ -11966,26 +11966,26 @@ elif admin_page == "Planer & tider":
 
     _sync_saved = bool(_row_value(_plan_rules, "synchronized_pitch_times", 1))
     _sync = st.checkbox(
-        "Samma tider pÃ¥ alla planer",
+        "Samma tider på alla planer",
         value=_sync_saved,
         key=f"v566_sync_{tid}",
-        help="Rekommenderas fÃ¶r de flesta cuper. DÃ¥ anger du dagens start- och sluttid en gÃ¥ng i stÃ¤llet fÃ¶r fÃ¶r varje plan.",
+        help="Rekommenderas för de flesta cuper. Då anger du dagens start- och sluttid en gång i stället för för varje plan.",
     )
     if bool(_sync) != _sync_saved:
         run("UPDATE schedule_rules SET synchronized_pitch_times=? WHERE tournament_id=?", (1 if _sync else 0, tid))
         run("UPDATE tournaments SET schedule_dirty=CASE WHEN EXISTS(SELECT 1 FROM matches WHERE tournament_id=?) THEN 1 ELSE schedule_dirty END WHERE id=?", (tid, tid))
-        st.session_state[f"v566_plan_saved_{tid}"] = "TidsupplÃ¤gg sparat."
+        st.session_state[f"v566_plan_saved_{tid}"] = "Tidsupplägg sparat."
 
     _windows = ensure_pitch_day_windows(tid, tournament, int(_new_pitch_count), _plan_rules["first_match_time"], _plan_rules["latest_kickoff_time"])
     _by_day = {}
     for _w in _windows:
         _by_day.setdefault(str(_w["play_date"]), []).append(_w)
     _valid_windows = True
-    st.markdown("### 2. NÃ¤r kan planerna anvÃ¤ndas?")
+    st.markdown("### 2. När kan planerna användas?")
     if _sync:
-        st.caption("Du har valt samma tider pÃ¥ alla planer. Ange dÃ¤rfÃ¶r bara ett tidsintervall per cupdag â€“ CupNavi sparar det pÃ¥ samtliga planer.")
+        st.caption("Du har valt samma tider på alla planer. Ange därför bara ett tidsintervall per cupdag – CupNavi sparar det på samtliga planer.")
     else:
-        st.caption("Planerna har olika Ã¶ppettider. Ange dÃ¤rfÃ¶r tider fÃ¶r varje plan. Du kan nÃ¤r som helst slÃ¥ pÃ¥ 'Samma tider pÃ¥ alla planer' ovan.")
+        st.caption("Planerna har olika öppettider. Ange därför tider för varje plan. Du kan när som helst slå på 'Samma tider på alla planer' ovan.")
 
     for _play_date, _rows in _by_day.items():
         _d = datetime.fromisoformat(_play_date).date()
@@ -11994,11 +11994,11 @@ elif admin_page == "Planer & tider":
             _first = sorted(_rows, key=lambda r: int(r["pitch_number"]))[0]
             _c0, _c1, _c2 = st.columns([1.4, 1, 1])
             _c0.markdown("**Alla planer**")
-            _sv = _c1.time_input("FrÃ¥n", value=datetime.strptime(_first["start_time"], "%H:%M").time(), key=f"v566_sync_start_{tid}_{_play_date}")
+            _sv = _c1.time_input("Från", value=datetime.strptime(_first["start_time"], "%H:%M").time(), key=f"v566_sync_start_{tid}_{_play_date}")
             _ev = _c2.time_input("Till", value=datetime.strptime(_first["end_time"], "%H:%M").time(), key=f"v566_sync_end_{tid}_{_play_date}")
             if _sv >= _ev:
                 _valid_windows = False
-                st.error(f"{date_with_weekday(_d)}: sluttiden mÃ¥ste vara senare Ã¤n starttiden.")
+                st.error(f"{date_with_weekday(_d)}: sluttiden måste vara senare än starttiden.")
             else:
                 _start_text, _end_text = _sv.strftime("%H:%M"), _ev.strftime("%H:%M")
                 _day_differs = any(
@@ -12015,53 +12015,53 @@ elif admin_page == "Planer & tider":
                 _pn = int(_w["pitch_number"])
                 _c0, _c1, _c2 = st.columns([1.4, 1, 1])
                 _c0.markdown(f"**{html.escape(_pitch_names.get(_pn, f'Plan {_pn}'))}**")
-                _sv = _c1.time_input("FrÃ¥n", value=datetime.strptime(_w["start_time"], "%H:%M").time(), key=f"v566_start_{tid}_{_pn}_{_play_date}")
+                _sv = _c1.time_input("Från", value=datetime.strptime(_w["start_time"], "%H:%M").time(), key=f"v566_start_{tid}_{_pn}_{_play_date}")
                 _ev = _c2.time_input("Till", value=datetime.strptime(_w["end_time"], "%H:%M").time(), key=f"v566_end_{tid}_{_pn}_{_play_date}")
                 if _sv >= _ev:
                     _valid_windows = False
-                    st.error(f"{_pitch_names.get(_pn, f'Plan {_pn}')}: sluttiden mÃ¥ste vara senare Ã¤n starttiden.")
+                    st.error(f"{_pitch_names.get(_pn, f'Plan {_pn}')}: sluttiden måste vara senare än starttiden.")
                 elif _sv.strftime("%H:%M") != _w["start_time"] or _ev.strftime("%H:%M") != _w["end_time"] or not bool(_row_value(_w,"confirmed",0)):
                     save_pitch_day_window(tid, _pn, _play_date, _sv.strftime("%H:%M"), _ev.strftime("%H:%M"), True)
                     run("UPDATE tournaments SET schedule_dirty=CASE WHEN EXISTS(SELECT 1 FROM matches WHERE tournament_id=?) THEN 1 ELSE schedule_dirty END WHERE id=?", (tid, tid))
                     st.session_state[f"v566_plan_saved_{tid}"] = "Plantider sparade."
 
     if st.session_state.pop(f"v566_plan_saved_{tid}", None):
-        st.success("âœ“ Ã„ndringen Ã¤r sparad automatiskt.")
+        st.success("✓ Ändringen är sparad automatiskt.")
     if _valid_windows:
-        st.success("âœ“ Obligatoriska planuppgifter Ã¤r klara.")
+        st.success("✓ Obligatoriska planuppgifter är klara.")
 
     with st.expander("Valfritt: adresser och restid mellan planer", expanded=False):
-        st.caption("AnvÃ¤nd bara detta om lag faktiskt behÃ¶ver fÃ¶rflytta sig mellan olika spelplatser. Adresser blockerar annars inte nÃ¤sta steg.")
+        st.caption("Använd bara detta om lag faktiskt behöver förflytta sig mellan olika spelplatser. Adresser blockerar annars inte nästa steg.")
         _address_enabled = bool(_row_value(_plan_rules, "consider_pitch_travel", 0))
-        _use_addresses = st.checkbox("AnvÃ¤nd adresser/restid i schemaplaneringen", value=_address_enabled, key=f"v566_use_addresses_{tid}")
+        _use_addresses = st.checkbox("Använd adresser/restid i schemaplaneringen", value=_address_enabled, key=f"v566_use_addresses_{tid}")
         if _use_addresses != _address_enabled:
             run("UPDATE schedule_rules SET consider_pitch_travel=? WHERE tournament_id=?", (1 if _use_addresses else 0, tid))
             st.rerun()
         for _pr in _plan_pitch_rows:
             _pn = int(_pr["pitch_number"])
             _saved_address = str(_row_value(_pr, "address", "") or "")
-            _address = st.text_input(f"Adress Â· {_pitch_names.get(_pn, f'Plan {_pn}')}", value=_saved_address, key=f"v566_address_{tid}_{_pn}", placeholder="Exempel: Rudbecksgatan 52, Ã–rebro")
+            _address = st.text_input(f"Adress · {_pitch_names.get(_pn, f'Plan {_pn}')}", value=_saved_address, key=f"v566_address_{tid}_{_pn}", placeholder="Exempel: Rudbecksgatan 52, Örebro")
             if _address.strip() != _saved_address.strip():
                 save_pitch_address(tid, _pn, _address)
                 st.session_state[f"v566_plan_saved_{tid}"] = "Planadress sparad."
         if _use_addresses and int(_new_pitch_count) > 1:
-            st.info("NÃ¤r adresser anvÃ¤nds i planeringen behÃ¶ver restiderna mellan spelplatserna vara rimliga och adresserna kontrollerade.")
+            st.info("När adresser används i planeringen behöver restiderna mellan spelplatserna vara rimliga och adresserna kontrollerade.")
 
     st.markdown("---")
     if _valid_windows:
         st.button(
-            "FortsÃ¤tt till Domare â†’", type="primary", use_container_width=True,
+            "Fortsätt till Domare →", type="primary", use_container_width=True,
             key=f"v593_plan_next_{tid}", on_click=_set_admin_page, args=("Domare",),
         )
-        st.caption("Domare Ã¤r frivilligt. Du kan gÃ¥ vidare dÃ¤rifrÃ¥n Ã¤ven om cupen inte anvÃ¤nder CupNavis domarstÃ¶d.")
+        st.caption("Domare är frivilligt. Du kan gå vidare därifrån även om cupen inte använder CupNavis domarstöd.")
     else:
-        st.warning("RÃ¤tta plantiderna ovan innan du gÃ¥r vidare.")
+        st.warning("Rätta plantiderna ovan innan du går vidare.")
     st.button(
-        "â† Till Regler", use_container_width=False, key=f"v593_plan_back_{tid}",
+        "← Till Regler", use_container_width=False, key=f"v593_plan_back_{tid}",
         on_click=_set_admin_page, args=("Regler",),
     )
 
-elif admin_page == "AdminÃ¶versikt":
+elif admin_page == "Adminöversikt":
     workflow_counts = _admin_workflow_counts(tid)
     expected_teams = int(tournament["expected_team_count"] or 0)
     teams_n = int(workflow_counts["teams_n"] or 0)
@@ -12099,12 +12099,12 @@ elif admin_page == "AdminÃ¶versikt":
     if _initial_snapshot:
         _import_rows = initial_import_overview(_initial_snapshot)
         _found_rows = [row for row in _import_rows if row.get("found")]
-        with st.expander(f"ðŸ“¦ Importerat underlag Â· {len(_found_rows)} delar hittade", expanded=False):
-            st.caption("Det hÃ¤r Ã¤r originalunderlaget frÃ¥n den fÃ¶rsta foto/PDF-importen. Inget skrivs Ã¶ver automatiskt; varje del granskas i sitt setupsteg.")
+        with st.expander(f"📦 Importerat underlag · {len(_found_rows)} delar hittade", expanded=False):
+            st.caption("Det här är originalunderlaget från den första foto/PDF-importen. Inget skrivs över automatiskt; varje del granskas i sitt setupsteg.")
             if _found_rows:
-                st.markdown(" Â· ".join(f"**{html.escape(str(row['label']))} âœ“**" for row in _found_rows))
+                st.markdown(" · ".join(f"**{html.escape(str(row['label']))} ✓**" for row in _found_rows))
             _import_page_map = {
-                "cupinfo": "CupinstÃ¤llningar", "teams": "Lag", "groups": "Grupper",
+                "cupinfo": "Cupinställningar", "teams": "Lag", "groups": "Grupper",
                 "rules": "Regler", "venues": "Planer & tider", "schedule": "Schema",
                 "playoffs": "Schema",
             }
@@ -12114,7 +12114,7 @@ elif admin_page == "AdminÃ¶versikt":
                 for _idx, _row in enumerate(_action_rows):
                     _page = _import_page_map[_row["key"]]
                     _cols[_idx % 2].button(
-                        f"Granska {_row['label']} â†’",
+                        f"Granska {_row['label']} →",
                         key=f"v580_import_source_{tid}_{_row['key']}",
                         use_container_width=True,
                         on_click=_set_admin_page,
@@ -12122,53 +12122,53 @@ elif admin_page == "AdminÃ¶versikt":
                     )
             _warnings = [str(v).strip() for v in (_initial_snapshot.get("warnings") or []) if str(v).strip()]
             if _warnings:
-                st.warning(f"{len(_warnings)} sak(er) i originalunderlaget behÃ¶ver fortfarande kontrolleras.")
+                st.warning(f"{len(_warnings)} sak(er) i originalunderlaget behöver fortfarande kontrolleras.")
 
     if first_run_new_cup:
         st.markdown(
             f"""<div class="cn612-first-run">
-              <div class="cn612-first-run-kicker">ORIGIN CARD Â· Ny cup</div>
-              <div class="cn612-first-run-title">{html.escape(tournament['name'])} Ã¤r skapad.</div>
-              <div class="cn612-first-run-copy">NÃ¤sta uppgift Ã¤r tydlig: fyll cupinformationen. CupNavi hÃ¥ller resten i bakgrunden tills det behÃ¶vs.</div>
+              <div class="cn612-first-run-kicker">ORIGIN CARD · Ny cup</div>
+              <div class="cn612-first-run-title">{html.escape(tournament['name'])} är skapad.</div>
+              <div class="cn612-first-run-copy">Nästa uppgift är tydlig: fyll cupinformationen. CupNavi håller resten i bakgrunden tills det behövs.</div>
               <div class="cn612-first-run-steps">
-                <div class="cn612-first-step active">1 Â· Cupinfo</div>
-                <div class="cn612-first-step">2 Â· Lag</div>
-                <div class="cn612-first-step">3 Â· Grupper</div>
-                <div class="cn612-first-step">4 Â· Regler</div>
-                <div class="cn612-first-step">5 Â· Planer & tider</div>
-                <div class="cn612-first-step">6 Â· Domare Â· valfritt</div>
-                <div class="cn612-first-step">7 Â· Schema</div>
-                <div class="cn612-first-step">8 Â· Kontroll</div>
-                <div class="cn612-first-step">9 Â· Publicera</div>
+                <div class="cn612-first-step active">1 · Cupinfo</div>
+                <div class="cn612-first-step">2 · Lag</div>
+                <div class="cn612-first-step">3 · Grupper</div>
+                <div class="cn612-first-step">4 · Regler</div>
+                <div class="cn612-first-step">5 · Planer & tider</div>
+                <div class="cn612-first-step">6 · Domare · valfritt</div>
+                <div class="cn612-first-step">7 · Schema</div>
+                <div class="cn612-first-step">8 · Kontroll</div>
+                <div class="cn612-first-step">9 · Publicera</div>
               </div>
             </div>""",
             unsafe_allow_html=True,
         )
         _new_col, _import_col = st.columns(2)
         _new_col.button(
-            "FortsÃ¤tt med Cupinfo â†’",
+            "Fortsätt med Cupinfo →",
             type="primary",
             use_container_width=True,
             key=f"v518_first_cupinfo_{tid}",
             on_click=_set_admin_page,
-            args=("CupinstÃ¤llningar",),
+            args=("Cupinställningar",),
         )
         _import_col.button(
-            "LÃ¤s in foto/PDF â†’",
+            "Läs in foto/PDF →",
             use_container_width=True,
             key=f"v518_import_existing_{tid}",
             on_click=_set_admin_page,
             args=("Import",),
         )
-        st.caption("Det mesta gÃ¥r att Ã¤ndra senare. BÃ¶rja med det du vet â€“ CupNavi visar bara det som faktiskt mÃ¥ste vara klart fÃ¶re publicering.")
+        st.caption("Det mesta går att ändra senare. Börja med det du vet – CupNavi visar bara det som faktiskt måste vara klart före publicering.")
         st.info(
-            "CupNavi visar publicering, schemavarningar och avancerade driftverktyg fÃ¶rst nÃ¤r de blir relevanta."
+            "CupNavi visar publicering, schemavarningar och avancerade driftverktyg först när de blir relevanta."
         )
     else:
         current_admin_mode = admin_mode(tournament["start_date"], tournament["end_date"], tournament_lifecycle)
         mode_labels = {
-            "planning": "PlaneringslÃ¤ge",
-            "live": "CupdagslÃ¤ge",
+            "planning": "Planeringsläge",
+            "live": "Cupdagsläge",
             "after": "Efter cupen",
         }
         publication_label = "Publicerad" if bool(tournament["is_published"]) else "Utkast"
@@ -12177,21 +12177,21 @@ elif admin_page == "AdminÃ¶versikt":
         elif decision.publish_ready or decision.status == "publish":
             _overview_state = "Redo att publicera"
         elif decision.status == "control":
-            _overview_state = "Redo fÃ¶r slutkontroll"
+            _overview_state = "Redo för slutkontroll"
         else:
-            _overview_state = "FÃ¶rbereds"
+            _overview_state = "Förbereds"
 
-        # v588: AdminÃ¶versikten ska svara pÃ¥ tre frÃ¥gor pÃ¥ fÃ¶rsta skÃ¤rmen:
-        # 1) Var stÃ¥r cupen? 2) Vad gÃ¶r jag nu? 3) Vad blockerar?
+        # v588: Adminöversikten ska svara på tre frågor på första skärmen:
+        # 1) Var står cupen? 2) Vad gör jag nu? 3) Vad blockerar?
         # Djupare checklistor och verktyg ligger bakom progressiv disclosure.
         st.markdown(
             f"""<div class="cn612-admin-deck">
-              <div class="cn612-admin-index"><span>CN / CONTROL</span><span>{html.escape(mode_labels.get(current_admin_mode, 'PlaneringslÃ¤ge'))}</span></div>
+              <div class="cn612-admin-index"><span>CN / CONTROL</span><span>{html.escape(mode_labels.get(current_admin_mode, 'Planeringsläge'))}</span></div>
               <div class="cn612-admin-main">
                 <div>
                   <div class="cn612-admin-kicker">Turneringskontroll</div>
                   <div class="cn612-admin-title">{html.escape(tournament['name'])}</div>
-                  <div class="cn612-admin-meta">{teams_n} lag <i>Â·</i> {groups_n} grupper <i>Â·</i> {played_n}/{matches_n} resultat <i>Â·</i> {html.escape(publication_label)}</div>
+                  <div class="cn612-admin-meta">{teams_n} lag <i>·</i> {groups_n} grupper <i>·</i> {played_n}/{matches_n} resultat <i>·</i> {html.escape(publication_label)}</div>
                 </div>
                 <div class="cn612-admin-cardno"><small>ADMIN</small><strong>{int(tid):02d}</strong></div>
               </div>
@@ -12199,7 +12199,7 @@ elif admin_page == "AdminÃ¶versikt":
             unsafe_allow_html=True,
         )
 
-        st.markdown('<div class="cn-section-head">Var stÃ¥r cupen?</div>', unsafe_allow_html=True)
+        st.markdown('<div class="cn-section-head">Var står cupen?</div>', unsafe_allow_html=True)
         _status_cols = st.columns(3)
         _status_cols[0].metric("Status", _overview_state)
         _status_cols[1].metric("Lag", teams_n)
@@ -12207,17 +12207,17 @@ elif admin_page == "AdminÃ¶versikt":
 
         _decision_class = "good" if decision.status in {"publish", "published", "complete"} else ("warn" if decision.status in {"control", "blocked"} else "")
         # Historical v130 source-contract anchors retained after v565 replaced the
-        # old next_step model: "Rekommenderat nÃ¤sta steg" and html.escape(next_step.text).
+        # old next_step model: "Rekommenderat nästa steg" and html.escape(next_step.text).
         st.markdown(
             f"""<div class="cn-overview-next" data-state="{_decision_class}">
-              <div class="eyebrow">Vad behÃ¶ver jag gÃ¶ra nu?</div>
+              <div class="eyebrow">Vad behöver jag göra nu?</div>
               <div class="title">{html.escape(decision.title)}</div>
               <div class="copy">{html.escape(decision.text)}</div>
             </div>""",
             unsafe_allow_html=True,
         )
         st.button(
-            decision.action_label + " â†’",
+            decision.action_label + " →",
             key=f"dashboard_next_step_{tid}",
             type="primary",
             use_container_width=True,
@@ -12231,12 +12231,12 @@ elif admin_page == "AdminÃ¶versikt":
             _block_cols = st.columns([5, 2])
             _block_cols[0].markdown(
                 f"""<div class="cn-overview-attention-row warning">
-                  <span class="dot"></span><span class="text"><b>{html.escape(_missing_label)}</b> Â· {html.escape(_missing_text)}</span>
+                  <span class="dot"></span><span class="text"><b>{html.escape(_missing_label)}</b> · {html.escape(_missing_text)}</span>
                 </div>""",
                 unsafe_allow_html=True,
             )
             _block_cols[1].button(
-                "Ã…tgÃ¤rda",
+                "Åtgärda",
                 key=f"v588_primary_blocker_{tid}",
                 use_container_width=True,
                 on_click=_set_admin_page,
@@ -12247,37 +12247,37 @@ elif admin_page == "AdminÃ¶versikt":
                     for _missing_index, (_label, _text, _target) in enumerate(decision.missing[1:], start=1):
                         _cols = st.columns([5, 2])
                         _cols[0].markdown(
-                            f"**{html.escape(_label)}** Â· {html.escape(_text)}",
+                            f"**{html.escape(_label)}** · {html.escape(_text)}",
                             unsafe_allow_html=True,
                         )
                         _cols[1].button(
-                            "Ã–ppna",
+                            "Öppna",
                             key=f"v588_missing_{tid}_{_missing_index}",
                             use_container_width=True,
                             on_click=_set_admin_page,
                             args=(_target,),
                         )
         elif decision.status == "control":
-            st.info("Inget grundsteg blockerar. NÃ¤sta punkt Ã¤r slutkontrollen.")
+            st.info("Inget grundsteg blockerar. Nästa punkt är slutkontrollen.")
         elif decision.publish_ready:
-            st.success("âœ… Inget blockerar publicering.")
+            st.success("✅ Inget blockerar publicering.")
         else:
-            st.success("âœ… Inget blockerar nÃ¤sta steg.")
+            st.success("✅ Inget blockerar nästa steg.")
 
         with st.expander("Snabbverktyg", expanded=False):
-            st.caption("SÃ¤llan anvÃ¤nda Ã¥tgÃ¤rder ligger hÃ¤r sÃ¥ att huvudflÃ¶det fÃ¶rblir lugnt och tydligt.")
+            st.caption("Sällan använda åtgärder ligger här så att huvudflödet förblir lugnt och tydligt.")
             _quick_cols = st.columns(2)
             _quick_cols[0].button(
-                "ðŸ”„ Ny eller Ã¤ndrad PDF / foto",
+                "🔄 Ny eller ändrad PDF / foto",
                 key=f"overview_revision_source_{tid}",
                 use_container_width=True,
                 type="secondary",
-                help="JÃ¤mfÃ¶r ett nytt cupunderlag med nuvarande lag, grupper, regler, planer och schema innan nÃ¥got Ã¤ndras.",
+                help="Jämför ett nytt cupunderlag med nuvarande lag, grupper, regler, planer och schema innan något ändras.",
                 on_click=_set_admin_page,
                 args=("Import",),
             )
             _quick_cols[1].button(
-                "Ã–ppna steg-fÃ¶r-steg-guide",
+                "Öppna steg-för-steg-guide",
                 key=f"v588_quick_guide_{tid}",
                 use_container_width=True,
                 on_click=_set_admin_page,
@@ -12297,7 +12297,7 @@ elif admin_page == "AdminÃ¶versikt":
     _missing_targets = {target for _, _, target in decision.missing}
     attention = [item for item in attention if item["target"] != "Kontroller" and item["target"] not in _missing_targets]
     if attention and not first_run_new_cup:
-        with st.expander(f"KrÃ¤ver din uppmÃ¤rksamhet Â· {len(attention)}", expanded=False):
+        with st.expander(f"Kräver din uppmärksamhet · {len(attention)}", expanded=False):
             for attention_index, item in enumerate(attention[:5]):
                 attention_cols = st.columns([5, 2])
                 level_class = item["level"] if item["level"] in {"critical", "warning"} else "info"
@@ -12308,7 +12308,7 @@ elif admin_page == "AdminÃ¶versikt":
                     unsafe_allow_html=True,
                 )
                 attention_cols[1].button(
-                    "Ã…tgÃ¤rda",
+                    "Åtgärda",
                     key=f"v588_attention_{tid}_{attention_index}",
                     use_container_width=True,
                     on_click=_set_admin_page,
@@ -12322,22 +12322,22 @@ elif admin_page == "AdminÃ¶versikt":
         "Fler verktyg",
         value=False,
         key=f"show_overview_advanced_{tid}",
-        help="Ã–ppna bara vid behov: fairness, driftverktyg och avancerade instÃ¤llningar.",
+        help="Öppna bara vid behov: fairness, driftverktyg och avancerade inställningar.",
     )
     if show_overview_advanced:
         st.markdown("#### Analys & drift")
-        st.caption("FÃ¶rdjupning som inte behÃ¶vs fÃ¶r det vanliga setupflÃ¶det.")
+        st.caption("Fördjupning som inte behövs för det vanliga setupflödet.")
         st.button(
-            "BesÃ¶ksstatistik",
+            "Besöksstatistik",
             key=f"v342_open_visitor_stats_{tid}",
             use_container_width=True,
             on_click=_set_admin_page,
-            args=("BesÃ¶ksstatistik",),
+            args=("Besöksstatistik",),
         )
 
-        # v1.305: Fairness var tidigare ett dolt men dyrt standardanrop pÃ¥ varje
-        # AdminÃ¶versikt-rendering. Ladda analysen fÃ¶rst nÃ¤r arrangÃ¶ren ber om den.
-        # Om Control Center Ã¤r aktiverat behÃ¶ver det samma matchrader och delar dÃ¥
+        # v1.305: Fairness var tidigare ett dolt men dyrt standardanrop på varje
+        # Adminöversikt-rendering. Ladda analysen först när arrangören ber om den.
+        # Om Control Center är aktiverat behöver det samma matchrader och delar då
         # snapshoten med fairnessanalysen utan ett extra Turso-anrop.
         control_center_enabled = bool(_row_value(tournament, "enable_control_center", 0))
         fairness_state_key = f"admin_fairness_loaded_{tid}"
@@ -12355,11 +12355,11 @@ elif admin_page == "AdminÃ¶versikt":
                 fairness_load_error = exc
                 print(f"CupNavi fairness warning for tournament {tid}: {type(exc).__name__}: {exc}")
 
-        with st.expander("âš–ï¸ Fairnessanalys", expanded=False):
-            st.caption("RÃ¥dgivande analys av vila, matchtider och planbyten. KÃ¶rs bara nÃ¤r du Ã¶ppnar den fÃ¶r att hÃ¥lla AdminÃ¶versikten snabb.")
+        with st.expander("⚖️ Fairnessanalys", expanded=False):
+            st.caption("Rådgivande analys av vila, matchtider och planbyten. Körs bara när du öppnar den för att hålla Adminöversikten snabb.")
             if not fairness_requested:
                 st.button(
-                    "KÃ¶r fairnessanalys",
+                    "Kör fairnessanalys",
                     key=f"load_fairness_{tid}",
                     use_container_width=True,
                     on_click=st.session_state.__setitem__,
@@ -12369,37 +12369,37 @@ elif admin_page == "AdminÃ¶versikt":
                 if fairness_load_error is not None:
                     fairness = {
                         "score": 100,
-                        "findings": ["Fairnessanalysen kunde inte berÃ¤knas just nu. Ã–vrig cupdata pÃ¥verkas inte."],
+                        "findings": ["Fairnessanalysen kunde inte beräknas just nu. Övrig cupdata påverkas inte."],
                         "participants": 0,
                     }
                 else:
                     fairness = fairness_report(fairness_matches or [])
-                st.markdown(f"**Fairness Â· {fairness['score']}/100**")
+                st.markdown(f"**Fairness · {fairness['score']}/100**")
                 st.progress(int(fairness["score"]) / 100)
                 for finding in fairness["findings"]:
-                    st.write(f"â€¢ {finding}")
+                    st.write(f"• {finding}")
 
         if control_center_enabled:
-            st.markdown("### ðŸŽ›ï¸ Cup Control Center")
+            st.markdown("### 🎛️ Cup Control Center")
             control_matches = fairness_matches or []
             now_dt = datetime.now()
             missing_refs = sum(1 for m in control_matches if m["referee_id"] is None and m["home_score"] is None)
             unplayed = sum(1 for m in control_matches if m["home_score"] is None or m["away_score"] is None)
             checkin_enabled = bool(_row_value(tournament, "enable_team_checkin", 1))
-            # v398: AdminÃ¶versiktens workflow-snapshot innehÃ¥ller redan antalet ej
-            # incheckade lag. Ã…teranvÃ¤nd det i Control Center i stÃ¤llet fÃ¶r ett
-            # extra remote COUNT-anrop nÃ¤r verktyget Ã¶ppnas.
+            # v398: Adminöversiktens workflow-snapshot innehåller redan antalet ej
+            # incheckade lag. Återanvänd det i Control Center i stället för ett
+            # extra remote COUNT-anrop när verktyget öppnas.
             unchecked = int(workflow_counts["unchecked_n"] or 0) if checkin_enabled else 0
             open_incidents = all_rows("SELECT * FROM control_incidents WHERE tournament_id=? AND status='open' ORDER BY created_at DESC", (tid,))
             cc1, cc2, cc3, cc4 = st.columns(4)
             cc1.metric("Matcher kvar", unplayed)
-            cc2.metric("Ej incheckade" if checkin_enabled else "Incheckning", unchecked if checkin_enabled else "AvstÃ¤ngd")
+            cc2.metric("Ej incheckade" if checkin_enabled else "Incheckning", unchecked if checkin_enabled else "Avstängd")
             cc3.metric("Domare saknas", missing_refs)
-            cc4.metric("Ã–ppna incidenter", len(open_incidents))
+            cc4.metric("Öppna incidenter", len(open_incidents))
             with st.expander("Rapportera incident / avvikelse", expanded=False):
                 with st.form(f"control_incident_{tid}", clear_on_submit=True):
                     ic1, ic2 = st.columns(2)
-                    incident_category = ic1.selectbox("Kategori", ["FÃ¶rsening", "Plan/spelplats", "Domare", "Lag/deltagare", "Medicinskt", "SÃ¤kerhet", "Ã–vrigt"])
+                    incident_category = ic1.selectbox("Kategori", ["Försening", "Plan/spelplats", "Domare", "Lag/deltagare", "Medicinskt", "Säkerhet", "Övrigt"])
                     incident_severity = ic2.selectbox("Prioritet", ["info", "warning", "critical"], format_func=lambda x: {"info":"Info", "warning":"Varning", "critical":"Kritisk"}[x])
                     incident_title = st.text_input("Rubrik")
                     incident_detail = st.text_area("Beskrivning")
@@ -12411,24 +12411,24 @@ elif admin_page == "AdminÃ¶versikt":
                             st.rerun()
             if open_incidents:
                 for incident in open_incidents:
-                    icon = {"critical":"ðŸ”´", "warning":"ðŸŸ ", "info":"ðŸ”µ"}.get(incident["severity"], "ðŸ”µ")
+                    icon = {"critical":"🔴", "warning":"🟠", "info":"🔵"}.get(incident["severity"], "🔵")
                     with st.container(border=True):
-                        st.markdown(f"**{icon} {html.escape(incident['title'])}** Â· {html.escape(incident['category'])}")
+                        st.markdown(f"**{icon} {html.escape(incident['title'])}** · {html.escape(incident['category'])}")
                         if incident["detail"]:
                             st.write(incident["detail"])
-                        if st.button("Markera lÃ¶st", key=f"resolve_incident_{incident['id']}"):
+                        if st.button("Markera löst", key=f"resolve_incident_{incident['id']}"):
                             run("UPDATE control_incidents SET status='resolved',resolved_at=? WHERE id=? AND tournament_id=?", (datetime.now().isoformat(timespec='seconds'), incident["id"], tid))
                             st.rerun()
 
         show_direct_edit = st.toggle(
-            "Visa direktredigering av cupinstÃ¤llningar",
+            "Visa direktredigering av cupinställningar",
             value=False,
             key=f"show_direct_edit_{tid}",
-            help="Laddar avancerade cup- och regelinstÃ¤llningar fÃ¶rst nÃ¤r de behÃ¶vs.",
+            help="Laddar avancerade cup- och regelinställningar först när de behövs.",
         )
         if show_direct_edit:
-            with st.expander("Direktredigera cupinstÃ¤llningar", expanded=True):
-                st.caption("FÃ¶r avancerad direktredigering. FÃ¶r normal Ã¤ndring rekommenderas CupinstÃ¤llningar.")
+            with st.expander("Direktredigera cupinställningar", expanded=True):
+                st.caption("För avancerad direktredigering. För normal ändring rekommenderas Cupinställningar.")
                 saved_start = datetime.fromisoformat(tournament["start_date"] or tournament["tournament_date"]).date()
                 saved_end = datetime.fromisoformat(tournament["end_date"] or tournament["start_date"] or tournament["tournament_date"]).date()
                 overview_rules = one_row("SELECT * FROM schedule_rules WHERE tournament_id=?", (tid,))
@@ -12440,15 +12440,15 @@ elif admin_page == "AdminÃ¶versikt":
                 stored_format = placement_format if tournament["playoff_format"] == "Flera egna slutspel" else tournament["playoff_format"]
                 saved_format = stored_format if stored_format in format_options else "Inget slutspel"
                 if not tournament["playoff_model_confirmed"]:
-                    st.warning("VÃ¤lj och spara slutspelsmodell innan spelschemat kan genereras.")
+                    st.warning("Välj och spara slutspelsmodell innan spelschemat kan genereras.")
                 # v398: team- och resultatantal finns redan i samma workflow-snapshot
-                # som driver AdminÃ¶versikten. Undvik tvÃ¥ extra COUNT-frÃ¥gor hÃ¤r.
+                # som driver Adminöversikten. Undvik två extra COUNT-frågor här.
                 current_team_count_for_limit = teams_n
                 _prod_history_locked = (not is_test_environment(tournament)) and played_n > 0
                 if _prod_history_locked:
                     st.warning(
-                        "ðŸ”’ Historikskydd aktivt: cupen Ã¤r en riktig cup med registrerade resultat. "
-                        "PoÃ¤ng-, match- och slutspelsregler Ã¤r lÃ¥sta hÃ¤r. TestmiljÃ¶er pÃ¥verkas inte."
+                        "🔒 Historikskydd aktivt: cupen är en riktig cup med registrerade resultat. "
+                        "Poäng-, match- och slutspelsregler är låsta här. Testmiljöer påverkas inte."
                     )
 
                 st.markdown("#### Sportprofil och internationell grund")
@@ -12460,21 +12460,21 @@ elif admin_page == "AdminÃ¶versikt":
                 saved_country = _row_value(tournament, "country_code", "") or "Ej angivet"
                 participant_type = _row_value(tournament, "participant_type", str(sport_definition(saved_sport)["participant_type"]))
                 st.info(
-                    f"**{saved_sport}** Â· {saved_locale} Â· {saved_timezone} Â· {saved_country}  \n"
-                    "Dessa grundinstÃ¤llningar valdes nÃ¤r turneringen skapades och Ã¤r lÃ¥sta fÃ¶r att skydda matchmodell, statistik och regional tolkning."
+                    f"**{saved_sport}** · {saved_locale} · {saved_timezone} · {saved_country}  \n"
+                    "Dessa grundinställningar valdes när turneringen skapades och är låsta för att skydda matchmodell, statistik och regional tolkning."
                 )
                 st.caption(
-                    f"Sportstandard: {selected_profile['halves']} {selected_profile['period_label']} Ã— "
-                    f"{selected_profile['minutes_per_half']} min Â· vila {selected_profile['minimum_team_rest_minutes']} min Â· "
-                    f"resultatmodell: {selected_match_format.scoring_mode} Â· segmenttyp: {selected_match_format.segment_kind} Â· "
+                    f"Sportstandard: {selected_profile['halves']} {selected_profile['period_label']} × "
+                    f"{selected_profile['minutes_per_half']} min · vila {selected_profile['minimum_team_rest_minutes']} min · "
+                    f"resultatmodell: {selected_match_format.scoring_mode} · segmenttyp: {selected_match_format.segment_kind} · "
                     f"intern deltagartyp: {participant_type}."
                 )
                 st.caption(
-                    "SchemalÃ¤ggning: OR-Tools CP-SAT anvÃ¤nds automatiskt nÃ¤r biblioteket Ã¤r tillgÃ¤ngligt; "
-                    "annars anvÃ¤nds CupNavis sÃ¤kra heuristiska fallback."
+                    "Schemaläggning: OR-Tools CP-SAT används automatiskt när biblioteket är tillgängligt; "
+                    "annars används CupNavis säkra heuristiska fallback."
                 )
                 if st.button(
-                    "Ã…terstÃ¤ll sportens standardregler",
+                    "Återställ sportens standardregler",
                     key=f"apply_sport_defaults_{tid}",
                     use_container_width=True,
                     disabled=_prod_history_locked,
@@ -12488,14 +12488,14 @@ elif admin_page == "AdminÃ¶versikt":
                     )
                     run("UPDATE tournaments SET schedule_dirty=1,is_published=0 WHERE id=?", (tid,))
                     run("UPDATE matches SET schedule_published=0 WHERE tournament_id=?", (tid,))
-                    record_audit(tid, "sport_defaults", "schedule_rules", f"Standardregler fÃ¶r {saved_sport} tillÃ¤mpades",
+                    record_audit(tid, "sport_defaults", "schedule_rules", f"Standardregler för {saved_sport} tillämpades",
                                  entity_id=tid, before=before_rules, after=dict(selected_profile), reversible=False)
-                    st.session_state["overview_saved_message"] = "Sportprofilens standardregler har lagts in. Schemat behÃ¶ver regenereras."
+                    st.session_state["overview_saved_message"] = "Sportprofilens standardregler har lagts in. Schemat behöver regenereras."
                     st.rerun()
 
-                # Slutspelsvalen ligger utanfÃ¶r formulÃ¤ret sÃ¥ de reagerar direkt pÃ¥ anvÃ¤ndarens val.
-                # Streamlit-formulÃ¤r skickar annars inte widgetÃ¤ndringar fÃ¶rrÃ¤n "Spara" trycks.
-                st.markdown("#### Slutspelsmodell och avgÃ¶rande")
+                # Slutspelsvalen ligger utanför formuläret så de reagerar direkt på användarens val.
+                # Streamlit-formulär skickar annars inte widgetändringar förrän "Spara" trycks.
+                st.markdown("#### Slutspelsmodell och avgörande")
                 playoff_col1, playoff_col2 = st.columns(2)
                 edited_format = playoff_col1.selectbox(
                     "Typ av slutspel",
@@ -12505,7 +12505,7 @@ elif admin_page == "AdminÃ¶versikt":
                     disabled=_prod_history_locked,
                 )
                 edited_bronze = playoff_col2.checkbox(
-                    "Skapa bronsmatch automatiskt nÃ¤r slutspelstrÃ¤det har minst fyra lag",
+                    "Skapa bronsmatch automatiskt när slutspelsträdet har minst fyra lag",
                     value=bool(tournament["bronze_match"]),
                     disabled=_prod_history_locked or edited_format == "Inget slutspel",
                     key=f"overview_bronze_{tid}",
@@ -12513,31 +12513,31 @@ elif admin_page == "AdminÃ¶versikt":
 
                 st.markdown("##### Oavgjort i slutspelsmatch")
                 tie1, tie2 = st.columns(2)
-                tie_options = ["FÃ¶rlÃ¤ngning + straffar", "Straffar direkt", "Lottning"]
+                tie_options = ["Förlängning + straffar", "Straffar direkt", "Lottning"]
                 saved_tie_rule = tournament["playoff_tie_rule"] or "Straffar direkt"
                 edited_tie_rule = tie1.selectbox(
-                    "SÃ¥ avgÃ¶rs slutspelsmatchen",
+                    "Så avgörs slutspelsmatchen",
                     tie_options,
                     index=tie_options.index(saved_tie_rule) if saved_tie_rule in tie_options else 1,
                     disabled=_prod_history_locked or edited_format == "Inget slutspel",
                     key=f"overview_tie_rule_{tid}",
                 )
                 edited_extra_time = tie2.number_input(
-                    "FÃ¶rlÃ¤ngning (minuter)",
+                    "Förlängning (minuter)",
                     min_value=1,
                     max_value=60,
                     value=max(1, int(tournament["extra_time_minutes"] or 10)),
-                    disabled=_prod_history_locked or edited_format == "Inget slutspel" or edited_tie_rule != "FÃ¶rlÃ¤ngning + straffar",
+                    disabled=_prod_history_locked or edited_format == "Inget slutspel" or edited_tie_rule != "Förlängning + straffar",
                     help=(
-                        "Aktiveras nÃ¤r 'FÃ¶rlÃ¤ngning + straffar' vÃ¤ljs. "
-                        "Tiden reserveras Ã¤ven i schemalÃ¤ggningen fÃ¶r slutspelsmatcher."
+                        "Aktiveras när 'Förlängning + straffar' väljs. "
+                        "Tiden reserveras även i schemaläggningen för slutspelsmatcher."
                     ),
                     key=f"overview_extra_time_{tid}",
                 )
                 if edited_format != "Inget slutspel":
-                    st.success("Slutspelsreglerna Ã¤r aktiva. Du kan justera dem direkt innan du sparar.")
+                    st.success("Slutspelsreglerna är aktiva. Du kan justera dem direkt innan du sparar.")
                 else:
-                    st.caption("VÃ¤lj en slutspelsmodell fÃ¶r att aktivera reglerna fÃ¶r oavgjorda slutspelsmatcher.")
+                    st.caption("Välj en slutspelsmodell för att aktivera reglerna för oavgjorda slutspelsmatcher.")
 
                 with st.container():
                     st.markdown("#### Cup och deltagande")
@@ -12545,64 +12545,64 @@ elif admin_page == "AdminÃ¶versikt":
                     edited_name = bn1.text_input("Turneringens namn", value=tournament["name"])
                     edited_location = bn2.text_input("Spelort", value=tournament["location"] or "")
                     bc1, bc2, bc3 = st.columns(3)
-                    edited_start = bc1.date_input("FÃ¶rsta cupdag", value=saved_start)
-                    bc1.caption(f"ðŸ“… {date_with_weekday(edited_start)}")
+                    edited_start = bc1.date_input("Första cupdag", value=saved_start)
+                    bc1.caption(f"📅 {date_with_weekday(edited_start)}")
                     edited_end = bc2.date_input("Sista cupdag", value=saved_end)
-                    bc2.caption(f"ðŸ“… {date_with_weekday(edited_end)}")
+                    bc2.caption(f"📅 {date_with_weekday(edited_end)}")
                     _class_planned_total=sum(max(0,int(_row_value(row,"planned_team_count",0) or 0)) for row in competition_classes(tid))
                     edited_expected=max(_class_planned_total,int(current_team_count_for_limit))
                     bc3.metric("Planerat antal lag",edited_expected)
-                    bc3.caption("BerÃ¤knas frÃ¥n planerat antal i varje tÃ¤vlingsklass. Ã„ndra under CupinstÃ¤llningar â†’ guidad setup.")
+                    bc3.caption("Beräknas från planerat antal i varje tävlingsklass. Ändra under Cupinställningar → guidad setup.")
 
-                    st.markdown("#### Arena och information till besÃ¶kare")
+                    st.markdown("#### Arena och information till besökare")
                     edited_address = st.text_input(
                         "Arenaadress", value=tournament["arena_address"] or "",
-                        placeholder="Exempel: IdrottsvÃ¤gen 1, 702 00 Ã–rebro",
+                        placeholder="Exempel: Idrottsvägen 1, 702 00 Örebro",
                     )
                     edited_kiosk_info = st.text_input(
                         "Kiosk och servering (frivillig information)", value=tournament["kiosk_information"] or "",
-                        placeholder="Exempel: Kiosk finns och Ã¤r Ã¶ppen 08.00â€“17.00 med kaffe, korv och enklare lunch",
+                        placeholder="Exempel: Kiosk finns och är öppen 08.00–17.00 med kaffe, korv och enklare lunch",
                     )
                     practical1, practical2 = st.columns(2)
-                    edited_changing_rooms = practical1.checkbox("TillgÃ¥ng till omklÃ¤dningsrum", value=bool(_row_value(tournament,"changing_rooms_available",0)))
+                    edited_changing_rooms = practical1.checkbox("Tillgång till omklädningsrum", value=bool(_row_value(tournament,"changing_rooms_available",0)))
                     edited_show_prices = practical2.checkbox("Visa priser/avgifter publikt", value=bool(_row_value(tournament,"show_price_information",0)))
-                    edited_changing_room_info = st.text_input("Information om omklÃ¤dningsrum", value=_row_value(tournament,"changing_room_info","") or "", placeholder="Exempel: 4 omklÃ¤dningsrum i huvudbyggnaden")
-                    edited_price_info = st.text_input("Priser/avgifter fÃ¶r cup eller matchcamp", value=_row_value(tournament,"price_information","") or "", placeholder="Exempel: Lagavgift 1 500 SEK Â· Matchcamp 250 SEK/spelare")
+                    edited_changing_room_info = st.text_input("Information om omklädningsrum", value=_row_value(tournament,"changing_room_info","") or "", placeholder="Exempel: 4 omklädningsrum i huvudbyggnaden")
+                    edited_price_info = st.text_input("Priser/avgifter för cup eller matchcamp", value=_row_value(tournament,"price_information","") or "", placeholder="Exempel: Lagavgift 1 500 SEK · Matchcamp 250 SEK/spelare")
                     edited_public_info = st.text_area(
-                        "Egen information pÃ¥ publika infosidan",
+                        "Egen information på publika infosidan",
                         value=tournament["public_information"] or "",
-                        placeholder="Exempel: Parkering finns vid skolan. OmklÃ¤dningsrum Ã¶ppnar 07.30. Hundar ska hÃ¥llas kopplade.",
+                        placeholder="Exempel: Parkering finns vid skolan. Omklädningsrum öppnar 07.30. Hundar ska hållas kopplade.",
                         help="Visas under Info efter de automatiskt skapade cupreglerna.",
                     )
                     contact_col1, contact_col2 = st.columns(2)
                     edited_organizer_phone = contact_col1.text_input(
-                        "ArrangÃ¶rens telefonnummer",
+                        "Arrangörens telefonnummer",
                         value=tournament["organizer_phone"] or "",
                         placeholder="Exempel: 070-123 45 67",
                         help="Visas publikt som en klickbar ring-knapp under Information.",
                     )
                     edited_feedback_email = contact_col2.text_input(
-                        "E-post fÃ¶r feedback",
+                        "E-post för feedback",
                         value=tournament["feedback_email"] or "",
                         placeholder="Exempel: cup@foreningen.se",
-                        help="Visas publikt som en klickbar e-postknapp fÃ¶r frÃ¥gor och feedback.",
+                        help="Visas publikt som en klickbar e-postknapp för frågor och feedback.",
                     )
                     edited_instagram = st.text_input(
-                        "Instagram fÃ¶r cupen",
+                        "Instagram för cupen",
                         value=tournament["instagram_url"] or "",
                         placeholder="Exempel: @cupnavi eller https://www.instagram.com/cupnavi/",
-                        help="Ange anvÃ¤ndarnamn eller lÃ¤nk. Visas publikt som en knapp fÃ¶r att fÃ¶lja cupen.",
+                        help="Ange användarnamn eller länk. Visas publikt som en knapp för att följa cupen.",
                     )
 
                     st.markdown("#### Valbara funktioner")
                     feature_col1, feature_col2 = st.columns(2)
-                    edited_control_center = feature_col1.checkbox("Cup Control Center", value=bool(_row_value(tournament, "enable_control_center", 0)), help="Visar en operativ cupdagsvy med incidenter, fÃ¶rseningar och snabbstatus.")
+                    edited_control_center = feature_col1.checkbox("Cup Control Center", value=bool(_row_value(tournament, "enable_control_center", 0)), help="Visar en operativ cupdagsvy med incidenter, förseningar och snabbstatus.")
                     edited_scorers = feature_col1.checkbox("Skytteliga", value=bool(_row_value(tournament, "enable_scorer_leaderboard", 1)))
                     edited_assists = feature_col1.checkbox("Assistliga", value=bool(_row_value(tournament, "enable_assist_leaderboard", 1)))
-                    edited_cards = feature_col1.checkbox("Gula/rÃ¶da kort och kortstatistik", value=bool(_row_value(tournament, "enable_card_statistics", 1)))
-                    edited_medical = feature_col2.checkbox("Medicinsk beredskap pÃ¥ infosidan", value=bool(_row_value(tournament, "enable_medical_info", 0)))
-                    edited_lost_found = feature_col2.checkbox("Lost & found / hittegods pÃ¥ infosidan", value=bool(_row_value(tournament, "enable_lost_found", 0)))
-                    edited_accessibility_info = feature_col2.checkbox("TillgÃ¤nglighetsinfo pÃ¥ infosidan", value=bool(_row_value(tournament, "enable_accessibility_info", 0)))
+                    edited_cards = feature_col1.checkbox("Gula/röda kort och kortstatistik", value=bool(_row_value(tournament, "enable_card_statistics", 1)))
+                    edited_medical = feature_col2.checkbox("Medicinsk beredskap på infosidan", value=bool(_row_value(tournament, "enable_medical_info", 0)))
+                    edited_lost_found = feature_col2.checkbox("Lost & found / hittegods på infosidan", value=bool(_row_value(tournament, "enable_lost_found", 0)))
+                    edited_accessibility_info = feature_col2.checkbox("Tillgänglighetsinfo på infosidan", value=bool(_row_value(tournament, "enable_accessibility_info", 0)))
                     # Progressive disclosure: only show the detail field when its public
                     # feature is enabled. When disabled we retain the saved value so toggling
                     # the feature off never destroys previously entered information.
@@ -12610,7 +12610,7 @@ elif admin_page == "AdminÃ¶versikt":
                         edited_medical_info = st.text_area(
                             "Medicinsk beredskap",
                             value=_row_value(tournament, "medical_info", "") or "",
-                            placeholder="Exempel: SjukvÃ¥rdare finns vid sekretariatet. HjÃ¤rtstartare finns i entrÃ©hallen.",
+                            placeholder="Exempel: Sjukvårdare finns vid sekretariatet. Hjärtstartare finns i entréhallen.",
                         )
                     else:
                         edited_medical_info = _row_value(tournament, "medical_info", "") or ""
@@ -12619,30 +12619,30 @@ elif admin_page == "AdminÃ¶versikt":
                         edited_lost_found_info = st.text_area(
                             "Lost & found / hittegods",
                             value=_row_value(tournament, "lost_found_info", "") or "",
-                            placeholder="Exempel: Hittegods lÃ¤mnas och hÃ¤mtas i sekretariatet.",
+                            placeholder="Exempel: Hittegods lämnas och hämtas i sekretariatet.",
                         )
                     else:
                         edited_lost_found_info = _row_value(tournament, "lost_found_info", "") or ""
 
                     if edited_accessibility_info:
                         edited_accessibility_text = st.text_area(
-                            "TillgÃ¤nglighet fÃ¶r besÃ¶kare",
+                            "Tillgänglighet för besökare",
                             value=_row_value(tournament, "accessibility_info", "") or "",
-                            placeholder="Exempel: TillgÃ¤nglig entrÃ©, RWC och reserverade parkeringsplatser finns vid huvudentrÃ©n.",
+                            placeholder="Exempel: Tillgänglig entré, RWC och reserverade parkeringsplatser finns vid huvudentrén.",
                         )
                     else:
                         edited_accessibility_text = _row_value(tournament, "accessibility_info", "") or ""
 
-                    st.markdown("#### PoÃ¤ngregler och tabell")
+                    st.markdown("#### Poängregler och tabell")
                     bp1, bp2, bp3 = st.columns(3)
-                    edited_win = bp1.number_input("PoÃ¤ng fÃ¶r vinst", 0, 10, int(tournament["points_win"]), disabled=_prod_history_locked)
-                    edited_draw = bp2.number_input("PoÃ¤ng fÃ¶r oavgjort", 0, 10, int(tournament["points_draw"]), disabled=_prod_history_locked)
-                    edited_loss = bp3.number_input("PoÃ¤ng fÃ¶r fÃ¶rlust", 0, 10, int(tournament["points_loss"]), disabled=_prod_history_locked)
+                    edited_win = bp1.number_input("Poäng för vinst", 0, 10, int(tournament["points_win"]), disabled=_prod_history_locked)
+                    edited_draw = bp2.number_input("Poäng för oavgjort", 0, 10, int(tournament["points_draw"]), disabled=_prod_history_locked)
+                    edited_loss = bp3.number_input("Poäng för förlust", 0, 10, int(tournament["points_loss"]), disabled=_prod_history_locked)
 
-                    table_tiebreak_options = ["MÃ¥lskillnad fÃ¶rst", "InbÃ¶rdes mÃ¶ten fÃ¶rst"]
-                    saved_tiebreak = tournament["table_tiebreak"] or "MÃ¥lskillnad fÃ¶rst"
+                    table_tiebreak_options = ["Målskillnad först", "Inbördes möten först"]
+                    saved_tiebreak = tournament["table_tiebreak"] or "Målskillnad först"
                     edited_tiebreak = st.selectbox(
-                        "Vid lika poÃ¤ng avgÃ¶r i fÃ¶rsta hand",
+                        "Vid lika poäng avgör i första hand",
                         table_tiebreak_options,
                         index=table_tiebreak_options.index(saved_tiebreak) if saved_tiebreak in table_tiebreak_options else 0,
                         disabled=_prod_history_locked,
@@ -12655,67 +12655,67 @@ elif admin_page == "AdminÃ¶versikt":
                     if int(edited_halves) >= 2:
                         br4, br5 = st.columns(2)
                         edited_halftime = br4.number_input("Paus mellan halvlekar/perioder (minuter)", 0, 60, int(overview_rules["halftime_minutes"]), disabled=_prod_history_locked)
-                        edited_pitch_break = br5.number_input("Paus mellan matcher pÃ¥ samma plan", 0, 120, int(overview_rules["pitch_break_minutes"]), disabled=_prod_history_locked)
+                        edited_pitch_break = br5.number_input("Paus mellan matcher på samma plan", 0, 120, int(overview_rules["pitch_break_minutes"]), disabled=_prod_history_locked)
                     else:
                         edited_halftime = int(overview_rules["halftime_minutes"])
-                        edited_pitch_break = st.number_input("Paus mellan matcher pÃ¥ samma plan", 0, 120, int(overview_rules["pitch_break_minutes"]), disabled=_prod_history_locked)
-                    st.markdown("##### Tider pÃ¥ flera planer")
+                        edited_pitch_break = st.number_input("Paus mellan matcher på samma plan", 0, 120, int(overview_rules["pitch_break_minutes"]), disabled=_prod_history_locked)
+                    st.markdown("##### Tider på flera planer")
                     with st.container(border=True):
                         edited_sync_pitch_times = st.checkbox(
-                            "Samma avsparkstider pÃ¥ alla planer",
+                            "Samma avsparkstider på alla planer",
                             value=bool(_row_value(overview_rules, "synchronized_pitch_times", 0)),
                             disabled=_prod_history_locked,
-                            help="NÃ¤r detta Ã¤r ett krav anvÃ¤nder CupNavi gemensamma startvÃ¥gor, till exempel 09:00, 09:45 och 10:30 pÃ¥ alla planer. Om det Ã¤r avstÃ¤ngt fÃ¥r varje plan anvÃ¤nda nÃ¤sta mÃ¶jliga tid och schemat blir mer dynamiskt.",
+                            help="När detta är ett krav använder CupNavi gemensamma startvågor, till exempel 09:00, 09:45 och 10:30 på alla planer. Om det är avstängt får varje plan använda nästa möjliga tid och schemat blir mer dynamiskt.",
                         )
                         if edited_sync_pitch_times:
-                            st.caption("Krav: planerna fÃ¶ljer gemensamma avsparkstider. Det blir enklare att kommunicera schemat men kan ge nÃ¥got lÃ¤gre kapacitetsutnyttjande.")
+                            st.caption("Krav: planerna följer gemensamma avsparkstider. Det blir enklare att kommunicera schemat men kan ge något lägre kapacitetsutnyttjande.")
                         else:
-                            st.caption("Dynamiskt: varje plan kan starta nÃ¤sta match sÃ¥ snart regler, vila och plantid tillÃ¥ter. Det ger CupNavi stÃ¶rre frihet att optimera schemat.")
-                    st.markdown("##### FÃ¶ljdmatcher fÃ¶r samma lag")
+                            st.caption("Dynamiskt: varje plan kan starta nästa match så snart regler, vila och plantid tillåter. Det ger CupNavi större frihet att optimera schemat.")
+                    st.markdown("##### Följdmatcher för samma lag")
                     with st.container(border=True):
                         follow1, follow2 = st.columns(2)
                         edited_avoid_consecutive = follow1.checkbox(
-                            "FÃ¶rsÃ¶k undvika matcher direkt efter varandra fÃ¶r samma lag",
+                            "Försök undvika matcher direkt efter varandra för samma lag",
                             value=bool(overview_rules["avoid_consecutive_matches"]),
                             disabled=_prod_history_locked,
                         )
                         edited_consecutive_break = follow2.number_input(
-                            "Extra paus om fÃ¶ljdmatcher inte kan undvikas (minuter)",
+                            "Extra paus om följdmatcher inte kan undvikas (minuter)",
                             0, 180, int(overview_rules["consecutive_match_break_minutes"]),
                             disabled=_prod_history_locked or not edited_avoid_consecutive,
                         )
                     _referee_modes = ["Automatisk", "Manuell", "Senare"]
                     _saved_referee_mode = str(overview_rules["referee_mode"] or "Automatisk")
                     edited_referee_mode = st.selectbox(
-                        "DomartillsÃ¤ttning",
+                        "Domartillsättning",
                         _referee_modes,
                         index=_referee_modes.index(_saved_referee_mode) if _saved_referee_mode in _referee_modes else 1,
                         format_func=lambda value: {
-                            "Automatisk": "CupNavi fÃ¶rdelar registrerade domare automatiskt",
-                            "Manuell": "Jag fÃ¶rdelar domare sjÃ¤lv",
-                            "Senare": "Domare tillsÃ¤tts senare",
+                            "Automatisk": "CupNavi fördelar registrerade domare automatiskt",
+                            "Manuell": "Jag fördelar domare själv",
+                            "Senare": "Domare tillsätts senare",
                         }[value],
                         disabled=_prod_history_locked,
                     )
                     if edited_referee_mode == "Senare":
-                        st.caption("Domare kan lÃ¤mnas otillsatta nu. Det blockerar inte setup, schemalÃ¤ggning eller publicering.")
-                    if st.button("Hantera domare (valfritt) â†’", key=f"overview_open_referees_{tid}", use_container_width=True):
+                        st.caption("Domare kan lämnas otillsatta nu. Det blockerar inte setup, schemaläggning eller publicering.")
+                    if st.button("Hantera domare (valfritt) →", key=f"overview_open_referees_{tid}", use_container_width=True):
                         st.session_state[admin_page_key] = "Domare"
                         st.session_state[f"pending_admin_page_{tid}"] = "Domare"
                         st.rerun()
                     edited_match_minutes = (edited_halves * edited_minutes_half) + ((edited_halves - 1) * edited_halftime)
-                    st.info(f"Med dessa regler tar en match {edited_match_minutes} minuter frÃ¥n avspark till slutsignal.")
-                    st.caption("Antal planer och tillgÃ¤nglig start-/sluttid fÃ¶r varje plan och cupdag anges under Konfigurera turneringen.")
+                    st.info(f"Med dessa regler tar en match {edited_match_minutes} minuter från avspark till slutsignal.")
+                    st.caption("Antal planer och tillgänglig start-/sluttid för varje plan och cupdag anges under Konfigurera turneringen.")
 
                     protected_rules_changed = any([
                         int(edited_win) != int(tournament["points_win"]),
                         int(edited_draw) != int(tournament["points_draw"]),
                         int(edited_loss) != int(tournament["points_loss"]),
-                        edited_tiebreak != (tournament["table_tiebreak"] or "MÃ¥lskillnad fÃ¶rst"),
+                        edited_tiebreak != (tournament["table_tiebreak"] or "Målskillnad först"),
                         edited_format != saved_format,
                         int(edited_bronze) != int(tournament["bronze_match"]),
                         edited_tie_rule != (tournament["playoff_tie_rule"] or "Straffar direkt"),
-                        (edited_extra_time if edited_tie_rule == "FÃ¶rlÃ¤ngning + straffar" else 0) != int(tournament["extra_time_minutes"] or 0),
+                        (edited_extra_time if edited_tie_rule == "Förlängning + straffar" else 0) != int(tournament["extra_time_minutes"] or 0),
                         int(edited_halves) != int(overview_rules["halves"]),
                         int(edited_minutes_half) != int(overview_rules["minutes_per_half"]),
                         int(edited_halftime) != int(overview_rules["halftime_minutes"]),
@@ -12733,7 +12733,7 @@ elif admin_page == "AdminÃ¶versikt":
                         edited_address.strip() != (tournament["arena_address"] or ""), edited_kiosk_info.strip() != (tournament["kiosk_information"] or ""), bool(edited_changing_rooms) != bool(_row_value(tournament,"changing_rooms_available",0)), bool(edited_show_prices) != bool(_row_value(tournament,"show_price_information",0)), edited_changing_room_info.strip() != (_row_value(tournament,"changing_room_info","") or ""), edited_price_info.strip() != (_row_value(tournament,"price_information","") or ""),
                         edited_public_info.strip() != (tournament["public_information"] or ""), edited_organizer_phone.strip() != (tournament["organizer_phone"] or ""),
                         edited_feedback_email.strip() != (tournament["feedback_email"] or ""), edited_instagram.strip() != (tournament["instagram_url"] or ""),
-                        edited_tiebreak != (tournament["table_tiebreak"] or "MÃ¥lskillnad fÃ¶rst"), edited_format != saved_format, int(edited_bronze) != int(tournament["bronze_match"]),
+                        edited_tiebreak != (tournament["table_tiebreak"] or "Målskillnad först"), edited_format != saved_format, int(edited_bronze) != int(tournament["bronze_match"]),
                         edited_tie_rule != (tournament["playoff_tie_rule"] or "Straffar direkt"),
                         bool(edited_control_center) != bool(_row_value(tournament,"enable_control_center",0)), bool(edited_scorers) != bool(_row_value(tournament,"enable_scorer_leaderboard",1)),
                         bool(edited_assists) != bool(_row_value(tournament,"enable_assist_leaderboard",1)), bool(edited_cards) != bool(_row_value(tournament,"enable_card_statistics",1)),
@@ -12747,13 +12747,13 @@ elif admin_page == "AdminÃ¶versikt":
                     ])
                     if overview_autosave_changed:
                         if not edited_name.strip():
-                            st.error("Turneringens namn fÃ¥r inte vara tomt.")
+                            st.error("Turneringens namn får inte vara tomt.")
                         elif edited_end < edited_start:
-                            st.error("Sista cupdagen fÃ¥r inte ligga fÃ¶re fÃ¶rsta cupdagen.")
+                            st.error("Sista cupdagen får inte ligga före första cupdagen.")
                         elif _prod_history_locked and protected_rules_changed:
                             st.error(
-                                "Historikskyddet stoppade Ã¤ndringen. Centrala tÃ¤vlingsregler kan inte skrivas om "
-                                "efter fÃ¶rsta resultatet i en riktig cup."
+                                "Historikskyddet stoppade ändringen. Centrala tävlingsregler kan inte skrivas om "
+                                "efter första resultatet i en riktig cup."
                             )
                         else:
                             scheduling_changed = any([
@@ -12770,7 +12770,7 @@ elif admin_page == "AdminÃ¶versikt":
                                 edited_format != saved_format,
                                 int(edited_bronze) != int(tournament["bronze_match"]),
                                 edited_tie_rule != (tournament["playoff_tie_rule"] or "Straffar direkt"),
-                                (edited_extra_time if edited_tie_rule == "FÃ¶rlÃ¤ngning + straffar" else 0) != int(tournament["extra_time_minutes"] or 0),
+                                (edited_extra_time if edited_tie_rule == "Förlängning + straffar" else 0) != int(tournament["extra_time_minutes"] or 0),
                             ])
                             with db() as con:
                                 con.execute(
@@ -12786,7 +12786,7 @@ elif admin_page == "AdminÃ¶versikt":
                                      int(bool(edited_kiosk_info.strip())), edited_kiosk_info.strip(), edited_public_info.strip(),
                                      edited_organizer_phone.strip(), edited_feedback_email.strip(), edited_instagram.strip(), edited_tiebreak,
                                      edited_tie_rule if edited_format != "Inget slutspel" else "Straffar direkt",
-                                     edited_extra_time if edited_format != "Inget slutspel" and edited_tie_rule == "FÃ¶rlÃ¤ngning + straffar" else 0,
+                                     edited_extra_time if edited_format != "Inget slutspel" and edited_tie_rule == "Förlängning + straffar" else 0,
                                      int(edited_control_center), int(edited_scorers), int(edited_assists), int(edited_cards),
                                      int(edited_medical), edited_medical_info.strip(), int(edited_lost_found), edited_lost_found_info.strip(),
                                      int(edited_accessibility_info), edited_accessibility_text.strip(), int(edited_changing_rooms), edited_changing_room_info.strip(), int(edited_show_prices), edited_price_info.strip(), tid),
@@ -12802,25 +12802,25 @@ elif admin_page == "AdminÃ¶versikt":
                                     con.execute("UPDATE tournaments SET is_published=0,schedule_dirty=1 WHERE id=?", (tid,))
                                 con.commit()
                             st.session_state["overview_saved_message"] = (
-                                "âœ“ Sparat automatiskt. Ã„ndringarna pÃ¥verkar schemat, som nu Ã¤r markerat fÃ¶r regenerering."
-                                if scheduling_changed else "âœ“ Sparat automatiskt."
+                                "✓ Sparat automatiskt. Ändringarna påverkar schemat, som nu är markerat för regenerering."
+                                if scheduling_changed else "✓ Sparat automatiskt."
                             )
                 if "overview_saved_message" in st.session_state:
                     st.success(st.session_state.pop("overview_saved_message"))
                 if tournament["playoff_format"] != "Inget slutspel":
-                    st.caption("Typen av slutspel vÃ¤ljs hÃ¤r. Vilka placeringar som mÃ¶ts och hur trÃ¤det byggs stÃ¤lls in under fliken Slutspel.")
+                    st.caption("Typen av slutspel väljs här. Vilka placeringar som möts och hur trädet byggs ställs in under fliken Slutspel.")
         with st.expander("Publicering & startkontroll", expanded=False):
-            st.caption("KÃ¶r den fulla kontrollen fÃ¶rst nÃ¤r du vill granska startberedskapen. DÃ¥ slipper AdminÃ¶versikten lÃ¤sa grupper, lag och matcher i bakgrunden pÃ¥ varje sidladdning.")
+            st.caption("Kör den fulla kontrollen först när du vill granska startberedskapen. Då slipper Adminöversikten läsa grupper, lag och matcher i bakgrunden på varje sidladdning.")
             _show_start_control = st.toggle(
                 "Visa full startkontroll",
                 value=False,
                 key=f"admin_start_control_{tid}",
             )
             if _show_start_control:
-                # v398: den fulla startkontrollen behÃ¶ver bara rÃ¤knare, inte hela
-                # grupp-, lag- och matchtabellerna. Workflow-snapshoten innehÃ¥ller
-                # redan allt som krÃ¤vs, sÃ¥ tre potentiellt stora SELECT *-anrop
-                # fÃ¶rsvinner Ã¤ven nÃ¤r kontrollen Ã¶ppnas.
+                # v398: den fulla startkontrollen behöver bara räknare, inte hela
+                # grupp-, lag- och matchtabellerna. Workflow-snapshoten innehåller
+                # redan allt som krävs, så tre potentiellt stora SELECT *-anrop
+                # försvinner även när kontrollen öppnas.
                 admin_groups_n = groups_n
                 admin_teams_n = teams_n
                 admin_matches_n = matches_n
@@ -12830,43 +12830,43 @@ elif admin_page == "AdminÃ¶versikt":
                 published_n = int(workflow_counts["published_n"] or 0)
                 unscheduled_n = max(0, admin_matches_n - scheduled_n)
                 unpublished_n = max(0, scheduled_n - published_n)
-                # Ã…teranvÃ¤nd den globala publiceringskontrollen som redan Ã¤r berÃ¤knad fÃ¶r
-                # den hÃ¤r renderingen. Ã–versikten ska inte gÃ¶ra en andra full schemavalidering.
+                # Återanvänd den globala publiceringskontrollen som redan är beräknad för
+                # den här renderingen. Översikten ska inte göra en andra full schemavalidering.
                 overview_schedule_errors = sidebar_errors
                 overview_schedule_warnings = sidebar_warnings
-                st.subheader("Kontroll fÃ¶re turneringsstart")
+                st.subheader("Kontroll före turneringsstart")
                 checks = [
-                    (admin_groups_n > 0, "Minst en grupp Ã¤r skapad"),
-                    (admin_teams_n > 0, "Minst ett lag Ã¤r registrerat"),
-                    (admin_teams_n == int(tournament["expected_team_count"] or 0), f"Registrerade lag stÃ¤mmer med planerat antal ({admin_teams_n}/{tournament['expected_team_count'] or 0})"),
-                    (unassigned_n == 0, "Alla lag Ã¤r placerade i en grupp"),
-                    (admin_matches_n > 0, "Matcher Ã¤r skapade"),
+                    (admin_groups_n > 0, "Minst en grupp är skapad"),
+                    (admin_teams_n > 0, "Minst ett lag är registrerat"),
+                    (admin_teams_n == int(tournament["expected_team_count"] or 0), f"Registrerade lag stämmer med planerat antal ({admin_teams_n}/{tournament['expected_team_count'] or 0})"),
+                    (unassigned_n == 0, "Alla lag är placerade i en grupp"),
+                    (admin_matches_n > 0, "Matcher är skapade"),
                     (unscheduled_n == 0, "Alla matcher som kan planeras har en schematid"),
-                    (unpublished_n == 0, "Det aktuella schemat Ã¤r godkÃ¤nt och publicerat"),
+                    (unpublished_n == 0, "Det aktuella schemat är godkänt och publicerat"),
                 ]
                 for passed, label in checks:
-                    st.write(f"{'âœ…' if passed else 'âš ï¸'} {label}")
+                    st.write(f"{'✅' if passed else '⚠️'} {label}")
                 if missing_refs_n:
-                    st.info(f"â„¹ï¸ {missing_refs_n} schemalagda match(er) saknar domare. Det stoppar inte publicering; domare kan tillsÃ¤ttas senare.")
+                    st.info(f"ℹ️ {missing_refs_n} schemalagda match(er) saknar domare. Det stoppar inte publicering; domare kan tillsättas senare.")
                 else:
-                    st.caption("Domare: alla schemalagda matcher Ã¤r bemannade.")
+                    st.caption("Domare: alla schemalagda matcher är bemannade.")
                 if scheduled_n == 0:
-                    st.caption("NÃ¤sta steg: skapa schemat under Schema.")
+                    st.caption("Nästa steg: skapa schemat under Schema.")
                 elif overview_schedule_errors:
-                    st.error(f"{len(overview_schedule_errors)} blockerande schemafel behÃ¶ver Ã¥tgÃ¤rdas under Schema.")
+                    st.error(f"{len(overview_schedule_errors)} blockerande schemafel behöver åtgärdas under Schema.")
                 elif overview_schedule_warnings:
-                    st.warning(f"{len(overview_schedule_warnings)} schemavarningar behÃ¶ver granskas fÃ¶re publicering.")
+                    st.warning(f"{len(overview_schedule_warnings)} schemavarningar behöver granskas före publicering.")
                 else:
-                    st.caption("Publiceringsstatus och publiceringsknapp finns i vÃ¤nsterspalten.")
+                    st.caption("Publiceringsstatus och publiceringsknapp finns i vänsterspalten.")
 
         with st.expander("Testverktyg", expanded=False):
             _demo_environment_allowed = is_test_environment(tournament)
-            st.subheader("Testverktyg" if _demo_environment_allowed else "Testverktyg Â· endast TestmiljÃ¶")
+            st.subheader("Testverktyg" if _demo_environment_allowed else "Testverktyg · endast Testmiljö")
             if _demo_environment_allowed:
-                st.caption("Skapa demodata och simulera cupens olika faser utan att pÃ¥verka en riktig cup.")
+                st.caption("Skapa demodata och simulera cupens olika faser utan att påverka en riktig cup.")
             else:
                 st.info(
-                    "Testverktygen Ã¤r avstÃ¤ngda i riktiga cuper. Duplicera cupen som Testkopia om du vill prova "
+                    "Testverktygen är avstängda i riktiga cuper. Duplicera cupen som Testkopia om du vill prova "
                     "schema, demodata eller simulerade resultat."
                 )
             if _demo_environment_allowed:
@@ -12884,30 +12884,30 @@ elif admin_page == "AdminÃ¶versikt":
                     and demo_counts["matches_n"] == 0
                 )
                 if not demo_allowed:
-                    st.caption("Demodata kan bara skapas i en tom turnering, sÃ¥ befintlig cupdata kan aldrig skrivas Ã¶ver.")
+                    st.caption("Demodata kan bara skapas i en tom turnering, så befintlig cupdata kan aldrig skrivas över.")
                 td1, td2 = st.columns(2)
                 demo_team_count = int(td1.number_input("Antal testlag", min_value=4, max_value=24, value=8, step=1, disabled=not demo_allowed, key=f"demo_team_count_{tid}"))
                 demo_group_count = int(td2.selectbox("Antal testgrupper", [2, 4, 8], index=0, disabled=not demo_allowed, key=f"demo_group_count_{tid}"))
                 demo_shape_valid = demo_team_count >= demo_group_count * 2
                 if demo_allowed and not demo_shape_valid:
-                    st.warning("Varje testgrupp behÃ¶ver minst tvÃ¥ lag. Minska antal grupper eller Ã¶ka antal lag.")
+                    st.warning("Varje testgrupp behöver minst två lag. Minska antal grupper eller öka antal lag.")
                 if st.button(f"Skapa testdata: {demo_team_count} lag + trupper + {demo_group_count} grupper", disabled=not demo_allowed or not demo_shape_valid, key=f"demo_{tid}"):
                     con = db()
                     try:
-                        # Riktiga klubbnamn anvÃ¤nds som testlag. Alla spelare nedan Ã¤r pÃ¥hittad demo-data.
-                        # Varje kÃ¶rning vÃ¤ljer 3 Allsvenskan + 2 Superettan + 3 Premier League.
+                        # Riktiga klubbnamn används som testlag. Alla spelare nedan är påhittad demo-data.
+                        # Varje körning väljer 3 Allsvenskan + 2 Superettan + 3 Premier League.
                         demo_clubs = {
                             "Allsvenskan": [
-                                ("AIK", "#111111", "#FDE047"), ("BK HÃ¤cken", "#FACC15", "#111111"),
-                                ("DjurgÃ¥rdens IF", "#60A5FA", "#1E3A8A"), ("Hammarby IF", "#16A34A", "#FFFFFF"),
-                                ("IF Elfsborg", "#FACC15", "#111111"), ("IFK GÃ¶teborg", "#2563EB", "#FFFFFF"),
-                                ("IFK NorrkÃ¶ping", "#2563EB", "#FFFFFF"), ("MalmÃ¶ FF", "#7DD3FC", "#FFFFFF"),
-                                ("MjÃ¤llby AIF", "#FACC15", "#111111"), ("IK Sirius", "#2563EB", "#111111"),
+                                ("AIK", "#111111", "#FDE047"), ("BK Häcken", "#FACC15", "#111111"),
+                                ("Djurgårdens IF", "#60A5FA", "#1E3A8A"), ("Hammarby IF", "#16A34A", "#FFFFFF"),
+                                ("IF Elfsborg", "#FACC15", "#111111"), ("IFK Göteborg", "#2563EB", "#FFFFFF"),
+                                ("IFK Norrköping", "#2563EB", "#FFFFFF"), ("Malmö FF", "#7DD3FC", "#FFFFFF"),
+                                ("Mjällby AIF", "#FACC15", "#111111"), ("IK Sirius", "#2563EB", "#111111"),
                             ],
                             "Superettan": [
-                                ("Ã–rebro SK", "#111111", "#FFFFFF"), ("Helsingborgs IF", "#DC2626", "#2563EB"),
+                                ("Örebro SK", "#111111", "#FFFFFF"), ("Helsingborgs IF", "#DC2626", "#2563EB"),
                                 ("Kalmar FF", "#DC2626", "#FFFFFF"), ("Landskrona BoIS", "#111111", "#FFFFFF"),
-                                ("GIF Sundsvall", "#2563EB", "#FFFFFF"), ("Ã–rgryte IS", "#DC2626", "#2563EB"),
+                                ("GIF Sundsvall", "#2563EB", "#FFFFFF"), ("Örgryte IS", "#DC2626", "#2563EB"),
                                 ("IK Brage", "#16A34A", "#FFFFFF"), ("Trelleborgs FF", "#2563EB", "#FFFFFF"),
                             ],
                             "Premier League": [
@@ -12925,27 +12925,27 @@ elif admin_page == "AdminÃ¶versikt":
                             chosen.append(("Demo", f"Testlag {index}", "#166534", "#FFFFFF"))
                         random.shuffle(chosen)
 
-                        # Fiktiva namn inspirerade av kÃ¤nda fotbollsstjÃ¤rnors fÃ¶rnamn/klang,
-                        # men kombinerade med andra efternamn sÃ¥ de inte pÃ¥stÃ¥r sig vara riktiga spelare.
+                        # Fiktiva namn inspirerade av kända fotbollsstjärnors förnamn/klang,
+                        # men kombinerade med andra efternamn så de inte påstår sig vara riktiga spelare.
                         star_first_names = [
                             "Lionel", "Cristiano", "Kylian", "Erling", "Jude", "Mohamed", "Kevin", "Harry",
-                            "Virgil", "Bukayo", "Cole", "Bruno", "Luka", "Pedri", "VinÃ­cius", "Rodri",
+                            "Virgil", "Bukayo", "Cole", "Bruno", "Luka", "Pedri", "Vinícius", "Rodri",
                             "Sonny", "Declan", "Phil", "Antoine", "Zlatan", "Alexander", "Martin", "Victor",
                         ]
                         fun_surnames = [
-                            "Svensson", "BergstrÃ¶m", "Karlsson", "Lind", "Holm", "Andersson", "EkstrÃ¶m",
-                            "NystrÃ¶m", "Dahl", "Sandberg", "RosÃ©n", "Strand", "BjÃ¶rk", "Lund", "Forsberg",
-                            "Westin", "Hedlund", "NorÃ©n", "EngstrÃ¶m", "Vik", "StjÃ¤rna", "BollstrÃ¶m",
+                            "Svensson", "Bergström", "Karlsson", "Lind", "Holm", "Andersson", "Ekström",
+                            "Nyström", "Dahl", "Sandberg", "Rosén", "Strand", "Björk", "Lund", "Forsberg",
+                            "Westin", "Hedlund", "Norén", "Engström", "Vik", "Stjärna", "Bollström",
                         ]
-                        patterns = ["HelfÃ¤rgad", "Vertikala rÃ¤nder", "Horisontella rÃ¤nder", "Rutigt", "Delad"]
+                        patterns = ["Helfärgad", "Vertikala ränder", "Horisontella ränder", "Rutigt", "Delad"]
                         away_palette = ["#FFFFFF", "#111827", "#FACC15", "#22C55E", "#F97316", "#E5E7EB", "#7DD3FC"]
 
                         con.execute(
                             """UPDATE tournaments SET expected_team_count=?,
                                    playoff_format='A- och B-slutspel',bronze_match=1,playoff_model_confirmed=1,
-                                   arena_address='CupNavi Arena, TestvÃ¤gen 1',kiosk_available=1,
-                                   kiosk_information='Kiosk Ã¶ppen hela cupdagen med kaffe, mat och dryck.',
-                                   public_information='Democup fÃ¶r komplett funktionstest av CupNavi.',
+                                   arena_address='CupNavi Arena, Testvägen 1',kiosk_available=1,
+                                   kiosk_information='Kiosk öppen hela cupdagen med kaffe, mat och dryck.',
+                                   public_information='Democup för komplett funktionstest av CupNavi.',
                                    organizer_phone='070-000 00 01',feedback_email='demo@cup-navi.com',
                                    instagram_url='https://www.instagram.com/cupnavi/',allow_team_public_contact=1,
                                    squad_deadline_minutes=30,max_roster_size=18,
@@ -12962,7 +12962,7 @@ elif admin_page == "AdminÃ¶versikt":
                         group_id_by_name = {row["name"]: row["id"] for row in created_groups}
                         group_ids = [group_id_by_name[name] for name in group_names]
 
-                        # FÃ¶rsta passet: skapa alla lag.
+                        # Första passet: skapa alla lag.
                         team_specs = []
                         for index, (league, club_name, home1, home2) in enumerate(chosen):
                             group_id = group_ids[index % demo_group_count]
@@ -12973,7 +12973,7 @@ elif admin_page == "AdminÃ¶versikt":
                             distance = random.choice([0, 12, 25, 48, 75, 110, 165, 220])
                             late = 1 if distance >= 110 and random.random() < 0.7 else 0
                             earliest = random.choice(["10:00", "10:30", "11:00"]) if late else None
-                            note = f"Demodata Â· {league}" + (" Â· lÃ¥ng resvÃ¤g" if late else "")
+                            note = f"Demodata · {league}" + (" · lång resväg" if late else "")
                             con.execute(
                                 """INSERT INTO teams(
                                     tournament_id,name,primary_color,secondary_color,home_pattern,home_color_2,
@@ -12990,13 +12990,13 @@ elif admin_page == "AdminÃ¶versikt":
                             )
                             team_specs.append((club_name, league))
 
-                        # HÃ¤mta faktiska Turso-ID:n efter INSERT i stÃ¤llet fÃ¶r att lita pÃ¥ lastrowid.
+                        # Hämta faktiska Turso-ID:n efter INSERT i stället för att lita på lastrowid.
                         created_teams = _rows_from_cursor(
                             con.execute("SELECT id,name FROM teams WHERE tournament_id=? ORDER BY id", (tid,))
                         )
                         team_id_by_name = {row["name"]: row["id"] for row in created_teams}
                         if len(team_id_by_name) != demo_team_count:
-                            raise RuntimeError(f"FÃ¶rvÃ¤ntade {demo_team_count} demolag men hittade {len(team_id_by_name)}.")
+                            raise RuntimeError(f"Förväntade {demo_team_count} demolag men hittade {len(team_id_by_name)}.")
 
                         # Andra passet: skapa 14 fiktiva spelare per lag.
                         inserted_players = 0
@@ -13011,10 +13011,10 @@ elif admin_page == "AdminÃ¶versikt":
                                         used_names.add(player_name)
                                         break
                                 if player_index == 0:
-                                    position = "MÃ¥lvakt"
+                                    position = "Målvakt"
                                 else:
                                     position = random.choices(
-                                        ["FÃ¶rsvarare", "MittfÃ¤ltare", "Anfallare"],
+                                        ["Försvarare", "Mittfältare", "Anfallare"],
                                         weights=[4, 4, 3],
                                         k=1,
                                     )[0]
@@ -13029,9 +13029,9 @@ elif admin_page == "AdminÃ¶versikt":
                                 )
                                 inserted_players += 1
 
-                        # TvÃ¥ fiktiva domare med pÃ¥hittade kontaktuppgifter och nivÃ¥er.
+                        # Två fiktiva domare med påhittade kontaktuppgifter och nivåer.
                         referee_first_names = ["Bengt", "Arvid", "Mats", "Sara", "Johan", "Linda", "Oskar", "Emma"]
-                        referee_last_names = ["Domarsson", "PipstrÃ¶m", "Visselberg", "Linjeman", "RÃ¤ttvik", "Matchlund"]
+                        referee_last_names = ["Domarsson", "Pipström", "Visselberg", "Linjeman", "Rättvik", "Matchlund"]
                         referee_levels = ["Distriktsdomare", "Regional domare", "Ungdomsdomare", "Senior domare"]
                         used_ref_names = set()
                         referee_target = max(2, min(8, demo_group_count))
@@ -13042,14 +13042,14 @@ elif admin_page == "AdminÃ¶versikt":
                                     used_ref_names.add(ref_name)
                                     break
                             phone = f"070-{random.randint(100,999)} {random.randint(10,99)} {random.randint(10,99)}"
-                            email_local = ref_name.lower().replace(" ", ".").replace("Ã¥", "a").replace("Ã¤", "a").replace("Ã¶", "o")
+                            email_local = ref_name.lower().replace(" ", ".").replace("å", "a").replace("ä", "a").replace("ö", "o")
                             email = f"{email_local}@demo.cupnavi.se"
                             con.execute(
                                 "INSERT INTO referees(tournament_id,name,phone,email,referee_level) VALUES(?,?,?,?,?)",
                                 (tid, ref_name, phone, email, random.choice(referee_levels)),
                             )
 
-                        # Kontrollera trupperna innan vi godkÃ¤nner transaktionen.
+                        # Kontrollera trupperna innan vi godkänner transaktionen.
                         player_check = _one_from_cursor(
                             con.execute(
                                 """SELECT COUNT(*) AS n
@@ -13068,10 +13068,10 @@ elif admin_page == "AdminÃ¶versikt":
                         )
                         if int(referee_check["n"] or 0) < referee_target:
                             raise RuntimeError(
-                                f"Domarkontrollen misslyckades: fÃ¶rvÃ¤ntade minst {referee_target} domare, hittade {referee_check['n']}."
+                                f"Domarkontrollen misslyckades: förväntade minst {referee_target} domare, hittade {referee_check['n']}."
                             )
 
-                        # Komplett kringdata fÃ¶r att testkÃ¶ra publik vy, lagportal och adminflÃ¶den.
+                        # Komplett kringdata för att testköra publik vy, lagportal och adminflöden.
                         now_iso = datetime.now().isoformat(timespec="seconds")
                         for team_row in created_teams:
                             plain_code = generate_access_code()
@@ -13089,26 +13089,26 @@ elif admin_page == "AdminÃ¶versikt":
                         con.execute(
                             """INSERT INTO sponsors(tournament_id,name,level,description,website_url,active,sort_order)
                                VALUES(?,?,?,?,?,?,?)""",
-                            (tid, "CupNavi Demo Partner", "Huvudpartner", "Testpartner fÃ¶r sponsorvyn.",
+                            (tid, "CupNavi Demo Partner", "Huvudpartner", "Testpartner för sponsorvyn.",
                              "https://cup-navi.com", 1, 1),
                         )
                         con.execute(
                             """INSERT INTO functionaries(tournament_id,name,role,phone,email,pitch_number,notes,public_contact,active)
                                VALUES(?,?,?,?,?,?,?,?,?)""",
-                            (tid, "Alex CupvÃ¤rd", "CupvÃ¤rd", "070-000 00 02", "funktionar@demo.cup-navi.com",
+                            (tid, "Alex Cupvärd", "Cupvärd", "070-000 00 02", "funktionar@demo.cup-navi.com",
                              1, "Finns vid sekretariatet.", 1, 1),
                         )
                         con.execute(
                             """INSERT INTO offers(tournament_id,title,business_name,description,discount_code,active,sort_order)
                                VALUES(?,?,?,?,?,?,?)""",
-                            (tid, "10 % pÃ¥ lunch", "Demo CafÃ©", "Visa CupNavi i kassan.", "CUP10", 1, 1),
+                            (tid, "10 % på lunch", "Demo Café", "Visa CupNavi i kassan.", "CUP10", 1, 1),
                         )
                         for sort_order, (kind, label, detail) in enumerate([
                             ("Plan", "Plan 1", "Huvudplan"),
                             ("Plan", "Plan 2", "Plan bredvid kiosken"),
                             ("Kiosk", "Kiosk", "Mat och dryck"),
                             ("Parkering", "Parkering", "Bakom arenan"),
-                            ("Sekretariat", "Sekretariat", "Information och tÃ¤vlingsledning"),
+                            ("Sekretariat", "Sekretariat", "Information och tävlingsledning"),
                         ]):
                             con.execute(
                                 "INSERT INTO venue_points(tournament_id,kind,label,detail,sort_order) VALUES(?,?,?,?,?)",
@@ -13120,12 +13120,12 @@ elif admin_page == "AdminÃ¶versikt":
                             """INSERT INTO team_messages(tournament_id,sender_type,sender_team_id,recipient_type,recipient_team_id,created_at,subject,message)
                                VALUES(?,?,?,?,?,?,?,?)""",
                             (tid, "team", first_team_id, "team", second_team_id, now_iso,
-                             "TrÃ¤ningsmatch", "Vi spelar gÃ¤rna en trÃ¤ningsmatch mot er senare i hÃ¶st."),
+                             "Träningsmatch", "Vi spelar gärna en träningsmatch mot er senare i höst."),
                         )
                         con.execute(
                             """INSERT INTO notifications(tournament_id,team_id,created_at,title,message,event_key)
                                VALUES(?,?,?,?,?,?)""",
-                            (tid, first_team_id, now_iso, "VÃ¤lkommen till democupen", "Detta Ã¤r ett testmeddelande fÃ¶r laget.",
+                            (tid, first_team_id, now_iso, "Välkommen till democupen", "Detta är ett testmeddelande för laget.",
                              f"demo-welcome-{tid}"),
                         )
                         con.commit()
@@ -13143,10 +13143,10 @@ elif admin_page == "AdminÃ¶versikt":
                             pass
                         st.error(f"Demodata kunde inte skapas: {exc}")
 
-                st.markdown("##### TestlÃ¤ge â€“ vÃ¤lj hur lÃ¥ngt cupen har kommit")
+                st.markdown("##### Testläge – välj hur långt cupen har kommit")
                 st.caption(
-                    "TestlÃ¤gena bygger ett komplett schema och fyller resultat, matchhÃ¤ndelser och status till vald nivÃ¥. "
-                    "Varje kÃ¶rning nollstÃ¤ller tidigare testresultat men behÃ¥ller lag, trupper, domare, lagkoder och Ã¶vrig demodata."
+                    "Testlägena bygger ett komplett schema och fyller resultat, matchhändelser och status till vald nivå. "
+                    "Varje körning nollställer tidigare testresultat men behåller lag, trupper, domare, lagkoder och övrig demodata."
                 )
                 testdata_ready = (
                     _demo_environment_allowed
@@ -13154,7 +13154,7 @@ elif admin_page == "AdminÃ¶versikt":
                     and int(demo_counts["groups_n"] or 0) > 0
                 )
                 if not testdata_ready:
-                    st.info("Skapa testdata i steg 1 innan du vÃ¤ljer hur lÃ¥ngt turneringen har pÃ¥gÃ¥tt.")
+                    st.info("Skapa testdata i steg 1 innan du väljer hur långt turneringen har pågått.")
 
                 # Browser-E2E does not mutate tournament lifecycle from inside a
                 # Streamlit render. Downstream browser states are prepared by the test
@@ -13163,18 +13163,18 @@ elif admin_page == "AdminÃ¶versikt":
                 # the button DOM exactly when it is clicked, which made the real UI flaky.
                 with st.form(f"demo_progress_form_{tid}", border=False):
                     demo_level = st.selectbox(
-                        "TestnivÃ¥",
+                        "Testnivå",
                         [
                             "Halva gruppspelet",
                             "Hela gruppspelet",
                             "Halva slutspelet",
-                            "Hela cupen fÃ¤rdig",
+                            "Hela cupen färdig",
                         ],
                         key=f"demo_progress_level_{tid}",
                         disabled=not testdata_ready,
                     )
                     generate_demo = st.form_submit_button(
-                        "ðŸ§ª Generera valt testlÃ¤ge",
+                        "🧪 Generera valt testläge",
                         use_container_width=True,
                         type="primary",
                         disabled=not testdata_ready,
@@ -13183,10 +13183,10 @@ elif admin_page == "AdminÃ¶versikt":
                     "Halva gruppspelet": "half_group",
                     "Hela gruppspelet": "full_group",
                     "Halva slutspelet": "half_playoff",
-                    "Hela cupen fÃ¤rdig": "complete",
+                    "Hela cupen färdig": "complete",
                 }[demo_level]
                 if generate_demo:
-                    with st.spinner(f"Bygger testlÃ¤ge: {demo_level}â€¦", show_time=True):
+                    with st.spinner(f"Bygger testläge: {demo_level}…", show_time=True):
                         ok, message = _demo_apply_progress_level(tid, level_key)
                     if ok:
                         st.success(message)
@@ -13204,7 +13204,7 @@ elif admin_page == "AdminÃ¶versikt":
                     (tid,),
                 )
                 st.caption(
-                    f"Aktuellt testlÃ¤ge: gruppspel {int(progress_counts['group_played'] or 0)}/{int(progress_counts['group_total'] or 0)} Â· "
+                    f"Aktuellt testläge: gruppspel {int(progress_counts['group_played'] or 0)}/{int(progress_counts['group_total'] or 0)} · "
                     f"slutspel {int(progress_counts['playoff_played'] or 0)}/{int(progress_counts['playoff_total'] or 0)}."
                 )
 
@@ -13212,12 +13212,12 @@ elif admin_page == "AdminÃ¶versikt":
                 "SELECT created_at,area,message,contact FROM feedback WHERE tournament_id=? ORDER BY id DESC LIMIT 50",
                 (tid,),
             )
-            with st.expander(f"Feedback frÃ¥n testare ({len(feedback_rows)})"):
+            with st.expander(f"Feedback från testare ({len(feedback_rows)})"):
                 if not feedback_rows:
-                    st.caption("Ingen feedback har skickats Ã¤nnu.")
+                    st.caption("Ingen feedback har skickats ännu.")
                 else:
                     for item in feedback_rows:
-                        st.markdown(f"**{item['area']}** Â· {item['created_at']}")
+                        st.markdown(f"**{item['area']}** · {item['created_at']}")
                         st.write(item["message"])
                         if item["contact"]:
                             st.caption(f"Kontakt: {item['contact']}")
@@ -13229,15 +13229,15 @@ if admin_page == "Regler":
           <div>
             <div class="kicker">Steg 4 av 9</div>
             <div class="title">Cupens regler</div>
-            <div class="subtitle">BestÃ¤m hur matcher spelas, hur tabellen rÃ¤knas och hur ett slutspel avgÃ¶rs. Bara regler som pÃ¥verkar tÃ¤vlingen ligger hÃ¤r.</div>
+            <div class="subtitle">Bestäm hur matcher spelas, hur tabellen räknas och hur ett slutspel avgörs. Bara regler som påverkar tävlingen ligger här.</div>
           </div>
         </div>""",
         unsafe_allow_html=True,
     )
     render_clickable_planning_flow(st, tid=tid, current_step="Regler", navigate_admin_page=_set_admin_page)
     _rules_back, _rules_step = st.columns([1, 2])
-    _rules_back.button("â† Till Grupper", use_container_width=True, key=f"rules_back_{tid}", on_click=_set_admin_page, args=("Grupper",))
-    _rules_step.caption("NÃ¤sta steg: Planer & tider")
+    _rules_back.button("← Till Grupper", use_container_width=True, key=f"rules_back_{tid}", on_click=_set_admin_page, args=("Grupper",))
+    _rules_step.caption("Nästa steg: Planer & tider")
 
     _rules = one_row("SELECT * FROM schedule_rules WHERE tournament_id=?", (tid,))
     if _rules is None:
@@ -13250,15 +13250,15 @@ if admin_page == "Regler":
     _initial_rule_values = document_rule_values(_initial_rules_import)
     _initial_rule_text = list(_initial_rules_import.get("rules") or [])
     if _initial_rule_values or _initial_rule_text:
-        with st.expander("ðŸ“¦ Regler frÃ¥n fÃ¶rsta importen", expanded=bool(_initial_rule_values)):
-            st.caption(f"KÃ¤lla: {str(_initial_rules_import.get('source_name') or 'foto/dokument')}. CupNavi visar bara det som hittades i underlaget; inget skrivs Ã¶ver utan ditt val.")
+        with st.expander("📦 Regler från första importen", expanded=bool(_initial_rule_values)):
+            st.caption(f"Källa: {str(_initial_rules_import.get('source_name') or 'foto/dokument')}. CupNavi visar bara det som hittades i underlaget; inget skrivs över utan ditt val.")
             for _txt in _initial_rule_text:
-                st.write(f"â€¢ {_txt}")
+                st.write(f"• {_txt}")
             if _initial_rule_values:
-                _labels = {"halves":"Halvlekar/perioder","minutes_per_half":"Minuter per halvlek/period","halftime_minutes":"Paus (min)","points_win":"PoÃ¤ng vinst","points_draw":"PoÃ¤ng oavgjort","points_loss":"PoÃ¤ng fÃ¶rlust"}
-                st.markdown("**Uttryckligen avlÃ¤sta vÃ¤rden**")
-                st.write(" Â· ".join(f"{_labels[k]}: **{v}**" for k,v in _initial_rule_values.items()))
-                if st.button("âœ“ AnvÃ¤nd avlÃ¤sta regelvÃ¤rden", type="primary", use_container_width=True, key=f"v578_apply_rules_{tid}"):
+                _labels = {"halves":"Halvlekar/perioder","minutes_per_half":"Minuter per halvlek/period","halftime_minutes":"Paus (min)","points_win":"Poäng vinst","points_draw":"Poäng oavgjort","points_loss":"Poäng förlust"}
+                st.markdown("**Uttryckligen avlästa värden**")
+                st.write(" · ".join(f"{_labels[k]}: **{v}**" for k,v in _initial_rule_values.items()))
+                if st.button("✓ Använd avlästa regelvärden", type="primary", use_container_width=True, key=f"v578_apply_rules_{tid}"):
                     _sets=[]; _vals=[]
                     for _k in ("halves","minutes_per_half","halftime_minutes"):
                         if _k in _initial_rule_values:
@@ -13273,16 +13273,16 @@ if admin_page == "Regler":
                         run(f"UPDATE tournaments SET {','.join(_tsets)},schedule_dirty=CASE WHEN EXISTS(SELECT 1 FROM matches WHERE tournament_id=?) THEN 1 ELSE schedule_dirty END WHERE id=?", tuple(_tvals+[tid,tid]))
                     if _sets:
                         run("UPDATE tournaments SET schedule_dirty=CASE WHEN EXISTS(SELECT 1 FROM matches WHERE tournament_id=?) THEN 1 ELSE schedule_dirty END WHERE id=?", (tid,tid))
-                    st.success("De uttryckligen avlÃ¤sta regelvÃ¤rdena Ã¤r sparade. Kontrollera dem i formulÃ¤ret nedan.")
+                    st.success("De uttryckligen avlästa regelvärdena är sparade. Kontrollera dem i formuläret nedan.")
                     st.rerun()
     _played_rules = int(one_row("SELECT COUNT(*) AS n FROM matches WHERE tournament_id=? AND home_score IS NOT NULL AND away_score IS NOT NULL", (tid,))["n"] or 0)
     _rules_locked = (not is_test_environment(tournament)) and _played_rules > 0
     if _rules_locked:
-        st.warning("ðŸ”’ TÃ¤vlingsreglerna Ã¤r lÃ¥sta efter fÃ¶rsta registrerade resultatet i en riktig cup. Det skyddar historiken.")
+        st.warning("🔒 Tävlingsreglerna är låsta efter första registrerade resultatet i en riktig cup. Det skyddar historiken.")
 
-    st.markdown("### 1. BestÃ¤m det viktigaste")
-    st.info("FÃ¶r de flesta cuper rÃ¤cker det att kontrollera matchtid och poÃ¤ng hÃ¤r. Ã–vriga regler kan ligga kvar pÃ¥ standardvÃ¤rdena.")
-    st.caption("Om du Ã¤ndrar nÃ¥got som pÃ¥verkar planeringen markerar CupNavi ett befintligt schema fÃ¶r ny kontroll. Redan spelade matcher flyttas aldrig automatiskt.")
+    st.markdown("### 1. Bestäm det viktigaste")
+    st.info("För de flesta cuper räcker det att kontrollera matchtid och poäng här. Övriga regler kan ligga kvar på standardvärdena.")
+    st.caption("Om du ändrar något som påverkar planeringen markerar CupNavi ett befintligt schema för ny kontroll. Redan spelade matcher flyttas aldrig automatiskt.")
     with st.form(f"rules_form_{tid}"):
         st.markdown("#### Matchtid")
         r1, r2, r3 = st.columns(3)
@@ -13292,52 +13292,52 @@ if admin_page == "Regler":
             halftime = r3.number_input("Paus mellan halvlekar/perioder (minuter)", 0, 60, int(_rules["halftime_minutes"]), disabled=_rules_locked)
         else:
             halftime = int(_rules["halftime_minutes"])
-            r3.caption("Ingen pausinstÃ¤llning behÃ¶vs vid 1 halvlek/period.")
+            r3.caption("Ingen pausinställning behövs vid 1 halvlek/period.")
         match_total = int(halves) * int(minutes) + max(0, int(halves)-1) * int(halftime)
         st.info(f"Matchtid inklusive pauser: cirka **{match_total} minuter**.")
 
-        st.markdown("#### PoÃ¤ng")
+        st.markdown("#### Poäng")
         p1, p2, p3 = st.columns(3)
-        win = p1.number_input("PoÃ¤ng fÃ¶r vinst", 0, 10, int(tournament["points_win"]), disabled=_rules_locked)
-        draw = p2.number_input("PoÃ¤ng fÃ¶r oavgjort", 0, 10, int(tournament["points_draw"]), disabled=_rules_locked)
-        loss = p3.number_input("PoÃ¤ng fÃ¶r fÃ¶rlust", 0, 10, int(tournament["points_loss"]), disabled=_rules_locked)
-        with st.expander("âš™ï¸ Fler regler Â· tabell, slutspel och schemaprinciper", expanded=False):
-            st.caption("StandardvÃ¤rdena fungerar som utgÃ¥ngspunkt. Ã–ppna bara det hÃ¤r om cupens regler krÃ¤ver nÃ¥got annat.")
-            tiebreak_opts = ["MÃ¥lskillnad fÃ¶rst", "InbÃ¶rdes mÃ¶ten fÃ¶rst"]
-            current_tb = tournament["table_tiebreak"] or "MÃ¥lskillnad fÃ¶rst"
-            tiebreak = st.selectbox("Vid lika poÃ¤ng avgÃ¶r i fÃ¶rsta hand", tiebreak_opts, index=tiebreak_opts.index(current_tb) if current_tb in tiebreak_opts else 0, disabled=_rules_locked)
+        win = p1.number_input("Poäng för vinst", 0, 10, int(tournament["points_win"]), disabled=_rules_locked)
+        draw = p2.number_input("Poäng för oavgjort", 0, 10, int(tournament["points_draw"]), disabled=_rules_locked)
+        loss = p3.number_input("Poäng för förlust", 0, 10, int(tournament["points_loss"]), disabled=_rules_locked)
+        with st.expander("⚙️ Fler regler · tabell, slutspel och schemaprinciper", expanded=False):
+            st.caption("Standardvärdena fungerar som utgångspunkt. Öppna bara det här om cupens regler kräver något annat.")
+            tiebreak_opts = ["Målskillnad först", "Inbördes möten först"]
+            current_tb = tournament["table_tiebreak"] or "Målskillnad först"
+            tiebreak = st.selectbox("Vid lika poäng avgör i första hand", tiebreak_opts, index=tiebreak_opts.index(current_tb) if current_tb in tiebreak_opts else 0, disabled=_rules_locked)
 
             st.markdown("#### Slutspel")
             fmt_options = ["Inget slutspel", TOP_TWO_PLAYOFF_FORMAT, "A- och B-slutspel", PLACEMENT_PLAYOFF_FORMAT]
             saved_fmt = PLACEMENT_PLAYOFF_FORMAT if tournament["playoff_format"] == "Flera egna slutspel" else (tournament["playoff_format"] or "Inget slutspel")
             playoff_format = st.selectbox("Slutspelsmodell", fmt_options, index=fmt_options.index(saved_fmt) if saved_fmt in fmt_options else 0, disabled=_rules_locked)
-            tie_opts = ["Straffar direkt", "FÃ¶rlÃ¤ngning + straffar", "Lottning"]
+            tie_opts = ["Straffar direkt", "Förlängning + straffar", "Lottning"]
             saved_tie = tournament["playoff_tie_rule"] or "Straffar direkt"
-            tie_rule = st.selectbox("Om en slutspelsmatch Ã¤r oavgjord", tie_opts, index=tie_opts.index(saved_tie) if saved_tie in tie_opts else 0, disabled=_rules_locked or playoff_format == "Inget slutspel")
-            extra_time = st.number_input("FÃ¶rlÃ¤ngning (minuter)", 1, 60, max(1, int(tournament["extra_time_minutes"] or 10)), disabled=_rules_locked or playoff_format == "Inget slutspel" or tie_rule != "FÃ¶rlÃ¤ngning + straffar")
+            tie_rule = st.selectbox("Om en slutspelsmatch är oavgjord", tie_opts, index=tie_opts.index(saved_tie) if saved_tie in tie_opts else 0, disabled=_rules_locked or playoff_format == "Inget slutspel")
+            extra_time = st.number_input("Förlängning (minuter)", 1, 60, max(1, int(tournament["extra_time_minutes"] or 10)), disabled=_rules_locked or playoff_format == "Inget slutspel" or tie_rule != "Förlängning + straffar")
             bronze = st.checkbox("Bronsmatch", value=bool(tournament["bronze_match"]), disabled=_rules_locked or playoff_format == "Inget slutspel")
 
             _playoff_override_saved = any(_row_value(_rules, key, None) is not None for key in ("playoff_halves", "playoff_minutes_per_half", "playoff_halftime_minutes", "playoff_pitch_break_minutes"))
             playoff_has_own_timing = st.checkbox(
-                "Slutspelet har andra matchtider eller pauser Ã¤n gruppspelet",
+                "Slutspelet har andra matchtider eller pauser än gruppspelet",
                 value=bool(_playoff_override_saved),
                 disabled=_rules_locked or playoff_format == "Inget slutspel",
-                help="AnvÃ¤nd nÃ¤r t.ex. semifinal/final spelas 2Ã—20 min medan gruppspelet spelas 1Ã—25 min.",
+                help="Använd när t.ex. semifinal/final spelas 2×20 min medan gruppspelet spelas 1×25 min.",
             )
             if playoff_has_own_timing and playoff_format != "Inget slutspel":
                 ps1, ps2, ps3 = st.columns(3)
-                playoff_halves = ps1.number_input("Slutspel Â· halvlekar/perioder", 1, 4, int(_row_value(_rules, "playoff_halves", None) or halves), disabled=_rules_locked)
-                playoff_minutes = ps2.number_input("Slutspel Â· minuter per halvlek/period", 1, 120, int(_row_value(_rules, "playoff_minutes_per_half", None) or minutes), disabled=_rules_locked)
+                playoff_halves = ps1.number_input("Slutspel · halvlekar/perioder", 1, 4, int(_row_value(_rules, "playoff_halves", None) or halves), disabled=_rules_locked)
+                playoff_minutes = ps2.number_input("Slutspel · minuter per halvlek/period", 1, 120, int(_row_value(_rules, "playoff_minutes_per_half", None) or minutes), disabled=_rules_locked)
                 _saved_ph = _row_value(_rules, "playoff_halftime_minutes", None)
                 _playoff_halftime_default = int(halftime if _saved_ph is None else _saved_ph)
                 if int(playoff_halves) >= 2:
-                    playoff_halftime = ps3.number_input("Slutspel Â· paus (min)", 0, 60, _playoff_halftime_default, disabled=_rules_locked)
+                    playoff_halftime = ps3.number_input("Slutspel · paus (min)", 0, 60, _playoff_halftime_default, disabled=_rules_locked)
                 else:
                     playoff_halftime = 0
                     ps3.caption("Ingen paus vid 1 halvlek/period.")
-                playoff_pitch_break = st.number_input("Slutspel Â· paus mellan matcher pÃ¥ samma plan (min)", 0, 120, int(_row_value(_rules, "playoff_pitch_break_minutes", None) if _row_value(_rules, "playoff_pitch_break_minutes", None) is not None else _rules["pitch_break_minutes"]), disabled=_rules_locked)
+                playoff_pitch_break = st.number_input("Slutspel · paus mellan matcher på samma plan (min)", 0, 120, int(_row_value(_rules, "playoff_pitch_break_minutes", None) if _row_value(_rules, "playoff_pitch_break_minutes", None) is not None else _rules["pitch_break_minutes"]), disabled=_rules_locked)
                 _playoff_total = int(playoff_halves) * int(playoff_minutes) + max(0, int(playoff_halves)-1) * int(playoff_halftime)
-                st.info(f"Slutspelsmatch inklusive pauser: cirka **{_playoff_total} minuter** fÃ¶re eventuell fÃ¶rlÃ¤ngning.")
+                st.info(f"Slutspelsmatch inklusive pauser: cirka **{_playoff_total} minuter** före eventuell förlängning.")
             else:
                 playoff_halves = None
                 playoff_minutes = None
@@ -13346,11 +13346,11 @@ if admin_page == "Regler":
 
             st.markdown("#### Vila och schemaprincip")
             q1, q2 = st.columns(2)
-            avoid_consecutive = q1.checkbox("FÃ¶rsÃ¶k undvika matcher direkt efter varandra", value=bool(_rules["avoid_consecutive_matches"]), disabled=_rules_locked)
-            consecutive_break = q2.number_input("Extra lagvila om fÃ¶ljdmatch inte kan undvikas (min)", 0, 180, int(_rules["consecutive_match_break_minutes"]), disabled=_rules_locked or not avoid_consecutive)
-            pitch_break = st.number_input("Paus mellan matcher pÃ¥ samma plan (min)", 0, 120, int(_rules["pitch_break_minutes"]), disabled=_rules_locked)
-            synchronized = st.checkbox("Samma avsparkstider pÃ¥ alla planer", value=bool(_row_value(_rules, "synchronized_pitch_times", 0)), disabled=_rules_locked)
-            st.caption("Domare har ett eget frivilligt steg efter Planer & tider. Trupper, mÃ¥lskyttar och kort hÃ¶r till Lag/rapportering â€“ inte till tÃ¤vlingsreglerna.")
+            avoid_consecutive = q1.checkbox("Försök undvika matcher direkt efter varandra", value=bool(_rules["avoid_consecutive_matches"]), disabled=_rules_locked)
+            consecutive_break = q2.number_input("Extra lagvila om följdmatch inte kan undvikas (min)", 0, 180, int(_rules["consecutive_match_break_minutes"]), disabled=_rules_locked or not avoid_consecutive)
+            pitch_break = st.number_input("Paus mellan matcher på samma plan (min)", 0, 120, int(_rules["pitch_break_minutes"]), disabled=_rules_locked)
+            synchronized = st.checkbox("Samma avsparkstider på alla planer", value=bool(_row_value(_rules, "synchronized_pitch_times", 0)), disabled=_rules_locked)
+            st.caption("Domare har ett eget frivilligt steg efter Planer & tider. Trupper, målskyttar och kort hör till Lag/rapportering – inte till tävlingsreglerna.")
 
         save_rules = st.form_submit_button("Spara regler", type="primary", use_container_width=True, disabled=_rules_locked)
     if save_rules:
@@ -13369,7 +13369,7 @@ if admin_page == "Regler":
         ])
         with db() as con:
             con.execute("""UPDATE tournaments SET points_win=?,points_draw=?,points_loss=?,table_tiebreak=?,playoff_format=?,bronze_match=?,playoff_tie_rule=?,extra_time_minutes=?,playoff_model_confirmed=1 WHERE id=?""",
-                        (int(win), int(draw), int(loss), tiebreak, playoff_format, int(bronze), tie_rule if playoff_format != "Inget slutspel" else "Straffar direkt", int(extra_time) if playoff_format != "Inget slutspel" and tie_rule == "FÃ¶rlÃ¤ngning + straffar" else 0, tid))
+                        (int(win), int(draw), int(loss), tiebreak, playoff_format, int(bronze), tie_rule if playoff_format != "Inget slutspel" else "Straffar direkt", int(extra_time) if playoff_format != "Inget slutspel" and tie_rule == "Förlängning + straffar" else 0, tid))
             con.execute("""UPDATE schedule_rules SET halves=?,minutes_per_half=?,halftime_minutes=?,pitch_break_minutes=?,synchronized_pitch_times=?,avoid_consecutive_matches=?,consecutive_match_break_minutes=?,playoff_halves=?,playoff_minutes_per_half=?,playoff_halftime_minutes=?,playoff_pitch_break_minutes=? WHERE tournament_id=?""",
                         (int(halves), int(minutes), int(halftime), int(pitch_break), int(bool(synchronized)), int(bool(avoid_consecutive)), int(consecutive_break),
                          int(playoff_halves) if playoff_halves is not None else None, int(playoff_minutes) if playoff_minutes is not None else None,
@@ -13378,47 +13378,47 @@ if admin_page == "Regler":
                 con.execute("UPDATE matches SET schedule_published=0 WHERE tournament_id=? AND home_score IS NULL AND away_score IS NULL", (tid,))
                 con.execute("UPDATE tournaments SET is_published=0,schedule_dirty=1 WHERE id=?", (tid,))
             con.commit()
-        st.success("Reglerna Ã¤r sparade." + (" Schemat Ã¤r markerat fÃ¶r ny kontroll eftersom regler som pÃ¥verkar planeringen Ã¤ndrades." if schedule_changed else ""))
+        st.success("Reglerna är sparade." + (" Schemat är markerat för ny kontroll eftersom regler som påverkar planeringen ändrades." if schedule_changed else ""))
         st.rerun()
 
-    st.markdown("### 2. GÃ¥ vidare")
-    st.caption("NÃ¤r matchtid och poÃ¤ng ser rÃ¤tt ut Ã¤r reglerna tillrÃ¤ckliga fÃ¶r att fortsÃ¤tta. Du kan komma tillbaka och finjustera senare.")
-    st.button("FortsÃ¤tt till Planer & tider â†’", type="primary", use_container_width=True, key=f"rules_next_{tid}", on_click=_set_admin_page, args=("Planer & tider",))
+    st.markdown("### 2. Gå vidare")
+    st.caption("När matchtid och poäng ser rätt ut är reglerna tillräckliga för att fortsätta. Du kan komma tillbaka och finjustera senare.")
+    st.button("Fortsätt till Planer & tider →", type="primary", use_container_width=True, key=f"rules_next_{tid}", on_click=_set_admin_page, args=("Planer & tider",))
     st.stop()
 
-if admin_page == "CupinstÃ¤llningar":
+if admin_page == "Cupinställningar":
     st.markdown(
         """<div class="cn-workspace-head">
           <div>
             <div class="kicker">Steg 1 av 9</div>
             <div class="title">Cupinfo</div>
-            <div class="subtitle">HÃ¤r beskriver du cupen. Planer och tillgÃ¤ngliga tider hanteras i steg 5.</div>
+            <div class="subtitle">Här beskriver du cupen. Planer och tillgängliga tider hanteras i steg 5.</div>
           </div>
         </div>""",
         unsafe_allow_html=True,
     )
-    st.markdown("### Det hÃ¤r behÃ¶ver du gÃ¶ra nu")
-    st.info("Fyll i cupens grundupplÃ¤gg i den guidade setupen: arrangemangstyp, deltagarklasser samt planer och tider. CupNavi tar resten steg fÃ¶r steg.")
+    st.markdown("### Det här behöver du göra nu")
+    st.info("Fyll i cupens grundupplägg i den guidade setupen: arrangemangstyp, deltagarklasser samt planer och tider. CupNavi tar resten steg för steg.")
     _cupinfo_later, _cupinfo_advanced = st.columns(2)
     with _cupinfo_later:
         st.markdown("**Kan fyllas i senare**")
-        st.caption("Publik text, kontaktuppgifter, adresser och andra praktiska detaljer behÃ¶ver inte stoppa dig nu.")
+        st.caption("Publik text, kontaktuppgifter, adresser och andra praktiska detaljer behöver inte stoppa dig nu.")
     with _cupinfo_advanced:
         st.markdown("**Avancerat**")
-        st.caption("Konsekvenskontroll och teknisk release-status ligger lÃ¤ngre ned och behÃ¶ver normalt inte anvÃ¤ndas.")
-    st.caption("Om ett schema redan finns flyttar CupNavi aldrig matcher automatiskt nÃ¤r du Ã¤ndrar setupen. Schemat markeras i stÃ¤llet fÃ¶r kontroll.")
+        st.caption("Konsekvenskontroll och teknisk release-status ligger längre ned och behöver normalt inte användas.")
+    st.caption("Om ett schema redan finns flyttar CupNavi aldrig matcher automatiskt när du ändrar setupen. Schemat markeras i stället för kontroll.")
     _played_count = int(one_row("SELECT COUNT(*) AS n FROM matches WHERE tournament_id=? AND home_score IS NOT NULL AND away_score IS NOT NULL",(tid,))["n"] or 0)
     _is_started = tournament_lifecycle in ("live","completed") or _played_count > 0
     _is_public = bool(tournament["is_published"])
     _phase = "STARTAD" if _is_started else ("PUBLICERAD" if _is_public else "UTKAST")
-    st.caption(f"Fas: **{_phase}** Â· Spelade matcher: **{_played_count}**")
-    st.markdown("**Du kan Ã¤ndra hÃ¤r:** datum, tÃ¤vlingsklasser, antal planer, planernas tider och dynamiskt/synkroniserat schema.")
+    st.caption(f"Fas: **{_phase}** · Spelade matcher: **{_played_count}**")
+    st.markdown("**Du kan ändra här:** datum, tävlingsklasser, antal planer, planernas tider och dynamiskt/synkroniserat schema.")
     def _open_current_cup_setup():
         st.session_state["new_tournament_setup_mode"]="edit"
         st.session_state["new_tournament_setup_id"]=int(tid)
         st.session_state["preferred_tournament_id"] = int(tid)
 
-    st.button("Ã–ppna guidad cupsetup â†’", type="primary", use_container_width=True,
+    st.button("Öppna guidad cupsetup →", type="primary", use_container_width=True,
               key=f"open_setup_{tid}", on_click=_open_current_cup_setup)
     _deploy=deployment_diagnostics()
     with st.expander("Teknisk release-status", expanded=False):
@@ -13427,56 +13427,56 @@ if admin_page == "CupinstÃ¤llningar":
         dc2.metric("Deploy-fingerprint",_deploy["fingerprint_short"])
         dc3.metric("Automatiska kodomladdningar",_deploy["auto_refresh_count"])
         st.caption(
-            f'Core pÃ¥ disk: {_deploy["core_disk_version"]} Â· importerad core: {_deploy["core_imported_version"]}'
+            f'Core på disk: {_deploy["core_disk_version"]} · importerad core: {_deploy["core_imported_version"]}'
         )
         if _deploy["last_auto_refresh"]:
             st.caption(f'Senaste automatiska kodomladdning: {_deploy["last_auto_refresh"]}')
         if _deploy["package_refreshed_this_run"]:
-            st.success("Ny deploy upptÃ¤cktes och CupNavi-koden laddades om automatiskt i den hÃ¤r kÃ¶rningen.")
+            st.success("Ny deploy upptäcktes och CupNavi-koden laddades om automatiskt i den här körningen.")
         elif not RELEASE_FILES_MISMATCH:
-            st.success("App- och corefiler Ã¤r synkade.")
+            st.success("App- och corefiler är synkade.")
     _admin_sport_rec=sport_setup_recommendation(_row_value(tournament,"sport","Fotboll"))
     _settings_rules=one_row("SELECT * FROM schedule_rules WHERE tournament_id=?",(tid,))
     _saved_gc=int(_row_value(_settings_rules,"recommended_group_count",0) or 0)
-    with st.expander("TÃ¤vlingsprofil och rekommendation", expanded=False):
+    with st.expander("Tävlingsprofil och rekommendation", expanded=False):
         st.write(
-            f'**{_admin_sport_rec["display_name"]}** Â· '
-            f'{_admin_sport_rec["periods"]} {_admin_sport_rec["period_label"]} Ã— {_admin_sport_rec["minutes_per_period"]} min Â· '
+            f'**{_admin_sport_rec["display_name"]}** · '
+            f'{_admin_sport_rec["periods"]} {_admin_sport_rec["period_label"]} × {_admin_sport_rec["minutes_per_period"]} min · '
             f'min. lagvila {_admin_sport_rec["minimum_rest_minutes"]} min.'
         )
         if _saved_gc:
             st.write(
-                f"Rekommenderat format: **{_saved_gc} grupper** Â· cirka **{int(_row_value(_settings_rules,'recommended_group_size',0) or 0)} lag/grupp** Â· "
+                f"Rekommenderat format: **{_saved_gc} grupper** · cirka **{int(_row_value(_settings_rules,'recommended_group_size',0) or 0)} lag/grupp** · "
                 f"**{int(_row_value(_settings_rules,'recommended_playoff_size',0) or 0)} lag i slutspel**."
             )
-            st.caption("Rekommendationen Ã¤r beslutsstÃ¶d och Ã¤ndrar inte cupen automatiskt.")
+            st.caption("Rekommendationen är beslutsstöd och ändrar inte cupen automatiskt.")
         else:
-            st.caption("Formatrekommendation visas nÃ¤r CupNavi har tillrÃ¤ckliga planeringsuppgifter.")
+            st.caption("Formatrekommendation visas när CupNavi har tillräckliga planeringsuppgifter.")
 
-    _show_change_impact = st.toggle("Kontrollera konsekvens fÃ¶re stÃ¶rre Ã¤ndring", value=False, key=f"show_change_impact_{tid}")
+    _show_change_impact = st.toggle("Kontrollera konsekvens före större ändring", value=False, key=f"show_change_impact_{tid}")
     if _show_change_impact:
         _phase_rows = [
             ("Namn, kontakt och publik information","Fri","Fri","Fri"),
-            ("Domare/funktionÃ¤rer","Fri","Fri","Framtida matcher"),
-            ("Plan/tid fÃ¶r en framtida match","Fri","Fri","TillÃ¥ten med konfliktkontroll"),
-            ("Plantider och schemaprioriteringar","Fri","KrÃ¤ver omplanering","Endast framtida matcher"),
-            ("Lag och grupper","Fri","KrÃ¤ver omplanering","LÃ¥st"),
-            ("Matchtid, poÃ¤ng och tÃ¤vlingsformat","Fri","KrÃ¤ver omplanering","LÃ¥st efter fÃ¶rsta resultat"),
-            ("Sport, region och tidszon","LÃ¥st grundegenskap","LÃ¥st","LÃ¥st"),
+            ("Domare/funktionärer","Fri","Fri","Framtida matcher"),
+            ("Plan/tid för en framtida match","Fri","Fri","Tillåten med konfliktkontroll"),
+            ("Plantider och schemaprioriteringar","Fri","Kräver omplanering","Endast framtida matcher"),
+            ("Lag och grupper","Fri","Kräver omplanering","Låst"),
+            ("Matchtid, poäng och tävlingsformat","Fri","Kräver omplanering","Låst efter första resultat"),
+            ("Sport, region och tidszon","Låst grundegenskap","Låst","Låst"),
         ]
         render_centered_table(pd.DataFrame(_phase_rows,columns=["Parameter","Utkast","Publicerad","Startad"]))
-        st.warning("CupNavi ska aldrig Ã¤ndra redan spelade matcher automatiskt. Ã„ndringar efter start fÃ¥r bara pÃ¥verka framtida, ospelade matcher.")
-        st.markdown("### FÃ¶rhandskontroll fÃ¶re Ã¤ndring")
+        st.warning("CupNavi ska aldrig ändra redan spelade matcher automatiskt. Ändringar efter start får bara påverka framtida, ospelade matcher.")
+        st.markdown("### Förhandskontroll före ändring")
         _impact_type=st.selectbox(
-            "Vad vill du Ã¤ndra?",
+            "Vad vill du ändra?",
             ["match_duration","pitch_windows","priorities","group_structure","playoff_format","points"],
             format_func=lambda x:{
                 "match_duration":"Matchtid / pauser",
-                "pitch_windows":"Planernas Ã¶ppettider",
+                "pitch_windows":"Planernas öppettider",
                 "priorities":"Schemaprioriteringar",
                 "group_structure":"Lag eller gruppindelning",
                 "playoff_format":"Slutspelsmodell",
-                "points":"PoÃ¤ngsystem",
+                "points":"Poängsystem",
             }[x],
             key=f"impact_change_type_{tid}",
         )
@@ -13484,19 +13484,19 @@ if admin_page == "CupinstÃ¤llningar":
         ic1,ic2,ic3=st.columns(3)
         ic1.metric("Spelade matcher",_impact["played"])
         ic2.metric("Framtida matcher",_impact["future"])
-        ic3.metric("PÃ¥verkas av Ã¤ndringen",_impact["affected"])
+        ic3.metric("Påverkas av ändringen",_impact["affected"])
         if _impact["requires_regeneration"]:
             st.warning(
-                f"Den hÃ¤r Ã¤ndringen pÃ¥verkar cirka **{_impact['affected']} framtida matcher** och krÃ¤ver omplanering. "
-                f"**{_impact['played']} redan spelade matcher skyddas och Ã¤ndras inte.**"
+                f"Den här ändringen påverkar cirka **{_impact['affected']} framtida matcher** och kräver omplanering. "
+                f"**{_impact['played']} redan spelade matcher skyddas och ändras inte.**"
             )
         elif _impact_type=="points":
             if _impact["played"]:
-                st.error("PoÃ¤ngsystemet bÃ¶r inte Ã¤ndras efter registrerade resultat eftersom tabeller och historik dÃ¥ Ã¤ndrar innebÃ¶rd.")
+                st.error("Poängsystemet bör inte ändras efter registrerade resultat eftersom tabeller och historik då ändrar innebörd.")
             else:
-                st.info("PoÃ¤ngsystemet kan Ã¤ndras utan att schemat behÃ¶ver regenereras.")
+                st.info("Poängsystemet kan ändras utan att schemat behöver regenereras.")
         else:
-            st.info("Ã„ndringen krÃ¤ver ingen full regenerering.")
+            st.info("Ändringen kräver ingen full regenerering.")
 
     st.stop()
 
@@ -13515,14 +13515,14 @@ if admin_page == "Kontroller":
               <div>
                 <div class="kicker">Steg 9 av 9</div>
                 <div class="title">Publicera</div>
-                <div class="subtitle">Sista steget. Se vad som blir synligt och publicera nÃ¤r kontrollen Ã¤r godkÃ¤nd.</div>
+                <div class="subtitle">Sista steget. Se vad som blir synligt och publicera när kontrollen är godkänd.</div>
               </div>
             </div>""",
             unsafe_allow_html=True,
         )
         render_clickable_planning_flow(st, tid=tid, current_step="Publicera", navigate_admin_page=_set_admin_page)
         if st.button(
-            "â† Till Kontroll",
+            "← Till Kontroll",
             use_container_width=True,
             key=f"publish_step_back_to_control_{tid}",
         ):
@@ -13541,12 +13541,12 @@ if admin_page == "Kontroller":
         )
         with st.container(border=True):
             if _publish_summary.can_publish:
-                st.success("âœ… Allt obligatoriskt Ã¤r klart")
-                st.markdown("**NÃ¤r du publicerar blir cupens publika vy tillgÃ¤nglig fÃ¶r deltagare och publik.**")
-                st.caption("Du kan fortsÃ¤tta Ã¤ndra cupen senare. Ã„ndringar som pÃ¥verkar schema eller upplÃ¤gg mÃ¥ste kontrolleras innan de publiceras igen.")
+                st.success("✅ Allt obligatoriskt är klart")
+                st.markdown("**När du publicerar blir cupens publika vy tillgänglig för deltagare och publik.**")
+                st.caption("Du kan fortsätta ändra cupen senare. Ändringar som påverkar schema eller upplägg måste kontrolleras innan de publiceras igen.")
             else:
-                st.error("â›” Cupen kan inte publiceras Ã¤nnu")
-                st.caption("GÃ¥ tillbaka till Kontroll. DÃ¤r fÃ¥r du en Ã…tgÃ¤rda-knapp fÃ¶r varje blockerande punkt.")
+                st.error("⛔ Cupen kan inte publiceras ännu")
+                st.caption("Gå tillbaka till Kontroll. Där får du en Åtgärda-knapp för varje blockerande punkt.")
 
         render_publish_preview(
             st=st, tournament_id=tid, tournament=tournament, all_rows=all_rows,
@@ -13571,7 +13571,7 @@ if admin_page == "Kontroller":
 
     # _control_flow_steps = ["Grundsetup", "Lag", "Grupper", "Schema", "Kontroll", "Publicera"]
     # Planning flow contract: ["Grundsetup", "Lag", "Grupper", "Schema", "Kontroll", "Publicera"]
-    # Historical QA anchor: st.header("Kontroll fÃ¶re publicering")
+    # Historical QA anchor: st.header("Kontroll före publicering")
     # Historical QA anchor: Endast kritiska fel stoppar publicering
     # v421: Kontroll is part of the same six-step planning journey as the
     # preceding setup pages. Keep the organiser oriented and provide a direct
@@ -13581,7 +13581,7 @@ if admin_page == "Kontroller":
           <div>
             <div class="kicker">Steg 8 av 9</div>
             <div class="title">Kontroll</div>
-            <div class="subtitle">CupNavi besiktar cupen. RÃ¶tt mÃ¥ste lÃ¶sas fÃ¶re publicering. Gult Ã¤r rÃ¥d och stoppar inte publicering.</div>
+            <div class="subtitle">CupNavi besiktar cupen. Rött måste lösas före publicering. Gult är råd och stoppar inte publicering.</div>
           </div>
         </div>""",
         unsafe_allow_html=True,
@@ -13589,14 +13589,14 @@ if admin_page == "Kontroller":
     render_clickable_planning_flow(st, tid=tid, current_step="Kontroll", navigate_admin_page=_set_admin_page)
     _control_flow_back, _control_flow_next = st.columns(2)
     _control_flow_back.button(
-        "â† Till Schema",
+        "← Till Schema",
         use_container_width=True,
         key=f"control_flow_back_to_schedule_{tid}",
         on_click=_set_admin_page,
         args=("Skapa och publicera schema",),
     )
     if _control_flow_next.button(
-        "FortsÃ¤tt till Publicera â†’",
+        "Fortsätt till Publicera →",
         use_container_width=True,
         key=f"control_flow_next_to_publish_{tid}",
     ):
@@ -13619,28 +13619,28 @@ if admin_page == "Kontroller":
         schedule_warnings=control_warnings,
     )
 
-    # v516: Kontroll ska fungera som en besiktning, inte som Ã¤nnu en dashboard.
-    # En ovan arrangÃ¶r ska omedelbart fÃ¶rstÃ¥ antingen "redo" eller exakt vad som Ã¥terstÃ¥r.
+    # v516: Kontroll ska fungera som en besiktning, inte som ännu en dashboard.
+    # En ovan arrangör ska omedelbart förstå antingen "redo" eller exakt vad som återstår.
     # Historical QA anchor: cc1.metric("Blockerande fel", len(control_errors))
-    # Historical QA anchor: st.error("Publicering Ã¤r blockerad tills fÃ¶ljande fel Ã¤r Ã¥tgÃ¤rdade:")
-    # Historical QA anchor: st.warning("FÃ¶ljande varningar behÃ¶ver granskas fÃ¶re publicering:")
+    # Historical QA anchor: st.error("Publicering är blockerad tills följande fel är åtgärdade:")
+    # Historical QA anchor: st.warning("Följande varningar behöver granskas före publicering:")
     with st.container(border=True):
         if _control_summary.can_publish:
-            st.success("âœ… Cupen Ã¤r redo att publiceras")
-            st.caption("Alla obligatoriska kontroller Ã¤r godkÃ¤nda. Gula rÃ¥d nedan Ã¤r frivilliga.")
+            st.success("✅ Cupen är redo att publiceras")
+            st.caption("Alla obligatoriska kontroller är godkända. Gula råd nedan är frivilliga.")
         else:
             _remaining = len(_control_summary.critical)
-            st.error(f"â›” {_remaining} sak{' Ã¥terstÃ¥r' if _remaining == 1 else 'er Ã¥terstÃ¥r'} fÃ¶re publicering")
-            st.caption("Tryck pÃ¥ Ã…tgÃ¤rda vid varje rÃ¶d punkt. CupNavi tar dig direkt till rÃ¤tt stÃ¤lle.")
+            st.error(f"⛔ {_remaining} sak{' återstår' if _remaining == 1 else 'er återstår'} före publicering")
+            st.caption("Tryck på Åtgärda vid varje röd punkt. CupNavi tar dig direkt till rätt ställe.")
 
     if _control_summary.critical:
-        st.markdown("### Det hÃ¤r mÃ¥ste fixas")
+        st.markdown("### Det här måste fixas")
         for _critical_index, message in enumerate(_control_summary.critical, 1):
             _destination, _destination_label = publication_problem_destination(message)
             with st.container(border=True):
-                st.markdown(f"**âŒ {message}**")
+                st.markdown(f"**❌ {message}**")
                 st.button(
-                    f"Ã…tgÃ¤rda â†’ {_destination_label}",
+                    f"Åtgärda → {_destination_label}",
                     use_container_width=True,
                     key=f"control_fix_{tid}_{_critical_index}",
                     on_click=_set_admin_page,
@@ -13649,22 +13649,22 @@ if admin_page == "Kontroller":
 
     _optional_count = len(_control_summary.warnings) + len(_control_summary.improvements)
     if _optional_count:
-        with st.expander(f"Gula rÃ¥d och frivilliga fÃ¶rbÃ¤ttringar Â· {_optional_count}", expanded=False):
-            st.caption("Det hÃ¤r stoppar inte publicering. Du kan gÃ¥ vidare Ã¤ven om du lÃ¤mnar dem som de Ã¤r.")
+        with st.expander(f"Gula råd och frivilliga förbättringar · {_optional_count}", expanded=False):
+            st.caption("Det här stoppar inte publicering. Du kan gå vidare även om du lämnar dem som de är.")
             for message in _control_summary.warnings:
                 st.warning(message)
             for message in _control_summary.improvements:
                 st.info(message)
     elif _control_summary.can_publish:
-        st.caption("CupNavi hittade inga ytterligare rÃ¥d i snabbkontrollen.")
+        st.caption("CupNavi hittade inga ytterligare råd i snabbkontrollen.")
 
     # v570: Kontroll is now a real visitor-facing pre-publication review, not
     # only a technical validation list. This deliberately reuses the same
     # preview renderer as Publicera so the organiser sees the same facts in both
     # steps before making the irreversible publication decision.
     st.divider()
-    st.markdown("### ðŸ‘€ SÃ¥ kommer cupen att mÃ¶ta besÃ¶karen")
-    st.caption("Granska innehÃ¥llet som en lagledare, fÃ¶rÃ¤lder eller spelare skulle se det. Inget publiceras frÃ¥n den hÃ¤r fÃ¶rhandsgranskningen.")
+    st.markdown("### 👀 Så kommer cupen att möta besökaren")
+    st.caption("Granska innehållet som en lagledare, förälder eller spelare skulle se det. Inget publiceras från den här förhandsgranskningen.")
     render_publish_preview(
         st=st, tournament_id=tid, tournament=tournament, all_rows=all_rows,
         row_value=_row_value, cup_date_label=cup_date_label, show_heading=False,
@@ -13674,9 +13674,9 @@ if admin_page == "Kontroller":
     # completes the inspection, then deliberately enters the seventh step.
     if _control_summary.can_publish:
         with st.container(border=True):
-            st.success("Kontrollen Ã¤r klar")
+            st.success("Kontrollen är klar")
             if st.button(
-                "FortsÃ¤tt till Publicera â†’",
+                "Fortsätt till Publicera →",
                 type="primary",
                 use_container_width=True,
                 key=f"control_ready_to_publish_{tid}",
@@ -13690,8 +13690,8 @@ if admin_page == "Kontroller":
     # ready. Keep the checks in one database connection/aggregate query so opening
     # Control does not turn into a chain of Turso roundtrips.
     st.divider()
-    st.markdown("### ðŸš¦ Skarpt lÃ¤ge")
-    st.caption("CupNavi kontrollerar det som behÃ¶ver fungera innan fÃ¶rsta riktiga matchen rapporteras.")
+    st.markdown("### 🚦 Skarpt läge")
+    st.caption("CupNavi kontrollerar det som behöver fungera innan första riktiga matchen rapporteras.")
     try:
         with db() as con:
             _go_live_health = collect_database_health(con)
@@ -13725,16 +13725,16 @@ if admin_page == "Kontroller":
         )
 
         _go_live_c1, _go_live_c2, _go_live_c3 = st.columns(3)
-        _go_live_c1.metric("GodkÃ¤nda", f"{_go_live.ok_count}/{len(_go_live.items)}")
+        _go_live_c1.metric("Godkända", f"{_go_live.ok_count}/{len(_go_live.items)}")
         _go_live_c2.metric("Blockerar start", len(_go_live.blockers))
         _go_live_c3.metric("Varningar", len(_go_live.warnings))
 
         if _go_live.ready:
-            st.success("âœ… Tekniskt redo fÃ¶r skarpt genrep")
-            st.caption("Inga tekniska blockerare hittades. GenomfÃ¶r mobiltestet nedan innan fÃ¶rsta riktiga matchen.")
+            st.success("✅ Tekniskt redo för skarpt genrep")
+            st.caption("Inga tekniska blockerare hittades. Genomför mobiltestet nedan innan första riktiga matchen.")
         else:
-            st.error(f"â›” Ã…tgÃ¤rda {len(_go_live.blockers)} punkt(er) innan skarpt genrep")
-            st.caption("RÃ¶da punkter kan gÃ¶ra att rapportering, lagring eller publik livevisning inte fungerar sÃ¤kert.")
+            st.error(f"⛔ Åtgärda {len(_go_live.blockers)} punkt(er) innan skarpt genrep")
+            st.caption("Röda punkter kan göra att rapportering, lagring eller publik livevisning inte fungerar säkert.")
 
         _go_live_cols = st.columns(2)
         for _go_live_index, _go_live_item in enumerate(_go_live.items):
@@ -13744,15 +13744,15 @@ if admin_page == "Kontroller":
                     st.caption(_go_live_item.detail)
                     if _go_live_item.state != "ok" and _go_live_item.action_page:
                         st.button(
-                            f"Ã–ppna {_go_live_item.action_page.replace('Matcher och resultat', 'Matcher')}",
+                            f"Öppna {_go_live_item.action_page.replace('Matcher och resultat', 'Matcher')}",
                             key=f"go_live_fix_{tid}_{_go_live_item.key}",
                             use_container_width=True,
                             on_click=_set_admin_page,
                             args=(_go_live_item.action_page,),
                         )
 
-        with st.expander("ðŸ“± Skarpt genrep Â· 2â€“3 mobiler/sessioner", expanded=bool(_go_live.ready)):
-            st.caption("Kryssen sparas bara i den aktuella adminsessionen. CupNavi godkÃ¤nner inte skarp start fÃ¶rrÃ¤n bÃ¥de tekniska kontroller och alla obligatoriska genrep Ã¤r grÃ¶na.")
+        with st.expander("📱 Skarpt genrep · 2–3 mobiler/sessioner", expanded=bool(_go_live.ready)):
+            st.caption("Kryssen sparas bara i den aktuella adminsessionen. CupNavi godkänner inte skarp start förrän både tekniska kontroller och alla obligatoriska genrep är gröna.")
             _has_playoff = int((_go_live_stats or {}).get("playoff_matches", 0) or 0) > 0
             _rehearsal_completed = {}
             _rehearsal_preview = build_sharp_rehearsal_verdict(
@@ -13774,21 +13774,21 @@ if admin_page == "Kontroller":
                 _rehearsal_verdict.completed_required / max(1, _rehearsal_verdict.required_count)
             )
             if _rehearsal_verdict.approved:
-                st.success("âœ… PASS Â· Cupen har klarat teknisk kontroll och hela det skarpa genrepet i den hÃ¤r sessionen.")
-                st.caption("NÃ¤sta steg Ã¤r att anvÃ¤nda samma deploy och Turso-konfiguration pÃ¥ cupdagen. Undvik fler kodÃ¤ndringar utan nytt genrep.")
+                st.success("✅ PASS · Cupen har klarat teknisk kontroll och hela det skarpa genrepet i den här sessionen.")
+                st.caption("Nästa steg är att använda samma deploy och Turso-konfiguration på cupdagen. Undvik fler kodändringar utan nytt genrep.")
             elif _rehearsal_verdict.rehearsal_complete:
-                st.error("â›” NO-GO Â· Genrepet Ã¤r komplett, men tekniska blockerare ovan finns kvar.")
+                st.error("⛔ NO-GO · Genrepet är komplett, men tekniska blockerare ovan finns kvar.")
             else:
                 st.warning(
-                    f"NO-GO tills vidare Â· {_rehearsal_verdict.completed_required}/{_rehearsal_verdict.required_count} obligatoriska moment verifierade."
+                    f"NO-GO tills vidare · {_rehearsal_verdict.completed_required}/{_rehearsal_verdict.required_count} obligatoriska moment verifierade."
                 )
                 if _rehearsal_verdict.remaining:
-                    st.caption("NÃ¤sta kontroll: " + _rehearsal_verdict.remaining[0].label)
-            st.caption("Browser-push Ã¤r inte ett startkrav. Publik livevy, Turso-lagring, resultat, tabell och â€“ nÃ¤r slutspel anvÃ¤nds â€“ beroendeskydd Ã¶ver hela slutspelskedjan Ã¤r startkrav.")
+                    st.caption("Nästa kontroll: " + _rehearsal_verdict.remaining[0].label)
+            st.caption("Browser-push är inte ett startkrav. Publik livevy, Turso-lagring, resultat, tabell och – när slutspel används – beroendeskydd över hela slutspelskedjan är startkrav.")
     except Exception as exc:
-        st.error(f"Go-live-kontrollen kunde inte kÃ¶ras: {exc}")
+        st.error(f"Go-live-kontrollen kunde inte köras: {exc}")
 
-    _show_deep_controls = st.toggle("FÃ¶rdjupad kontroll", value=False, key=f"show_deep_controls_{tid}")
+    _show_deep_controls = st.toggle("Fördjupad kontroll", value=False, key=f"show_deep_controls_{tid}")
     if _show_deep_controls:
         if control_quality:
             st.subheader("Belastning och vila per lag")
@@ -13813,16 +13813,16 @@ if admin_page == "Kontroller":
         if unassigned_controls:
             st.warning("Lag utan grupp: " + ", ".join(row["name"] for row in unassigned_controls))
         else:
-            st.success("Alla registrerade lag Ã¤r placerade i en grupp.")
+            st.success("Alla registrerade lag är placerade i en grupp.")
         if small_group_controls:
-            st.warning("Grupper med fÃ¤rre Ã¤n tvÃ¥ lag: " + ", ".join(small_group_controls))
+            st.warning("Grupper med färre än två lag: " + ", ".join(small_group_controls))
         else:
-            st.success("Alla skapade grupper har minst tvÃ¥ lag.")
+            st.success("Alla skapade grupper har minst två lag.")
 
-    _show_technical_health = st.toggle("Visa teknisk hÃ¤lsa, backup & nÃ¶dlÃ¤ge", value=False, key=f"show_technical_health_{tid}")
+    _show_technical_health = st.toggle("Visa teknisk hälsa, backup & nödläge", value=False, key=f"show_technical_health_{tid}")
     if _show_technical_health:
         st.caption(
-            "Det hÃ¤r omrÃ¥det Ã¤r till fÃ¶r drift och felsÃ¶kning. Det pÃ¥verkar inte sjÃ¤lva turneringsreglerna."
+            "Det här området är till för drift och felsökning. Det påverkar inte själva turneringsreglerna."
         )
         try:
             with db() as con:
@@ -13835,19 +13835,19 @@ if admin_page == "Kontroller":
             hc1.metric(
                 "Databasschema",
                 f"v{technical_health['schema_version']}",
-                help=f"CupNavi {APP_BUILD_VERSION} krÃ¤ver minst schema v{REQUIRED_SCHEMA_VERSION}.",
+                help=f"CupNavi {APP_BUILD_VERSION} kräver minst schema v{REQUIRED_SCHEMA_VERSION}.",
             )
             hc2.metric(
                 "Teknisk status",
-                "OK" if health_ok else "Kontroll krÃ¤vs",
+                "OK" if health_ok else "Kontroll krävs",
             )
             if health_ok:
-                st.success("âœ“ Databasen har rÃ¤tt schema och alla kritiska tabeller finns.")
+                st.success("✓ Databasen har rätt schema och alla kritiska tabeller finns.")
             else:
                 if technical_health["schema_version"] < REQUIRED_SCHEMA_VERSION:
                     st.error(
-                        f"Databasschema v{technical_health['schema_version']} anvÃ¤nds, "
-                        f"men appen krÃ¤ver minst v{REQUIRED_SCHEMA_VERSION}."
+                        f"Databasschema v{technical_health['schema_version']} används, "
+                        f"men appen kräver minst v{REQUIRED_SCHEMA_VERSION}."
                     )
                 if technical_health["missing_tables"]:
                     st.error(
@@ -13855,12 +13855,12 @@ if admin_page == "Kontroller":
                         + ", ".join(technical_health["missing_tables"])
                     )
         except Exception as exc:
-            st.error(f"Teknisk hÃ¤lsokontroll kunde inte kÃ¶ras: {exc}")
+            st.error(f"Teknisk hälsokontroll kunde inte köras: {exc}")
 
         st.divider()
-        st.markdown("#### ðŸ§¯ Cupdagens nÃ¶dpaket")
+        st.markdown("#### 🧯 Cupdagens nödpaket")
         st.caption(
-            "FÃ¶rbered detta innan fÃ¶rsta matchen. CupNavi fortsÃ¤tter aldrig med osÃ¤kra automatiska skrivningar "
+            "Förbered detta innan första matchen. CupNavi fortsätter aldrig med osäkra automatiska skrivningar "
             "om anslutningen till databasen faller bort."
         )
         _backup_created_key = f"backup_created_at_{tid}"
@@ -13873,47 +13873,47 @@ if admin_page == "Kontroller":
         )
         _backup_created_at = st.session_state.get(_backup_created_key)
         ec2.metric(
-            "Senast fÃ¶rberedd",
-            swedish_datetime(_backup_created_at) if _backup_created_at else "Inte Ã¤nnu",
+            "Senast förberedd",
+            swedish_datetime(_backup_created_at) if _backup_created_at else "Inte ännu",
         )
         if not _backup_ready:
             st.warning(
-                "FÃ¶rbered och ladda ner en backup innan cupstart. En backup som bara ligger i webblÃ¤sarsessionen "
-                "Ã¤r inte en sÃ¤kerhetskopia fÃ¶rrÃ¤n filen Ã¤r sparad pÃ¥ din enhet."
+                "Förbered och ladda ner en backup innan cupstart. En backup som bara ligger i webbläsarsessionen "
+                "är inte en säkerhetskopia förrän filen är sparad på din enhet."
             )
         else:
             st.success(
-                "âœ“ Backup Ã¤r fÃ¶rberedd i denna adminsession. Kontrollera Ã¤ven att JSON-filen Ã¤r nedladdad till enheten."
+                "✓ Backup är förberedd i denna adminsession. Kontrollera även att JSON-filen är nedladdad till enheten."
             )
 
-        with st.expander("ðŸš¨ Om internet eller Turso slutar fungera under cupen", expanded=False):
+        with st.expander("🚨 Om internet eller Turso slutar fungera under cupen", expanded=False):
             st.markdown(
                 """
-1. **Tryck inte flera gÃ¥nger pÃ¥ samma resultat/mÃ¥l.** Om CupNavi sÃ¤ger att sparstatusen Ã¤r osÃ¤ker, lÃ¤s om frÃ¥n servern fÃ¶rst.
-2. **Anteckna matchen manuellt** pÃ¥ papper eller i telefonens anteckningar: match, tid, slutresultat och mÃ¥lskyttar.
-3. **BehÃ¥ll den publika cupen ofÃ¶rÃ¤ndrad** tills anslutningen fungerar igen. CupNavi byter inte automatiskt till lokal databas.
-4. NÃ¤r anslutningen Ã¤r tillbaka: **ladda om CupNavi och kontrollera serverlÃ¤get** innan du registrerar nÃ¥got frÃ¥n de manuella anteckningarna.
-5. Registrera bara sÃ¥dant som **saknas pÃ¥ servern**. Kontrollera dÃ¤refter tabell och eventuellt slutspel.
-6. Om databasen inte gÃ¥r att Ã¥terstÃ¤lla: anvÃ¤nd den nedladdade backupen och **Ã¥terstÃ¤ll som en ny TestmiljÃ¶ fÃ¶rst**. Originalcupen skrivs aldrig Ã¶ver.
+1. **Tryck inte flera gånger på samma resultat/mål.** Om CupNavi säger att sparstatusen är osäker, läs om från servern först.
+2. **Anteckna matchen manuellt** på papper eller i telefonens anteckningar: match, tid, slutresultat och målskyttar.
+3. **Behåll den publika cupen oförändrad** tills anslutningen fungerar igen. CupNavi byter inte automatiskt till lokal databas.
+4. När anslutningen är tillbaka: **ladda om CupNavi och kontrollera serverläget** innan du registrerar något från de manuella anteckningarna.
+5. Registrera bara sådant som **saknas på servern**. Kontrollera därefter tabell och eventuellt slutspel.
+6. Om databasen inte går att återställa: använd den nedladdade backupen och **återställ som en ny Testmiljö först**. Originalcupen skrivs aldrig över.
                 """.strip()
             )
             st.info(
-                "Praktiskt tips: ha en utskriven eller sparad PDF av spelschemat pÃ¥ minst en arrangÃ¶rstelefon fÃ¶re cupstart."
+                "Praktiskt tips: ha en utskriven eller sparad PDF av spelschemat på minst en arrangörstelefon före cupstart."
             )
 
-        st.markdown("#### SÃ¤kerhetskopia av vald turnering")
+        st.markdown("#### Säkerhetskopia av vald turnering")
         st.caption(
-            "Backupen Ã¤r en portabel JSON-fil med turneringens struktur, lag, grupper, spelare, "
-            "schema, resultat, slutspel, driftdata och historik. Ã…terstÃ¤llning skapar alltid en ny cup "
-            "sÃ¥ att originalet aldrig skrivs Ã¶ver."
+            "Backupen är en portabel JSON-fil med turneringens struktur, lag, grupper, spelare, "
+            "schema, resultat, slutspel, driftdata och historik. Återställning skapar alltid en ny cup "
+            "så att originalet aldrig skrivs över."
         )
 
         if st.button(
-            "FÃ¶rbered backup",
+            "Förbered backup",
             key=f"prepare_backup_{tid}",
             use_container_width=True,
         ):
-            with st.spinner("CupNavi samlar turneringsdataâ€¦"):
+            with st.spinner("CupNavi samlar turneringsdata…"):
                 backup_datasets = {
                     "tournaments": [
                         dict(row) for row in all_rows(
@@ -14085,13 +14085,13 @@ if admin_page == "Kontroller":
             ).strip("_")
             _prepared_at = st.session_state.get(f"backup_created_at_{tid}")
             st.success(
-                "âœ“ Backup fÃ¶rberedd"
-                + (f" Â· {swedish_datetime(_prepared_at)}" if _prepared_at else "")
-                + " Â· SHA-256: "
+                "✓ Backup förberedd"
+                + (f" · {swedish_datetime(_prepared_at)}" if _prepared_at else "")
+                + " · SHA-256: "
                 + st.session_state[f"backup_sha_{tid}"][:16]
-                + "â€¦"
+                + "…"
             )
-            st.caption("NÃ¤sta steg: ladda ner JSON-filen till minst en arrangÃ¶rsenhet fÃ¶re cupstart.")
+            st.caption("Nästa steg: ladda ner JSON-filen till minst en arrangörsenhet före cupstart.")
             st.download_button(
                 "Ladda ner backup",
                 data=st.session_state[f"backup_bytes_{tid}"],
@@ -14102,13 +14102,13 @@ if admin_page == "Kontroller":
             )
 
         st.divider()
-        st.markdown("#### Ã…terstÃ¤ll frÃ¥n backup")
+        st.markdown("#### Återställ från backup")
         st.caption(
-            "Ã…terstÃ¤llning skriver aldrig Ã¶ver en befintlig cup. CupNavi skapar en ny cup med nya interna ID:n "
-            "och Ã¥terkopplar lag, grupper, matcher, slutspel och relaterad data."
+            "Återställning skriver aldrig över en befintlig cup. CupNavi skapar en ny cup med nya interna ID:n "
+            "och återkopplar lag, grupper, matcher, slutspel och relaterad data."
         )
         uploaded_backup = st.file_uploader(
-            "VÃ¤lj CupNavi-backup (.json)",
+            "Välj CupNavi-backup (.json)",
             type=["json"],
             key=f"restore_backup_upload_{tid}",
         )
@@ -14118,33 +14118,33 @@ if admin_page == "Kontroller":
                 _restore_payload = validate_backup_bytes(_restore_bytes)
                 _restore_source = _restore_payload["data"]["tournaments"][0]
                 st.success(
-                    f"Backup verifierad Â· skapad {_restore_payload.get('created_at','okÃ¤nd tid')} Â· "
-                    f"kÃ¤lla: {_restore_source.get('name','OkÃ¤nd cup')}"
+                    f"Backup verifierad · skapad {_restore_payload.get('created_at','okänd tid')} · "
+                    f"källa: {_restore_source.get('name','Okänd cup')}"
                 )
                 rc1, rc2 = st.columns([2, 1])
                 restore_name = rc1.text_input(
-                    "Namn pÃ¥ Ã¥terstÃ¤lld cup",
-                    value=f"{_restore_source.get('name','CupNavi')} â€“ Ã¥terstÃ¤lld",
+                    "Namn på återställd cup",
+                    value=f"{_restore_source.get('name','CupNavi')} – återställd",
                     key=f"restore_backup_name_{tid}",
                 )
                 restore_environment = rc2.selectbox(
-                    "MiljÃ¶",
+                    "Miljö",
                     ["test", "production"],
-                    format_func=lambda value: "TestmiljÃ¶" if value == "test" else "Riktig cup",
+                    format_func=lambda value: "Testmiljö" if value == "test" else "Riktig cup",
                     key=f"restore_backup_environment_{tid}",
                 )
                 restore_confirm = st.checkbox(
-                    "Jag fÃ¶rstÃ¥r att Ã¥terstÃ¤llningen skapar en ny, opublicerad cup och inte Ã¤ndrar originalet.",
+                    "Jag förstår att återställningen skapar en ny, opublicerad cup och inte ändrar originalet.",
                     key=f"restore_backup_confirm_{tid}",
                 )
                 if st.button(
-                    "â†©ï¸ Ã…terstÃ¤ll som ny cup",
+                    "↩️ Återställ som ny cup",
                     type="primary",
                     use_container_width=True,
                     disabled=not restore_confirm or not restore_name.strip(),
                     key=f"restore_backup_run_{tid}",
                 ):
-                    with st.spinner("Ã…terstÃ¤ller backup atomisktâ€¦"):
+                    with st.spinner("Återställer backup atomiskt…"):
                         con = db()
                         try:
                             restored_tid = restore_backup_as_new_tournament(
@@ -14158,43 +14158,43 @@ if admin_page == "Kontroller":
                     grant_current_account_tournament_access(restored_tid, "owner")
                     _clear_render_query_cache()
                     st.session_state["preferred_tournament_id"] = int(restored_tid)
-                    st.session_state[f"admin_page_{restored_tid}"] = "AdminÃ¶versikt"
-                    st.success(f"Backup Ã¥terstÃ¤lld som ny cup (ID {restored_tid}).")
+                    st.session_state[f"admin_page_{restored_tid}"] = "Adminöversikt"
+                    st.success(f"Backup återställd som ny cup (ID {restored_tid}).")
                     st.rerun()
             except Exception as exc:
-                st.error(f"Backupen kunde inte Ã¥terstÃ¤llas: {exc}")
+                st.error(f"Backupen kunde inte återställas: {exc}")
 
-    with st.expander("ðŸ“± Mobilkontroll â€“ Android och iPhone"):
-        st.caption("Snabb kontroll fÃ¶re publicering. Testa helst minst en Android/Chrome och en iPhone/Safari.")
+    with st.expander("📱 Mobilkontroll – Android och iPhone"):
+        st.caption("Snabb kontroll före publicering. Testa helst minst en Android/Chrome och en iPhone/Safari.")
         st.markdown(
             """
-            - VisningslÃ¤ge och Admin gÃ¥r att nÃ¥ utan sidomenyn.
-            - Publikflikarna gÃ¥r att svepa horisontellt.
-            - Datum- och tidsfÃ¤lt Ã¤r lÃ¤sbara och Ã¶ppnar rÃ¤tt mobilkontroll.
-            - Ingen sida zoomar in automatiskt nÃ¤r ett textfÃ¤lt aktiveras.
-            - Tabeller och slutspel gÃ¥r att scrolla utan att hela sidan blir bredare Ã¤n skÃ¤rmen.
-            - Knappar gÃ¥r att trycka pÃ¥ utan att ligga fÃ¶r tÃ¤tt.
+            - Visningsläge och Admin går att nå utan sidomenyn.
+            - Publikflikarna går att svepa horisontellt.
+            - Datum- och tidsfält är läsbara och öppnar rätt mobilkontroll.
+            - Ingen sida zoomar in automatiskt när ett textfält aktiveras.
+            - Tabeller och slutspel går att scrolla utan att hela sidan blir bredare än skärmen.
+            - Knappar går att trycka på utan att ligga för tätt.
             """
         )
 
-    with st.expander("âš¡ Prestandadiagnostik"):
-        st.caption("MÃ¤ter databasarbete under den aktuella sidladdningen. AnvÃ¤nd siffrorna nÃ¤r en sida kÃ¤nns seg.")
+    with st.expander("⚡ Prestandadiagnostik"):
+        st.caption("Mäter databasarbete under den aktuella sidladdningen. Använd siffrorna när en sida känns seg.")
         pc1, pc2, pc3, pc4, pc5 = st.columns(5)
         pc1.metric("DB-anrop", _PERF["db_calls"])
         pc2.metric("DB-tid", f"{_PERF['db_ms']:.0f} ms")
         pc3.metric("SQL-cache", _PERF["cache_hits"])
-        pc4.metric("BerÃ¤kningscache", _PERF["derived_hits"])
+        pc4.metric("Beräkningscache", _PERF["derived_hits"])
         pc5.metric("Skrivningar", _PERF["writes"])
         if _PERF["db_calls"] >= 20:
-            st.warning("MÃ¥nga databasfrÃ¥gor pÃ¥ samma sidladdning. Den hÃ¤r sidan bÃ¶r optimeras vidare.")
+            st.warning("Många databasfrågor på samma sidladdning. Den här sidan bör optimeras vidare.")
         elif _PERF["db_ms"] >= 1500:
-            st.warning("Databasen stÃ¥r fÃ¶r en stor del av vÃ¤ntetiden pÃ¥ den hÃ¤r sidladdningen.")
+            st.warning("Databasen står för en stor del av väntetiden på den här sidladdningen.")
         else:
-            st.success("Ingen tydlig databasflaskhals syns i den hÃ¤r mÃ¤tningen.")
+            st.success("Ingen tydlig databasflaskhals syns i den här mätningen.")
 
-if admin_page == "Problem & lÃ¶sningar":
-    st.header("Problem & lÃ¶sningar")
-    st.caption("Se vad som blockerar schemat och fÃ¥ fÃ¶rslag pÃ¥ minsta mÃ¶jliga Ã¥tgÃ¤rd.")
+if admin_page == "Problem & lösningar":
+    st.header("Problem & lösningar")
+    st.caption("Se vad som blockerar schemat och få förslag på minsta möjliga åtgärd.")
     problem_rules = one_row("SELECT * FROM schedule_rules WHERE tournament_id=?", (tid,))
     if problem_rules is None:
         run("INSERT INTO schedule_rules(tournament_id) VALUES(?)", (tid,))
@@ -14219,17 +14219,17 @@ if admin_page == "Problem & lÃ¶sningar":
     _q1.metric("Schemakvalitet", f"{_quality['score']}/100")
     _q2.metric("Ej schemalagda", _quality["unscheduled"])
     _q3.metric("Vilokonflikter", _quality["short_rest"])
-    _q4.metric("Missade startÃ¶nskemÃ¥l", _quality["late_preferences_missed"])
+    _q4.metric("Missade startönskemål", _quality["late_preferences_missed"])
     st.caption(
-        f"BedÃ¶mning: **{_quality['grade']}**. PoÃ¤ngen Ã¤r deterministisk och bygger pÃ¥ sparad schemadata â€“ "
-        "det Ã¤r inte en AI-sannolikhet. Kapacitetsproblem vÃ¤ger tyngst."
+        f"Bedömning: **{_quality['grade']}**. Poängen är deterministisk och bygger på sparad schemadata – "
+        "det är inte en AI-sannolikhet. Kapacitetsproblem väger tyngst."
     )
     if _quality["penalties"]:
-        _penalty_text = " Â· ".join(
-            f"{name}: âˆ’{value}" for name,value in _quality["penalties"].items() if value
+        _penalty_text = " · ".join(
+            f"{name}: −{value}" for name,value in _quality["penalties"].items() if value
         )
         if _penalty_text:
-            st.caption("PoÃ¤ngavdrag: " + _penalty_text)
+            st.caption("Poängavdrag: " + _penalty_text)
 
     if unresolved:
         context = _schedule_recovery_context(tid,tournament,problem_rules,unresolved)
@@ -14237,13 +14237,13 @@ if admin_page == "Problem & lÃ¶sningar":
         if context.get("physical_shortfall", 0) > 0:
             _slot_minutes = max(1, int(context.get("extension_minutes", 0) or 0))
             st.markdown(
-                f"**VarfÃ¶r?** Nuvarande planfÃ¶nster rymmer cirka **{context.get('capacity',0)} matcher** "
-                f"men cupen innehÃ¥ller **{context.get('total_matches',0)} matcher**. "
+                f"**Varför?** Nuvarande planfönster rymmer cirka **{context.get('capacity',0)} matcher** "
+                f"men cupen innehåller **{context.get('total_matches',0)} matcher**. "
                 f"Det saknas minst **{context.get('physical_shortfall',0)} matchplatser**."
             )
         else:
-            st.markdown("**VarfÃ¶r?** Den teoretiska plankapaciteten rÃ¤cker, men lagvila, domare eller hÃ¥rda Ã¶nskemÃ¥l blockerar Ã¥terstÃ¥ende placeringar.")
-        st.markdown("**Vad pÃ¥verkas?** Schemat kan inte betraktas som fÃ¤rdigt eller publiceringsklart.")
+            st.markdown("**Varför?** Den teoretiska plankapaciteten räcker, men lagvila, domare eller hårda önskemål blockerar återstående placeringar.")
+        st.markdown("**Vad påverkas?** Schemat kan inte betraktas som färdigt eller publiceringsklart.")
         render_schedule_recovery_actions(tid,tournament,problem_rules,context)
     if p_errors:
         st.subheader("Blockerande valideringsproblem")
@@ -14254,9 +14254,9 @@ if admin_page == "Problem & lÃ¶sningar":
     if not unresolved and not p_errors and not p_warnings:
         st.success("Inga aktuella schema- eller valideringsproblem hittades.")
 
-if admin_page == "Ã–nskemÃ¥lscentral":
-    st.header("Schemakrav & Ã¶nskemÃ¥l")
-    st.caption("Lagverktyg Â· HÃ¤r samlas lagens schemakrav och Ã¶nskemÃ¥l. HÃ¥rda krav fÃ¥r inte brytas; mjuka Ã¶nskemÃ¥l prioriteras mot varandra.")
+if admin_page == "Önskemålscentral":
+    st.header("Schemakrav & önskemål")
+    st.caption("Lagverktyg · Här samlas lagens schemakrav och önskemål. Hårda krav får inte brytas; mjuka önskemål prioriteras mot varandra.")
     _wish_rules=one_row("SELECT * FROM schedule_rules WHERE tournament_id=?",(tid,))
     _wish_teams=all_rows("SELECT id,name FROM teams WHERE tournament_id=? ORDER BY name",(tid,))
     _wish_rows=all_rows(
@@ -14264,17 +14264,17 @@ if admin_page == "Ã–nskemÃ¥lscentral":
            FROM schedule_requests r
            JOIN teams t ON t.id=r.team_id
            WHERE r.tournament_id=?
-           ORDER BY CASE r.status WHEN 'GodkÃ¤nd' THEN 0 WHEN 'VÃ¤ntar' THEN 1 ELSE 2 END,
+           ORDER BY CASE r.status WHEN 'Godkänd' THEN 0 WHEN 'Väntar' THEN 1 ELSE 2 END,
                     r.priority,r.id""",
         (tid,),
     )
-    _approved=[r for r in _wish_rows if r["status"]=="GodkÃ¤nd"]
-    _hard=[r for r in _approved if r["strength"]=="HÃ¥rt krav"]
+    _approved=[r for r in _wish_rows if r["status"]=="Godkänd"]
+    _hard=[r for r in _approved if r["strength"]=="Hårt krav"]
     _wish_score=schedule_score_report(tid,_wish_rules)
     wc1,wc2,wc3,wc4=st.columns(4)
-    wc1.metric("Ã–nskemÃ¥l",len(_wish_rows))
-    wc2.metric("GodkÃ¤nda",len(_approved))
-    wc3.metric("HÃ¥rda krav",len(_hard))
+    wc1.metric("Önskemål",len(_wish_rows))
+    wc2.metric("Godkända",len(_approved))
+    wc3.metric("Hårda krav",len(_hard))
     wc4.metric("Uppfyllda",f"{_wish_score['fulfilled']}/{_wish_score['request_total']}")
 
     if _wish_teams:
@@ -14282,41 +14282,41 @@ if admin_page == "Ã–nskemÃ¥lscentral":
             wr1,wr2,wr3=st.columns(3)
             _team_id=wr1.selectbox("Lag",[r["id"] for r in _wish_teams],format_func=lambda x: next(r["name"] for r in _wish_teams if r["id"]==x))
             _type=wr2.selectbox("Typ",list(REQUEST_TYPE_LABELS),format_func=lambda x: REQUEST_TYPE_LABELS[x])
-            _strength=wr3.selectbox("Klassning",["Ã–nskemÃ¥l","HÃ¥rt krav"])
+            _strength=wr3.selectbox("Klassning",["Önskemål","Hårt krav"])
             _value_label={
                 "late_start":"Tid HH:MM",
                 "latest_finish":"Tid HH:MM",
                 "preferred_pitch":"Plannummer",
                 "extra_rest":"Extra vila i minuter",
-                "avoid_late_group":"LÃ¤mna tomt",
+                "avoid_late_group":"Lämna tomt",
             }[_type]
             _value=st.text_input(_value_label,placeholder="Exempel: 11:00, 2 eller 60")
-            _note=st.text_input("Kommentar",placeholder="Exempel: lÃ¥ng resvÃ¤g")
-            if st.form_submit_button("LÃ¤gg till",type="primary",use_container_width=True):
+            _note=st.text_input("Kommentar",placeholder="Exempel: lång resväg")
+            if st.form_submit_button("Lägg till",type="primary",use_container_width=True):
                 run(
                     """INSERT INTO schedule_requests(
                         tournament_id,team_id,request_type,request_value,strength,status,priority,note,created_at
-                    ) VALUES(?,?,?,?,?,'VÃ¤ntar',100,?,?)""",
+                    ) VALUES(?,?,?,?,?,'Väntar',100,?,?)""",
                     (tid,_team_id,_type,_value.strip(),_strength,_note.strip(),datetime.now().isoformat(timespec="seconds")),
                 )
-                st.success("Ã–nskemÃ¥let Ã¤r registrerat och vÃ¤ntar pÃ¥ godkÃ¤nnande.")
+                st.success("Önskemålet är registrerat och väntar på godkännande.")
                 st.rerun()
     else:
-        st.info("LÃ¤gg till lag innan Ã¶nskemÃ¥l kan registreras.")
+        st.info("Lägg till lag innan önskemål kan registreras.")
 
     if _wish_rows:
-        st.markdown("### Inkomna Ã¶nskemÃ¥l")
+        st.markdown("### Inkomna önskemål")
         for req in _wish_rows:
             ok,detail=evaluate_schedule_request(tid,req,_wish_rules)
-            state="âœ“ Uppfyllt" if ok is True else ("âš  Ej uppfyllt" if ok is False else "Ej bedÃ¶mt")
+            state="✓ Uppfyllt" if ok is True else ("⚠ Ej uppfyllt" if ok is False else "Ej bedömt")
             with st.container(border=True):
                 c1,c2,c3=st.columns([4,2,2])
-                c1.markdown(f"**{html.escape(req['team_name'])}** Â· {html.escape(schedule_request_label(req))}")
-                c1.caption(f"{req['strength']} Â· {state} Â· {detail}")
+                c1.markdown(f"**{html.escape(req['team_name'])}** · {html.escape(schedule_request_label(req))}")
+                c1.caption(f"{req['strength']} · {state} · {detail}")
                 c2.write(f"Status: **{req['status']}**")
-                if req["status"]!="GodkÃ¤nd" and c3.button("GodkÃ¤nn",key=f"approve_req_{req['id']}",use_container_width=True):
+                if req["status"]!="Godkänd" and c3.button("Godkänn",key=f"approve_req_{req['id']}",use_container_width=True):
                     saved, request_reason = _set_schedule_request_status_if_current(
-                        req["id"], tid, req["status"], "GodkÃ¤nd"
+                        req["id"], tid, req["status"], "Godkänd"
                     )
                     if saved:
                         # Mirror legacy supported wishes to team fields used by scheduler.
@@ -14325,26 +14325,26 @@ if admin_page == "Ã–nskemÃ¥lscentral":
                         elif req["request_type"]=="avoid_late_group":
                             run("UPDATE teams SET avoid_late_group_match=1 WHERE id=? AND tournament_id=?",(req["team_id"],tid))
                     else:
-                        st.warning("Ã–nskemÃ¥let Ã¤ndrades av en annan administratÃ¶r och din Ã¤ldre Ã¥tgÃ¤rd genomfÃ¶rdes inte.")
+                        st.warning("Önskemålet ändrades av en annan administratör och din äldre åtgärd genomfördes inte.")
                     st.rerun()
                 if req["status"]!="Nekad" and c3.button("Neka",key=f"reject_req_{req['id']}",use_container_width=True):
                     saved, request_reason = _set_schedule_request_status_if_current(
                         req["id"], tid, req["status"], "Nekad"
                     )
                     if not saved:
-                        st.warning("Ã–nskemÃ¥let Ã¤ndrades av en annan administratÃ¶r och din Ã¤ldre Ã¥tgÃ¤rd genomfÃ¶rdes inte.")
+                        st.warning("Önskemålet ändrades av en annan administratör och din äldre åtgärd genomfördes inte.")
                     st.rerun()
 
         _approved_rows=all_rows(
             """SELECT r.*,t.name AS team_name FROM schedule_requests r
                JOIN teams t ON t.id=r.team_id
-               WHERE r.tournament_id=? AND r.status='GodkÃ¤nd'
+               WHERE r.tournament_id=? AND r.status='Godkänd'
                ORDER BY r.priority,r.id""",
             (tid,),
         )
         if _approved_rows:
-            st.markdown("### Prioritera godkÃ¤nda Ã¶nskemÃ¥l")
-            _labels=[f"{r['team_name']} Â· {schedule_request_label(r)}" for r in _approved_rows]
+            st.markdown("### Prioritera godkända önskemål")
+            _labels=[f"{r['team_name']} · {schedule_request_label(r)}" for r in _approved_rows]
             if sort_items is not None:
                 _sorted=sort_items(
                     _labels,direction="vertical",
@@ -14361,28 +14361,28 @@ if admin_page == "Ã–nskemÃ¥lscentral":
                     st.success("Prioriteringen sparades.")
                     st.rerun()
             else:
-                st.caption("Drag-and-drop krÃ¤ver streamlit-sortables.")
-            st.caption("Ã–verst = viktigast om Ã¶nskemÃ¥l konkurrerar om samma tider.")
+                st.caption("Drag-and-drop kräver streamlit-sortables.")
+            st.caption("Överst = viktigast om önskemål konkurrerar om samma tider.")
     st.stop()
 
 if admin_page == "Lag":
     # v598: make the new kit workflow discoverable instead of hiding it in secondary navigation.
     with st.container(border=True):
         _kit_cta_a, _kit_cta_b = st.columns([3, 1])
-        _kit_cta_a.markdown("""<div class="cn-kit-discovery"><div class="cn-kit-kicker">NY FUNKTION Â· MATCHSTÃ„LL</div><div class="cn-kit-title">ðŸ‘• TrÃ¶jfÃ¤rger & fÃ¤rgkrockar</div><div class="cn-kit-copy">Se lagens trÃ¶jor, ange hemma-/bortastÃ¤ll och lÃ¥t CupNavi varna nÃ¤r tvÃ¥ lag riskerar att spela i fÃ¶r lika fÃ¤rger.</div></div>""", unsafe_allow_html=True)
-        _kit_cta_b.button("Ã–ppna trÃ¶jfÃ¤rger â†’", type="primary", use_container_width=True, key=f"v598_kit_discovery_{tid}", on_click=_set_admin_page, args=("TrÃ¶j setup",))
+        _kit_cta_a.markdown("""<div class="cn-kit-discovery"><div class="cn-kit-kicker">NY FUNKTION · MATCHSTÄLL</div><div class="cn-kit-title">👕 Tröjfärger & färgkrockar</div><div class="cn-kit-copy">Se lagens tröjor, ange hemma-/bortaställ och låt CupNavi varna när två lag riskerar att spela i för lika färger.</div></div>""", unsafe_allow_html=True)
+        _kit_cta_b.button("Öppna tröjfärger →", type="primary", use_container_width=True, key=f"v598_kit_discovery_{tid}", on_click=_set_admin_page, args=("Tröj setup",))
     # Planning flow contract: ["Grundsetup", "Lag", "Grupper", "Schema", "Kontroll", "Publicera"]
     # Historical QA anchors retained after UX copy simplification:
-    # st.header("LÃ¤gg till lag")
-    # **â‘  LÃ¤gg till lag** â†’ â‘¡ Grupper â†’ â‘¢ Schema â†’ â‘£ Kontroll â†’ â‘¤ Publicera
-    # lag kvar. LÃ¤gg till
+    # st.header("Lägg till lag")
+    # **① Lägg till lag** → ② Grupper → ③ Schema → ④ Kontroll → ⑤ Publicera
+    # lag kvar. Lägg till
     # with st.expander("Valfria laguppgifter", expanded=False):
     # st.markdown(f"### {status_icon} {registered_team_count} av {max_teams} lag registrerade")
     # "av {max_teams} lag registrerade"
-    # Alla {registered_team_count} lag Ã¤r registrerade
+    # Alla {registered_team_count} lag är registrerade
     # "**Obligatoriskt:** lagnamn."
     # with st.expander("Valfria laguppgifter", expanded=False)
-    # "FortsÃ¤tt â†’ Skapa grupper"
+    # "Fortsätt → Skapa grupper"
     # v418: keep the first-cup journey visible when the wizard hands off to Lag.
     # The team page is part of the same planning flow, not a disconnected admin page.
     st.markdown(
@@ -14390,7 +14390,7 @@ if admin_page == "Lag":
           <div>
             <div class="kicker">Steg 2 av 9</div>
             <div class="title">Lag</div>
-            <div class="subtitle">LÃ¤gg in lagen som ska delta. NÃ¤r laglistan Ã¤r klar gÃ¥r du vidare till Grupper. Allt annat pÃ¥ sidan Ã¤r valfritt.</div>
+            <div class="subtitle">Lägg in lagen som ska delta. När laglistan är klar går du vidare till Grupper. Allt annat på sidan är valfritt.</div>
           </div>
         </div>""",
         unsafe_allow_html=True,
@@ -14398,7 +14398,7 @@ if admin_page == "Lag":
     render_clickable_planning_flow(st, tid=tid, current_step="Lag", navigate_admin_page=_set_admin_page)
     _flow_back, _flow_next = st.columns(2)
     _flow_back.button(
-        "â† Till Cupinfo",
+        "← Till Cupinfo",
         use_container_width=True,
         key=f"teams_back_to_setup_{tid}",
         on_click=_set_session_state_values,
@@ -14409,7 +14409,7 @@ if admin_page == "Lag":
             f"new_tournament_wizard_step_{tid}": 5,  # legacy QA anchor: = 5
         },),
     )
-    _flow_next.caption("NÃ¤sta steg: Grupper")
+    _flow_next.caption("Nästa steg: Grupper")
 
     _search_focus_kind = st.session_state.get(f"admin_search_focus_kind_{tid}")
     _search_focus_entity = st.session_state.get(f"admin_search_focus_entity_{tid}")
@@ -14424,10 +14424,10 @@ if admin_page == "Lag":
                 if _focused_team["group_id"] is not None else None
             )
             with st.container(border=True):
-                st.markdown(f"### ðŸ”Ž {html.escape(_focused_team['name'])}")
-                st.caption("Ã–ppnad frÃ¥n SÃ¶k i cupen")
+                st.markdown(f"### 🔎 {html.escape(_focused_team['name'])}")
+                st.caption("Öppnad från Sök i cupen")
                 focus_cols = st.columns(3)
-                focus_cols[0].metric("TÃ¤vlingsklass", _team_value(_focused_team, "age_class", "") or "â€“")
+                focus_cols[0].metric("Tävlingsklass", _team_value(_focused_team, "age_class", "") or "–")
                 focus_cols[1].metric("Grupp", _focused_group["name"] if _focused_group else "Ej placerad")
                 focus_cols[2].metric("Spelare", one_row("SELECT COUNT(*) AS n FROM players WHERE team_id=?", (_focused_team["id"],))["n"])
                 def _open_focused_team_roster(team_id):
@@ -14437,7 +14437,7 @@ if admin_page == "Lag":
                     st.session_state[admin_group_key] = _admin_group_for_page("Trupper")
 
                 st.button(
-                    "Ã–ppna lagets trupp",
+                    "Öppna lagets trupp",
                     key=f"search_focus_team_roster_{tid}_{_focused_team['id']}",
                     type="primary",
                     on_click=_open_focused_team_roster,
@@ -14451,9 +14451,9 @@ if admin_page == "Lag":
     if not class_rows and parse_age_classes(_row_value(tournament, "age_classes_json", "[]")):
         class_rows = sync_competition_classes(tid)
     current_classes = [competition_class_label(row) for row in class_rows]
-    # v397: Lag-sidan behÃ¶ver hela laglistan lÃ¤ngre ned oavsett. HÃ¤mta den en
-    # gÃ¥ng hÃ¤r och Ã¥teranvÃ¤nd bÃ¥de listan och len(teams) i stÃ¤llet fÃ¶r ett separat
-    # COUNT-anrop fÃ¶ljt av samma fulla lÃ¤sning. Detta sparar en remote roundtrip.
+    # v397: Lag-sidan behöver hela laglistan längre ned oavsett. Hämta den en
+    # gång här och återanvänd både listan och len(teams) i stället för ett separat
+    # COUNT-anrop följt av samma fulla läsning. Detta sparar en remote roundtrip.
     teams = admin_teams_snapshot(tid)
     max_teams = int(tournament["expected_team_count"] or 0)
     registered_team_count = len(teams)
@@ -14467,12 +14467,12 @@ if admin_page == "Lag":
             st.progress(progress_value)
             st.markdown(f"**{registered_team_count} av {max_teams} lag klara**")
         else:
-            st.markdown(f"**{registered_team_count} lag registrerade**" if registered_team_count else "**Inga lag registrerade Ã¤nnu**")
+            st.markdown(f"**{registered_team_count} lag registrerade**" if registered_team_count else "**Inga lag registrerade ännu**")
 
         if participant_registration_complete:
-            st.success("Alla planerade lag Ã¤r inne. NÃ¤sta steg Ã¤r gruppindelningen.")
+            st.success("Alla planerade lag är inne. Nästa steg är gruppindelningen.")
             st.button(
-                "FortsÃ¤tt till Grupper â†’",
+                "Fortsätt till Grupper →",
                 type="primary",
                 use_container_width=True,
                 key=f"v346_teams_to_groups_{tid}",
@@ -14482,57 +14482,57 @@ if admin_page == "Lag":
         else:
             remaining_teams = max(0, max_teams - registered_team_count) if max_teams else None
             st.caption(
-                f"NÃ¤sta: lÃ¤gg till ett lag nedan Â· {remaining_teams} Ã¥terstÃ¥r."
+                f"Nästa: lägg till ett lag nedan · {remaining_teams} återstår."
                 if remaining_teams is not None
-                else "NÃ¤sta: lÃ¤gg till ett lag nedan."
+                else "Nästa: lägg till ett lag nedan."
             )
     if team_limit_reached:
         st.button(
-            "Ã„ndra maxantal lag",
+            "Ändra maxantal lag",
             key=f"change_team_limit_{tid}",
             use_container_width=True,
             on_click=_set_admin_page,
-            args=("AdminÃ¶versikt",),
+            args=("Adminöversikt",),
         )
-        st.caption("FormulÃ¤ret fÃ¶r att lÃ¤gga till lag Ã¤r dolt eftersom maxantalet Ã¤r uppnÃ¥tt.")
+        st.caption("Formuläret för att lägga till lag är dolt eftersom maxantalet är uppnått.")
     else:
       with st.container(border=True):
-        st.markdown(f"### {'NÃ¤sta lag' if registered_team_count else 'FÃ¶rsta laget'}")
-        st.markdown("**MÃ¥ste fyllas i nu:** lagnamn" + (" och tÃ¤vlingsklass." if len(class_rows) > 1 else "."))
-        st.caption("Kan fyllas i senare: trÃ¶jor, lagansvarig, kontaktuppgifter och reseÃ¶nskemÃ¥l.")
-        team_name = st.text_input("Lagnamn *", placeholder="Exempel: Ã–rebro SK", key=f"new_team_name_{tid}")
+        st.markdown(f"### {'Nästa lag' if registered_team_count else 'Första laget'}")
+        st.markdown("**Måste fyllas i nu:** lagnamn" + (" och tävlingsklass." if len(class_rows) > 1 else "."))
+        st.caption("Kan fyllas i senare: tröjor, lagansvarig, kontaktuppgifter och reseönskemål.")
+        team_name = st.text_input("Lagnamn *", placeholder="Exempel: Örebro SK", key=f"new_team_name_{tid}")
         # v397: sync_competition_classes() ovan returnerar den aktuella listan.
-        # Ã…teranvÃ¤nd den hÃ¤r i stÃ¤llet fÃ¶r att lÃ¤sa samma klasser igen.
+        # Återanvänd den här i stället för att läsa samma klasser igen.
         class_ids = [row["id"] for row in class_rows]
         class_options = class_ids if len(class_ids) == 1 else ([None] + class_ids)
         team_class_id = st.selectbox(
-            "TÃ¤vlingsklass",
+            "Tävlingsklass",
             class_options or [None],
             index=0,
-            format_func=lambda value: "Ingen sÃ¤rskild tÃ¤vlingsklass" if value is None else next(competition_class_label(row) for row in class_rows if row["id"] == value),
+            format_func=lambda value: "Ingen särskild tävlingsklass" if value is None else next(competition_class_label(row) for row in class_rows if row["id"] == value),
             key=f"new_team_competition_class_{tid}",
             disabled=not bool(class_rows),
-            help="NÃ¤r cupen bara har en tÃ¤vlingsklass vÃ¤ljs den automatiskt. Lag i olika klasser hÃ¥lls sportsligt separerade.",
+            help="När cupen bara har en tävlingsklass väljs den automatiskt. Lag i olika klasser hålls sportsligt separerade.",
         )
         team_age_class = next((competition_class_label(row) for row in class_rows if row["id"] == team_class_id), "")
-        with st.expander("Valfritt Â· komplettera laget senare", expanded=False):
-            st.caption("LÃ¤gg till praktisk laginformation som trÃ¶jfÃ¤rger, reservstÃ¤ll, lagansvarig och kontaktuppgifter. Du kan gÃ¶ra detta nu eller senare.")
-            st.caption("MatchstÃ¤ll, kontaktperson och reseÃ¶nskemÃ¥l. Du kan hoppa Ã¶ver detta nu och komplettera senare.")
+        with st.expander("Valfritt · komplettera laget senare", expanded=False):
+            st.caption("Lägg till praktisk laginformation som tröjfärger, reservställ, lagansvarig och kontaktuppgifter. Du kan göra detta nu eller senare.")
+            st.caption("Matchställ, kontaktperson och reseönskemål. Du kan hoppa över detta nu och komplettera senare.")
 
-            st.markdown("#### MatchstÃ¤ll")
-            st.caption("VÃ¤lj en vanlig fÃ¤rg direkt. BehÃ¶ver du en exakt klubbfÃ¤rg finns **Egen fÃ¤rg** som sista val.")
+            st.markdown("#### Matchställ")
+            st.caption("Välj en vanlig färg direkt. Behöver du en exakt klubbfärg finns **Egen färg** som sista val.")
             _kit_api_key = setting("OPENAI_API_KEY")
             _kit_model = setting("CUPNAVI_AI_KIT_MODEL") or setting("CUPNAVI_AI_ROSTER_MODEL") or "gpt-5.6-luna"
             if st.button(
-                "âœ¨ FÃ¶reslÃ¥ hemma- och bortastÃ¤ll frÃ¥n lagnamnet",
+                "✨ Föreslå hemma- och bortaställ från lagnamnet",
                 key=f"suggest_new_team_kit_{tid}",
                 use_container_width=True,
                 disabled=not bool(team_name.strip()) or not bool(_kit_api_key),
-                help="CupNavi fÃ¶rsÃ¶ker identifiera klubben och fyller i ett fÃ¶rslag. Kontrollera alltid resultatet.",
+                help="CupNavi försöker identifiera klubben och fyller i ett förslag. Kontrollera alltid resultatet.",
             ):
                 try:
                     from cupnavi_core.ai_kit_suggestion import suggest_team_kit
-                    with st.spinner("Tar fram ett fÃ¶rsiktigt matchstÃ¤llsfÃ¶rslagâ€¦"):
+                    with st.spinner("Tar fram ett försiktigt matchställsförslag…"):
                         _kit_suggestion = suggest_team_kit(team_name.strip(), _kit_api_key, model=_kit_model)
                     if _kit_suggestion["found"]:
                         st.session_state["new_home_pattern"] = _kit_suggestion["home_pattern"]
@@ -14543,61 +14543,61 @@ if admin_page == "Lag":
                         _set_kit_color_selector_value(f"new_away_color2_{tid}", _kit_suggestion["away_color_2"])
                         st.session_state[f"kit_suggestion_notice_{tid}"] = (
                             "success",
-                            "CupNavi har fyllt i ett AI-fÃ¶rslag. Kontrollera matchstÃ¤llet innan laget sparas. "
+                            "CupNavi har fyllt i ett AI-förslag. Kontrollera matchstället innan laget sparas. "
                             + (_kit_suggestion.get("reason") or ""),
                         )
                         st.rerun()
                     else:
-                        st.warning("CupNavi kunde inte identifiera laget tillrÃ¤ckligt sÃ¤kert. VÃ¤lj fÃ¤rgerna manuellt i stÃ¤llet.")
+                        st.warning("CupNavi kunde inte identifiera laget tillräckligt säkert. Välj färgerna manuellt i stället.")
                 except Exception as exc:
                     st.error(str(exc))
             if not _kit_api_key:
-                st.caption("AI-fÃ¶rslag aktiveras nÃ¤r OPENAI_API_KEY finns konfigurerad.")
+                st.caption("AI-förslag aktiveras när OPENAI_API_KEY finns konfigurerad.")
             _kit_notice = st.session_state.pop(f"kit_suggestion_notice_{tid}", None)
             if _kit_notice:
                 (st.success if _kit_notice[0] == "success" else st.info)(_kit_notice[1])
 
             hc1, hc2, hc3 = st.columns([1.2, 1, 1])
-            home_pattern = hc1.selectbox("MÃ¶nster hemma", KIT_PATTERNS, key="new_home_pattern")
+            home_pattern = hc1.selectbox("Mönster hemma", KIT_PATTERNS, key="new_home_pattern")
             with hc2:
-                primary = kit_color_selector("Hemma â€“ fÃ¤rg 1", f"new_home_color1_{tid}", "#111827")
+                primary = kit_color_selector("Hemma – färg 1", f"new_home_color1_{tid}", "#111827")
             with hc3:
                 home_color_2 = kit_color_selector(
-                    "Hemma â€“ fÃ¤rg 2",
+                    "Hemma – färg 2",
                     f"new_home_color2_{tid}",
                     "#FFFFFF",
-                    "AnvÃ¤nds nÃ¤r stÃ¤llet inte Ã¤r helfÃ¤rgat.",
+                    "Används när stället inte är helfärgat.",
                 )
-            st.markdown(kit_preview_html(home_pattern, primary, home_color_2, "FÃ¶rhandsvisning hemmastÃ¤ll"), unsafe_allow_html=True)
+            st.markdown(kit_preview_html(home_pattern, primary, home_color_2, "Förhandsvisning hemmaställ"), unsafe_allow_html=True)
 
             ac1, ac2, ac3 = st.columns([1.2, 1, 1])
-            away_pattern = ac1.selectbox("MÃ¶nster borta", KIT_PATTERNS, key="new_away_pattern")
+            away_pattern = ac1.selectbox("Mönster borta", KIT_PATTERNS, key="new_away_pattern")
             with ac2:
-                secondary = kit_color_selector("Borta â€“ fÃ¤rg 1", f"new_away_color1_{tid}", "#FFFFFF")
+                secondary = kit_color_selector("Borta – färg 1", f"new_away_color1_{tid}", "#FFFFFF")
             with ac3:
                 away_color_2 = kit_color_selector(
-                    "Borta â€“ fÃ¤rg 2",
+                    "Borta – färg 2",
                     f"new_away_color2_{tid}",
                     "#111827",
-                    "AnvÃ¤nds nÃ¤r stÃ¤llet inte Ã¤r helfÃ¤rgat.",
+                    "Används när stället inte är helfärgat.",
                 )
-            st.markdown(kit_preview_html(away_pattern, secondary, away_color_2, "FÃ¶rhandsvisning bortastÃ¤ll"), unsafe_allow_html=True)
+            st.markdown(kit_preview_html(away_pattern, secondary, away_color_2, "Förhandsvisning bortaställ"), unsafe_allow_html=True)
 
             st.markdown("#### Lagansvarig kontaktperson")
-            st.caption("Ange den person som CupNavi/arrangÃ¶ren i fÃ¶rsta hand ska kontakta fÃ¶r laget, till exempel lagledare eller trÃ¤nare. Uppgifterna Ã¤r interna om du inte uttryckligen vÃ¤ljer att visa kontaktpersonen publikt.")
+            st.caption("Ange den person som CupNavi/arrangören i första hand ska kontakta för laget, till exempel lagledare eller tränare. Uppgifterna är interna om du inte uttryckligen väljer att visa kontaktpersonen publikt.")
             rc1, rc2, rc3 = st.columns(3)
-            responsible_name = rc1.text_input("Namn pÃ¥ lagansvarig", key=f"new_team_responsible_name_{tid}")
+            responsible_name = rc1.text_input("Namn på lagansvarig", key=f"new_team_responsible_name_{tid}")
             responsible_phone = rc2.text_input("Telefon till lagansvarig", key=f"new_team_responsible_phone_{tid}")
             responsible_email = rc3.text_input("E-post till lagansvarig", key=f"new_team_responsible_email_{tid}")
-            distance = st.number_input("ResvÃ¤g i kilometer", 0, 5000, 0)
+            distance = st.number_input("Resväg i kilometer", 0, 5000, 0)
             travel_note = st.text_input("Resekommentar", placeholder="Exempel: Reser samma morgon")
-            late_first_match = st.checkbox("Ã–nskar senare fÃ¶rsta match", help="AnvÃ¤nd detta exempelvis fÃ¶r lag med lÃ¥ng resvÃ¤g.")
-            earliest_first_time = st.time_input("FÃ¶rsta match tidigast", value=datetime.strptime("10:00", "%H:%M").time(), help="Tiden anvÃ¤nds bara om Ã–nskar senare fÃ¶rsta match Ã¤r markerat.")
-            avoid_late_group_match = st.checkbox("Undvik senaste gruppspelsmatchen", help="CupNavi fÃ¶rsÃ¶ker undvika dagens sista gruppspelstid fÃ¶r laget nÃ¤r schemat tillÃ¥ter det.")
-        if st.button("LÃ¤gg till laget", type="primary", disabled=team_limit_reached, key=f"add_team_{tid}", use_container_width=True):
+            late_first_match = st.checkbox("Önskar senare första match", help="Använd detta exempelvis för lag med lång resväg.")
+            earliest_first_time = st.time_input("Första match tidigast", value=datetime.strptime("10:00", "%H:%M").time(), help="Tiden används bara om Önskar senare första match är markerat.")
+            avoid_late_group_match = st.checkbox("Undvik senaste gruppspelsmatchen", help="CupNavi försöker undvika dagens sista gruppspelstid för laget när schemat tillåter det.")
+        if st.button("Lägg till laget", type="primary", disabled=team_limit_reached, key=f"add_team_{tid}", use_container_width=True):
             current_count = one_row("SELECT COUNT(*) AS n FROM teams WHERE tournament_id=?", (tid,))["n"]
             if max_teams and current_count >= max_teams:
-                st.error(f"Det gÃ¥r inte att lÃ¤gga till fler Ã¤n {max_teams} lag i den hÃ¤r turneringen.")
+                st.error(f"Det går inte att lägga till fler än {max_teams} lag i den här turneringen.")
             elif team_name.strip():
                 try:
                     new_team_id = insert_team_with_limit(
@@ -14623,53 +14623,53 @@ if admin_page == "Lag":
                     st.rerun()
                 except TeamLimitReachedError as exc:
                     hard_max = int(exc.args[0]) if exc.args else max_teams
-                    st.error(f"Det gÃ¥r inte att lÃ¤gga till fler Ã¤n {hard_max} lag i den hÃ¤r turneringen.")
+                    st.error(f"Det går inte att lägga till fler än {hard_max} lag i den här turneringen.")
                 except sqlite3.IntegrityError as exc:
                     if "TEAM_LIMIT_REACHED" in str(exc):
                         fresh_limit = one_row("SELECT expected_team_count FROM tournaments WHERE id=?", (tid,))
                         hard_max = int(fresh_limit["expected_team_count"] or 0) if fresh_limit else max_teams
-                        st.error(f"Det gÃ¥r inte att lÃ¤gga till fler Ã¤n {hard_max} lag i den hÃ¤r turneringen.")
+                        st.error(f"Det går inte att lägga till fler än {hard_max} lag i den här turneringen.")
                     else:
                         raise
             else:
                 st.error("Ange ett lagnamn.")
 
-    # v397: teams Ã¤r redan laddade ovan. Alla skrivningar pÃ¥ sidan fÃ¶ljs av
-    # st.rerun(), sÃ¥ listan Ã¤r fÃ¤rsk pÃ¥ nÃ¤sta render utan en andra DB-lÃ¤sning.
+    # v397: teams är redan laddade ovan. Alla skrivningar på sidan följs av
+    # st.rerun(), så listan är färsk på nästa render utan en andra DB-läsning.
     # v418: AI roster import is a first-class participant input, not hidden behind
     # another page. The organiser can drop a team sheet here, review the extracted
     # name/number/birth-year rows and only then write them to CupNavi.
-    with st.expander("Spelare frÃ¥n bild Â· valfritt", expanded=False):
-        st.markdown("### âœ¨ LÃ¤gg in spelare frÃ¥n bild")
-        st.caption("Dra in ett foto eller en skÃ¤rmdump av en laguppstÃ¤llning/spelarlista. CupNavi lÃ¤ser namn, nummer och fÃ¶delseÃ¥r. Du granskar alltid resultatet innan import.")
+    with st.expander("Spelare från bild · valfritt", expanded=False):
+        st.markdown("### ✨ Lägg in spelare från bild")
+        st.caption("Dra in ett foto eller en skärmdump av en laguppställning/spelarlista. CupNavi läser namn, nummer och födelseår. Du granskar alltid resultatet innan import.")
         if not teams:
-            st.info("LÃ¤gg till laget fÃ¶rst. DÃ¤refter kan bilden kopplas till rÃ¤tt lag.")
+            st.info("Lägg till laget först. Därefter kan bilden kopplas till rätt lag.")
         else:
             _photo_team_ids = [int(row["id"]) for row in teams]
             _team_name_by_id_lag = {int(row["id"]): row["name"] for row in teams}
             _last_added_team = st.session_state.get(f"last_added_team_{tid}")
             _photo_default = _photo_team_ids.index(int(_last_added_team)) if _last_added_team in _photo_team_ids else 0
             _photo_team_id = st.selectbox(
-                "Vilket lag gÃ¤ller bilden?",
+                "Vilket lag gäller bilden?",
                 _photo_team_ids,
                 index=_photo_default,
-                format_func=lambda team_id: _team_name_by_id_lag.get(int(team_id), "OkÃ¤nt lag"),
+                format_func=lambda team_id: _team_name_by_id_lag.get(int(team_id), "Okänt lag"),
                 key=f"photo_roster_team_{tid}",
             )
             _lag_ai_key = f"lag_ai_roster_rows_{tid}_{_photo_team_id}"
             _lag_ai_model = setting("CUPNAVI_AI_ROSTER_MODEL") or "gpt-5.6-luna"
             _lag_ai_api_key = setting("OPENAI_API_KEY")
             _lag_ai_files = st.file_uploader(
-                "Dra hit foto eller skÃ¤rmdump",
+                "Dra hit foto eller skärmdump",
                 type=["png", "jpg", "jpeg", "webp"],
                 accept_multiple_files=True,
                 key=f"lag_ai_roster_upload_{tid}_{_photo_team_id}",
-                help="Flera bilder gÃ¥r bra om laglistan finns pÃ¥ flera sidor.",
+                help="Flera bilder går bra om laglistan finns på flera sidor.",
             )
             if not _lag_ai_api_key:
-                st.warning("AI-importen Ã¤r inte aktiverad i den hÃ¤r miljÃ¶n Ã¤nnu. LÃ¤gg OPENAI_API_KEY i appens Streamlit Secrets fÃ¶r att slÃ¥ pÃ¥ bildtolkningen. Ingen API-nyckel visas eller sparas i CupNavi.")
+                st.warning("AI-importen är inte aktiverad i den här miljön ännu. Lägg OPENAI_API_KEY i appens Streamlit Secrets för att slå på bildtolkningen. Ingen API-nyckel visas eller sparas i CupNavi.")
             if st.button(
-                "LÃ¤s av bilden med AI",
+                "Läs av bilden med AI",
                 type="primary",
                 use_container_width=True,
                 disabled=not bool(_lag_ai_files) or not bool(_lag_ai_api_key),
@@ -14678,7 +14678,7 @@ if admin_page == "Lag":
                 _lag_ai_rows = []
                 _lag_seen_names = set()
                 try:
-                    with st.spinner("LÃ¤ser laguppstÃ¤llningenâ€¦"):
+                    with st.spinner("Läser laguppställningen…"):
                         from cupnavi_core.ai_roster_import import extract_roster_from_image
                         for _uploaded in _lag_ai_files:
                             _mime = str(getattr(_uploaded, "type", None) or "image/png")
@@ -14691,7 +14691,7 @@ if admin_page == "Lag":
                     if _lag_ai_rows:
                         st.success(f"Hittade {len(_lag_ai_rows)} spelare. Kontrollera listan innan du importerar.")
                     else:
-                        st.warning("AI:n hittade inga sÃ¤kra spelarrader i bilden.")
+                        st.warning("AI:n hittade inga säkra spelarrader i bilden.")
                 except Exception as exc:
                     st.error(str(exc))
 
@@ -14706,8 +14706,8 @@ if admin_page == "Lag":
                     {
                         "Importera": str(row.get("name") or "").strip().casefold() not in _existing_lag_names,
                         "Spelare": row.get("name") or "",
-                        "TrÃ¶jnummer": row.get("player_number"),
-                        "FÃ¶delseÃ¥r": row.get("birth_year"),
+                        "Tröjnummer": row.get("player_number"),
+                        "Födelseår": row.get("birth_year"),
                         "Position": row.get("position") or "Ej angiven",
                     }
                     for row in _lag_ai_rows
@@ -14721,8 +14721,8 @@ if admin_page == "Lag":
                     column_config={
                         "Importera": st.column_config.CheckboxColumn("Importera"),
                         "Spelare": st.column_config.TextColumn("Spelare", required=True),
-                        "TrÃ¶jnummer": st.column_config.NumberColumn("TrÃ¶jnummer", min_value=0, max_value=999, step=1),
-                        "FÃ¶delseÃ¥r": st.column_config.NumberColumn("FÃ¶delseÃ¥r", min_value=1900, max_value=2100, step=1),
+                        "Tröjnummer": st.column_config.NumberColumn("Tröjnummer", min_value=0, max_value=999, step=1),
+                        "Födelseår": st.column_config.NumberColumn("Födelseår", min_value=1900, max_value=2100, step=1),
                         "Position": st.column_config.SelectboxColumn("Position", options=ALLOWED_POSITIONS),
                     },
                 )
@@ -14746,9 +14746,9 @@ if admin_page == "Lag":
                         return number if minimum <= number <= maximum else None
                     _lag_selected_ai.append((
                         int(_photo_team_id),
-                        _lag_editor_int(_row.get("TrÃ¶jnummer"), 0, 999),
+                        _lag_editor_int(_row.get("Tröjnummer"), 0, 999),
                         _name,
-                        _lag_editor_int(_row.get("FÃ¶delseÃ¥r"), 1900, 2100),
+                        _lag_editor_int(_row.get("Födelseår"), 1900, 2100),
                         _row.get("Position") if _row.get("Position") in ALLOWED_POSITIONS else "Ej angiven",
                     ))
                 if st.button(
@@ -14774,20 +14774,20 @@ if admin_page == "Lag":
                     st.success(f"{len(_lag_selected_ai)} spelare importerades.")
                     st.rerun()
 
-    if st.toggle("Fler lagverktyg", value=False, key=f"lazy_team_tools_{tid}", help="Spelare, Ã¶nskemÃ¥l, import och tÃ¤vlingsklasser."):
-        st.caption("Valfria verktyg. De behÃ¶vs inte fÃ¶r att slutfÃ¶ra den vanliga lagregistreringen.")
-        st.button("ðŸ‘• TrÃ¶j setup", key=f"participant_kit_setup_{tid}", use_container_width=True, on_click=_set_admin_page, args=("TrÃ¶j setup",))
+    if st.toggle("Fler lagverktyg", value=False, key=f"lazy_team_tools_{tid}", help="Spelare, önskemål, import och tävlingsklasser."):
+        st.caption("Valfria verktyg. De behövs inte för att slutföra den vanliga lagregistreringen.")
+        st.button("👕 Tröj setup", key=f"participant_kit_setup_{tid}", use_container_width=True, on_click=_set_admin_page, args=("Tröj setup",))
         st.button("Spelare & trupper", key=f"participant_rosters_{tid}", use_container_width=True, on_click=_set_admin_page, args=("Trupper",))
-        st.button("Schemakrav & Ã¶nskemÃ¥l", key=f"participant_requests_{tid}", use_container_width=True, on_click=_set_admin_page, args=("Ã–nskemÃ¥lscentral",))
+        st.button("Schemakrav & önskemål", key=f"participant_requests_{tid}", use_container_width=True, on_click=_set_admin_page, args=("Önskemålscentral",))
         st.button("Importera flera lag eller spelare", key=f"participant_import_{tid}", use_container_width=True, on_click=_set_admin_page, args=("Import",))
         if class_rows:
-            st.caption("TÃ¤vlingsklasser: " + " Â· ".join(current_classes))
+            st.caption("Tävlingsklasser: " + " · ".join(current_classes))
         st.button(
-            "Hantera tÃ¤vlingsklasser",
+            "Hantera tävlingsklasser",
             key=f"go_manage_classes_{tid}",
             use_container_width=True,
             on_click=_set_admin_page,
-            args=("AdminÃ¶versikt",),
+            args=("Adminöversikt",),
         )
 
     st.divider()
@@ -14801,7 +14801,7 @@ if admin_page == "Lag":
             pd.DataFrame([
                 {
                     "Lag": team_row["name"],
-                    "TÃ¤vlingsklass": _team_value(team_row, "age_class", "") or "â€“",
+                    "Tävlingsklass": _team_value(team_row, "age_class", "") or "–",
                     "Grupp": group_names.get(team_row["group_id"], "Ej placerad"),
                 }
                 for team_row in teams
@@ -14816,35 +14816,35 @@ if admin_page == "Lag":
                     pd.DataFrame([
                         {
                             "Lag": team_row["name"],
-                            "Ansvarig": _team_value(team_row, "responsible_name", "") or "â€“",
-                            "Telefon": _team_value(team_row, "responsible_phone", "") or "â€“",
-                            "E-post": _team_value(team_row, "responsible_email", "") or "â€“",
-                            "ResvÃ¤g km": team_row["distance_km"] or 0,
+                            "Ansvarig": _team_value(team_row, "responsible_name", "") or "–",
+                            "Telefon": _team_value(team_row, "responsible_phone", "") or "–",
+                            "E-post": _team_value(team_row, "responsible_email", "") or "–",
+                            "Resväg km": team_row["distance_km"] or 0,
                         }
                         for team_row in teams
                     ])
                 )
     else:
         render_empty_state(
-            "Inga deltagare Ã¤nnu",
-            "LÃ¤gg till fÃ¶rsta laget/deltagaren eller anvÃ¤nd Import fÃ¶r flera pÃ¥ en gÃ¥ng.",
-            symbol="ðŸ‘¥",
+            "Inga deltagare ännu",
+            "Lägg till första laget/deltagaren eller använd Import för flera på en gång.",
+            symbol="👥",
         )
 
     if teams and bool(_row_value(tournament, "enable_team_checkin", 1)):
-        if st.toggle("Digital lagincheckning", value=False, key=f"lazy_team_checkin_{tid}", help="Laddas fÃ¶rst nÃ¤r du behÃ¶ver checka in lag."):
+        if st.toggle("Digital lagincheckning", value=False, key=f"lazy_team_checkin_{tid}", help="Laddas först när du behöver checka in lag."):
             st.divider()
-            st.subheader("âœ… Digital lagincheckning")
-            st.caption("Markera vilka lag som Ã¤r pÃ¥ plats. Statusen sparas med tidsstÃ¤mpel och syns direkt fÃ¶r tÃ¤vlingsledningen.")
+            st.subheader("✅ Digital lagincheckning")
+            st.caption("Markera vilka lag som är på plats. Statusen sparas med tidsstämpel och syns direkt för tävlingsledningen.")
             checkin_df = pd.DataFrame([
-                {"team_id": row["id"], "Lag": row["name"], "PÃ¥ plats": bool(row["checked_in"]), "Incheckad": row["checked_in_at"] or ""}
+                {"team_id": row["id"], "Lag": row["name"], "På plats": bool(row["checked_in"]), "Incheckad": row["checked_in_at"] or ""}
                 for row in teams
             ])
             edited_checkins = st.data_editor(
                 checkin_df, hide_index=True, use_container_width=True,
                 disabled=["team_id", "Lag", "Incheckad"],
-                column_order=["Lag", "PÃ¥ plats", "Incheckad"],
-                column_config={"PÃ¥ plats": st.column_config.CheckboxColumn("PÃ¥ plats")},
+                column_order=["Lag", "På plats", "Incheckad"],
+                column_config={"På plats": st.column_config.CheckboxColumn("På plats")},
                 key=f"team_checkins_{tid}",
             )
             if st.button("Spara incheckning", key=f"save_checkins_{tid}", type="primary", use_container_width=True):
@@ -14853,15 +14853,15 @@ if admin_page == "Lag":
                 changes = []
                 for _, edited_row in edited_checkins.iterrows():
                     team_id = int(edited_row["team_id"])
-                    new_value = 1 if bool(edited_row["PÃ¥ plats"]) else 0
+                    new_value = 1 if bool(edited_row["På plats"]) else 0
                     old_value = int(original[team_id]["checked_in"] or 0)
                     if new_value != old_value:
                         changes.append((team_id, old_value, new_value, original[team_id]["name"]))
 
                 if changes:
                     # Teamuppdateringar och audit skrivs i samma transaktion. Tidigare
-                    # Ã¶ppnade record_audit en ny anslutning + commit per Ã¤ndrat lag, vilket
-                    # gav tydlig vÃ¤ntetid mot Turso nÃ¤r flera lag checkades in samtidigt.
+                    # öppnade record_audit en ny anslutning + commit per ändrat lag, vilket
+                    # gav tydlig väntetid mot Turso när flera lag checkades in samtidigt.
                     with db() as con:
                         for team_id, old_value, new_value, team_name in changes:
                             con.execute(
@@ -14880,13 +14880,13 @@ if admin_page == "Lag":
                             )
                         con.commit()
                     _clear_render_query_cache()
-                    st.success(f"Incheckning uppdaterad fÃ¶r {len(changes)} lag.")
+                    st.success(f"Incheckning uppdaterad för {len(changes)} lag.")
                     st.rerun()
                 else:
-                    st.info("Inga Ã¤ndringar att spara.")
+                    st.info("Inga ändringar att spara.")
 
-        if st.toggle("Lagmeddelanden", value=False, key=f"lazy_team_messages_{tid}", help="Meddelanden laddas fÃ¶rst nÃ¤r verktyget Ã¶ppnas."):
-            st.caption("Meddelanden som skickas till arrangÃ¶ren visas hÃ¤r. Du kan ocksÃ¥ skriva direkt till valfritt deltagande lag.")
+        if st.toggle("Lagmeddelanden", value=False, key=f"lazy_team_messages_{tid}", help="Meddelanden laddas först när verktyget öppnas."):
+            st.caption("Meddelanden som skickas till arrangören visas här. Du kan också skriva direkt till valfritt deltagande lag.")
             team_names = {int(row["id"]): row["name"] for row in teams}
             organizer_messages = all_rows(
                 """SELECT * FROM team_messages
@@ -14896,13 +14896,13 @@ if admin_page == "Lag":
             )
             unread_organizer_ids = [int(row["id"]) for row in organizer_messages if not row["read_at"]]
             organizer_inbox_label = (
-                f"ðŸ”´ Inkorg ({len(unread_organizer_ids)})"
+                f"🔴 Inkorg ({len(unread_organizer_ids)})"
                 if unread_organizer_ids else "Inkorg"
             )
             inbox_tab, compose_tab, history_tab = st.tabs([organizer_inbox_label, "Skriv till lag", "Alla meddelanden"])
             with inbox_tab:
                 if unread_organizer_ids and st.button(
-                    f"Markera alla som lÃ¤sta ({len(unread_organizer_ids)})",
+                    f"Markera alla som lästa ({len(unread_organizer_ids)})",
                     key=f"admin_mark_messages_read_{tid}",
                 ):
                     _mark_team_messages_read(
@@ -14912,13 +14912,13 @@ if admin_page == "Lag":
                     )
                     st.rerun()
                 if not organizer_messages:
-                    st.info("Inga meddelanden till arrangÃ¶ren Ã¤nnu.")
+                    st.info("Inga meddelanden till arrangören ännu.")
                 for msg in organizer_messages:
                     sender, _ = _message_party_label(msg, team_names)
                     with st.container(border=True):
-                        unread_prefix = "ðŸ”´ " if not msg["read_at"] else ""
+                        unread_prefix = "🔴 " if not msg["read_at"] else ""
                         st.markdown(f"**{unread_prefix}{html.escape(msg['subject'])}**")
-                        st.caption(f"FrÃ¥n {html.escape(sender)} Â· {msg['created_at']}")
+                        st.caption(f"Från {html.escape(sender)} · {msg['created_at']}")
                         st.write(msg["message"])
                         if msg["sender_team_id"] is not None:
                             reply_key = f"admin_reply_{msg['id']}"
@@ -14940,7 +14940,7 @@ if admin_page == "Lag":
                                         request_token=st.session_state[reply_token_key],
                                     )
                                     st.session_state.pop(reply_token_key,None)
-                                    st.success("Svaret Ã¤r skickat.")
+                                    st.success("Svaret är skickat.")
                                     st.rerun()
                                 except ValueError as exc:
                                     st.error(str(exc))
@@ -14956,7 +14956,7 @@ if admin_page == "Lag":
                         format_func=lambda team_id: team_names[team_id],
                         key=f"admin_message_target_{tid}",
                     )
-                    admin_subject = st.text_input("Ã„mne", placeholder="Exempel: Information frÃ¥n arrangÃ¶ren", max_chars=200)
+                    admin_subject = st.text_input("Ämne", placeholder="Exempel: Information från arrangören", max_chars=200)
                     admin_message = st.text_area("Meddelande", max_chars=3000, height=120)
                     admin_send = st.form_submit_button("Skicka meddelande", type="primary")
                 if admin_send:
@@ -14971,7 +14971,7 @@ if admin_page == "Lag":
                             request_token=st.session_state[admin_message_token_key],
                         )
                         st.session_state.pop(admin_message_token_key,None)
-                        st.success("Meddelandet Ã¤r skickat.")
+                        st.success("Meddelandet är skickat.")
                         st.rerun()
                     except ValueError as exc:
                         st.error(str(exc))
@@ -14982,85 +14982,85 @@ if admin_page == "Lag":
                     (tid,),
                 )
                 if not all_team_messages:
-                    st.info("Ingen meddelandehistorik Ã¤nnu.")
+                    st.info("Ingen meddelandehistorik ännu.")
                 else:
                     message_rows = []
                     for msg in all_team_messages:
                         sender, recipient = _message_party_label(msg, team_names)
                         message_rows.append({
                             "Tid": msg["created_at"],
-                            "FrÃ¥n": sender,
+                            "Från": sender,
                             "Till": recipient,
-                            "Ã„mne": msg["subject"],
+                            "Ämne": msg["subject"],
                             "Meddelande": msg["message"],
                         })
                     render_centered_table(pd.DataFrame(message_rows))
 
-    if st.toggle("Redigera eller ta bort lag", value=False, key=f"lazy_team_edit_{tid}", help="Ã–ppna bara nÃ¤r du behÃ¶ver Ã¤ndra ett befintligt lag."):
+    if st.toggle("Redigera eller ta bort lag", value=False, key=f"lazy_team_edit_{tid}", help="Öppna bara när du behöver ändra ett befintligt lag."):
         if teams:
-            edit_team_id = st.selectbox("VÃ¤lj lag", [t["id"] for t in teams], format_func=lambda x: next(t["name"] for t in teams if t["id"] == x), key="edit_team")
+            edit_team_id = st.selectbox("Välj lag", [t["id"] for t in teams], format_func=lambda x: next(t["name"] for t in teams if t["id"] == x), key="edit_team")
             edit_team = next(t for t in teams if t["id"] == edit_team_id)
             with st.container(border=True):
                 edited_name = st.text_input("Lagnamn", value=edit_team["name"], key=f"edit_name_{edit_team_id}")
-                # v397: samma klasslista anvÃ¤nds redan av lagregistreringen.
+                # v397: samma klasslista används redan av lagregistreringen.
                 edit_class_rows = class_rows
                 edit_class_options = [None] + [row["id"] for row in edit_class_rows]
                 saved_class_id = _team_value(edit_team, "competition_class_id", None)
                 if saved_class_id not in edit_class_options:
                     saved_class_id = None
                 edited_class_id = st.selectbox(
-                    "TÃ¤vlingsklass", edit_class_options,
+                    "Tävlingsklass", edit_class_options,
                     index=edit_class_options.index(saved_class_id),
-                    format_func=lambda value: "Ingen sÃ¤rskild tÃ¤vlingsklass" if value is None else next(competition_class_label(row) for row in edit_class_rows if row["id"] == value),
+                    format_func=lambda value: "Ingen särskild tävlingsklass" if value is None else next(competition_class_label(row) for row in edit_class_rows if row["id"] == value),
                     key=f"edit_competition_class_{edit_team_id}",
                 )
                 edited_age_class = next((competition_class_label(row) for row in edit_class_rows if row["id"] == edited_class_id), "")
-                st.markdown("#### HemmastÃ¤ll")
+                st.markdown("#### Hemmaställ")
                 eh1, eh2, eh3 = st.columns([1.2, 1, 1])
-                saved_home_pattern = _team_value(edit_team, "home_pattern", "HelfÃ¤rgad")
+                saved_home_pattern = _team_value(edit_team, "home_pattern", "Helfärgad")
                 edited_home_pattern = eh1.selectbox(
-                    "MÃ¶nster hemma", KIT_PATTERNS,
+                    "Mönster hemma", KIT_PATTERNS,
                     index=KIT_PATTERNS.index(saved_home_pattern) if saved_home_pattern in KIT_PATTERNS else 0,
                     key=f"edit_home_pattern_{edit_team_id}",
                 )
                 with eh2:
-                    edited_primary = kit_color_selector("Hemma â€“ fÃ¤rg 1", f"edit_home_color1_{edit_team_id}", edit_team["primary_color"])
+                    edited_primary = kit_color_selector("Hemma – färg 1", f"edit_home_color1_{edit_team_id}", edit_team["primary_color"])
                 with eh3:
-                    edited_home_color_2 = kit_color_selector("Hemma â€“ fÃ¤rg 2", f"edit_home_color2_{edit_team_id}", _team_value(edit_team, "home_color_2", "#FFFFFF"))
-                st.markdown(kit_preview_html(edited_home_pattern, edited_primary, edited_home_color_2, "HemmastÃ¤ll"), unsafe_allow_html=True)
+                    edited_home_color_2 = kit_color_selector("Hemma – färg 2", f"edit_home_color2_{edit_team_id}", _team_value(edit_team, "home_color_2", "#FFFFFF"))
+                st.markdown(kit_preview_html(edited_home_pattern, edited_primary, edited_home_color_2, "Hemmaställ"), unsafe_allow_html=True)
 
-                st.markdown("#### BortastÃ¤ll")
+                st.markdown("#### Bortaställ")
                 ea1, ea2, ea3 = st.columns([1.2, 1, 1])
-                saved_away_pattern = _team_value(edit_team, "away_pattern", "HelfÃ¤rgad")
+                saved_away_pattern = _team_value(edit_team, "away_pattern", "Helfärgad")
                 edited_away_pattern = ea1.selectbox(
-                    "MÃ¶nster borta", KIT_PATTERNS,
+                    "Mönster borta", KIT_PATTERNS,
                     index=KIT_PATTERNS.index(saved_away_pattern) if saved_away_pattern in KIT_PATTERNS else 0,
                     key=f"edit_away_pattern_{edit_team_id}",
                 )
                 with ea2:
-                    edited_secondary = kit_color_selector("Borta â€“ fÃ¤rg 1", f"edit_away_color1_{edit_team_id}", edit_team["secondary_color"])
+                    edited_secondary = kit_color_selector("Borta – färg 1", f"edit_away_color1_{edit_team_id}", edit_team["secondary_color"])
                 with ea3:
-                    edited_away_color_2 = kit_color_selector("Borta â€“ fÃ¤rg 2", f"edit_away_color2_{edit_team_id}", _team_value(edit_team, "away_color_2", "#111827"))
-                st.markdown(kit_preview_html(edited_away_pattern, edited_secondary, edited_away_color_2, "BortastÃ¤ll"), unsafe_allow_html=True)
+                    edited_away_color_2 = kit_color_selector("Borta – färg 2", f"edit_away_color2_{edit_team_id}", _team_value(edit_team, "away_color_2", "#111827"))
+                st.markdown(kit_preview_html(edited_away_pattern, edited_secondary, edited_away_color_2, "Bortaställ"), unsafe_allow_html=True)
 
                 st.markdown("#### Lagansvarig kontaktperson")
-                st.caption("Personen som CupNavi/arrangÃ¶ren i fÃ¶rsta hand kontaktar fÃ¶r laget, till exempel lagledare eller trÃ¤nare.")
+                st.caption("Personen som CupNavi/arrangören i första hand kontaktar för laget, till exempel lagledare eller tränare.")
                 erc1, erc2, erc3 = st.columns(3)
-                edited_responsible_name = erc1.text_input("Namn pÃ¥ lagansvarig", value=_team_value(edit_team, "responsible_name", "") or "", key=f"edit_responsible_name_{edit_team_id}")
+                edited_responsible_name = erc1.text_input("Namn på lagansvarig", value=_team_value(edit_team, "responsible_name", "") or "", key=f"edit_responsible_name_{edit_team_id}")
                 edited_responsible_phone = erc2.text_input("Telefon till lagansvarig", value=_team_value(edit_team, "responsible_phone", "") or "", key=f"edit_responsible_phone_{edit_team_id}")
                 edited_responsible_email = erc3.text_input("E-post till lagansvarig", value=_team_value(edit_team, "responsible_email", "") or "", key=f"edit_responsible_email_{edit_team_id}")
-                edited_distance = st.number_input("ResvÃ¤g i kilometer", 0, 5000, int(edit_team["distance_km"] or 0), key=f"edit_distance_{edit_team_id}")
+                edited_distance = st.number_input("Resväg i kilometer", 0, 5000, int(edit_team["distance_km"] or 0), key=f"edit_distance_{edit_team_id}")
                 edited_travel_note = st.text_input("Resekommentar", value=edit_team["travel_note"] or "", key=f"edit_travel_note_{edit_team_id}")
-                edited_late_first = st.checkbox("Ã–nskar senare fÃ¶rsta match", value=bool(edit_team["late_first_match"]), key=f"edit_late_first_{edit_team_id}")
+                edited_late_first = st.checkbox("Önskar senare första match", value=bool(edit_team["late_first_match"]), key=f"edit_late_first_{edit_team_id}")
                 edited_avoid_late = st.checkbox("Undvik senaste gruppspelsmatchen", value=bool(_row_value(edit_team, "avoid_late_group_match", 0)), key=f"edit_avoid_late_{edit_team_id}")
                 saved_earliest = edit_team["earliest_first_time"] or "10:00"
                 edited_earliest = st.time_input(
-                    "FÃ¶rsta match tidigast",
+                    "Första match tidigast",
                     value=datetime.strptime(saved_earliest, "%H:%M").time(),
-                    help="Tiden anvÃ¤nds bara om Ã–nskar senare fÃ¶rsta match Ã¤r markerat.",
+                    help="Tiden används bara om Önskar senare första match är markerat.",
                     key=f"edit_earliest_{edit_team_id}",
                 )
-                if st.button("Spara Ã¤ndringar", type="primary", key=f"save_team_{edit_team_id}"):
+                if st.button("Spara ändringar", type="primary", key=f"save_team_{edit_team_id}"):
                     if edited_name.strip():
                         saved, save_reason = _admin_update_team_if_unchanged(
                             edit_team_id,
@@ -15085,25 +15085,25 @@ if admin_page == "Lag":
                             competition_class_id=edited_class_id,
                         )
                         if saved:
-                            st.success("Lagets uppgifter Ã¤r sparade.")
+                            st.success("Lagets uppgifter är sparade.")
                         elif save_reason == "invalid_email":
-                            st.error("Ange en giltig e-postadress eller lÃ¤mna fÃ¤ltet tomt.")
+                            st.error("Ange en giltig e-postadress eller lämna fältet tomt.")
                         else:
-                            st.warning("Laget Ã¤ndrades av nÃ¥gon annan och dina Ã¤ldre uppgifter skrevs inte Ã¶ver.")
+                            st.warning("Laget ändrades av någon annan och dina äldre uppgifter skrevs inte över.")
                         st.rerun()
                     else:
-                        st.error("Lagnamnet fÃ¥r inte vara tomt.")
+                        st.error("Lagnamnet får inte vara tomt.")
             _team_delete_locked = (
                 production_history_locked(tid, tournament)
                 and team_has_played_result(tid, edit_team_id)
             )
             if _team_delete_locked:
                 st.warning(
-                    "ðŸ”’ Laget har ett registrerat resultat i en riktig cup och kan dÃ¤rfÃ¶r inte raderas. "
-                    "TestmiljÃ¶er kan fortfarande radera laget fritt."
+                    "🔒 Laget har ett registrerat resultat i en riktig cup och kan därför inte raderas. "
+                    "Testmiljöer kan fortfarande radera laget fritt."
                 )
             confirm_team_delete = st.checkbox(
-                "Jag fÃ¶rstÃ¥r att lagets trupp, statistik och berÃ¶rda matcher tas bort",
+                "Jag förstår att lagets trupp, statistik och berörda matcher tas bort",
                 key=f"confirm_team_{edit_team_id}",
                 disabled=_team_delete_locked,
             )
@@ -15118,15 +15118,15 @@ if admin_page == "Lag":
                     _admin_team_snapshot(edit_team),
                 )
                 if not deleted and delete_reason == "conflict":
-                    st.warning("Laget Ã¤ndrades av nÃ¥gon annan och raderades dÃ¤rfÃ¶r inte.")
+                    st.warning("Laget ändrades av någon annan och raderades därför inte.")
                 st.rerun()
         else:
             st.info("Det finns inga lag att redigera.")
 
-if admin_page == "TrÃ¶j setup":
-    st.header("ðŸ‘• TrÃ¶jfÃ¤rger & matchstÃ¤ll")
-    st.caption("Ny funktion Â· CupNavi kan fÃ¶reslÃ¥ lagens hemma- och bortastÃ¤ll, visa dem som fotbollstrÃ¶jor och hjÃ¤lpa dig upptÃ¤cka fÃ¤rgkrockar. Inget sparas fÃ¶rrÃ¤n du godkÃ¤nner.")
-    st.info("âš¡ v604: CupNavi skiljer nu pÃ¥ klubbidentitet och trÃ¶jbevis. Vid tvetydiga lagnamn fÃ¥r du vÃ¤lja rÃ¤tt klubb innan fÃ¤rger fÃ¶reslÃ¥s. Det minskar feltrÃ¤ffar utan att gÃ¶ra standardsÃ¶kningen lÃ¥ngsammare.")
+if admin_page == "Tröj setup":
+    st.header("👕 Tröjfärger & matchställ")
+    st.caption("Ny funktion · CupNavi kan föreslå lagens hemma- och bortaställ, visa dem som fotbollströjor och hjälpa dig upptäcka färgkrockar. Inget sparas förrän du godkänner.")
+    st.info("⚡ v604: CupNavi skiljer nu på klubbidentitet och tröjbevis. Vid tvetydiga lagnamn får du välja rätt klubb innan färger föreslås. Det minskar felträffar utan att göra standardsökningen långsammare.")
     _kit_api_key = setting("OPENAI_API_KEY")
     _kit_model = setting("CUPNAVI_AI_KIT_MODEL") or setting("CUPNAVI_AI_ROSTER_MODEL") or "gpt-5.6-luna"
     _kit_teams = all_rows("SELECT * FROM teams WHERE tournament_id=? ORDER BY name", (tid,))
@@ -15134,21 +15134,21 @@ if admin_page == "TrÃ¶j setup":
     _kit_suggestions = st.session_state.setdefault(_kit_suggestions_key, {})
 
     if not _kit_teams:
-        st.info("LÃ¤gg till lagen fÃ¶rst. DÃ¤refter kan CupNavi gÃ¶ra TrÃ¶j setup fÃ¶r hela cupen.")
-        st.button("â† Till Lag", use_container_width=True, on_click=_set_admin_page, args=("Lag",))
+        st.info("Lägg till lagen först. Därefter kan CupNavi göra Tröj setup för hela cupen.")
+        st.button("← Till Lag", use_container_width=True, on_click=_set_admin_page, args=("Lag",))
     else:
         _configured = sum(1 for team in _kit_teams if _row_value(team, "kit_confirmed_at", None))
         c1, c2, c3 = st.columns(3)
         c1.metric("Lag", len(_kit_teams))
-        c2.metric("GodkÃ¤nda trÃ¶jor", _configured)
-        c3.metric("FÃ¶rslag att granska", len(_kit_suggestions))
+        c2.metric("Godkända tröjor", _configured)
+        c3.metric("Förslag att granska", len(_kit_suggestions))
 
         scan_col, clear_col = st.columns([2, 1])
-        if scan_col.button("âš¡ SnabbsÃ¶k trÃ¶jor fÃ¶r alla lag", type="primary", use_container_width=True, disabled=not bool(_kit_api_key)):
+        if scan_col.button("⚡ Snabbsök tröjor för alla lag", type="primary", use_container_width=True, disabled=not bool(_kit_api_key)):
             from concurrent.futures import ThreadPoolExecutor, as_completed
             from cupnavi_core.ai_kit_suggestion import suggest_team_kit
 
-            progress = st.progress(0, text="Startar snabb trÃ¶jsÃ¶kningâ€¦")
+            progress = st.progress(0, text="Startar snabb tröjsökning…")
             location = _row_value(tournament, "location", "")
             country_code = _row_value(tournament, "country_code", "")
 
@@ -15183,14 +15183,14 @@ if admin_page == "TrÃ¶j setup":
                     except Exception as exc:
                         _kit_suggestions[str(team["id"])] = {"found": False, "confidence": "low", "reason": str(exc), "sources": [], "home_sources": [], "away_sources": []}
                     completed += 1
-                    progress.progress(completed / max(1, len(_kit_teams)), text=f"Klart {completed}/{len(_kit_teams)} Â· {team['name']}")
-            progress.progress(1.0, text="SnabbsÃ¶kningen Ã¤r klar â€“ granska fÃ¶rslagen nedan.")
+                    progress.progress(completed / max(1, len(_kit_teams)), text=f"Klart {completed}/{len(_kit_teams)} · {team['name']}")
+            progress.progress(1.0, text="Snabbsökningen är klar – granska förslagen nedan.")
             st.rerun()
-        if clear_col.button("Rensa fÃ¶rslag", use_container_width=True, disabled=not bool(_kit_suggestions)):
+        if clear_col.button("Rensa förslag", use_container_width=True, disabled=not bool(_kit_suggestions)):
             st.session_state[_kit_suggestions_key] = {}
             st.rerun()
         if not _kit_api_key:
-            st.warning("TrÃ¶j setup krÃ¤ver OPENAI_API_KEY. Manuell redigering under Lag fungerar fortfarande.")
+            st.warning("Tröj setup kräver OPENAI_API_KEY. Manuell redigering under Lag fungerar fortfarande.")
 
         for team in _kit_teams:
             team_key = str(team["id"])
@@ -15198,12 +15198,12 @@ if admin_page == "TrÃ¶j setup":
             with st.container(border=True):
                 title_col, action_col = st.columns([3, 1])
                 title_col.markdown(f"### {team['name']}")
-                _kit_hint = st.text_input("SÃ¶kledtrÃ¥d (valfritt)", key=f"kit_search_hint_{team_key}", placeholder="T.ex. ort, klubbens webbadress eller distriktsfÃ¶rbund", help="SÃ¤rskilt anvÃ¤ndbart fÃ¶r lokala ungdomslag med namn som P2014, U13, Svart eller BlÃ¥.")
+                _kit_hint = st.text_input("Sökledtråd (valfritt)", key=f"kit_search_hint_{team_key}", placeholder="T.ex. ort, klubbens webbadress eller distriktsförbund", help="Särskilt användbart för lokala ungdomslag med namn som P2014, U13, Svart eller Blå.")
                 if proposal is None:
-                    title_col.caption("Inte scannat Ã¤nnu")
-                    if action_col.button("SÃ¶k detta lag", key=f"kit_scan_one_{team_key}", use_container_width=True, disabled=not bool(_kit_api_key)):
+                    title_col.caption("Inte scannat ännu")
+                    if action_col.button("Sök detta lag", key=f"kit_scan_one_{team_key}", use_container_width=True, disabled=not bool(_kit_api_key)):
                         from cupnavi_core.ai_kit_suggestion import suggest_team_kit
-                        with st.spinner(f"SÃ¶ker efter {team['name']}â€¦"):
+                        with st.spinner(f"Söker efter {team['name']}…"):
                             try:
                                 _kit_suggestions[team_key] = suggest_team_kit(
                                     team["name"], _kit_api_key, model=_kit_model,
@@ -15219,13 +15219,13 @@ if admin_page == "TrÃ¶j setup":
                 if not proposal.get("found"):
                     candidates = proposal.get("candidate_matches") or []
                     if proposal.get("identity_status") == "ambiguous" and candidates:
-                        st.warning("CupNavi hittade flera mÃ¶jliga klubbar. VÃ¤lj rÃ¤tt klubb fÃ¶rst â€“ inga trÃ¶jfÃ¤rger anvÃ¤nds innan identiteten Ã¤r bestÃ¤md.")
+                        st.warning("CupNavi hittade flera möjliga klubbar. Välj rätt klubb först – inga tröjfärger används innan identiteten är bestämd.")
                         labels = []
                         for candidate in candidates:
                             place = ", ".join(part for part in [candidate.get("location"), candidate.get("country")] if part)
-                            labels.append(f"{candidate.get('name')}{' Â· ' + place if place else ''}")
+                            labels.append(f"{candidate.get('name')}{' · ' + place if place else ''}")
                         selected_idx = st.radio(
-                            "Vilken klubb Ã¤r rÃ¤tt?",
+                            "Vilken klubb är rätt?",
                             options=list(range(len(candidates))),
                             format_func=lambda idx: labels[idx],
                             key=f"kit_candidate_{team_key}",
@@ -15234,11 +15234,11 @@ if admin_page == "TrÃ¶j setup":
                         if selected.get("reason"):
                             st.caption(selected.get("reason"))
                         if selected.get("source_url"):
-                            st.caption(f"IdentitetskÃ¤lla: {selected.get('source_url')}")
+                            st.caption(f"Identitetskälla: {selected.get('source_url')}")
                         choose_col, retry_col = st.columns([2, 1])
-                        if choose_col.button("âœ“ AnvÃ¤nd denna klubb och sÃ¶k trÃ¶jor", type="primary", key=f"kit_choose_candidate_{team_key}", use_container_width=True, disabled=not bool(_kit_api_key)):
+                        if choose_col.button("✓ Använd denna klubb och sök tröjor", type="primary", key=f"kit_choose_candidate_{team_key}", use_container_width=True, disabled=not bool(_kit_api_key)):
                             from cupnavi_core.ai_kit_suggestion import suggest_team_kit
-                            with st.spinner(f"SÃ¶ker trÃ¶jor fÃ¶r {selected.get('name')}â€¦"):
+                            with st.spinner(f"Söker tröjor för {selected.get('name')}…"):
                                 try:
                                     _kit_suggestions[team_key] = suggest_team_kit(
                                         team["name"], _kit_api_key, model=_kit_model,
@@ -15246,75 +15246,75 @@ if admin_page == "TrÃ¶j setup":
                                         country_code=_row_value(tournament, "country_code", ""),
                                         age_class=_row_value(team, "age_class", ""),
                                         search_hint=_kit_hint,
-                                        resolved_club=f"{selected.get('name')} Â· {selected.get('location') or ''} Â· {selected.get('country') or ''}",
+                                        resolved_club=f"{selected.get('name')} · {selected.get('location') or ''} · {selected.get('country') or ''}",
                                         resolved_source_url=selected.get("source_url") or "",
                                         use_cache=False,
                                     )
                                 except Exception as exc:
                                     _kit_suggestions[team_key] = {"found": False, "confidence": "low", "reason": str(exc), "sources": [], "candidate_matches": []}
                             st.rerun()
-                        if retry_col.button("SÃ¶k om", key=f"kit_retry_identity_{team_key}", use_container_width=True, disabled=not bool(_kit_api_key)):
+                        if retry_col.button("Sök om", key=f"kit_retry_identity_{team_key}", use_container_width=True, disabled=not bool(_kit_api_key)):
                             _kit_suggestions.pop(team_key, None)
                             st.rerun()
                         continue
 
-                    st.info("CupNavi hittade inget tillrÃ¤ckligt belagt. FÃ¶r lokala ungdomslag hjÃ¤lper ofta ort, klubbwebb eller distriktsfÃ¶rbund som sÃ¶kledtrÃ¥d.")
+                    st.info("CupNavi hittade inget tillräckligt belagt. För lokala ungdomslag hjälper ofta ort, klubbwebb eller distriktsförbund som sökledtråd.")
                     if proposal.get("attempted_strategies"):
-                        st.caption("SÃ¶kvÃ¤gar provade: " + " â†’ ".join(proposal.get("attempted_strategies") or []))
+                        st.caption("Sökvägar provade: " + " → ".join(proposal.get("attempted_strategies") or []))
                     if proposal.get("reason"):
                         st.caption(proposal["reason"])
-                    if st.button("FÃ¶rsÃ¶k igen", key=f"kit_retry_{team_key}", disabled=not bool(_kit_api_key)):
+                    if st.button("Försök igen", key=f"kit_retry_{team_key}", disabled=not bool(_kit_api_key)):
                         _kit_suggestions.pop(team_key, None)
                         st.rerun()
                     continue
 
-                confidence_label = {"high": "HÃ¶g", "medium": "Medel", "low": "LÃ¥g"}.get(proposal.get("confidence"), "LÃ¥g")
+                confidence_label = {"high": "Hög", "medium": "Medel", "low": "Låg"}.get(proposal.get("confidence"), "Låg")
                 _verified_parts = []
                 _verified_parts.append("Hemma hittat" if proposal.get("home_verified") else "Hemma ej verifierat")
                 _verified_parts.append("Borta hittat" if proposal.get("away_verified") else "Borta ej verifierat")
-                st.caption(f"SÃ¤kerhet: {confidence_label} Â· {' Â· '.join(_verified_parts)}. {proposal.get('reason') or ''}")
+                st.caption(f"Säkerhet: {confidence_label} · {' · '.join(_verified_parts)}. {proposal.get('reason') or ''}")
                 if proposal.get("cache_hit"):
-                    st.caption("âš¡ Omedelbart svar frÃ¥n CupNavis sÃ¶kcache")
+                    st.caption("⚡ Omedelbart svar från CupNavis sökcache")
                 elif proposal.get("search_strategy"):
-                    st.caption(f"Hittat via: {proposal.get('search_strategy')} Â· {proposal.get('search_attempts', 1)} nÃ¤tanrop")
+                    st.caption(f"Hittat via: {proposal.get('search_strategy')} · {proposal.get('search_attempts', 1)} nätanrop")
                 if proposal.get("club_match"):
                     st.caption(f"Matchad klubb: {proposal.get('club_match')}")
-                hp_default = proposal["home_pattern"] if proposal.get("home_verified") else _row_value(team, "home_pattern", "HelfÃ¤rgad")
+                hp_default = proposal["home_pattern"] if proposal.get("home_verified") else _row_value(team, "home_pattern", "Helfärgad")
                 h1_default = proposal["home_color_1"] if proposal.get("home_verified") else _row_value(team, "primary_color", "#111827")
                 h2_default = proposal["home_color_2"] if proposal.get("home_verified") else _row_value(team, "home_color_2", "#FFFFFF")
-                ap_default = proposal["away_pattern"] if proposal.get("away_verified") else _row_value(team, "away_pattern", "HelfÃ¤rgad")
+                ap_default = proposal["away_pattern"] if proposal.get("away_verified") else _row_value(team, "away_pattern", "Helfärgad")
                 a1_default = proposal["away_color_1"] if proposal.get("away_verified") else _row_value(team, "secondary_color", "#FFFFFF")
                 a2_default = proposal["away_color_2"] if proposal.get("away_verified") else _row_value(team, "away_color_2", "#111827")
                 home_col, away_col = st.columns(2)
                 with home_col:
                     st.markdown("#### Hemma")
-                    st.caption("Verifierad kÃ¤lla" if proposal.get("home_verified") else "Inte verifierad Â· kontrollera")
-                    hp = st.selectbox("Hemma â€“ mÃ¶nster", KIT_PATTERNS, index=KIT_PATTERNS.index(hp_default) if hp_default in KIT_PATTERNS else 0, key=f"setup_hp_{team_key}")
+                    st.caption("Verifierad källa" if proposal.get("home_verified") else "Inte verifierad · kontrollera")
+                    hp = st.selectbox("Hemma – mönster", KIT_PATTERNS, index=KIT_PATTERNS.index(hp_default) if hp_default in KIT_PATTERNS else 0, key=f"setup_hp_{team_key}")
                     h1, h2 = st.columns(2)
-                    hc1 = h1.color_picker("Hemma â€“ fÃ¤rg 1", h1_default, key=f"setup_h1_{team_key}")
-                    hc2 = h2.color_picker("Hemma â€“ fÃ¤rg 2", h2_default, key=f"setup_h2_{team_key}")
-                    st.markdown(kit_preview_html(hp, hc1, hc2, "HemmastÃ¤ll"), unsafe_allow_html=True)
+                    hc1 = h1.color_picker("Hemma – färg 1", h1_default, key=f"setup_h1_{team_key}")
+                    hc2 = h2.color_picker("Hemma – färg 2", h2_default, key=f"setup_h2_{team_key}")
+                    st.markdown(kit_preview_html(hp, hc1, hc2, "Hemmaställ"), unsafe_allow_html=True)
                 with away_col:
                     st.markdown("#### Borta")
-                    st.caption("Verifierad kÃ¤lla" if proposal.get("away_verified") else "Inte verifierad Â· kontrollera")
-                    ap = st.selectbox("Borta â€“ mÃ¶nster", KIT_PATTERNS, index=KIT_PATTERNS.index(ap_default) if ap_default in KIT_PATTERNS else 0, key=f"setup_ap_{team_key}")
+                    st.caption("Verifierad källa" if proposal.get("away_verified") else "Inte verifierad · kontrollera")
+                    ap = st.selectbox("Borta – mönster", KIT_PATTERNS, index=KIT_PATTERNS.index(ap_default) if ap_default in KIT_PATTERNS else 0, key=f"setup_ap_{team_key}")
                     a1, a2 = st.columns(2)
-                    ac1 = a1.color_picker("Borta â€“ fÃ¤rg 1", a1_default, key=f"setup_a1_{team_key}")
-                    ac2 = a2.color_picker("Borta â€“ fÃ¤rg 2", a2_default, key=f"setup_a2_{team_key}")
-                    st.markdown(kit_preview_html(ap, ac1, ac2, "BortastÃ¤ll"), unsafe_allow_html=True)
+                    ac1 = a1.color_picker("Borta – färg 1", a1_default, key=f"setup_a1_{team_key}")
+                    ac2 = a2.color_picker("Borta – färg 2", a2_default, key=f"setup_a2_{team_key}")
+                    st.markdown(kit_preview_html(ap, ac1, ac2, "Bortaställ"), unsafe_allow_html=True)
                 sources = proposal.get("sources") or []
                 if sources:
-                    with st.expander("KÃ¤llor & bevis som CupNavi anvÃ¤nde"):
+                    with st.expander("Källor & bevis som CupNavi använde"):
                         home_sources = proposal.get("home_sources") or []
                         away_sources = proposal.get("away_sources") or []
                         if home_sources:
-                            st.markdown("**HemmastÃ¤ll**")
+                            st.markdown("**Hemmaställ**")
                             if proposal.get("home_evidence"):
                                 st.caption(proposal.get("home_evidence"))
                             for source in home_sources:
                                 st.markdown(f"- {source}")
                         if away_sources:
-                            st.markdown("**BortastÃ¤ll**")
+                            st.markdown("**Bortaställ**")
                             if proposal.get("away_evidence"):
                                 st.caption(proposal.get("away_evidence"))
                             for source in away_sources:
@@ -15323,11 +15323,11 @@ if admin_page == "TrÃ¶j setup":
                             for source in sources:
                                 st.markdown(f"- {source}")
                 approve_col, edit_later_col = st.columns([2, 1])
-                if approve_col.button("âœ“ GodkÃ¤nn och spara", type="primary", key=f"kit_approve_{team_key}", use_container_width=True):
+                if approve_col.button("✓ Godkänn och spara", type="primary", key=f"kit_approve_{team_key}", use_container_width=True):
                     run("""UPDATE teams SET primary_color=?,home_pattern=?,home_color_2=?,secondary_color=?,away_pattern=?,away_color_2=?,kit_confirmed_at=? WHERE id=? AND tournament_id=?""",
                         (hc1, hp, hc2, ac1, ap, ac2, datetime.now().isoformat(timespec="seconds"), team["id"], tid))
                     _kit_suggestions.pop(team_key, None)
-                    st.success(f"TrÃ¶jorna fÃ¶r {team['name']} Ã¤r sparade.")
+                    st.success(f"Tröjorna för {team['name']} är sparade.")
                     st.rerun()
                 if edit_later_col.button("Redigera under Lag", key=f"kit_edit_team_{team_key}", use_container_width=True):
                     st.session_state["edit_team"] = team["id"]
@@ -15336,16 +15336,16 @@ if admin_page == "TrÃ¶j setup":
 
         st.divider()
         nav1, nav2 = st.columns(2)
-        nav1.button("â† Lag", use_container_width=True, on_click=_set_admin_page, args=("Lag",))
-        nav2.button("FortsÃ¤tt till Grupper â†’", type="primary", use_container_width=True, on_click=_set_admin_page, args=("Grupper",))
+        nav1.button("← Lag", use_container_width=True, on_click=_set_admin_page, args=("Lag",))
+        nav2.button("Fortsätt till Grupper →", type="primary", use_container_width=True, on_click=_set_admin_page, args=("Grupper",))
 
 if admin_page == "Grupper":
     # Planning flow contract: ["Grundsetup", "Lag", "Grupper", "Schema", "Kontroll", "Publicera"]
     # Historical QA anchors retained after UX hierarchy change:
     # st.markdown("### Skapa grupper")
     # Jag vill skapa grupper manuellt
-    # Skapa fÃ¶reslagen gruppindelning
-    # st.subheader("Placera lagen i rÃ¤tt grupp")
+    # Skapa föreslagen gruppindelning
+    # st.subheader("Placera lagen i rätt grupp")
     # Smart gruppindelning
     # v419: Grupper is part of the same guided planning journey as Grundsetup and Lag.
     # Keep location, back-navigation and the next step visible instead of dropping the
@@ -15355,7 +15355,7 @@ if admin_page == "Grupper":
           <div>
             <div class="kicker">Steg 3 av 9</div>
             <div class="title">Grupper</div>
-            <div class="subtitle">BestÃ¤m hur lagen ska delas in. BÃ¶rja med CupNavis fÃ¶rslag eller anvÃ¤nd ett eget/importerat upplÃ¤gg. NÃ¤r alla lag Ã¤r placerade gÃ¥r du vidare till Regler.</div>
+            <div class="subtitle">Bestäm hur lagen ska delas in. Börja med CupNavis förslag eller använd ett eget/importerat upplägg. När alla lag är placerade går du vidare till Regler.</div>
           </div>
         </div>""",
         unsafe_allow_html=True,
@@ -15363,22 +15363,22 @@ if admin_page == "Grupper":
     render_clickable_planning_flow(st, tid=tid, current_step="Grupper", navigate_admin_page=_set_admin_page)
     _group_flow_back, _group_flow_next = st.columns(2)
     _group_flow_back.button(
-        "â† Till Lag",
+        "← Till Lag",
         use_container_width=True,
         key=f"groups_flow_back_to_teams_{tid}",
         on_click=_set_admin_page,
         args=("Lag",),
     )
-    _group_flow_next.caption("NÃ¤sta steg: Regler")
+    _group_flow_next.caption("Nästa steg: Regler")
     _group_history_locked = production_history_locked(tid, tournament)
     if _group_history_locked:
         st.warning(
-            "ðŸ”’ Gruppstrukturen Ã¤r lÃ¥st efter fÃ¶rsta resultatet i en riktig cup. "
-            "TestmiljÃ¶er kan fortfarande Ã¤ndra grupper fritt."
+            "🔒 Gruppstrukturen är låst efter första resultatet i en riktig cup. "
+            "Testmiljöer kan fortfarande ändra grupper fritt."
         )
     teams = admin_teams_snapshot(tid)
-    # v397: gruppsidan anvÃ¤nde tidigare fÃ¶rst COUNT(groups) och dÃ¤refter SELECT *
-    # pÃ¥ samma render. Ladda grupperna en gÃ¥ng och Ã¥teranvÃ¤nd listan genom sidan.
+    # v397: gruppsidan använde tidigare först COUNT(groups) och därefter SELECT *
+    # på samma render. Ladda grupperna en gång och återanvänd listan genom sidan.
     groups = admin_groups_snapshot(tid)
     _expected_group_team_count = int(tournament["expected_team_count"] or 0)
     _participant_registration_complete = bool(
@@ -15388,20 +15388,20 @@ if admin_page == "Grupper":
     if teams:
         _assigned_top = len(teams) - _unassigned_teams_now
         with st.container(border=True):
-            st.markdown("**Din uppgift pÃ¥ den hÃ¤r sidan**")
+            st.markdown("**Din uppgift på den här sidan**")
             if not groups:
-                st.write(f"Skapa gruppindelningen fÃ¶r **{len(teams)} lag**.")
-                st.caption("VÃ¤lj ett arbetssÃ¤tt nedan. CupNavi fÃ¶reslÃ¥r Ã¤r snabbast fÃ¶r de flesta cuper.")
+                st.write(f"Skapa gruppindelningen för **{len(teams)} lag**.")
+                st.caption("Välj ett arbetssätt nedan. CupNavi föreslår är snabbast för de flesta cuper.")
             elif _unassigned_teams_now:
-                st.write(f"Placera de sista **{_unassigned_teams_now} lagen**. {_assigned_top} av {len(teams)} Ã¤r redan klara.")
-                st.caption("NÃ¤r alla lag Ã¤r placerade visas knappen till Regler automatiskt.")
+                st.write(f"Placera de sista **{_unassigned_teams_now} lagen**. {_assigned_top} av {len(teams)} är redan klara.")
+                st.caption("När alla lag är placerade visas knappen till Regler automatiskt.")
             else:
-                st.write(f"Alla **{len(teams)} lag** Ã¤r placerade i **{len(groups)} grupper**.")
-                st.caption("Kontrollera snabbt indelningen och fortsÃ¤tt sedan till Regler.")
+                st.write(f"Alla **{len(teams)} lag** är placerade i **{len(groups)} grupper**.")
+                st.caption("Kontrollera snabbt indelningen och fortsätt sedan till Regler.")
     if not teams:
-        st.warning("LÃ¤gg fÃ¶rst till lagen under Lag innan du skapar grupper.")
+        st.warning("Lägg först till lagen under Lag innan du skapar grupper.")
         st.button(
-            "Till Lag â†’",
+            "Till Lag →",
             type="primary",
             use_container_width=True,
             key=f"v346_groups_empty_to_teams_{tid}",
@@ -15410,11 +15410,11 @@ if admin_page == "Grupper":
         )
     elif not _participant_registration_complete:
         st.warning(
-            f"Deltagarlistan Ã¤r inte klar Ã¤nnu: {len(teams)} av {_expected_group_team_count} lag Ã¤r registrerade. "
-            "CupNavi vÃ¤ntar med automatisk gruppindelning tills alla lag finns med."
+            f"Deltagarlistan är inte klar ännu: {len(teams)} av {_expected_group_team_count} lag är registrerade. "
+            "CupNavi väntar med automatisk gruppindelning tills alla lag finns med."
         )
         st.button(
-            "FortsÃ¤tt lÃ¤gga till lag",
+            "Fortsätt lägga till lag",
             type="primary",
             use_container_width=True,
             key=f"v346_groups_back_to_teams_{tid}",
@@ -15425,7 +15425,7 @@ if admin_page == "Grupper":
         assigned_now = len(teams) - _unassigned_teams_now
         st.progress(assigned_now / len(teams) if teams else 0.0)
         st.markdown(f"### {assigned_now} av {len(teams)} lag placerade")
-        st.caption(f"{_unassigned_teams_now} lag Ã¥terstÃ¥r att placera.")
+        st.caption(f"{_unassigned_teams_now} lag återstår att placera.")
     class_rows = competition_classes(tid)
     class_ids = [row["id"] for row in class_rows]
     _group_rules=one_row("SELECT * FROM schedule_rules WHERE tournament_id=?",(tid,))
@@ -15444,7 +15444,7 @@ if admin_page == "Grupper":
         single_bucket = len(buckets) == 1
         for class_id, bucket in sorted(
             buckets.items(),
-            key=lambda item: competition_class_label(class_by_id[item[0]]) if item[0] in class_by_id else "Ã–vriga",
+            key=lambda item: competition_class_label(class_by_id[item[0]]) if item[0] in class_by_id else "Övriga",
         ):
             ordered = sorted(bucket, key=lambda row: str(row["name"]).casefold())
             if single_bucket and _recommended_groups > 0:
@@ -15455,7 +15455,7 @@ if admin_page == "Grupper":
             group_names = []
             for idx in range(group_count):
                 suffix = chr(65 + idx) if idx < 26 else str(idx + 1)
-                group_names.append(f"{class_label} Â· Grupp {suffix}" if class_label and not single_bucket else f"Grupp {suffix}")
+                group_names.append(f"{class_label} · Grupp {suffix}" if class_label and not single_bucket else f"Grupp {suffix}")
             assignments = [[] for _ in range(group_count)]
             for idx, team_row in enumerate(ordered):
                 assignments[idx % group_count].append(team_row)
@@ -15478,57 +15478,57 @@ if admin_page == "Grupper":
     _initial_group_rows = document_group_assignments(_initial_setup_import)
     _has_initial_groups = bool(_initial_group_rows)
 
-    st.markdown("### 1. VÃ¤lj hur grupperna ska skapas")
-    st.caption("Rekommenderat fÃ¶r de flesta cuper: lÃ¥t CupNavi fÃ¶reslÃ¥ en balanserad indelning och justera bara om nÃ¥got behÃ¶ver Ã¤ndras.")
+    st.markdown("### 1. Välj hur grupperna ska skapas")
+    st.caption("Rekommenderat för de flesta cuper: låt CupNavi föreslå en balanserad indelning och justera bara om något behöver ändras.")
     _group_setup_options = []
     if _has_initial_groups:
-        _group_setup_options.append("ðŸ“¦ FrÃ¥n fÃ¶rsta importen")
-    _group_setup_options.extend(["âœ¨ CupNavi fÃ¶reslÃ¥r", "ðŸ“· Importera nytt foto", "âœ‹ GÃ¶r sjÃ¤lv"])
-    _group_setup_default = "ðŸ“¦ FrÃ¥n fÃ¶rsta importen" if _has_initial_groups else "âœ¨ CupNavi fÃ¶reslÃ¥r"
+        _group_setup_options.append("📦 Från första importen")
+    _group_setup_options.extend(["✨ CupNavi föreslår", "📷 Importera nytt foto", "✋ Gör själv"])
+    _group_setup_default = "📦 Från första importen" if _has_initial_groups else "✨ CupNavi föreslår"
     if st.session_state.get(f"smart_import_selected_{tid}") and "Grupper" in st.session_state.get(f"smart_import_selected_{tid}", []):
-        _group_setup_default = "ðŸ“· Importera nytt foto"
+        _group_setup_default = "📷 Importera nytt foto"
     _group_setup_mode = st.segmented_control(
-        "VÃ¤lj arbetssÃ¤tt",
+        "Välj arbetssätt",
         _group_setup_options,
         default=_group_setup_default,
         key=f"group_setup_mode_{tid}",
         label_visibility="collapsed",
     ) or _group_setup_default
-    if _group_setup_mode == "âœ¨ CupNavi fÃ¶reslÃ¥r":
-        st.info("âœ¨ Rekommenderat Â· CupNavi gÃ¶r ett fÃ¶rsta fÃ¶rslag. Ingenting blir lÃ¥st och du kan flytta lag efterÃ¥t.")
+    if _group_setup_mode == "✨ CupNavi föreslår":
+        st.info("✨ Rekommenderat · CupNavi gör ett första förslag. Ingenting blir låst och du kan flytta lag efteråt.")
     else:
-        st.caption("Alternativt arbetssÃ¤tt valt. Du kan alltid justera grupperna manuellt efterÃ¥t. Fotoimport sparar aldrig nÃ¥got innan du har granskat fÃ¶rslaget.")
+        st.caption("Alternativt arbetssätt valt. Du kan alltid justera grupperna manuellt efteråt. Fotoimport sparar aldrig något innan du har granskat förslaget.")
 
-    if _group_setup_mode == "ðŸ“¦ FrÃ¥n fÃ¶rsta importen":
+    if _group_setup_mode == "📦 Från första importen":
         with st.container(border=True):
             _initial_source = str(_initial_setup_import.get("source_name") or "foto/dokument")
-            st.markdown("#### Grupper hittade redan i fÃ¶rsta setup-importen")
-            st.caption(f"KÃ¤lla: {_initial_source}. CupNavi har sparat detta underlag frÃ¥n fÃ¶rsta steget sÃ¥ du inte behÃ¶ver lÃ¤sa in samma foto igen.")
+            st.markdown("#### Grupper hittade redan i första setup-importen")
+            st.caption(f"Källa: {_initial_source}. CupNavi har sparat detta underlag från första steget så du inte behöver läsa in samma foto igen.")
             _initial_by_group = {}
             for _row in _initial_group_rows:
                 _initial_by_group.setdefault(str(_row["group_name"]), []).append(str(_row["name"]))
             for _group_name, _names in _initial_by_group.items():
-                st.markdown(f"**{_group_name}** Â· {len(_names)} lag")
+                st.markdown(f"**{_group_name}** · {len(_names)} lag")
                 st.caption(", ".join(_names))
             _registered_names = {str(_row["name"]).strip().casefold(): str(_row["name"]) for _row in teams}
             _initial_unmatched = [row["name"] for row in _initial_group_rows if str(row["name"]).strip().casefold() not in _registered_names]
             _initial_matched_count = len(_initial_group_rows) - len(_initial_unmatched)
-            st.caption(f"{len(_initial_by_group)} grupper hittade Â· {_initial_matched_count} av {len(_initial_group_rows)} lag kan matchas mot nuvarande laglista.")
+            st.caption(f"{len(_initial_by_group)} grupper hittade · {_initial_matched_count} av {len(_initial_group_rows)} lag kan matchas mot nuvarande laglista.")
             if _initial_unmatched:
                 st.warning(
-                    f"{len(_initial_unmatched)} lag frÃ¥n fÃ¶rsta importen matchar inte exakt mot laglistan Ã¤nnu. "
-                    "De placeras inte automatiskt. GÃ¥ tillbaka till Lag om namnen behÃ¶ver justeras."
+                    f"{len(_initial_unmatched)} lag från första importen matchar inte exakt mot laglistan ännu. "
+                    "De placeras inte automatiskt. Gå tillbaka till Lag om namnen behöver justeras."
                 )
-                with st.expander("Visa lag som behÃ¶ver kontrolleras", expanded=False):
+                with st.expander("Visa lag som behöver kontrolleras", expanded=False):
                     for _name in _initial_unmatched:
-                        st.write(f"â€¢ {_name}")
+                        st.write(f"• {_name}")
             if _existing_groups_count:
-                st.success("Gruppindelningen finns redan i cupen. Den fÃ¶rsta importen ligger kvar som referens och skriver aldrig Ã¶ver befintliga grupper.")
+                st.success("Gruppindelningen finns redan i cupen. Den första importen ligger kvar som referens och skriver aldrig över befintliga grupper.")
             elif not teams:
-                st.info("LÃ¤gg fÃ¶rst in lagen pÃ¥ Steg 2. GruppfÃ¶rslaget frÃ¥n fÃ¶rsta importen ligger kvar och vÃ¤ntar hÃ¤r.")
+                st.info("Lägg först in lagen på Steg 2. Gruppförslaget från första importen ligger kvar och väntar här.")
             else:
                 if st.button(
-                    "âœ“ AnvÃ¤nd grupperna frÃ¥n fÃ¶rsta importen",
+                    "✓ Använd grupperna från första importen",
                     type="primary",
                     use_container_width=True,
                     disabled=_group_history_locked or not bool(_initial_matched_count),
@@ -15540,14 +15540,14 @@ if admin_page == "Grupper":
                         _clear_render_query_cache()
                         add_feed_item(
                             tid,
-                            f"{_applied['groups']} grupper anvÃ¤nda frÃ¥n fÃ¶rsta importen",
-                            f"{_applied['assigned']} lag placerade Â· kÃ¤lla: {_initial_source}",
+                            f"{_applied['groups']} grupper använda från första importen",
+                            f"{_applied['assigned']} lag placerade · källa: {_initial_source}",
                             category="Import",
                         )
                         if _applied.get("unmatched"):
-                            st.warning(f"{len(_applied['unmatched'])} lag kunde inte matchas och lÃ¤mnades oplacerade.")
+                            st.warning(f"{len(_applied['unmatched'])} lag kunde inte matchas och lämnades oplacerade.")
                         else:
-                            st.success("Gruppindelningen frÃ¥n fÃ¶rsta importen Ã¤r sparad.")
+                            st.success("Gruppindelningen från första importen är sparad.")
                         st.rerun()
                     except ValueError as exc:
                         st.info(str(exc))
@@ -15557,22 +15557,22 @@ if admin_page == "Grupper":
         if teams and _participant_registration_complete and _existing_groups_count == 0
         else []
     )
-    if _group_setup_mode == "âœ¨ CupNavi fÃ¶reslÃ¥r" and _smart_plan:
-        st.markdown("### FÃ¶rslag frÃ¥n CupNavi Â· valfritt")
+    if _group_setup_mode == "✨ CupNavi föreslår" and _smart_plan:
+        st.markdown("### Förslag från CupNavi · valfritt")
         with st.container(border=True):
             _smart_sizes = [len(item["teams"]) for item in _smart_plan]
             _sg1, _sg2, _sg3 = st.columns(3)
             _sg1.metric("Grupper", len(_smart_plan))
-            _sg2.metric("Lag/grupp", f"{min(_smart_sizes)}â€“{max(_smart_sizes)}" if _smart_sizes else "â€“")
+            _sg2.metric("Lag/grupp", f"{min(_smart_sizes)}–{max(_smart_sizes)}" if _smart_sizes else "–")
             _sg3.metric("Lag totalt", sum(_smart_sizes))
-            st.caption("JÃ¤mnstora grupper inom respektive tÃ¤vlingsklass. FÃ¶rslaget Ã¤r bara en fÃ¶rhandsvisning â€“ inget sparas fÃ¶rrÃ¤n du vÃ¤ljer att anvÃ¤nda det. Du kan justera placeringen efterÃ¥t.")
+            st.caption("Jämnstora grupper inom respektive tävlingsklass. Förslaget är bara en förhandsvisning – inget sparas förrän du väljer att använda det. Du kan justera placeringen efteråt.")
             with st.expander("Visa vilka lag som hamnar i varje grupp", expanded=False):
                 for item in _smart_plan:
                     names = ", ".join(str(team_row["name"]) for team_row in item["teams"])
-                    st.markdown(f"**{item['name']}** Â· {len(item['teams'])} lag")
+                    st.markdown(f"**{item['name']}** · {len(item['teams'])} lag")
                     st.caption(names)
         if st.button(
-            "AnvÃ¤nd CupNavis gruppindelning",
+            "Använd CupNavis gruppindelning",
             type="secondary",
             use_container_width=True,
             disabled=_group_history_locked,
@@ -15599,9 +15599,9 @@ if admin_page == "Grupper":
                         for row in fresh_team_rows
                     }
                     if fresh_group_count:
-                        st.warning("Grupper skapades av nÃ¥gon annan innan du hann spara. Inga automatiska Ã¤ndringar gjordes.")
+                        st.warning("Grupper skapades av någon annan innan du hann spara. Inga automatiska ändringar gjordes.")
                     elif fresh_team_state != expected_team_state:
-                        st.warning("Lagen Ã¤ndrades av nÃ¥gon annan efter att fÃ¶rslaget visades. Uppdatera sidan och granska det nya fÃ¶rslaget; inga grupper skapades.")
+                        st.warning("Lagen ändrades av någon annan efter att förslaget visades. Uppdatera sidan och granska det nya förslaget; inga grupper skapades.")
                     else:
                         for item in _smart_plan:
                             cur = con.execute(
@@ -15627,10 +15627,10 @@ if admin_page == "Grupper":
                     con.rollback()
                     raise
 
-    if _group_setup_mode == "âœ¨ CupNavi fÃ¶reslÃ¥r" and _recommended_groups > 0 and not _smart_plan:
-        st.caption(f"Rekommendation: **{_recommended_groups} grupper** Â· cirka **{int(_row_value(_group_rules,'recommended_group_size',0) or 0)} lag per grupp**.")
+    if _group_setup_mode == "✨ CupNavi föreslår" and _recommended_groups > 0 and not _smart_plan:
+        st.caption(f"Rekommendation: **{_recommended_groups} grupper** · cirka **{int(_row_value(_group_rules,'recommended_group_size',0) or 0)} lag per grupp**.")
         if _existing_groups_count == 0 and teams and _participant_registration_complete:
-            st.caption("Detta Ã¤r ett frivilligt snabbval. Inga grupper skapas fÃ¶rrÃ¤n du trycker pÃ¥ knappen.")
+            st.caption("Detta är ett frivilligt snabbval. Inga grupper skapas förrän du trycker på knappen.")
             if st.button(f"Skapa {_recommended_groups} rekommenderade grupper",type="secondary",use_container_width=True,key=f"create_recommended_groups_{tid}"):
                 class_default=class_rows[0] if len(class_rows)==1 else None
                 class_id=_row_value(class_default,"id",None) if class_default else None
@@ -15644,33 +15644,33 @@ if admin_page == "Grupper":
                         )
                     con.commit()
                 _clear_render_query_cache()
-                st.success("Rekommenderade grupper skapades. Dra nu lagen till rÃ¤tt grupp.")
+                st.success("Rekommenderade grupper skapades. Dra nu lagen till rätt grupp.")
                 st.rerun()
 
     # v576 photo path: read group/team relationships from one or more images,
     # preview them, then apply only after explicit approval. Existing group
     # structures are never silently replaced.
-    if _group_setup_mode == "ðŸ“· Importera nytt foto":
+    if _group_setup_mode == "📷 Importera nytt foto":
         with st.container(border=True):
-            st.markdown("#### LÃ¤s in gruppindelning frÃ¥n foto")
+            st.markdown("#### Läs in gruppindelning från foto")
             st.caption(
-                "Fotografera eller ladda upp ett tidigare cupprogram, en gruppÃ¶versikt eller en skÃ¤rmdump. "
-                "CupNavi lÃ¤ser lagnamn och grupper och visar ett fÃ¶rslag som du mÃ¥ste godkÃ¤nna."
+                "Fotografera eller ladda upp ett tidigare cupprogram, en gruppöversikt eller en skärmdump. "
+                "CupNavi läser lagnamn och grupper och visar ett förslag som du måste godkänna."
             )
             _group_photo_files = st.file_uploader(
-                "Dra hit foto eller skÃ¤rmdump",
+                "Dra hit foto eller skärmdump",
                 type=["png", "jpg", "jpeg", "webp"],
                 accept_multiple_files=True,
                 key=f"group_photo_import_{tid}",
-                help="Du kan anvÃ¤nda flera bilder om gruppindelningen finns pÃ¥ flera sidor.",
+                help="Du kan använda flera bilder om gruppindelningen finns på flera sidor.",
             )
             _group_photo_api_key = setting("OPENAI_API_KEY")
             _group_photo_model = setting("CUPNAVI_AI_IMPORT_MODEL") or setting("CUPNAVI_AI_ROSTER_MODEL") or "gpt-5.6-luna"
             _group_photo_result_key = f"group_photo_result_{tid}"
             if not _group_photo_api_key:
-                st.info("FotoavlÃ¤sningen aktiveras nÃ¤r OPENAI_API_KEY finns i Streamlit Secrets.")
+                st.info("Fotoavläsningen aktiveras när OPENAI_API_KEY finns i Streamlit Secrets.")
             if st.button(
-                "LÃ¤s av gruppindelningen",
+                "Läs av gruppindelningen",
                 type="primary",
                 use_container_width=True,
                 disabled=not bool(_group_photo_files) or not bool(_group_photo_api_key),
@@ -15682,18 +15682,18 @@ if admin_page == "Grupper":
                         (uploaded.getvalue(), str(getattr(uploaded, "name", None) or "gruppfoto"), str(getattr(uploaded, "type", None) or "image/jpeg"))
                         for uploaded in (_group_photo_files or [])
                     ]
-                    with st.spinner("CupNavi lÃ¤ser grupper och lagnamn â€¦"):
+                    with st.spinner("CupNavi läser grupper och lagnamn …"):
                         _parsed_groups = extract_cup_setup_from_documents(_docs, _group_photo_api_key, model=_group_photo_model)
                     st.session_state[_group_photo_result_key] = _parsed_groups
                     st.rerun()
                 except Exception as exc:
-                    st.error(f"Gruppindelningen kunde inte lÃ¤sas: {exc}")
+                    st.error(f"Gruppindelningen kunde inte läsas: {exc}")
 
             _group_photo_result = st.session_state.get(_group_photo_result_key)
             if _group_photo_result:
                 _photo_team_rows = [row for row in (_group_photo_result.get("teams") or []) if row.get("name") and row.get("group_name")]
                 if not _photo_team_rows:
-                    st.warning("CupNavi hittade ingen tydlig koppling mellan lag och grupper i bilden. Prova en tydligare bild eller gÃ¶r grupperna manuellt.")
+                    st.warning("CupNavi hittade ingen tydlig koppling mellan lag och grupper i bilden. Prova en tydligare bild eller gör grupperna manuellt.")
                 else:
                     _current_by_name = {str(row["name"]).strip().casefold(): row for row in teams}
                     _proposal_rows = []
@@ -15706,33 +15706,33 @@ if admin_page == "Grupper":
                             "Lag i fotot": _name,
                             "Grupp": _group_name,
                             "Matchat lag": str(_match["name"]) if _match else "Inte matchat",
-                            "Status": "âœ“" if _match else "Kontrollera",
+                            "Status": "✓" if _match else "Kontrollera",
                         })
                         if _match:
                             _matched_ids.add(int(_match["id"]))
-                    st.markdown("##### Granska fÃ¶rslaget")
+                    st.markdown("##### Granska förslaget")
                     st.dataframe(pd.DataFrame(_proposal_rows), use_container_width=True, hide_index=True)
-                    _unmatched = [row for row in _proposal_rows if row["Status"] != "âœ“"]
+                    _unmatched = [row for row in _proposal_rows if row["Status"] != "✓"]
                     _group_names_from_photo = []
                     for _row in _photo_team_rows:
                         _gname = str(_row.get("group_name") or "").strip()
                         if _gname and _gname.casefold() not in {g.casefold() for g in _group_names_from_photo}:
                             _group_names_from_photo.append(_gname)
-                    st.caption(f"Hittade {len(_group_names_from_photo)} grupper Â· matchade {len(_matched_ids)} av {len(teams)} registrerade lag.")
+                    st.caption(f"Hittade {len(_group_names_from_photo)} grupper · matchade {len(_matched_ids)} av {len(teams)} registrerade lag.")
                     if _unmatched:
                         st.warning(
-                            f"{len(_unmatched)} rad(er) kunde inte matchas sÃ¤kert mot registrerade lag. "
-                            "De importeras inte automatiskt; kontrollera lagnamnen fÃ¶rst."
+                            f"{len(_unmatched)} rad(er) kunde inte matchas säkert mot registrerade lag. "
+                            "De importeras inte automatiskt; kontrollera lagnamnen först."
                         )
                     if _existing_groups_count:
                         st.info(
-                            "Det finns redan grupper i cupen. Fotoresultatet visas dÃ¤rfÃ¶r bara som ett fÃ¶rslag sÃ¥ att en befintlig gruppindelning aldrig skrivs Ã¶ver av misstag. "
-                            "AnvÃ¤nd Justera gruppindelningen nedan fÃ¶r att Ã¤ndra den."
+                            "Det finns redan grupper i cupen. Fotoresultatet visas därför bara som ett förslag så att en befintlig gruppindelning aldrig skrivs över av misstag. "
+                            "Använd Justera gruppindelningen nedan för att ändra den."
                         )
                     else:
                         _can_apply_photo = bool(_matched_ids and _group_names_from_photo) and not _group_history_locked
                         if st.button(
-                            "âœ“ AnvÃ¤nd den granskade gruppindelningen",
+                            "✓ Använd den granskade gruppindelningen",
                             type="primary",
                             use_container_width=True,
                             disabled=not _can_apply_photo,
@@ -15744,7 +15744,7 @@ if admin_page == "Grupper":
                                         "SELECT COUNT(*) AS n FROM groups WHERE tournament_id=?", (tid,)
                                     ))["n"] or 0)
                                     if _fresh_groups:
-                                        st.warning("Grupper skapades av nÃ¥gon annan innan du hann spara. Fotoimporten gjorde inga Ã¤ndringar.")
+                                        st.warning("Grupper skapades av någon annan innan du hann spara. Fotoimporten gjorde inga ändringar.")
                                     else:
                                         _created_group_ids = {}
                                         _single_class = class_rows[0] if len(class_rows) == 1 else None
@@ -15774,42 +15774,42 @@ if admin_page == "Grupper":
                                         con.commit()
                                         _clear_render_query_cache()
                                         st.session_state.pop(_group_photo_result_key, None)
-                                        st.success("Gruppindelningen frÃ¥n fotot Ã¤r sparad. Kontrollera den gÃ¤rna en gÃ¥ng till nedan.")
+                                        st.success("Gruppindelningen från fotot är sparad. Kontrollera den gärna en gång till nedan.")
                                         st.rerun()
                                 except Exception:
                                     con.rollback()
                                     raise
 
-    if _group_setup_mode == "âœ‹ GÃ¶r sjÃ¤lv":
+    if _group_setup_mode == "✋ Gör själv":
       with st.form("new_group", clear_on_submit=True):
             group_name = st.text_input("Gruppnamn", placeholder="Grupp A")
             group_class_options = class_ids if len(class_ids) == 1 else ([None] + class_ids)
             group_class_id = st.selectbox(
-                "TÃ¤vlingsklass",
+                "Tävlingsklass",
                 group_class_options or [None],
-                format_func=lambda value: "Ingen sÃ¤rskild tÃ¤vlingsklass" if value is None else next(competition_class_label(row) for row in class_rows if row["id"] == value),
+                format_func=lambda value: "Ingen särskild tävlingsklass" if value is None else next(competition_class_label(row) for row in class_rows if row["id"] == value),
                 disabled=not bool(class_rows),
                 key=f"new_group_competition_class_{tid}",
             )
             group_class_name = next((competition_class_label(row) for row in class_rows if row["id"] == group_class_id), "")
-            if st.form_submit_button("LÃ¤gg till grupp", type="primary", disabled=_group_history_locked or not bool(teams)):
+            if st.form_submit_button("Lägg till grupp", type="primary", disabled=_group_history_locked or not bool(teams)):
                 if group_name.strip():
                     run("INSERT INTO groups(tournament_id,name,age_class,competition_class_id) VALUES(?,?,?,?)", (tid, group_name.strip(), group_class_name or None, group_class_id))
                     st.rerun()
                 st.error("Ange ett gruppnamn.")
     
-    # v397: groups Ã¤r redan laddade ovan; gruppskapande Ã¥tgÃ¤rder gÃ¶r st.rerun().
+    # v397: groups är redan laddade ovan; gruppskapande åtgärder gör st.rerun().
     tournament_age_classes = [competition_class_label(row) for row in class_rows]  # compatibility for existing branch conditions
 
     st.divider()
     st.subheader("2. Kontrollera gruppindelningen")
-    st.caption("Det hÃ¤r Ã¤r den viktiga kontrollen fÃ¶re nÃ¤sta steg: varje lag ska ligga i rÃ¤tt grupp. Flytta bara det som behÃ¶ver Ã¤ndras.")
+    st.caption("Det här är den viktiga kontrollen före nästa steg: varje lag ska ligga i rätt grupp. Flytta bara det som behöver ändras.")
     if not teams:
-        st.info("Inga lag Ã¤r registrerade.")
+        st.info("Inga lag är registrerade.")
     elif not groups:
-        st.info("Skapa minst en grupp ovan fÃ¶r att kunna placera lagen.")
+        st.info("Skapa minst en grupp ovan för att kunna placera lagen.")
     elif sort_items is not None and not tournament_age_classes:
-        st.caption("Dra lagen mellan rutorna och klicka sedan pÃ¥ Spara gruppindelning.")
+        st.caption("Dra lagen mellan rutorna och klicka sedan på Spara gruppindelning.")
         sortable_team_labels = {
             t["id"]: t["name"] + "\u2063" + "".join("\u200b" if bit == "0" else "\u200c" for bit in bin(t["id"])[2:])
             for t in teams
@@ -15848,15 +15848,15 @@ if admin_page == "Grupper":
                     con.executemany("UPDATE teams SET group_id=? WHERE id=?", group_changes)
                     con.commit()
                 _clear_render_query_cache()
-                st.success(f"Gruppindelningen sparades fÃ¶r {len(group_changes)} lag.")
+                st.success(f"Gruppindelningen sparades för {len(group_changes)} lag.")
                 st.rerun()
             else:
-                st.info("Inga Ã¤ndringar i gruppindelningen att spara.")
+                st.info("Inga ändringar i gruppindelningen att spara.")
     else:
         if tournament_age_classes:
-            st.caption("Lag kan bara placeras i grupper inom samma tÃ¤vlingsklass.")
+            st.caption("Lag kan bara placeras i grupper inom samma tävlingsklass.")
         else:
-            st.warning("Dra-och-slÃ¤pp krÃ¤ver tillÃ¤gget streamlit-sortables. ReservlÃ¤get anvÃ¤nds tills det installerats.")
+            st.warning("Dra-och-släpp kräver tillägget streamlit-sortables. Reservläget används tills det installerats.")
         for t in teams:
             c1, c2, c3 = st.columns([4, 3, 2])
             c1.markdown(f"**{t['name']}**")
@@ -15876,10 +15876,10 @@ if admin_page == "Grupper":
     _unassigned_after_assignment = sum(1 for team_row in teams if team_row["group_id"] is None)
     if teams and _participant_registration_complete and _groups_after_assignment and _unassigned_after_assignment == 0:
         with st.container(border=True):
-            st.markdown("### âœ“ Klart fÃ¶r nÃ¤sta steg")
-            st.caption("Alla lag Ã¤r placerade i grupper. Du behÃ¶ver inte gÃ¶ra mer hÃ¤r nu â€” gÃ¥ vidare och faststÃ¤ll cupens regler.")
+            st.markdown("### ✓ Klart för nästa steg")
+            st.caption("Alla lag är placerade i grupper. Du behöver inte göra mer här nu — gå vidare och fastställ cupens regler.")
             st.button(
-                "FortsÃ¤tt till Regler â†’",
+                "Fortsätt till Regler →",
                 type="primary",
                 use_container_width=True,
                 key=f"v552_groups_to_rules_{tid}",
@@ -15889,13 +15889,13 @@ if admin_page == "Grupper":
 
     st.divider()
     if st.toggle(
-        "Fler gruppverktyg Â· byt namn eller ta bort grupp",
+        "Fler gruppverktyg · byt namn eller ta bort grupp",
         value=False,
         key=f"lazy_edit_groups_{tid}",
-        help="Ã–ppna bara nÃ¤r en befintlig grupp behÃ¶ver Ã¤ndras.",
+        help="Öppna bara när en befintlig grupp behöver ändras.",
     ):
         if groups:
-            edit_group_id = st.selectbox("VÃ¤lj grupp", [g["id"] for g in groups], format_func=lambda x: next(g["name"] for g in groups if g["id"] == x), key="edit_group")
+            edit_group_id = st.selectbox("Välj grupp", [g["id"] for g in groups], format_func=lambda x: next(g["name"] for g in groups if g["id"] == x), key="edit_group")
             edit_group = next(g for g in groups if g["id"] == edit_group_id)
             with st.form("edit_group_form"):
                 edited_group_name = st.text_input("Gruppnamn", value=edit_group["name"], disabled=_group_history_locked)
@@ -15904,9 +15904,9 @@ if admin_page == "Grupper":
                 if saved_group_class_id not in group_class_options:
                     saved_group_class_id = None
                 edited_group_class_id = st.selectbox(
-                    "TÃ¤vlingsklass", group_class_options,
+                    "Tävlingsklass", group_class_options,
                     index=group_class_options.index(saved_group_class_id),
-                    format_func=lambda value: "Ingen sÃ¤rskild tÃ¤vlingsklass" if value is None else next(competition_class_label(row) for row in class_rows if row["id"] == value),
+                    format_func=lambda value: "Ingen särskild tävlingsklass" if value is None else next(competition_class_label(row) for row in class_rows if row["id"] == value),
                     disabled=_group_history_locked or not bool(class_rows),
                 )
                 edited_group_class_name = next((competition_class_label(row) for row in class_rows if row["id"] == edited_group_class_id), "")
@@ -15917,7 +15917,7 @@ if admin_page == "Grupper":
                             (edit_group_id, edited_group_class_id),
                         )["n"]
                         if assigned_other_class:
-                            st.error("Gruppen innehÃ¥ller lag frÃ¥n en annan tÃ¤vlingsklass. Flytta lagen fÃ¶rst.")
+                            st.error("Gruppen innehåller lag från en annan tävlingsklass. Flytta lagen först.")
                         else:
                             saved, save_reason = _admin_update_group_if_unchanged(
                                 edit_group_id,
@@ -15928,12 +15928,12 @@ if admin_page == "Grupper":
                                 competition_class_id=edited_group_class_id,
                             )
                             if not saved and save_reason == "conflict":
-                                st.warning("Gruppen Ã¤ndrades av nÃ¥gon annan och dina Ã¤ldre uppgifter skrevs inte Ã¶ver.")
+                                st.warning("Gruppen ändrades av någon annan och dina äldre uppgifter skrevs inte över.")
                             st.rerun()
                     else:
-                        st.error("Gruppnamnet fÃ¥r inte vara tomt.")
+                        st.error("Gruppnamnet får inte vara tomt.")
             confirm_group_delete = st.checkbox(
-                "Jag fÃ¶rstÃ¥r att gruppens matcher och slutspel som anvÃ¤nder gruppen tas bort, och att lagen blir oplacerade",
+                "Jag förstår att gruppens matcher och slutspel som använder gruppen tas bort, och att lagen blir oplacerade",
                 key=f"confirm_group_{edit_group_id}",
                 disabled=_group_history_locked,
             )
@@ -15948,26 +15948,26 @@ if admin_page == "Grupper":
                     _admin_group_snapshot(edit_group),
                 )
                 if not deleted and delete_reason == "conflict":
-                    st.warning("Gruppen Ã¤ndrades av nÃ¥gon annan och raderades dÃ¤rfÃ¶r inte.")
+                    st.warning("Gruppen ändrades av någon annan och raderades därför inte.")
                 st.rerun()
         else:
             st.info("Det finns inga grupper att redigera.")
 
 if admin_page == "Trupper":
     st.header("Spelare & trupper")
-    st.caption("Lagverktyg Â· VÃ¤lj lag och hantera spelare manuellt eller via AI-import.")
-    with st.expander("âš™ï¸ Regler fÃ¶r Lagportal och matchtrupper", expanded=False):
+    st.caption("Lagverktyg · Välj lag och hantera spelare manuellt eller via AI-import.")
+    with st.expander("⚙️ Regler för Lagportal och matchtrupper", expanded=False):
         rc1, rc2 = st.columns(2)
-        portal_max_roster = rc1.number_input("Max spelare i truppen (0 = ingen grÃ¤ns)", 0, 200, int(_row_value(tournament, "max_roster_size", 0) or 0), key=f"max_roster_{tid}")
-        portal_deadline = rc2.number_input("Matchtrupp lÃ¥ses minuter fÃ¶re match", 0, 1440, int(_row_value(tournament, "squad_deadline_minutes", 30) or 30), key=f"squad_deadline_{tid}")
-        portal_public_contact = st.checkbox("TillÃ¥t lagledare/deltagaransvarig att ange en publik kontaktperson", value=bool(_row_value(tournament, "allow_team_public_contact", 0)), key=f"allow_public_contact_{tid}")
+        portal_max_roster = rc1.number_input("Max spelare i truppen (0 = ingen gräns)", 0, 200, int(_row_value(tournament, "max_roster_size", 0) or 0), key=f"max_roster_{tid}")
+        portal_deadline = rc2.number_input("Matchtrupp låses minuter före match", 0, 1440, int(_row_value(tournament, "squad_deadline_minutes", 30) or 30), key=f"squad_deadline_{tid}")
+        portal_public_contact = st.checkbox("Tillåt lagledare/deltagaransvarig att ange en publik kontaktperson", value=bool(_row_value(tournament, "allow_team_public_contact", 0)), key=f"allow_public_contact_{tid}")
         if st.button("Spara portalregler", key=f"save_portal_rules_{tid}", type="primary"):
             run("UPDATE tournaments SET max_roster_size=?,squad_deadline_minutes=?,allow_team_public_contact=? WHERE id=?", (portal_max_roster, portal_deadline, int(portal_public_contact), tid))
-            st.success("Portalreglerna Ã¤r sparade.")
+            st.success("Portalreglerna är sparade.")
             st.rerun()
     teams = admin_teams_snapshot(tid)
     if not teams:
-        st.info("LÃ¤gg fÃ¶rst till ett lag.")
+        st.info("Lägg först till ett lag.")
     else:
         _roster_team_ids = [int(t["id"]) for t in teams]
         _focus_team_id = st.session_state.get(f"admin_search_focus_team_{tid}")
@@ -15979,40 +15979,40 @@ if admin_page == "Trupper":
 
         _team_name_by_id = {int(row["id"]): row["name"] for row in teams}
         team_id = st.selectbox(
-            "VÃ¤lj lag",
+            "Välj lag",
             _roster_team_ids,
-            format_func=lambda x: _team_name_by_id.get(int(x), "OkÃ¤nt lag"),
+            format_func=lambda x: _team_name_by_id.get(int(x), "Okänt lag"),
             key=_roster_selector_key,
         )
 
         # v1.259: AI-assisted roster import from old team sheets/screenshots.
         # Nothing is written until the admin has reviewed the extracted rows.
-        with st.expander("âœ¨ AI-import frÃ¥n foto eller skÃ¤rmdump", expanded=False):
+        with st.expander("✨ AI-import från foto eller skärmdump", expanded=False):
             st.caption(
-                "Dra in en bild av en tidigare laglista eller laguppstÃ¤llning. "
-                "CupNavi lÃ¤ser av spelarna med AI och lÃ¥ter dig granska allt innan import."
+                "Dra in en bild av en tidigare laglista eller laguppställning. "
+                "CupNavi läser av spelarna med AI och låter dig granska allt innan import."
             )
             _ai_roster_key = f"ai_roster_rows_{tid}_{team_id}"
             _ai_model = setting("CUPNAVI_AI_ROSTER_MODEL") or "gpt-5.6-luna"
             _ai_api_key = setting("OPENAI_API_KEY")
             _ai_files = st.file_uploader(
-                "Dra hit foto/skÃ¤rmdump",
+                "Dra hit foto/skärmdump",
                 type=["png", "jpg", "jpeg", "webp"],
                 accept_multiple_files=True,
                 key=f"ai_roster_upload_{tid}_{team_id}",
-                help="Du kan dra in flera bilder om laglistan finns pÃ¥ flera sidor.",
+                help="Du kan dra in flera bilder om laglistan finns på flera sidor.",
             )
             st.caption(
-                "NÃ¤r du vÃ¤ljer LÃ¤s av med AI skickas bilden till den konfigurerade AI-tjÃ¤nsten. "
+                "När du väljer Läs av med AI skickas bilden till den konfigurerade AI-tjänsten. "
                 "Kontrollera alltid namn och nummer innan du importerar."
             )
             if not _ai_api_key:
                 st.info(
-                    "AI-importen Ã¤r fÃ¶rberedd men inte aktiverad. LÃ¤gg OPENAI_API_KEY i Streamlit Secrets "
-                    "fÃ¶r att slÃ¥ pÃ¥ bildavlÃ¤sningen."
+                    "AI-importen är förberedd men inte aktiverad. Lägg OPENAI_API_KEY i Streamlit Secrets "
+                    "för att slå på bildavläsningen."
                 )
             if st.button(
-                "LÃ¤s av med AI",
+                "Läs av med AI",
                 key=f"ai_roster_analyse_{tid}_{team_id}",
                 type="primary",
                 disabled=not bool(_ai_files) or not bool(_ai_api_key),
@@ -16021,7 +16021,7 @@ if admin_page == "Trupper":
                 _combined_ai_rows = []
                 _seen_ai_names = set()
                 try:
-                    with st.spinner("LÃ¤ser laglistanâ€¦"):
+                    with st.spinner("Läser laglistan…"):
                         for _uploaded in _ai_files:
                             _mime = str(getattr(_uploaded, "type", None) or "image/png")
                             from cupnavi_core.ai_roster_import import extract_roster_from_image
@@ -16042,7 +16042,7 @@ if admin_page == "Trupper":
                     if _combined_ai_rows:
                         st.success(f"Hittade {len(_combined_ai_rows)} spelare. Granska listan nedan.")
                     else:
-                        st.warning("AI:n hittade inga sÃ¤kra spelarrader i bilden.")
+                        st.warning("AI:n hittade inga säkra spelarrader i bilden.")
                 except Exception as exc:
                     st.error(str(exc))
 
@@ -16058,8 +16058,8 @@ if admin_page == "Trupper":
                     {
                         "Importera": str(row.get("name") or "").strip().casefold() not in _existing_names,
                         "Spelare": row.get("name") or "",
-                        "TrÃ¶jnummer": row.get("player_number"),
-                        "FÃ¶delseÃ¥r": row.get("birth_year"),
+                        "Tröjnummer": row.get("player_number"),
+                        "Födelseår": row.get("birth_year"),
                         "Position": row.get("position") or "Ej angiven",
                     }
                     for row in _ai_rows
@@ -16073,8 +16073,8 @@ if admin_page == "Trupper":
                     column_config={
                         "Importera": st.column_config.CheckboxColumn("Importera"),
                         "Spelare": st.column_config.TextColumn("Spelare", required=True),
-                        "TrÃ¶jnummer": st.column_config.NumberColumn("TrÃ¶jnummer", min_value=0, max_value=999, step=1),
-                        "FÃ¶delseÃ¥r": st.column_config.NumberColumn("FÃ¶delseÃ¥r", min_value=1900, max_value=2100, step=1),
+                        "Tröjnummer": st.column_config.NumberColumn("Tröjnummer", min_value=0, max_value=999, step=1),
+                        "Födelseår": st.column_config.NumberColumn("Födelseår", min_value=1900, max_value=2100, step=1),
                         "Position": st.column_config.SelectboxColumn("Position", options=ALLOWED_POSITIONS),
                     },
                 )
@@ -16098,9 +16098,9 @@ if admin_page == "Trupper":
                         return number if minimum <= number <= maximum else None
                     _selected_ai.append((
                         int(team_id),
-                        _editor_int(_row.get("TrÃ¶jnummer"), 0, 999),
+                        _editor_int(_row.get("Tröjnummer"), 0, 999),
                         _name,
-                        _editor_int(_row.get("FÃ¶delseÃ¥r"), 1900, 2100),
+                        _editor_int(_row.get("Födelseår"), 1900, 2100),
                         _row.get("Position") if _row.get("Position") in ALLOWED_POSITIONS else "Ej angiven",
                     ))
 
@@ -16110,7 +16110,7 @@ if admin_page == "Trupper":
                         if str(row.get("Spelare") or "").strip().casefold() in _existing_names
                     )
                     if _duplicate_count:
-                        st.caption(f"{_duplicate_count} redan registrerade spelare Ã¤r avmarkerade automatiskt.")
+                        st.caption(f"{_duplicate_count} redan registrerade spelare är avmarkerade automatiskt.")
 
                 if st.button(
                     f"Importera {len(_selected_ai)} spelare till {_team_name_by_id[int(team_id)]}",
@@ -16144,35 +16144,35 @@ if admin_page == "Trupper":
             )
             if _focused_player:
                 number_text = (
-                    f"#{_focused_player['player_number']} Â· "
+                    f"#{_focused_player['player_number']} · "
                     if _focused_player["player_number"] is not None else ""
                 )
                 st.success(
-                    f"ðŸ”Ž Ã–ppnad frÃ¥n sÃ¶kningen: {number_text}{_focused_player['name']}"
+                    f"🔎 Öppnad från sökningen: {number_text}{_focused_player['name']}"
                 )
         elif _focus_team_id == team_id:
-            st.caption("ðŸ”Ž Laget Ã¶ppnades frÃ¥n SÃ¶k i cupen.")
+            st.caption("🔎 Laget öppnades från Sök i cupen.")
 
         with st.form("new_player", clear_on_submit=True):
             c1, c2, c3, c4 = st.columns(4)
             pname = c1.text_input("Spelare")
-            number = c2.number_input("TrÃ¶jnummer", 0, 99, 0)
-            birth = c3.number_input("FÃ¶delseÃ¥r", 1980, 2030, 2014)
-            position = c4.selectbox("Position", ["Ej angiven", "MÃ¥lvakt", "FÃ¶rsvarare", "MittfÃ¤ltare", "Anfallare"])
-            if st.form_submit_button("LÃ¤gg till spelare", type="primary"):
+            number = c2.number_input("Tröjnummer", 0, 99, 0)
+            birth = c3.number_input("Födelseår", 1980, 2030, 2014)
+            position = c4.selectbox("Position", ["Ej angiven", "Målvakt", "Försvarare", "Mittfältare", "Anfallare"])
+            if st.form_submit_button("Lägg till spelare", type="primary"):
                 if pname.strip():
                     run("INSERT INTO players(team_id,player_number,name,birth_year,position) VALUES(?,?,?,?,?)", (team_id, number, pname.strip(), birth, position))
                     st.rerun()
                 st.error("Ange spelarens namn.")
         players = all_rows("SELECT * FROM players WHERE team_id=? ORDER BY player_number,name", (team_id,))
         _player_by_id = {int(row["id"]): row for row in players}
-        render_centered_table(pd.DataFrame([{"Nr": p["player_number"], "Spelare": p["name"], "FÃ¶delseÃ¥r": p["birth_year"], "Position": p["position"]} for p in players]))
+        render_centered_table(pd.DataFrame([{"Nr": p["player_number"], "Spelare": p["name"], "Födelseår": p["birth_year"], "Position": p["position"]} for p in players]))
 
         _show_admin_match_rosters = st.toggle(
-            "Visa matchtrupper â€“ admin",
+            "Visa matchtrupper – admin",
             value=False,
             key=f"show_admin_match_rosters_{tid}_{team_id}",
-            help="Laddas fÃ¶rst nÃ¤r verktyget Ã¶ppnas fÃ¶r att hÃ¥lla Trupper-sidan snabb.",
+            help="Laddas först när verktyget öppnas för att hålla Trupper-sidan snabb.",
         )
         if _show_admin_match_rosters:
             _team_token = f"team:{int(team_id)}"
@@ -16184,11 +16184,11 @@ if admin_page == "Trupper":
                 (tid, _team_token, _team_token),
             )
             if not admin_team_matches:
-                st.info("Laget har Ã¤nnu inga schemalagda matcher.")
+                st.info("Laget har ännu inga schemalagda matcher.")
             elif not players:
-                st.info("LÃ¤gg till spelare innan matchtrupp kan registreras.")
+                st.info("Lägg till spelare innan matchtrupp kan registreras.")
             else:
-                admin_match_id = st.selectbox("VÃ¤lj match fÃ¶r matchtrupp", [row["id"] for row in admin_team_matches], format_func=lambda mid: _portal_match_label(next(row for row in admin_team_matches if row["id"] == mid)), key=f"admin_squad_match_{team_id}")
+                admin_match_id = st.selectbox("Välj match för matchtrupp", [row["id"] for row in admin_team_matches], format_func=lambda mid: _portal_match_label(next(row for row in admin_team_matches if row["id"] == mid)), key=f"admin_squad_match_{team_id}")
                 existing_admin_squad = {int(row["player_id"]) for row in all_rows("SELECT player_id FROM match_rosters WHERE match_id=? AND team_id=?", (admin_match_id, team_id))}
                 admin_player_ids = [int(row["id"]) for row in players]
                 admin_selected = st.multiselect(
@@ -16196,9 +16196,9 @@ if admin_page == "Trupper":
                     admin_player_ids,
                     default=[pid for pid in admin_player_ids if pid in existing_admin_squad],
                     format_func=lambda pid: (
-                        f"#{_player_by_id[int(pid)]['player_number'] if _player_by_id[int(pid)]['player_number'] is not None else 'â€“'} "
+                        f"#{_player_by_id[int(pid)]['player_number'] if _player_by_id[int(pid)]['player_number'] is not None else '–'} "
                         f"{_player_by_id[int(pid)]['name']}"
-                    ) if int(pid) in _player_by_id else "OkÃ¤nd spelare",
+                    ) if int(pid) in _player_by_id else "Okänd spelare",
                     key=f"admin_match_roster_{admin_match_id}_{team_id}",
                 )
                 if st.button("Spara matchtrupp som admin", key=f"admin_save_squad_{admin_match_id}_{team_id}", type="primary"):
@@ -16210,22 +16210,22 @@ if admin_page == "Trupper":
                         "Admin",
                     )
                     if saved:
-                        record_audit(tid, "match_roster_saved", "match", f"Admin sparade matchtrupp fÃ¶r {next(row['name'] for row in teams if row['id'] == team_id)}", entity_id=admin_match_id, actor="Admin")
-                        st.success("Matchtruppen Ã¤r sparad. Admin kan Ã¤ndra Ã¤ven efter deadline.")
+                        record_audit(tid, "match_roster_saved", "match", f"Admin sparade matchtrupp för {next(row['name'] for row in teams if row['id'] == team_id)}", entity_id=admin_match_id, actor="Admin")
+                        st.success("Matchtruppen är sparad. Admin kan ändra även efter deadline.")
                     elif save_reason == "conflict":
-                        st.warning("Matchtruppen Ã¤ndrades av nÃ¥gon annan och skrevs inte Ã¶ver. Senaste truppen laddas om.")
+                        st.warning("Matchtruppen ändrades av någon annan och skrevs inte över. Senaste truppen laddas om.")
                     else:
-                        st.error("Matchtruppen kunde inte sparas eftersom en vald spelare inte lÃ¤ngre tillhÃ¶r laget.")
+                        st.error("Matchtruppen kunde inte sparas eftersom en vald spelare inte längre tillhör laget.")
                     st.rerun()
 
 if admin_page == "Papperskorg":
     st.header("Papperskorg")
-    st.caption("Ã…terstÃ¤ll en cup eller radera den permanent. Permanent radering gÃ¥r inte att Ã¥ngra.")
+    st.caption("Återställ en cup eller radera den permanent. Permanent radering går inte att ångra.")
     trashed_tournaments = all_rows(
         "SELECT id,name,trashed_at FROM tournaments WHERE lifecycle_status='trashed' ORDER BY trashed_at DESC,name"
     )
     if not trashed_tournaments:
-        st.info("Papperskorgen Ã¤r tom.")
+        st.info("Papperskorgen är tom.")
     else:
         trashed_ids = [row["id"] for row in trashed_tournaments]
         trash_name_by_id = {row["id"]: row["name"] for row in trashed_tournaments}
@@ -16240,16 +16240,16 @@ if admin_page == "Papperskorg":
         trashed_at = trash_row_by_id[bin_id]["trashed_at"] or "Tid saknas"
         st.caption(f"Flyttad: {trashed_at.replace('T',' ')}")
         restore_col, permanent_col = st.columns(2)
-        if restore_col.button("â†©ï¸ Ã…terstÃ¤ll cup", use_container_width=True, key=f"restore_trashed_v502_{bin_id}"):
+        if restore_col.button("↩️ Återställ cup", use_container_width=True, key=f"restore_trashed_v502_{bin_id}"):
             changed, _reason = _restore_trashed_tournament_if_current(
                 bin_id, trash_row_by_id[bin_id]["trashed_at"],
             )
             if not changed:
-                st.warning("Cupen Ã¤ndrades av en annan administratÃ¶r och kunde inte Ã¥terstÃ¤llas.")
+                st.warning("Cupen ändrades av en annan administratör och kunde inte återställas.")
             else:
                 st.session_state.pop("trashed_tournament_target_v502", None)
             st.rerun()
-        permanent_col.error("Permanent radering gÃ¥r inte att Ã¥ngra.")
+        permanent_col.error("Permanent radering går inte att ångra.")
         typed_name = permanent_col.text_input(
             f"Skriv exakt: {bin_name}", key=f"permanent_delete_name_v502_{bin_id}"
         )
@@ -16268,18 +16268,18 @@ if admin_page == "Papperskorg":
                 st.session_state.pop("trashed_tournament_target_v502", None)
                 st.session_state.pop(f"permanent_delete_name_v502_{bin_id}", None)
             else:
-                st.warning("Cupen Ã¤ndrades eller Ã¥terstÃ¤lldes och raderades dÃ¤rfÃ¶r inte.")
+                st.warning("Cupen ändrades eller återställdes och raderades därför inte.")
             st.rerun()
 
-if admin_page == "Ã…tkomst & koder":
-    st.header("Ã…tkomst & koder")
-    st.caption("Samla personer och Ã¥tkomst pÃ¥ ett stÃ¤lle. VÃ¤lj bara det du behÃ¶ver gÃ¶ra nu.")
+if admin_page == "Åtkomst & koder":
+    st.header("Åtkomst & koder")
+    st.caption("Samla personer och åtkomst på ett ställe. Välj bara det du behöver göra nu.")
     _access_people_tab, _access_codes_tab, _access_profile_tab = st.tabs([
-        "ðŸ‘¥ AdministratÃ¶rer", "ðŸ” Koder", "ðŸ‘¤ Min profil"
+        "👥 Administratörer", "🔐 Koder", "👤 Min profil"
     ])
 
     with _access_people_tab:
-        st.subheader("CupadministratÃ¶rer")
+        st.subheader("Cupadministratörer")
         _member_rows = all_rows(
             """SELECT oa.id AS account_id, oa.email, oa.display_name, oa.disabled_at, tm.role, tm.created_at
                FROM tournament_members tm
@@ -16291,24 +16291,24 @@ if admin_page == "Ã…tkomst & koder":
         if _member_rows:
             render_centered_table(pd.DataFrame([
                 {
-                    "Namn": row["display_name"] or "â€“",
+                    "Namn": row["display_name"] or "–",
                     "E-post": row["email"],
-                    "Roll": "Ã„gare" if row["role"] == "owner" else "Lokal administratÃ¶r",
-                    "Status": "AvstÃ¤ngd" if row["disabled_at"] else "Aktiv",
+                    "Roll": "Ägare" if row["role"] == "owner" else "Lokal administratör",
+                    "Status": "Avstängd" if row["disabled_at"] else "Aktiv",
                 }
                 for row in _member_rows
             ]))
         else:
-            st.info("Cupen saknar Ã¤nnu kopplade arrangÃ¶rskonton. CupNavi driftadmin kan tilldela en Ã¤gare hÃ¤r.")
+            st.info("Cupen saknar ännu kopplade arrangörskonton. CupNavi driftadmin kan tilldela en ägare här.")
 
         if _can_manage_tournament_admins(tid):
-            st.markdown("#### Bjud in lokal administratÃ¶r")
-            st.caption("Rekommenderad vÃ¤g: skapa en personlig inbjudningslÃ¤nk. Personen vÃ¤ljer sjÃ¤lv lÃ¶senord och lÃ¤nken kan bara anvÃ¤ndas av rÃ¤tt e-postadress.")
+            st.markdown("#### Bjud in lokal administratör")
+            st.caption("Rekommenderad väg: skapa en personlig inbjudningslänk. Personen väljer själv lösenord och länken kan bara användas av rätt e-postadress.")
             with st.form(f"local_admin_invite_v563_{tid}", clear_on_submit=True):
                 invite_name = st.text_input("Namn", key=f"invite_name_v563_{tid}")
                 invite_email = st.text_input("E-post", key=f"invite_email_v563_{tid}")
-                invite_days = st.selectbox("LÃ¤nken gÃ¤ller", [3, 7, 14], index=1, format_func=lambda d: f"{d} dagar", key=f"invite_days_v563_{tid}")
-                invite_submit = st.form_submit_button("Skapa inbjudningslÃ¤nk", type="primary", use_container_width=True)
+                invite_days = st.selectbox("Länken gäller", [3, 7, 14], index=1, format_func=lambda d: f"{d} dagar", key=f"invite_days_v563_{tid}")
+                invite_submit = st.form_submit_button("Skapa inbjudningslänk", type="primary", use_container_width=True)
             if invite_submit:
                 normalized = _normalize_account_email(invite_email)
                 if "@" not in normalized or "." not in normalized.split("@")[-1]:
@@ -16322,15 +16322,15 @@ if admin_page == "Ã…tkomst & koder":
                     token, expires_at = _create_tournament_admin_invitation(tid, normalized, invite_name, invite_days)
                     invite_url = f"{PUBLIC_APP_URL}?invite={quote(token)}"
                     st.session_state[f"new_admin_invite_link_{tid}"] = (normalized, invite_url, expires_at)
-                    st.success("InbjudningslÃ¤nken Ã¤r skapad.")
+                    st.success("Inbjudningslänken är skapad.")
                     st.rerun()
 
             _new_invite_link = st.session_state.pop(f"new_admin_invite_link_{tid}", None)
             if _new_invite_link:
                 _invite_email, _invite_url, _invite_expires = _new_invite_link
-                st.success(f"Skicka lÃ¤nken till {_invite_email}. Den visas hÃ¤r nu och gÃ¥r ut {_invite_expires.replace('T', ' ')}.")
+                st.success(f"Skicka länken till {_invite_email}. Den visas här nu och går ut {_invite_expires.replace('T', ' ')}.")
                 st.code(_invite_url)
-                st.caption("NÃ¤r personen Ã¶ppnar lÃ¤nken kan hen logga in eller skapa sin profil och fÃ¥r dÃ¤refter automatiskt Ã¥tkomst till just den hÃ¤r cupen.")
+                st.caption("När personen öppnar länken kan hen logga in eller skapa sin profil och får därefter automatiskt åtkomst till just den här cupen.")
 
             try:
                 _pending_invites = all_rows(
@@ -16356,39 +16356,39 @@ if admin_page == "Ã…tkomst & koder":
                     )
                 except Exception:
                     _pending_invites = []
-                    st.warning("VÃ¤ntande administratÃ¶rsinbjudningar kunde inte lÃ¤sas just nu. Ã–vrig Ã¥tkomsthantering fungerar fortfarande.")
+                    st.warning("Väntande administratörsinbjudningar kunde inte läsas just nu. Övrig åtkomsthantering fungerar fortfarande.")
             if _pending_invites:
-                st.markdown("##### VÃ¤ntande inbjudningar")
+                st.markdown("##### Väntande inbjudningar")
                 render_centered_table(pd.DataFrame([
                     {
-                        "Namn": row["display_name"] or "â€“",
+                        "Namn": row["display_name"] or "–",
                         "E-post": row["email"],
                         "Skapad": str(row["created_at"]).replace("T", " "),
-                        "GÃ¥r ut": str(row["expires_at"]).replace("T", " "),
+                        "Går ut": str(row["expires_at"]).replace("T", " "),
                     }
                     for row in _pending_invites
                 ]))
                 _pending_id = st.selectbox(
-                    "VÃ¤ntande inbjudan",
+                    "Väntande inbjudan",
                     [int(row["id"]) for row in _pending_invites],
-                    format_func=lambda iid: next((f"{(r['display_name'] or r['email'])} Â· {r['email']}" for r in _pending_invites if int(r['id']) == int(iid)), str(iid)),
+                    format_func=lambda iid: next((f"{(r['display_name'] or r['email'])} · {r['email']}" for r in _pending_invites if int(r['id']) == int(iid)), str(iid)),
                     key=f"pending_admin_invite_select_v563_{tid}",
                 )
-                if st.button("Ã…terkalla vald inbjudan", use_container_width=True, key=f"revoke_admin_invite_v563_{tid}"):
+                if st.button("Återkalla vald inbjudan", use_container_width=True, key=f"revoke_admin_invite_v563_{tid}"):
                     run(
                         "UPDATE tournament_admin_invitations SET revoked_at=? WHERE id=? AND tournament_id=? AND accepted_at IS NULL",
                         (datetime.now().isoformat(timespec="seconds"), int(_pending_id), tid),
                     )
-                    st.success("Inbjudan Ã¤r Ã¥terkallad och lÃ¤nken fungerar inte lÃ¤ngre.")
+                    st.success("Inbjudan är återkallad och länken fungerar inte längre.")
                     st.rerun()
 
-            with st.expander("âš¡ LÃ¤gg till lokal cupadministratÃ¶r direkt med tillfÃ¤lligt lÃ¶senord", expanded=False):
-                st.caption("ReservvÃ¤g. AnvÃ¤nd helst inbjudningslÃ¤nk ovan sÃ¥ att personen vÃ¤ljer sitt eget lÃ¶senord.")
-                st.caption("AdministratÃ¶ren fÃ¥r bara Ã¥tkomst till den hÃ¤r cupen (och andra cuper dÃ¤r personen uttryckligen lÃ¤ggs till).")
+            with st.expander("⚡ Lägg till lokal cupadministratör direkt med tillfälligt lösenord", expanded=False):
+                st.caption("Reservväg. Använd helst inbjudningslänk ovan så att personen väljer sitt eget lösenord.")
+                st.caption("Administratören får bara åtkomst till den här cupen (och andra cuper där personen uttryckligen läggs till).")
                 with st.form(f"local_admin_create_v561_{tid}", clear_on_submit=True):
                     local_name = st.text_input("Namn")
                     local_email = st.text_input("E-post")
-                    local_submit = st.form_submit_button("Skapa / lÃ¤gg till administratÃ¶r", type="primary", use_container_width=True)
+                    local_submit = st.form_submit_button("Skapa / lägg till administratör", type="primary", use_container_width=True)
                 if local_submit:
                     normalized = _normalize_account_email(local_email)
                     if "@" not in normalized or "." not in normalized.split("@")[-1]:
@@ -16399,7 +16399,7 @@ if admin_page == "Ã…tkomst & koder":
                             (normalized,),
                         )
                         if existing_account and existing_account["disabled_at"]:
-                            st.error("Kontot Ã¤r avstÃ¤ngt. Ã…teraktivera det som driftadmin innan det kan lÃ¤ggas till.")
+                            st.error("Kontot är avstängt. Återaktivera det som driftadmin innan det kan läggas till.")
                         else:
                             temporary_password = None
                             if existing_account:
@@ -16422,41 +16422,41 @@ if admin_page == "Ã…tkomst & koder":
                             st.session_state.pop(f"_cupnavi_shell_cache_admin_tournaments_account_{int(account_id)}", None)
                             if temporary_password:
                                 st.session_state[f"new_local_admin_credentials_{tid}"] = (normalized, temporary_password)
-                            st.success("AdministratÃ¶ren har fÃ¥tt Ã¥tkomst till cupen.")
+                            st.success("Administratören har fått åtkomst till cupen.")
                             st.rerun()
 
             _new_creds = st.session_state.pop(f"new_local_admin_credentials_{tid}", None)
             if _new_creds:
                 _new_email, _new_password = _new_creds
-                st.success("Ny lokal administratÃ¶r skapad. LÃ¶senordet visas bara nu â€“ dela det sÃ¤kert med personen.")
-                st.code(f"E-post: {_new_email}\nTillfÃ¤lligt lÃ¶senord: {_new_password}")
-                st.caption("Be administratÃ¶ren byta lÃ¶senord direkt efter fÃ¶rsta inloggningen via Min profil nedan.")
+                st.success("Ny lokal administratör skapad. Lösenordet visas bara nu – dela det säkert med personen.")
+                st.code(f"E-post: {_new_email}\nTillfälligt lösenord: {_new_password}")
+                st.caption("Be administratören byta lösenord direkt efter första inloggningen via Min profil nedan.")
 
             _removable_members = [row for row in _member_rows if row["role"] != "owner"]
             if _removable_members:
-                with st.expander("Ta bort administratÃ¶r frÃ¥n cupen", expanded=False):
+                with st.expander("Ta bort administratör från cupen", expanded=False):
                     _remove_account_id = st.selectbox(
-                        "AdministratÃ¶r",
+                        "Administratör",
                         [int(row["account_id"]) for row in _removable_members],
-                        format_func=lambda aid: next((f"{(r['display_name'] or r['email'])} Â· {r['email']}" for r in _removable_members if int(r['account_id']) == int(aid)), str(aid)),
+                        format_func=lambda aid: next((f"{(r['display_name'] or r['email'])} · {r['email']}" for r in _removable_members if int(r['account_id']) == int(aid)), str(aid)),
                         key=f"remove_local_admin_select_v561_{tid}",
                     )
-                    if st.button("Ta bort Ã¥tkomst", key=f"remove_local_admin_v561_{tid}", use_container_width=True):
+                    if st.button("Ta bort åtkomst", key=f"remove_local_admin_v561_{tid}", use_container_width=True):
                         run(
                             "DELETE FROM tournament_members WHERE tournament_id=? AND organizer_account_id=? AND role<>'owner'",
                             (tid, int(_remove_account_id)),
                         )
                         st.session_state.pop(f"_cupnavi_shell_cache_admin_tournaments_account_{int(_remove_account_id)}", None)
-                        st.success("AdministratÃ¶rens Ã¥tkomst till den hÃ¤r cupen Ã¤r borttagen.")
+                        st.success("Administratörens åtkomst till den här cupen är borttagen.")
                         st.rerun()
         else:
-            st.caption("Endast cupens Ã¤gare kan lÃ¤gga till eller ta bort andra cupadministratÃ¶rer.")
+            st.caption("Endast cupens ägare kan lägga till eller ta bort andra cupadministratörer.")
 
 
     with _access_codes_tab:
         st.divider()
         st.subheader("Koder")
-        st.caption("RapportÃ¶rs-, domar- och lagkoder finns samlade hÃ¤r.")
+        st.caption("Rapportörs-, domar- och lagkoder finns samlade här.")
 
         def _load_role_code_credential(table_name):
             return one_row(
@@ -16489,7 +16489,7 @@ if admin_page == "Ã…tkomst & koder":
         role_col1, role_col2 = st.columns(2)
         with role_col1:
             render_role_code_card(
-                st, "MatchrapportÃ¶r", "match_reporter_credentials", "reporter", tid,
+                st, "Matchrapportör", "match_reporter_credentials", "reporter", tid,
                 _load_role_code_credential("match_reporter_credentials"), _rotate_admin_role_code,
             )
         with role_col2:
@@ -16502,9 +16502,9 @@ if admin_page == "Ã…tkomst & koder":
         st.subheader("Lagkoder")
         teams = all_rows("SELECT * FROM teams WHERE tournament_id=? ORDER BY name", (tid,))
         if not teams:
-            st.info("LÃ¤gg till lag fÃ¶rst. Lagkoder skapas och visas hÃ¤r nÃ¤r lag finns.")
+            st.info("Lägg till lag först. Lagkoder skapas och visas här när lag finns.")
         else:
-            st.caption("HÃ¤r ser administratÃ¶ren alla aktuella lagkoder. Inloggningen verifieras fortfarande mot en saltad hash. Skydda tabellen frÃ¥n obehÃ¶riga.")
+            st.caption("Här ser administratören alla aktuella lagkoder. Inloggningen verifieras fortfarande mot en saltad hash. Skydda tabellen från obehöriga.")
             credentials = {
                 int(row["team_id"]): row
                 for row in all_rows(
@@ -16521,8 +16521,8 @@ if admin_page == "Ã…tkomst & koder":
                     missing_display_codes.append(int(team_row["id"]))
                 code_rows.append({
                     "Lag": team_row["name"],
-                    "Lagkod": visible_code or ("Ã„ldre kod â€“ skapa ny" if cred else "Saknas"),
-                    "Senast Ã¤ndrad": (cred["rotated_at"] or cred["created_at"]) if cred else "â€“",
+                    "Lagkod": visible_code or ("Äldre kod – skapa ny" if cred else "Saknas"),
+                    "Senast ändrad": (cred["rotated_at"] or cred["created_at"]) if cred else "–",
                 })
             render_centered_table(pd.DataFrame(code_rows))
 
@@ -16535,7 +16535,7 @@ if admin_page == "Ã…tkomst & koder":
             if teams:
                 if not st.session_state.get(regenerate_all_key):
                     st.button(
-                        "Regenerera koder fÃ¶r alla lag",
+                        "Regenerera koder för alla lag",
                         key=f"request_regenerate_all_team_codes_{tid}",
                         use_container_width=True,
                         on_click=_set_session_state_values,
@@ -16543,8 +16543,8 @@ if admin_page == "Ã…tkomst & koder":
                     )
                 else:
                     st.warning(
-                        f"Ã„r du sÃ¤ker? Alla {len(teams)} nuvarande lagkoder slutar fungera direkt "
-                        "och mÃ¥ste delas ut pÃ¥ nytt."
+                        f"Är du säker? Alla {len(teams)} nuvarande lagkoder slutar fungera direkt "
+                        "och måste delas ut på nytt."
                     )
                     bulk_yes, bulk_no = st.columns(2)
                     if bulk_yes.button(
@@ -16566,14 +16566,14 @@ if admin_page == "Ã…tkomst & koder":
                                     tid,
                                     "participant_code_rotated",
                                     "team",
-                                    "Lagkod regenererad via massÃ¥tgÃ¤rd",
+                                    "Lagkod regenererad via massåtgärd",
                                     entity_id=team_id,
                                     actor="Admin",
                                 )
                             st.session_state[all_team_codes_notice_key] = (
                                 "success",
-                                f"Nya koder skapades fÃ¶r {len(generated_codes)} lag. "
-                                "Alla tidigare lagkoder Ã¤r nu ogiltiga.",
+                                f"Nya koder skapades för {len(generated_codes)} lag. "
+                                "Alla tidigare lagkoder är nu ogiltiga.",
                             )
                         st.rerun()
                     bulk_no.button(
@@ -16585,8 +16585,8 @@ if admin_page == "Ã…tkomst & koder":
                     )
 
             if missing_display_codes:
-                st.warning(f"{len(missing_display_codes)} lag saknar en visningsbar kod. Ã„ldre hashade koder kan inte Ã¥terlÃ¤sas.")
-                if st.button("Skapa/ersÃ¤tt koder fÃ¶r alla som saknar visningsbar kod", key=f"generate_missing_portal_codes_{tid}", type="primary", use_container_width=True):
+                st.warning(f"{len(missing_display_codes)} lag saknar en visningsbar kod. Äldre hashade koder kan inte återläsas.")
+                if st.button("Skapa/ersätt koder för alla som saknar visningsbar kod", key=f"generate_missing_portal_codes_{tid}", type="primary", use_container_width=True):
                     now_iso = datetime.now().isoformat(timespec="seconds")
                     with db() as con:
                         for missing_team_id in missing_display_codes:
@@ -16600,11 +16600,11 @@ if admin_page == "Ã…tkomst & koder":
                             )
                         con.commit()
                     _clear_render_query_cache()
-                    st.success("Koder skapades. Tidigare koder fÃ¶r berÃ¶rda lag Ã¤r nu ogiltiga.")
+                    st.success("Koder skapades. Tidigare koder för berörda lag är nu ogiltiga.")
                     st.rerun()
 
             access_team_id = st.selectbox(
-                "Lag fÃ¶r att skapa/Ã¥terstÃ¤lla kod",
+                "Lag för att skapa/återställa kod",
                 [row["id"] for row in teams],
                 format_func=lambda selected_id: next(row["name"] for row in teams if row["id"] == selected_id),
                 key=f"portal_access_team_{tid}",
@@ -16637,7 +16637,7 @@ if admin_page == "Ã…tkomst & koder":
                     row["name"] for row in teams if row["id"] == access_team_id
                 )
                 st.warning(
-                    f"Ã„r du sÃ¤ker? Den nuvarande lagkoden fÃ¶r {selected_team_name} slutar fungera direkt."
+                    f"Är du säker? Den nuvarande lagkoden för {selected_team_name} slutar fungera direkt."
                 )
                 indiv_yes, indiv_no = st.columns(2)
                 if indiv_yes.button(
@@ -16673,19 +16673,19 @@ if admin_page == "Ã…tkomst & koder":
                 else:
                     st.session_state[portal_code_notice_key]=(
                         "warning",
-                        "Lagkoden Ã¤ndrades av en annan administratÃ¶r. Ingen Ã¤ldre kodrotation skrevs Ã¶ver.",
+                        "Lagkoden ändrades av en annan administratör. Ingen äldre kodrotation skrevs över.",
                     )
                 st.rerun()
 
     with _access_profile_tab:
         _current_account_id = _current_organizer_account_id()
         if _current_account_id is not None:
-            with st.expander("Min profil Â· byt lÃ¶senord", expanded=False):
+            with st.expander("Min profil · byt lösenord", expanded=False):
                 with st.form(f"change_organizer_password_v561_{tid}"):
-                    current_password = st.text_input("Nuvarande lÃ¶senord", type="password")
-                    new_password = st.text_input("Nytt lÃ¶senord", type="password")
-                    new_password2 = st.text_input("Upprepa nytt lÃ¶senord", type="password")
-                    change_submit = st.form_submit_button("Byt lÃ¶senord", use_container_width=True)
+                    current_password = st.text_input("Nuvarande lösenord", type="password")
+                    new_password = st.text_input("Nytt lösenord", type="password")
+                    new_password2 = st.text_input("Upprepa nytt lösenord", type="password")
+                    change_submit = st.form_submit_button("Byt lösenord", use_container_width=True)
                 if change_submit:
                     account = one_row(
                         "SELECT password_salt,password_hash FROM organizer_accounts WHERE id=?",
@@ -16696,28 +16696,28 @@ if admin_page == "Ã…tkomst & koder":
                         str(account["password_hash"]),
                     )
                     if not valid_current:
-                        st.error("Nuvarande lÃ¶senord Ã¤r fel.")
+                        st.error("Nuvarande lösenord är fel.")
                     elif len(new_password) < 10:
-                        st.error("Det nya lÃ¶senordet mÃ¥ste vara minst 10 tecken.")
+                        st.error("Det nya lösenordet måste vara minst 10 tecken.")
                     elif new_password != new_password2:
-                        st.error("De nya lÃ¶senorden Ã¤r inte lika.")
+                        st.error("De nya lösenorden är inte lika.")
                     else:
                         new_salt = os.urandom(16).hex()
                         run(
                             "UPDATE organizer_accounts SET password_salt=?,password_hash=? WHERE id=?",
                             (new_salt, _account_password_hash(new_password, new_salt), int(_current_account_id)),
                         )
-                        st.success("LÃ¶senordet Ã¤r Ã¤ndrat.")
+                        st.success("Lösenordet är ändrat.")
 
 
 if admin_page == "Domare":
-    # v594 â€” REFEREE UX + VISUAL SYSTEM PASS
+    # v594 — REFEREE UX + VISUAL SYSTEM PASS
     # Referees are intentionally optional. The page therefore separates the
     # decision "how will referees be handled?" from the secondary task of
     # registering contact details, and keeps one primary next-step at bottom.
-    st.caption("Steg 6 av 9 Â· Domare Â· valfritt")
+    st.caption("Steg 6 av 9 · Domare · valfritt")
     st.header("Domare")
-    st.caption("BestÃ¤m hur domarna ska hanteras. Du kan fortsÃ¤tta Ã¤ven om inga domare Ã¤r klara Ã¤nnu.")
+    st.caption("Bestäm hur domarna ska hanteras. Du kan fortsätta även om inga domare är klara ännu.")
 
     _ref_rules = one_row("SELECT * FROM schedule_rules WHERE tournament_id=?", (tid,))
     _ref_mode = "Senare"
@@ -16731,26 +16731,26 @@ if admin_page == "Domare":
             run("UPDATE schedule_rules SET referee_mode=? WHERE tournament_id=?", (_selected, tid))
             st.session_state["_validation_dirty"] = True
 
-        st.markdown("### 1. Hur vill ni tillsÃ¤tta domare?")
-        st.caption("VÃ¤lj det arbetssÃ¤tt som passar cupen. Det gÃ¥r att Ã¤ndra senare.")
+        st.markdown("### 1. Hur vill ni tillsätta domare?")
+        st.caption("Välj det arbetssätt som passar cupen. Det går att ändra senare.")
         _ref_mode = st.radio(
-            "DomartillsÃ¤ttning",
+            "Domartillsättning",
             _ref_mode_options,
             index=_ref_mode_options.index(_ref_saved_mode) if _ref_saved_mode in _ref_mode_options else 2,
             format_func=lambda value: {
-                "Automatisk": "âš¡ Automatiskt Â· CupNavi fÃ¶rdelar registrerade domare",
-                "Manuell": "âœ‹ Manuellt Â· jag vÃ¤ljer domare per match",
-                "Senare": "ðŸ•’ Senare Â· fortsÃ¤tt utan domare just nu",
+                "Automatisk": "⚡ Automatiskt · CupNavi fördelar registrerade domare",
+                "Manuell": "✋ Manuellt · jag väljer domare per match",
+                "Senare": "🕒 Senare · fortsätt utan domare just nu",
             }[value],
             key=_ref_mode_key,
             on_change=_save_referee_mode_from_page,
         )
         if _ref_mode == "Automatisk":
-            st.info("Registrera domarna nedan. CupNavi kan sedan fÃ¶rdela dem nÃ¤r schemat skapas.")
+            st.info("Registrera domarna nedan. CupNavi kan sedan fördela dem när schemat skapas.")
         elif _ref_mode == "Manuell":
-            st.info("Registrera domarna nedan. Du vÃ¤ljer sjÃ¤lv vem som dÃ¶mer respektive match i schemat.")
+            st.info("Registrera domarna nedan. Du väljer själv vem som dömer respektive match i schemat.")
         else:
-            st.info("Helt okej. Cupen kan schemalÃ¤ggas och publiceras utan domare. LÃ¤gg till dem nÃ¤r ni Ã¤r redo.")
+            st.info("Helt okej. Cupen kan schemaläggas och publiceras utan domare. Lägg till dem när ni är redo.")
 
     _focus_kind = st.session_state.get(f"admin_search_focus_kind_{tid}")
     _focus_entity = st.session_state.get(f"admin_search_focus_entity_{tid}")
@@ -16761,8 +16761,8 @@ if admin_page == "Domare":
         )
         if _focused_referee:
             with st.container(border=True):
-                st.markdown(f"### ðŸ”Ž {html.escape(_focused_referee['name'])}")
-                st.caption("Ã–ppnad frÃ¥n SÃ¶k i cupen")
+                st.markdown(f"### 🔎 {html.escape(_focused_referee['name'])}")
+                st.caption("Öppnad från Sök i cupen")
                 if _focused_referee["phone"]:
                     st.write(f"Telefon: {_focused_referee['phone']}")
                 if _focused_referee["email"]:
@@ -16771,22 +16771,22 @@ if admin_page == "Domare":
     refs = all_rows("SELECT * FROM referees WHERE tournament_id=? ORDER BY name", (tid,))
     st.markdown("### 2. Registrera domare")
     if _ref_mode == "Senare" and not refs:
-        st.caption("Valfritt just nu. Hoppa Ã¶ver detta om domarna tillsÃ¤tts senare.")
+        st.caption("Valfritt just nu. Hoppa över detta om domarna tillsätts senare.")
     else:
-        st.caption("Namn rÃ¤cker fÃ¶r att komma igÃ¥ng. Kontaktuppgifter kan lÃ¤ggas till vid behov.")
+        st.caption("Namn räcker för att komma igång. Kontaktuppgifter kan läggas till vid behov.")
 
     _ref_add_col, _ref_status_col = st.columns([2, 1])
     with _ref_add_col:
         with st.form("new_referee", clear_on_submit=True):
             rname = st.text_input("Namn", placeholder="Exempel: Anna Andersson")
-            with st.expander("Kontaktuppgifter Â· valfritt", expanded=False):
+            with st.expander("Kontaktuppgifter · valfritt", expanded=False):
                 phone = st.text_input("Telefon")
                 email = st.text_input("E-post")
-            if st.form_submit_button("+ LÃ¤gg till domare", type="primary", use_container_width=True):
+            if st.form_submit_button("+ Lägg till domare", type="primary", use_container_width=True):
                 if not rname.strip():
                     st.error("Ange domarens namn.")
                 elif email.strip() and ("@" not in email or "." not in email.rsplit("@",1)[-1]):
-                    st.error("Ange en giltig e-postadress eller lÃ¤mna fÃ¤ltet tomt.")
+                    st.error("Ange en giltig e-postadress eller lämna fältet tomt.")
                 else:
                     run(
                         "INSERT INTO referees(tournament_id,name,phone,email) VALUES(?,?,?,?)",
@@ -16797,44 +16797,44 @@ if admin_page == "Domare":
         with st.container(border=True):
             st.metric("Registrerade domare", len(refs))
             if _ref_mode == "Automatisk":
-                st.caption("AnvÃ¤nds vid automatisk fÃ¶rdelning")
+                st.caption("Används vid automatisk fördelning")
             elif _ref_mode == "Manuell":
-                st.caption("TillgÃ¤ngliga fÃ¶r manuell tillsÃ¤ttning")
+                st.caption("Tillgängliga för manuell tillsättning")
             else:
                 st.caption("Kan kompletteras senare")
 
     if refs:
-        with st.expander(f"Visa domarlista Â· {len(refs)}", expanded=len(refs) <= 4):
+        with st.expander(f"Visa domarlista · {len(refs)}", expanded=len(refs) <= 4):
             render_centered_table(pd.DataFrame([
-                {"Namn": r["name"], "Telefon": r["phone"] or "â€“", "E-post": r["email"] or "â€“"}
+                {"Namn": r["name"], "Telefon": r["phone"] or "–", "E-post": r["email"] or "–"}
                 for r in refs
             ]))
     else:
-        st.caption("Ingen domare registrerad Ã¤nnu.")
+        st.caption("Ingen domare registrerad ännu.")
 
-    with st.expander("Ã…tkomst & domarkoder", expanded=False):
-        st.caption("RapportÃ¶rs-, domar- och lagkoder hanteras samlat under Ã…tkomst & koder.")
-        if st.button("Ã–ppna Ã…tkomst & koder", key=f"v594_ref_codes_{tid}"):
-            st.session_state[admin_page_key] = "Ã…tkomst & koder"
-            st.session_state[f"pending_admin_page_{tid}"] = "Ã…tkomst & koder"
+    with st.expander("Åtkomst & domarkoder", expanded=False):
+        st.caption("Rapportörs-, domar- och lagkoder hanteras samlat under Åtkomst & koder.")
+        if st.button("Öppna Åtkomst & koder", key=f"v594_ref_codes_{tid}"):
+            st.session_state[admin_page_key] = "Åtkomst & koder"
+            st.session_state[f"pending_admin_page_{tid}"] = "Åtkomst & koder"
             st.rerun()
 
     st.divider()
     _ref_bottom_back, _ref_bottom_state, _ref_bottom_next = st.columns([1, 2, 1.4])
     with _ref_bottom_back:
-        if st.button("â† Till Planer & tider", key=f"v594_ref_back_{tid}", use_container_width=True):
+        if st.button("← Till Planer & tider", key=f"v594_ref_back_{tid}", use_container_width=True):
             st.session_state[admin_page_key] = "Planer & tider"
             st.session_state[f"pending_admin_page_{tid}"] = "Planer & tider"
             st.rerun()
     with _ref_bottom_state:
         if _ref_mode == "Senare":
-            st.caption("âœ“ Domare Ã¤r valfritt Â· du kan gÃ¥ vidare nu")
+            st.caption("✓ Domare är valfritt · du kan gå vidare nu")
         elif refs:
-            st.caption(f"âœ“ {len(refs)} domare registrerade Â· redo fÃ¶r schema")
+            st.caption(f"✓ {len(refs)} domare registrerade · redo för schema")
         else:
             st.caption("Domare kan registreras nu eller kompletteras senare")
     with _ref_bottom_next:
-        if st.button("FortsÃ¤tt till Schema â†’", key=f"v594_ref_next_{tid}", type="primary", use_container_width=True):
+        if st.button("Fortsätt till Schema →", key=f"v594_ref_next_{tid}", type="primary", use_container_width=True):
             st.session_state[admin_page_key] = "Skapa och publicera schema"
             st.session_state[f"pending_admin_page_{tid}"] = "Skapa och publicera schema"
             st.rerun()
@@ -16947,7 +16947,7 @@ def _apply_matchcamp_structure_improvement(tournament_id, updates):
                 )
                 if int(cursor.rowcount or 0) != 1:
                     raise RuntimeError(
-                        "Minst en match har Ã¤ndrats sedan fÃ¶rslaget skapades. BerÃ¤kna fÃ¶rslaget igen."
+                        "Minst en match har ändrats sedan förslaget skapades. Beräkna förslaget igen."
                     )
                 changed += 1
             con.execute(
@@ -17096,22 +17096,22 @@ if admin_page == "Skapa och publicera schema":
     # v341: schedule validation and recovery belong to the schedule workflow.
     # Keep the mature workspaces intact, but open them contextually instead of
     # exposing three permanent destinations under Mer.
-    with st.expander("Kontroll & felsÃ¶kning", expanded=False):
-        st.caption("AnvÃ¤nd vid publiceringskontroll eller om schemat inte gÃ¥r ihop.")
+    with st.expander("Kontroll & felsökning", expanded=False):
+        st.caption("Använd vid publiceringskontroll eller om schemat inte går ihop.")
         _schedule_tool_cols = st.columns(3)
         _schedule_tool_cols[0].button(
-            "Kontrollera infÃ¶r publicering",
+            "Kontrollera inför publicering",
             key=f"v341_open_controls_{tid}",
             use_container_width=True,
             on_click=_set_admin_page,
             args=("Kontroller",),
         )
         _schedule_tool_cols[1].button(
-            "FelsÃ¶k schemaproblem",
+            "Felsök schemaproblem",
             key=f"v341_open_problems_{tid}",
             use_container_width=True,
             on_click=_set_admin_page,
-            args=("Problem & lÃ¶sningar",),
+            args=("Problem & lösningar",),
         )
         _schedule_tool_cols[2].button(
             "Cupverktyg",
@@ -17128,13 +17128,13 @@ if admin_page == "Matcher och resultat":
               <div>
                 <div class="kicker">Matchadministration</div>
                 <div class="title">Matcher</div>
-                <div class="subtitle">Den hÃ¤r cupen spelas utan resultatrÃ¤kning.</div>
+                <div class="subtitle">Den här cupen spelas utan resultaträkning.</div>
               </div>
             </div>""",
             unsafe_allow_html=True,
         )
-        st.info("Matcherna genomfÃ¶rs enligt schemat men resultat registreras inte och ingen tabell rÃ¤knas.")
-        st.button("Ã–ppna Schema", use_container_width=True, on_click=_set_admin_page, args=("Skapa och publicera schema",), key=f"v350_no_results_to_schedule_{tid}")
+        st.info("Matcherna genomförs enligt schemat men resultat registreras inte och ingen tabell räknas.")
+        st.button("Öppna Schema", use_container_width=True, on_click=_set_admin_page, args=("Skapa och publicera schema",), key=f"v350_no_results_to_schedule_{tid}")
         st.stop()
     def _save_admin_result_updates(auto_updates, original_match_by_id):
         for update in auto_updates:
@@ -17180,13 +17180,13 @@ if admin_page == "Matcher och resultat":
         _clear_render_query_cache()
         if conflicted_updates:
             st.session_state["bulk_result_conflict_message"] = (
-                f"{len(conflicted_updates)} match(er) hade Ã¤ndrats av en annan anvÃ¤ndare och skrevs inte Ã¶ver. "
-                "CupNavi har laddat om de senaste vÃ¤rdena."
+                f"{len(conflicted_updates)} match(er) hade ändrats av en annan användare och skrevs inte över. "
+                "CupNavi har laddat om de senaste värdena."
             )
         if integrity_blocked_updates:
             st.session_state["bulk_result_conflict_message"] = (
-                f"{len(integrity_blocked_updates)} match(er) sparades inte eftersom resultatet skulle bli lÃ¤gre "
-                "Ã¤n redan registrerade mÃ¥lskyttsmÃ¥l. Korrigera MatchhÃ¤ndelser fÃ¶rst."
+                f"{len(integrity_blocked_updates)} match(er) sparades inte eftersom resultatet skulle bli lägre "
+                "än redan registrerade målskyttsmål. Korrigera Matchhändelser först."
             )
 
         for update in saved_updates:
@@ -17198,9 +17198,9 @@ if admin_page == "Matcher och resultat":
             if home_score is None or away_score is None:
                 continue
             changed_match = original_match_by_id[changed_match_id]
-            description = f"{source_label(changed_match['home_source'])}â€“{source_label(changed_match['away_source'])} {home_score}â€“{away_score}"
+            description = f"{source_label(changed_match['home_source'])}–{source_label(changed_match['away_source'])} {home_score}–{away_score}"
             if home_penalties is not None and away_penalties is not None:
-                description += f" ({home_penalties}â€“{away_penalties} str.)"
+                description += f" ({home_penalties}–{away_penalties} str.)"
             add_feed_item(tid, f"Slut: {description}", category="Resultat", related_match_id=changed_match_id)
             for team_id in _match_team_ids(changed_match):
                 add_team_notification(
@@ -17229,9 +17229,9 @@ if admin_page == "Matcher och resultat":
 
         st.session_state["_validation_dirty"] = True
         st.session_state["bulk_result_message"] = (
-            "âœ“ Sparat automatiskt"
+            "✓ Sparat automatiskt"
             if not conflicted_updates and not integrity_blocked_updates
-            else "âœ“ Ã–vriga resultat sparades. OsÃ¤kra Ã¤ndringar lÃ¤mnades orÃ¶rda."
+            else "✓ Övriga resultat sparades. Osäkra ändringar lämnades orörda."
         )
         st.rerun()
 
@@ -17254,9 +17254,9 @@ if admin_page == "Matcher och resultat":
         ),
     )
 
-if admin_page == "MatchhÃ¤ndelser":
+if admin_page == "Matchhändelser":
     st.button(
-        "â† Till Resultat",
+        "← Till Resultat",
         key=f"v339_events_back_to_results_{tid}",
         use_container_width=True,
         on_click=_set_admin_page,
@@ -17300,9 +17300,9 @@ if admin_page == "MatchhÃ¤ndelser":
         ),
     )
 
-if admin_page == "BesÃ¶ksstatistik":
-    st.header(tr("BesÃ¶ksstatistik"))
-    st.caption("BesÃ¶k i den publika turneringsvyn. Inga IP-adresser lagras.")
+if admin_page == "Besöksstatistik":
+    st.header(tr("Besöksstatistik"))
+    st.caption("Besök i den publika turneringsvyn. Inga IP-adresser lagras.")
 
     period_label = st.selectbox(
         tr("Period"),
@@ -17339,13 +17339,13 @@ if admin_page == "BesÃ¶ksstatistik":
             "first_seen": first_seen,
             "last_seen": last_seen,
             "view_count": int(row["view_count"] or 0),
-            "device_type": row["device_type"] or "Ã–vrig",
-            "browser": row["browser"] or "Ã–vrig",
-            "source": row["source"] or "Direkt / okÃ¤nd",
+            "device_type": row["device_type"] or "Övrig",
+            "browser": row["browser"] or "Övrig",
+            "source": row["source"] or "Direkt / okänd",
         })
 
     if not parsed_rows:
-        st.info("Det finns Ã¤nnu ingen besÃ¶ksdata fÃ¶r den valda perioden.")
+        st.info("Det finns ännu ingen besöksdata för den valda perioden.")
     else:
         unique_sessions = len(parsed_rows)
         total_views = sum(row["view_count"] for row in parsed_rows)
@@ -17362,12 +17362,12 @@ if admin_page == "BesÃ¶ksstatistik":
         m1, m2, m3, m4, m5 = st.columns(5)
         m1.metric("Unika sessioner", unique_sessions)
         m2.metric("Sidvisningar", total_views)
-        m3.metric("BesÃ¶k idag", today_sessions)
+        m3.metric("Besök idag", today_sessions)
         m4.metric("Sidvisningar idag", today_views)
         m5.metric("Aktiva senaste 30 min", active_30m)
-        st.caption(f"Genomsnitt: {avg_views:.1f} sidvisningar per besÃ¶kssession.")
+        st.caption(f"Genomsnitt: {avg_views:.1f} sidvisningar per besökssession.")
 
-        with st.expander("Utveckling Ã¶ver tid", expanded=False):
+        with st.expander("Utveckling över tid", expanded=False):
             # Daily development.
             daily = {}
             for row in parsed_rows:
@@ -17385,14 +17385,14 @@ if admin_page == "BesÃ¶ksstatistik":
                 st.line_chart(chart_df, use_container_width=True)
                 render_centered_table(daily_df)
 
-        with st.expander("Enheter, webblÃ¤sare & trafikkÃ¤llor", expanded=False):
+        with st.expander("Enheter, webbläsare & trafikkällor", expanded=False):
             breakdown_col1, breakdown_col2, breakdown_col3 = st.columns(3)
 
             def _breakdown_dataframe(key, label):
                 counts = {}
                 views = {}
                 for row in parsed_rows:
-                    value = row[key] or "Ã–vrig"
+                    value = row[key] or "Övrig"
                     counts[value] = counts.get(value, 0) + 1
                     views[value] = views.get(value, 0) + row["view_count"]
                 return pd.DataFrame([
@@ -17412,55 +17412,55 @@ if admin_page == "BesÃ¶ksstatistik":
                 render_centered_table(device_df)
 
             with breakdown_col2:
-                st.markdown("#### WebblÃ¤sare")
-                browser_df = _breakdown_dataframe("browser", "WebblÃ¤sare")
-                st.bar_chart(browser_df.set_index("WebblÃ¤sare")["Sessioner"], use_container_width=True)
+                st.markdown("#### Webbläsare")
+                browser_df = _breakdown_dataframe("browser", "Webbläsare")
+                st.bar_chart(browser_df.set_index("Webbläsare")["Sessioner"], use_container_width=True)
                 render_centered_table(browser_df)
 
             with breakdown_col3:
-                st.markdown("#### TrafikkÃ¤lla")
-                source_df = _breakdown_dataframe("source", "KÃ¤lla")
-                st.bar_chart(source_df.set_index("KÃ¤lla")["Sessioner"], use_container_width=True)
+                st.markdown("#### Trafikkälla")
+                source_df = _breakdown_dataframe("source", "Källa")
+                st.bar_chart(source_df.set_index("Källa")["Sessioner"], use_container_width=True)
                 render_centered_table(source_df)
 
-        with st.expander("Senaste besÃ¶k & integritet", expanded=False):
+        with st.expander("Senaste besök & integritet", expanded=False):
             recent_rows = sorted(parsed_rows, key=lambda row: row["last_seen"], reverse=True)[:50]
             recent_df = pd.DataFrame([
                 {
-                    "FÃ¶rsta besÃ¶k": row["first_seen"].strftime("%Y-%m-%d %H:%M"),
+                    "Första besök": row["first_seen"].strftime("%Y-%m-%d %H:%M"),
                     "Senast aktiv": row["last_seen"].strftime("%Y-%m-%d %H:%M"),
                     "Sidvisningar": row["view_count"],
                     "Enhet": row["device_type"],
-                    "WebblÃ¤sare": row["browser"],
-                    "KÃ¤lla": row["source"],
+                    "Webbläsare": row["browser"],
+                    "Källa": row["source"],
                 }
                 for row in recent_rows
             ])
             render_centered_table(recent_df)
 
             st.info(
-                "FÃ¶r att skydda besÃ¶karnas integritet lagras ingen IP-adress. "
-                "En besÃ¶kssession identifieras med en slumpmÃ¤ssig sessionsnyckel som endast anvÃ¤nds fÃ¶r statistik."
+                "För att skydda besökarnas integritet lagras ingen IP-adress. "
+                "En besökssession identifieras med en slumpmässig sessionsnyckel som endast används för statistik."
             )
 
-if admin_page == "Ã–vrigt":
-    st.header("Ã–vrigt")
-    st.caption("Frivilliga funktioner som kan gÃ¶ra cupen bÃ¤ttre men som inte behÃ¶vs fÃ¶r att skapa, schemalÃ¤gga eller publicera den.")
+if admin_page == "Övrigt":
+    st.header("Övrigt")
+    st.caption("Frivilliga funktioner som kan göra cupen bättre men som inte behövs för att skapa, schemalägga eller publicera den.")
     _misc_tools = [
         ("Sponsorer", "Visa partners och sponsorer i cupens publika ytor."),
-        ("Erbjudanden", "Rabatter och erbjudanden till deltagare och besÃ¶kare."),
-        ("FunktionÃ¤rer", "Sekretariat, planvÃ¤rdar, kiosk, sjukvÃ¥rd och andra funktionÃ¤rer."),
-        ("BesÃ¶ksstatistik", "Se hur den publika cupsidan anvÃ¤nds."),
+        ("Erbjudanden", "Rabatter och erbjudanden till deltagare och besökare."),
+        ("Funktionärer", "Sekretariat, planvärdar, kiosk, sjukvård och andra funktionärer."),
+        ("Besöksstatistik", "Se hur den publika cupsidan används."),
         ("Cupverktyg", "Extra verktyg, export och specialfunktioner."),
-        ("Ã…tkomst & koder", "Hantera lag- och rapportÃ¶rskoder nÃ¤r de behÃ¶vs."),
-        ("Import", "Importera information frÃ¥n bild, PDF, CSV eller Excel."),
+        ("Åtkomst & koder", "Hantera lag- och rapportörskoder när de behövs."),
+        ("Import", "Importera information från bild, PDF, CSV eller Excel."),
     ]
     for _misc_page, _misc_help in _misc_tools:
         with st.container(border=True):
             _mc1, _mc2 = st.columns([4, 1])
             _mc1.markdown(f"**{_misc_page}**")
             _mc1.caption(_misc_help)
-            _mc2.button("Ã–ppna â†’", key=f"misc_open_{tid}_{_misc_page}", use_container_width=True, on_click=_set_admin_page, args=(_misc_page,))
+            _mc2.button("Öppna →", key=f"misc_open_{tid}_{_misc_page}", use_container_width=True, on_click=_set_admin_page, args=(_misc_page,))
 
 if admin_page == "Sponsorer":
     partner_section = st.segmented_control(
@@ -17473,14 +17473,14 @@ if admin_page == "Sponsorer":
         st.session_state[admin_page_key] = "Erbjudanden"
         st.rerun()
     st.header("Sponsorer")
-    st.caption("LÃ¤gg till partners som ska kunna visas i den publika cupvyn.")
+    st.caption("Lägg till partners som ska kunna visas i den publika cupvyn.")
 
     with st.form(f"new_sponsor_{tid}", clear_on_submit=True):
         sponsor_name = st.text_input("Namn *", placeholder="Exempel: Lokala Banken")
         sponsor_active = st.checkbox("Visa publikt direkt", value=True)
         with st.expander("Fler sponsoruppgifter", expanded=False):
-            sponsor_level = st.selectbox("NivÃ¥", ["", "Huvudsponsor", "Guldsponsor", "Silversponsor", "Partner"])
-            sponsor_website = st.text_input("Webbplats", placeholder="example.se", help="Du kan skriva example.se eller en fullstÃ¤ndig https://-adress.")
+            sponsor_level = st.selectbox("Nivå", ["", "Huvudsponsor", "Guldsponsor", "Silversponsor", "Partner"])
+            sponsor_website = st.text_input("Webbplats", placeholder="example.se", help="Du kan skriva example.se eller en fullständig https://-adress.")
             sponsor_order = st.number_input("Visningsordning", min_value=0, max_value=999, value=0, step=1)
             sponsor_logo = st.file_uploader(
                 "Logotyp (PNG/JPG/WEBP, max 1,5 MB)",
@@ -17488,7 +17488,7 @@ if admin_page == "Sponsorer":
                 key=f"new_sponsor_logo_{tid}",
             )
             sponsor_description = st.text_area("Kort beskrivning", max_chars=1000)
-        if st.form_submit_button("LÃ¤gg till sponsor", type="primary", use_container_width=True):
+        if st.form_submit_button("Lägg till sponsor", type="primary", use_container_width=True):
             if not sponsor_name.strip():
                 st.error("Ange sponsorns namn.")
             else:
@@ -17507,7 +17507,7 @@ if admin_page == "Sponsorer":
                             1 if sponsor_active else 0, int(sponsor_order),
                         ),
                     )
-                    st.success("âœ“ Sponsorn Ã¤r sparad.")
+                    st.success("✓ Sponsorn är sparad.")
                     st.rerun()
                 except ValueError as exc:
                     st.error(str(exc))
@@ -17516,13 +17516,13 @@ if admin_page == "Sponsorer":
         "SELECT * FROM sponsors WHERE tournament_id=? ORDER BY sort_order,id",
         (tid,),
     )
-    st.caption(f"{len(sponsor_rows)} sponsorer registrerade" if sponsor_rows else "Inga sponsorer registrerade Ã¤nnu")
+    st.caption(f"{len(sponsor_rows)} sponsorer registrerade" if sponsor_rows else "Inga sponsorer registrerade ännu")
     if not sponsor_rows:
-        render_empty_state("Inga partners Ã¤nnu", "LÃ¤gg till en sponsor eller partner nÃ¤r du vill visa dem publikt och pÃ¥ informationsskÃ¤rmen.", "ðŸ¤")
+        render_empty_state("Inga partners ännu", "Lägg till en sponsor eller partner när du vill visa dem publikt och på informationsskärmen.", "🤝")
     else:
         for sponsor in sponsor_rows:
             status = "Publicerad" if sponsor["active"] else "Dold"
-            with st.expander(f"{'âœ“' if sponsor['active'] else 'â—‹'} {sponsor['name']} Â· {status}"):
+            with st.expander(f"{'✓' if sponsor['active'] else '○'} {sponsor['name']} · {status}"):
                 with st.form(f"edit_sponsor_{sponsor['id']}"):
                     ec1, ec2 = st.columns(2)
                     with ec1:
@@ -17530,7 +17530,7 @@ if admin_page == "Sponsorer":
                         levels = ["", "Huvudsponsor", "Guldsponsor", "Silversponsor", "Partner"]
                         current_level = sponsor["level"] or ""
                         edit_level = st.selectbox(
-                            "NivÃ¥", levels,
+                            "Nivå", levels,
                             index=levels.index(current_level) if current_level in levels else 0,
                             key=f"sponsor_level_{sponsor['id']}",
                         )
@@ -17557,7 +17557,7 @@ if admin_page == "Sponsorer":
                     )
                     if st.form_submit_button("Spara sponsor", use_container_width=True):
                         if not edit_name.strip():
-                            st.error("Namnet fÃ¥r inte vara tomt.")
+                            st.error("Namnet får inte vara tomt.")
                         else:
                             try:
                                 normalized_website = normalize_website_url(edit_website)
@@ -17577,9 +17577,9 @@ if admin_page == "Sponsorer":
                                     sort_order=int(edit_order),
                                 )
                                 if saved:
-                                    st.success("âœ“ Sponsorn Ã¤r uppdaterad.")
+                                    st.success("✓ Sponsorn är uppdaterad.")
                                 else:
-                                    st.warning("Sponsorn Ã¤ndrades av en annan administratÃ¶r och dina Ã¤ldre uppgifter skrevs inte Ã¶ver.")
+                                    st.warning("Sponsorn ändrades av en annan administratör och dina äldre uppgifter skrevs inte över.")
                                 st.rerun()
                             except ValueError as exc:
                                 st.error(str(exc))
@@ -17590,14 +17590,14 @@ if admin_page == "Sponsorer":
                         _sponsor_snapshot(sponsor),
                     )
                     if not deleted:
-                        st.warning("Sponsorn Ã¤ndrades av en annan administratÃ¶r och raderades dÃ¤rfÃ¶r inte.")
+                        st.warning("Sponsorn ändrades av en annan administratör och raderades därför inte.")
                     st.rerun()
 
-if admin_page == "FunktionÃ¤rer":
-    st.header("FunktionÃ¤rer")
-    st.caption("LÃ¤gg till personer och roller. Kontaktuppgifter och arbetspass Ã¤r valfria.")
+if admin_page == "Funktionärer":
+    st.header("Funktionärer")
+    st.caption("Lägg till personer och roller. Kontaktuppgifter och arbetspass är valfria.")
     with st.expander("Partners & erbjudanden", expanded=False):
-        st.caption("Hantera sponsorer och deltagarerbjudanden nÃ¤r cupen har sÃ¥dana samarbeten.")
+        st.caption("Hantera sponsorer och deltagarerbjudanden när cupen har sådana samarbeten.")
         _partner_cols = st.columns(2)
         _partner_cols[0].button(
             "Sponsorer",
@@ -17619,15 +17619,15 @@ if admin_page == "FunktionÃ¤rer":
         fn_name = fc1.text_input("Namn *")
         fn_role = fc2.selectbox(
             "Roll *",
-            ["Sekretariat", "PlanvÃ¤rd", "TÃ¤vlingsledning", "SjukvÃ¥rd", "Kiosk", "Speaker", "Ã–vrigt"],
+            ["Sekretariat", "Planvärd", "Tävlingsledning", "Sjukvård", "Kiosk", "Speaker", "Övrigt"],
         )
-        with st.expander("Fler funktionÃ¤rsuppgifter", expanded=False):
-            fn_pitch = st.number_input("Plan (0 = ingen sÃ¤rskild)", min_value=0, max_value=100, value=0, step=1)
+        with st.expander("Fler funktionärsuppgifter", expanded=False):
+            fn_pitch = st.number_input("Plan (0 = ingen särskild)", min_value=0, max_value=100, value=0, step=1)
             fn_phone = st.text_input("Telefon")
             fn_email = st.text_input("E-post")
             fn_public = st.checkbox("Visa kontaktuppgifterna publikt", value=False)
             fn_notes = st.text_area("Anteckning / uppdrag", max_chars=1000)
-        if st.form_submit_button("LÃ¤gg till funktionÃ¤r", type="primary", use_container_width=True):
+        if st.form_submit_button("Lägg till funktionär", type="primary", use_container_width=True):
             if not fn_name.strip():
                 st.error("Ange ett namn.")
             else:
@@ -17641,7 +17641,7 @@ if admin_page == "FunktionÃ¤rer":
                         fn_notes.strip() or None, 1 if fn_public else 0,
                     ),
                 )
-                st.success("âœ“ FunktionÃ¤ren Ã¤r sparad.")
+                st.success("✓ Funktionären är sparad.")
                 st.rerun()
 
     fn_rows = all_rows(
@@ -17649,13 +17649,13 @@ if admin_page == "FunktionÃ¤rer":
         (tid,),
     )
     if fn_rows:
-        st.caption(f"{len(fn_rows)} funktionÃ¤rer registrerade")
-        with st.expander("Visa funktionÃ¤rslista", expanded=False):
+        st.caption(f"{len(fn_rows)} funktionärer registrerade")
+        with st.expander("Visa funktionärslista", expanded=False):
             render_centered_table(pd.DataFrame([
                 {
                     "Namn": row["name"],
                     "Roll": row["role"],
-                    "Plan": row["pitch_number"] or "â€“",
+                    "Plan": row["pitch_number"] or "–",
                     "Telefon": row["phone"] or "",
                     "E-post": row["email"] or "",
                     "Publik kontakt": "Ja" if row["public_contact"] else "Nej",
@@ -17663,11 +17663,11 @@ if admin_page == "FunktionÃ¤rer":
                 for row in fn_rows
             ]))
         for row in fn_rows:
-            with st.expander(f"{row['role']} Â· {row['name']}"):
+            with st.expander(f"{row['role']} · {row['name']}"):
                 with st.form(f"edit_functionary_{row['id']}"):
                     e1, e2 = st.columns(2)
                     ename = e1.text_input("Namn", value=row["name"], key=f"fn_name_{row['id']}")
-                    roles = ["Sekretariat", "PlanvÃ¤rd", "TÃ¤vlingsledning", "SjukvÃ¥rd", "Kiosk", "Speaker", "Ã–vrigt"]
+                    roles = ["Sekretariat", "Planvärd", "Tävlingsledning", "Sjukvård", "Kiosk", "Speaker", "Övrigt"]
                     erole = e1.selectbox(
                         "Roll", roles,
                         index=roles.index(row["role"]) if row["role"] in roles else len(roles)-1,
@@ -17685,9 +17685,9 @@ if admin_page == "FunktionÃ¤rer":
                         key=f"fn_public_{row['id']}",
                     )
                     enotes = st.text_area("Anteckning / uppdrag", value=row["notes"] or "", key=f"fn_notes_{row['id']}")
-                    if st.form_submit_button("Spara funktionÃ¤r", use_container_width=True):
+                    if st.form_submit_button("Spara funktionär", use_container_width=True):
                         if not ename.strip():
-                            st.error("Namnet fÃ¥r inte vara tomt.")
+                            st.error("Namnet får inte vara tomt.")
                         else:
                             saved, save_reason = _admin_update_functionary_if_unchanged(
                                 row["id"],
@@ -17702,43 +17702,43 @@ if admin_page == "FunktionÃ¤rer":
                                 public_contact=epublic,
                             )
                             if save_reason == "invalid_email":
-                                st.error("Ange en giltig e-postadress eller lÃ¤mna fÃ¤ltet tomt.")
+                                st.error("Ange en giltig e-postadress eller lämna fältet tomt.")
                             elif not saved:
-                                st.warning("FunktionÃ¤ren Ã¤ndrades av en annan administratÃ¶r och dina Ã¤ldre uppgifter skrevs inte Ã¶ver.")
+                                st.warning("Funktionären ändrades av en annan administratör och dina äldre uppgifter skrevs inte över.")
                             else:
                                 st.rerun()
-                if st.button("Ta bort funktionÃ¤r", key=f"delete_fn_{row['id']}"):
+                if st.button("Ta bort funktionär", key=f"delete_fn_{row['id']}"):
                     deleted, delete_reason = _admin_delete_functionary_if_unchanged(
                         row["id"],
                         tid,
                         _functionary_snapshot(row),
                     )
                     if not deleted:
-                        st.warning("FunktionÃ¤ren Ã¤ndrades av en annan administratÃ¶r och raderades dÃ¤rfÃ¶r inte.")
+                        st.warning("Funktionären ändrades av en annan administratör och raderades därför inte.")
                     st.rerun()
     else:
-        render_empty_state("Inga funktionÃ¤rer Ã¤nnu", "LÃ¤gg till funktionÃ¤rer fÃ¶r kiosk, sekretariat, planvÃ¤rd eller andra uppdrag.", "ðŸ™‹")
+        render_empty_state("Inga funktionärer ännu", "Lägg till funktionärer för kiosk, sekretariat, planvärd eller andra uppdrag.", "🙋")
 
-    with st.expander("FunktionÃ¤rsschema & arbetspass", expanded=False):
+    with st.expander("Funktionärsschema & arbetspass", expanded=False):
         if not fn_rows:
-            st.caption("LÃ¤gg fÃ¶rst till minst en funktionÃ¤r fÃ¶r att skapa arbetspass.")
+            st.caption("Lägg först till minst en funktionär för att skapa arbetspass.")
         else:
             fn_by_id = {row["id"]: row for row in fn_rows}
             with st.form(f"new_functionary_shift_{tid}", clear_on_submit=True):
                 sc1, sc2 = st.columns(2)
-                shift_functionary = sc1.selectbox("FunktionÃ¤r", list(fn_by_id), format_func=lambda x: f"{fn_by_id[x]['name']} Â· {fn_by_id[x]['role']}")
+                shift_functionary = sc1.selectbox("Funktionär", list(fn_by_id), format_func=lambda x: f"{fn_by_id[x]['name']} · {fn_by_id[x]['role']}")
                 shift_date = sc2.date_input("Datum", value=saved_start if 'saved_start' in locals() else datetime.now().date())
-                st.caption(f"ðŸ“… {date_with_weekday(shift_date)}")
+                st.caption(f"📅 {date_with_weekday(shift_date)}")
                 st1, st2 = st.columns(2)
                 shift_start_time = st1.time_input("Start", value=datetime.strptime("08:00", "%H:%M").time())
                 shift_end_time = st2.time_input("Slut", value=datetime.strptime("12:00", "%H:%M").time())
-                shift_assignment = st.text_input("Uppdrag", placeholder="Exempel: PlanvÃ¤rd, sekretariat eller kiosk")
-                shift_location = st.text_input("Plats", placeholder="Exempel: Plan 2 eller huvudentrÃ©n")
-                if st.form_submit_button("LÃ¤gg till arbetspass", type="primary", use_container_width=True):
+                shift_assignment = st.text_input("Uppdrag", placeholder="Exempel: Planvärd, sekretariat eller kiosk")
+                shift_location = st.text_input("Plats", placeholder="Exempel: Plan 2 eller huvudentrén")
+                if st.form_submit_button("Lägg till arbetspass", type="primary", use_container_width=True):
                     start_dt = datetime.combine(shift_date, shift_start_time)
                     end_dt = datetime.combine(shift_date, shift_end_time)
                     if end_dt <= start_dt:
-                        st.error("Sluttiden mÃ¥ste ligga efter starttiden.")
+                        st.error("Sluttiden måste ligga efter starttiden.")
                     else:
                         run("INSERT INTO functionary_shifts(tournament_id,functionary_id,shift_start,shift_end,assignment,location) VALUES(?,?,?,?,?,?)", (tid, shift_functionary, start_dt.isoformat(timespec='minutes'), end_dt.isoformat(timespec='minutes'), shift_assignment.strip() or None, shift_location.strip() or None))
                         st.rerun()
@@ -17746,10 +17746,10 @@ if admin_page == "FunktionÃ¤rer":
             if shift_rows:
                 render_centered_table(pd.DataFrame([{
                     "Datum": date_with_weekday(datetime.fromisoformat(r["shift_start"]).date()),
-                    "Tid": f"{datetime.fromisoformat(r['shift_start']).strftime('%H:%M')}â€“{datetime.fromisoformat(r['shift_end']).strftime('%H:%M')}",
-                    "FunktionÃ¤r": r["name"], "Roll": r["role"], "Uppdrag": r["assignment"] or "", "Plats": r["location"] or ""
+                    "Tid": f"{datetime.fromisoformat(r['shift_start']).strftime('%H:%M')}–{datetime.fromisoformat(r['shift_end']).strftime('%H:%M')}",
+                    "Funktionär": r["name"], "Roll": r["role"], "Uppdrag": r["assignment"] or "", "Plats": r["location"] or ""
                 } for r in shift_rows]))
-                shift_delete = st.selectbox("Ta bort arbetspass", [0] + [r["id"] for r in shift_rows], format_func=lambda x: "VÃ¤lj arbetspass" if x == 0 else next(f"{r['name']} Â· {r['shift_start'].replace('T',' ')}" for r in shift_rows if r['id']==x), key=f"delete_shift_select_{tid}")
+                shift_delete = st.selectbox("Ta bort arbetspass", [0] + [r["id"] for r in shift_rows], format_func=lambda x: "Välj arbetspass" if x == 0 else next(f"{r['name']} · {r['shift_start'].replace('T',' ')}" for r in shift_rows if r['id']==x), key=f"delete_shift_select_{tid}")
                 if st.button("Ta bort valt arbetspass", disabled=not shift_delete, key=f"delete_shift_{tid}"):
                     selected_shift = next((r for r in shift_rows if int(r["id"]) == int(shift_delete)), None)
                     deleted, delete_reason = (
@@ -17762,7 +17762,7 @@ if admin_page == "FunktionÃ¤rer":
                         else (False, "conflict")
                     )
                     if not deleted:
-                        st.warning("Arbetspasset Ã¤ndrades av en annan administratÃ¶r och raderades dÃ¤rfÃ¶r inte.")
+                        st.warning("Arbetspasset ändrades av en annan administratör och raderades därför inte.")
                     st.rerun()
 
 if admin_page == "Erbjudanden":
@@ -17776,27 +17776,27 @@ if admin_page == "Erbjudanden":
         st.session_state[admin_page_key] = "Sponsorer"
         st.rerun()
     st.header("Erbjudanden")
-    st.caption("LÃ¤gg till erbjudanden som ska kunna visas fÃ¶r deltagare och besÃ¶kare.")
+    st.caption("Lägg till erbjudanden som ska kunna visas för deltagare och besökare.")
 
     with st.form(f"new_offer_{tid}", clear_on_submit=True):
-        offer_title = st.text_input("Rubrik *", placeholder="Exempel: 15 % pÃ¥ hela menyn")
-        offer_business = st.text_input("FÃ¶retag / restaurang", placeholder="Exempel: Restaurang HÃ¶rnet")
+        offer_title = st.text_input("Rubrik *", placeholder="Exempel: 15 % på hela menyn")
+        offer_business = st.text_input("Företag / restaurang", placeholder="Exempel: Restaurang Hörnet")
         offer_active = st.checkbox("Visa publikt direkt", value=True)
         with st.expander("Fler erbjudandeuppgifter", expanded=False):
             offer_code = st.text_input("Rabattkod", placeholder="Exempel: CUPNAVI15")
-            offer_valid = st.text_input("GÃ¤ller t.o.m.", placeholder="Exempel: 2026-08-23")
-            offer_url = st.text_input("LÃ¤nk till erbjudandet", placeholder="https://...")
+            offer_valid = st.text_input("Gäller t.o.m.", placeholder="Exempel: 2026-08-23")
+            offer_url = st.text_input("Länk till erbjudandet", placeholder="https://...")
             offer_order = st.number_input("Visningsordning", min_value=0, max_value=999, value=0, step=1)
             offer_description = st.text_area(
                 "Beskrivning / villkor",
-                placeholder="Exempel: GÃ¤ller fÃ¶r cupdeltagare vid uppvisande av deltagarband.",
+                placeholder="Exempel: Gäller för cupdeltagare vid uppvisande av deltagarband.",
                 max_chars=1500,
             )
-        if st.form_submit_button("LÃ¤gg till erbjudande", type="primary", use_container_width=True):
+        if st.form_submit_button("Lägg till erbjudande", type="primary", use_container_width=True):
             if not offer_title.strip():
-                st.error("Ange en rubrik fÃ¶r erbjudandet.")
+                st.error("Ange en rubrik för erbjudandet.")
             elif offer_url.strip() and not re.match(r"^https?://", offer_url.strip(), re.I):
-                st.error("LÃ¤nken mÃ¥ste bÃ¶rja med http:// eller https://.")
+                st.error("Länken måste börja med http:// eller https://.")
             else:
                 run(
                     """INSERT INTO offers(
@@ -17815,41 +17815,41 @@ if admin_page == "Erbjudanden":
                         int(offer_order),
                     ),
                 )
-                st.success("âœ“ Erbjudandet Ã¤r sparat.")
+                st.success("✓ Erbjudandet är sparat.")
                 st.rerun()
 
     admin_offers = all_rows(
         "SELECT * FROM offers WHERE tournament_id=? ORDER BY sort_order,id",
         (tid,),
     )
-    st.caption(f"{len(admin_offers)} erbjudanden registrerade" if admin_offers else "Inga erbjudanden registrerade Ã¤nnu")
+    st.caption(f"{len(admin_offers)} erbjudanden registrerade" if admin_offers else "Inga erbjudanden registrerade ännu")
     if not admin_offers:
         render_empty_state(
-            "Inga erbjudanden Ã¤nnu",
-            "Skapa ett erbjudande nÃ¤r det finns nÃ¥got relevant att visa fÃ¶r besÃ¶karna.",
-            symbol="â€”",
+            "Inga erbjudanden ännu",
+            "Skapa ett erbjudande när det finns något relevant att visa för besökarna.",
+            symbol="—",
         )
     else:
         for offer in admin_offers:
             status = "Publicerat" if offer["active"] else "Dolt"
-            with st.expander(f"{'âœ“' if offer['active'] else 'â—‹'} {offer['title']} Â· {status}"):
+            with st.expander(f"{'✓' if offer['active'] else '○'} {offer['title']} · {status}"):
                 with st.form(f"edit_offer_{offer['id']}"):
                     ec1, ec2 = st.columns(2)
                     with ec1:
                         edit_title = st.text_input("Rubrik", value=offer["title"], key=f"offer_title_{offer['id']}")
-                        edit_business = st.text_input("FÃ¶retag / restaurang", value=offer["business_name"] or "", key=f"offer_business_{offer['id']}")
+                        edit_business = st.text_input("Företag / restaurang", value=offer["business_name"] or "", key=f"offer_business_{offer['id']}")
                         edit_code = st.text_input("Rabattkod", value=offer["discount_code"] or "", key=f"offer_code_{offer['id']}")
                     with ec2:
-                        edit_valid = st.text_input("GÃ¤ller t.o.m.", value=offer["valid_until"] or "", key=f"offer_valid_{offer['id']}")
-                        edit_url = st.text_input("LÃ¤nk", value=offer["url"] or "", key=f"offer_url_{offer['id']}")
+                        edit_valid = st.text_input("Gäller t.o.m.", value=offer["valid_until"] or "", key=f"offer_valid_{offer['id']}")
+                        edit_url = st.text_input("Länk", value=offer["url"] or "", key=f"offer_url_{offer['id']}")
                         edit_order = st.number_input("Visningsordning", 0, 999, int(offer["sort_order"] or 0), key=f"offer_order_{offer['id']}")
                     edit_description = st.text_area("Beskrivning / villkor", value=offer["description"] or "", max_chars=1500, key=f"offer_desc_{offer['id']}")
                     edit_active = st.checkbox("Visa i turneringsvyn", value=bool(offer["active"]), key=f"offer_active_{offer['id']}")
-                    if st.form_submit_button("Spara Ã¤ndringar", use_container_width=True):
+                    if st.form_submit_button("Spara ändringar", use_container_width=True):
                         if not edit_title.strip():
-                            st.error("Rubriken fÃ¥r inte vara tom.")
+                            st.error("Rubriken får inte vara tom.")
                         elif edit_url.strip() and not re.match(r"^https?://", edit_url.strip(), re.I):
-                            st.error("LÃ¤nken mÃ¥ste bÃ¶rja med http:// eller https://.")
+                            st.error("Länken måste börja med http:// eller https://.")
                         else:
                             saved, save_reason = _admin_update_offer_if_unchanged(
                                 offer["id"],
@@ -17865,9 +17865,9 @@ if admin_page == "Erbjudanden":
                                 sort_order=int(edit_order),
                             )
                             if saved:
-                                st.success("âœ“ Ã„ndringarna Ã¤r sparade.")
+                                st.success("✓ Ändringarna är sparade.")
                             else:
-                                st.warning("Erbjudandet Ã¤ndrades av en annan administratÃ¶r och dina Ã¤ldre uppgifter skrevs inte Ã¶ver.")
+                                st.warning("Erbjudandet ändrades av en annan administratör och dina äldre uppgifter skrevs inte över.")
                             st.rerun()
 
                 offer_confirm_key = f"confirm_delete_offer_{offer['id']}"
@@ -17879,7 +17879,7 @@ if admin_page == "Erbjudanden":
                     args=({offer_confirm_key: True},),
                 )
                 if st.session_state.get(f"confirm_delete_offer_{offer['id']}"):
-                    st.warning(f"Ta bort erbjudandet â€œ{offer['title']}â€?")
+                    st.warning(f"Ta bort erbjudandet “{offer['title']}”?")
                     dc1, dc2 = st.columns(2)
                     if dc1.button("Ja, ta bort", key=f"confirm_offer_delete_{offer['id']}", type="primary"):
                         deleted, delete_reason = _admin_delete_offer_if_unchanged(
@@ -17889,7 +17889,7 @@ if admin_page == "Erbjudanden":
                         )
                         st.session_state.pop(f"confirm_delete_offer_{offer['id']}", None)
                         if not deleted:
-                            st.warning("Erbjudandet Ã¤ndrades av en annan administratÃ¶r och raderades dÃ¤rfÃ¶r inte.")
+                            st.warning("Erbjudandet ändrades av en annan administratör och raderades därför inte.")
                         st.rerun()
                     dc2.button(
                         "Avbryt",
@@ -17900,16 +17900,16 @@ if admin_page == "Erbjudanden":
 
 if admin_page == "Import":
     st.header("Import")
-    st.caption("LÃ¤s fÃ¶rst in underlaget. CupNavi visar vad som gÃ¥r att extrahera och du vÃ¤ljer sjÃ¤lv vad som ska fÃ¶ras vidare â€“ inget skrivs in automatiskt.")
+    st.caption("Läs först in underlaget. CupNavi visar vad som går att extrahera och du väljer själv vad som ska föras vidare – inget skrivs in automatiskt.")
 
     # v581: revised documents are treated as change proposals against the existing cup.
-    # They never overwrite the schedule silently. The organiser sees current â†’ proposed
+    # They never overwrite the schedule silently. The organiser sees current → proposed
     # values, approves each category, and an existing schedule is marked for re-check.
     with st.container(border=True):
-        st.markdown("### ðŸ”„ Ny eller Ã¤ndrad PDF / foto")
-        st.caption("AnvÃ¤nd nÃ¤r du fÃ¥r ett nytt cupprogram eller nya regler efter att cupen redan Ã¤r skapad. CupNavi jÃ¤mfÃ¶r med nuvarande setup innan nÃ¥got Ã¤ndras.")
+        st.markdown("### 🔄 Ny eller ändrad PDF / foto")
+        st.caption("Använd när du får ett nytt cupprogram eller nya regler efter att cupen redan är skapad. CupNavi jämför med nuvarande setup innan något ändras.")
         _revision_files = st.file_uploader(
-            "VÃ¤lj ny PDF eller nya foton",
+            "Välj ny PDF eller nya foton",
             type=["pdf", "png", "jpg", "jpeg", "webp", "txt"],
             accept_multiple_files=True,
             key=f"revision_import_files_{tid}",
@@ -17917,12 +17917,12 @@ if admin_page == "Import":
         _revision_key = f"revision_import_analysis_{tid}"
         _revision_api_key = setting("OPENAI_API_KEY")
         _revision_model = setting("CUPNAVI_AI_IMPORT_MODEL") or setting("CUPNAVI_AI_ROSTER_MODEL") or "gpt-5.6-luna"
-        if st.button("JÃ¤mfÃ¶r det nya underlaget med cupen", type="primary", use_container_width=True, disabled=not bool(_revision_files) or not bool(_revision_api_key), key=f"revision_import_analyse_{tid}"):
+        if st.button("Jämför det nya underlaget med cupen", type="primary", use_container_width=True, disabled=not bool(_revision_files) or not bool(_revision_api_key), key=f"revision_import_analyse_{tid}"):
             try:
                 from cupnavi_core.ai_cup_document_import import extract_cup_setup_from_documents
                 from cupnavi_core.cup_document_creator_view import save_setup_import_snapshot
                 _revision_docs = [(f.getvalue(), str(getattr(f, "name", "underlag")), str(getattr(f, "type", "") or "")) for f in _revision_files]
-                with st.spinner("CupNavi lÃ¤ser Ã¤ndringarna och jÃ¤mfÃ¶r med nuvarande setup â€¦"):
+                with st.spinner("CupNavi läser ändringarna och jämför med nuvarande setup …"):
                     _revision_result = extract_cup_setup_from_documents(_revision_docs, _revision_api_key, model=_revision_model)
                 _revision_result["source_name"] = ", ".join(str(getattr(f, "name", "underlag")) for f in _revision_files)
                 st.session_state[_revision_key] = _revision_result
@@ -17931,7 +17931,7 @@ if admin_page == "Import":
             except Exception as exc:
                 st.error(f"Det nya underlaget kunde inte analyseras: {exc}")
         if not _revision_api_key:
-            st.info("Ã„ndringsanalysen aktiveras nÃ¤r OPENAI_API_KEY finns i Streamlit Secrets.")
+            st.info("Ändringsanalysen aktiveras när OPENAI_API_KEY finns i Streamlit Secrets.")
 
         _revision_result = st.session_state.get(_revision_key)
         if _revision_result:
@@ -17944,9 +17944,9 @@ if admin_page == "Import":
             _rs3.metric("Plantider", _rev_summary["pitch_window_count"])
             _rs4.metric("Matcher", _rev_summary["match_count"] + _rev_summary["playoff_match_count"])
             if _revision_result.get("warnings"):
-                with st.expander("âš ï¸ OsÃ¤kerheter i det nya underlaget", expanded=True):
+                with st.expander("⚠️ Osäkerheter i det nya underlaget", expanded=True):
                     for _warning in _revision_result.get("warnings") or []:
-                        st.write(f"â€¢ {_warning}")
+                        st.write(f"• {_warning}")
 
             # v582: structural diff for teams, group assignments and individual fixtures.
             # This is review-only: no team/group/match is changed from this comparison.
@@ -17983,25 +17983,25 @@ if admin_page == "Import":
             _structure_diff = compare_revision_structure(_rev_current_teams, _rev_current_matches, _revision_result)
             _sd = _structure_diff["counts"]
             if any(_sd.values()):
-                st.markdown("##### ðŸ§© Strukturella Ã¤ndringar")
-                st.caption("CupNavi jÃ¤mfÃ¶r lag, gruppindelning och enskilda matcher innan nÃ¥got godkÃ¤nns. JÃ¤mfÃ¶relsen Ã¤ndrar ingenting i cupen.")
+                st.markdown("##### 🧩 Strukturella ändringar")
+                st.caption("CupNavi jämför lag, gruppindelning och enskilda matcher innan något godkänns. Jämförelsen ändrar ingenting i cupen.")
                 _dc1, _dc2, _dc3 = st.columns(3)
-                _dc1.metric("Lag", f"+{_sd['teams_added']} / âˆ’{_sd['teams_removed']}")
+                _dc1.metric("Lag", f"+{_sd['teams_added']} / −{_sd['teams_removed']}")
                 _dc2.metric("Bytt grupp", _sd["group_moves"])
-                _dc3.metric("Matcher", f"{_sd['matches_changed']} Ã¤ndrade Â· +{_sd['matches_added']} / âˆ’{_sd['matches_removed']}")
+                _dc3.metric("Matcher", f"{_sd['matches_changed']} ändrade · +{_sd['matches_added']} / −{_sd['matches_removed']}")
                 with st.expander("Visa exakt vad som skiljer", expanded=True):
                     for _name in _structure_diff["added_teams"]:
-                        st.write(f"âž• Nytt lag: {_name}")
+                        st.write(f"➕ Nytt lag: {_name}")
                     for _name in _structure_diff["removed_teams"]:
-                        st.write(f"âž– Lag saknas i nya underlaget: {_name}")
+                        st.write(f"➖ Lag saknas i nya underlaget: {_name}")
                     for _move in _structure_diff["group_moves"]:
-                        st.write(f"â†”ï¸ {_move['team']}: {_move['from']} â†’ {_move['to']}")
+                        st.write(f"↔️ {_move['team']}: {_move['from']} → {_move['to']}")
                     for _change in _structure_diff["changed_matches"]:
-                        st.write(f"ðŸ•’ {_change['match']}: {' Â· '.join(_change['changes'])}")
+                        st.write(f"🕒 {_change['match']}: {' · '.join(_change['changes'])}")
                     for _match in _structure_diff["added_matches"]:
-                        st.write(f"âž• Ny match: {_match}")
+                        st.write(f"➕ Ny match: {_match}")
                     for _match in _structure_diff["removed_matches"]:
-                        st.write(f"âž– Match saknas i nya underlaget: {_match}")
+                        st.write(f"➖ Match saknas i nya underlaget: {_match}")
                 _nav1, _nav2, _nav3 = st.columns(3)
                 if _nav1.button("Granska lag", use_container_width=True, key=f"rev_diff_teams_{tid}"):
                     _set_admin_page("Lag"); st.rerun()
@@ -18012,7 +18012,7 @@ if admin_page == "Import":
                     st.session_state[f"schedule_existing_import_from_revision_{tid}"] = True
                     _set_admin_page("Skapa och publicera schema"); st.rerun()
             elif _revision_result.get("teams") or _revision_result.get("matches") or _revision_result.get("playoff_matches"):
-                st.success("Lag, grupper och matcher som kunde jÃ¤mfÃ¶ras ser ofÃ¶rÃ¤ndrade ut.")
+                st.success("Lag, grupper och matcher som kunde jämföras ser oförändrade ut.")
 
             # v583: individual fixture review. Safe changes can be approved one by one
             # or all at once; played matches, new fixtures and removals are never mass-applied here.
@@ -18021,8 +18021,8 @@ if admin_page == "Import":
             _match_new_rows = [r for r in _match_revision_rows if r["status"] == "new"]
             _match_removed_rows = [r for r in _match_revision_rows if r["status"] == "removed"]
             if _match_changed_rows or _match_new_rows or _match_removed_rows:
-                st.markdown("##### ðŸ—“ï¸ Granska match fÃ¶r match")
-                st.caption("OfÃ¶rÃ¤ndrade matcher lÃ¤mnas helt orÃ¶rda. Redan spelade matcher Ã¤r lÃ¥sta. Nya eller borttagna matcher krÃ¤ver separat schemagranskning.")
+                st.markdown("##### 🗓️ Granska match för match")
+                st.caption("Oförändrade matcher lämnas helt orörda. Redan spelade matcher är låsta. Nya eller borttagna matcher kräver separat schemagranskning.")
                 _match_pitch_defs = pitch_definitions(tid, max(1, int(_row_value(one_row("SELECT * FROM schedule_rules WHERE tournament_id=?", (tid,)), "pitch_count", 1) or 1)))
                 _match_pitch_by_name = {}
                 for _p in _match_pitch_defs:
@@ -18045,7 +18045,7 @@ if admin_page == "Import":
 
                 _select_all_key = f"revision_match_select_all_{tid}"
                 _sa1, _sa2 = st.columns([1, 1])
-                if _sa1.button(f"VÃ¤lj alla tekniskt sÃ¤kra ({len(_safe_rows)})", use_container_width=True, disabled=not bool(_safe_rows), key=f"revision_match_all_{tid}"):
+                if _sa1.button(f"Välj alla tekniskt säkra ({len(_safe_rows)})", use_container_width=True, disabled=not bool(_safe_rows), key=f"revision_match_all_{tid}"):
                     for _r in _safe_rows:
                         st.session_state[f"revision_match_pick_{tid}_{int((_r['current'] or {}).get('id'))}"] = True
                     st.rerun()
@@ -18061,19 +18061,19 @@ if admin_page == "Import":
                     _cur = _r["current"] or {}; _mid = int(_cur.get("id") or 0)
                     _parts=[]
                     if "time" in _r["changes"]:
-                        _c=_r["changes"]["time"]; _parts.append(f"tid {_c['from'] or 'â€”'} â†’ {_c['to']}")
+                        _c=_r["changes"]["time"]; _parts.append(f"tid {_c['from'] or '—'} → {_c['to']}")
                     if "venue" in _r["changes"]:
-                        _c=_r["changes"]["venue"]; _parts.append(f"plan {_c['from'] or 'â€”'} â†’ {_c['to']}")
-                    _reason = " Â· ".join(_parts)
+                        _c=_r["changes"]["venue"]; _parts.append(f"plan {_c['from'] or '—'} → {_c['to']}")
+                    _reason = " · ".join(_parts)
                     _disabled = not bool(_r.get("ui_safe"))
-                    _label = f"{_r['match']} Â· {_reason}"
+                    _label = f"{_r['match']} · {_reason}"
                     _picked = st.checkbox(_label, value=False, disabled=_disabled, key=f"revision_match_pick_{tid}_{_mid}")
                     if _r.get("played"):
-                        st.caption("ðŸ”’ Redan startad/spelad match â€“ historiken skyddas.")
+                        st.caption("🔒 Redan startad/spelad match – historiken skyddas.")
                     elif "venue" in _r["changes"] and not _r.get("apply_pitch"):
-                        st.caption("Planen i det nya underlaget matchar ingen befintlig plan exakt. Kontrollera Planer & tider fÃ¶rst.")
+                        st.caption("Planen i det nya underlaget matchar ingen befintlig plan exakt. Kontrollera Planer & tider först.")
                     elif "time" in _r["changes"] and not _r.get("apply_start"):
-                        st.caption("Ny tid kunde inte kopplas sÃ¤kert till matchens datum. Kontrollera schemat manuellt.")
+                        st.caption("Ny tid kunde inte kopplas säkert till matchens datum. Kontrollera schemat manuellt.")
                     if _picked and not _disabled:
                         _selected_match_rows.append(_r)
 
@@ -18111,15 +18111,15 @@ if admin_page == "Import":
                     pitch_windows=_pitch_windows_for_revision,
                 ) if _selected_match_rows else {"blockers": [], "warnings": [], "can_apply": True, "selected_count": 0}
                 if _selected_match_rows:
-                    st.markdown("##### ðŸ”Ž Konsekvenskontroll fÃ¶re godkÃ¤nnande")
+                    st.markdown("##### 🔎 Konsekvenskontroll före godkännande")
                     if _impact["blockers"]:
-                        st.error(f"{len(_impact['blockers'])} konflikt(er) mÃ¥ste lÃ¶sas innan de valda Ã¤ndringarna kan sparas.")
+                        st.error(f"{len(_impact['blockers'])} konflikt(er) måste lösas innan de valda ändringarna kan sparas.")
                         for _issue in _impact["blockers"]:
-                            st.write(f"â›” {_issue['text']}")
+                            st.write(f"⛔ {_issue['text']}")
                     else:
-                        st.success("Inga direkta krockar hittades fÃ¶r de valda matchÃ¤ndringarna.")
+                        st.success("Inga direkta krockar hittades för de valda matchändringarna.")
                     for _issue in _impact["warnings"]:
-                        st.warning(f"âš ï¸ {_issue['text']}")
+                        st.warning(f"⚠️ {_issue['text']}")
                     if _impact["blockers"]:
                         _plans = suggest_match_revision_resolution_plans(
                             _selected_match_rows,
@@ -18130,18 +18130,18 @@ if admin_page == "Import":
                             pitch_windows=_pitch_windows_for_revision,
                         )
                         if _plans:
-                            st.markdown("##### ðŸ’¡ CupNavi fÃ¶reslÃ¥r en gemensam lÃ¶sning")
-                            st.caption("CupNavi kan flytta flera beroende matcher tillsammans i fÃ¶rhandsgranskningen. Ingenting sparas fÃ¶rrÃ¤n du godkÃ¤nner de valda matchÃ¤ndringarna.")
+                            st.markdown("##### 💡 CupNavi föreslår en gemensam lösning")
+                            st.caption("CupNavi kan flytta flera beroende matcher tillsammans i förhandsgranskningen. Ingenting sparas förrän du godkänner de valda matchändringarna.")
                             for _rank, _plan in enumerate(_plans[:3], 1):
                                 with st.container(border=True):
-                                    st.markdown(f"**FÃ¶rslag {_rank} Â· {_plan['changed_match_count']} matcher justeras**")
+                                    st.markdown(f"**Förslag {_rank} · {_plan['changed_match_count']} matcher justeras**")
                                     for _change in _plan["changes"]:
-                                        st.write(f"â€¢ {_change['match']}: {_change['title']}")
+                                        st.write(f"• {_change['match']}: {_change['title']}")
                                     if _plan.get("warnings"):
-                                        st.caption(f"LÃ¶ser alla blockerande konflikter men lÃ¤mnar {len(_plan['warnings'])} varning(ar), till exempel kort vila.")
+                                        st.caption(f"Löser alla blockerande konflikter men lämnar {len(_plan['warnings'])} varning(ar), till exempel kort vila.")
                                     else:
-                                        st.caption("LÃ¶ser alla blockerande konflikter utan nya varningar i konsekvenskontrollen.")
-                                    if st.button("AnvÃ¤nd hela lÃ¶sningen i granskningen", key=f"revision_plan_fix_{tid}_{_rank}", use_container_width=True, type="secondary"):
+                                        st.caption("Löser alla blockerande konflikter utan nya varningar i konsekvenskontrollen.")
+                                    if st.button("Använd hela lösningen i granskningen", key=f"revision_plan_fix_{tid}_{_rank}", use_container_width=True, type="secondary"):
                                         _all = dict(st.session_state.get(f"revision_resolution_overrides_{tid}", {}) or {})
                                         for _change in _plan["changes"]:
                                             _all[str(_change["match_id"])] = {"apply_start": _change["apply_start"], "apply_pitch": _change["apply_pitch"]}
@@ -18157,29 +18157,29 @@ if admin_page == "Import":
                                 pitch_windows=_pitch_windows_for_revision,
                             )
                             if _fixes:
-                                st.markdown("##### ðŸ’¡ CupNavi fÃ¶reslÃ¥r")
-                                st.caption("Ingen liten gemensam lÃ¶sning hittades, men en enskild match kan justeras sÃ¤kert i fÃ¶rhandsgranskningen.")
+                                st.markdown("##### 💡 CupNavi föreslår")
+                                st.caption("Ingen liten gemensam lösning hittades, men en enskild match kan justeras säkert i förhandsgranskningen.")
                                 for _rank, _fix in enumerate(_fixes[:3], 1):
                                     with st.container(border=True):
                                         st.markdown(f"**{_rank}. {_fix['match']}**")
                                         st.write(_fix["title"])
-                                        if st.button("AnvÃ¤nd detta fÃ¶rslag i granskningen", key=f"revision_fix_{tid}_{_fix['match_id']}_{_rank}", use_container_width=True, type="secondary"):
+                                        if st.button("Använd detta förslag i granskningen", key=f"revision_fix_{tid}_{_fix['match_id']}_{_rank}", use_container_width=True, type="secondary"):
                                             _all = dict(st.session_state.get(f"revision_resolution_overrides_{tid}", {}) or {})
                                             _all[str(_fix["match_id"])] = {"apply_start": _fix["apply_start"], "apply_pitch": _fix["apply_pitch"]}
                                             st.session_state[f"revision_resolution_overrides_{tid}"] = _all
                                             st.rerun()
                             else:
-                                st.info("CupNavi hittade ingen sÃ¤ker liten omplanering inom Â±60 minuter. GÃ¥ till Schema fÃ¶r en stÃ¶rre omplanering.")
+                                st.info("CupNavi hittade ingen säker liten omplanering inom ±60 minuter. Gå till Schema för en större omplanering.")
                     if _resolution_overrides:
-                        st.caption(f"ðŸ’¡ {len(_resolution_overrides)} CupNavi-fÃ¶rslag anvÃ¤nds just nu i fÃ¶rhandsgranskningen. Inget sparas fÃ¶rrÃ¤n du trycker pÃ¥ TillÃ¤mpa valda matchÃ¤ndringar.")
-                    st.caption("Kontrollen rÃ¤knar pÃ¥ de valda Ã¤ndringarna tillsammans och tar hÃ¤nsyn till matchlÃ¤ngd, plan, lag, domare, bekrÃ¤ftade plantider och minsta lagvila.")
+                        st.caption(f"💡 {len(_resolution_overrides)} CupNavi-förslag används just nu i förhandsgranskningen. Inget sparas förrän du trycker på Tillämpa valda matchändringar.")
+                    st.caption("Kontrollen räknar på de valda ändringarna tillsammans och tar hänsyn till matchlängd, plan, lag, domare, bekräftade plantider och minsta lagvila.")
 
                 if _match_new_rows:
-                    st.warning(f"âž• {len(_match_new_rows)} ny(a) match(er) finns i underlaget. De lÃ¤ggs inte till automatiskt.")
+                    st.warning(f"➕ {len(_match_new_rows)} ny(a) match(er) finns i underlaget. De läggs inte till automatiskt.")
                 if _match_removed_rows:
-                    st.warning(f"âž– {len(_match_removed_rows)} befintlig(a) match(er) saknas i underlaget. De tas inte bort automatiskt.")
+                    st.warning(f"➖ {len(_match_removed_rows)} befintlig(a) match(er) saknas i underlaget. De tas inte bort automatiskt.")
 
-                if st.button("âœ“ TillÃ¤mpa valda matchÃ¤ndringar", type="primary", use_container_width=True, disabled=(not bool(_selected_match_rows) or not bool(_impact.get("can_apply", True))), key=f"revision_match_apply_{tid}"):
+                if st.button("✓ Tillämpa valda matchändringar", type="primary", use_container_width=True, disabled=(not bool(_selected_match_rows) or not bool(_impact.get("can_apply", True))), key=f"revision_match_apply_{tid}"):
                     with db() as con:
                         for _r in _selected_match_rows:
                             _cur = _r["current"] or {}; _mid = int(_cur.get("id"))
@@ -18198,7 +18198,7 @@ if admin_page == "Import":
                         con.execute("UPDATE tournaments SET schedule_dirty=1,is_published=0 WHERE id=?", (tid,))
                         con.commit()
                     st.session_state.pop(f"revision_resolution_overrides_{tid}", None)
-                    st.success("Valda, ospelade matcher Ã¤r uppdaterade. Spelade matcher, nya matcher och borttagningar har inte Ã¤ndrats.")
+                    st.success("Valda, ospelade matcher är uppdaterade. Spelade matcher, nya matcher och borttagningar har inte ändrats.")
                     st.rerun()
 
             _rev_rules = one_row("SELECT * FROM schedule_rules WHERE tournament_id=?", (tid,))
@@ -18211,12 +18211,12 @@ if admin_page == "Import":
 
             _revision_history_locked = production_history_locked(tid, tournament)
             if _revision_history_locked:
-                st.warning("ðŸ”’ Cupen har redan resultat. CupNavi visar Ã¤ndringarna men massÃ¤ndrar inte spelregler eller plantider efter spelstart, eftersom historiken mÃ¥ste skyddas.")
+                st.warning("🔒 Cupen har redan resultat. CupNavi visar ändringarna men massändrar inte spelregler eller plantider efter spelstart, eftersom historiken måste skyddas.")
 
             _selected_group = {}
             if _rev_group:
-                st.markdown("##### Gruppspel Â· fÃ¶reslagna Ã¤ndringar")
-                _labels = {"halves":"Halvlekar/perioder", "minutes_per_half":"Minuter per halvlek/period", "halftime_minutes":"Paus", "points_win":"PoÃ¤ng vinst", "points_draw":"PoÃ¤ng oavgjort", "points_loss":"PoÃ¤ng fÃ¶rlust"}
+                st.markdown("##### Gruppspel · föreslagna ändringar")
+                _labels = {"halves":"Halvlekar/perioder", "minutes_per_half":"Minuter per halvlek/period", "halftime_minutes":"Paus", "points_win":"Poäng vinst", "points_draw":"Poäng oavgjort", "points_loss":"Poäng förlust"}
                 for _field, _new in _rev_group.items():
                     if _field in {"points_win", "points_draw", "points_loss"}:
                         _current = _row_value(tournament, _field, None)
@@ -18224,19 +18224,19 @@ if admin_page == "Import":
                         _current = _row_value(_rev_rules, _field, None)
                     _changed = str(_current) != str(_new)
                     _selected_group[_field] = st.checkbox(
-                        f"{_labels.get(_field, _field)}: {_current} â†’ {_new}" if _changed else f"{_labels.get(_field, _field)}: {_new} (ofÃ¶rÃ¤ndrat)",
+                        f"{_labels.get(_field, _field)}: {_current} → {_new}" if _changed else f"{_labels.get(_field, _field)}: {_new} (oförändrat)",
                         value=bool(_changed), disabled=_revision_history_locked or not _changed, key=f"rev_group_{tid}_{_field}",
                     )
 
             _selected_playoff = {}
             if _rev_playoff:
-                st.markdown("##### Slutspel Â· egna speltider och fÃ¶rutsÃ¤ttningar")
-                st.caption("Slutspel fÃ¥r ha andra halvlekar/perioder, matchlÃ¤ngd, pauser och oavgjortregler Ã¤n gruppspelet.")
-                _plabels = {"halves":"Halvlekar/perioder", "minutes_per_half":"Minuter per halvlek/period", "halftime_minutes":"Paus", "pitch_break_minutes":"Paus mellan matcher pÃ¥ plan", "tie_rule":"Vid oavgjort", "extra_time_minutes":"FÃ¶rlÃ¤ngning"}
+                st.markdown("##### Slutspel · egna speltider och förutsättningar")
+                st.caption("Slutspel får ha andra halvlekar/perioder, matchlängd, pauser och oavgjortregler än gruppspelet.")
+                _plabels = {"halves":"Halvlekar/perioder", "minutes_per_half":"Minuter per halvlek/period", "halftime_minutes":"Paus", "pitch_break_minutes":"Paus mellan matcher på plan", "tie_rule":"Vid oavgjort", "extra_time_minutes":"Förlängning"}
                 for _field, _new_raw in _rev_playoff.items():
                     _new = normalize_tie_rule(_new_raw) if _field == "tie_rule" else _new_raw
                     if _field == "tie_rule" and _new is None:
-                        st.warning(f"CupNavi kunde inte sÃ¤kert Ã¶versÃ¤tta slutspelsregeln â€˜{_new_raw}â€™. Kontrollera den manuellt under Regler.")
+                        st.warning(f"CupNavi kunde inte säkert översätta slutspelsregeln ‘{_new_raw}’. Kontrollera den manuellt under Regler.")
                         continue
                     if _field == "tie_rule":
                         _current = _row_value(tournament, "playoff_tie_rule", "Straffar direkt")
@@ -18250,13 +18250,13 @@ if admin_page == "Import":
                             _current = _row_value(_rev_rules, _fallback, None)
                     _changed = str(_current) != str(_new)
                     _selected_playoff[_field] = st.checkbox(
-                        f"{_plabels.get(_field, _field)}: {_current} â†’ {_new}" if _changed else f"{_plabels.get(_field, _field)}: {_new} (ofÃ¶rÃ¤ndrat)",
+                        f"{_plabels.get(_field, _field)}: {_current} → {_new}" if _changed else f"{_plabels.get(_field, _field)}: {_new} (oförändrat)",
                         value=bool(_changed), disabled=_revision_history_locked or not _changed, key=f"rev_playoff_{tid}_{_field}",
                     )
 
             _rev_windows = []
             if _revision_result.get("pitch_windows"):
-                st.markdown("##### Plantider Â· fÃ¶reslagna Ã¤ndringar")
+                st.markdown("##### Plantider · föreslagna ändringar")
                 _default_rev_date = str(_row_value(tournament, "start_date", None) or _row_value(tournament, "tournament_date", "") or "")
                 _single_day = _default_rev_date and _default_rev_date == str(_row_value(tournament, "end_date", None) or _default_rev_date)
                 for _idx, _window in enumerate(_revision_result.get("pitch_windows") or []):
@@ -18266,22 +18266,22 @@ if admin_page == "Import":
                     _start = str(_window.get("start_time") or "").strip()
                     _end = str(_window.get("end_time") or "").strip()
                     _valid = bool(_pitch_no and _date and re.fullmatch(r"[0-2]\d:[0-5]\d", _start or "") and re.fullmatch(r"[0-2]\d:[0-5]\d", _end or "") and _start < _end)
-                    _label = f"{_venue or 'Plan'} Â· {_date or 'datum saknas'} Â· {_start or '?'}â€“{_end or '?'}"
+                    _label = f"{_venue or 'Plan'} · {_date or 'datum saknas'} · {_start or '?'}–{_end or '?'}"
                     _pick = st.checkbox(_label, value=_valid and not _revision_history_locked, disabled=not _valid or _revision_history_locked, key=f"rev_window_{tid}_{_idx}")
                     if not _valid:
-                        st.caption("Kan inte tillÃ¤mpas automatiskt: plan, datum eller giltigt tidsintervall saknas. Underlaget ligger kvar fÃ¶r manuell kontroll.")
+                        st.caption("Kan inte tillämpas automatiskt: plan, datum eller giltigt tidsintervall saknas. Underlaget ligger kvar för manuell kontroll.")
                     _rev_windows.append((_pick, _pitch_no, _date, _start, _end, _venue))
 
             if _revision_result.get("matches") or _revision_result.get("playoff_matches"):
-                st.info("Det nya underlaget innehÃ¥ller Ã¤ven ett matchprogram. CupNavi ersÃ¤tter inte nuvarande schema hÃ¤r; Ã¶ppna Schema fÃ¶r att jÃ¤mfÃ¶ra och godkÃ¤nna matchÃ¤ndringar separat.")
-                if st.button("Ã–ppna Schema med det nya underlaget", use_container_width=True, key=f"rev_open_schedule_{tid}"):
+                st.info("Det nya underlaget innehåller även ett matchprogram. CupNavi ersätter inte nuvarande schema här; öppna Schema för att jämföra och godkänna matchändringar separat.")
+                if st.button("Öppna Schema med det nya underlaget", use_container_width=True, key=f"rev_open_schedule_{tid}"):
                     st.session_state[f"schedule_existing_import_prefill_{tid}"] = dict(_revision_result)
                     st.session_state[f"schedule_existing_import_from_revision_{tid}"] = True
                     _set_admin_page("Skapa och publicera schema")
                     st.rerun()
 
             _has_selected_revision = any(_selected_group.values()) or any(_selected_playoff.values()) or any(bool(row[0]) for row in _rev_windows)
-            if st.button("âœ“ TillÃ¤mpa valda Ã¤ndringar", type="primary", use_container_width=True, disabled=_revision_history_locked or not _has_selected_revision, key=f"revision_apply_{tid}"):
+            if st.button("✓ Tillämpa valda ändringar", type="primary", use_container_width=True, disabled=_revision_history_locked or not _has_selected_revision, key=f"revision_apply_{tid}"):
                 from cupnavi_core.cup_document_creator_view import save_setup_import_snapshot
                 with db() as con:
                     _ssets=[]; _svals=[]
@@ -18317,22 +18317,22 @@ if admin_page == "Import":
                 _applied_payload = dict(_revision_result)
                 _applied_payload["applied_at"] = datetime.now().isoformat(timespec="seconds")
                 save_setup_import_snapshot(db, tid, _applied_payload, import_kind="revision_applied")
-                st.success("Ã„ndringarna Ã¤r sparade. Ett befintligt schema har markerats fÃ¶r ny kontroll â€“ CupNavi har inte flyttat nÃ¥gra matcher automatiskt.")
+                st.success("Ändringarna är sparade. Ett befintligt schema har markerats för ny kontroll – CupNavi har inte flyttat några matcher automatiskt.")
                 st.rerun()
 
     with st.container(border=True):
-        st.markdown("### ðŸ“· Bild eller skÃ¤rmdump")
-        st.caption("Bra fÃ¶r cupinbjudningar, spelscheman, gruppindelningar, laglistor, regler och domarlistor.")
-        _smart_image = st.file_uploader("VÃ¤lj foto/skÃ¤rmdump", type=["png", "jpg", "jpeg", "webp"], key=f"smart_import_image_{tid}")
+        st.markdown("### 📷 Bild eller skärmdump")
+        st.caption("Bra för cupinbjudningar, spelscheman, gruppindelningar, laglistor, regler och domarlistor.")
+        _smart_image = st.file_uploader("Välj foto/skärmdump", type=["png", "jpg", "jpeg", "webp"], key=f"smart_import_image_{tid}")
         _smart_key = f"smart_import_analysis_{tid}"
         _smart_api_key = setting("OPENAI_API_KEY")
         _smart_model = setting("CUPNAVI_AI_IMPORT_MODEL") or setting("CUPNAVI_AI_ROSTER_MODEL") or "gpt-5.6-luna"
         if not _smart_api_key:
-            st.info("Bildanalysen aktiveras nÃ¤r OPENAI_API_KEY finns i Streamlit Secrets.")
+            st.info("Bildanalysen aktiveras när OPENAI_API_KEY finns i Streamlit Secrets.")
         if st.button("Analysera bilden", type="primary", use_container_width=True, disabled=_smart_image is None or not bool(_smart_api_key), key=f"smart_import_analyse_{tid}"):
             try:
                 from cupnavi_core.smart_image_import import detect_importable_sections
-                with st.spinner("CupNavi letar efter information som gÃ¥r att anvÃ¤ndaâ€¦"):
+                with st.spinner("CupNavi letar efter information som går att använda…"):
                     _smart_result = detect_importable_sections(_smart_image.getvalue(), getattr(_smart_image, "type", None), _smart_api_key, model=_smart_model)
                 st.session_state[_smart_key] = _smart_result
                 st.rerun()
@@ -18343,33 +18343,33 @@ if admin_page == "Import":
         if _smart_result:
             _detected = _smart_result.get("sections", [])
             if not _detected:
-                st.warning("CupNavi hittade ingen tillrÃ¤ckligt tydlig cupinformation i bilden.")
+                st.warning("CupNavi hittade ingen tillräckligt tydlig cupinformation i bilden.")
             else:
                 st.markdown("#### Vad vill du lyfta in i CupNavi?")
-                st.caption("Bara sÃ¥dant som faktiskt hittades i bilden visas hÃ¤r. Avmarkera det du inte vill anvÃ¤nda.")
+                st.caption("Bara sådant som faktiskt hittades i bilden visas här. Avmarkera det du inte vill använda.")
                 _selected_sections = []
-                _conf_text = {"high": "hÃ¶g sÃ¤kerhet", "medium": "medel sÃ¤kerhet", "low": "lÃ¥g sÃ¤kerhet"}
+                _conf_text = {"high": "hög säkerhet", "medium": "medel säkerhet", "low": "låg säkerhet"}
                 for _det in _detected:
                     _sec = _det.get("section")
                     _conf = _det.get("confidence", "low")
                     _default = _conf != "low"
-                    _checked = st.checkbox(f"{_sec} Â· {_conf_text.get(_conf, 'lÃ¥g sÃ¤kerhet')}", value=_default, key=f"smart_import_pick_{tid}_{_sec}")
+                    _checked = st.checkbox(f"{_sec} · {_conf_text.get(_conf, 'låg säkerhet')}", value=_default, key=f"smart_import_pick_{tid}_{_sec}")
                     st.caption(_det.get("summary") or "")
                     if _det.get("items"):
                         with st.expander(f"Visa vad CupNavi hittade under {_sec}", expanded=_conf == "low"):
                             for _item in _det.get("items", []):
-                                st.write(f"â€¢ {_item}")
+                                st.write(f"• {_item}")
                     if _checked:
                         _selected_sections.append(_sec)
                 if _smart_result.get("caveats"):
-                    with st.expander("OsÃ¤kerheter att kontrollera", expanded=True):
+                    with st.expander("Osäkerheter att kontrollera", expanded=True):
                         for _c in _smart_result.get("caveats", []):
-                            st.write(f"â€¢ {_c}")
-                st.info("NÃ¤sta steg Ã¶ppnar rÃ¤tt del av CupNavi fÃ¶r de valda uppgifterna. Du fÃ¥r alltid granska innan nÃ¥got sparas eller ersÃ¤tts.")
-                _destination = {"Cupinfo":"CupinstÃ¤llningar", "Lag":"Lag", "Grupper":"Grupper", "Regler":"Regler", "Planer & tider":"Planer & tider", "Domare":"Domare", "Schema":"Skapa och publicera schema", "Trupper":"Trupper", "Ã–vrigt":"Ã–vrigt"}
+                            st.write(f"• {_c}")
+                st.info("Nästa steg öppnar rätt del av CupNavi för de valda uppgifterna. Du får alltid granska innan något sparas eller ersätts.")
+                _destination = {"Cupinfo":"Cupinställningar", "Lag":"Lag", "Grupper":"Grupper", "Regler":"Regler", "Planer & tider":"Planer & tider", "Domare":"Domare", "Schema":"Skapa och publicera schema", "Trupper":"Trupper", "Övrigt":"Övrigt"}
                 if _selected_sections:
                     _first = _selected_sections[0]
-                    if st.button(f"FortsÃ¤tt med valda uppgifter â†’ {_first}", type="primary", use_container_width=True, key=f"smart_import_continue_{tid}"):
+                    if st.button(f"Fortsätt med valda uppgifter → {_first}", type="primary", use_container_width=True, key=f"smart_import_continue_{tid}"):
                         st.session_state[f"smart_import_selected_{tid}"] = list(_selected_sections)
                         st.session_state[f"smart_import_payload_{tid}"] = _smart_result
                         # v557: If the already-read image contains a schedule, reuse the
@@ -18379,8 +18379,8 @@ if admin_page == "Import":
                         if "Schema" in _selected_sections and _smart_image is not None:
                             try:
                                 from cupnavi_core.ai_cup_document_import import extract_cup_setup_from_documents
-                                with st.spinner("CupNavi fÃ¶rbereder det hittade matchprogrammet â€¦"):
-                                    _source_name = str(getattr(_smart_image, "name", None) or "foto/skÃ¤rmdump")
+                                with st.spinner("CupNavi förbereder det hittade matchprogrammet …"):
+                                    _source_name = str(getattr(_smart_image, "name", None) or "foto/skärmdump")
                                     _source_mime = str(getattr(_smart_image, "type", None) or "image/png")
                                     _structured = extract_cup_setup_from_documents(
                                         [(_smart_image.getvalue(), _source_name, _source_mime)],
@@ -18390,15 +18390,15 @@ if admin_page == "Import":
                                 st.session_state[f"schedule_existing_import_prefill_{tid}"] = _structured
                                 st.session_state[f"schedule_existing_import_from_smart_{tid}"] = True
                             except Exception as exc:
-                                st.warning(f"Schemat kunde inte fÃ¶rberedas automatiskt: {exc}")
-                        _set_admin_page(_destination.get(_first, "Ã–vrigt"))
+                                st.warning(f"Schemat kunde inte förberedas automatiskt: {exc}")
+                        _set_admin_page(_destination.get(_first, "Övrigt"))
                         st.rerun()
                 else:
-                    st.warning("VÃ¤lj minst en typ av information att fortsÃ¤tta med.")
+                    st.warning("Välj minst en typ av information att fortsätta med.")
 
     st.divider()
     st.markdown("### CSV eller Excel")
-    st.caption("FÃ¶r strukturerad massimport av lag eller spelare.")
+    st.caption("För strukturerad massimport av lag eller spelare.")
 
     import_kind = st.segmented_control(
         "1. Vad vill du importera?",
@@ -18409,29 +18409,29 @@ if admin_page == "Import":
     if not import_kind:
         import_kind = "Lag"
 
-    with st.expander("ðŸ“„ Importmallar och format", expanded=False):
+    with st.expander("📄 Importmallar och format", expanded=False):
         st.write(
-            "Du kan anvÃ¤nda **CSV eller Excel (.xlsx)**. Kolumnnamnen behÃ¶ver inte vara exakt som i mallen â€“ "
-            "CupNavi fÃ¶rsÃ¶ker kÃ¤nna igen bÃ¥de svenska och engelska rubriker."
+            "Du kan använda **CSV eller Excel (.xlsx)**. Kolumnnamnen behöver inte vara exakt som i mallen – "
+            "CupNavi försöker känna igen både svenska och engelska rubriker."
         )
         template_col1, template_col2 = st.columns(2)
         team_template = (
-            "Lag,Grupp,HemmafÃ¤rg,BortafÃ¤rg,ResvÃ¤g km,Senare fÃ¶rsta match,FÃ¶rsta match tidigast,Kommentar\n"
+            "Lag,Grupp,Hemmafärg,Bortafärg,Resväg km,Senare första match,Första match tidigast,Kommentar\n"
             "Exempellaget,Grupp A,#111827,#FFFFFF,25,Ja,10:00,Reser samma morgon\n"
         ).encode("utf-8-sig")
         squad_template = (
-            "Lag,Spelare,TrÃ¶jnummer,FÃ¶delseÃ¥r,Position\n"
-            "Exempellaget,Anna Andersson,10,2013,MittfÃ¤ltare\n"
+            "Lag,Spelare,Tröjnummer,Födelseår,Position\n"
+            "Exempellaget,Anna Andersson,10,2013,Mittfältare\n"
         ).encode("utf-8-sig")
         template_col1.download_button(
-            "Ladda ner mall fÃ¶r lag",
+            "Ladda ner mall för lag",
             data=team_template,
             file_name="cupnavi_lag_importmall.csv",
             mime="text/csv",
             use_container_width=True,
         )
         template_col2.download_button(
-            "Ladda ner mall fÃ¶r trupper",
+            "Ladda ner mall för trupper",
             data=squad_template,
             file_name="cupnavi_trupp_importmall.csv",
             mime="text/csv",
@@ -18440,10 +18440,10 @@ if admin_page == "Import":
 
     st.subheader("Ladda upp fil")
     import_file = st.file_uploader(
-        "VÃ¤lj CSV eller XLSX",
+        "Välj CSV eller XLSX",
         type=["csv", "xlsx"],
         key=f"import_file_{tid}_{import_kind}",
-        help="CSV-filer kan anvÃ¤nda komma, semikolon eller tab som avgrÃ¤nsare.",
+        help="CSV-filer kan använda komma, semikolon eller tab som avgränsare.",
     )
 
     import_df = None
@@ -18466,36 +18466,36 @@ if admin_page == "Import":
                     except Exception as exc:
                         last_error = exc
                 if import_df is None:
-                    raise last_error or ValueError("CSV-filen kunde inte lÃ¤sas.")
+                    raise last_error or ValueError("CSV-filen kunde inte läsas.")
                 import_source_name = import_file.name
             else:
                 excel_file = pd.ExcelFile(io.BytesIO(raw_bytes))
                 sheet_name = st.selectbox(
-                    "VÃ¤lj blad i Excel-filen",
+                    "Välj blad i Excel-filen",
                     excel_file.sheet_names,
                     key=f"import_sheet_{tid}_{import_file.name}",
                 )
                 import_df = pd.read_excel(io.BytesIO(raw_bytes), sheet_name=sheet_name)
-                import_source_name = f"{import_file.name} Â· {sheet_name}"
+                import_source_name = f"{import_file.name} · {sheet_name}"
 
             import_df = import_df.dropna(how="all").copy()
             import_df.columns = [str(col).strip() for col in import_df.columns]
             import_df = import_df.loc[:, ~import_df.columns.duplicated()].copy()
 
             if import_df.empty:
-                st.error("Filen innehÃ¥ller inga datarader.")
+                st.error("Filen innehåller inga datarader.")
                 import_df = None
             elif len(import_df) > 5000:
-                st.error("Filen innehÃ¥ller fler Ã¤n 5 000 rader. Dela upp den i mindre filer.")
+                st.error("Filen innehåller fler än 5 000 rader. Dela upp den i mindre filer.")
                 import_df = None
             else:
                 c1, c2, c3 = st.columns(3)
                 c1.metric("Fil", import_file.name)
                 c2.metric("Rader", len(import_df))
                 c3.metric("Kolumner", len(import_df.columns))
-                st.caption(f"LÃ¤ser: {import_source_name}")
+                st.caption(f"Läser: {import_source_name}")
         except Exception as exc:
-            st.error(f"Filen kunde inte lÃ¤sas: {exc}")
+            st.error(f"Filen kunde inte läsas: {exc}")
 
     if import_df is not None:
         from cupnavi_core.import_service import (
@@ -18512,8 +18512,8 @@ if admin_page == "Import":
         )
         mapping = {}
         with st.expander("Kolumnmappning", expanded=required_auto_missing):
-            st.caption("CupNavi har fÃ¶rvalt kolumner automatiskt. Ã–ppna bara om nÃ¥got behÃ¶ver Ã¤ndras.")
-            available_options = ["â€” AnvÃ¤nd inte â€”"] + list(import_df.columns)
+            st.caption("CupNavi har förvalt kolumner automatiskt. Öppna bara om något behöver ändras.")
+            available_options = ["— Använd inte —"] + list(import_df.columns)
             map_cols = st.columns(2)
             for field_index, (field_name, field_spec) in enumerate(fields.items()):
                 default_column = auto_mapping.get(field_name)
@@ -18529,7 +18529,7 @@ if admin_page == "Import":
                     index=default_index,
                     key=f"import_map_{tid}_{import_kind}_{field_name}",
                 )
-                mapping[field_name] = None if selected == "â€” AnvÃ¤nd inte â€”" else selected
+                mapping[field_name] = None if selected == "— Använd inte —" else selected
 
         missing_required = [
             field for field, spec in fields.items()
@@ -18538,7 +18538,7 @@ if admin_page == "Import":
 
         if missing_required:
             st.error(
-                "Matcha fÃ¶rst de obligatoriska fÃ¤lten: "
+                "Matcha först de obligatoriska fälten: "
                 + ", ".join(missing_required)
                 + "."
             )
@@ -18584,18 +18584,18 @@ if admin_page == "Import":
                     existing_players,
                 )
 
-            error_count = sum(1 for issue in issues if issue["NivÃ¥"] == "Fel")
-            skipped_count = sum(1 for issue in issues if issue["NivÃ¥"] == "Hoppa Ã¶ver")
+            error_count = sum(1 for issue in issues if issue["Nivå"] == "Fel")
+            skipped_count = sum(1 for issue in issues if issue["Nivå"] == "Hoppa över")
 
             st.subheader("Granska import")
             s1, s2, s3 = st.columns(3)
             s1.metric("Redo att importera", len(records))
-            s2.metric("Hoppar Ã¶ver", skipped_count)
-            s3.metric("Fel att rÃ¤tta", error_count)
+            s2.metric("Hoppar över", skipped_count)
+            s3.metric("Fel att rätta", error_count)
 
             if import_kind == "Lag" and int(tournament["expected_team_count"] or 0) > 0:
                 st.caption(
-                    f"Turneringen Ã¤r planerad fÃ¶r maximalt {int(tournament['expected_team_count'])} lag. "
+                    f"Turneringen är planerad för maximalt {int(tournament['expected_team_count'])} lag. "
                     f"Nu finns {len(existing_team_rows)} lag."
                 )
 
@@ -18603,11 +18603,11 @@ if admin_page == "Import":
                 issue_df = pd.DataFrame(issues)
                 if error_count:
                     st.error(
-                        f"{error_count} fel blockerar importen. RÃ¤tta filen eller kolumnmappningen och ladda upp igen."
+                        f"{error_count} fel blockerar importen. Rätta filen eller kolumnmappningen och ladda upp igen."
                     )
                 elif skipped_count:
                     st.info(
-                        f"{skipped_count} rader kommer att hoppas Ã¶ver eftersom de redan finns."
+                        f"{skipped_count} rader kommer att hoppas över eftersom de redan finns."
                     )
                 with st.expander("Visa importdetaljer", expanded=bool(error_count)):
                     st.dataframe(
@@ -18630,12 +18630,12 @@ if admin_page == "Import":
                     preview_df = pd.DataFrame([
                         {
                             "Lag": row["name"],
-                            "Grupp": row["group"] or "â€“",
-                            "HemmafÃ¤rg": row["home_color"],
-                            "BortafÃ¤rg": row["away_color"],
-                            "ResvÃ¤g km": row["distance_km"],
-                            "Senare fÃ¶rsta match": "Ja" if row["late_first_match"] else "Nej",
-                            "FÃ¶rsta match tidigast": row["earliest_first_time"] or "â€“",
+                            "Grupp": row["group"] or "–",
+                            "Hemmafärg": row["home_color"],
+                            "Bortafärg": row["away_color"],
+                            "Resväg km": row["distance_km"],
+                            "Senare första match": "Ja" if row["late_first_match"] else "Nej",
+                            "Första match tidigast": row["earliest_first_time"] or "–",
                         }
                         for row in records[:100]
                     ])
@@ -18644,21 +18644,21 @@ if admin_page == "Import":
                         {
                             "Lag": row["team_name"],
                             "Spelare": row["player_name"],
-                            "TrÃ¶jnummer": row["player_number"] if row["player_number"] is not None else "â€“",
-                            "FÃ¶delseÃ¥r": row["birth_year"] if row["birth_year"] is not None else "â€“",
-                            "Position": row["position"] or "â€“",
+                            "Tröjnummer": row["player_number"] if row["player_number"] is not None else "–",
+                            "Födelseår": row["birth_year"] if row["birth_year"] is not None else "–",
+                            "Position": row["position"] or "–",
                         }
                         for row in records[:100]
                     ])
                 with st.expander(
-                    f"FÃ¶rhandsgranska {min(len(records), 100)} av {len(records)} rader",
+                    f"Förhandsgranska {min(len(records), 100)} av {len(records)} rader",
                     expanded=error_count == 0,
                 ):
                     st.dataframe(preview_df, use_container_width=True, hide_index=True)
 
             st.subheader("Importera")
             if error_count:
-                st.warning("Importknappen lÃ¥ses tills alla blockerande fel Ã¤r lÃ¶sta.")
+                st.warning("Importknappen låses tills alla blockerande fel är lösta.")
             elif not records:
                 st.info("Det finns inga nya rader att importera.")
             else:
@@ -18671,7 +18671,7 @@ if admin_page == "Import":
                     )
 
                 confirmed = st.checkbox(
-                    f"Jag har granskat importen och vill lÃ¤gga till {len(records)} "
+                    f"Jag har granskat importen och vill lägga till {len(records)} "
                     + ("lag." if import_kind == "Lag" else "spelare."),
                     value=False,
                     key=f"import_confirm_{tid}_{import_kind}_{import_file.name}",
@@ -18743,7 +18743,7 @@ if admin_page == "Import":
                                         (
                                             tid, record["name"], group_id,
                                             record["home_color"], record["away_color"],
-                                            "HelfÃ¤rgad", "#FFFFFF", "HelfÃ¤rgad", "#111827",
+                                            "Helfärgad", "#FFFFFF", "Helfärgad", "#111827",
                                             record["distance_km"], int(record["late_first_match"]),
                                             record["earliest_first_time"], record["comment"] or None, int(record.get("avoid_late_group_match", False)),
                                         ),
@@ -18774,18 +18774,18 @@ if admin_page == "Import":
 
                         _clear_render_query_cache()
                         st.session_state["import_success_message"] = (
-                            f"âœ“ Import klar: {len(records)} "
+                            f"✓ Import klar: {len(records)} "
                             + ("lag lades till." if import_kind == "Lag" else "spelare lades till.")
                         )
                         st.rerun()
                     except TeamLimitReachedError as exc:
                         st.error(
-                            f"Importen avbrÃ¶ts utan att nÃ¥got lades till eftersom maxantalet "
-                            f"{exc.args[0]} lag skulle Ã¶verskridas."
+                            f"Importen avbröts utan att något lades till eftersom maxantalet "
+                            f"{exc.args[0]} lag skulle överskridas."
                         )
                     except Exception as exc:
                         st.error(
-                            "Importen kunde inte genomfÃ¶ras. Inga rader ska ha sparats. "
+                            "Importen kunde inte genomföras. Inga rader ska ha sparats. "
                             f"Teknisk information: {exc}"
                         )
 
@@ -18820,7 +18820,7 @@ if admin_page == "Cupdagen":
         """Persist a Cupday status action before Streamlit's normal button rerun."""
         if not _reporter_set_match_status(tid, match_row, new_status, actor="Admin"):
             st.session_state[f"cupday_status_conflict_{tid}"] = (
-                "Matchstatusen Ã¤ndrades av nÃ¥gon annan. Cupdagen visar den senaste serverversionen."
+                "Matchstatusen ändrades av någon annan. Cupdagen visar den senaste serverversionen."
             )
 
     def _open_cupday_delay(pitch_number, delay_minutes):
@@ -18835,9 +18835,9 @@ if admin_page == "Cupdagen":
     st.markdown(
         """<div class="cn-admin-page-head">
           <div>
-            <div class="cn-kicker">âš¡ Operativt lÃ¤ge Â· Matchdag</div>
+            <div class="cn-kicker">⚡ Operativt läge · Matchdag</div>
             <h1>Cupdagen</h1>
-            <p>Se vad som hÃ¤nder nu, vad som behÃ¶ver Ã¥tgÃ¤rdas och vad som kommer hÃ¤rnÃ¤st. Setup ligger kvar under FÃ¶rbered cupen.</p>
+            <p>Se vad som händer nu, vad som behöver åtgärdas och vad som kommer härnäst. Setup ligger kvar under Förbered cupen.</p>
           </div>
         </div>""",
         unsafe_allow_html=True,
@@ -18920,9 +18920,9 @@ if admin_page == "Cupdagen":
     _day_attention_count = len(_day_snapshot["start_overdue"]) + len(_day_snapshot["reporting_due"])
     st.markdown(
         f"""<div class="cn-day-kpis">
-          <div class="cn-day-kpi is-live"><span class="label">PÃ¥gÃ¥r nu</span><span class="value">{len(_day_snapshot['live'])}</span></div>
+          <div class="cn-day-kpi is-live"><span class="label">Pågår nu</span><span class="value">{len(_day_snapshot['live'])}</span></div>
           <div class="cn-day-kpi is-attention"><span class="label">Problem</span><span class="value">{_day_attention_count}</span></div>
-          <div class="cn-day-kpi"><span class="label">NÃ¤sta 45 min</span><span class="value">{len(_day_snapshot['next_window'])}</span></div>
+          <div class="cn-day-kpi"><span class="label">Nästa 45 min</span><span class="value">{len(_day_snapshot['next_window'])}</span></div>
         </div>""",
         unsafe_allow_html=True,
     )
@@ -18932,10 +18932,10 @@ if admin_page == "Cupdagen":
 
     # v491: one ranked operational queue, built entirely from already-loaded Cupday data.
     if _day_action_queue:
-        st.markdown('<div class="cn-section-head">Ã…tgÃ¤rda nu</div>', unsafe_allow_html=True)
-        st.caption("CupNavi rankar det som riskerar att stoppa cupflÃ¶det. Inget Ã¤ndras automatiskt.")
+        st.markdown('<div class="cn-section-head">Åtgärda nu</div>', unsafe_allow_html=True)
+        st.caption("CupNavi rankar det som riskerar att stoppa cupflödet. Inget ändras automatiskt.")
         for _queue_index, _task in enumerate(_day_action_queue[:3]):
-            _task_prefix = "ðŸ”´" if _task["severity"] == "error" else "ðŸŸ¡"
+            _task_prefix = "🔴" if _task["severity"] == "error" else "🟡"
             with st.container(border=True):
                 st.markdown(f"**{_task_prefix} {_task['title']}**")
                 st.caption(_task["detail"])
@@ -18950,7 +18950,7 @@ if admin_page == "Cupdagen":
                     )
                 elif _task["action"] == "start_match" and _task.get("match_row"):
                     st.button(
-                        "â–¶ Starta match",
+                        "▶ Starta match",
                         key=f"cupday_queue_start_{tid}_{_task['match_id']}",
                         type="primary" if _queue_index == 0 else "secondary",
                         use_container_width=True,
@@ -18975,7 +18975,7 @@ if admin_page == "Cupdagen":
                     )
                 elif _task["action"] == "preview_delay":
                     st.button(
-                        "JÃ¤mfÃ¶r lÃ¶sningar",
+                        "Jämför lösningar",
                         key=f"cupday_queue_delay_{tid}_{_task['pitch_number']}",
                         use_container_width=True,
                         on_click=_open_cupday_delay,
@@ -18990,10 +18990,10 @@ if admin_page == "Cupdagen":
                         args=("Skapa och publicera schema",),
                     )
         if len(_day_action_queue) > 3:
-            st.caption(f"+ {len(_day_action_queue) - 3} ytterligare Ã¥tgÃ¤rd(er) finns lÃ¤ngre ned i Cupdagen.")
+            st.caption(f"+ {len(_day_action_queue) - 3} ytterligare åtgärd(er) finns längre ned i Cupdagen.")
 
     if _day_readiness:
-        st.markdown('<div class="cn-section-head">InfÃ¶r nÃ¤sta avspark</div>', unsafe_allow_html=True)
+        st.markdown('<div class="cn-section-head">Inför nästa avspark</div>', unsafe_allow_html=True)
         _primary_risk = _day_readiness[0]
         with st.container(border=True):
             st.markdown(f"**{_primary_risk['title']}**")
@@ -19024,13 +19024,13 @@ if admin_page == "Cupdagen":
                                     now=_day_now,
                                     max_matches=6,
                                 )
-                            st.markdown(f"**{source_label(f'team:{_missing_team_id}')} â€“ om laget inte kommer**")
+                            st.markdown(f"**{source_label(f'team:{_missing_team_id}')} – om laget inte kommer**")
                             st.caption(
-                                f"{_impact['affected_match_count']} Ã¥terstÃ¥ende match(er) Â· "
-                                f"{_impact['affected_opponent_count']} motstÃ¥ndarlag pÃ¥verkas"
+                                f"{_impact['affected_match_count']} återstående match(er) · "
+                                f"{_impact['affected_opponent_count']} motståndarlag påverkas"
                             )
                             st.info(f"{_impact['recommendation_title']}. {_impact['recommendation_detail']}")
-                            st.caption("CupNavi Ã¤ndrar inget schema och registrerar ingen walkover automatiskt.")
+                            st.caption("CupNavi ändrar inget schema och registrerar ingen walkover automatiskt.")
             elif _primary_risk["action"] == "open_referees":
                 st.button(
                     "Bemanna matchen",
@@ -19065,9 +19065,9 @@ if admin_page == "Cupdagen":
     # v411: referee no-show recovery stays lazy so Cupdagen does not load the
     # referee roster unless an organiser actually needs the incident tool.
     _referee_incident_open = st.toggle(
-        "Domare uteblir? Hitta ersÃ¤ttare",
+        "Domare uteblir? Hitta ersättare",
         key=f"cupday_referee_incident_{tid}",
-        help="Analysera kommande matcher fÃ¶r en domare som inte kan dÃ¶ma. Inget Ã¤ndras automatiskt.",
+        help="Analysera kommande matcher för en domare som inte kan döma. Inget ändras automatiskt.",
     )
     if _referee_incident_open:
         _day_referees = [
@@ -19102,7 +19102,7 @@ if admin_page == "Cupdagen":
                 max_matches=8,
             )
             if not _ref_preview["affected_match_count"]:
-                st.success("Domaren har inga Ã¥terstÃ¥ende matcher som behÃ¶ver bemannas om.")
+                st.success("Domaren har inga återstående matcher som behöver bemannas om.")
             else:
                 _tone = st.success if _ref_preview["recommended"] else st.warning
                 _tone(
@@ -19110,39 +19110,39 @@ if admin_page == "Cupdagen":
                     f"{_ref_preview['recommendation_detail']}"
                 )
                 st.caption(
-                    f"{_ref_preview['affected_match_count']} match(er) pÃ¥verkas Â· "
-                    f"{_ref_preview['replacement_count']} kan bemannas direkt Â· "
-                    f"{_ref_preview['unresolved_count']} Ã¥terstÃ¥r"
+                    f"{_ref_preview['affected_match_count']} match(er) påverkas · "
+                    f"{_ref_preview['replacement_count']} kan bemannas direkt · "
+                    f"{_ref_preview['unresolved_count']} återstår"
                 )
                 for _assignment in _ref_preview["assignments"]:
                     st.caption(
-                        f"â€¢ {match_time_label(_assignment)} Â· Plan {int(_assignment['pitch_number'] or 0)} Â· "
-                        f"{source_label(_assignment['home_source'])} â€“ {source_label(_assignment['away_source'])} "
-                        f"â†’ {_referee_name_by_id.get(int(_assignment['replacement_referee_id']), 'ErsÃ¤ttare')}"
+                        f"• {match_time_label(_assignment)} · Plan {int(_assignment['pitch_number'] or 0)} · "
+                        f"{source_label(_assignment['home_source'])} – {source_label(_assignment['away_source'])} "
+                        f"→ {_referee_name_by_id.get(int(_assignment['replacement_referee_id']), 'Ersättare')}"
                     )
                 if _ref_preview["hidden_assignment_count"]:
-                    st.caption(f"+ {_ref_preview['hidden_assignment_count']} ytterligare ersÃ¤ttningsfÃ¶rslag")
+                    st.caption(f"+ {_ref_preview['hidden_assignment_count']} ytterligare ersättningsförslag")
                 if _ref_preview["unresolved_count"]:
-                    st.caption("Ã…terstÃ¥ende matcher behÃ¶ver annan domare, ny tid eller manuell bedÃ¶mning.")
+                    st.caption("Återstående matcher behöver annan domare, ny tid eller manuell bedömning.")
                 st.button(
-                    "Ã–ppna domarbemanning",
+                    "Öppna domarbemanning",
                     key=f"cupday_referee_no_show_open_{tid}",
                     use_container_width=True,
                     on_click=_set_admin_page,
                     args=("Domare",),
                 )
-                st.caption("Analysen Ã¤ndrar inga domartilldelningar, tider eller planer.")
+                st.caption("Analysen ändrar inga domartilldelningar, tider eller planer.")
 
     # v410: incident preview for a pitch that becomes unavailable. The tool is
     # deliberately read-only: it compares consequences before any schedule write.
     _outage_pitches = [int(state["pitch_number"]) for state in _day_snapshot.get("pitch_states", [])]
     if _outage_pitches:
-        with st.expander("Plan ur spel? JÃ¤mfÃ¶r lÃ¶sningar", expanded=False):
+        with st.expander("Plan ur spel? Jämför lösningar", expanded=False):
             st.caption(
-                "VÃ¤lj planen som inte kan anvÃ¤ndas. CupNavi provar fÃ¶rst om kommande matcher kan flyttas till andra planer utan att Ã¤ndra avsparkstiderna."
+                "Välj planen som inte kan användas. CupNavi provar först om kommande matcher kan flyttas till andra planer utan att ändra avsparkstiderna."
             )
             _outage_pitch = st.selectbox(
-                "Plan som inte kan anvÃ¤ndas",
+                "Plan som inte kan användas",
                 _outage_pitches,
                 format_func=lambda value: f"Plan {value}",
                 key=f"cupday_outage_pitch_{tid}",
@@ -19155,16 +19155,16 @@ if admin_page == "Cupdagen":
                 resolve_team_id=lambda source: resolve_source(source),
             )
             if not _outage_options:
-                st.success("Inga Ã¥terstÃ¥ende matcher pÃ¥ den planen behÃ¶ver flyttas.")
+                st.success("Inga återstående matcher på den planen behöver flyttas.")
             else:
                 _recommended_outage = next((option for option in _outage_options if option.get("recommended")), None)
                 if _recommended_outage:
                     st.info(
-                        f"CupNavis minst stÃ¶rande alternativ: {_recommended_outage['title']}. "
+                        f"CupNavis minst störande alternativ: {_recommended_outage['title']}. "
                         f"{_recommended_outage['detail']}"
                     )
                 for _option in _outage_options:
-                    _mark = " Â· Rekommenderas" if _option.get("recommended") else ""
+                    _mark = " · Rekommenderas" if _option.get("recommended") else ""
                     st.markdown(f"**{_option['title']}{_mark}**")
                     st.caption(_option["detail"])
                     if _option.get("changes"):
@@ -19172,25 +19172,25 @@ if admin_page == "Cupdagen":
                             _match_row = next((row for row in _day_matches if int(row.get("id") or 0) == int(_change["match_id"])), None)
                             if _match_row:
                                 st.caption(
-                                    f"â€¢ {match_time_label(_match_row)} Â· "
-                                    f"{source_label(_match_row['home_source'])} â€“ {source_label(_match_row['away_source'])} "
-                                    f"â†’ Plan {int(_change['pitch_number'])}"
+                                    f"• {match_time_label(_match_row)} · "
+                                    f"{source_label(_match_row['home_source'])} – {source_label(_match_row['away_source'])} "
+                                    f"→ Plan {int(_change['pitch_number'])}"
                                 )
                         if len(_option["changes"]) > 6:
                             st.caption(f"+ {len(_option['changes']) - 6} ytterligare flytt(ar)")
                     if _option.get("unresolved_count"):
-                        st.caption(f"{int(_option['unresolved_count'])} match(er) krÃ¤ver fortsatt planering.")
-                st.caption("FÃ¶rhandsvisningen Ã¤ndrar inget schema. GenomfÃ¶rande gÃ¶rs fÃ¶rst efter arrangÃ¶rens kontroll.")
+                        st.caption(f"{int(_option['unresolved_count'])} match(er) kräver fortsatt planering.")
+                st.caption("Förhandsvisningen ändrar inget schema. Genomförande görs först efter arrangörens kontroll.")
 
     if _day_autopilot:
         st.markdown(
             """<div class="cn-autopilot-head">
-              <div class="cn-autopilot-title">âœ¦ CupNavi Autopilot</div>
-              <div class="cn-autopilot-badge">BeslutsstÃ¶d</div>
+              <div class="cn-autopilot-title">✦ CupNavi Autopilot</div>
+              <div class="cn-autopilot-badge">Beslutsstöd</div>
             </div>""",
             unsafe_allow_html=True,
         )
-        st.caption("FÃ¶rslag baserade pÃ¥ det som faktiskt hÃ¤nder nu. Ingenting Ã¤ndras utan att du granskar och godkÃ¤nner.")
+        st.caption("Förslag baserade på det som faktiskt händer nu. Ingenting ändras utan att du granskar och godkänner.")
         for _advice in _day_autopilot:
             with st.container(border=True):
                 st.markdown(f"**{_advice['title']}**")
@@ -19212,12 +19212,12 @@ if admin_page == "Cupdagen":
                     )
                     if _recommended_recovery:
                         st.caption(
-                            f"Rekommendation: {_recommended_recovery['title']} Â· "
+                            f"Rekommendation: {_recommended_recovery['title']} · "
                             f"{_recommended_recovery['changed_matches']} match(er), "
-                            f"{_recommended_recovery['affected_teams']} lag pÃ¥verkas."
+                            f"{_recommended_recovery['affected_teams']} lag påverkas."
                         )
                     st.button(
-                        "JÃ¤mfÃ¶r lÃ¶sningar",
+                        "Jämför lösningar",
                         key=f"autopilot_compare_{tid}_{_advice['pitch_number']}",
                         use_container_width=True,
                         on_click=_open_cupday_delay,
@@ -19245,7 +19245,7 @@ if admin_page == "Cupdagen":
                 _focus_when = "Klar"
             if _focus_match:
                 _focus_teams = (
-                    f"{source_label(_focus_match['home_source'])} â€“ "
+                    f"{source_label(_focus_match['home_source'])} – "
                     f"{source_label(_focus_match['away_source'])}"
                 )
             else:
@@ -19261,7 +19261,7 @@ if admin_page == "Cupdagen":
                 if int(_m.get("pitch_number") or 0) == int(_pitch_state["pitch_number"])
             ]
             _focus_delay = (
-                f" Â· cirka {max(_pitch_late_minutes)} min efter plan"
+                f" · cirka {max(_pitch_late_minutes)} min efter plan"
                 if _pitch_late_minutes else ""
             )
             _pitch_focus_cards.append(
@@ -19272,7 +19272,7 @@ if admin_page == "Cupdagen":
                   <div class="status">{html.escape(str(_pitch_state['status']) + _focus_delay)}</div>
                 </div>'''
             )
-        with st.expander(f"Planer just nu Â· {len(_day_snapshot['pitch_states'])}", expanded=False):
+        with st.expander(f"Planer just nu · {len(_day_snapshot['pitch_states'])}", expanded=False):
             st.markdown(
                 '<div class="cn-pitch-focus-grid">'
                 + ''.join(_pitch_focus_cards)
@@ -19295,14 +19295,14 @@ if admin_page == "Cupdagen":
             _late_mins = max(0, -(minutes_until(_match, now=_day_now) or 0))
             with st.container(border=True):
                 st.markdown(
-                    f"**{match_time_label(_match)} Â· {source_label(_match['home_source'])} â€“ {source_label(_match['away_source'])}**"
+                    f"**{match_time_label(_match)} · {source_label(_match['home_source'])} – {source_label(_match['away_source'])}**"
                 )
                 st.caption(
-                    f"Plan {int(_match['pitch_number'] or 0)} Â· "
+                    f"Plan {int(_match['pitch_number'] or 0)} · "
                     + (f"starttid passerad med {_late_mins} min" if _late_mins else "starttid passerad")
                 )
                 st.button(
-                    "â–¶ Starta match",
+                    "▶ Starta match",
                     key=f"cupday_late_start_{tid}_{_match['id']}",
                     type="primary",
                     use_container_width=True,
@@ -19310,7 +19310,7 @@ if admin_page == "Cupdagen":
                     args=(_match, MATCH_LIVE),
                 )
                 st.button(
-                    "Ã–ppna matchen",
+                    "Öppna matchen",
                     key=f"cupday_late_open_{tid}_{_match['id']}",
                     use_container_width=True,
                     on_click=_open_cupday_result,
@@ -19318,23 +19318,23 @@ if admin_page == "Cupdagen":
                 )
                 if _late_mins >= 5:
                     st.button(
-                        "JÃ¤mfÃ¶r lÃ¶sningar fÃ¶r fÃ¶rseningen",
+                        "Jämför lösningar för förseningen",
                         key=f"cupday_late_delay_{tid}_{_match['id']}",
                         use_container_width=True,
                         on_click=_open_cupday_delay,
                         args=(int(_match["pitch_number"] or 0), int(_late_mins)),
                     )
 
-    # Legacy UX anchor: KrÃ¤ver uppmÃ¤rksamhet
+    # Legacy UX anchor: Kräver uppmärksamhet
     if _day_snapshot["reporting_due"]:
-        st.markdown('<div class="cn-section-head">BehÃ¶ver Ã¥tgÃ¤rd</div>', unsafe_allow_html=True)
-        # Legacy UX anchor: st.markdown("### BehÃ¶ver Ã¥tgÃ¤rd")
+        st.markdown('<div class="cn-section-head">Behöver åtgärd</div>', unsafe_allow_html=True)
+        # Legacy UX anchor: st.markdown("### Behöver åtgärd")
         for _match in _day_snapshot["reporting_due"][:4]:
             with st.container(border=True):
                 st.markdown(
-                    f"**{match_time_label(_match)} Â· {source_label(_match['home_source'])} â€“ {source_label(_match['away_source'])}**"
+                    f"**{match_time_label(_match)} · {source_label(_match['home_source'])} – {source_label(_match['away_source'])}**"
                 )
-                st.caption(f"Plan {int(_match['pitch_number'] or 0)} Â· Matchen Ã¤r inte startad eller resultat saknas")
+                st.caption(f"Plan {int(_match['pitch_number'] or 0)} · Matchen är inte startad eller resultat saknas")
                 st.button(
                     "Rapportera resultat",
                     key=f"cupday_due_report_{tid}_{_match['id']}",
@@ -19350,68 +19350,68 @@ if admin_page == "Cupdagen":
         for _match in _day_snapshot["live"][:4]:
             with st.container(border=True):
                 st.markdown(
-                    f"**{source_label(_match['home_source'])} â€“ {source_label(_match['away_source'])}**"
+                    f"**{source_label(_match['home_source'])} – {source_label(_match['away_source'])}**"
                 )
                 _live_status = normalize_match_status(_match.get("match_status"))
                 st.caption(
-                    f"{match_time_label(_match)} Â· Plan {int(_match['pitch_number'] or 0)} Â· "
-                    f"{_match['stage']} Â· {match_status_label(_live_status)}"
+                    f"{match_time_label(_match)} · Plan {int(_match['pitch_number'] or 0)} · "
+                    f"{_match['stage']} · {match_status_label(_live_status)}"
                 )
                 if _live_status == MATCH_LIVE:
                     st.button(
-                        "â¸ Paus", key=f"cupday_pause_{tid}_{_match['id']}", use_container_width=True,
+                        "⏸ Paus", key=f"cupday_pause_{tid}_{_match['id']}", use_container_width=True,
                         on_click=_cupday_set_match_status_callback, args=(_match, MATCH_HALFTIME),
                     )
                 elif _live_status == MATCH_HALFTIME:
                     st.button(
-                        "â–¶ FortsÃ¤tt", key=f"cupday_resume_{tid}_{_match['id']}", use_container_width=True,
+                        "▶ Fortsätt", key=f"cupday_resume_{tid}_{_match['id']}", use_container_width=True,
                         on_click=_cupday_set_match_status_callback, args=(_match, MATCH_LIVE),
                     )
                 st.button(
-                    "â–  Avsluta", key=f"cupday_finish_{tid}_{_match['id']}", use_container_width=True,
+                    "■ Avsluta", key=f"cupday_finish_{tid}_{_match['id']}", use_container_width=True,
                     on_click=_cupday_set_match_status_callback, args=(_match, MATCH_FINISHED),
                 )
                 st.button(
-                    "Rapportera resultat / hÃ¤ndelser",
+                    "Rapportera resultat / händelser",
                     key=f"cupday_live_report_{tid}_{_match['id']}",
                     use_container_width=True,
                     on_click=_open_cupday_result,
                     args=(int(_match["id"]),),
                 )
 
-    # Legacy UX anchor: NÃ¤sta matcher
-    st.markdown('<div class="cn-section-head">HÃ¤rnÃ¤st</div>', unsafe_allow_html=True)
-    # Legacy UX anchor: st.markdown("### HÃ¤rnÃ¤st")
+    # Legacy UX anchor: Nästa matcher
+    st.markdown('<div class="cn-section-head">Härnäst</div>', unsafe_allow_html=True)
+    # Legacy UX anchor: st.markdown("### Härnäst")
     _priority_upcoming = _day_snapshot["next_window"][:4]
     if _priority_upcoming:
         for _match in _priority_upcoming:
             _mins = minutes_until(_match, now=_day_now)
             with st.container(border=True):
                 st.markdown(
-                    f"**{match_time_label(_match)} Â· {source_label(_match['home_source'])} â€“ {source_label(_match['away_source'])}**"
+                    f"**{match_time_label(_match)} · {source_label(_match['home_source'])} – {source_label(_match['away_source'])}**"
                 )
                 _next_bits = [f"Plan {int(_match['pitch_number'] or 0)}", _match["stage"]]
                 if _mins is not None and _mins >= 0:
                     _next_bits.append(f"om {_mins} min")
-                st.caption(" Â· ".join(_next_bits))
+                st.caption(" · ".join(_next_bits))
                 st.button(
-                    "â–¶ Starta match",
+                    "▶ Starta match",
                     key=f"cupday_start_{tid}_{_match['id']}",
                     use_container_width=True,
                     on_click=_cupday_set_match_status_callback,
                     args=(_match, MATCH_LIVE),
                 )
                 if _match["referee_id"] is None:
-                    st.caption("âš  Domare saknas")
+                    st.caption("⚠ Domare saknas")
     elif _day_snapshot["upcoming"]:
         _first_later = _day_snapshot["upcoming"][0]
         _mins = minutes_until(_first_later, now=_day_now)
         st.info(
-            f"NÃ¤sta match Ã¤r {match_time_label(_first_later)}"
-            + (f" Â· om {_mins} min." if _mins is not None and _mins >= 0 else ".")
+            f"Nästa match är {match_time_label(_first_later)}"
+            + (f" · om {_mins} min." if _mins is not None and _mins >= 0 else ".")
         )
     elif _day_snapshot["today_total"]:
-        st.caption("Inga fler matcher Ã¥terstÃ¥r idag.")
+        st.caption("Inga fler matcher återstår idag.")
     else:
         st.info("Inga schemalagda matcher finns idag.")
 
@@ -19420,37 +19420,37 @@ if admin_page == "Cupdagen":
         if _match not in _priority_upcoming
     ]
     if _later_matches:
-        with st.expander(f"Senare idag Â· {len(_later_matches)} matcher", expanded=False):
+        with st.expander(f"Senare idag · {len(_later_matches)} matcher", expanded=False):
             for _match in _later_matches[:12]:
                 st.write(
-                    f"**{match_time_label(_match)}** Â· Plan {int(_match['pitch_number'] or 0)} Â· "
-                    f"{source_label(_match['home_source'])} â€“ {source_label(_match['away_source'])}"
+                    f"**{match_time_label(_match)}** · Plan {int(_match['pitch_number'] or 0)} · "
+                    f"{source_label(_match['home_source'])} – {source_label(_match['away_source'])}"
                 )
 
     # Secondary operational detail is intentionally collapsed on the mobile-first home screen.
     if _day_snapshot["pitch_states"]:
         with st.expander("Planstatus", expanded=False):
             for _pitch_state in _day_snapshot["pitch_states"]:
-                st.markdown(f"**Plan {_pitch_state['pitch_number']} Â· {_pitch_state['status']}**")
+                st.markdown(f"**Plan {_pitch_state['pitch_number']} · {_pitch_state['status']}**")
                 if _pitch_state["current"]:
                     st.caption(
-                        f"Nu: {source_label(_pitch_state['current']['home_source'])} â€“ "
+                        f"Nu: {source_label(_pitch_state['current']['home_source'])} – "
                         f"{source_label(_pitch_state['current']['away_source'])}"
                     )
                 elif _pitch_state["next"]:
                     st.caption(
-                        f"NÃ¤sta {match_time_label(_pitch_state['next'])}: "
-                        f"{source_label(_pitch_state['next']['home_source'])} â€“ "
+                        f"Nästa {match_time_label(_pitch_state['next'])}: "
+                        f"{source_label(_pitch_state['next']['home_source'])} – "
                         f"{source_label(_pitch_state['next']['away_source'])}"
                     )
                 else:
                     st.caption("Inga fler matcher idag.")
                 if _pitch_state.get("start_overdue_count"):
-                    st.caption(f"âš  {_pitch_state['start_overdue_count']} match(er) har passerat starttid")
+                    st.caption(f"⚠ {_pitch_state['start_overdue_count']} match(er) har passerat starttid")
                 if _pitch_state["overdue_count"]:
-                    st.caption(f"âš  {_pitch_state['overdue_count']} tidigare resultat saknas")
+                    st.caption(f"⚠ {_pitch_state['overdue_count']} tidigare resultat saknas")
 
-    with st.expander("Fler Ã¥tgÃ¤rder", expanded=False):
+    with st.expander("Fler åtgärder", expanded=False):
         st.button(
             "Registrera resultat",
             key=f"cupday_go_results_{tid}",
@@ -19459,14 +19459,14 @@ if admin_page == "Cupdagen":
             args=("Matcher och resultat",),
         )
         st.button(
-            "Hantera fÃ¶rsening",
+            "Hantera försening",
             key=f"cupday_go_delay_{tid}",
             use_container_width=True,
             on_click=_set_admin_page,
             args=("Cupverktyg",),
         )
         st.button(
-            "Ã–ppna schema",
+            "Öppna schema",
             key=f"cupday_go_schedule_{tid}",
             use_container_width=True,
             on_click=_set_admin_page,
@@ -19477,7 +19477,7 @@ if admin_page == "Cupverktyg":
     from cupnavi_core.autopilot_recovery import compare_pitch_delay_recovery_options, compare_pitch_outage_recovery_options
 
     st.header("Cupverktyg")
-    st.caption("Verktyg fÃ¶r cupdagen, schemajusteringar och felsituationer.")
+    st.caption("Verktyg för cupdagen, schemajusteringar och felsituationer.")
 
     tool_rules = one_row("SELECT * FROM schedule_rules WHERE tournament_id=?", (tid,))
     tool_teams = all_rows("SELECT * FROM teams WHERE tournament_id=? ORDER BY name", (tid,))
@@ -19485,7 +19485,7 @@ if admin_page == "Cupverktyg":
     tool_matches = all_rows("SELECT * FROM matches WHERE tournament_id=? ORDER BY scheduled_start,pitch_number,id", (tid,))
 
     tool_tabs = st.tabs([
-        "Status", "Flytta match", "FÃ¶rsening", "Slutspel", "Karta & QR", "Historik", "Summering"
+        "Status", "Flytta match", "Försening", "Slutspel", "Karta & QR", "Historik", "Summering"
     ])
 
     with tool_tabs[0]:
@@ -19503,24 +19503,24 @@ if admin_page == "Cupverktyg":
         q3.metric("Matcher", len(tool_matches))
         st.progress(quality_score / 100)
         if quality_score >= 90:
-            st.success("Cupen ser vÃ¤l fÃ¶rberedd ut.")
+            st.success("Cupen ser väl förberedd ut.")
         elif quality_score >= 70:
-            st.warning("Cupen Ã¤r anvÃ¤ndbar men det finns fÃ¶rbÃ¤ttringspunkter.")
+            st.warning("Cupen är användbar men det finns förbättringspunkter.")
         else:
-            st.error("Cupen har flera saker som bÃ¶r Ã¥tgÃ¤rdas fÃ¶re eller under genomfÃ¶randet.")
+            st.error("Cupen har flera saker som bör åtgärdas före eller under genomförandet.")
         if quality_findings:
-            with st.expander(f"FÃ¶rbÃ¤ttringspunkter Â· {len(quality_findings)}", expanded=False):
+            with st.expander(f"Förbättringspunkter · {len(quality_findings)}", expanded=False):
                 for finding in quality_findings:
-                    message = f"âˆ’{finding['deduction']} p Â· {finding['message']}"
+                    message = f"−{finding['deduction']} p · {finding['message']}"
                     (st.error if finding["severity"] == "error" else st.warning)(message)
         else:
-            st.caption("âœ“ Inga kvalitetsavdrag hittades.")
+            st.caption("✓ Inga kvalitetsavdrag hittades.")
 
     with tool_tabs[1]:
-        st.subheader("ðŸ”Ž Vad hÃ¤nder om jag flyttar en match?")
+        st.subheader("🔎 Vad händer om jag flyttar en match?")
         scheduled_for_whatif = [m for m in tool_matches if m["scheduled_start"]]
         if not scheduled_for_whatif:
-            st.info("Skapa ett schema fÃ¶rst.")
+            st.info("Skapa ett schema först.")
         else:
             whatif_match_id = st.selectbox(
                 "Match",
@@ -19548,7 +19548,7 @@ if admin_page == "Cupverktyg":
             has_errors = any(item["severity"] == "error" for item in impact)
             allow_warning_move = st.checkbox("Jag har granskat eventuella varningar", value=not bool(impact), key=f"wi_accept_{tid}")
             if st.button(
-                "GenomfÃ¶r schemaÃ¤ndringen",
+                "Genomför schemaändringen",
                 type="primary",
                 use_container_width=True,
                 key=f"wi_apply_{tid}",
@@ -19561,7 +19561,7 @@ if admin_page == "Cupverktyg":
                     (after["scheduled_start"], after["pitch_number"], whatif_match_id),
                 )
                 description = (
-                    f"{source_label(whatif_match['home_source'])}â€“{source_label(whatif_match['away_source'])} "
+                    f"{source_label(whatif_match['home_source'])}–{source_label(whatif_match['away_source'])} "
                     f"flyttad till {swedish_datetime(after['scheduled_start'])}, Plan {after['pitch_number']}"
                 )
                 record_audit(tid, "schedule_move", "match", description, entity_id=whatif_match_id,
@@ -19570,14 +19570,14 @@ if admin_page == "Cupverktyg":
                 for team_id in _match_team_ids(whatif_match):
                     add_team_notification(tid, team_id, "Matchen har flyttats", description,
                                           event_key=f"move:{whatif_match_id}:{after['scheduled_start']}:{after['pitch_number']}")
-                st.success("Ã„ndringen Ã¤r genomfÃ¶rd och berÃ¶rda lag fÃ¥r en notis i Min cup.")
+                st.success("Ändringen är genomförd och berörda lag får en notis i Min cup.")
                 st.rerun()
 
     with tool_tabs[2]:
-        st.subheader("â±ï¸ Automatisk matchfÃ¶rsening")
+        st.subheader("⏱️ Automatisk matchförsening")
         pitch_options = sorted({int(m["pitch_number"]) for m in tool_matches if m["pitch_number"] is not None})
         if not pitch_options:
-            st.info("Det finns inga schemalagda planer Ã¤nnu.")
+            st.info("Det finns inga schemalagda planer ännu.")
         else:
             _autopilot_pitch = st.session_state.pop(f"autopilot_delay_pitch_{tid}", None)
             _autopilot_minutes = st.session_state.pop(f"autopilot_delay_minutes_{tid}", None)
@@ -19587,16 +19587,16 @@ if admin_page == "Cupverktyg":
                 st.session_state[f"delay_minutes_{tid}"] = max(1, min(180, int(_autopilot_minutes)))
             d1, d2 = st.columns(2)
             delay_pitch = d1.selectbox("Plan", pitch_options, format_func=lambda pno: f"Plan {pno}", key=f"delay_pitch_{tid}")
-            delay_minutes = d2.number_input("FÃ¶rsening i minuter", 1, 180, 10, key=f"delay_minutes_{tid}")
+            delay_minutes = d2.number_input("Försening i minuter", 1, 180, 10, key=f"delay_minutes_{tid}")
             if _autopilot_pitch in pitch_options:
-                st.info("FÃ¶rslaget frÃ¥n CupNavi Autopilot Ã¤r fÃ¶rifyllt. Granska konsekvenserna innan du tillÃ¤mpar det.")
+                st.info("Förslaget från CupNavi Autopilot är förifyllt. Granska konsekvenserna innan du tillämpar det.")
 
             _show_autopilot_compare = bool(st.session_state.pop(f"autopilot_compare_{tid}", False))
             if _show_autopilot_compare:
-                st.markdown("### âœ¦ Autopilot jÃ¤mfÃ¶r lÃ¶sningar")
+                st.markdown("### ✦ Autopilot jämför lösningar")
                 st.caption(
-                    "CupNavi vÃ¤ger antal flyttade matcher, berÃ¶rda lag, total tidsfÃ¶rskjutning, "
-                    "regelkonflikter och kvarvarande fÃ¶rsening. Ingen lÃ¶sning genomfÃ¶rs hÃ¤r."
+                    "CupNavi väger antal flyttade matcher, berörda lag, total tidsförskjutning, "
+                    "regelkonflikter och kvarvarande försening. Ingen lösning genomförs här."
                 )
                 _compare_options = compare_pitch_delay_recovery_options(
                     [dict(m) for m in tool_matches],
@@ -19609,48 +19609,48 @@ if admin_page == "Cupverktyg":
                     resolve_team_id=lambda source: resolve_source(source),
                 )
                 if not _compare_options:
-                    st.info("Det finns inga kommande matcher pÃ¥ planen att jÃ¤mfÃ¶ra lÃ¶sningar fÃ¶r.")
+                    st.info("Det finns inga kommande matcher på planen att jämföra lösningar för.")
                 else:
                     for _option in _compare_options:
-                        _prefix = "â­ Rekommenderad" if _option.get("recommended") else "Alternativ"
+                        _prefix = "⭐ Rekommenderad" if _option.get("recommended") else "Alternativ"
                         with st.container(border=True):
-                            st.markdown(f"**{_prefix} Â· {_option['title']}**")
+                            st.markdown(f"**{_prefix} · {_option['title']}**")
                             st.caption(_option["detail"])
                             _oc1, _oc2, _oc3 = st.columns(3)
-                            _oc1.metric("Matcher som Ã¤ndras", _option["changed_matches"])
-                            _oc2.metric("Lag som pÃ¥verkas", _option["affected_teams"])
+                            _oc1.metric("Matcher som ändras", _option["changed_matches"])
+                            _oc2.metric("Lag som påverkas", _option["affected_teams"])
                             _oc3.metric("Flyttade minuter", _option["shifted_minutes"])
                             if _option["conflicts"]:
-                                st.error(f"{_option['conflicts']} regelkonflikt(er) gÃ¶r alternativet olÃ¤mpligt.")
+                                st.error(f"{_option['conflicts']} regelkonflikt(er) gör alternativet olämpligt.")
                             elif _option["unresolved_delay"]:
-                                st.warning(f"{_option['unresolved_delay']} min kÃ¤nd fÃ¶rsening lÃ¤mnas olÃ¶st.")
+                                st.warning(f"{_option['unresolved_delay']} min känd försening lämnas olöst.")
                             elif _option["warnings"]:
-                                st.warning(f"{_option['warnings']} varning(ar) behÃ¶ver granskas.")
+                                st.warning(f"{_option['warnings']} varning(ar) behöver granskas.")
                             else:
-                                st.success("Inga regelkonflikter hittades i fÃ¶rhandsberÃ¤kningen.")
+                                st.success("Inga regelkonflikter hittades i förhandsberäkningen.")
                             if _option["changes"]:
-                                with st.expander("Visa exakt vad som skulle Ã¤ndras", expanded=False):
+                                with st.expander("Visa exakt vad som skulle ändras", expanded=False):
                                     _change_rows = []
                                     _compare_by_id = {int(m["id"]): m for m in tool_matches}
                                     for _change in _option["changes"]:
                                         _old = _compare_by_id[int(_change["match_id"])]
                                         _change_rows.append({
-                                            "Match": f"{source_label(_old['home_source'])} â€“ {source_label(_old['away_source'])}",
-                                            "FrÃ¥n": swedish_datetime(_old["scheduled_start"]),
+                                            "Match": f"{source_label(_old['home_source'])} – {source_label(_old['away_source'])}",
+                                            "Från": swedish_datetime(_old["scheduled_start"]),
                                             "Till": swedish_datetime(_change["scheduled_start"]),
-                                            "Plan": f"{int(_old['pitch_number'] or 0)} â†’ {int(_change['pitch_number'] or 0)}",
+                                            "Plan": f"{int(_old['pitch_number'] or 0)} → {int(_change['pitch_number'] or 0)}",
                                         })
                                     render_centered_table(pd.DataFrame(_change_rows))
                     st.caption(
-                        "Rekommendationen Ã¤r beslutsstÃ¶d, inte automatisk styrning. "
-                        "AnvÃ¤nd verktygen nedan fÃ¶rst efter att du granskat fÃ¶rslaget."
+                        "Rekommendationen är beslutsstöd, inte automatisk styrning. "
+                        "Använd verktygen nedan först efter att du granskat förslaget."
                     )
 
             pitch_unplayed = [m for m in tool_matches if int(m["pitch_number"] or 0) == delay_pitch and m["home_score"] is None]
             if pitch_unplayed:
                 start_options = [m["id"] for m in pitch_unplayed]
                 from_match_id = st.selectbox(
-                    "Flytta frÃ¥n och med match",
+                    "Flytta från och med match",
                     start_options,
                     format_func=lambda mid: match_result_label(next(m for m in pitch_unplayed if m["id"] == mid)),
                     key=f"delay_from_{tid}",
@@ -19664,13 +19664,13 @@ if admin_page == "Cupverktyg":
                     for match_id, new_start in delay_updates[:12]:
                         old = by_id[match_id]
                         preview.append({
-                            "Match": f"{source_label(old['home_source'])} â€“ {source_label(old['away_source'])}",
-                            "FrÃ¥n": swedish_datetime(old["scheduled_start"]),
+                            "Match": f"{source_label(old['home_source'])} – {source_label(old['away_source'])}",
+                            "Från": swedish_datetime(old["scheduled_start"]),
                             "Till": swedish_datetime(new_start),
                         })
-                    with st.expander("FÃ¶rhandsvisa Ã¤ndrade tider", expanded=False):
+                    with st.expander("Förhandsvisa ändrade tider", expanded=False):
                         render_centered_table(pd.DataFrame(preview))
-                    if st.button("TillÃ¤mpa fÃ¶rseningen", type="primary", use_container_width=True, key=f"delay_apply_{tid}"):
+                    if st.button("Tillämpa förseningen", type="primary", use_container_width=True, key=f"delay_apply_{tid}"):
                         before_rows, after_rows = [], []
                         with db() as con:
                             for match_id, new_start in delay_updates:
@@ -19685,8 +19685,8 @@ if admin_page == "Cupverktyg":
                         _clear_render_query_cache()
                         record_audit(tid, "delay_shift", "pitch", f"Plan {delay_pitch} flyttad +{delay_minutes} min",
                                      entity_id=delay_pitch, before=before_rows, after=after_rows, reversible=True)
-                        detail = f"Plan {delay_pitch} ligger cirka {delay_minutes} minuter efter. {len(delay_updates)} matcher har fÃ¥tt nya tider."
-                        add_feed_item(tid, f"Plan {delay_pitch} fÃ¶rsenad", detail, category="Schema")
+                        detail = f"Plan {delay_pitch} ligger cirka {delay_minutes} minuter efter. {len(delay_updates)} matcher har fått nya tider."
+                        add_feed_item(tid, f"Plan {delay_pitch} försenad", detail, category="Schema")
                         notified = set()
                         for match_id, new_start in delay_updates:
                             match_row = by_id[match_id]
@@ -19697,15 +19697,15 @@ if admin_page == "Cupverktyg":
                                 notified.add(key)
                                 add_team_notification(
                                     tid, team_id, "Ny matchtid",
-                                    f"{source_label(match_row['home_source'])}â€“{source_label(match_row['away_source'])}: {swedish_datetime(new_start)} Â· Plan {delay_pitch}",
+                                    f"{source_label(match_row['home_source'])}–{source_label(match_row['away_source'])}: {swedish_datetime(new_start)} · Plan {delay_pitch}",
                                     event_key=f"delay:{match_id}:{new_start}",
                                 )
                         st.rerun()
             else:
-                st.info("Det finns inga ospelade matcher pÃ¥ planen.")
+                st.info("Det finns inga ospelade matcher på planen.")
 
     with tool_tabs[3]:
-        st.subheader("ðŸ”® Slutspelsprognos")
+        st.subheader("🔮 Slutspelsprognos")
         _tool_table_bundle = calculate_all_group_tables(tid, tournament)
         forecast_tables = {
             group["name"]: _tool_table_bundle["tables"].get(int(group["id"]), [])
@@ -19713,22 +19713,22 @@ if admin_page == "Cupverktyg":
         }
         forecast_lines = playoff_preview(forecast_tables, tournament["playoff_format"])
         if forecast_lines:
-            st.caption("Detta Ã¤r en prognos utifrÃ¥n tabellÃ¤get just nu, inte en lÃ¥st slutspelsseedning.")
+            st.caption("Detta är en prognos utifrån tabelläget just nu, inte en låst slutspelsseedning.")
             for line in forecast_lines:
-                st.write(f"â€¢ {line}")
+                st.write(f"• {line}")
         else:
-            st.info("Slutspelsprognos kan visas nÃ¤r grupper och en slutspelsmodell finns.")
+            st.info("Slutspelsprognos kan visas när grupper och en slutspelsmodell finns.")
 
     with tool_tabs[4]:
-        st.subheader("ðŸ—ºï¸ Cupkarta")
-        st.caption("LÃ¤gg till praktiska platser fÃ¶r besÃ¶kare.")
+        st.subheader("🗺️ Cupkarta")
+        st.caption("Lägg till praktiska platser för besökare.")
         with st.form(f"venue_point_form_{tid}", clear_on_submit=True):
             vp1, vp2 = st.columns(2)
-            venue_kind = vp1.selectbox("Typ", ["Plan", "Kiosk", "Toalett", "Parkering", "SjukvÃ¥rd", "Sekretariat", "Ã–vrigt"])
+            venue_kind = vp1.selectbox("Typ", ["Plan", "Kiosk", "Toalett", "Parkering", "Sjukvård", "Sekretariat", "Övrigt"])
             venue_label = vp2.text_input("Namn", placeholder="Exempel: Plan 1 eller Huvudparkering")
             venue_detail = st.text_input("Beskrivning", placeholder="Exempel: bakom sporthallen")
-            venue_url = st.text_input("KartlÃ¤nk (frivillig)", placeholder="https://...")
-            if st.form_submit_button("LÃ¤gg till punkt", type="primary"):
+            venue_url = st.text_input("Kartlänk (frivillig)", placeholder="https://...")
+            if st.form_submit_button("Lägg till punkt", type="primary"):
                 if not venue_label.strip():
                     st.error("Ange ett namn.")
                 else:
@@ -19748,7 +19748,7 @@ if admin_page == "Cupverktyg":
             st.caption(f"{len(venue_points)} plats(er) registrerade")
             with st.expander("Visa eller ta bort platser", expanded=False):
                 render_centered_table(pd.DataFrame([
-                    {"Typ": p["kind"], "Namn": p["label"], "Beskrivning": p["detail"] or "", "LÃ¤nk": p["url"] or ""}
+                    {"Typ": p["kind"], "Namn": p["label"], "Beskrivning": p["detail"] or "", "Länk": p["url"] or ""}
                     for p in venue_points
                 ]))
                 remove_point_id = st.selectbox("Ta bort punkt", [p["id"] for p in venue_points], format_func=lambda pid: next(p["label"] for p in venue_points if p["id"] == pid), key=f"remove_point_{tid}")
@@ -19756,10 +19756,10 @@ if admin_page == "Cupverktyg":
                     run("DELETE FROM venue_points WHERE id=? AND tournament_id=?", (remove_point_id, tid)); st.rerun()
 
         st.divider()
-        st.subheader("â–£ QR-koder per plan")
+        st.subheader("▣ QR-koder per plan")
         pitch_numbers = sorted({int(m["pitch_number"]) for m in tool_matches if m["pitch_number"] is not None})
         if not pitch_numbers:
-            st.info("QR-koder per plan skapas nÃ¤r schemat har planer.")
+            st.info("QR-koder per plan skapas när schemat har planer.")
         for pitch_no in pitch_numbers:
             pitch_url = public_cup_url(tid) + f"&pitch={pitch_no}"
             qr_bytes = qr_png_bytes(pitch_url)
@@ -19770,41 +19770,41 @@ if admin_page == "Cupverktyg":
                 if qr_bytes:
                     c2.image(qr_bytes, width=130)
                     c2.download_button(
-                        f"Ladda ner QR fÃ¶r Plan {pitch_no}", qr_bytes,
+                        f"Ladda ner QR för Plan {pitch_no}", qr_bytes,
                         file_name=f"cupnavi_plan_{pitch_no}_qr.png", mime="image/png",
                         key=f"pitch_qr_download_{tid}_{pitch_no}",
                     )
 
     with tool_tabs[5]:
-        st.subheader("â†©ï¸ Ã„ndringshistorik och Ã¥ngra")
+        st.subheader("↩️ Ändringshistorik och ångra")
         audit_rows = all_rows("SELECT * FROM audit_log WHERE tournament_id=? ORDER BY id DESC LIMIT 40", (tid,))
         if not audit_rows:
-            st.info("Ingen ny Ã¤ndringshistorik finns Ã¤nnu. Historiken registrerar de nya Cupverktygen frÃ¥n och med denna version.")
+            st.info("Ingen ny ändringshistorik finns ännu. Historiken registrerar de nya Cupverktygen från och med denna version.")
         if audit_rows:
-            st.caption(f"{len(audit_rows)} senaste Ã¤ndringar")
-            with st.expander("Visa historik & Ã¥ngra", expanded=False):
+            st.caption(f"{len(audit_rows)} senaste ändringar")
+            with st.expander("Visa historik & ångra", expanded=False):
                 for audit in audit_rows:
                     with st.container(border=True):
-                        status = " Â· Ã…NGRAD" if audit["undone_at"] else ""
-                        st.markdown(f"**{audit['created_at'].replace('T',' ')} Â· {audit['actor']}**{status}  \\n{audit['description']}")
+                        status = " · ÅNGRAD" if audit["undone_at"] else ""
+                        st.markdown(f"**{audit['created_at'].replace('T',' ')} · {audit['actor']}**{status}  \\n{audit['description']}")
                         can_undo = bool(audit["reversible"]) and not audit["undone_at"] and audit["action_type"] in {"schedule_move", "delay_shift"}
-                        if can_undo and st.button("Ã…ngra denna Ã¤ndring", key=f"undo_audit_{audit['id']}"):
+                        if can_undo and st.button("Ångra denna ändring", key=f"undo_audit_{audit['id']}"):
                             undone, undo_reason, undo_meta = _undo_audit_entry_if_current(audit["id"], tid)
                             if undone:
                                 record_audit(
                                     tid,
                                     "undo",
                                     undo_meta["entity_type"],
-                                    f"Ã…ngrade: {undo_meta['description']}",
+                                    f"Ångrade: {undo_meta['description']}",
                                     entity_id=undo_meta["entity_id"],
                                     actor="Admin",
                                 )
                             else:
-                                st.warning("Ã„ndringen kunde inte Ã¥ngras frÃ¥n den hÃ¤r Ã¤ldre vyn. Senaste historik laddas om.")
+                                st.warning("Ändringen kunde inte ångras från den här äldre vyn. Senaste historik laddas om.")
                             st.rerun()
 
     with tool_tabs[6]:
-        st.subheader("ðŸ Automatisk cupsummering")
+        st.subheader("🏁 Automatisk cupsummering")
         top_scorer_row = one_row(
             """SELECT players.name AS player_name,teams.name AS team_name,SUM(s.goals) AS goals
                FROM player_match_stats s JOIN players ON players.id=s.player_id
@@ -19823,7 +19823,7 @@ if admin_page == "Cupverktyg":
             f"Totalt registrerade {score_word}: {summary['total_score']}",
         ]
         if summary.get("top_scorer") and summary.get("top_scorer_score", 0) > 0:
-            summary_lines.append(f"Toppscorer: {summary['top_scorer']} ({summary['top_scorer_team']}) â€“ {summary['top_scorer_score']}")
+            summary_lines.append(f"Toppscorer: {summary['top_scorer']} ({summary['top_scorer_team']}) – {summary['top_scorer_score']}")
         summary_text = "\n".join(summary_lines)
         st.markdown(summary_text)
         st.download_button(
@@ -19834,10 +19834,10 @@ if admin_page == "Cupverktyg":
 if admin_page == "Tabeller":
     if not bool(_row_value(tournament, "results_counted", 1)):
         st.header("Tabeller")
-        st.info("Resultat rÃ¤knas inte i den hÃ¤r cupen, dÃ¤rfÃ¶r skapas ingen tabell eller slutlig ranking.")
+        st.info("Resultat räknas inte i den här cupen, därför skapas ingen tabell eller slutlig ranking.")
         st.stop()
     st.button(
-        "â† Till Resultat",
+        "← Till Resultat",
         key=f"v339_tables_back_to_results_{tid}",
         use_container_width=True,
         on_click=_set_admin_page,
@@ -19858,7 +19858,7 @@ if admin_page == "Tabeller":
         st.session_state[admin_page_key] = "Skytteligor"
         st.rerun()
     st.header("Tabeller")
-    st.caption("Tabellerna uppdateras automatiskt nÃ¤r resultat registreras.")
+    st.caption("Tabellerna uppdateras automatiskt när resultat registreras.")
     _admin_tables = calculate_all_group_tables(tid, tournament)
     groups = _admin_tables["groups"]
     if not groups:
@@ -19868,11 +19868,11 @@ if admin_page == "Tabeller":
         table = _admin_tables["tables"].get(int(g["id"]), [])
         render_group_table(table, tournament, group['id'])
     if groups:
-        with st.expander("SÃ¥ sorteras tabellen", expanded=False):
-            if tournament["table_tiebreak"] == "InbÃ¶rdes mÃ¶ten fÃ¶rst":
-                st.caption("PoÃ¤ng â†’ inbÃ¶rdes mÃ¶ten â†’ mÃ¥lskillnad â†’ gjorda mÃ¥l.")
+        with st.expander("Så sorteras tabellen", expanded=False):
+            if tournament["table_tiebreak"] == "Inbördes möten först":
+                st.caption("Poäng → inbördes möten → målskillnad → gjorda mål.")
             else:
-                st.caption("PoÃ¤ng â†’ mÃ¥lskillnad â†’ gjorda mÃ¥l â†’ lagnamn.")
+                st.caption("Poäng → målskillnad → gjorda mål → lagnamn.")
     if bool(_row_value(tournament, "enable_final_ranking", 0)):
         with st.expander("Slutlig ranking", expanded=False):
             ranking = final_ranking_rows(tid, tournament)
@@ -19880,11 +19880,11 @@ if admin_page == "Tabeller":
             if ranking and int(admin_rank_counts["total"] or 0) > 0 and int(admin_rank_counts["played"] or 0) == int(admin_rank_counts["total"] or 0):
                 render_centered_table(pd.DataFrame(ranking))
             else:
-                st.caption("Visas nÃ¤r hela cupen Ã¤r fÃ¤rdigspelad.")
+                st.caption("Visas när hela cupen är färdigspelad.")
 
 if admin_page == "Skytteligor":
     st.button(
-        "â† Till Resultat",
+        "← Till Resultat",
         key=f"v339_leaders_back_to_results_{tid}",
         use_container_width=True,
         on_click=_set_admin_page,
@@ -19896,7 +19896,7 @@ if admin_page == "Skytteligor":
         bool(_row_value(tournament, "enable_card_statistics", 1)),
     ))
     if not _admin_has_toplists:
-        st.info("Topplistor Ã¤r avstÃ¤ngda fÃ¶r den hÃ¤r turneringen. Aktivera dem pÃ¥ AdminÃ¶versikten fÃ¶r att anvÃ¤nda den hÃ¤r vyn.")
+        st.info("Topplistor är avstängda för den här turneringen. Aktivera dem på Adminöversikten för att använda den här vyn.")
         st.button(
             "Till Tabeller",
             key=f"leaders_disabled_to_tables_{tid}",
@@ -19915,12 +19915,12 @@ if admin_page == "Skytteligor":
         st.session_state[admin_page_key] = "Tabeller"
         st.rerun()
     st.header("Topplistor")
-    st.caption("Skytteligan visas fÃ¶rst. Ã–vrig statistik Ã¶ppnas vid behov.")
+    st.caption("Skytteligan visas först. Övrig statistik öppnas vid behov.")
     enabled_scorers = bool(_row_value(tournament, "enable_scorer_leaderboard", 1))
     enabled_assists = bool(_row_value(tournament, "enable_assist_leaderboard", 1))
     enabled_cards = bool(_row_value(tournament, "enable_card_statistics", 1))
     if not any([enabled_scorers, enabled_assists, enabled_cards]):
-        st.info("Topplistor och kortstatistik Ã¤r avstÃ¤ngda fÃ¶r den hÃ¤r turneringen. Aktivera Ã¶nskade delar pÃ¥ AdminÃ¶versikten.")
+        st.info("Topplistor och kortstatistik är avstängda för den här turneringen. Aktivera önskade delar på Adminöversikten.")
     else:
         leaders = all_rows(
             """
@@ -19943,9 +19943,9 @@ if admin_page == "Skytteligor":
             st.subheader(tr("Skytteliga"))
             goal_rows = [r for r in sorted(leaders, key=lambda r: (-r["goals"], -r["assists"], r["player_name"].lower())) if int(r["goals"] or 0) > 0]
             if goal_rows:
-                render_centered_table(pd.DataFrame([{"Pl": i, "Spelare": r["player_name"], "Lag": r["team_name"], "MÃ¥l": r["goals"]} for i, r in enumerate(goal_rows, 1)]))
+                render_centered_table(pd.DataFrame([{"Pl": i, "Spelare": r["player_name"], "Lag": r["team_name"], "Mål": r["goals"]} for i, r in enumerate(goal_rows, 1)]))
             else:
-                st.info("Inga mÃ¥lskyttar har registrerats.")
+                st.info("Inga målskyttar har registrerats.")
         if enabled_assists:
             with st.expander(tr("Assistliga"), expanded=False):
                 assist_rows = [r for r in sorted(leaders, key=lambda r: (-r["assists"], -r["goals"], r["player_name"].lower())) if int(r["assists"] or 0) > 0]
@@ -19954,11 +19954,11 @@ if admin_page == "Skytteligor":
                 else:
                     st.info("Inga assist har registrerats.")
         if enabled_cards:
-            with st.expander("Gula/rÃ¶da kort", expanded=False):
+            with st.expander("Gula/röda kort", expanded=False):
                 card_rows = sorted(leaders, key=lambda r: (-r["red_cards"], -r["yellow_cards"], r["player_name"].lower()))
                 card_rows = [r for r in card_rows if r["yellow_cards"] or r["red_cards"]]
                 if card_rows:
-                    render_centered_table(pd.DataFrame([{"Spelare": r["player_name"], "Lag": r["team_name"], "Gula": r["yellow_cards"], "RÃ¶da": r["red_cards"]} for r in card_rows]))
+                    render_centered_table(pd.DataFrame([{"Spelare": r["player_name"], "Lag": r["team_name"], "Gula": r["yellow_cards"], "Röda": r["red_cards"]} for r in card_rows]))
                 else:
                     st.info("Inga kort har registrerats.")
 
@@ -19966,14 +19966,14 @@ if admin_page == "Slutspel":
     st.header("Slutspel")
     _manual_playoff_mode = tournament["playoff_format"] == MANUAL_PLAYOFF_FORMAT
     if _manual_playoff_mode:
-        st.caption("Gruppspelet kÃ¶rs utan resultatrÃ¤kning. Du vÃ¤ljer sjÃ¤lv vilka lag som gÃ¥r till slutspelet och kan avancera vinnare manuellt utan att ange ett resultat.")
+        st.caption("Gruppspelet körs utan resultaträkning. Du väljer själv vilka lag som går till slutspelet och kan avancera vinnare manuellt utan att ange ett resultat.")
     else:
-        st.caption("FÃ¶lj slutspelstrÃ¤den. De uppdateras automatiskt frÃ¥n cupens resultat.")
+        st.caption("Följ slutspelsträden. De uppdateras automatiskt från cupens resultat.")
 
     if not tournament["playoff_model_confirmed"]:
-        st.warning("VÃ¤lj slutspelsmodell innan schemat genereras.")
+        st.warning("Välj slutspelsmodell innan schemat genereras.")
     elif tournament["playoff_format"] == "Inget slutspel":
-        st.caption("Inget slutspel Ã¤r valt fÃ¶r cupen.")
+        st.caption("Inget slutspel är valt för cupen.")
     else:
         st.caption(f"Modell: **{tournament['playoff_format']}**")
 
@@ -19982,20 +19982,20 @@ if admin_page == "Slutspel":
         if not _manual_brackets:
             _manual_teams = all_rows("SELECT id,name FROM teams WHERE tournament_id=? ORDER BY name", (tid,))
             if len(_manual_teams) < 2:
-                st.info("LÃ¤gg till minst tvÃ¥ lag innan du skapar det manuella slutspelet.")
+                st.info("Lägg till minst två lag innan du skapar det manuella slutspelet.")
             else:
                 _allowed_sizes = [size for size in (2, 4, 8) if size <= len(_manual_teams)]
                 _manual_size = st.selectbox("Antal lag i slutspelet", _allowed_sizes, key=f"manual_playoff_size_{tid}")
                 _team_name_by_id = {int(row["id"]): row["name"] for row in _manual_teams}
                 _selected_ids = st.multiselect(
-                    "VÃ¤lj lag i seedningsordning",
+                    "Välj lag i seedningsordning",
                     list(_team_name_by_id),
                     format_func=lambda team_id: _team_name_by_id[int(team_id)],
                     max_selections=int(_manual_size),
                     key=f"manual_playoff_teams_{tid}",
-                    help="Lag 1 mÃ¶ter lag 2, lag 3 mÃ¶ter lag 4 och sÃ¥ vidare. Ordningen kan dÃ¤rfÃ¶r anvÃ¤ndas som seedning.",
+                    help="Lag 1 möter lag 2, lag 3 möter lag 4 och så vidare. Ordningen kan därför användas som seedning.",
                 )
-                st.caption(f"VÃ¤lj exakt {_manual_size} lag. Ordningen ovan bestÃ¤mmer fÃ¶rsta omgÃ¥ngens mÃ¶ten.")
+                st.caption(f"Välj exakt {_manual_size} lag. Ordningen ovan bestämmer första omgångens möten.")
                 if st.button(
                     "Skapa manuellt slutspel",
                     type="primary",
@@ -20012,11 +20012,11 @@ if admin_page == "Slutspel":
                     )
                     run("UPDATE tournaments SET schedule_dirty=1 WHERE id=?", (tid,))
                     _clear_render_query_cache()
-                    st.success("Det manuella slutspelet Ã¤r skapat. GÃ¥ till Schema fÃ¶r att lÃ¤gga matcherna i tid och pÃ¥ plan.")
+                    st.success("Det manuella slutspelet är skapat. Gå till Schema för att lägga matcherna i tid och på plan.")
                     st.rerun()
         else:
             with st.expander("Manuell avancering", expanded=True):
-                st.caption("NÃ¤r en slutspelsmatch Ã¤r avgjord vÃ¤ljer du vinnaren hÃ¤r. Ingen mÃ¥l- eller resultatrÃ¤kning krÃ¤vs.")
+                st.caption("När en slutspelsmatch är avgjord väljer du vinnaren här. Ingen mål- eller resultaträkning krävs.")
                 _manual_matches = all_rows(
                     "SELECT * FROM matches WHERE tournament_id=? AND bracket_id IS NOT NULL ORDER BY round_no,match_no,id",
                     (tid,),
@@ -20030,10 +20030,10 @@ if admin_page == "Slutspel":
                     _saved_winner = _row_value(_manual_match, "decided_winner_id", None)
                     _winner_index = _winner_options.index(int(_saved_winner)) if _saved_winner in _winner_options else 0
                     _winner_choice = st.selectbox(
-                        f"Vinnare Â· {source_label(_manual_match['home_source'])} â€“ {source_label(_manual_match['away_source'])}",
+                        f"Vinnare · {source_label(_manual_match['home_source'])} – {source_label(_manual_match['away_source'])}",
                         _winner_options,
                         index=_winner_index,
-                        format_func=lambda team_id: team(int(team_id))["name"] if team(int(team_id)) else "OkÃ¤nt lag",
+                        format_func=lambda team_id: team(int(team_id))["name"] if team(int(team_id)) else "Okänt lag",
                         key=f"manual_playoff_winner_{_manual_match['id']}",
                     )
                     if st.button("Spara vinnare", key=f"manual_playoff_save_winner_{_manual_match['id']}"):
@@ -20052,11 +20052,11 @@ if admin_page == "Slutspel":
 
     brackets, duplicate_brackets = brackets_for_display(tid)
     if duplicate_brackets:
-        st.warning("Ã„ldre dubbletter av slutspel finns i databasen. Regenerera hela schemat fÃ¶r att bygga om trÃ¤den rent.")
+        st.warning("Äldre dubbletter av slutspel finns i databasen. Regenerera hela schemat för att bygga om träden rent.")
 
     if not brackets:
         if tournament["playoff_format"] != "Inget slutspel":
-            st.info("Inga slutspelsmatcher Ã¤r skapade Ã¤nnu. GÃ¥ till Schema och generera hela spelschemat.")
+            st.info("Inga slutspelsmatcher är skapade ännu. Gå till Schema och generera hela spelschemat.")
     else:
         for bracket in brackets:
             st.subheader(bracket["name"])
@@ -20070,7 +20070,7 @@ if admin_page == "Slutspel":
                     overview_rows = []
                     for match_row in bracket_matches:
                         schedule_text, _ = match_meta(match_row)
-                        match_number = schedule_text.split(" Â· ", 1)[0] if match_row["scheduled_start"] else "Ej schemalagd"
+                        match_number = schedule_text.split(" · ", 1)[0] if match_row["scheduled_start"] else "Ej schemalagd"
                         overview_rows.append({
                             "Match": match_number,
                             "Fas": match_row["stage"],
@@ -20100,7 +20100,7 @@ st.session_state["_cupnavi_perf_route_history"] = _perf_route_history[-24:]
 if os.environ.get("CUPNAVI_PERF_LOG") == "1":
     print(performance_log_line(_perf_snapshot), flush=True)
 
-if view_mode == "Admin" and admin_page == "AdminÃ¶versikt":
+if view_mode == "Admin" and admin_page == "Adminöversikt":
     _db_ms = _perf_snapshot["db_ms"]
     _db_calls = _perf_snapshot["db_calls"]
     _writes = _perf_snapshot["writes"]
@@ -20124,8 +20124,8 @@ if view_mode == "Admin" and admin_page == "AdminÃ¶versikt":
 
     with st.expander("Prestandadiagnostik", expanded=False):
         st.caption(
-            "MÃ¤ter aktuell rerendering och sparar de senaste rutterna i den hÃ¤r browser-sessionen. "
-            "Inget skickas till en extern analystjÃ¤nst."
+            "Mäter aktuell rerendering och sparar de senaste rutterna i den här browser-sessionen. "
+            "Inget skickas till en extern analystjänst."
         )
         _perf_cols = st.columns(4)
         _perf_cols[0].metric("Render", f"{_render_ms:.0f} ms")
@@ -20136,23 +20136,23 @@ if view_mode == "Admin" and admin_page == "AdminÃ¶versikt":
         if _perf_snapshot.get("budget_status") == "over":
             _budget_over = ", ".join(_perf_snapshot.get("budget_over") or [])
             st.warning(
-                "Den hÃ¤r rutten ligger Ã¶ver sin prestandabudget"
+                "Den här rutten ligger över sin prestandabudget"
                 + (f" ({_budget_over})." if _budget_over else ".")
             )
         elif _perf_snapshot.get("budget_status") == "within":
-            st.success("Den hÃ¤r rutten ligger inom sin prestandabudget.")
+            st.success("Den här rutten ligger inom sin prestandabudget.")
         elif _render_ms >= 2500:
-            st.warning("Renderingen Ã¤r lÃ¥ngsam (>2,5 s). DB- och nÃ¤tverksanrop bÃ¶r granskas.")
+            st.warning("Renderingen är långsam (>2,5 s). DB- och nätverksanrop bör granskas.")
         elif _render_ms >= 1200:
-            st.info("Renderingen Ã¤r mÃ¤rkbar (1,2â€“2,5 s). Det finns sannolikt mer att optimera.")
+            st.info("Renderingen är märkbar (1,2–2,5 s). Det finns sannolikt mer att optimera.")
         else:
-            st.success("Renderingen ligger under 1,2 s i den hÃ¤r kÃ¶rningen.")
+            st.success("Renderingen ligger under 1,2 s i den här körningen.")
 
         if _perf_snapshot.get("budget_render_ms") is not None:
             st.caption(
-                "Budget fÃ¶r denna rutt/fas: "
-                f"â‰¤ {_perf_snapshot['budget_render_ms']:.0f} ms Â· "
-                f"â‰¤ {_perf_snapshot['budget_db_calls']} DB-anrop."
+                "Budget för denna rutt/fas: "
+                f"≤ {_perf_snapshot['budget_render_ms']:.0f} ms · "
+                f"≤ {_perf_snapshot['budget_db_calls']} DB-anrop."
             )
 
         _history = st.session_state["_cupnavi_perf_history"]
@@ -20161,7 +20161,7 @@ if view_mode == "Admin" and admin_page == "AdminÃ¶versikt":
             _avg_db = sum(row["DB ms"] for row in _history) / len(_history)
             st.caption(
                 f"Snitt senaste {len(_history)} laddningarna: "
-                f"{_avg_render:.0f} ms render Â· {_avg_db:.0f} ms DB."
+                f"{_avg_render:.0f} ms render · {_avg_db:.0f} ms DB."
             )
             render_centered_table(pd.DataFrame(_history))
 
@@ -20174,9 +20174,9 @@ if view_mode == "Admin" and admin_page == "AdminÃ¶versikt":
                 "DB ms": row["db_ms"],
                 "DB-anrop": row["db_calls"],
                 "Budget": (
-                    "âœ…" if row.get("budget_status") == "within"
-                    else "âš ï¸" if row.get("budget_status") == "over"
-                    else "â€“"
+                    "✅" if row.get("budget_status") == "within"
+                    else "⚠️" if row.get("budget_status") == "over"
+                    else "–"
                 ),
                 "Fas": row["session_phase"],
             } for row in _route_history[-8:]]
@@ -20184,21 +20184,21 @@ if view_mode == "Admin" and admin_page == "AdminÃ¶versikt":
 
         _public_matches_history = list(st.session_state.get("_cupnavi_public_matches_perf_history", []))
         if _public_matches_history:
-            st.markdown("**Turneringsvy / Matcher â€“ delsteg**")
+            st.markdown("**Turneringsvy / Matcher – delsteg**")
             st.caption(
-                "Visar vad som faktiskt tog tid i de senaste matchvyerna pÃ¥ samma browser-session. "
-                "Det gÃ¶r det mÃ¶jligt att skilja DB/visitor/highlights/filter frÃ¥n sjÃ¤lva matchkortsrenderingen."
+                "Visar vad som faktiskt tog tid i de senaste matchvyerna på samma browser-session. "
+                "Det gör det möjligt att skilja DB/visitor/highlights/filter från själva matchkortsrenderingen."
             )
             _public_stage_rows = [{
                 "Total ms": row.get("render_ms", 0),
-                "LiveflÃ¶de": row.get("live_feed_ms", 0),
-                "Ã–versikt DB": row.get("overview_db_ms", 0),
+                "Liveflöde": row.get("live_feed_ms", 0),
+                "Översikt DB": row.get("overview_db_ms", 0),
                 "Highlights": row.get("highlights_ms", 0),
-                "BesÃ¶kare": row.get("visitors_ms", 0),
+                "Besökare": row.get("visitors_ms", 0),
                 "Summering/dela": row.get("summary_share_ms", 0),
                 "Filter": row.get("filters_ms", 0),
-                "HÃ¤ndelser": row.get("events_ms", 0),
-                "Matchkort/vÃ¤der": row.get("cards_weather_ms", 0),
+                "Händelser": row.get("events_ms", 0),
+                "Matchkort/väder": row.get("cards_weather_ms", 0),
                 "DB ms": row.get("db_ms", 0),
                 "Matcher": row.get("visible_matches", 0),
             } for row in _public_matches_history[-6:]]
