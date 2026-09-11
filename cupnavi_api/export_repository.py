@@ -1,7 +1,9 @@
 """Authenticated CupNavi document export built on the canonical API repository."""
 from __future__ import annotations
 
+import re
 from io import BytesIO
+from xml.sax.saxutils import escape
 
 from reportlab.lib import colors
 from reportlab.lib.enums import TA_CENTER
@@ -16,6 +18,10 @@ from .repository import all_rows, one
 
 def _text(value) -> str:
     return "" if value is None else str(value)
+
+
+def _safe(value) -> str:
+    return escape(_text(value))
 
 
 def _team_name(source, teams_by_id: dict[int, str]) -> str:
@@ -69,7 +75,7 @@ def build_cup_pdf(account_id: int, tournament_id: int):
     title = ParagraphStyle("CupNaviTitle", parent=styles["Title"], alignment=TA_CENTER, fontSize=22, leading=26, spaceAfter=10)
     h2 = ParagraphStyle("CupNaviH2", parent=styles["Heading2"], fontSize=14, leading=18, spaceBefore=10, spaceAfter=6)
     body = styles["BodyText"]
-    story = [Paragraph(_text(tournament.get("name")) or "CupNavi", title)]
+    story = [Paragraph(_safe(tournament.get("name")) or "CupNavi", title)]
 
     meta = []
     dates = " – ".join(x for x in (_text(tournament.get("start_date")), _text(tournament.get("end_date"))) if x)
@@ -81,7 +87,7 @@ def build_cup_pdf(account_id: int, tournament_id: int):
         table.setStyle(TableStyle([("FONTNAME",(0,0),(0,-1),"Helvetica-Bold"),("VALIGN",(0,0),(-1,-1),"TOP"),("BOTTOMPADDING",(0,0),(-1,-1),5)]))
         story += [table, Spacer(1, 4*mm)]
     if tournament.get("public_information"):
-        story += [Paragraph(_text(tournament.get("public_information")), body), Spacer(1, 4*mm)]
+        story += [Paragraph(_safe(tournament.get("public_information")), body), Spacer(1, 4*mm)]
 
     story.append(Paragraph("Grupper och lag", h2))
     teams_by_group: dict[int | None, list[dict]] = {}
@@ -89,14 +95,14 @@ def build_cup_pdf(account_id: int, tournament_id: int):
         teams_by_group.setdefault(team.get("group_id"), []).append(team)
     for group in groups:
         gid = int(group["id"])
-        story.append(Paragraph(f"<b>{_text(group.get('name'))}</b>", body))
+        story.append(Paragraph(f"<b>{_safe(group.get('name'))}</b>", body))
         names = ", ".join(_text(t.get("name")) for t in teams_by_group.get(gid, [])) or "Inga lag"
-        story.append(Paragraph(names, body))
+        story.append(Paragraph(_safe(names), body))
         story.append(Spacer(1, 2*mm))
     ungrouped = teams_by_group.get(None, [])
     if ungrouped:
         story.append(Paragraph("<b>Ogrupperade lag</b>", body))
-        story.append(Paragraph(", ".join(_text(t.get("name")) for t in ungrouped), body))
+        story.append(Paragraph(_safe(", ".join(_text(t.get("name")) for t in ungrouped)), body))
 
     if pitches:
         story.append(Paragraph("Planer", h2))
@@ -127,5 +133,6 @@ def build_cup_pdf(account_id: int, tournament_id: int):
     story.append(table)
 
     doc.build(story)
-    filename = (_text(tournament.get("public_slug")) or _text(tournament.get("name")) or f"cup-{tournament_id}").strip().replace(" ", "-") + ".pdf"
-    return {"filename": filename, "content": out.getvalue()}
+    raw_name = _text(tournament.get("public_slug")) or _text(tournament.get("name")) or f"cup-{tournament_id}"
+    safe_name = re.sub(r"[^A-Za-z0-9._-]+", "-", raw_name.strip()).strip("-.") or f"cup-{tournament_id}"
+    return {"filename": safe_name + ".pdf", "content": out.getvalue()}
