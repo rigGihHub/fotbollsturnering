@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import VenueAdmin from "./venue-admin";
 
 const API_BASE = (process.env.NEXT_PUBLIC_CUPNAVI_API_BASE || "http://localhost:8000").replace(/\/$/, "");
 const TOKEN_KEY = "cupnavi_admin_session_v629";
@@ -12,7 +13,6 @@ const nav = [
 ];
 
 const modules = [
-  ["venues","05","Planer & tider","Anläggningar, planer, matchlängd, pauser och tillgängliga tider."],
   ["rules","06","Regler","Poängregler, vilotid, färgkrockar och turneringsinställningar."],
   ["schedule","07","Schema","Generera dynamiskt schema eller justera ett importerat schema manuellt."],
   ["referees","08","Domare","Lägg in domare nu eller tillsätt dem senare."],
@@ -328,6 +328,8 @@ export default function AdminWorkspace() {
           </article>)}
         </div>
       </section>
+
+      {token && cupId && <VenueAdmin token={token} cupId={cupId} />}
 
       <section className="admin-module-grid" aria-label="Cupens arbetsflöde">{modules.map(([id,n,title,text])=><article className="admin-panel admin-module-card" id={id} key={id}><div className="admin-panel__top"><span>{n} / MODUL</span><strong>FÖRBEREDD</strong></div><h2>{title}</h2><p>{text}</p><button disabled>Öppna när datalagret är inkopplat</button></article>)}</section>
     </section>
