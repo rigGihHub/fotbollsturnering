@@ -12,7 +12,6 @@ const nav = [
 ];
 
 const modules = [
-  ["groups","04","Grupper","Fördela lag i grupper och kontrollera gruppstorlekar."],
   ["venues","05","Planer & tider","Anläggningar, planer, matchlängd, pauser och tillgängliga tider."],
   ["rules","06","Regler","Poängregler, vilotid, färgkrockar och turneringsinställningar."],
   ["schedule","07","Schema","Generera dynamiskt schema eller justera ett importerat schema manuellt."],
@@ -34,7 +33,9 @@ type CupInfo = {
 };
 type SessionPayload = { account:Account; cups:Cup[]; token?:string };
 type Team = { id:number; tournament_id:number; name:string; group_id?:number|null; age_class?:string|null; primary_color?:string|null; secondary_color?:string|null };
+type Group = { id:number; tournament_id:number; name:string; age_class?:string|null; team_count:number };
 const emptyTeam = {name:"",age_class:"",primary_color:"#111827",secondary_color:"#FFFFFF"};
+const emptyGroup = {name:"",age_class:""};
 
 async function request<T>(path:string, options:RequestInit = {}, token?:string|null):Promise<T> {
   const headers = new Headers(options.headers || {});
@@ -70,8 +71,11 @@ export default function AdminWorkspace() {
   const [cupId,setCupId] = useState<number|null>(null);
   const [cupinfo,setCupinfo] = useState<CupInfo|null>(null);
   const [teams,setTeams] = useState<Team[]>([]);
+  const [groups,setGroups] = useState<Group[]>([]);
   const [teamDraft,setTeamDraft] = useState(emptyTeam);
+  const [groupDraft,setGroupDraft] = useState(emptyGroup);
   const [editingTeam,setEditingTeam] = useState<number|null>(null);
+  const [editingGroup,setEditingGroup] = useState<number|null>(null);
   const [email,setEmail] = useState("");
   const [password,setPassword] = useState("");
   const [busy,setBusy] = useState(false);
@@ -82,16 +86,18 @@ export default function AdminWorkspace() {
 
   const logout = useCallback(() => {
     localStorage.removeItem(TOKEN_KEY);
-    setToken(null); setAccount(null); setCups([]); setCupId(null); setCupinfo(null); setTeams([]);
+    setToken(null); setAccount(null); setCups([]); setCupId(null); setCupinfo(null); setTeams([]); setGroups([]);
     setPassword(""); setMessage(""); setError("");
   },[]);
 
   const loadCupInfo = useCallback(async (nextToken:string, nextCupId:number) => {
-    const [data,teamData] = await Promise.all([
+    const [data,teamData,groupData] = await Promise.all([
       request<CupInfo>(`/api/admin/cups/${nextCupId}/cupinfo`,{},nextToken),
       request<{teams:Team[]}>(`/api/admin/cups/${nextCupId}/teams`,{},nextToken),
+      request<{groups:Group[]}>(`/api/admin/cups/${nextCupId}/groups`,{},nextToken),
     ]);
-    setCupinfo(cleanCupInfo(data)); setTeams(teamData.teams || []); setEditingTeam(null); setTeamDraft(emptyTeam);
+    setCupinfo(cleanCupInfo(data)); setTeams(teamData.teams || []); setGroups(groupData.groups || []);
+    setEditingTeam(null); setTeamDraft(emptyTeam); setEditingGroup(null); setGroupDraft(emptyGroup);
   },[]);
 
   useEffect(() => {
@@ -111,9 +117,7 @@ export default function AdminWorkspace() {
   async function login(event:FormEvent) {
     event.preventDefault(); setBusy(true); setError(""); setMessage("");
     try {
-      const data = await request<SessionPayload>("/api/admin/session",{
-        method:"POST", body:JSON.stringify({email,password})
-      });
+      const data = await request<SessionPayload>("/api/admin/session",{method:"POST",body:JSON.stringify({email,password})});
       if (!data.token) throw new Error("API:t returnerade ingen session.");
       localStorage.setItem(TOKEN_KEY,data.token);
       setToken(data.token); setAccount(data.account); setCups(data.cups || []); setPassword("");
@@ -139,16 +143,7 @@ export default function AdminWorkspace() {
     try {
       const saved = await request<CupInfo>(`/api/admin/cups/${cupId}/cupinfo`,{
         method:"PUT",
-        body:JSON.stringify({
-          name:cupinfo.name,
-          start_date:cupinfo.start_date || null,
-          end_date:cupinfo.end_date || null,
-          organizer:cupinfo.organizer || null,
-          arena_address:cupinfo.arena_address || null,
-          organizer_phone:cupinfo.organizer_phone || null,
-          feedback_email:cupinfo.feedback_email || null,
-          public_information:cupinfo.public_information || null,
-        })
+        body:JSON.stringify({name:cupinfo.name,start_date:cupinfo.start_date || null,end_date:cupinfo.end_date || null,organizer:cupinfo.organizer || null,arena_address:cupinfo.arena_address || null,organizer_phone:cupinfo.organizer_phone || null,feedback_email:cupinfo.feedback_email || null,public_information:cupinfo.public_information || null})
       },token);
       const normalized = cleanCupInfo(saved);
       setCupinfo(normalized);
@@ -163,7 +158,6 @@ export default function AdminWorkspace() {
     setTeamDraft({name:team.name,age_class:team.age_class || "",primary_color:team.primary_color || "#111827",secondary_color:team.secondary_color || "#FFFFFF"});
     setError(""); setMessage("");
   }
-
   function cancelTeamEdit() { setEditingTeam(null); setTeamDraft(emptyTeam); }
 
   async function saveTeam(event:FormEvent) {
@@ -192,6 +186,50 @@ export default function AdminWorkspace() {
     finally { setBusy(false); }
   }
 
+  function beginGroupEdit(group:Group) {
+    setEditingGroup(group.id); setGroupDraft({name:group.name,age_class:group.age_class || ""}); setError(""); setMessage("");
+  }
+  function cancelGroupEdit() { setEditingGroup(null); setGroupDraft(emptyGroup); }
+
+  async function saveGroup(event:FormEvent) {
+    event.preventDefault();
+    if (!token || !cupId) return;
+    setBusy(true); setError(""); setMessage("");
+    try {
+      const path = editingGroup ? `/api/admin/cups/${cupId}/groups/${editingGroup}` : `/api/admin/cups/${cupId}/groups`;
+      const saved = await request<Group>(path,{method:editingGroup?"PUT":"POST",body:JSON.stringify(groupDraft)},token);
+      setGroups(current => editingGroup ? current.map(group=>group.id===saved.id?saved:group).sort((a,b)=>a.name.localeCompare(b.name,"sv")) : [...current,saved].sort((a,b)=>a.name.localeCompare(b.name,"sv")));
+      setMessage(editingGroup ? "Gruppen har uppdaterats." : "Gruppen har skapats.");
+      cancelGroupEdit();
+    } catch (err) { setError(err instanceof Error ? err.message : "Gruppen kunde inte sparas."); }
+    finally { setBusy(false); }
+  }
+
+  async function removeGroup(group:Group) {
+    if (!token || !cupId || !window.confirm(`Ta bort ${group.name}? Gruppen måste vara tom och oanvänd i schemat.`)) return;
+    setBusy(true); setError(""); setMessage("");
+    try {
+      await request(`/api/admin/cups/${cupId}/groups/${group.id}`,{method:"DELETE"},token);
+      setGroups(current=>current.filter(item=>item.id!==group.id));
+      if (editingGroup===group.id) cancelGroupEdit();
+      setMessage(`${group.name} har tagits bort.`);
+    } catch (err) { setError(err instanceof Error ? err.message : "Gruppen kunde inte tas bort."); }
+    finally { setBusy(false); }
+  }
+
+  async function assignGroup(team:Team, groupId:number|null) {
+    if (!token || !cupId) return;
+    setBusy(true); setError(""); setMessage("");
+    try {
+      const saved = await request<Team>(`/api/admin/cups/${cupId}/teams/${team.id}/group`,{method:"PUT",body:JSON.stringify({group_id:groupId})},token);
+      setTeams(current=>current.map(item=>item.id===saved.id?saved:item));
+      const groupData = await request<{groups:Group[]}>(`/api/admin/cups/${cupId}/groups`,{},token);
+      setGroups(groupData.groups || []);
+      setMessage(groupId ? `${team.name} har flyttats till ${groups.find(group=>group.id===groupId)?.name || "gruppen"}.` : `${team.name} är nu ogrupperat.`);
+    } catch (err) { setError(err instanceof Error ? err.message : "Gruppindelningen kunde inte sparas."); }
+    finally { setBusy(false); }
+  }
+
   if (!account) {
     return <main className="admin-main" style={{maxWidth:720,margin:"0 auto"}}>
       <header className="admin-pagehead"><div><p className="kicker">CN//ADMIN</p><h1>Logga in</h1><p>Använd samma arrangörskonto som i CupNavi.</p></div></header>
@@ -208,7 +246,8 @@ export default function AdminWorkspace() {
   }
 
   const publicCup = activeCup?.public_slug ? `/cup/${activeCup.public_slug}` : null;
-  const checks = [["Cupinfo",cupinfo?.name ? "Påbörjad":"Ej klar"],["Lag",teams.length?`${teams.length} registrerade`:"Ej klar"],["Grupper","Ej klar"],["Schema","Ej klar"],["Publicering",activeCup?.is_published ? "Publicerad":"Ej klar"]];
+  const groupedTeams = teams.filter(team=>team.group_id != null).length;
+  const checks = [["Cupinfo",cupinfo?.name ? "Påbörjad":"Ej klar"],["Lag",teams.length?`${teams.length} registrerade`:"Ej klar"],["Grupper",groups.length?`${groups.length} grupper · ${groupedTeams}/${teams.length} lag`:"Ej klar"],["Schema","Ej klar"],["Publicering",activeCup?.is_published ? "Publicerad":"Ej klar"]];
 
   return <main className="admin-workspace">
     <aside className="admin-sidebar">
@@ -260,9 +299,33 @@ export default function AdminWorkspace() {
         <div className="admin-team-list">
           {teams.length ? teams.map(team=><article key={team.id} className={editingTeam===team.id?"is-editing":""}>
             <span className="admin-team-shirt" style={{background:`linear-gradient(135deg,${team.primary_color||"#111827"} 0 50%,${team.secondary_color||"#FFFFFF"} 50%)`}} aria-hidden="true" />
-            <div><strong>{team.name}</strong><small>{team.age_class||"Klass saknas"}{team.group_id?` · Grupp ${team.group_id}`:" · Ej gruppindelat"}</small></div>
+            <div><strong>{team.name}</strong><small>{team.age_class||"Klass saknas"}{team.group_id?` · ${groups.find(group=>group.id===team.group_id)?.name || `Grupp ${team.group_id}`}`:" · Ej gruppindelat"}</small></div>
             <div className="admin-team-actions"><button type="button" onClick={()=>beginTeamEdit(team)}>Redigera</button><button className="is-danger" type="button" onClick={()=>removeTeam(team)}>Ta bort</button></div>
           </article>) : <div className="admin-empty"><strong>Inga lag ännu</strong><span>Lägg till det första laget ovan.</span></div>}
+        </div>
+      </section>
+
+      <section className="admin-panel admin-teams" id="groups">
+        <div className="admin-panel__top"><span>04 / GRUPPER</span><strong>{groups.length} GRUPPER · {groupedTeams}/{teams.length} LAG</strong></div>
+        <div className="admin-cupinfo__head"><div><h2>Gruppindelning</h2><p>Skapa grupper och placera varje lag. Flyttar sparas direkt och används av tabeller och kommande schemagenerering.</p></div><span className="admin-lock">CRUD AKTIVT</span></div>
+        <form onSubmit={saveGroup} className="admin-team-editor">
+          <div className="admin-form-grid">
+            <label>Gruppnamn<input value={groupDraft.name} onChange={e=>setGroupDraft({...groupDraft,name:e.target.value})} required placeholder="Exempel: Grupp A" /></label>
+            <label>Klass<input value={groupDraft.age_class} onChange={e=>setGroupDraft({...groupDraft,age_class:e.target.value})} placeholder="Exempel: P2014" /></label>
+          </div>
+          <div className="admin-form-footer"><span>{editingGroup?"Du redigerar en befintlig grupp.":"Skapa en grupp i den aktiva cupen."}</span><div className="admin-team-actions">{editingGroup&&<button type="button" onClick={cancelGroupEdit}>Avbryt</button>}<button type="submit" disabled={busy||!groupDraft.name.trim()}>{busy?"Sparar…":editingGroup?"Spara grupp":"Skapa grupp"}</button></div></div>
+        </form>
+        <div className="admin-team-list">
+          {groups.length ? groups.map(group=><article key={group.id} className={editingGroup===group.id?"is-editing":""}>
+            <div><strong>{group.name}</strong><small>{group.age_class||"Ingen klass"} · {group.team_count} lag</small></div>
+            <div className="admin-team-actions"><button type="button" onClick={()=>beginGroupEdit(group)}>Redigera</button><button className="is-danger" type="button" onClick={()=>removeGroup(group)} disabled={group.team_count>0}>Ta bort</button></div>
+          </article>) : <div className="admin-empty"><strong>Inga grupper ännu</strong><span>Skapa den första gruppen ovan.</span></div>}
+        </div>
+        <div className="admin-team-list" style={{marginTop:18}}>
+          {teams.map(team=><article key={`group-team-${team.id}`}>
+            <div><strong>{team.name}</strong><small>{team.age_class||"Klass saknas"}</small></div>
+            <label style={{marginLeft:"auto"}}>Grupp<select value={team.group_id ?? ""} disabled={busy} onChange={e=>assignGroup(team,e.target.value?Number(e.target.value):null)}><option value="">Ej gruppindelat</option>{groups.map(group=><option key={group.id} value={group.id}>{group.name}</option>)}</select></label>
+          </article>)}
         </div>
       </section>
 
