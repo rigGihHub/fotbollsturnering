@@ -4,6 +4,8 @@ import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import VenueAdmin from "./venue-admin";
 import RulesAdmin from "./rules-admin";
 import ScheduleAdmin from "./schedule-admin";
+import RefereeAdmin from "./referee-admin";
+import PlayoffAdmin from "./playoff-admin";
 
 const API_BASE = (process.env.NEXT_PUBLIC_CUPNAVI_API_BASE || "http://localhost:8000").replace(/\/$/, "");
 const TOKEN_KEY = "cupnavi_admin_session_v629";
@@ -15,8 +17,6 @@ const nav = [
 ];
 
 const modules = [
-  ["referees","08","Domare","Lägg in domare nu eller tillsätt dem senare."],
-  ["playoffs","09","Slutspel","A/B-slutspel, valbara kvalificerade placeringar, bronsmatch och final."],
   ["publish","10","Publicering","Förhandsgranska cupen och publicera först när checklistan är klar."],
   ["reporting","11","Matchrapportering","Resultat, målskyttar, assist och kort när statistiken är aktiverad."],
   ["import","12","Import","Läs in tidigare cupprogram från dokument eller flera bilder utan att skriva över data tyst."],
@@ -332,6 +332,8 @@ export default function AdminWorkspace() {
       {token && cupId && <VenueAdmin token={token} cupId={cupId} />}
       {token && cupId && <RulesAdmin token={token} cupId={cupId} />}
       {token && cupId && <ScheduleAdmin token={token} cupId={cupId} />}
+      {token && cupId && <RefereeAdmin token={token} cupId={cupId} />}
+      {token && cupId && <PlayoffAdmin token={token} cupId={cupId} />}
 
       <section className="admin-module-grid" aria-label="Cupens arbetsflöde">{modules.map(([id,n,title,text])=><article className="admin-panel admin-module-card" id={id} key={id}><div className="admin-panel__top"><span>{n} / MODUL</span><strong>FÖRBEREDD</strong></div><h2>{title}</h2><p>{text}</p><button disabled>Öppna när datalagret är inkopplat</button></article>)}</section>
     </section>

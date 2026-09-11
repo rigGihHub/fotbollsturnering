@@ -1,0 +1,100 @@
+"""Organizer-scoped playoff settings and persisted bracket inspection."""
+from __future__ import annotations
+
+from .admin_repository import _has_tournament_access
+from .repository import all_rows, connect, one
+
+PLAYOFF_FORMATS = {
+    "Inget slutspel",
+    "Slutspel – bara ettor och tvåor",
+    "A- och B-slutspel",
+    "Placeringsslutspel – ettor mot ettor osv.",
+    "Manuellt slutspel",
+}
+TIE_RULES = {"Straffar direkt", "Förlängning + straffar"}
+
+
+def admin_playoffs(account_id: int, tournament_id: int):
+    if not _has_tournament_access(account_id, tournament_id):
+        return None
+    tournament = one("SELECT * FROM tournaments WHERE id=?", (int(tournament_id),))
+    if not tournament:
+        return None
+    brackets = all_rows(
+        "SELECT id,name,size,bronze_match FROM brackets WHERE tournament_id=? ORDER BY id",
+        (int(tournament_id),),
+    )
+    matches = all_rows(
+        """SELECT id,bracket_id,stage,round_no,match_no,home_source,away_source,
+                  scheduled_start,pitch_number,home_score,away_score,home_penalties,away_penalties,
+                  decided_winner_id,schedule_locked,schedule_published
+           FROM matches WHERE tournament_id=? AND bracket_id IS NOT NULL
+           ORDER BY bracket_id,round_no,match_no,id""",
+        (int(tournament_id),),
+    )
+    by_bracket = {}
+    for match in matches:
+        by_bracket.setdefault(int(match["bracket_id"]), []).append(match)
+    for bracket in brackets:
+        bracket["matches"] = by_bracket.get(int(bracket["id"]), [])
+    played_count = sum(1 for match in matches if match.get("home_score") is not None and match.get("away_score") is not None)
+    locked_count = sum(1 for match in matches if bool(match.get("schedule_locked") or 0))
+    return {
+        "playoff_format": tournament.get("playoff_format") or "Inget slutspel",
+        "bronze_match": bool(tournament.get("bronze_match") or 0),
+        "playoff_tie_rule": tournament.get("playoff_tie_rule") or "Straffar direkt",
+        "playoff_extra_time_minutes": int(tournament.get("playoff_extra_time_minutes") or 0),
+        "brackets": brackets,
+        "bracket_count": len(brackets),
+        "match_count": len(matches),
+        "played_count": played_count,
+        "locked_count": locked_count,
+        "structure_locked": bool(brackets or matches),
+    }
+
+
+def update_playoff_settings(account_id: int, tournament_id: int, values: dict):
+    current = admin_playoffs(account_id, tournament_id)
+    if current is None:
+        return None
+    playoff_format = str(values.get("playoff_format", current["playoff_format"]) or "").strip()
+    if playoff_format not in PLAYOFF_FORMATS:
+        raise ValueError("Ogiltigt slutspelsformat")
+    bronze_match = bool(values.get("bronze_match", current["bronze_match"]))
+    tie_rule = str(values.get("playoff_tie_rule", current["playoff_tie_rule"]) or "").strip()
+    if tie_rule not in TIE_RULES:
+        raise ValueError("Ogiltig regel vid oavgjort slutspelsresultat")
+    try:
+        extra_minutes = int(values.get("playoff_extra_time_minutes", current["playoff_extra_time_minutes"]) or 0)
+    except (TypeError, ValueError) as exc:
+        raise ValueError("Förlängningstid måste vara ett heltal") from exc
+    if extra_minutes < 0 or extra_minutes > 60:
+        raise ValueError("Förlängningstid måste vara mellan 0 och 60 minuter")
+    if tie_rule == "Straffar direkt":
+        extra_minutes = 0
+
+    structure_change = playoff_format != current["playoff_format"] or bronze_match != current["bronze_match"]
+    if structure_change and current["structure_locked"]:
+        raise ValueError(
+            "Slutspelsstrukturen kan inte ändras när slutspelsträd eller slutspelsmatcher redan finns. Hantera det befintliga slutspelet först"
+        )
+    if current["played_count"] and (
+        tie_rule != current["playoff_tie_rule"] or extra_minutes != current["playoff_extra_time_minutes"]
+    ):
+        raise ValueError("Regler för avgörande kan inte ändras efter att slutspelsmatcher har spelats")
+
+    with connect() as con:
+        tournament_columns = {str(row[1]) for row in con.execute("PRAGMA table_info(tournaments)").fetchall()}
+        updates = {"playoff_format": playoff_format, "bronze_match": 1 if bronze_match else 0}
+        if "playoff_tie_rule" in tournament_columns:
+            updates["playoff_tie_rule"] = tie_rule
+        if "playoff_extra_time_minutes" in tournament_columns:
+            updates["playoff_extra_time_minutes"] = extra_minutes
+        con.execute(
+            f"UPDATE tournaments SET {','.join(f'{key}=?' for key in updates)},schedule_dirty=1,is_published=0 WHERE id=?",
+            (*[updates[key] for key in updates], int(tournament_id)),
+        )
+        commit = getattr(con, "commit", None)
+        if callable(commit):
+            commit()
+    return admin_playoffs(account_id, tournament_id)
