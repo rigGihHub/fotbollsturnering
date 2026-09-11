@@ -12,7 +12,6 @@ const nav = [
 ];
 
 const modules = [
-  ["teams","03","Lag","Lägg till lag, klasser, tröjfärger och laguppställningar."],
   ["groups","04","Grupper","Fördela lag i grupper och kontrollera gruppstorlekar."],
   ["venues","05","Planer & tider","Anläggningar, planer, matchlängd, pauser och tillgängliga tider."],
   ["rules","06","Regler","Poängregler, vilotid, färgkrockar och turneringsinställningar."],
@@ -34,6 +33,8 @@ type CupInfo = {
   public_information?:string|null;
 };
 type SessionPayload = { account:Account; cups:Cup[]; token?:string };
+type Team = { id:number; tournament_id:number; name:string; group_id?:number|null; age_class?:string|null; primary_color?:string|null; secondary_color?:string|null };
+const emptyTeam = {name:"",age_class:"",primary_color:"#111827",secondary_color:"#FFFFFF"};
 
 async function request<T>(path:string, options:RequestInit = {}, token?:string|null):Promise<T> {
   const headers = new Headers(options.headers || {});
@@ -68,6 +69,9 @@ export default function AdminWorkspace() {
   const [cups,setCups] = useState<Cup[]>([]);
   const [cupId,setCupId] = useState<number|null>(null);
   const [cupinfo,setCupinfo] = useState<CupInfo|null>(null);
+  const [teams,setTeams] = useState<Team[]>([]);
+  const [teamDraft,setTeamDraft] = useState(emptyTeam);
+  const [editingTeam,setEditingTeam] = useState<number|null>(null);
   const [email,setEmail] = useState("");
   const [password,setPassword] = useState("");
   const [busy,setBusy] = useState(false);
@@ -78,13 +82,16 @@ export default function AdminWorkspace() {
 
   const logout = useCallback(() => {
     localStorage.removeItem(TOKEN_KEY);
-    setToken(null); setAccount(null); setCups([]); setCupId(null); setCupinfo(null);
+    setToken(null); setAccount(null); setCups([]); setCupId(null); setCupinfo(null); setTeams([]);
     setPassword(""); setMessage(""); setError("");
   },[]);
 
   const loadCupInfo = useCallback(async (nextToken:string, nextCupId:number) => {
-    const data = await request<CupInfo>(`/api/admin/cups/${nextCupId}/cupinfo`,{},nextToken);
-    setCupinfo(cleanCupInfo(data));
+    const [data,teamData] = await Promise.all([
+      request<CupInfo>(`/api/admin/cups/${nextCupId}/cupinfo`,{},nextToken),
+      request<{teams:Team[]}>(`/api/admin/cups/${nextCupId}/teams`,{},nextToken),
+    ]);
+    setCupinfo(cleanCupInfo(data)); setTeams(teamData.teams || []); setEditingTeam(null); setTeamDraft(emptyTeam);
   },[]);
 
   useEffect(() => {
@@ -151,6 +158,40 @@ export default function AdminWorkspace() {
     finally { setBusy(false); }
   }
 
+  function beginTeamEdit(team:Team) {
+    setEditingTeam(team.id);
+    setTeamDraft({name:team.name,age_class:team.age_class || "",primary_color:team.primary_color || "#111827",secondary_color:team.secondary_color || "#FFFFFF"});
+    setError(""); setMessage("");
+  }
+
+  function cancelTeamEdit() { setEditingTeam(null); setTeamDraft(emptyTeam); }
+
+  async function saveTeam(event:FormEvent) {
+    event.preventDefault();
+    if (!token || !cupId) return;
+    setBusy(true); setError(""); setMessage("");
+    try {
+      const path = editingTeam ? `/api/admin/cups/${cupId}/teams/${editingTeam}` : `/api/admin/cups/${cupId}/teams`;
+      const saved = await request<Team>(path,{method:editingTeam?"PUT":"POST",body:JSON.stringify(teamDraft)},token);
+      setTeams(current => editingTeam ? current.map(team=>team.id===saved.id?saved:team).sort((a,b)=>a.name.localeCompare(b.name,"sv")) : [...current,saved].sort((a,b)=>a.name.localeCompare(b.name,"sv")));
+      setMessage(editingTeam ? "Laget har uppdaterats." : "Laget har lagts till.");
+      cancelTeamEdit();
+    } catch (err) { setError(err instanceof Error ? err.message : "Laget kunde inte sparas."); }
+    finally { setBusy(false); }
+  }
+
+  async function removeTeam(team:Team) {
+    if (!token || !cupId || !window.confirm(`Ta bort ${team.name}? Åtgärden går inte att ångra.`)) return;
+    setBusy(true); setError(""); setMessage("");
+    try {
+      await request(`/api/admin/cups/${cupId}/teams/${team.id}`,{method:"DELETE"},token);
+      setTeams(current=>current.filter(item=>item.id!==team.id));
+      if (editingTeam===team.id) cancelTeamEdit();
+      setMessage(`${team.name} har tagits bort.`);
+    } catch (err) { setError(err instanceof Error ? err.message : "Laget kunde inte tas bort."); }
+    finally { setBusy(false); }
+  }
+
   if (!account) {
     return <main className="admin-main" style={{maxWidth:720,margin:"0 auto"}}>
       <header className="admin-pagehead"><div><p className="kicker">CN//ADMIN</p><h1>Logga in</h1><p>Använd samma arrangörskonto som i CupNavi.</p></div></header>
@@ -167,7 +208,7 @@ export default function AdminWorkspace() {
   }
 
   const publicCup = activeCup?.public_slug ? `/cup/${activeCup.public_slug}` : null;
-  const checks = [["Cupinfo",cupinfo?.name ? "Påbörjad":"Ej klar"],["Lag","Ej klar"],["Grupper","Ej klar"],["Schema","Ej klar"],["Publicering",activeCup?.is_published ? "Publicerad":"Ej klar"]];
+  const checks = [["Cupinfo",cupinfo?.name ? "Påbörjad":"Ej klar"],["Lag",teams.length?`${teams.length} registrerade`:"Ej klar"],["Grupper","Ej klar"],["Schema","Ej klar"],["Publicering",activeCup?.is_published ? "Publicerad":"Ej klar"]];
 
   return <main className="admin-workspace">
     <aside className="admin-sidebar">
@@ -203,6 +244,27 @@ export default function AdminWorkspace() {
           <div className="admin-form-footer"><span>{message || "Ändringar blir publika enligt cupens vanliga publiceringsstatus."}</span><button type="submit" disabled={busy || !cupinfo.name.trim()}>{busy?"Sparar…":"Spara Cupinfo"}</button></div>
         </> : <p>{busy?"Hämtar Cupinfo…":"Ingen Cupinfo tillgänglig."}</p>}
       </form>
+
+      <section className="admin-panel admin-teams" id="teams">
+        <div className="admin-panel__top"><span>03 / LAG</span><strong>{teams.length} REGISTRERADE</strong></div>
+        <div className="admin-cupinfo__head"><div><h2>Lag</h2><p>Skapa lag och håll lagnamn, klass och matchställ uppdaterade. Alla ändringar sparas direkt i cupens databas.</p></div><span className="admin-lock">CRUD AKTIVT</span></div>
+        <form onSubmit={saveTeam} className="admin-team-editor">
+          <div className="admin-form-grid">
+            <label>Lagnamn<input value={teamDraft.name} onChange={e=>setTeamDraft({...teamDraft,name:e.target.value})} required placeholder="Exempel: ÖSK P2014 Svart" /></label>
+            <label>Klass<input value={teamDraft.age_class} onChange={e=>setTeamDraft({...teamDraft,age_class:e.target.value})} placeholder="Exempel: P2014" /></label>
+            <label>Primär färg<span className="admin-color-input"><input type="color" value={teamDraft.primary_color} onChange={e=>setTeamDraft({...teamDraft,primary_color:e.target.value})} /><code>{teamDraft.primary_color}</code></span></label>
+            <label>Sekundär färg<span className="admin-color-input"><input type="color" value={teamDraft.secondary_color} onChange={e=>setTeamDraft({...teamDraft,secondary_color:e.target.value})} /><code>{teamDraft.secondary_color}</code></span></label>
+          </div>
+          <div className="admin-form-footer"><span>{editingTeam?"Du redigerar ett befintligt lag.":"Lägg till ett lag i den aktiva cupen."}</span><div className="admin-team-actions">{editingTeam&&<button type="button" onClick={cancelTeamEdit}>Avbryt</button>}<button type="submit" disabled={busy||!teamDraft.name.trim()}>{busy?"Sparar…":editingTeam?"Spara lag":"Lägg till lag"}</button></div></div>
+        </form>
+        <div className="admin-team-list">
+          {teams.length ? teams.map(team=><article key={team.id} className={editingTeam===team.id?"is-editing":""}>
+            <span className="admin-team-shirt" style={{background:`linear-gradient(135deg,${team.primary_color||"#111827"} 0 50%,${team.secondary_color||"#FFFFFF"} 50%)`}} aria-hidden="true" />
+            <div><strong>{team.name}</strong><small>{team.age_class||"Klass saknas"}{team.group_id?` · Grupp ${team.group_id}`:" · Ej gruppindelat"}</small></div>
+            <div className="admin-team-actions"><button type="button" onClick={()=>beginTeamEdit(team)}>Redigera</button><button className="is-danger" type="button" onClick={()=>removeTeam(team)}>Ta bort</button></div>
+          </article>) : <div className="admin-empty"><strong>Inga lag ännu</strong><span>Lägg till det första laget ovan.</span></div>}
+        </div>
+      </section>
 
       <section className="admin-module-grid" aria-label="Cupens arbetsflöde">{modules.map(([id,n,title,text])=><article className="admin-panel admin-module-card" id={id} key={id}><div className="admin-panel__top"><span>{n} / MODUL</span><strong>FÖRBEREDD</strong></div><h2>{title}</h2><p>{text}</p><button disabled>Öppna när datalagret är inkopplat</button></article>)}</section>
     </section>

@@ -15,10 +15,14 @@ from cupnavi_core.rate_limit import consume_rate_limit
 from .admin_auth import issue_session, normalize_email, verify_session
 from .admin_repository import (
     admin_cupinfo,
+    admin_teams,
     authenticate_organizer,
+    create_team,
+    delete_team,
     organizer_account,
     organizer_tournaments,
     update_cupinfo,
+    update_team,
 )
 from .repository import (
     public_tournament, public_teams, public_groups, public_matches, public_venue_points,
@@ -35,7 +39,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=_cors_origins or ["*"],
     allow_credentials=False,
-    allow_methods=["GET","POST","PUT","OPTIONS"],
+    allow_methods=["GET","POST","PUT","DELETE","OPTIONS"],
     allow_headers=["Authorization","Content-Type"],
 )
 
@@ -54,6 +58,13 @@ class CupInfoUpdate(BaseModel):
     organizer_phone: str | None = None
     feedback_email: str | None = None
     public_information: str | None = None
+
+
+class TeamWrite(BaseModel):
+    name: str | None = None
+    age_class: str | None = None
+    primary_color: str | None = None
+    secondary_color: str | None = None
 
 
 def _model_values(model: BaseModel) -> dict:
@@ -172,6 +183,51 @@ def put_admin_cupinfo(
     if not cupinfo:
         raise HTTPException(status_code=404,detail="Cup not found or access denied")
     return cupinfo
+
+
+@app.get("/api/admin/cups/{tournament_id}/teams")
+def get_admin_teams(tournament_id:int,authorization:str|None=Header(default=None)):
+    account=_admin_identity(authorization)
+    teams=admin_teams(int(account["id"]),tournament_id)
+    if teams is None:
+        raise HTTPException(status_code=404,detail="Cup not found or access denied")
+    return {"teams":teams}
+
+
+@app.post("/api/admin/cups/{tournament_id}/teams",status_code=201)
+def post_admin_team(tournament_id:int,payload:TeamWrite,authorization:str|None=Header(default=None)):
+    account=_admin_identity(authorization)
+    try:
+        team=create_team(int(account["id"]),tournament_id,_model_values(payload))
+    except ValueError as exc:
+        raise HTTPException(status_code=422,detail=str(exc)) from exc
+    if not team:
+        raise HTTPException(status_code=404,detail="Cup not found or access denied")
+    return team
+
+
+@app.put("/api/admin/cups/{tournament_id}/teams/{team_id}")
+def put_admin_team(tournament_id:int,team_id:int,payload:TeamWrite,authorization:str|None=Header(default=None)):
+    account=_admin_identity(authorization)
+    try:
+        team=update_team(int(account["id"]),tournament_id,team_id,_model_values(payload))
+    except ValueError as exc:
+        raise HTTPException(status_code=422,detail=str(exc)) from exc
+    if not team:
+        raise HTTPException(status_code=404,detail="Lag saknas eller åtkomst nekas")
+    return team
+
+
+@app.delete("/api/admin/cups/{tournament_id}/teams/{team_id}")
+def remove_admin_team(tournament_id:int,team_id:int,authorization:str|None=Header(default=None)):
+    account=_admin_identity(authorization)
+    try:
+        deleted=delete_team(int(account["id"]),tournament_id,team_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=409,detail=str(exc)) from exc
+    if not deleted:
+        raise HTTPException(status_code=404,detail="Lag saknas eller åtkomst nekas")
+    return {"deleted":True,"team":deleted}
 
 
 @app.get("/api/public/cups/{public_key}")

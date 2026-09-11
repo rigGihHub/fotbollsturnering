@@ -17,6 +17,9 @@ CUPINFO_FIELDS = (
     "public_information",
 )
 
+TEAM_FIELDS = ("name", "age_class", "primary_color", "secondary_color")
+TEAM_PROJECTION = "id,tournament_id,name,group_id,age_class,primary_color,secondary_color"
+
 
 def authenticate_organizer(email: str, password: str):
     normalized_email = normalize_email(email)
@@ -107,3 +110,113 @@ def update_cupinfo(account_id: int, tournament_id: int, values: dict):
             if callable(commit):
                 commit()
     return admin_cupinfo(account_id, tournament_id)
+
+
+def admin_teams(account_id: int, tournament_id: int):
+    if not _has_tournament_access(account_id, tournament_id):
+        return None
+    return all_rows(
+        f"SELECT {TEAM_PROJECTION} FROM teams WHERE tournament_id=? ORDER BY name,id",
+        (int(tournament_id),),
+    )
+
+
+def _clean_team(values: dict, *, require_name: bool = False) -> dict:
+    clean = {}
+    for field in TEAM_FIELDS:
+        if field not in values:
+            continue
+        value = values[field]
+        text = str(value).strip() if value is not None else ""
+        clean[field] = text or None
+    if require_name and not clean.get("name"):
+        raise ValueError("Lagnamn krävs")
+    if "name" in clean and not clean["name"]:
+        raise ValueError("Lagnamn krävs")
+    for field in ("primary_color", "secondary_color"):
+        color = clean.get(field)
+        if color is not None and (
+            len(color) != 7 or color[0] != "#" or any(c not in "0123456789abcdefABCDEF" for c in color[1:])
+        ):
+            raise ValueError("Lagfärger måste anges som #RRGGBB")
+    return clean
+
+
+def _team(account_id: int, tournament_id: int, team_id: int):
+    if not _has_tournament_access(account_id, tournament_id):
+        return None
+    return one(
+        f"SELECT {TEAM_PROJECTION} FROM teams WHERE id=? AND tournament_id=?",
+        (int(team_id), int(tournament_id)),
+    )
+
+
+def create_team(account_id: int, tournament_id: int, values: dict):
+    if not _has_tournament_access(account_id, tournament_id):
+        return None
+    clean = _clean_team(values, require_name=True)
+    clean.setdefault("age_class", None)
+    clean.setdefault("primary_color", "#111827")
+    clean.setdefault("secondary_color", "#FFFFFF")
+    with connect() as con:
+        duplicate = con.execute(
+            "SELECT id FROM teams WHERE tournament_id=? AND lower(trim(name))=lower(?)",
+            (int(tournament_id), clean["name"]),
+        ).fetchone()
+        if duplicate:
+            raise ValueError("Det finns redan ett lag med samma namn")
+        cursor = con.execute(
+            """INSERT INTO teams(tournament_id,name,age_class,primary_color,secondary_color)
+               VALUES(?,?,?,?,?)""",
+            (int(tournament_id), clean["name"], clean["age_class"], clean["primary_color"], clean["secondary_color"]),
+        )
+        team_id = int(cursor.lastrowid)
+        commit = getattr(con, "commit", None)
+        if callable(commit):
+            commit()
+    return _team(account_id, tournament_id, team_id)
+
+
+def update_team(account_id: int, tournament_id: int, team_id: int, values: dict):
+    current = _team(account_id, tournament_id, team_id)
+    if not current:
+        return None
+    clean = _clean_team(values)
+    if "name" in clean:
+        duplicate = one(
+            """SELECT id FROM teams WHERE tournament_id=? AND id<>?
+               AND lower(trim(name))=lower(?)""",
+            (int(tournament_id), int(team_id), clean["name"]),
+        )
+        if duplicate:
+            raise ValueError("Det finns redan ett lag med samma namn")
+    if clean:
+        assignments = ",".join(f"{field}=?" for field in clean)
+        with connect() as con:
+            con.execute(
+                f"UPDATE teams SET {assignments} WHERE id=? AND tournament_id=?",
+                (*[clean[field] for field in clean], int(team_id), int(tournament_id)),
+            )
+            commit = getattr(con, "commit", None)
+            if callable(commit):
+                commit()
+    return _team(account_id, tournament_id, team_id)
+
+
+def delete_team(account_id: int, tournament_id: int, team_id: int):
+    current = _team(account_id, tournament_id, team_id)
+    if not current:
+        return None
+    token = f"team:{int(team_id)}"
+    referenced = one(
+        """SELECT id FROM matches WHERE tournament_id=? AND (home_source=? OR away_source=?) LIMIT 1""",
+        (int(tournament_id), token, token),
+    )
+    if referenced:
+        raise ValueError("Laget används i schemat och kan inte tas bort förrän matcherna har hanterats")
+    with connect() as con:
+        con.execute("DELETE FROM teams WHERE id=? AND tournament_id=?", (int(team_id), int(tournament_id)))
+        commit = getattr(con, "commit", None)
+        if callable(commit):
+            commit()
+    return current

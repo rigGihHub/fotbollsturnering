@@ -262,6 +262,7 @@ def main() -> int:
         "tests/test_v615_next_visual_runtime_hardening.py::test_theme_color_uses_viewport_export",
         "tests/test_v615_next_visual_runtime_hardening.py::test_matchday_hero_search_is_not_limited_to_first_18",
         "tests/test_v629_admin_auth_cupinfo.py",
+        "tests/test_v630_admin_team_crud.py",
     ]
     run([sys.executable, "-m", "pytest", *recent_nodes])
     print("CURRENT RELEASE GATE: PASS")
