@@ -1,4 +1,4 @@
-APP_VERSION = "2026.09.11-631-GROUP-CRUD"
+APP_VERSION = "2026.09.11-632-VENUES-TIMES"
 
 
 def release_ui_label(version: str | None = None) -> str:
