@@ -40,7 +40,7 @@ def admin_rules(account_id: int, tournament_id: int):
         return None
     rules = _ensure_schedule_rules(tournament_id)
     state = one(
-        """SELECT COUNT(*) AS scheduled_count,
+        """SELECT SUM(CASE WHEN scheduled_start IS NOT NULL THEN 1 ELSE 0 END) AS scheduled_count,
                   SUM(CASE WHEN home_score IS NOT NULL AND away_score IS NOT NULL THEN 1 ELSE 0 END) AS completed_count
            FROM matches WHERE tournament_id=?""",
         (int(tournament_id),),
