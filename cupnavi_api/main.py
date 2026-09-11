@@ -5,7 +5,7 @@ import hashlib
 import os
 import time
 
-from fastapi import FastAPI, Header, HTTPException, Query, Response, Request
+from fastapi import FastAPI, Header, HTTPException, Response, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
@@ -23,6 +23,13 @@ from .admin_repository import (
     organizer_tournaments,
     update_cupinfo,
     update_team,
+)
+from .group_admin_repository import (
+    admin_groups,
+    assign_team_group,
+    create_group,
+    delete_group,
+    update_group,
 )
 from .repository import (
     public_tournament, public_teams, public_groups, public_matches, public_venue_points,
@@ -65,6 +72,15 @@ class TeamWrite(BaseModel):
     age_class: str | None = None
     primary_color: str | None = None
     secondary_color: str | None = None
+
+
+class GroupWrite(BaseModel):
+    name: str | None = None
+    age_class: str | None = None
+
+
+class TeamGroupWrite(BaseModel):
+    group_id: int | None = None
 
 
 def _model_values(model: BaseModel) -> dict:
@@ -140,20 +156,13 @@ def admin_login(payload:AdminLoginRequest):
         token=issue_session(account)
     except RuntimeError as exc:
         raise HTTPException(status_code=503,detail="Admin sessions are not configured") from exc
-    return {
-        "token":token,
-        "account":account,
-        "cups":organizer_tournaments(int(account["id"])),
-    }
+    return {"token":token,"account":account,"cups":organizer_tournaments(int(account["id"]))}
 
 
 @app.get("/api/admin/session")
 def admin_session(authorization:str|None=Header(default=None)):
     account=_admin_identity(authorization)
-    return {
-        "account":account,
-        "cups":organizer_tournaments(int(account["id"])),
-    }
+    return {"account":account,"cups":organizer_tournaments(int(account["id"]))}
 
 
 @app.get("/api/admin/cups/{tournament_id}/cupinfo")
@@ -166,18 +175,10 @@ def get_admin_cupinfo(tournament_id:int,authorization:str|None=Header(default=No
 
 
 @app.put("/api/admin/cups/{tournament_id}/cupinfo")
-def put_admin_cupinfo(
-    tournament_id:int,
-    payload:CupInfoUpdate,
-    authorization:str|None=Header(default=None),
-):
+def put_admin_cupinfo(tournament_id:int,payload:CupInfoUpdate,authorization:str|None=Header(default=None)):
     account=_admin_identity(authorization)
     try:
-        cupinfo=update_cupinfo(
-            int(account["id"]),
-            tournament_id,
-            _model_values(payload),
-        )
+        cupinfo=update_cupinfo(int(account["id"]),tournament_id,_model_values(payload))
     except ValueError as exc:
         raise HTTPException(status_code=422,detail=str(exc)) from exc
     if not cupinfo:
@@ -228,6 +229,63 @@ def remove_admin_team(tournament_id:int,team_id:int,authorization:str|None=Heade
     if not deleted:
         raise HTTPException(status_code=404,detail="Lag saknas eller åtkomst nekas")
     return {"deleted":True,"team":deleted}
+
+
+@app.get("/api/admin/cups/{tournament_id}/groups")
+def get_admin_groups(tournament_id:int,authorization:str|None=Header(default=None)):
+    account=_admin_identity(authorization)
+    groups=admin_groups(int(account["id"]),tournament_id)
+    if groups is None:
+        raise HTTPException(status_code=404,detail="Cup not found or access denied")
+    return {"groups":groups}
+
+
+@app.post("/api/admin/cups/{tournament_id}/groups",status_code=201)
+def post_admin_group(tournament_id:int,payload:GroupWrite,authorization:str|None=Header(default=None)):
+    account=_admin_identity(authorization)
+    try:
+        group=create_group(int(account["id"]),tournament_id,_model_values(payload))
+    except ValueError as exc:
+        raise HTTPException(status_code=422,detail=str(exc)) from exc
+    if not group:
+        raise HTTPException(status_code=404,detail="Cup not found or access denied")
+    return group
+
+
+@app.put("/api/admin/cups/{tournament_id}/groups/{group_id}")
+def put_admin_group(tournament_id:int,group_id:int,payload:GroupWrite,authorization:str|None=Header(default=None)):
+    account=_admin_identity(authorization)
+    try:
+        group=update_group(int(account["id"]),tournament_id,group_id,_model_values(payload))
+    except ValueError as exc:
+        raise HTTPException(status_code=422,detail=str(exc)) from exc
+    if not group:
+        raise HTTPException(status_code=404,detail="Grupp saknas eller åtkomst nekas")
+    return group
+
+
+@app.delete("/api/admin/cups/{tournament_id}/groups/{group_id}")
+def remove_admin_group(tournament_id:int,group_id:int,authorization:str|None=Header(default=None)):
+    account=_admin_identity(authorization)
+    try:
+        deleted=delete_group(int(account["id"]),tournament_id,group_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=409,detail=str(exc)) from exc
+    if not deleted:
+        raise HTTPException(status_code=404,detail="Grupp saknas eller åtkomst nekas")
+    return {"deleted":True,"group":deleted}
+
+
+@app.put("/api/admin/cups/{tournament_id}/teams/{team_id}/group")
+def put_admin_team_group(tournament_id:int,team_id:int,payload:TeamGroupWrite,authorization:str|None=Header(default=None)):
+    account=_admin_identity(authorization)
+    try:
+        team=assign_team_group(int(account["id"]),tournament_id,team_id,payload.group_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=422,detail=str(exc)) from exc
+    if not team:
+        raise HTTPException(status_code=404,detail="Lag saknas eller åtkomst nekas")
+    return team
 
 
 @app.get("/api/public/cups/{public_key}")
@@ -300,12 +358,7 @@ def team_summary(public_key:str,team_id:int):
         raise HTTPException(status_code=404,detail="Team not found")
     standings_rows=_standings_payload(tournament)
     standings_by_group={int(item["group"]["id"]):item["rows"] for item in standings_rows}
-    summary=team_competition_summary(
-        team_id,
-        public_matches(tid),
-        standings_by_group,
-        team.get("group_id"),
-    )
+    summary=team_competition_summary(team_id,public_matches(tid),standings_by_group,team.get("group_id"))
     return {"team":team,"summary":summary,"notifications":public_notifications(tid,team_id)}
 
 
