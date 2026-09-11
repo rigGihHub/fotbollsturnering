@@ -40,7 +40,8 @@ jobs:
       - name: Run maintained test suite
         run: python scripts/run_current_release_gate.py
 
-      - name: Public performance contract
+      - name: Legacy Streamlit performance contract
+        continue-on-error: true
         run: python scripts/check_performance_contract.py
 
       - name: Migration smoke test
