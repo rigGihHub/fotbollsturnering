@@ -1,0 +1,38 @@
+name: Legacy audit
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 2 * * 0"
+
+jobs:
+  historical-python:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+      - run: pip install -r requirements-dev.txt
+      - name: Full historical pytest inventory
+        continue-on-error: true
+        run: pytest --tb=no
+      - name: Legacy Streamlit performance contract
+        continue-on-error: true
+        run: python scripts/check_performance_contract.py
+
+  legacy-browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r requirements.txt -r requirements-dev.txt
+      - run: python -m playwright install --with-deps chromium
+      - name: Streamlit critical journey
+        continue-on-error: true
+        run: pytest -q e2e/test_streamlit_critical_journey.py
