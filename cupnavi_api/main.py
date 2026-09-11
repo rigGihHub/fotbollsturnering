@@ -1,17 +1,30 @@
-"""Standalone read-only public API for the future CupNavi PWA."""
+"""CupNavi API for the public PWA and authenticated organizer admin."""
 from __future__ import annotations
-from fastapi import FastAPI, HTTPException, Query, Response, Request
-import os, time
+
+import os
+import time
+
+from fastapi import FastAPI, Header, HTTPException, Query, Response, Request
 from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
+
 from cupnavi_core.version import APP_VERSION
 from cupnavi_core.public_competition import calculate_group_table, team_competition_summary
+from .admin_auth import issue_session, verify_session
+from .admin_repository import (
+    admin_cupinfo,
+    authenticate_organizer,
+    organizer_account,
+    organizer_tournaments,
+    update_cupinfo,
+)
 from .repository import (
     public_tournament, public_teams, public_groups, public_matches, public_venue_points,
     public_notifications, public_brackets, public_snapshot, public_statistics,
     backend_name, standings_inputs, database_probe
 )
 
-app=FastAPI(title="CupNavi Public API",version=APP_VERSION,docs_url="/docs",redoc_url=None)
+app=FastAPI(title="CupNavi API",version=APP_VERSION,docs_url="/docs",redoc_url=None)
 
 _cors_origins=[
     item.strip() for item in os.getenv("CUPNAVI_PWA_ORIGINS","*").split(",") if item.strip()
@@ -20,9 +33,26 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=_cors_origins or ["*"],
     allow_credentials=False,
-    allow_methods=["GET"],
-    allow_headers=["*"],
+    allow_methods=["GET","POST","PUT","OPTIONS"],
+    allow_headers=["Authorization","Content-Type"],
 )
+
+
+class AdminLoginRequest(BaseModel):
+    email: str
+    password: str
+
+
+class CupInfoUpdate(BaseModel):
+    name: str | None = None
+    start_date: str | None = None
+    end_date: str | None = None
+    organizer: str | None = None
+    arena_address: str | None = None
+    organizer_phone: str | None = None
+    feedback_email: str | None = None
+    public_information: str | None = None
+
 
 @app.middleware("http")
 async def add_server_timing(request:Request, call_next):
@@ -32,6 +62,19 @@ async def add_server_timing(request:Request, call_next):
     response.headers["Server-Timing"]=f"app;dur={elapsed_ms:.1f}"
     response.headers["X-CupNavi-Process-Ms"]=f"{elapsed_ms:.1f}"
     return response
+
+
+def _admin_identity(authorization: str | None):
+    if not authorization or not authorization.lower().startswith("bearer "):
+        raise HTTPException(status_code=401,detail="Authentication required")
+    payload=verify_session(authorization.split(" ",1)[1].strip())
+    if not payload:
+        raise HTTPException(status_code=401,detail="Session expired or invalid")
+    account=organizer_account(int(payload["sub"]))
+    if not account:
+        raise HTTPException(status_code=401,detail="Organizer account unavailable")
+    return account
+
 
 @app.get("/health")
 def health(response:Response):
@@ -47,12 +90,68 @@ def health(response:Response):
         "database_error":probe["error"],
     }
 
+
+@app.post("/api/admin/session")
+def admin_login(payload:AdminLoginRequest):
+    account=authenticate_organizer(payload.email,payload.password)
+    if not account:
+        raise HTTPException(status_code=401,detail="Fel e-postadress eller lösenord")
+    try:
+        token=issue_session(account)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503,detail="Admin sessions are not configured") from exc
+    return {
+        "token":token,
+        "account":account,
+        "cups":organizer_tournaments(int(account["id"])),
+    }
+
+
+@app.get("/api/admin/session")
+def admin_session(authorization:str|None=Header(default=None)):
+    account=_admin_identity(authorization)
+    return {
+        "account":account,
+        "cups":organizer_tournaments(int(account["id"])),
+    }
+
+
+@app.get("/api/admin/cups/{tournament_id}/cupinfo")
+def get_admin_cupinfo(tournament_id:int,authorization:str|None=Header(default=None)):
+    account=_admin_identity(authorization)
+    cupinfo=admin_cupinfo(int(account["id"]),tournament_id)
+    if not cupinfo:
+        raise HTTPException(status_code=404,detail="Cup not found or access denied")
+    return cupinfo
+
+
+@app.put("/api/admin/cups/{tournament_id}/cupinfo")
+def put_admin_cupinfo(
+    tournament_id:int,
+    payload:CupInfoUpdate,
+    authorization:str|None=Header(default=None),
+):
+    account=_admin_identity(authorization)
+    try:
+        cupinfo=update_cupinfo(
+            int(account["id"]),
+            tournament_id,
+            payload.model_dump(exclude_unset=True),
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=422,detail=str(exc)) from exc
+    if not cupinfo:
+        raise HTTPException(status_code=404,detail="Cup not found or access denied")
+    return cupinfo
+
+
 @app.get("/api/public/cups/{public_key}")
 def cup(public_key:str):
     snapshot=public_snapshot(public_key)
     if not snapshot:
         raise HTTPException(status_code=404,detail="Cup not found or not published")
     return snapshot
+
 
 def _standings_payload(tournament):
     result=[]
@@ -70,6 +169,7 @@ def _standings_payload(tournament):
         result.append({"group":group,"rows":rows})
     return result
 
+
 @app.get("/api/public/cups/{public_key}/standings")
 def standings(public_key:str):
     tournament=public_tournament(public_key)
@@ -77,12 +177,14 @@ def standings(public_key:str):
         raise HTTPException(status_code=404,detail="Cup not found or not published")
     return {"groups":_standings_payload(tournament)}
 
+
 @app.get("/api/public/cups/{public_key}/playoffs")
 def playoffs(public_key:str):
     tournament=public_tournament(public_key)
     if not tournament:
         raise HTTPException(status_code=404,detail="Cup not found or not published")
     return {"playoff_format":tournament.get("playoff_format"),"brackets":public_brackets(int(tournament["id"]))}
+
 
 @app.get("/api/public/cups/{public_key}/statistics")
 def statistics(public_key:str):
@@ -99,6 +201,7 @@ def statistics(public_key:str):
         },
         **payload,
     }
+
 
 @app.get("/api/public/cups/{public_key}/teams/{team_id}/summary")
 def team_summary(public_key:str,team_id:int):
@@ -119,6 +222,7 @@ def team_summary(public_key:str,team_id:int):
         team.get("group_id"),
     )
     return {"team":team,"summary":summary,"notifications":public_notifications(tid,team_id)}
+
 
 @app.get("/api/public/cups/{public_key}/teams/{team_id}/notifications")
 def team_notifications(public_key:str,team_id:int):
