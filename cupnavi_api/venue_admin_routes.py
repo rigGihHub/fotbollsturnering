@@ -4,6 +4,7 @@ from __future__ import annotations
 from fastapi import Header, HTTPException
 from pydantic import BaseModel
 
+from .competition_admin_routes import register_competition_admin_routes
 from .rules_admin_repository import admin_rules, update_rules
 from .schedule_admin_repository import admin_schedule, update_match_schedule
 from .venue_admin_repository import (
@@ -166,3 +167,5 @@ def register_venue_admin_routes(app, admin_identity):
         if result is None:
             raise HTTPException(status_code=404, detail="Match saknas eller åtkomst nekas")
         return result
+
+    register_competition_admin_routes(app, admin_identity)
