@@ -1,10 +1,11 @@
-"""FastAPI route registration for referee, playoff, publication and reporting administration."""
+"""FastAPI route registration for referee, playoff, publication, reporting and exports."""
 from __future__ import annotations
 from fastapi import Header,HTTPException
 from pydantic import BaseModel
 from .playoff_admin_repository import admin_playoffs,update_playoff_settings
 from .referee_admin_repository import admin_referees,assign_referee,create_referee,delete_referee,update_referee
 from .publish_reporting_routes import register_publish_reporting_routes
+from .export_routes import register_export_routes
 class RefereeWrite(BaseModel):
  name:str|None=None;email:str|None=None;phone:str|None=None;notes:str|None=None;active:bool|None=None
 class RefereeAssignmentWrite(BaseModel):referee_id:int|None=None
@@ -59,3 +60,4 @@ def register_competition_admin_routes(app,admin_identity):
   if r is None:raise HTTPException(404,'Cup not found or access denied')
   return r
  register_publish_reporting_routes(app,admin_identity)
+ register_export_routes(app,admin_identity)
