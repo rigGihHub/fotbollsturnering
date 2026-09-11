@@ -1,10 +1,8 @@
 """Organizer-scoped read/write access for the CupNavi admin API."""
 from __future__ import annotations
 
-import hashlib
 import hmac
 
-from cupnavi_core.rate_limit import consume_rate_limit
 from .admin_auth import normalize_email, password_hash
 from .repository import all_rows, connect, one
 
@@ -22,21 +20,6 @@ CUPINFO_FIELDS = (
 
 def authenticate_organizer(email: str, password: str):
     normalized_email = normalize_email(email)
-    subject_hash = hashlib.sha256(normalized_email.encode("utf-8")).hexdigest()
-    with connect() as con:
-        allowed, _, _ = consume_rate_limit(
-            con,
-            scope="admin_login_email",
-            subject_hash=subject_hash,
-            limit=10,
-            window_seconds=15 * 60,
-        )
-        commit = getattr(con, "commit", None)
-        if callable(commit):
-            commit()
-    if not allowed:
-        return None
-
     account = one(
         """SELECT id,email,display_name,password_salt,password_hash,disabled_at
            FROM organizer_accounts WHERE email=?""",
