@@ -1,6 +1,7 @@
 """CupNavi API for the public PWA and authenticated organizer admin."""
 from __future__ import annotations
 
+import hashlib
 import os
 import time
 
@@ -10,7 +11,8 @@ from pydantic import BaseModel
 
 from cupnavi_core.version import APP_VERSION
 from cupnavi_core.public_competition import calculate_group_table, team_competition_summary
-from .admin_auth import issue_session, verify_session
+from cupnavi_core.rate_limit import consume_rate_limit
+from .admin_auth import issue_session, normalize_email, verify_session
 from .admin_repository import (
     admin_cupinfo,
     authenticate_organizer,
@@ -21,7 +23,7 @@ from .admin_repository import (
 from .repository import (
     public_tournament, public_teams, public_groups, public_matches, public_venue_points,
     public_notifications, public_brackets, public_snapshot, public_statistics,
-    backend_name, standings_inputs, database_probe
+    backend_name, standings_inputs, database_probe, connect,
 )
 
 app=FastAPI(title="CupNavi API",version=APP_VERSION,docs_url="/docs",redoc_url=None)
@@ -52,6 +54,14 @@ class CupInfoUpdate(BaseModel):
     organizer_phone: str | None = None
     feedback_email: str | None = None
     public_information: str | None = None
+
+
+def _model_values(model: BaseModel) -> dict:
+    """Support both Pydantic v1 and v2 without pinning CupNavi to one major."""
+    model_dump=getattr(model,"model_dump",None)
+    if callable(model_dump):
+        return model_dump(exclude_unset=True)
+    return model.dict(exclude_unset=True)
 
 
 @app.middleware("http")
@@ -93,7 +103,26 @@ def health(response:Response):
 
 @app.post("/api/admin/session")
 def admin_login(payload:AdminLoginRequest):
-    account=authenticate_organizer(payload.email,payload.password)
+    email=normalize_email(payload.email)
+    subject_hash=hashlib.sha256(email.encode("utf-8")).hexdigest()
+    with connect() as con:
+        allowed,retry_after,_=consume_rate_limit(
+            con,
+            scope="admin_login",
+            subject_hash=subject_hash,
+            limit=10,
+            window_seconds=900,
+        )
+        commit=getattr(con,"commit",None)
+        if callable(commit):
+            commit()
+    if not allowed:
+        raise HTTPException(
+            status_code=429,
+            detail="För många inloggningsförsök",
+            headers={"Retry-After":str(retry_after)},
+        )
+    account=authenticate_organizer(email,payload.password)
     if not account:
         raise HTTPException(status_code=401,detail="Fel e-postadress eller lösenord")
     try:
@@ -136,7 +165,7 @@ def put_admin_cupinfo(
         cupinfo=update_cupinfo(
             int(account["id"]),
             tournament_id,
-            payload.model_dump(exclude_unset=True),
+            _model_values(payload),
         )
     except ValueError as exc:
         raise HTTPException(status_code=422,detail=str(exc)) from exc
