@@ -31,6 +31,7 @@ from .group_admin_repository import (
     delete_group,
     update_group,
 )
+from .venue_admin_routes import register_venue_admin_routes
 from .repository import (
     public_tournament, public_teams, public_groups, public_matches, public_venue_points,
     public_notifications, public_brackets, public_snapshot, public_statistics,
@@ -111,6 +112,9 @@ def _admin_identity(authorization: str | None):
     if not account:
         raise HTTPException(status_code=401,detail="Organizer account unavailable")
     return account
+
+
+register_venue_admin_routes(app, _admin_identity)
 
 
 @app.get("/health")
