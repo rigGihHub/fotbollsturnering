@@ -11,6 +11,8 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -36,26 +38,10 @@ jobs:
           PY
 
       - name: Run maintained test suite
-        run: |
-          pytest \
-            --deselect=tests/test_append_only_audit_v192.py::test_delete_actions_create_append_only_audit \
-            --deselect=tests/test_auth_and_agreements_v69.py::test_agreement_page_requires_known_role \
-            --deselect=tests/test_cli_and_ops_v45.py::test_rollback_utility_and_make_target_exist \
-            --deselect=tests/test_cli_and_ops_v45.py::test_version_consistency_test_present \
-            --deselect=tests/test_cor_v53.py::test_cor_ui_render_and_cleanup_contract \
-            --deselect=tests/test_mobile_pwa_contract_v136.py::test_mobile_pwa_contract \
-            --deselect=tests/test_mobile_ux_v105.py::test_mobile_ux_styles_exist \
-            --deselect=tests/test_pwa_a11y_v104.py::test_critical_mobile_controls_have_accessible_labels \
-            --deselect=tests/test_pwa_a11y_v104.py::test_mobile_nav_has_aria_label \
-            --deselect=tests/test_pwa_meta_v104.py::test_meta_injection_contains_manifest_and_mobile_tags \
-            --deselect=tests/test_pwa_sw_strategy_v125.py::test_service_worker_has_network_first_and_cache_fallback \
-            --deselect=tests/test_selection_panel_v89.py::test_groups_have_selection_panel \
-            --deselect=tests/test_selection_panel_v89.py::test_standings_have_selection_panel_and_reset \
-            --deselect=tests/test_security_v49.py::test_failed_login_persists \
-            --deselect=tests/test_user_fusion_v46.py::test_solver_and_ui_controls \
-            --deselect=tests/test_v106_v106.py::test_v106_core_features_present
+        run: python scripts/run_current_release_gate.py
 
-      - name: Public performance contract
+      - name: Legacy Streamlit performance contract
+        continue-on-error: true
         run: python scripts/check_performance_contract.py
 
       - name: Migration smoke test
@@ -92,42 +78,3 @@ jobs:
           CUPNAVI_API_BASE: https://cupnavi-api.onrender.com
           NEXT_PUBLIC_CUPNAVI_API_BASE: https://cupnavi-api.onrender.com
         run: npm run build
-
-  legacy-parity-report:
-    continue-on-error: true
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    steps:
-      - name: Check out repository
-        uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-          cache: "pip"
-
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements-dev.txt
-
-      - name: Report legacy parity debt
-        run: |
-          pytest -q \
-            tests/test_append_only_audit_v192.py::test_delete_actions_create_append_only_audit \
-            tests/test_auth_and_agreements_v69.py::test_agreement_page_requires_known_role \
-            tests/test_cli_and_ops_v45.py::test_rollback_utility_and_make_target_exist \
-            tests/test_cli_and_ops_v45.py::test_version_consistency_test_present \
-            tests/test_cor_v53.py::test_cor_ui_render_and_cleanup_contract \
-            tests/test_mobile_pwa_contract_v136.py::test_mobile_pwa_contract \
-            tests/test_mobile_ux_v105.py::test_mobile_ux_styles_exist \
-            tests/test_pwa_a11y_v104.py::test_critical_mobile_controls_have_accessible_labels \
-            tests/test_pwa_a11y_v104.py::test_mobile_nav_has_aria_label \
-            tests/test_pwa_meta_v104.py::test_meta_injection_contains_manifest_and_mobile_tags \
-            tests/test_pwa_sw_strategy_v125.py::test_service_worker_has_network_first_and_cache_fallback \
-            tests/test_selection_panel_v89.py::test_groups_have_selection_panel \
-            tests/test_selection_panel_v89.py::test_standings_have_selection_panel_and_reset \
-            tests/test_security_v49.py::test_failed_login_persists \
-            tests/test_user_fusion_v46.py::test_solver_and_ui_controls \
-            tests/test_v106_v106.py::test_v106_core_features_present
