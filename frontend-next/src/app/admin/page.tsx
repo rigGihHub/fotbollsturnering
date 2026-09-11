@@ -1,5 +1,3 @@
 import AdminWorkspace from "@/components/admin-workspace";
-
-export default function AdminPage() {
-  return <AdminWorkspace />;
-}
+import PublishReportingAdmin from "@/components/publish-reporting-admin";
+export default function AdminPage(){return <><AdminWorkspace/><PublishReportingAdmin/></>}
