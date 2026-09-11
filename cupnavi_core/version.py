@@ -1,4 +1,4 @@
-APP_VERSION = "2026.09.11-636-PDF-EXPORT"
+APP_VERSION = "2026.09.11-637-SAFE-IMPORT"
 
 
 def release_ui_label(version: str | None = None) -> str:
