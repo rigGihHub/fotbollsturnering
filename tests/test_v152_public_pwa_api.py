@@ -1,10 +1,12 @@
 from pathlib import Path
 ROOT=Path(__file__).resolve().parents[1]
 
-def test_api_is_read_only_public_surface():
+def test_public_api_is_read_only_even_when_admin_api_can_write():
     main=(ROOT/"cupnavi_api/main.py").read_text()
     assert '@app.get("/api/public/cups/{public_key}")' in main
-    assert '@app.post' not in main and '@app.put' not in main and '@app.delete' not in main
+    assert '@app.post("/api/public/' not in main
+    assert '@app.put("/api/public/' not in main
+    assert '@app.delete("/api/public/' not in main
 
 def test_api_hides_unpublished_cups():
     repo=(ROOT/"cupnavi_api/repository.py").read_text()
