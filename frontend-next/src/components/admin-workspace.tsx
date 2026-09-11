@@ -2,6 +2,8 @@
 
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import VenueAdmin from "./venue-admin";
+import RulesAdmin from "./rules-admin";
+import ScheduleAdmin from "./schedule-admin";
 
 const API_BASE = (process.env.NEXT_PUBLIC_CUPNAVI_API_BASE || "http://localhost:8000").replace(/\/$/, "");
 const TOKEN_KEY = "cupnavi_admin_session_v629";
@@ -13,8 +15,6 @@ const nav = [
 ];
 
 const modules = [
-  ["rules","06","Regler","Poängregler, vilotid, färgkrockar och turneringsinställningar."],
-  ["schedule","07","Schema","Generera dynamiskt schema eller justera ett importerat schema manuellt."],
   ["referees","08","Domare","Lägg in domare nu eller tillsätt dem senare."],
   ["playoffs","09","Slutspel","A/B-slutspel, valbara kvalificerade placeringar, bronsmatch och final."],
   ["publish","10","Publicering","Förhandsgranska cupen och publicera först när checklistan är klar."],
@@ -247,7 +247,7 @@ export default function AdminWorkspace() {
 
   const publicCup = activeCup?.public_slug ? `/cup/${activeCup.public_slug}` : null;
   const groupedTeams = teams.filter(team=>team.group_id != null).length;
-  const checks = [["Cupinfo",cupinfo?.name ? "Påbörjad":"Ej klar"],["Lag",teams.length?`${teams.length} registrerade`:"Ej klar"],["Grupper",groups.length?`${groups.length} grupper · ${groupedTeams}/${teams.length} lag`:"Ej klar"],["Schema","Ej klar"],["Publicering",activeCup?.is_published ? "Publicerad":"Ej klar"]];
+  const checks = [["Cupinfo",cupinfo?.name ? "Påbörjad":"Ej klar"],["Lag",teams.length?`${teams.length} registrerade`:"Ej klar"],["Grupper",groups.length?`${groups.length} grupper · ${groupedTeams}/${teams.length} lag`:"Ej klar"],["Schema","Riktig modul inkopplad"],["Publicering",activeCup?.is_published ? "Publicerad":"Ej klar"]];
 
   return <main className="admin-workspace">
     <aside className="admin-sidebar">
@@ -330,6 +330,8 @@ export default function AdminWorkspace() {
       </section>
 
       {token && cupId && <VenueAdmin token={token} cupId={cupId} />}
+      {token && cupId && <RulesAdmin token={token} cupId={cupId} />}
+      {token && cupId && <ScheduleAdmin token={token} cupId={cupId} />}
 
       <section className="admin-module-grid" aria-label="Cupens arbetsflöde">{modules.map(([id,n,title,text])=><article className="admin-panel admin-module-card" id={id} key={id}><div className="admin-panel__top"><span>{n} / MODUL</span><strong>FÖRBEREDD</strong></div><h2>{title}</h2><p>{text}</p><button disabled>Öppna när datalagret är inkopplat</button></article>)}</section>
     </section>
