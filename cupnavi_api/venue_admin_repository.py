@@ -170,6 +170,11 @@ def update_venue_rules(account_id: int, tournament_id: int, values: dict):
                    synchronized_pitch_times=?,consider_pitch_travel=? WHERE tournament_id=?""",
             (pitch_count, first_time, latest_time, synchronized, consider_travel, int(tournament_id)),
         )
+        con.execute(
+            """UPDATE pitch_day_windows SET start_time=?,end_time=?
+               WHERE tournament_id=? AND confirmed=0""",
+            (first_time, latest_time, int(tournament_id)),
+        )
         _ensure_pitch_rows(con, tournament_id, pitch_count)
         _ensure_pitch_windows(con, tournament_id, pitch_count, dates, first_time, latest_time)
         _mark_schedule_dirty(con, tournament_id)
