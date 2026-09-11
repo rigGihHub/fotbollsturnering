@@ -15,9 +15,7 @@ jobs:
       - run: pip install -r requirements.txt -r requirements-dev.txt
       - run: python -m compileall -q .
       - name: Run maintained quality tests
-        env:
-          CUPNAVI_BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
-        run: python scripts/check_pytest_regressions.py --base-sha "$CUPNAVI_BASE_SHA"
+        run: python scripts/run_current_release_gate.py
       - run: python scripts/check_schema_contract.py
       - name: Create public parity fixture
         run: python scripts/create_parity_fixture.py

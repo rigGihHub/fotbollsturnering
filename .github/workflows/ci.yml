@@ -38,9 +38,7 @@ jobs:
           PY
 
       - name: Run maintained test suite
-        env:
-          CUPNAVI_BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
-        run: python scripts/check_pytest_regressions.py --base-sha "$CUPNAVI_BASE_SHA"
+        run: python scripts/run_current_release_gate.py
 
       - name: Public performance contract
         run: python scripts/check_performance_contract.py
