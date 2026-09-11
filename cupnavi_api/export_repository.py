@@ -43,11 +43,10 @@ def export_snapshot(account_id: int, tournament_id: int):
            ORDER BY COALESCE(scheduled_start,''),stage,round_no,match_no,id""",
         (int(tournament_id),),
     )
-    pitches = []
-    try:
-        pitches = all_rows("SELECT pitch_number,name,address FROM tournament_pitches WHERE tournament_id=? ORDER BY pitch_number", (int(tournament_id),))
-    except Exception:
-        pass
+    pitches = all_rows(
+        "SELECT pitch_number,name,address FROM pitches WHERE tournament_id=? ORDER BY pitch_number",
+        (int(tournament_id),),
+    )
     return {"tournament": tournament, "groups": groups, "teams": teams, "matches": matches, "pitches": pitches}
 
 
@@ -117,8 +116,9 @@ def build_cup_pdf(account_id: int, tournament_id: int):
             if match.get("home_penalties") is not None or match.get("away_penalties") is not None:
                 score += f" ({_text(match.get('home_penalties'))}–{_text(match.get('away_penalties'))} str.)"
         stage = _text(match.get("stage"))
-        if match.get("group_id") in groups_by_id:
-            stage = f"{stage} · {groups_by_id[int(match['group_id'])]}"
+        group_id = match.get("group_id")
+        if group_id is not None and int(group_id) in groups_by_id:
+            stage = f"{stage} · {groups_by_id[int(group_id)]}"
         rows.append([_text(match.get("scheduled_start")), _text(match.get("pitch_number")), stage, f"{home} – {away}", score])
     if len(rows) == 1:
         rows.append(["", "", "", "Inga matcher skapade", ""])
