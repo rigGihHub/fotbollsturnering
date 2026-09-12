@@ -1,8 +1,9 @@
 "use client";
 
 import { ChangeEvent, useState } from "react";
+import { CLIENT_API_BASE } from "../lib/client-api";
 
-const API=(process.env.NEXT_PUBLIC_CUPNAVI_API_BASE||"http://localhost:8000").replace(/\/$/,"");
+const API=CLIENT_API_BASE;
 type Row={row:number;name:string;age_class?:string|null;group?:string|null;group_id?:number|null;primary_color:string;secondary_color:string;errors:string[];warnings:string[];valid:boolean};
 type Preview={filename:string;rows:Row[];valid_count:number;error_count:number};
 
