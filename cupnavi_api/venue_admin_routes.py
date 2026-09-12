@@ -7,6 +7,7 @@ from pydantic import BaseModel
 from .competition_admin_routes import register_competition_admin_routes
 from .rules_admin_repository import admin_rules, update_rules
 from .schedule_admin_repository import admin_schedule, update_match_schedule
+from .schedule_generation_repository import apply_generated_schedule, preview_generated_schedule
 from .venue_admin_repository import (
     admin_venues,
     update_pitch,
@@ -51,6 +52,10 @@ class CompetitionRulesWrite(BaseModel):
 class MatchScheduleWrite(BaseModel):
     scheduled_start: str | None = None
     pitch_number: int | None = None
+
+
+class GeneratedScheduleWrite(BaseModel):
+    allow_partial: bool = False
 
 
 def _model_values(model: BaseModel) -> dict:
@@ -166,6 +171,39 @@ def register_venue_admin_routes(app, admin_identity):
             raise HTTPException(status_code=422, detail=str(exc)) from exc
         if result is None:
             raise HTTPException(status_code=404, detail="Match saknas eller åtkomst nekas")
+        return result
+
+    @app.get("/api/admin/cups/{tournament_id}/schedule/generation-preview")
+    def get_generated_schedule_preview(
+        tournament_id: int,
+        authorization: str | None = Header(default=None),
+    ):
+        account = admin_identity(authorization)
+        try:
+            result = preview_generated_schedule(int(account["id"]), tournament_id)
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+        if result is None:
+            raise HTTPException(status_code=404, detail="Cup not found or access denied")
+        return result
+
+    @app.post("/api/admin/cups/{tournament_id}/schedule/generate")
+    def post_generated_schedule(
+        tournament_id: int,
+        payload: GeneratedScheduleWrite,
+        authorization: str | None = Header(default=None),
+    ):
+        account = admin_identity(authorization)
+        try:
+            result = apply_generated_schedule(
+                int(account["id"]),
+                tournament_id,
+                allow_partial=bool(payload.allow_partial),
+            )
+        except ValueError as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
+        if result is None:
+            raise HTTPException(status_code=404, detail="Cup not found or access denied")
         return result
 
     register_competition_admin_routes(app, admin_identity)
