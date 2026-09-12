@@ -158,11 +158,11 @@ def build_schedule_proposal(matches:list[dict],rules:dict,windows:list[dict])->d
         final_rows.append({**row,"scheduled_start":start.isoformat(timespec="minutes"),"pitch_number":pitch})
     avg_rest=round(sum(quality_rest_minutes)/len(quality_rest_minutes),1) if quality_rest_minutes else None;min_rest=min(quality_rest_minutes) if quality_rest_minutes else None
     starts=[_start(row.get("scheduled_start")) for row in final_rows];starts=[value for value in starts if value is not None]
-    day_span=int((max(starts)-min(starts)).total_seconds()//60) if len(starts)>1 else 0
+    schedule_span=int((max(starts)-min(starts)).total_seconds()//60) if len(starts)>1 else 0
     return {
         "deterministic":True,"writes_database":False,"fingerprint":schedule_proposal_fingerprint(matches,rules,windows),
         "match_duration_minutes":match_minutes,"pitch_break_minutes":pitch_break,"minimum_team_rest_minutes":minimum_rest,
         "preserved_count":preserved,"candidate_count":len(candidates),"placed_count":len(placements),"unresolved_count":len(unresolved),
         "placements":placements,"unresolved":sorted(unresolved,key=lambda item:item["match_id"]),
-        "quality":{"strategy":"round_order_then_bounded_pitch_continuity_and_rest","plan_change_count":quality_plan_changes,"minimum_observed_rest_minutes":min_rest,"average_observed_rest_minutes":avg_rest,"schedule_span_minutes":day_span,"round_order_violation_count":_round_order_violations(final_rows)},
+        "quality":{"strategy":"bounded_pitch_continuity_and_rest","round_order_enforced":True,"plan_change_count":quality_plan_changes,"minimum_observed_rest_minutes":min_rest,"average_observed_rest_minutes":avg_rest,"schedule_span_minutes":schedule_span,"round_order_violation_count":_round_order_violations(final_rows)},
     }
