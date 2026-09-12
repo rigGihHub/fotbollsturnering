@@ -58,11 +58,10 @@ def admin_schedule(account_id: int, tournament_id: int):
     )
     group_names = {int(row["id"]): str(row["name"]) for row in groups}
     team_names = _team_names(tournament_id)
+    # Current production includes bracket_id; historical SQLite fixtures do not.
+    # Reading the full row keeps the analyzer compatible with both shapes.
     rows = all_rows(
-        """SELECT id,group_id,bracket_id,stage,match_no,round_no,home_source,away_source,
-                  scheduled_start,pitch_number,schedule_locked,schedule_published,
-                  home_score,away_score
-           FROM matches WHERE tournament_id=?
+        """SELECT * FROM matches WHERE tournament_id=?
            ORDER BY CASE WHEN scheduled_start IS NULL THEN 1 ELSE 0 END,scheduled_start,
                     stage,group_id,round_no,match_no,id""",
         (int(tournament_id),),
