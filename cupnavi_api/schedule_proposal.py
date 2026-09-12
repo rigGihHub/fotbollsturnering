@@ -22,7 +22,7 @@ def schedule_proposal_fingerprint(matches:list[dict],rules:dict,windows:list[dic
 
 def _team_id(source)->int|None:
     text=str(source or "").strip()
-    if not text.startswith("team:"): return None
+    if not text.startswith("team:"):return None
     try:return int(text.split(":",1)[1])
     except (TypeError,ValueError):return None
 
@@ -63,13 +63,40 @@ def _latest_prior(history:list[tuple[datetime,datetime,int]],start:datetime):
     return max(prior,key=lambda item:item[1]) if prior else None
 
 
-def _quality_score(start:datetime,pitch:int,row:dict,team_history:dict[int,list[tuple[datetime,datetime,int]]],minimum_rest:int,match_minutes:int)->tuple:
-    """Bounded soft preferences; hard schedule constraints are checked first.
+def _group_round(row:dict)->tuple[int,int]|None:
+    try:
+        group_id=int(row.get("group_id"));round_no=int(row.get("round_no"))
+    except (TypeError,ValueError):return None
+    return (group_id,round_no) if round_no>0 else None
 
-    Soft quality is intentionally capped below a normal scheduling slot: pitch
-    continuity and comfort rest may choose between equal/near-equal alternatives,
-    but never postpone a legal match by a complete later slot just for polish.
-    """
+
+def _round_order_ok(row:dict,start:datetime,round_starts:dict[int,list[tuple[int,datetime]]])->bool:
+    key=_group_round(row)
+    if key is None:return True
+    group_id,round_no=key;history=round_starts.get(group_id,[])
+    lower=[kickoff for existing_round,kickoff in history if existing_round<round_no]
+    higher=[kickoff for existing_round,kickoff in history if existing_round>round_no]
+    if lower and start<max(lower):return False
+    if higher and start>min(higher):return False
+    return True
+
+
+def _round_order_violations(rows:list[dict])->int:
+    grouped:dict[int,list[tuple[int,datetime]]]={}
+    for row in rows:
+        key=_group_round(row);start=_start(row.get("scheduled_start"))
+        if key is None or start is None:continue
+        grouped.setdefault(key[0],[]).append((key[1],start))
+    violations=0
+    for history in grouped.values():
+        for i,(round_a,start_a) in enumerate(history):
+            for round_b,start_b in history[i+1:]:
+                if round_a<round_b and start_a>start_b:violations+=1
+                elif round_b<round_a and start_b>start_a:violations+=1
+    return violations
+
+
+def _quality_score(start:datetime,pitch:int,row:dict,team_history:dict[int,list[tuple[datetime,datetime,int]]],minimum_rest:int,match_minutes:int)->tuple:
     plan_changes=0;comfort_penalty=0;teams=_teams(row);comfort_target=minimum_rest+match_minutes
     for team_id in teams:
         prior=_latest_prior(team_history.get(team_id,[]),start)
@@ -77,20 +104,21 @@ def _quality_score(start:datetime,pitch:int,row:dict,team_history:dict[int,list[
         _prior_start,prior_end,prior_pitch=prior
         if prior_pitch!=pitch:plan_changes+=1
         rest=max(0,int((start-prior_end).total_seconds()//60));comfort_penalty+=max(0,comfort_target-rest)
-    bounded_comfort=min(comfort_penalty,15*max(1,len(teams)))
-    absolute_minutes=start.toordinal()*1440+start.hour*60+start.minute
-    soft_cost=plan_changes*7+bounded_comfort
+    bounded_comfort=min(comfort_penalty,10*max(1,len(teams)));absolute_minutes=start.toordinal()*1440+start.hour*60+start.minute
+    soft_cost=plan_changes*5+bounded_comfort
     return (absolute_minutes+soft_cost,absolute_minutes,pitch)
 
 
 def build_schedule_proposal(matches:list[dict],rules:dict,windows:list[dict])->dict:
     match_minutes=_duration_minutes(rules);pitch_break=max(0,int(rules.get("pitch_break_minutes") or 0));minimum_rest=max(0,int(rules.get("minimum_team_rest_minutes") or 0))
     match_span=timedelta(minutes=match_minutes);pitch_span=timedelta(minutes=match_minutes+pitch_break);rest_span=timedelta(minutes=minimum_rest)
-    pitch_busy={};team_busy={};team_history={};preserved=0;unresolved=[];candidates=[]
+    pitch_busy={};team_busy={};team_history={};round_starts={};preserved=0;unresolved=[];candidates=[];final_rows=[]
     for row in matches:
         start=_start(row.get("scheduled_start"))
         if start is not None and row.get("pitch_number") is not None:
-            preserved+=1;pitch=int(row["pitch_number"]);pitch_busy.setdefault(pitch,[]).append((start,start+pitch_span))
+            preserved+=1;pitch=int(row["pitch_number"]);pitch_busy.setdefault(pitch,[]).append((start,start+pitch_span));final_rows.append(dict(row))
+            key=_group_round(row)
+            if key is not None:round_starts.setdefault(key[0],[]).append((key[1],start))
             for team_id in _teams(row):
                 team_busy.setdefault(team_id,[]).append((start,start+match_span));team_history.setdefault(team_id,[]).append((start,start+match_span,pitch))
             continue
@@ -102,7 +130,7 @@ def build_schedule_proposal(matches:list[dict],rules:dict,windows:list[dict])->d
     candidates.sort(key=lambda row:(int(row.get("round_no") or 0),int(row.get("group_id") or 0),int(row.get("match_no") or 0),int(row["id"])))
     available_slots=_slots(windows,rules);placements=[];quality_plan_changes=0;quality_rest_minutes=[]
     for row in candidates:
-        feasible=[]
+        feasible=[];round_blocked=False
         for start,pitch in available_slots:
             pitch_end=start+pitch_span
             if any(start<busy_end and pitch_end>busy_start for busy_start,busy_end in pitch_busy.get(pitch,[])):continue
@@ -111,10 +139,14 @@ def build_schedule_proposal(matches:list[dict],rules:dict,windows:list[dict])->d
                 for busy_start,busy_end in team_busy.get(team_id,[]):
                     if start<busy_end+rest_span and match_end+rest_span>busy_start:team_ok=False;break
                 if not team_ok:break
-            if team_ok:feasible.append((_quality_score(start,pitch,row,team_history,minimum_rest,match_minutes),start,pitch))
+            if not team_ok:continue
+            if not _round_order_ok(row,start,round_starts):round_blocked=True;continue
+            feasible.append((_quality_score(start,pitch,row,team_history,minimum_rest,match_minutes),start,pitch))
         if not feasible:
-            unresolved.append({"match_id":int(row["id"]),"reason":"no_feasible_slot"});continue
+            unresolved.append({"match_id":int(row["id"]),"reason":"round_order_blocked" if round_blocked else "no_feasible_slot"});continue
         _score,start,pitch=min(feasible,key=lambda item:item[0]);pitch_busy.setdefault(pitch,[]).append((start,start+pitch_span))
+        key=_group_round(row)
+        if key is not None:round_starts.setdefault(key[0],[]).append((key[1],start))
         for team_id in _teams(row):
             prior=_latest_prior(team_history.get(team_id,[]),start)
             if prior is not None:
@@ -123,11 +155,14 @@ def build_schedule_proposal(matches:list[dict],rules:dict,windows:list[dict])->d
                 quality_rest_minutes.append(max(0,int((start-prior_end).total_seconds()//60)))
             team_busy.setdefault(team_id,[]).append((start,start+match_span));team_history.setdefault(team_id,[]).append((start,start+match_span,pitch))
         placements.append({"match_id":int(row["id"]),"scheduled_start":start.isoformat(timespec="minutes"),"pitch_number":pitch})
+        final_rows.append({**row,"scheduled_start":start.isoformat(timespec="minutes"),"pitch_number":pitch})
     avg_rest=round(sum(quality_rest_minutes)/len(quality_rest_minutes),1) if quality_rest_minutes else None;min_rest=min(quality_rest_minutes) if quality_rest_minutes else None
+    starts=[_start(row.get("scheduled_start")) for row in final_rows];starts=[value for value in starts if value is not None]
+    schedule_span=int((max(starts)-min(starts)).total_seconds()//60) if len(starts)>1 else 0
     return {
         "deterministic":True,"writes_database":False,"fingerprint":schedule_proposal_fingerprint(matches,rules,windows),
         "match_duration_minutes":match_minutes,"pitch_break_minutes":pitch_break,"minimum_team_rest_minutes":minimum_rest,
         "preserved_count":preserved,"candidate_count":len(candidates),"placed_count":len(placements),"unresolved_count":len(unresolved),
         "placements":placements,"unresolved":sorted(unresolved,key=lambda item:item["match_id"]),
-        "quality":{"strategy":"bounded_pitch_continuity_and_rest","plan_change_count":quality_plan_changes,"minimum_observed_rest_minutes":min_rest,"average_observed_rest_minutes":avg_rest},
+        "quality":{"strategy":"bounded_pitch_continuity_and_rest","round_order_enforced":True,"plan_change_count":quality_plan_changes,"minimum_observed_rest_minutes":min_rest,"average_observed_rest_minutes":avg_rest,"schedule_span_minutes":schedule_span,"round_order_violation_count":_round_order_violations(final_rows)},
     }

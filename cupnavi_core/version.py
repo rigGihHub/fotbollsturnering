@@ -1,4 +1,4 @@
-APP_VERSION = "2026.09.12-641-SCHEDULE-QUALITY"
+APP_VERSION = "2026.09.12-642-ROUND-ORDER-QUALITY"
 
 
 def release_ui_label(version: str | None = None) -> str:
