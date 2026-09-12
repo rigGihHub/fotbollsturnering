@@ -7,6 +7,7 @@ from pydantic import BaseModel
 from .competition_admin_routes import register_competition_admin_routes
 from .rules_admin_repository import admin_rules, update_rules
 from .schedule_admin_repository import admin_schedule, update_match_schedule
+from .schedule_proposal_repository import admin_schedule_proposal
 from .venue_admin_repository import (
     admin_venues,
     update_pitch,
@@ -149,6 +150,14 @@ def register_venue_admin_routes(app, admin_identity):
         if payload is None:
             raise HTTPException(status_code=404, detail="Cup not found or access denied")
         return payload
+
+    @app.post("/api/admin/cups/{tournament_id}/schedule/proposal")
+    def post_admin_schedule_proposal(tournament_id: int, authorization: str | None = Header(default=None)):
+        account = admin_identity(authorization)
+        result = admin_schedule_proposal(int(account["id"]), tournament_id)
+        if result is None:
+            raise HTTPException(status_code=404, detail="Cup not found or access denied")
+        return result
 
     @app.put("/api/admin/cups/{tournament_id}/schedule/matches/{match_id}")
     def put_admin_match_schedule(
