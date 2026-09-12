@@ -1,7 +1,44 @@
 """Deterministic, review-first schedule proposals for existing CupNavi matches."""
 from __future__ import annotations
 
+import hashlib
+import json
 from datetime import datetime, timedelta
+
+
+_FINGERPRINT_MATCH_KEYS = (
+    "id", "group_id", "match_no", "round_no", "home_source", "away_source",
+    "scheduled_start", "pitch_number", "schedule_locked", "home_score", "away_score",
+)
+_FINGERPRINT_RULE_KEYS = (
+    "halves", "minutes_per_half", "halftime_minutes", "pitch_break_minutes",
+    "minimum_team_rest_minutes",
+)
+_FINGERPRINT_WINDOW_KEYS = (
+    "pitch_number", "play_date", "start_time", "end_time", "confirmed",
+)
+
+
+def schedule_proposal_fingerprint(matches: list[dict], rules: dict, windows: list[dict]) -> str:
+    """Return a stable fingerprint for every input that can change a proposal."""
+    payload = {
+        "matches": sorted(
+            [{key: row.get(key) for key in _FINGERPRINT_MATCH_KEYS} for row in matches],
+            key=lambda row: int(row.get("id") or 0),
+        ),
+        "rules": {key: rules.get(key) for key in _FINGERPRINT_RULE_KEYS},
+        "windows": sorted(
+            [{key: row.get(key) for key in _FINGERPRINT_WINDOW_KEYS} for row in windows],
+            key=lambda row: (
+                str(row.get("play_date") or ""),
+                int(row.get("pitch_number") or 0),
+                str(row.get("start_time") or ""),
+                str(row.get("end_time") or ""),
+            ),
+        ),
+    }
+    encoded = json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":"), default=str).encode("utf-8")
+    return hashlib.sha256(encoded).hexdigest()
 
 
 def _team_id(source) -> int | None:
@@ -147,6 +184,7 @@ def build_schedule_proposal(matches: list[dict], rules: dict, windows: list[dict
     return {
         "deterministic": True,
         "writes_database": False,
+        "fingerprint": schedule_proposal_fingerprint(matches, rules, windows),
         "match_duration_minutes": match_minutes,
         "pitch_break_minutes": pitch_break,
         "minimum_team_rest_minutes": minimum_rest,

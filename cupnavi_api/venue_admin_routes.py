@@ -7,7 +7,7 @@ from pydantic import BaseModel
 from .competition_admin_routes import register_competition_admin_routes
 from .rules_admin_repository import admin_rules, update_rules
 from .schedule_admin_repository import admin_schedule, update_match_schedule
-from .schedule_proposal_repository import admin_schedule_proposal
+from .schedule_proposal_repository import ProposalStaleError, admin_schedule_proposal, apply_schedule_proposal
 from .venue_admin_repository import (
     admin_venues,
     update_pitch,
@@ -52,6 +52,10 @@ class CompetitionRulesWrite(BaseModel):
 class MatchScheduleWrite(BaseModel):
     scheduled_start: str | None = None
     pitch_number: int | None = None
+
+
+class ScheduleProposalApply(BaseModel):
+    fingerprint: str
 
 
 def _model_values(model: BaseModel) -> dict:
@@ -155,6 +159,23 @@ def register_venue_admin_routes(app, admin_identity):
     def post_admin_schedule_proposal(tournament_id: int, authorization: str | None = Header(default=None)):
         account = admin_identity(authorization)
         result = admin_schedule_proposal(int(account["id"]), tournament_id)
+        if result is None:
+            raise HTTPException(status_code=404, detail="Cup not found or access denied")
+        return result
+
+    @app.post("/api/admin/cups/{tournament_id}/schedule/proposal/apply")
+    def post_admin_schedule_proposal_apply(
+        tournament_id: int,
+        payload: ScheduleProposalApply,
+        authorization: str | None = Header(default=None),
+    ):
+        account = admin_identity(authorization)
+        try:
+            result = apply_schedule_proposal(int(account["id"]), tournament_id, payload.fingerprint)
+        except ProposalStaleError as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
         if result is None:
             raise HTTPException(status_code=404, detail="Cup not found or access denied")
         return result
