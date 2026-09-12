@@ -1,4 +1,4 @@
-import { CupSnapshot, PublicStatistics, StandingRow } from "./types";
+import { CupSnapshot, Match, PublicStatistics, StandingRow } from "./types";
 
 const API_BASE = (process.env.CUPNAVI_API_BASE || process.env.NEXT_PUBLIC_CUPNAVI_API_BASE || "http://localhost:8000").replace(/\/$/, "");
 
@@ -8,8 +8,23 @@ async function apiGet<T>(path: string): Promise<T> {
   return response.json() as Promise<T>;
 }
 
-export function getCup(publicKey: string) {
-  return apiGet<CupSnapshot>(`/api/public/cups/${encodeURIComponent(publicKey)}`);
+function hydrateMatch(match:Match,cup:CupSnapshot):Match {
+  const resolved=cup.participant_resolution?.[String(match.id)];
+  if (!resolved) return match;
+  return {...match,home_participant:resolved.home,away_participant:resolved.away};
+}
+
+function hydrateParticipants(cup:CupSnapshot):CupSnapshot {
+  return {
+    ...cup,
+    matches:(cup.matches||[]).map(match=>hydrateMatch(match,cup)),
+    brackets:(cup.brackets||[]).map(bracket=>({...bracket,matches:(bracket.matches||[]).map(match=>hydrateMatch(match,cup))})),
+  };
+}
+
+export async function getCup(publicKey: string) {
+  const cup=await apiGet<CupSnapshot>(`/api/public/cups/${encodeURIComponent(publicKey)}`);
+  return hydrateParticipants(cup);
 }
 
 export function getStandings(publicKey: string) {
