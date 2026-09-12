@@ -1,4 +1,4 @@
-APP_VERSION = "2026.09.12-643-ROUND-ORDER-PUBLICATION-GATE"
+APP_VERSION = "2026.09.12-644-PLAYOFF-DEPENDENCIES"
 
 
 def release_ui_label(version: str | None = None) -> str:

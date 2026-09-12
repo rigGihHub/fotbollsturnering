@@ -26,10 +26,10 @@ def _schedule_publication_analysis(tournament_id: int) -> dict:
         (int(tournament_id),),
     )
     group_names = {int(row["id"]): str(row["name"]) for row in group_rows}
+    # Current production includes bracket_id; old fixtures may not. The analyzer
+    # consumes only known keys, so a full-row read preserves both contracts.
     matches = all_rows(
-        """SELECT id,group_id,stage,match_no,round_no,home_source,away_source,
-                  scheduled_start,pitch_number
-           FROM matches WHERE tournament_id=?""",
+        "SELECT * FROM matches WHERE tournament_id=?",
         (int(tournament_id),),
     )
     for match in matches:

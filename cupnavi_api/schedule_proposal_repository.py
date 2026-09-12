@@ -36,12 +36,12 @@ def _load_source(con, tournament_id: int):
         "minimum_team_rest_minutes": 0,
     }
     pitch_count = max(1, int(rules.get("pitch_count") or 1))
+    # SELECT * is deliberate here: legacy SQLite fixtures predate bracket_id,
+    # while current production rows include it. The proposal engine only reads
+    # known keys and therefore stays compatible with both schemas.
     matches = _dict_rows(
         con.execute(
-            """SELECT id,group_id,stage,match_no,round_no,home_source,away_source,
-                      scheduled_start,pitch_number,schedule_locked,schedule_published,
-                      home_score,away_score
-               FROM matches WHERE tournament_id=? ORDER BY id""",
+            "SELECT * FROM matches WHERE tournament_id=? ORDER BY id",
             (tournament_id,),
         )
     )
@@ -63,8 +63,6 @@ def _load_source(con, tournament_id: int):
 def _proposal_source(account_id: int, tournament_id: int):
     if not _has_tournament_access(account_id, tournament_id):
         return None
-    # Keep the established venue contract: missing pitch/window rows are materialized
-    # before a proposal is fingerprinted so preview and application use the same source.
     if admin_venues(account_id, tournament_id) is None:
         return None
     with connect() as con:
@@ -99,9 +97,6 @@ def apply_schedule_proposal(account_id: int, tournament_id: int, fingerprint: st
     con = None
     try:
         with connect() as con:
-            # Serialize the read/check/write sequence. CupNavi's SQLite/Turso backend
-            # understands SQLite transaction syntax, and no reviewed client payload is
-            # trusted as the source of placements.
             con.execute("BEGIN IMMEDIATE")
             matches, rules, windows = _load_source(con, tournament_id)
             proposal = build_schedule_proposal(matches, rules, windows)

@@ -5,7 +5,9 @@ import hashlib
 import json
 from datetime import datetime, timedelta
 
-_FINGERPRINT_MATCH_KEYS=("id","group_id","match_no","round_no","home_source","away_source","scheduled_start","pitch_number","schedule_locked","home_score","away_score")
+from .schedule_dependencies import structural_playoff_dependencies
+
+_FINGERPRINT_MATCH_KEYS=("id","group_id","bracket_id","stage","match_no","round_no","home_source","away_source","scheduled_start","pitch_number","schedule_locked","home_score","away_score")
 _FINGERPRINT_RULE_KEYS=("halves","minutes_per_half","halftime_minutes","pitch_break_minutes","minimum_team_rest_minutes")
 _FINGERPRINT_WINDOW_KEYS=("pitch_number","play_date","start_time","end_time","confirmed")
 
@@ -112,11 +114,12 @@ def _quality_score(start:datetime,pitch:int,row:dict,team_history:dict[int,list[
 def build_schedule_proposal(matches:list[dict],rules:dict,windows:list[dict])->dict:
     match_minutes=_duration_minutes(rules);pitch_break=max(0,int(rules.get("pitch_break_minutes") or 0));minimum_rest=max(0,int(rules.get("minimum_team_rest_minutes") or 0))
     match_span=timedelta(minutes=match_minutes);pitch_span=timedelta(minutes=match_minutes+pitch_break);rest_span=timedelta(minutes=minimum_rest)
-    pitch_busy={};team_busy={};team_history={};round_starts={};preserved=0;unresolved=[];candidates=[];final_rows=[]
+    dependencies=structural_playoff_dependencies(matches)
+    pitch_busy={};team_busy={};team_history={};round_starts={};scheduled_starts={};preserved=0;unresolved=[];candidates=[];final_rows=[]
     for row in matches:
         start=_start(row.get("scheduled_start"))
         if start is not None and row.get("pitch_number") is not None:
-            preserved+=1;pitch=int(row["pitch_number"]);pitch_busy.setdefault(pitch,[]).append((start,start+pitch_span));final_rows.append(dict(row))
+            preserved+=1;pitch=int(row["pitch_number"]);pitch_busy.setdefault(pitch,[]).append((start,start+pitch_span));final_rows.append(dict(row));scheduled_starts[int(row["id"])]=start
             key=_group_round(row)
             if key is not None:round_starts.setdefault(key[0],[]).append((key[1],start))
             for team_id in _teams(row):
@@ -127,11 +130,18 @@ def build_schedule_proposal(matches:list[dict],rules:dict,windows:list[dict])->d
         if bool(row.get("schedule_locked")):
             unresolved.append({"match_id":int(row["id"]),"reason":"locked_without_schedule"});continue
         candidates.append(row)
-    candidates.sort(key=lambda row:(int(row.get("round_no") or 0),int(row.get("group_id") or 0),int(row.get("match_no") or 0),int(row["id"])))
+    candidates.sort(key=lambda row:(int(row.get("round_no") or 0),int(row.get("bracket_id") or 0),int(row.get("group_id") or 0),int(row.get("match_no") or 0),int(row["id"])))
     available_slots=_slots(windows,rules);placements=[];quality_plan_changes=0;quality_rest_minutes=[]
     for row in candidates:
-        feasible=[];round_blocked=False
+        row_id=int(row["id"]);upstream_ids=dependencies.get(row_id,())
+        if upstream_ids and any(upstream_id not in scheduled_starts for upstream_id in upstream_ids):
+            unresolved.append({"match_id":row_id,"reason":"playoff_dependency_blocked"});continue
+        dependency_earliest=max((scheduled_starts[upstream_id]+match_span+rest_span for upstream_id in upstream_ids),default=None)
+        feasible=[];round_blocked=False;dependency_time_seen=dependency_earliest is None
         for start,pitch in available_slots:
+            if dependency_earliest is not None:
+                if start<dependency_earliest:continue
+                dependency_time_seen=True
             pitch_end=start+pitch_span
             if any(start<busy_end and pitch_end>busy_start for busy_start,busy_end in pitch_busy.get(pitch,[])):continue
             match_end=start+match_span;team_ok=True
@@ -143,8 +153,9 @@ def build_schedule_proposal(matches:list[dict],rules:dict,windows:list[dict])->d
             if not _round_order_ok(row,start,round_starts):round_blocked=True;continue
             feasible.append((_quality_score(start,pitch,row,team_history,minimum_rest,match_minutes),start,pitch))
         if not feasible:
-            unresolved.append({"match_id":int(row["id"]),"reason":"round_order_blocked" if round_blocked else "no_feasible_slot"});continue
-        _score,start,pitch=min(feasible,key=lambda item:item[0]);pitch_busy.setdefault(pitch,[]).append((start,start+pitch_span))
+            reason="playoff_dependency_blocked" if upstream_ids and not dependency_time_seen else ("round_order_blocked" if round_blocked else "no_feasible_slot")
+            unresolved.append({"match_id":row_id,"reason":reason});continue
+        _score,start,pitch=min(feasible,key=lambda item:item[0]);pitch_busy.setdefault(pitch,[]).append((start,start+pitch_span));scheduled_starts[row_id]=start
         key=_group_round(row)
         if key is not None:round_starts.setdefault(key[0],[]).append((key[1],start))
         for team_id in _teams(row):
@@ -154,7 +165,7 @@ def build_schedule_proposal(matches:list[dict],rules:dict,windows:list[dict])->d
                 if prior_pitch!=pitch:quality_plan_changes+=1
                 quality_rest_minutes.append(max(0,int((start-prior_end).total_seconds()//60)))
             team_busy.setdefault(team_id,[]).append((start,start+match_span));team_history.setdefault(team_id,[]).append((start,start+match_span,pitch))
-        placements.append({"match_id":int(row["id"]),"scheduled_start":start.isoformat(timespec="minutes"),"pitch_number":pitch})
+        placements.append({"match_id":row_id,"scheduled_start":start.isoformat(timespec="minutes"),"pitch_number":pitch})
         final_rows.append({**row,"scheduled_start":start.isoformat(timespec="minutes"),"pitch_number":pitch})
     avg_rest=round(sum(quality_rest_minutes)/len(quality_rest_minutes),1) if quality_rest_minutes else None;min_rest=min(quality_rest_minutes) if quality_rest_minutes else None
     starts=[_start(row.get("scheduled_start")) for row in final_rows];starts=[value for value in starts if value is not None]
@@ -164,5 +175,5 @@ def build_schedule_proposal(matches:list[dict],rules:dict,windows:list[dict])->d
         "match_duration_minutes":match_minutes,"pitch_break_minutes":pitch_break,"minimum_team_rest_minutes":minimum_rest,
         "preserved_count":preserved,"candidate_count":len(candidates),"placed_count":len(placements),"unresolved_count":len(unresolved),
         "placements":placements,"unresolved":sorted(unresolved,key=lambda item:item["match_id"]),
-        "quality":{"strategy":"bounded_pitch_continuity_and_rest","round_order_enforced":True,"plan_change_count":quality_plan_changes,"minimum_observed_rest_minutes":min_rest,"average_observed_rest_minutes":avg_rest,"schedule_span_minutes":schedule_span,"round_order_violation_count":_round_order_violations(final_rows)},
+        "quality":{"strategy":"bounded_pitch_continuity_and_rest","round_order_enforced":True,"playoff_dependency_enforced":True,"plan_change_count":quality_plan_changes,"minimum_observed_rest_minutes":min_rest,"average_observed_rest_minutes":avg_rest,"schedule_span_minutes":schedule_span,"round_order_violation_count":_round_order_violations(final_rows)},
     }
