@@ -1,8 +1,9 @@
 "use client";
 
 import { FormEvent, useCallback, useEffect, useState } from "react";
+import { CLIENT_API_BASE } from "../lib/client-api";
 
-const API_BASE=(process.env.NEXT_PUBLIC_CUPNAVI_API_BASE||"http://localhost:8000").replace(/\/$/,"");
+const API_BASE=CLIENT_API_BASE;
 
 type RulesPayload={
   sport:string; points_win:number; points_draw:number; points_loss:number; table_tiebreak:string;
