@@ -66,10 +66,9 @@ def _latest_prior(history:list[tuple[datetime,datetime,int]],start:datetime):
 def _quality_score(start:datetime,pitch:int,row:dict,team_history:dict[int,list[tuple[datetime,datetime,int]]],minimum_rest:int,match_minutes:int)->tuple:
     """Bounded soft preferences; hard schedule constraints are checked first.
 
-    A plan change costs 20 virtual minutes and thin-but-legal rest costs at most
-    another 20 minutes per participating known team. This lets a nearby slot win
-    on continuity/rest, but can never postpone a match by several hours merely to
-    keep the same pitch. Absolute kick-off time remains the dominant cost.
+    Soft quality is intentionally capped below a normal scheduling slot: pitch
+    continuity and comfort rest may choose between equal/near-equal alternatives,
+    but never postpone a legal match by a complete later slot just for polish.
     """
     plan_changes=0;comfort_penalty=0;teams=_teams(row);comfort_target=minimum_rest+match_minutes
     for team_id in teams:
@@ -78,9 +77,9 @@ def _quality_score(start:datetime,pitch:int,row:dict,team_history:dict[int,list[
         _prior_start,prior_end,prior_pitch=prior
         if prior_pitch!=pitch:plan_changes+=1
         rest=max(0,int((start-prior_end).total_seconds()//60));comfort_penalty+=max(0,comfort_target-rest)
-    bounded_comfort=min(comfort_penalty,20*max(1,len(teams)))
+    bounded_comfort=min(comfort_penalty,15*max(1,len(teams)))
     absolute_minutes=start.toordinal()*1440+start.hour*60+start.minute
-    soft_cost=plan_changes*20+bounded_comfort
+    soft_cost=plan_changes*7+bounded_comfort
     return (absolute_minutes+soft_cost,absolute_minutes,pitch)
 
 
