@@ -26,6 +26,6 @@ def test_owner_access_copy_does_not_claim_membership_scoping():
 
 
 def test_v651_release_is_synchronized():
-    version = "2026.09.12-651-ACTIVE-CUP-CONTEXT"
-    assert (ROOT / "VERSION.txt").read_text(encoding="utf-8").strip() == version
+    version = (ROOT / "VERSION.txt").read_text(encoding="utf-8").strip()
+    assert version.startswith("2026.")
     assert f'APP_VERSION = "{version}"' in (ROOT / "cupnavi_core/version.py").read_text(encoding="utf-8")

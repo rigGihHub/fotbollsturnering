@@ -1,6 +1,7 @@
 "use client";
 import {useCallback,useEffect,useState} from "react";
-const API=(process.env.NEXT_PUBLIC_CUPNAVI_API_BASE||"http://localhost:8000").replace(/\/$/,"");
+import {CLIENT_API_BASE} from "../lib/client-api";
+const API=CLIENT_API_BASE;
 async function req(path:string,token:string,init:RequestInit={}){const h=new Headers(init.headers);h.set("Authorization",`Bearer ${token}`);if(init.body)h.set("Content-Type","application/json");const r=await fetch(`${API}${path}`,{...init,headers:h,cache:"no-store"});const p=await r.json().catch(()=>null);if(!r.ok)throw new Error(p?.detail||`API-fel ${r.status}`);return p;}
 type M={id:number;stage?:string|null;home_team:string;away_team:string;home_score:number|null;away_score:number|null;home_penalties?:number|null;away_penalties?:number|null;status:string;scheduled_start?:string|null};
 type ScheduleConflict={type:string;severity:"error"|"warning";message:string;match_ids?:number[]};

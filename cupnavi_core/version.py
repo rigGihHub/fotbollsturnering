@@ -1,4 +1,4 @@
-APP_VERSION = "2026.09.12-651-ACTIVE-CUP-CONTEXT"
+APP_VERSION = "2026.09.12-652-API-BASE-RECOVERY"
 
 
 def release_ui_label(version: str | None = None) -> str:

@@ -3,8 +3,9 @@
 import { useCallback, useEffect, useState } from "react";
 import ImportAdmin from "./import-admin";
 import PublishReportingAdmin from "./publish-reporting-admin";
+import { CLIENT_API_BASE } from "../lib/client-api";
 
-const API = (process.env.NEXT_PUBLIC_CUPNAVI_API_BASE || "http://localhost:8000").replace(/\/$/, "");
+const API = CLIENT_API_BASE;
 const TOKEN_KEY = "cupnavi_admin_session_v629";
 
 type Cup = { id:number; name:string; role:string };

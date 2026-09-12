@@ -6,8 +6,9 @@ import RulesAdmin from "./rules-admin";
 import ScheduleAdmin from "./schedule-admin";
 import RefereeAdmin from "./referee-admin";
 import PlayoffAdmin from "./playoff-admin";
+import { CLIENT_API_BASE } from "../lib/client-api";
 
-const API_BASE = (process.env.NEXT_PUBLIC_CUPNAVI_API_BASE || "http://localhost:8000").replace(/\/$/, "");
+const API_BASE = CLIENT_API_BASE;
 const TOKEN_KEY = "cupnavi_admin_session_v629";
 const CUP_KEY = "cupnavi_admin_active_cup_v651";
 
