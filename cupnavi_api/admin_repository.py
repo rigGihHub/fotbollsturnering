@@ -3,7 +3,13 @@ from __future__ import annotations
 
 import hmac
 
-from .admin_auth import normalize_email, password_hash
+from .admin_auth import (
+    OWNER_ACCOUNT_ID,
+    authenticate_owner,
+    normalize_email,
+    owner_identity,
+    password_hash,
+)
 from .repository import all_rows, connect, one
 
 CUPINFO_FIELDS = (
@@ -22,6 +28,9 @@ TEAM_PROJECTION = "id,tournament_id,name,group_id,age_class,primary_color,second
 
 
 def authenticate_organizer(email: str, password: str):
+    owner = authenticate_owner(email, password)
+    if owner:
+        return owner
     normalized_email = normalize_email(email)
     account = one(
         """SELECT id,email,display_name,password_salt,password_hash,disabled_at
@@ -44,6 +53,8 @@ def authenticate_organizer(email: str, password: str):
 
 
 def organizer_account(account_id: int):
+    if int(account_id) == OWNER_ACCOUNT_ID:
+        return owner_identity()
     row = one(
         "SELECT id,email,display_name,disabled_at FROM organizer_accounts WHERE id=?",
         (int(account_id),),
@@ -58,6 +69,15 @@ def organizer_account(account_id: int):
 
 
 def organizer_tournaments(account_id: int):
+    if int(account_id) == OWNER_ACCOUNT_ID:
+        rows = all_rows(
+            """SELECT id,name,public_slug,start_date,end_date,is_published
+               FROM tournaments
+               ORDER BY COALESCE(start_date,''),name,id"""
+        )
+        for row in rows:
+            row["role"] = "owner"
+        return rows
     return all_rows(
         """SELECT t.id,t.name,t.public_slug,t.start_date,t.end_date,t.is_published,tm.role
            FROM tournament_members tm
@@ -69,6 +89,8 @@ def organizer_tournaments(account_id: int):
 
 
 def _has_tournament_access(account_id: int, tournament_id: int) -> bool:
+    if int(account_id) == OWNER_ACCOUNT_ID:
+        return bool(one("SELECT 1 AS allowed FROM tournaments WHERE id=?", (int(tournament_id),)))
     return bool(
         one(
             """SELECT 1 AS allowed FROM tournament_members

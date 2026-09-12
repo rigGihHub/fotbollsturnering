@@ -9,6 +9,8 @@ import os
 import time
 
 SESSION_TTL_SECONDS = 60 * 60 * 12
+OWNER_ACCOUNT_ID = 0
+OWNER_ROLE = "owner"
 
 
 def normalize_email(value: str) -> str:
@@ -25,6 +27,39 @@ def password_hash(password: str, salt_hex: str) -> str:
         p=1,
         dklen=32,
     ).hex()
+
+
+def owner_identity() -> dict | None:
+    """Return the synthetic owner account only when both owner secrets exist."""
+    email = normalize_email(os.getenv("CUPNAVI_OWNER_EMAIL") or "")
+    password = os.getenv("CUPNAVI_OWNER_PASSWORD") or ""
+    if not email or not password:
+        return None
+    return {
+        "id": OWNER_ACCOUNT_ID,
+        "email": email,
+        "display_name": "CupNavi Owner",
+        "role": OWNER_ROLE,
+        "is_owner": True,
+    }
+
+
+def authenticate_owner(email: str, password: str) -> dict | None:
+    """Authenticate the environment-only creator credential.
+
+    No fallback credential is allowed. Both variables must be configured on the
+    server and are compared in constant time. The returned account is synthetic;
+    no owner password or hash is persisted in CupNavi's database.
+    """
+    owner = owner_identity()
+    if not owner:
+        return None
+    expected_password = os.getenv("CUPNAVI_OWNER_PASSWORD") or ""
+    if not hmac.compare_digest(normalize_email(email), str(owner["email"])):
+        return None
+    if not hmac.compare_digest(str(password or ""), expected_password):
+        return None
+    return owner
 
 
 def _session_secret() -> bytes:
@@ -51,9 +86,12 @@ def _b64decode(value: str) -> bytes:
 
 def issue_session(account: dict) -> str:
     now = int(time.time())
+    role = str(account.get("role") or "organizer")
+    account_id = int(account.get("id") or 0)
     payload = {
-        "sub": int(account["id"]),
+        "sub": account_id,
         "email": normalize_email(account["email"]),
+        "role": role,
         "iat": now,
         "exp": now + SESSION_TTL_SECONDS,
     }
@@ -73,8 +111,12 @@ def verify_session(token: str) -> dict | None:
         payload = json.loads(_b64decode(body).decode("utf-8"))
         if int(payload.get("exp") or 0) <= int(time.time()):
             return None
+        role = str(payload.get("role") or "organizer")
         account_id = int(payload.get("sub") or 0)
-        if account_id <= 0:
+        if role == OWNER_ROLE:
+            if account_id != OWNER_ACCOUNT_ID or not owner_identity():
+                return None
+        elif account_id <= 0:
             return None
         return payload
     except (ValueError, TypeError, json.JSONDecodeError, RuntimeError):

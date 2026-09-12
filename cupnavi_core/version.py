@@ -1,4 +1,4 @@
-APP_VERSION = "2026.09.12-649-BRACKET-VALIDATION"
+APP_VERSION = "2026.09.12-650-OWNER-LOGIN"
 
 
 def release_ui_label(version: str | None = None) -> str:
