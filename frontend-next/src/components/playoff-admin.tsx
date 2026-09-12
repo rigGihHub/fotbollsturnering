@@ -3,8 +3,9 @@
 import { FormEvent, useCallback, useEffect, useState } from "react";
 import PublishReportingAdmin from "./publish-reporting-admin";
 import ImportAdmin from "./import-admin";
+import { CLIENT_API_BASE } from "../lib/client-api";
 
-const API_BASE=(process.env.NEXT_PUBLIC_CUPNAVI_API_BASE||"http://localhost:8000").replace(/\/$/,"");
+const API_BASE=CLIENT_API_BASE;
 type Participant={source:string;kind:string;resolved:boolean;team_id?:number|null;team_name?:string|null;reason?:string};
 type Match={id:number;stage:string;round_no?:number|null;match_no?:number|null;home_source?:string|null;away_source?:string|null;home_participant?:Participant;away_participant?:Participant;home_team_name?:string|null;away_team_name?:string|null;scheduled_start?:string|null;pitch_number?:number|null;home_score?:number|null;away_score?:number|null};
 type Bracket={id:number;name:string;size:number;bronze_match:number|boolean;matches:Match[]};
