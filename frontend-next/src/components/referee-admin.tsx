@@ -1,8 +1,9 @@
 "use client";
 
 import { FormEvent, useCallback, useEffect, useState } from "react";
+import { CLIENT_API_BASE } from "../lib/client-api";
 
-const API_BASE=(process.env.NEXT_PUBLIC_CUPNAVI_API_BASE||"http://localhost:8000").replace(/\/$/,"");
+const API_BASE=CLIENT_API_BASE;
 type Referee={id:number;name:string;email?:string|null;phone?:string|null;notes?:string|null;active?:number|boolean;assignment_count:number};
 type Match={id:number;stage:string;match_no?:number|null;scheduled_start?:string|null;pitch_number?:number|null;referee_id?:number|null;referee_name?:string|null;home_source?:string|null;away_source?:string|null;played:boolean};
 type Payload={available:boolean;reason?:string;referees:Referee[];matches:Match[];supports_assignment:boolean;supported_fields:string[]};
