@@ -1,4 +1,4 @@
-APP_VERSION = "2026.09.12-647-PARTICIPANT-UI"
+APP_VERSION = "2026.09.12-648-PLAYOFF-PROGRESSION"
 
 
 def release_ui_label(version: str | None = None) -> str:
