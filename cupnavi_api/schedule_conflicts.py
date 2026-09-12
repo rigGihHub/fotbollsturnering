@@ -9,6 +9,8 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta
 
+from .schedule_dependencies import structural_playoff_dependencies
+
 
 def _parse_start(value) -> datetime | None:
     if value in (None, ""):
@@ -36,6 +38,7 @@ def _match_ref(row: dict) -> dict:
         "stage": row.get("stage"),
         "group_id": row.get("group_id"),
         "group_name": row.get("group_name"),
+        "bracket_id": row.get("bracket_id"),
         "round_no": row.get("round_no"),
         "scheduled_start": row.get("scheduled_start"),
         "pitch_number": row.get("pitch_number"),
@@ -56,20 +59,7 @@ def _group_round(row: dict) -> tuple[int, int] | None:
 
 
 def analyze_schedule_conflicts(matches: list[dict], rules: dict) -> dict:
-    """Return deterministic conflicts for the currently scheduled matches.
-
-    Conflict types:
-    - invalid_start: a non-empty start value could not be parsed.
-    - pitch_overlap: a pitch is reused before match + configured pitch break ends.
-    - team_overlap: a known team is scheduled before its previous match ends.
-    - insufficient_rest: a known team gets less than configured minimum rest.
-    - round_order: a lower numbered group-stage round starts after a higher round
-      in the same group.
-
-    Only explicit ``team:<id>`` participants are evaluated for team conflicts.
-    Placeholder playoff/group sources are deliberately ignored until resolved so
-    CupNavi does not report conflicts for participants that are not known yet.
-    """
+    """Return deterministic conflicts for the currently scheduled matches."""
     halves = max(1, int(rules.get("halves") or 2))
     minutes_per_half = max(1, int(rules.get("minutes_per_half") or 20))
     halftime_minutes = max(0, int(rules.get("halftime_minutes") or 0))
@@ -78,7 +68,9 @@ def analyze_schedule_conflicts(matches: list[dict], rules: dict) -> dict:
     minimum_rest_minutes = max(0, int(rules.get("minimum_team_rest_minutes") or 0))
 
     prepared: list[tuple[datetime, dict]] = []
+    parsed_start_by_id: dict[int, datetime] = {}
     conflicts: list[dict] = []
+    rows_by_id = {int(row["id"]): row for row in matches if row.get("id") is not None}
     for row in matches:
         raw_start = row.get("scheduled_start")
         if raw_start in (None, ""):
@@ -96,6 +88,7 @@ def analyze_schedule_conflicts(matches: list[dict], rules: dict) -> dict:
             )
             continue
         prepared.append((start, row))
+        parsed_start_by_id[int(row["id"])] = start
 
     prepared.sort(key=lambda item: (item[0], int(item[1].get("pitch_number") or 0), int(item[1]["id"])))
 
@@ -135,6 +128,7 @@ def analyze_schedule_conflicts(matches: list[dict], rules: dict) -> dict:
                 )
 
     match_span = timedelta(minutes=match_minutes)
+    rest_span = timedelta(minutes=minimum_rest_minutes)
     for team_id, items in sorted(by_team.items()):
         items.sort(key=lambda item: (item[0], int(item[1]["id"])))
         for index, (start, row) in enumerate(items):
@@ -163,8 +157,6 @@ def analyze_schedule_conflicts(matches: list[dict], rules: dict) -> dict:
                     }
                 )
 
-    # Round ordering is evaluated per group. Equal kickoff times are not treated
-    # as an inversion; a lower round must actually start later than a higher one.
     for group_id, items in sorted(by_group.items()):
         items.sort(key=lambda item: (item[1], item[0], int(item[2]["id"])))
         for index, (start, round_no, row) in enumerate(items):
@@ -187,12 +179,57 @@ def analyze_schedule_conflicts(matches: list[dict], rules: dict) -> dict:
                     }
                 )
 
+    # Knockout dependencies are derived only from persisted bracket structure.
+    # Free-text participant placeholders are never guessed.
+    dependencies = structural_playoff_dependencies(matches)
+    for downstream_id, upstream_ids in sorted(dependencies.items()):
+        downstream_start = parsed_start_by_id.get(downstream_id)
+        if downstream_start is None:
+            continue
+        unscheduled = [upstream_id for upstream_id in upstream_ids if rows_by_id.get(upstream_id, {}).get("scheduled_start") in (None, "")]
+        if unscheduled:
+            involved = [downstream_id, *unscheduled]
+            conflicts.append(
+                {
+                    "type": "playoff_dependency",
+                    "severity": "error",
+                    "downstream_match_id": downstream_id,
+                    "upstream_match_ids": list(upstream_ids),
+                    "match_ids": involved,
+                    "message": "Slutspelsmatchen är schemalagd innan alla avgörande föregående slutspelsmatcher har fått en tid.",
+                    "matches": [_match_ref(rows_by_id[mid]) for mid in involved if mid in rows_by_id],
+                }
+            )
+            continue
+        upstream_starts = [parsed_start_by_id.get(upstream_id) for upstream_id in upstream_ids]
+        # Invalid upstream timestamps already have their own blocking conflict.
+        if any(start is None for start in upstream_starts):
+            continue
+        earliest = max(start + match_span + rest_span for start in upstream_starts if start is not None)
+        if downstream_start < earliest:
+            shortage = int((earliest - downstream_start).total_seconds() // 60)
+            involved = [*upstream_ids, downstream_id]
+            conflicts.append(
+                {
+                    "type": "playoff_dependency",
+                    "severity": "error",
+                    "downstream_match_id": downstream_id,
+                    "upstream_match_ids": list(upstream_ids),
+                    "match_ids": list(involved),
+                    "earliest_start": earliest.isoformat(timespec="minutes"),
+                    "shortage_minutes": shortage,
+                    "message": f"Slutspelsmatchen startar {shortage} minuter för tidigt i förhållande till föregående slutspelsrunda och minsta vila.",
+                    "matches": [_match_ref(rows_by_id[mid]) for mid in involved if mid in rows_by_id],
+                }
+            )
+
     type_order = {
         "invalid_start": 0,
         "pitch_overlap": 1,
         "team_overlap": 2,
         "insufficient_rest": 3,
         "round_order": 4,
+        "playoff_dependency": 5,
     }
     conflicts.sort(
         key=lambda item: (
