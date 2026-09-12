@@ -29,6 +29,21 @@ def password_hash(password: str, salt_hex: str) -> str:
     ).hex()
 
 
+def owner_identity() -> dict | None:
+    """Return the synthetic owner account only when both owner secrets exist."""
+    email = normalize_email(os.getenv("CUPNAVI_OWNER_EMAIL") or "")
+    password = os.getenv("CUPNAVI_OWNER_PASSWORD") or ""
+    if not email or not password:
+        return None
+    return {
+        "id": OWNER_ACCOUNT_ID,
+        "email": email,
+        "display_name": "CupNavi Owner",
+        "role": OWNER_ROLE,
+        "is_owner": True,
+    }
+
+
 def authenticate_owner(email: str, password: str) -> dict | None:
     """Authenticate the environment-only creator credential.
 
@@ -36,23 +51,15 @@ def authenticate_owner(email: str, password: str) -> dict | None:
     server and are compared in constant time. The returned account is synthetic;
     no owner password or hash is persisted in CupNavi's database.
     """
-    expected_email = normalize_email(os.getenv("CUPNAVI_OWNER_EMAIL") or "")
+    owner = owner_identity()
+    if not owner:
+        return None
     expected_password = os.getenv("CUPNAVI_OWNER_PASSWORD") or ""
-    supplied_email = normalize_email(email)
-    supplied_password = str(password or "")
-    if not expected_email or not expected_password:
+    if not hmac.compare_digest(normalize_email(email), str(owner["email"])):
         return None
-    if not hmac.compare_digest(supplied_email, expected_email):
+    if not hmac.compare_digest(str(password or ""), expected_password):
         return None
-    if not hmac.compare_digest(supplied_password, expected_password):
-        return None
-    return {
-        "id": OWNER_ACCOUNT_ID,
-        "email": expected_email,
-        "display_name": "CupNavi Owner",
-        "role": OWNER_ROLE,
-        "is_owner": True,
-    }
+    return owner
 
 
 def _session_secret() -> bytes:
@@ -107,7 +114,7 @@ def verify_session(token: str) -> dict | None:
         role = str(payload.get("role") or "organizer")
         account_id = int(payload.get("sub") or 0)
         if role == OWNER_ROLE:
-            if account_id != OWNER_ACCOUNT_ID:
+            if account_id != OWNER_ACCOUNT_ID or not owner_identity():
                 return None
         elif account_id <= 0:
             return None
