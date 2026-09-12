@@ -59,7 +59,7 @@ def admin_schedule(account_id: int, tournament_id: int):
     group_names = {int(row["id"]): str(row["name"]) for row in groups}
     team_names = _team_names(tournament_id)
     rows = all_rows(
-        """SELECT id,group_id,stage,match_no,round_no,home_source,away_source,
+        """SELECT id,group_id,bracket_id,stage,match_no,round_no,home_source,away_source,
                   scheduled_start,pitch_number,schedule_locked,schedule_published,
                   home_score,away_score
            FROM matches WHERE tournament_id=?
