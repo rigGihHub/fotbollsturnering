@@ -1,4 +1,4 @@
-APP_VERSION = "2026.09.11-637-SAFE-IMPORT"
+APP_VERSION = "2026.09.12-638-SCHEDULE-CONFLICTS"
 
 
 def release_ui_label(version: str | None = None) -> str:
