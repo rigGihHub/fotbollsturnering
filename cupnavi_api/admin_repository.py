@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import hmac
+import os
 
 from .admin_auth import normalize_email, password_hash
 from .repository import all_rows, connect, one
@@ -21,6 +22,17 @@ TEAM_FIELDS = ("name", "age_class", "primary_color", "secondary_color")
 TEAM_PROJECTION = "id,tournament_id,name,group_id,age_class,primary_color,secondary_color"
 
 
+def _master_emails() -> set[str]:
+    """Server-controlled master allowlist; never expose or store a shared master password."""
+    raw = str(os.getenv("CUPNAVI_MASTER_EMAILS") or "")
+    return {normalize_email(value) for value in raw.split(",") if value.strip()}
+
+
+def _is_master_email(email: str | None) -> bool:
+    normalized = normalize_email(email or "")
+    return bool(normalized and normalized in _master_emails())
+
+
 def authenticate_organizer(email: str, password: str):
     normalized_email = normalize_email(email)
     account = one(
@@ -36,10 +48,12 @@ def authenticate_organizer(email: str, password: str):
         return None
     if not hmac.compare_digest(candidate, str(account.get("password_hash") or "")):
         return None
+    email_value = normalize_email(account["email"])
     return {
         "id": int(account["id"]),
-        "email": normalize_email(account["email"]),
+        "email": email_value,
         "display_name": account.get("display_name"),
+        "is_master": _is_master_email(email_value),
     }
 
 
@@ -50,14 +64,30 @@ def organizer_account(account_id: int):
     )
     if not row or row.get("disabled_at"):
         return None
+    email_value = normalize_email(row["email"])
     return {
         "id": int(row["id"]),
-        "email": normalize_email(row["email"]),
+        "email": email_value,
         "display_name": row.get("display_name"),
+        "is_master": _is_master_email(email_value),
     }
 
 
+def _account_is_master(account_id: int) -> bool:
+    account = organizer_account(account_id)
+    return bool(account and account.get("is_master"))
+
+
 def organizer_tournaments(account_id: int):
+    if _account_is_master(account_id):
+        rows = all_rows(
+            """SELECT t.id,t.name,t.public_slug,t.start_date,t.end_date,t.is_published
+               FROM tournaments t
+               ORDER BY COALESCE(t.start_date,''),t.name,t.id"""
+        )
+        for row in rows:
+            row["role"] = "master"
+        return rows
     return all_rows(
         """SELECT t.id,t.name,t.public_slug,t.start_date,t.end_date,t.is_published,tm.role
            FROM tournament_members tm
@@ -69,6 +99,8 @@ def organizer_tournaments(account_id: int):
 
 
 def _has_tournament_access(account_id: int, tournament_id: int) -> bool:
+    if _account_is_master(account_id):
+        return bool(one("SELECT 1 AS allowed FROM tournaments WHERE id=?", (int(tournament_id),)))
     return bool(
         one(
             """SELECT 1 AS allowed FROM tournament_members
