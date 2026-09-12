@@ -27,7 +27,7 @@ def _schedule_publication_analysis(tournament_id: int) -> dict:
     )
     group_names = {int(row["id"]): str(row["name"]) for row in group_rows}
     matches = all_rows(
-        """SELECT id,group_id,stage,match_no,round_no,home_source,away_source,
+        """SELECT id,group_id,bracket_id,stage,match_no,round_no,home_source,away_source,
                   scheduled_start,pitch_number
            FROM matches WHERE tournament_id=?""",
         (int(tournament_id),),
