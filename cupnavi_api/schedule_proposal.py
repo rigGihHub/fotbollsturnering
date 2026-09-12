@@ -20,7 +20,6 @@ _FINGERPRINT_WINDOW_KEYS = (
 
 
 def schedule_proposal_fingerprint(matches: list[dict], rules: dict, windows: list[dict]) -> str:
-    """Return a stable fingerprint for every input that can change a proposal."""
     payload = {
         "matches": sorted(
             [{key: row.get(key) for key in _FINGERPRINT_MATCH_KEYS} for row in matches],
@@ -68,12 +67,6 @@ def _duration_minutes(rules: dict) -> int:
 
 
 def _slots(windows: list[dict], rules: dict) -> list[tuple[datetime, int]]:
-    """Build stable candidate kick-off slots.
-
-    ``end_time`` follows the existing CupNavi venue model where default pitch
-    windows are derived from ``latest_kickoff_time``. It is therefore treated as
-    the latest allowed kick-off, not as the time the final match must finish.
-    """
     step = timedelta(minutes=_duration_minutes(rules) + max(0, int(rules.get("pitch_break_minutes") or 0)))
     result: list[tuple[datetime, int]] = []
     for window in windows:
@@ -99,14 +92,50 @@ def _teams(row: dict) -> tuple[int, ...]:
     return tuple(values)
 
 
-def build_schedule_proposal(matches: list[dict], rules: dict, windows: list[dict]) -> dict:
-    """Propose times/pitches without writing anything.
+def _latest_prior(history: list[tuple[datetime, datetime, int]], start: datetime):
+    prior = [item for item in history if item[1] <= start]
+    return max(prior, key=lambda item: item[1]) if prior else None
 
-    Existing scheduled matches are fixed constraints. Played and locked matches
-    are never moved. Unscheduled, unlocked and unplayed matches are placed in a
-    deterministic round/group/match order. A placement is accepted only when it
-    respects pitch occupancy and configured minimum team rest.
+
+def _quality_score(
+    start: datetime,
+    pitch: int,
+    row: dict,
+    team_history: dict[int, list[tuple[datetime, datetime, int]]],
+    minimum_rest: int,
+    match_minutes: int,
+) -> tuple:
+    """Lower is better. All hard constraints are checked before this soft score.
+
+    Priorities are deliberately explainable:
+    1) avoid changing pitch for teams when a same-pitch option is feasible;
+    2) avoid forcing teams down to the absolute minimum rest when a healthier
+       nearby slot exists;
+    3) keep the tournament day reasonably compact;
+    4) use pitch number as the final deterministic tie-breaker.
     """
+    plan_changes = 0
+    comfort_penalty = 0
+    comfort_target = minimum_rest + match_minutes
+    for team_id in _teams(row):
+        prior = _latest_prior(team_history.get(team_id, []), start)
+        if prior is None:
+            continue
+        _prior_start, prior_end, prior_pitch = prior
+        if prior_pitch != pitch:
+            plan_changes += 1
+        rest = max(0, int((start - prior_end).total_seconds() // 60))
+        comfort_penalty += max(0, comfort_target - rest)
+    return (
+        plan_changes,
+        comfort_penalty,
+        start.date().isoformat(),
+        start.hour * 60 + start.minute,
+        pitch,
+    )
+
+
+def build_schedule_proposal(matches: list[dict], rules: dict, windows: list[dict]) -> dict:
     match_minutes = _duration_minutes(rules)
     pitch_break = max(0, int(rules.get("pitch_break_minutes") or 0))
     minimum_rest = max(0, int(rules.get("minimum_team_rest_minutes") or 0))
@@ -116,6 +145,7 @@ def build_schedule_proposal(matches: list[dict], rules: dict, windows: list[dict
 
     pitch_busy: dict[int, list[tuple[datetime, datetime]]] = {}
     team_busy: dict[int, list[tuple[datetime, datetime]]] = {}
+    team_history: dict[int, list[tuple[datetime, datetime, int]]] = {}
     preserved = 0
     unresolved: list[dict] = []
     candidates: list[dict] = []
@@ -128,6 +158,7 @@ def build_schedule_proposal(matches: list[dict], rules: dict, windows: list[dict
             pitch_busy.setdefault(pitch, []).append((start, start + pitch_span))
             for team_id in _teams(row):
                 team_busy.setdefault(team_id, []).append((start, start + match_span))
+                team_history.setdefault(team_id, []).append((start, start + match_span, pitch))
             continue
         if bool(row.get("played")) or row.get("home_score") is not None or row.get("away_score") is not None:
             unresolved.append({"match_id": int(row["id"]), "reason": "played_without_schedule"})
@@ -148,8 +179,11 @@ def build_schedule_proposal(matches: list[dict], rules: dict, windows: list[dict
 
     available_slots = _slots(windows, rules)
     placements: list[dict] = []
+    quality_plan_changes = 0
+    quality_rest_minutes: list[int] = []
+
     for row in candidates:
-        selected: tuple[datetime, int] | None = None
+        feasible: list[tuple[tuple, datetime, int]] = []
         for start, pitch in available_slots:
             pitch_end = start + pitch_span
             if any(start < busy_end and pitch_end > busy_start for busy_start, busy_end in pitch_busy.get(pitch, [])):
@@ -163,16 +197,30 @@ def build_schedule_proposal(matches: list[dict], rules: dict, windows: list[dict
                         break
                 if not team_ok:
                     break
-            if team_ok:
-                selected = (start, pitch)
-                break
-        if selected is None:
+            if not team_ok:
+                continue
+            feasible.append((
+                _quality_score(start, pitch, row, team_history, minimum_rest, match_minutes),
+                start,
+                pitch,
+            ))
+
+        if not feasible:
             unresolved.append({"match_id": int(row["id"]), "reason": "no_feasible_slot"})
             continue
-        start, pitch = selected
+
+        _score, start, pitch = min(feasible, key=lambda item: item[0])
         pitch_busy.setdefault(pitch, []).append((start, start + pitch_span))
         for team_id in _teams(row):
+            prior = _latest_prior(team_history.get(team_id, []), start)
+            if prior is not None:
+                _prior_start, prior_end, prior_pitch = prior
+                if prior_pitch != pitch:
+                    quality_plan_changes += 1
+                quality_rest_minutes.append(max(0, int((start - prior_end).total_seconds() // 60)))
             team_busy.setdefault(team_id, []).append((start, start + match_span))
+            team_history.setdefault(team_id, []).append((start, start + match_span, pitch))
+
         placements.append(
             {
                 "match_id": int(row["id"]),
@@ -181,6 +229,8 @@ def build_schedule_proposal(matches: list[dict], rules: dict, windows: list[dict
             }
         )
 
+    avg_rest = round(sum(quality_rest_minutes) / len(quality_rest_minutes), 1) if quality_rest_minutes else None
+    min_rest = min(quality_rest_minutes) if quality_rest_minutes else None
     return {
         "deterministic": True,
         "writes_database": False,
@@ -194,4 +244,10 @@ def build_schedule_proposal(matches: list[dict], rules: dict, windows: list[dict
         "unresolved_count": len(unresolved),
         "placements": placements,
         "unresolved": sorted(unresolved, key=lambda item: item["match_id"]),
+        "quality": {
+            "strategy": "pitch_continuity_then_rest_then_compactness",
+            "plan_change_count": quality_plan_changes,
+            "minimum_observed_rest_minutes": min_rest,
+            "average_observed_rest_minutes": avg_rest,
+        },
     }
