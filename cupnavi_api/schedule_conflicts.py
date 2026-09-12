@@ -9,7 +9,8 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta
 
-from .schedule_dependencies import structural_playoff_dependencies
+from cupnavi_core.participant_sources import team_id_from_source
+from .schedule_dependencies import schedule_dependencies
 
 
 def _parse_start(value) -> datetime | None:
@@ -22,13 +23,7 @@ def _parse_start(value) -> datetime | None:
 
 
 def _team_id(source) -> int | None:
-    text = str(source or "").strip()
-    if not text.startswith("team:"):
-        return None
-    try:
-        return int(text.split(":", 1)[1])
-    except (TypeError, ValueError):
-        return None
+    return team_id_from_source(source)
 
 
 def _match_ref(row: dict) -> dict:
@@ -179,12 +174,12 @@ def analyze_schedule_conflicts(matches: list[dict], rules: dict) -> dict:
                     }
                 )
 
-    # Knockout dependencies are derived only from persisted bracket structure.
-    # Free-text participant placeholders are never guessed.
-    dependencies = structural_playoff_dependencies(matches)
+    # Canonical participant sources are authoritative. v644 bracket structure is
+    # retained only as fallback for matches without explicit dependency sources.
+    dependencies = schedule_dependencies(matches)
     for downstream_id, upstream_ids in sorted(dependencies.items()):
         downstream_start = parsed_start_by_id.get(downstream_id)
-        if downstream_start is None:
+        if downstream_start is None or not upstream_ids:
             continue
         unscheduled = [upstream_id for upstream_id in upstream_ids if rows_by_id.get(upstream_id, {}).get("scheduled_start") in (None, "")]
         if unscheduled:
@@ -196,13 +191,12 @@ def analyze_schedule_conflicts(matches: list[dict], rules: dict) -> dict:
                     "downstream_match_id": downstream_id,
                     "upstream_match_ids": list(upstream_ids),
                     "match_ids": involved,
-                    "message": "Slutspelsmatchen är schemalagd innan alla avgörande föregående slutspelsmatcher har fått en tid.",
+                    "message": "Slutspelsmatchen är schemalagd innan alla avgörande föregående matcher har fått en tid.",
                     "matches": [_match_ref(rows_by_id[mid]) for mid in involved if mid in rows_by_id],
                 }
             )
             continue
         upstream_starts = [parsed_start_by_id.get(upstream_id) for upstream_id in upstream_ids]
-        # Invalid upstream timestamps already have their own blocking conflict.
         if any(start is None for start in upstream_starts):
             continue
         earliest = max(start + match_span + rest_span for start in upstream_starts if start is not None)
@@ -218,7 +212,7 @@ def analyze_schedule_conflicts(matches: list[dict], rules: dict) -> dict:
                     "match_ids": list(involved),
                     "earliest_start": earliest.isoformat(timespec="minutes"),
                     "shortage_minutes": shortage,
-                    "message": f"Slutspelsmatchen startar {shortage} minuter för tidigt i förhållande till föregående slutspelsrunda och minsta vila.",
+                    "message": f"Slutspelsmatchen startar {shortage} minuter för tidigt i förhållande till sina deltagarkällor och minsta vila.",
                     "matches": [_match_ref(rows_by_id[mid]) for mid in involved if mid in rows_by_id],
                 }
             )
