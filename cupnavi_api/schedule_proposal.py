@@ -5,7 +5,8 @@ import hashlib
 import json
 from datetime import datetime, timedelta
 
-from .schedule_dependencies import structural_playoff_dependencies
+from cupnavi_core.participant_sources import team_id_from_source
+from .schedule_dependencies import dependency_depths, schedule_dependencies
 
 _FINGERPRINT_MATCH_KEYS=("id","group_id","bracket_id","stage","match_no","round_no","home_source","away_source","scheduled_start","pitch_number","schedule_locked","home_score","away_score")
 _FINGERPRINT_RULE_KEYS=("halves","minutes_per_half","halftime_minutes","pitch_break_minutes","minimum_team_rest_minutes")
@@ -23,10 +24,7 @@ def schedule_proposal_fingerprint(matches:list[dict],rules:dict,windows:list[dic
 
 
 def _team_id(source)->int|None:
-    text=str(source or "").strip()
-    if not text.startswith("team:"):return None
-    try:return int(text.split(":",1)[1])
-    except (TypeError,ValueError):return None
+    return team_id_from_source(source)
 
 
 def _start(value)->datetime|None:
@@ -114,7 +112,7 @@ def _quality_score(start:datetime,pitch:int,row:dict,team_history:dict[int,list[
 def build_schedule_proposal(matches:list[dict],rules:dict,windows:list[dict])->dict:
     match_minutes=_duration_minutes(rules);pitch_break=max(0,int(rules.get("pitch_break_minutes") or 0));minimum_rest=max(0,int(rules.get("minimum_team_rest_minutes") or 0))
     match_span=timedelta(minutes=match_minutes);pitch_span=timedelta(minutes=match_minutes+pitch_break);rest_span=timedelta(minutes=minimum_rest)
-    dependencies=structural_playoff_dependencies(matches)
+    dependencies=schedule_dependencies(matches);depths=dependency_depths(matches)
     pitch_busy={};team_busy={};team_history={};round_starts={};scheduled_starts={};preserved=0;unresolved=[];candidates=[];final_rows=[]
     for row in matches:
         start=_start(row.get("scheduled_start"))
@@ -130,7 +128,7 @@ def build_schedule_proposal(matches:list[dict],rules:dict,windows:list[dict])->d
         if bool(row.get("schedule_locked")):
             unresolved.append({"match_id":int(row["id"]),"reason":"locked_without_schedule"});continue
         candidates.append(row)
-    candidates.sort(key=lambda row:(int(row.get("round_no") or 0),int(row.get("bracket_id") or 0),int(row.get("group_id") or 0),int(row.get("match_no") or 0),int(row["id"])))
+    candidates.sort(key=lambda row:(depths.get(int(row["id"]),0),int(row.get("round_no") or 0),int(row.get("bracket_id") or 0),int(row.get("group_id") or 0),int(row.get("match_no") or 0),int(row["id"])))
     available_slots=_slots(windows,rules);placements=[];quality_plan_changes=0;quality_rest_minutes=[]
     for row in candidates:
         row_id=int(row["id"]);upstream_ids=dependencies.get(row_id,())
@@ -175,5 +173,5 @@ def build_schedule_proposal(matches:list[dict],rules:dict,windows:list[dict])->d
         "match_duration_minutes":match_minutes,"pitch_break_minutes":pitch_break,"minimum_team_rest_minutes":minimum_rest,
         "preserved_count":preserved,"candidate_count":len(candidates),"placed_count":len(placements),"unresolved_count":len(unresolved),
         "placements":placements,"unresolved":sorted(unresolved,key=lambda item:item["match_id"]),
-        "quality":{"strategy":"bounded_pitch_continuity_and_rest","round_order_enforced":True,"playoff_dependency_enforced":True,"plan_change_count":quality_plan_changes,"minimum_observed_rest_minutes":min_rest,"average_observed_rest_minutes":avg_rest,"schedule_span_minutes":schedule_span,"round_order_violation_count":_round_order_violations(final_rows)},
+        "quality":{"strategy":"bounded_pitch_continuity_and_rest","round_order_enforced":True,"playoff_dependency_enforced":True,"participant_source_dependency_enforced":True,"plan_change_count":quality_plan_changes,"minimum_observed_rest_minutes":min_rest,"average_observed_rest_minutes":avg_rest,"schedule_span_minutes":schedule_span,"round_order_violation_count":_round_order_violations(final_rows)},
     }
