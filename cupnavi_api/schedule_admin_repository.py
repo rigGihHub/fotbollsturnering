@@ -5,6 +5,7 @@ from datetime import datetime
 
 from .admin_repository import _has_tournament_access
 from .repository import all_rows, connect, one
+from .schedule_conflicts import analyze_schedule_conflicts
 
 
 def _team_names(tournament_id: int) -> dict[int, str]:
@@ -36,9 +37,21 @@ def admin_schedule(account_id: int, tournament_id: int):
     if not tournament:
         return None
     rules = one(
-        "SELECT pitch_count,first_match_time,latest_kickoff_time FROM schedule_rules WHERE tournament_id=?",
+        """SELECT pitch_count,first_match_time,latest_kickoff_time,
+                  halves,minutes_per_half,halftime_minutes,pitch_break_minutes,
+                  minimum_team_rest_minutes
+           FROM schedule_rules WHERE tournament_id=?""",
         (int(tournament_id),),
-    ) or {"pitch_count": 1, "first_match_time": "09:00", "latest_kickoff_time": "18:00"}
+    ) or {
+        "pitch_count": 1,
+        "first_match_time": "09:00",
+        "latest_kickoff_time": "18:00",
+        "halves": 2,
+        "minutes_per_half": 20,
+        "halftime_minutes": 5,
+        "pitch_break_minutes": 0,
+        "minimum_team_rest_minutes": 0,
+    }
     groups = all_rows(
         "SELECT id,name FROM groups WHERE tournament_id=? ORDER BY name,id",
         (int(tournament_id),),
@@ -62,6 +75,7 @@ def admin_schedule(account_id: int, tournament_id: int):
         row["schedule_locked"] = bool(row.get("schedule_locked") or 0)
         row["schedule_published"] = bool(row.get("schedule_published") or 0)
     scheduled_count = sum(1 for row in rows if row.get("scheduled_start"))
+    conflict_analysis = analyze_schedule_conflicts(rows, rules)
     return {
         "matches": rows,
         "match_count": len(rows),
@@ -74,6 +88,7 @@ def admin_schedule(account_id: int, tournament_id: int):
         "end_date": tournament.get("end_date"),
         "schedule_dirty": bool(tournament.get("schedule_dirty") or 0),
         "is_published": bool(tournament.get("is_published") or 0),
+        "conflict_analysis": conflict_analysis,
     }
 
 
