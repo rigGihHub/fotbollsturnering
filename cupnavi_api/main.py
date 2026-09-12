@@ -31,6 +31,7 @@ from .group_admin_repository import (
     delete_group,
     update_group,
 )
+from .participant_resolution_repository import public_bracket_resolution, resolve_public_snapshot
 from .venue_admin_routes import register_venue_admin_routes
 from .repository import (
     public_tournament, public_teams, public_groups, public_matches, public_venue_points,
@@ -297,7 +298,7 @@ def cup(public_key:str):
     snapshot=public_snapshot(public_key)
     if not snapshot:
         raise HTTPException(status_code=404,detail="Cup not found or not published")
-    return snapshot
+    return resolve_public_snapshot(snapshot)
 
 
 def _standings_payload(tournament):
@@ -330,7 +331,12 @@ def playoffs(public_key:str):
     tournament=public_tournament(public_key)
     if not tournament:
         raise HTTPException(status_code=404,detail="Cup not found or not published")
-    return {"playoff_format":tournament.get("playoff_format"),"brackets":public_brackets(int(tournament["id"]))}
+    brackets=public_brackets(int(tournament["id"]))
+    return {
+        "playoff_format":tournament.get("playoff_format"),
+        "brackets":brackets,
+        "participant_resolution":public_bracket_resolution(tournament,brackets),
+    }
 
 
 @app.get("/api/public/cups/{public_key}/statistics")

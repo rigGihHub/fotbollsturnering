@@ -1,6 +1,12 @@
 """Organizer-scoped playoff settings and persisted bracket inspection."""
 from __future__ import annotations
 
+from cupnavi_core.participant_resolution import (
+    ParticipantResolver,
+    enrich_match_participants,
+    finalized_group_standings,
+)
+
 from .admin_repository import _has_tournament_access
 from .repository import all_rows, connect, one
 
@@ -14,6 +20,54 @@ PLAYOFF_FORMATS = {
 TIE_RULES = {"Straffar direkt", "Förlängning + straffar"}
 
 
+def _table_columns(table_name: str) -> set[str]:
+    """Return columns for a known internal table, or an empty set if absent.
+
+    Historical CupNavi fixtures intentionally contain only the tables required by
+    that release. Participant enrichment is a read-model enhancement and must not
+    make those older schemas invalid.
+    """
+    if table_name not in {"teams", "matches"}:
+        raise ValueError("Unsupported schema inspection target")
+    with connect() as con:
+        rows = con.execute(f"PRAGMA table_info({table_name})").fetchall()
+    return {str(row[1]) for row in rows}
+
+
+def _resolved_playoff_matches(tournament: dict, tournament_id: int) -> list[dict]:
+    # SELECT * is intentional here: historical match schemas have fewer columns
+    # than current production. The resolver reads optional fields with dict.get,
+    # while the legacy read model remains valid without synthetic columns.
+    all_matches = all_rows(
+        """SELECT * FROM matches WHERE tournament_id=?
+           ORDER BY COALESCE(bracket_id,0),round_no,match_no,id""",
+        (int(tournament_id),),
+    )
+    playoff_matches = [match for match in all_matches if match.get("bracket_id") is not None]
+
+    # v634-era/minimal fixtures can legitimately lack a teams table. In that
+    # schema shape we preserve the historical raw playoff read model instead of
+    # failing an otherwise valid cup.
+    team_columns = _table_columns("teams")
+    if not {"id", "name", "group_id", "tournament_id"}.issubset(team_columns):
+        return playoff_matches
+
+    teams = all_rows(
+        "SELECT id,name,group_id FROM teams WHERE tournament_id=? ORDER BY name,id",
+        (int(tournament_id),),
+    )
+    standings = finalized_group_standings(
+        teams,
+        all_matches,
+        points_win=int(tournament.get("points_win") or 0),
+        points_draw=int(tournament.get("points_draw") or 0),
+        points_loss=int(tournament.get("points_loss") or 0),
+        table_tiebreak=str(tournament.get("table_tiebreak") or "Målskillnad först"),
+    )
+    resolver = ParticipantResolver(teams=teams, matches=all_matches, standings_by_group=standings)
+    return enrich_match_participants(playoff_matches, resolver)
+
+
 def admin_playoffs(account_id: int, tournament_id: int):
     if not _has_tournament_access(account_id, tournament_id):
         return None
@@ -24,14 +78,7 @@ def admin_playoffs(account_id: int, tournament_id: int):
         "SELECT id,name,size,bronze_match FROM brackets WHERE tournament_id=? ORDER BY id",
         (int(tournament_id),),
     )
-    matches = all_rows(
-        """SELECT id,bracket_id,stage,round_no,match_no,home_source,away_source,
-                  scheduled_start,pitch_number,home_score,away_score,home_penalties,away_penalties,
-                  decided_winner_id,schedule_locked,schedule_published
-           FROM matches WHERE tournament_id=? AND bracket_id IS NOT NULL
-           ORDER BY bracket_id,round_no,match_no,id""",
-        (int(tournament_id),),
-    )
+    matches = _resolved_playoff_matches(tournament, tournament_id)
     by_bracket = {}
     for match in matches:
         by_bracket.setdefault(int(match["bracket_id"]), []).append(match)
