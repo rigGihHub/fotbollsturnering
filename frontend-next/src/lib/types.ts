@@ -6,11 +6,11 @@ export type Tournament = {
   show_card_stats?: number | boolean | null; show_fairness?: number | boolean | null;
 };
 export type Team = { id:number; name:string; group_id?:number|null; age_class?:string|null; primary_color?:string|null; secondary_color?:string|null };
-export type Match = { id:number; stage?:string|null; group_id?:number|null; scheduled_start?:string|null; pitch_number?:string|number|null; home_source?:string|null; away_source?:string|null; home_score?:number|null; away_score?:number|null };
+export type ResolvedParticipant = { source:string; kind:string; resolved:boolean; team_id?:number|null; team_name?:string|null; reason?:string };
+export type Match = { id:number; stage?:string|null; group_id?:number|null; scheduled_start?:string|null; pitch_number?:string|number|null; home_source?:string|null; away_source?:string|null; home_score?:number|null; away_score?:number|null; home_participant?:ResolvedParticipant; away_participant?:ResolvedParticipant };
 export type Group = { id:number; name:string; age_class?:string|null };
 export type Bracket = { id:number; name:string; matches?:Match[] };
 export type VenuePoint = {id:number;kind?:string;label?:string;detail?:string;url?:string};
-export type ResolvedParticipant = { source:string; kind:string; resolved:boolean; team_id?:number|null; team_name?:string|null; reason?:string };
 export type MatchParticipantResolution = { home:ResolvedParticipant; away:ResolvedParticipant };
 export type ParticipantResolutionMap = Record<string,MatchParticipantResolution>;
 export type CupSnapshot = { tournament:Tournament; teams:Team[]; groups:Group[]; matches:Match[]; brackets:Bracket[]; venue_points:VenuePoint[]; participant_resolution?:ParticipantResolutionMap };
