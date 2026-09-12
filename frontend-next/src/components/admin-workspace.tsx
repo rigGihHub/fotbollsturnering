@@ -9,6 +9,7 @@ import PlayoffAdmin from "./playoff-admin";
 
 const API_BASE = (process.env.NEXT_PUBLIC_CUPNAVI_API_BASE || "http://localhost:8000").replace(/\/$/, "");
 const TOKEN_KEY = "cupnavi_admin_session_v629";
+const CUP_KEY = "cupnavi_admin_active_cup_v651";
 
 const nav = [
   ["Översikt", "#overview"], ["Cupinfo", "#cupinfo"], ["Lag", "#teams"], ["Grupper", "#groups"],
@@ -23,7 +24,7 @@ const modules = [
   ["export","13","PDF & export","Förhandsgranska, skapa och ladda ned cupens PDF från samma flöde."]
 ];
 
-type Account = { id:number; email:string; display_name?:string|null };
+type Account = { id:number; email:string; display_name?:string|null; role?:string|null; is_owner?:boolean };
 type Cup = { id:number; name:string; public_slug?:string|null; start_date?:string|null; end_date?:string|null; is_published?:number|boolean; role:string };
 type CupInfo = {
   id:number; public_slug?:string|null; is_published?:number|boolean;
@@ -62,6 +63,21 @@ function cleanCupInfo(value:CupInfo):CupInfo {
     feedback_email:value.feedback_email || "",
     public_information:value.public_information || "",
   };
+}
+
+function initialCup(cups:Cup[]):Cup|undefined {
+  const requested = Number(new URLSearchParams(window.location.search).get("cup"));
+  const stored = Number(localStorage.getItem(CUP_KEY));
+  return cups.find(cup => cup.id === requested)
+    || cups.find(cup => cup.id === stored)
+    || cups[0];
+}
+
+function rememberCup(cupId:number) {
+  localStorage.setItem(CUP_KEY,String(cupId));
+  const url = new URL(window.location.href);
+  url.searchParams.set("cup",String(cupId));
+  window.history.replaceState({},"",`${url.pathname}${url.search}${url.hash}`);
 }
 
 export default function AdminWorkspace() {
@@ -107,8 +123,8 @@ export default function AdminWorkspace() {
     request<SessionPayload>("/api/admin/session",{},stored)
       .then(async data => {
         setToken(stored); setAccount(data.account); setCups(data.cups || []);
-        const first = data.cups?.[0];
-        if (first) { setCupId(first.id); await loadCupInfo(stored,first.id); }
+        const selected = initialCup(data.cups || []);
+        if (selected) { setCupId(selected.id); rememberCup(selected.id); await loadCupInfo(stored,selected.id); }
       })
       .catch(() => logout())
       .finally(() => setBusy(false));
@@ -121,8 +137,8 @@ export default function AdminWorkspace() {
       if (!data.token) throw new Error("API:t returnerade ingen session.");
       localStorage.setItem(TOKEN_KEY,data.token);
       setToken(data.token); setAccount(data.account); setCups(data.cups || []); setPassword("");
-      const first = data.cups?.[0];
-      if (first) { setCupId(first.id); await loadCupInfo(data.token,first.id); }
+      const selected = initialCup(data.cups || []);
+      if (selected) { setCupId(selected.id); rememberCup(selected.id); await loadCupInfo(data.token,selected.id); }
       else setMessage("Kontot är giltigt men är inte kopplat till någon cup ännu.");
     } catch (err) { setError(err instanceof Error ? err.message : "Inloggningen misslyckades."); }
     finally { setBusy(false); }
@@ -130,7 +146,8 @@ export default function AdminWorkspace() {
 
   async function changeCup(nextId:number) {
     if (!token) return;
-    setCupId(nextId); setBusy(true); setError(""); setMessage("");
+    if (!cups.some(cup => cup.id === nextId)) { setError("Cupen finns inte i din behöriga lista."); return; }
+    setCupId(nextId); rememberCup(nextId); setBusy(true); setError(""); setMessage("");
     try { await loadCupInfo(token,nextId); }
     catch (err) { setError(err instanceof Error ? err.message : "Cupen kunde inte hämtas."); }
     finally { setBusy(false); }
@@ -246,6 +263,7 @@ export default function AdminWorkspace() {
   }
 
   const publicCup = activeCup?.public_slug ? `/cup/${activeCup.public_slug}` : null;
+  const isOwner = account.role === "owner" || account.is_owner === true;
   const groupedTeams = teams.filter(team=>team.group_id != null).length;
   const checks = [["Cupinfo",cupinfo?.name ? "Påbörjad":"Ej klar"],["Lag",teams.length?`${teams.length} registrerade`:"Ej klar"],["Grupper",groups.length?`${groups.length} grupper · ${groupedTeams}/${teams.length} lag`:"Ej klar"],["Schema","Riktig modul inkopplad"],["Publicering",activeCup?.is_published ? "Publicerad":"Ej klar"]];
 
@@ -263,7 +281,7 @@ export default function AdminWorkspace() {
       {(error||message) && <section className="admin-panel" style={{marginBottom:14}}><strong>{error?"Kunde inte genomföra ändringen":"Klart"}</strong><p>{error||message}</p></section>}
       <section className="admin-dashboard-grid">
         <article className="admin-panel admin-panel--status"><div className="admin-panel__top"><span>PUBLICERINGSSTATUS</span><strong>{activeCup?.is_published?"LIVE":"ARBETE PÅGÅR"}</strong></div><h2>{activeCup?.is_published?"Cupen är publicerad":"Cupen är inte publicerad än"}</h2><div className="admin-checks">{checks.map(([name,status],i)=><div key={name}><span className={i===0?"is-progress":""}>{i===0?"◐":"○"}</span><strong>{name}</strong><small>{status}</small></div>)}</div></article>
-        <article className="admin-panel admin-panel--codes"><div className="admin-panel__top"><span>BEHÖRIGHET</span><strong>SERVERVERIFIERAD</strong></div><h2>Åtkomst</h2><p>Du är inloggad med CupNavis befintliga arrangörskonto. Cupåtkomst hämtas från tournament_members.</p><div className="admin-code-placeholder">Konto <b>{account.email}</b></div><div className="admin-code-placeholder">Roll <b>{activeCup?.role || "—"}</b></div></article>
+        <article className="admin-panel admin-panel--codes"><div className="admin-panel__top"><span>BEHÖRIGHET</span><strong>SERVERVERIFIERAD</strong></div><h2>Åtkomst</h2><p>{isOwner ? "Du är inloggad som CupNavi-ägare och har åtkomst till alla cuper. Din senast valda behöriga cup återställs automatiskt." : "Du är inloggad med CupNavis befintliga arrangörskonto. Cupåtkomst hämtas från tournament_members."}</p><div className="admin-code-placeholder">Konto <b>{account.email}</b></div><div className="admin-code-placeholder">Roll <b>{isOwner ? "ägare" : activeCup?.role || "—"}</b></div></article>
       </section>
 
       <form className="admin-panel admin-cupinfo" id="cupinfo" onSubmit={saveCupInfo}>
