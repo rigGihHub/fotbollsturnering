@@ -1,4 +1,4 @@
-APP_VERSION = "2026.09.12-638-SCHEDULE-CONFLICTS"
+APP_VERSION = "2026.09.12-639-SCHEDULE-PROPOSAL"
 
 
 def release_ui_label(version: str | None = None) -> str:
