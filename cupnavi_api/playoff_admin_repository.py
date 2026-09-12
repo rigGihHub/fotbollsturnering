@@ -35,11 +35,11 @@ def _table_columns(table_name: str) -> set[str]:
 
 
 def _resolved_playoff_matches(tournament: dict, tournament_id: int) -> list[dict]:
+    # SELECT * is intentional here: historical match schemas have fewer columns
+    # than current production. The resolver reads optional fields with dict.get,
+    # while the legacy read model remains valid without synthetic columns.
     all_matches = all_rows(
-        """SELECT id,group_id,bracket_id,stage,round_no,match_no,home_source,away_source,
-                  scheduled_start,pitch_number,home_score,away_score,home_penalties,away_penalties,
-                  decided_winner_id,schedule_locked,schedule_published
-           FROM matches WHERE tournament_id=?
+        """SELECT * FROM matches WHERE tournament_id=?
            ORDER BY COALESCE(bracket_id,0),round_no,match_no,id""",
         (int(tournament_id),),
     )
