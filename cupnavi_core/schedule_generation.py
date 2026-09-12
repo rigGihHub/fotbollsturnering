@@ -5,7 +5,7 @@ unlocked matches and treats already scheduled matches as fixed constraints.
 """
 from __future__ import annotations
 
-from datetime import datetime, time, timedelta
+from datetime import datetime, timedelta
 
 from .schedule_domain import build_schedule_window, schedule_source_team_id
 from .schedule_optimizer import optimize_match_order
@@ -37,6 +37,8 @@ def build_schedule_preview(matches, tournament, rules, *, referees=()):
     Existing scheduled matches, played matches and locked matches are preserved.
     Unscheduled eligible matches are ordered by the existing optimizer and placed
     in the earliest feasible pitch slot while respecting minimum team rest.
+    Matches whose participants are not concrete ``team:<id>`` sources are left
+    unresolved instead of guessing dependencies in a playoff tree.
     """
     window = build_schedule_window(tournament, rules)
     pitch_count = max(1, int(rules.get("pitch_count") or 1))
@@ -46,21 +48,26 @@ def build_schedule_preview(matches, tournament, rules, *, referees=()):
 
     fixed = []
     eligible = []
+    unresolved = []
     for raw in matches:
         row = dict(raw)
         played = row.get("home_score") is not None or row.get("away_score") is not None
         locked = bool(row.get("schedule_locked") or 0)
         if row.get("scheduled_start") or played or locked:
             fixed.append(row)
-        else:
-            eligible.append(row)
+            continue
+        teams = _team_ids(row)
+        if len(teams) != 2:
+            unresolved.append(int(row["id"]))
+            continue
+        eligible.append(row)
 
-    order, engine = optimize_match_order(eligible, pitch_count=pitch_count)
-    by_id = {int(row["id"]): row for row in eligible}
-    ordered = [by_id[int(match_id)] for match_id in order if int(match_id) in by_id]
-    if len(ordered) != len(eligible):
-        seen = {int(row["id"]) for row in ordered}
-        ordered.extend(row for row in eligible if int(row["id"]) not in seen)
+    optimizer_items = [
+        (row, _team_ids(row)[0], _team_ids(row)[1])
+        for row in eligible
+    ]
+    order, engine = optimize_match_order(optimizer_items, pitch_count=pitch_count)
+    ordered = [eligible[index] for index in order]
 
     pitch_free = {pitch: window.start for pitch in range(1, pitch_count + 1)}
     team_free = {}
@@ -81,13 +88,14 @@ def build_schedule_preview(matches, tournament, rules, *, referees=()):
             pitch_free[pitch_no] = max(pitch_free[pitch_no], end + timedelta(minutes=pitch_break))
         for team_id in _team_ids(row):
             team_free[team_id] = max(team_free.get(team_id, window.start), end + timedelta(minutes=minimum_rest))
-        rid = row.get("referee_id")
+        try:
+            rid = int(row.get("referee_id")) if row.get("referee_id") is not None else None
+        except (TypeError, ValueError):
+            rid = None
         if rid in referee_free:
             referee_free[rid] = max(referee_free[rid], end)
 
     updates = []
-    unresolved = []
-    current_date = window.start.date()
 
     def next_day_start(day):
         return datetime.combine(day, window.start.time())
@@ -98,8 +106,6 @@ def build_schedule_preview(matches, tournament, rules, *, referees=()):
         best = None
         for pitch in range(1, pitch_count + 1):
             candidate = max(pitch_free[pitch], *(team_free.get(t, window.start) for t in teams))
-            if candidate.date() < current_date:
-                candidate = next_day_start(current_date)
             while candidate.date() <= window.end_date:
                 if candidate.time() > window.latest_pitch_time:
                     candidate = next_day_start(candidate.date() + timedelta(days=1))
@@ -108,8 +114,9 @@ def build_schedule_preview(matches, tournament, rules, *, referees=()):
                 if referee_ids:
                     available = [rid for rid in referee_ids if referee_free.get(rid, window.start) <= candidate]
                     if not available:
-                        next_ref = min(referee_free[rid] for rid in referee_ids)
-                        candidate = max(candidate, next_ref)
+                        candidate = max(candidate, min(referee_free[rid] for rid in referee_ids))
+                        if candidate.time() > window.latest_pitch_time:
+                            candidate = next_day_start(candidate.date() + timedelta(days=1))
                         continue
                     referee_id = min(available, key=lambda rid: (referee_free.get(rid, window.start), rid))
                 option = (candidate, pitch, referee_id)
