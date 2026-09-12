@@ -5,6 +5,37 @@ from cupnavi_core.admin_publication import build_publish_blockers
 
 from .admin_repository import _has_tournament_access
 from .repository import all_rows, connect, one
+from .schedule_conflicts import analyze_schedule_conflicts
+
+
+def _schedule_publication_analysis(tournament_id: int) -> dict:
+    rules = one(
+        """SELECT halves,minutes_per_half,halftime_minutes,pitch_break_minutes,
+                  minimum_team_rest_minutes
+           FROM schedule_rules WHERE tournament_id=?""",
+        (int(tournament_id),),
+    ) or {
+        "halves": 2,
+        "minutes_per_half": 20,
+        "halftime_minutes": 5,
+        "pitch_break_minutes": 0,
+        "minimum_team_rest_minutes": 0,
+    }
+    group_rows = all_rows(
+        "SELECT id,name FROM groups WHERE tournament_id=?",
+        (int(tournament_id),),
+    )
+    group_names = {int(row["id"]): str(row["name"]) for row in group_rows}
+    matches = all_rows(
+        """SELECT id,group_id,stage,match_no,round_no,home_source,away_source,
+                  scheduled_start,pitch_number
+           FROM matches WHERE tournament_id=?""",
+        (int(tournament_id),),
+    )
+    for match in matches:
+        group_id = match.get("group_id")
+        match["group_name"] = group_names.get(int(group_id)) if group_id is not None else None
+    return analyze_schedule_conflicts(matches, rules)
 
 
 def _publication_payload(tournament_id: int):
@@ -16,15 +47,22 @@ def _publication_payload(tournament_id: int):
         (int(tournament_id),),
     )
     scheduled = int((scheduled_row or {}).get("count") or 0)
+    conflict_analysis = _schedule_publication_analysis(tournament_id)
+    schedule_errors = tuple(
+        item["message"]
+        for item in conflict_analysis.get("conflicts", [])
+        if item.get("severity") == "error"
+    )
     blockers = build_publish_blockers(
         playoff_model_confirmed=bool(tournament.get("playoff_format")) if "playoff_format" in tournament else True,
         scheduled_matches=scheduled,
         schedule_dirty=bool(tournament.get("schedule_dirty")) if "schedule_dirty" in tournament else False,
-        schedule_errors=(),
+        schedule_errors=schedule_errors,
     )
     return {
         "tournament": tournament,
         "scheduled_matches": scheduled,
+        "schedule_conflict_analysis": conflict_analysis,
         "blockers": blockers,
         "ready": not blockers,
     }

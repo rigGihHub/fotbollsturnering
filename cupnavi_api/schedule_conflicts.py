@@ -2,7 +2,8 @@
 
 The analyzer is intentionally pure: repositories provide scheduled matches and
 competition rules, while this module only turns them into structured warnings.
-That keeps conflict detection testable and reusable by future schedule generators.
+That keeps conflict detection testable and reusable by schedule generation and
+publication readiness.
 """
 from __future__ import annotations
 
@@ -33,11 +34,25 @@ def _match_ref(row: dict) -> dict:
         "match_id": int(row["id"]),
         "match_no": row.get("match_no"),
         "stage": row.get("stage"),
+        "group_id": row.get("group_id"),
+        "group_name": row.get("group_name"),
+        "round_no": row.get("round_no"),
         "scheduled_start": row.get("scheduled_start"),
         "pitch_number": row.get("pitch_number"),
         "home_label": row.get("home_label"),
         "away_label": row.get("away_label"),
     }
+
+
+def _group_round(row: dict) -> tuple[int, int] | None:
+    try:
+        group_id = int(row.get("group_id"))
+        round_no = int(row.get("round_no"))
+    except (TypeError, ValueError):
+        return None
+    if round_no <= 0:
+        return None
+    return group_id, round_no
 
 
 def analyze_schedule_conflicts(matches: list[dict], rules: dict) -> dict:
@@ -48,6 +63,8 @@ def analyze_schedule_conflicts(matches: list[dict], rules: dict) -> dict:
     - pitch_overlap: a pitch is reused before match + configured pitch break ends.
     - team_overlap: a known team is scheduled before its previous match ends.
     - insufficient_rest: a known team gets less than configured minimum rest.
+    - round_order: a lower numbered group-stage round starts after a higher round
+      in the same group.
 
     Only explicit ``team:<id>`` participants are evaluated for team conflicts.
     Placeholder playoff/group sources are deliberately ignored until resolved so
@@ -84,6 +101,7 @@ def analyze_schedule_conflicts(matches: list[dict], rules: dict) -> dict:
 
     by_pitch: dict[int, list[tuple[datetime, dict]]] = {}
     by_team: dict[int, list[tuple[datetime, dict]]] = {}
+    by_group: dict[int, list[tuple[datetime, int, dict]]] = {}
     for start, row in prepared:
         pitch = row.get("pitch_number")
         if pitch is not None:
@@ -92,6 +110,10 @@ def analyze_schedule_conflicts(matches: list[dict], rules: dict) -> dict:
             team_id = _team_id(source)
             if team_id is not None:
                 by_team.setdefault(team_id, []).append((start, row))
+        group_round = _group_round(row)
+        if group_round is not None:
+            group_id, round_no = group_round
+            by_group.setdefault(group_id, []).append((start, round_no, row))
 
     pitch_span = timedelta(minutes=match_minutes + pitch_break_minutes)
     for pitch, items in sorted(by_pitch.items()):
@@ -141,13 +163,44 @@ def analyze_schedule_conflicts(matches: list[dict], rules: dict) -> dict:
                     }
                 )
 
-    type_order = {"invalid_start": 0, "pitch_overlap": 1, "team_overlap": 2, "insufficient_rest": 3}
+    # Round ordering is evaluated per group. Equal kickoff times are not treated
+    # as an inversion; a lower round must actually start later than a higher one.
+    for group_id, items in sorted(by_group.items()):
+        items.sort(key=lambda item: (item[1], item[0], int(item[2]["id"])))
+        for index, (start, round_no, row) in enumerate(items):
+            for next_start, next_round, next_row in items[index + 1 :]:
+                if next_round <= round_no:
+                    continue
+                if start <= next_start:
+                    continue
+                group_name = row.get("group_name") or next_row.get("group_name") or f"grupp {group_id}"
+                conflicts.append(
+                    {
+                        "type": "round_order",
+                        "severity": "error",
+                        "group_id": group_id,
+                        "lower_round": round_no,
+                        "higher_round": next_round,
+                        "match_ids": [int(row["id"]), int(next_row["id"])],
+                        "message": f"{group_name}: rond {round_no} startar efter rond {next_round}.",
+                        "matches": [_match_ref(row), _match_ref(next_row)],
+                    }
+                )
+
+    type_order = {
+        "invalid_start": 0,
+        "pitch_overlap": 1,
+        "team_overlap": 2,
+        "insufficient_rest": 3,
+        "round_order": 4,
+    }
     conflicts.sort(
         key=lambda item: (
             type_order.get(item["type"], 99),
             tuple(item.get("match_ids") or []),
             int(item.get("pitch_number") or 0),
             int(item.get("team_id") or 0),
+            int(item.get("group_id") or 0),
         )
     )
     error_count = sum(1 for item in conflicts if item["severity"] == "error")
