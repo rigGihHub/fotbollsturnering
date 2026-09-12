@@ -56,6 +56,6 @@ def test_legacy_free_text_source_is_not_claimed_safe():
     assert result["issues"][0]["code"] == "legacy_source"
 
 
-def test_group_placement_must_be_positive():
+def test_malformed_group_placement_is_blocked():
     result = validate_bracket_sources([_match(40, "group:3:0", "team:1")], [_team(1)], [_group(3)])
-    assert any(item["code"] == "group_placement_invalid" for item in result["issues"])
+    assert any(item["code"] == "unsupported_source" for item in result["issues"])
