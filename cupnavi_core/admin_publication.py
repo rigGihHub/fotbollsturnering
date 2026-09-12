@@ -10,13 +10,11 @@ _ADVISORY_WARNING_TERMS = ("färgkrock", "tröjfärg", "färglikhet", "extrastä
 
 
 def is_advisory_schedule_warning(message: str | None) -> bool:
-    """Return True for kit-colour warnings that should never block publishing."""
     lowered = (message or "").lower()
     return any(term in lowered for term in _ADVISORY_WARNING_TERMS)
 
 
 def split_schedule_warnings(warnings: Iterable[str]) -> tuple[list[str], list[str]]:
-    """Split schedule warnings into blocking and advisory groups, preserving order."""
     blocking: list[str] = []
     advisory: list[str] = []
     for warning in warnings:
@@ -30,16 +28,11 @@ def build_publish_blockers(
     scheduled_matches: int,
     schedule_dirty: bool,
     schedule_errors: Sequence[str],
+    bracket_errors: Sequence[str] = (),
     blocking_warnings: Sequence[str] = (),
     warnings_approved: bool = False,
 ) -> list[str]:
-    """Return only conditions that make publication unsafe.
-
-    Schedule warnings are intentionally not blockers. validate_schedule already
-    separates hard errors from warnings; forcing an extra acknowledgement made
-    ordinary warnings behave like errors and created two competing severity
-    systems in the UI. The legacy warning arguments remain for API compatibility.
-    """
+    """Return only conditions that make publication unsafe."""
     blockers: list[str] = []
     if not playoff_model_confirmed:
         blockers.append("Slutspelsmodell och cupregler måste sparas på Översikt.")
@@ -49,6 +42,8 @@ def build_publish_blockers(
         blockers.append("Schemat är inaktuellt eftersom förutsättningarna har ändrats. Regenerera schemat.")
     if schedule_errors:
         blockers.append(f"{len(schedule_errors)} blockerande schemafel måste åtgärdas.")
+    if bracket_errors:
+        blockers.append(f"{len(bracket_errors)} fel i slutspelsträdet måste åtgärdas.")
     return blockers
 
 
@@ -67,13 +62,14 @@ def build_publication_quality_summary(
     schedule_dirty: bool,
     schedule_errors: Sequence[str],
     schedule_warnings: Sequence[str],
+    bracket_errors: Sequence[str] = (),
 ) -> PublicationQualitySummary:
-    """Create one severity model shared by publication and Kontroller."""
     critical = build_publish_blockers(
         playoff_model_confirmed=playoff_model_confirmed,
         scheduled_matches=scheduled_matches,
         schedule_dirty=schedule_dirty,
         schedule_errors=schedule_errors,
+        bracket_errors=bracket_errors,
     )
     warning_items, improvement_items = split_schedule_warnings(schedule_warnings)
     return PublicationQualitySummary(
@@ -84,17 +80,18 @@ def build_publication_quality_summary(
     )
 
 
-
 def publication_problem_destination(message: str | None) -> tuple[str, str]:
-    """Map a publication blocker to the admin page where a novice can fix it."""
     text = (message or "").lower()
     if "slutspelsmodell" in text or "cupregler" in text:
         return "Cupinställningar", "Öppna Cupinfo"
+    if "slutspelsträdet" in text:
+        return "Slutspel", "Öppna Slutspel"
     if "spelschema saknas" in text:
         return "Skapa och publicera schema", "Öppna Schema"
     if "schemat är inaktuellt" in text or "schemafel" in text:
         return "Skapa och publicera schema", "Öppna Schema"
     return "Kontroller", "Visa mer"
+
 
 def publication_action_label(*, published_once: bool) -> str:
     return "Uppdatera" if published_once else "Publicera"

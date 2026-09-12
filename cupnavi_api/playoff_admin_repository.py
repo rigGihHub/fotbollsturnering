@@ -1,6 +1,7 @@
 """Organizer-scoped playoff settings and persisted bracket inspection."""
 from __future__ import annotations
 
+from cupnavi_core.bracket_validation import validate_bracket_sources
 from cupnavi_core.participant_resolution import (
     ParticipantResolver,
     enrich_match_participants,
@@ -24,10 +25,10 @@ def _table_columns(table_name: str) -> set[str]:
     """Return columns for a known internal table, or an empty set if absent.
 
     Historical CupNavi fixtures intentionally contain only the tables required by
-    that release. Participant enrichment is a read-model enhancement and must not
-    make those older schemas invalid.
+    that release. Participant enrichment and bracket validation are read-model
+    enhancements and must not make those older schemas invalid.
     """
-    if table_name not in {"teams", "matches"}:
+    if table_name not in {"teams", "matches", "groups"}:
         raise ValueError("Unsupported schema inspection target")
     with connect() as con:
         rows = con.execute(f"PRAGMA table_info({table_name})").fetchall()
@@ -35,9 +36,6 @@ def _table_columns(table_name: str) -> set[str]:
 
 
 def _resolved_playoff_matches(tournament: dict, tournament_id: int) -> list[dict]:
-    # SELECT * is intentional here: historical match schemas have fewer columns
-    # than current production. The resolver reads optional fields with dict.get,
-    # while the legacy read model remains valid without synthetic columns.
     all_matches = all_rows(
         """SELECT * FROM matches WHERE tournament_id=?
            ORDER BY COALESCE(bracket_id,0),round_no,match_no,id""",
@@ -45,9 +43,6 @@ def _resolved_playoff_matches(tournament: dict, tournament_id: int) -> list[dict
     )
     playoff_matches = [match for match in all_matches if match.get("bracket_id") is not None]
 
-    # v634-era/minimal fixtures can legitimately lack a teams table. In that
-    # schema shape we preserve the historical raw playoff read model instead of
-    # failing an otherwise valid cup.
     team_columns = _table_columns("teams")
     if not {"id", "name", "group_id", "tournament_id"}.issubset(team_columns):
         return playoff_matches
@@ -68,6 +63,24 @@ def _resolved_playoff_matches(tournament: dict, tournament_id: int) -> list[dict
     return enrich_match_participants(playoff_matches, resolver)
 
 
+def _bracket_validation(tournament_id: int) -> dict:
+    """Validate the current tournament bracket when the modern schema is present."""
+    match_columns = _table_columns("matches")
+    team_columns = _table_columns("teams")
+    group_columns = _table_columns("groups")
+    required_match = {"id", "tournament_id", "bracket_id", "home_source", "away_source"}
+    if not required_match.issubset(match_columns):
+        return {"ready": True, "issue_count": 0, "issues": [], "playoff_match_count": 0, "skipped": True}
+    if not {"id", "tournament_id"}.issubset(team_columns) or not {"id", "tournament_id"}.issubset(group_columns):
+        return {"ready": True, "issue_count": 0, "issues": [], "playoff_match_count": 0, "skipped": True}
+    matches = all_rows("SELECT * FROM matches WHERE tournament_id=?", (int(tournament_id),))
+    teams = all_rows("SELECT id FROM teams WHERE tournament_id=?", (int(tournament_id),))
+    groups = all_rows("SELECT id FROM groups WHERE tournament_id=?", (int(tournament_id),))
+    result = validate_bracket_sources(matches, teams, groups)
+    result["skipped"] = False
+    return result
+
+
 def admin_playoffs(account_id: int, tournament_id: int):
     if not _has_tournament_access(account_id, tournament_id):
         return None
@@ -86,6 +99,7 @@ def admin_playoffs(account_id: int, tournament_id: int):
         bracket["matches"] = by_bracket.get(int(bracket["id"]), [])
     played_count = sum(1 for match in matches if match.get("home_score") is not None and match.get("away_score") is not None)
     locked_count = sum(1 for match in matches if bool(match.get("schedule_locked") or 0))
+    validation = _bracket_validation(tournament_id)
     return {
         "playoff_format": tournament.get("playoff_format") or "Inget slutspel",
         "bronze_match": bool(tournament.get("bronze_match") or 0),
@@ -97,6 +111,8 @@ def admin_playoffs(account_id: int, tournament_id: int):
         "played_count": played_count,
         "locked_count": locked_count,
         "structure_locked": bool(brackets or matches),
+        "bracket_validation": validation,
+        "bracket_ready": bool(validation.get("ready", True)),
     }
 
 

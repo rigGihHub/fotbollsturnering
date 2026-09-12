@@ -2,21 +2,27 @@
 from __future__ import annotations
 
 from cupnavi_core.admin_publication import build_publish_blockers
+from cupnavi_core.bracket_validation import validate_bracket_sources
 from cupnavi_core.playoff_dependency_safety import (
     build_dependency_guidance,
     dependency_impact,
     transitive_downstream_match_ids,
     winner_side,
 )
-from cupnavi_core.playoff_result_progression import (
-    decided_side_from_team_id,
-    prepare_result,
-)
+from cupnavi_core.playoff_result_progression import decided_side_from_team_id, prepare_result
 
 from .admin_repository import _has_tournament_access
 from .participant_resolution_repository import tournament_participant_resolver
 from .repository import all_rows, connect, one
 from .schedule_conflicts import analyze_schedule_conflicts
+
+
+def _table_columns(table_name: str) -> set[str]:
+    if table_name not in {"teams", "groups", "matches"}:
+        raise ValueError("Unsupported schema inspection target")
+    with connect() as con:
+        rows = con.execute(f"PRAGMA table_info({table_name})").fetchall()
+    return {str(row[1]) for row in rows}
 
 
 def _schedule_publication_analysis(tournament_id: int) -> dict:
@@ -32,19 +38,33 @@ def _schedule_publication_analysis(tournament_id: int) -> dict:
         "pitch_break_minutes": 0,
         "minimum_team_rest_minutes": 0,
     }
-    group_rows = all_rows(
-        "SELECT id,name FROM groups WHERE tournament_id=?",
-        (int(tournament_id),),
-    )
+    group_rows = all_rows("SELECT id,name FROM groups WHERE tournament_id=?", (int(tournament_id),))
     group_names = {int(row["id"]): str(row["name"]) for row in group_rows}
-    matches = all_rows(
-        "SELECT * FROM matches WHERE tournament_id=?",
-        (int(tournament_id),),
-    )
+    matches = all_rows("SELECT * FROM matches WHERE tournament_id=?", (int(tournament_id),))
     for match in matches:
         group_id = match.get("group_id")
         match["group_name"] = group_names.get(int(group_id)) if group_id is not None else None
     return analyze_schedule_conflicts(matches, rules)
+
+
+def _bracket_publication_analysis(tournament_id: int) -> dict:
+    """Validate modern bracket sources while preserving historical minimal fixtures."""
+    required_match = {"id", "tournament_id", "bracket_id", "home_source", "away_source"}
+    try:
+        if not required_match.issubset(_table_columns("matches")):
+            return {"ready": True, "issue_count": 0, "issues": [], "playoff_match_count": 0, "skipped": True}
+        if not {"id", "tournament_id"}.issubset(_table_columns("teams")):
+            return {"ready": True, "issue_count": 0, "issues": [], "playoff_match_count": 0, "skipped": True}
+        if not {"id", "tournament_id"}.issubset(_table_columns("groups")):
+            return {"ready": True, "issue_count": 0, "issues": [], "playoff_match_count": 0, "skipped": True}
+        matches = all_rows("SELECT * FROM matches WHERE tournament_id=?", (int(tournament_id),))
+        teams = all_rows("SELECT id FROM teams WHERE tournament_id=?", (int(tournament_id),))
+        groups = all_rows("SELECT id FROM groups WHERE tournament_id=?", (int(tournament_id),))
+    except Exception:
+        return {"ready": True, "issue_count": 0, "issues": [], "playoff_match_count": 0, "skipped": True}
+    result = validate_bracket_sources(matches, teams, groups)
+    result["skipped"] = False
+    return result
 
 
 def _publication_payload(tournament_id: int):
@@ -58,20 +78,22 @@ def _publication_payload(tournament_id: int):
     scheduled = int((scheduled_row or {}).get("count") or 0)
     conflict_analysis = _schedule_publication_analysis(tournament_id)
     schedule_errors = tuple(
-        item["message"]
-        for item in conflict_analysis.get("conflicts", [])
-        if item.get("severity") == "error"
+        item["message"] for item in conflict_analysis.get("conflicts", []) if item.get("severity") == "error"
     )
+    bracket_analysis = _bracket_publication_analysis(tournament_id)
+    bracket_errors = tuple(item["message"] for item in bracket_analysis.get("issues", []))
     blockers = build_publish_blockers(
         playoff_model_confirmed=bool(tournament.get("playoff_format")) if "playoff_format" in tournament else True,
         scheduled_matches=scheduled,
         schedule_dirty=bool(tournament.get("schedule_dirty")) if "schedule_dirty" in tournament else False,
         schedule_errors=schedule_errors,
+        bracket_errors=bracket_errors,
     )
     return {
         "tournament": tournament,
         "scheduled_matches": scheduled,
         "schedule_conflict_analysis": conflict_analysis,
+        "bracket_validation": bracket_analysis,
         "blockers": blockers,
         "ready": not blockers,
     }
@@ -92,10 +114,7 @@ def set_publication(account_id: int, tournament_id: int, published: bool):
     if published and state["blockers"]:
         raise ValueError("Cupen kan inte publiceras ännu: " + " ".join(state["blockers"]))
     with connect() as conn:
-        conn.execute(
-            "UPDATE tournaments SET is_published=? WHERE id=?",
-            (1 if published else 0, int(tournament_id)),
-        )
+        conn.execute("UPDATE tournaments SET is_published=? WHERE id=?", (1 if published else 0, int(tournament_id)))
         commit = getattr(conn, "commit", None)
         if callable(commit):
             commit()
@@ -121,8 +140,6 @@ def _resolver_for_tournament(tournament_id: int):
     try:
         return tournament_participant_resolver(tournament)
     except Exception:
-        # Legacy/minimal fixtures do not necessarily contain the complete modern
-        # participant-resolution schema. Reporting remains usable without enrichment.
         return None
 
 
@@ -197,10 +214,7 @@ def save_result(
 ):
     if not _has_tournament_access(account_id, tournament_id):
         return None
-    row = one(
-        "SELECT * FROM matches WHERE id=? AND tournament_id=?",
-        (int(match_id), int(tournament_id)),
-    )
+    row = one("SELECT * FROM matches WHERE id=? AND tournament_id=?", (int(match_id), int(tournament_id)))
     if not row:
         return None
     if (
@@ -218,9 +232,7 @@ def save_result(
     away_team_id = away.team_id if away and away.resolved else None
 
     old_manual_side = decided_side_from_team_id(
-        row.get("decided_winner_id"),
-        home_team_id=home_team_id,
-        away_team_id=away_team_id,
+        row.get("decided_winner_id"), home_team_id=home_team_id, away_team_id=away_team_id
     )
     old_side = winner_side(
         home_score=row.get("home_score"),
@@ -242,8 +254,6 @@ def save_result(
 
     new_decided_winner_id = None
     new_side = prepared.winner_side
-    # Preserve an existing explicit/manual tiebreak only while the replacement
-    # result remains tied and no penalty result has superseded it.
     if (
         str(row.get("stage") or "") != "Gruppspel"
         and prepared.home_score == prepared.away_score
