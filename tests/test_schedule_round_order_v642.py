@@ -47,7 +47,7 @@ def test_lower_round_is_placed_before_fixed_higher_round_when_possible():
 
 
 def test_round_order_blocks_new_inversion_against_fixed_match():
-    fixed_round_two = _match(2, 2, scheduled_start="2026-09-12T09:00", pitch_number=2)
+    fixed_round_two = _match(2, 2, scheduled_start="2026-09-12T08:10", pitch_number=2)
     round_one = _match(1, 1)
     result = build_schedule_proposal([fixed_round_two, round_one], _rules(), _windows(start="09:00", end="11:30"))
     assert result["placed_count"] == 0
