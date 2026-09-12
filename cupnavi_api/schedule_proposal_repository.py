@@ -36,12 +36,12 @@ def _load_source(con, tournament_id: int):
         "minimum_team_rest_minutes": 0,
     }
     pitch_count = max(1, int(rules.get("pitch_count") or 1))
+    # SELECT * is deliberate here: legacy SQLite fixtures predate bracket_id,
+    # while current production rows include it. The proposal engine only reads
+    # known keys and therefore stays compatible with both schemas.
     matches = _dict_rows(
         con.execute(
-            """SELECT id,group_id,bracket_id,stage,match_no,round_no,home_source,away_source,
-                      scheduled_start,pitch_number,schedule_locked,schedule_published,
-                      home_score,away_score
-               FROM matches WHERE tournament_id=? ORDER BY id""",
+            "SELECT * FROM matches WHERE tournament_id=? ORDER BY id",
             (tournament_id,),
         )
     )
