@@ -1,11 +1,7 @@
 """Database-backed participant resolution for CupNavi API read models."""
 from __future__ import annotations
 
-from cupnavi_core.participant_resolution import (
-    ParticipantResolver,
-    enrich_match_participants,
-    finalized_group_standings,
-)
+from cupnavi_core.participant_resolution import ParticipantResolver, finalized_group_standings
 
 from .repository import all_rows
 
@@ -34,27 +30,46 @@ def tournament_participant_resolver(tournament: dict) -> ParticipantResolver:
     return ParticipantResolver(teams=teams, matches=matches, standings_by_group=standings)
 
 
+def participant_resolution_payload(tournament: dict, matches: list[dict]) -> dict[str, dict]:
+    """Return additive resolved participant data keyed by public match id.
+
+    Existing public ``matches`` and ``brackets`` are contractual parity surfaces
+    and therefore remain byte-for-byte repository shaped. Consumers that want
+    actual team identities for symbolic sources use this sidecar read model.
+    """
+    if not tournament or not matches:
+        return {}
+    resolver = tournament_participant_resolver(tournament)
+    result: dict[str, dict] = {}
+    for match in matches:
+        match_id = match.get("id")
+        if match_id is None:
+            continue
+        home = resolver.resolve(match.get("home_source"))
+        away = resolver.resolve(match.get("away_source"))
+        result[str(int(match_id))] = {
+            "home": home.as_dict(),
+            "away": away.as_dict(),
+        }
+    return result
+
+
 def resolve_public_snapshot(snapshot: dict) -> dict:
-    """Add resolved participant names to a public snapshot without exposing hidden rows."""
+    """Add a sidecar participant-resolution map without changing public rows."""
     if not snapshot or not snapshot.get("tournament"):
         return snapshot
-    resolver = tournament_participant_resolver(snapshot["tournament"])
     result = dict(snapshot)
-    result["matches"] = enrich_match_participants(list(snapshot.get("matches") or []), resolver)
-    brackets = []
-    for bracket in snapshot.get("brackets") or []:
-        item = dict(bracket)
-        item["matches"] = enrich_match_participants(list(bracket.get("matches") or []), resolver)
-        brackets.append(item)
-    result["brackets"] = brackets
+    public_matches = list(snapshot.get("matches") or [])
+    result["participant_resolution"] = participant_resolution_payload(
+        snapshot["tournament"], public_matches
+    )
     return result
 
 
-def resolve_public_brackets(tournament: dict, brackets: list[dict]) -> list[dict]:
-    resolver = tournament_participant_resolver(tournament)
-    result = []
-    for bracket in brackets:
-        item = dict(bracket)
-        item["matches"] = enrich_match_participants(list(bracket.get("matches") or []), resolver)
-        result.append(item)
-    return result
+def public_bracket_resolution(tournament: dict, brackets: list[dict]) -> dict[str, dict]:
+    public_matches = [
+        match
+        for bracket in brackets
+        for match in (bracket.get("matches") or [])
+    ]
+    return participant_resolution_payload(tournament, public_matches)
