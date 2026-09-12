@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import hmac
 
-from .admin_auth import normalize_email, password_hash
+from .admin_auth import OWNER_ACCOUNT_ID, normalize_email, password_hash
 from .repository import all_rows, connect, one
 
 CUPINFO_FIELDS = (
@@ -58,6 +58,15 @@ def organizer_account(account_id: int):
 
 
 def organizer_tournaments(account_id: int):
+    if int(account_id) == OWNER_ACCOUNT_ID:
+        rows = all_rows(
+            """SELECT id,name,public_slug,start_date,end_date,is_published
+               FROM tournaments
+               ORDER BY COALESCE(start_date,''),name,id"""
+        )
+        for row in rows:
+            row["role"] = "owner"
+        return rows
     return all_rows(
         """SELECT t.id,t.name,t.public_slug,t.start_date,t.end_date,t.is_published,tm.role
            FROM tournament_members tm
@@ -69,6 +78,8 @@ def organizer_tournaments(account_id: int):
 
 
 def _has_tournament_access(account_id: int, tournament_id: int) -> bool:
+    if int(account_id) == OWNER_ACCOUNT_ID:
+        return bool(one("SELECT 1 AS allowed FROM tournaments WHERE id=?", (int(tournament_id),)))
     return bool(
         one(
             """SELECT 1 AS allowed FROM tournament_members
