@@ -24,6 +24,13 @@ type SchedulePayload={
   first_match_time:string; latest_kickoff_time:string; start_date?:string|null; end_date?:string|null;
   schedule_dirty:boolean; is_published:boolean; conflict_analysis:ConflictAnalysis;
 };
+type ProposalPlacement={match_id:number;scheduled_start:string;pitch_number:number};
+type ProposalUnresolved={match_id:number;reason:"played_without_schedule"|"locked_without_schedule"|"no_feasible_slot"};
+type ScheduleProposal={
+  deterministic:boolean;writes_database:boolean;match_duration_minutes:number;pitch_break_minutes:number;minimum_team_rest_minutes:number;
+  preserved_count:number;candidate_count:number;placed_count:number;unresolved_count:number;
+  placements:ProposalPlacement[];unresolved:ProposalUnresolved[];source_match_count:number;window_count:number;
+};
 
 async function api<T>(path:string,options:RequestInit,token:string):Promise<T>{
   const headers=new Headers(options.headers||{});if(options.body)headers.set("Content-Type","application/json");
@@ -39,27 +46,35 @@ function conflictMatches(conflict:ScheduleConflict){
   const rows=conflict.matches||(conflict.match?[conflict.match]:[]);
   return rows.map(row=>`${row.match_no?`Match ${row.match_no}`:`Match ${row.match_id}`}${row.home_label&&row.away_label?` · ${row.home_label} – ${row.away_label}`:""}`).join(" / ");
 }
+function unresolvedLabel(reason:ProposalUnresolved["reason"]){
+  if(reason==="locked_without_schedule")return "Matchen är låst utan tid";
+  if(reason==="played_without_schedule")return "Spelad match saknar schema";
+  return "Ingen regelmässigt möjlig tid hittades";
+}
 
 export default function ScheduleAdmin({token,cupId}:{token:string;cupId:number}){
-  const[data,setData]=useState<SchedulePayload|null>(null);const[busy,setBusy]=useState(false);
+  const[data,setData]=useState<SchedulePayload|null>(null);const[proposal,setProposal]=useState<ScheduleProposal|null>(null);const[busy,setBusy]=useState(false);
   const[error,setError]=useState("");const[message,setMessage]=useState("");const[filter,setFilter]=useState<"all"|"scheduled"|"unscheduled">("all");
-  const load=useCallback(async()=>{setBusy(true);setError("");try{setData(await api<SchedulePayload>(`/api/admin/cups/${cupId}/schedule`,{},token));}catch(err){setError(err instanceof Error?err.message:"Schemat kunde inte hämtas.");}finally{setBusy(false);}},[cupId,token]);
+  const load=useCallback(async()=>{setBusy(true);setError("");try{setData(await api<SchedulePayload>(`/api/admin/cups/${cupId}/schedule`,{},token));setProposal(null);}catch(err){setError(err instanceof Error?err.message:"Schemat kunde inte hämtas.");}finally{setBusy(false);}},[cupId,token]);
   useEffect(()=>{void load();},[load]);
   const visible=useMemo(()=>{if(!data)return[];if(filter==="scheduled")return data.matches.filter(m=>m.scheduled_start);if(filter==="unscheduled")return data.matches.filter(m=>!m.scheduled_start);return data.matches;},[data,filter]);
-  function patchMatch(id:number,patch:Partial<MatchRow>){if(!data)return;setData({...data,matches:data.matches.map(m=>m.id===id?{...m,...patch}:m)});}
-  async function saveMatch(match:MatchRow){setBusy(true);setError("");setMessage("");try{const saved=await api<SchedulePayload>(`/api/admin/cups/${cupId}/schedule/matches/${match.id}`,{method:"PUT",body:JSON.stringify({scheduled_start:match.scheduled_start||null,pitch_number:match.pitch_number??null})},token);setData(saved);setMessage(`Match ${match.match_no||match.id} har uppdaterats. Konfliktkontrollen är omräknad.`);}catch(err){setError(err instanceof Error?err.message:"Matchen kunde inte uppdateras.");}finally{setBusy(false);}}
-  async function clearMatch(match:MatchRow){if(!window.confirm(`Ta bort tid och plan för ${match.home_label} – ${match.away_label}?`))return;setBusy(true);setError("");setMessage("");try{const saved=await api<SchedulePayload>(`/api/admin/cups/${cupId}/schedule/matches/${match.id}`,{method:"PUT",body:JSON.stringify({scheduled_start:null,pitch_number:null})},token);setData(saved);setMessage("Matchen är nu oschemalagd och konfliktkontrollen är omräknad.");}catch(err){setError(err instanceof Error?err.message:"Matchen kunde inte göras oschemalagd.");}finally{setBusy(false);}}
+  const matchById=useMemo(()=>new Map((data?.matches||[]).map(match=>[match.id,match])),[data]);
+  function patchMatch(id:number,patch:Partial<MatchRow>){if(!data)return;setData({...data,matches:data.matches.map(m=>m.id===id?{...m,...patch}:m)});setProposal(null);}
+  async function saveMatch(match:MatchRow){setBusy(true);setError("");setMessage("");try{const saved=await api<SchedulePayload>(`/api/admin/cups/${cupId}/schedule/matches/${match.id}`,{method:"PUT",body:JSON.stringify({scheduled_start:match.scheduled_start||null,pitch_number:match.pitch_number??null})},token);setData(saved);setProposal(null);setMessage(`Match ${match.match_no||match.id} har uppdaterats. Konfliktkontrollen är omräknad.`);}catch(err){setError(err instanceof Error?err.message:"Matchen kunde inte uppdateras.");}finally{setBusy(false);}}
+  async function clearMatch(match:MatchRow){if(!window.confirm(`Ta bort tid och plan för ${match.home_label} – ${match.away_label}?`))return;setBusy(true);setError("");setMessage("");try{const saved=await api<SchedulePayload>(`/api/admin/cups/${cupId}/schedule/matches/${match.id}`,{method:"PUT",body:JSON.stringify({scheduled_start:null,pitch_number:null})},token);setData(saved);setProposal(null);setMessage("Matchen är nu oschemalagd och konfliktkontrollen är omräknad.");}catch(err){setError(err instanceof Error?err.message:"Matchen kunde inte göras oschemalagd.");}finally{setBusy(false);}}
+  async function createProposal(){setBusy(true);setError("");setMessage("");try{const next=await api<ScheduleProposal>(`/api/admin/cups/${cupId}/schedule/proposal`,{method:"POST"},token);setProposal(next);setMessage("Schemaförslaget är beräknat. Ingenting har skrivits till databasen.");}catch(err){setError(err instanceof Error?err.message:"Schemaförslaget kunde inte beräknas.");}finally{setBusy(false);}}
   if(!data)return <section className="admin-panel admin-teams" id="schedule"><div className="admin-panel__top"><span>07 / SCHEMA</span><strong>{busy?"HÄMTAR":"SAKNAS"}</strong></div><h2>Schema</h2><p>{error||"Hämtar riktiga matcher…"}</p></section>;
   const analysis=data.conflict_analysis;
   return <section className="admin-panel admin-teams" id="schedule">
     <div className="admin-panel__top"><span>07 / SCHEMA</span><strong>{data.scheduled_count}/{data.match_count} SCHEMALAGDA</strong></div>
-    <div className="admin-cupinfo__head"><div><h2>Matchschema</h2><p>Manuell schemaläggning med serverberäknad kontroll av planbokningar, samtidiga lagmatcher och lagvila.</p></div><span className="admin-lock">LIVE DATA + KROCKKONTROLL</span></div>
+    <div className="admin-cupinfo__head"><div><h2>Matchschema</h2><p>Manuell schemaläggning, serverberäknad krockkontroll och deterministiska schemaförslag som alltid granskas innan något sparas.</p></div><span className="admin-lock">LIVE DATA + KROCKKONTROLL</span></div>
     {(error||message)&&<div className="admin-code-placeholder" style={{marginBottom:16}}><b>{error?"Fel":"Klart"}</b> · {error||message}</div>}
     <div className="admin-dashboard-grid" style={{marginBottom:18}}>
       <article className="admin-panel"><strong>{data.match_count}</strong><small>matcher totalt</small></article>
       <article className="admin-panel"><strong>{data.scheduled_count}</strong><small>schemalagda</small></article>
       <article className="admin-panel"><strong>{analysis.conflict_count}</strong><small>{analysis.conflict_count===1?"schemaavvikelse":"schemaavvikelser"}</small></article>
     </div>
+    <section className="admin-panel" style={{marginBottom:16}}><div className="admin-panel__top"><span>AUTO / FÖRSLAG</span><strong>GRANSKA FÖRST</strong></div><h3>Skapa säkert schemaförslag</h3><p>CupNavi behåller redan schemalagda matcher och försöker placera återstående matcher efter planfönster, matchlängd, planpaus och minsta lagvila. Samma indata ger samma förslag. Knappen skriver inte till databasen.</p><div className="admin-form-footer"><span>{proposal?`${proposal.placed_count}/${proposal.candidate_count} oschemalagda matcher kunde placeras · ${proposal.unresolved_count} kräver manuell lösning.`:"Förslaget är en förhandsgranskning, inte en automatisk omplanering."}</span><button type="button" onClick={()=>void createProposal()} disabled={busy||data.unscheduled_count===0}>{busy?"Beräknar…":proposal?"Räkna om förslag":"Skapa schemaförslag"}</button></div>{proposal&&<div className="admin-team-list" style={{marginTop:16}}>{proposal.placements.map(item=>{const match=matchById.get(item.match_id);return <article key={`proposal-${item.match_id}`}><div><strong>{match?`${match.home_label} – ${match.away_label}`:`Match ${item.match_id}`}</strong><small>Föreslagen tid {item.scheduled_start.replace("T"," ")} · Plan {item.pitch_number}</small></div><strong>FÖRSLAG</strong></article>})}{proposal.unresolved.map(item=>{const match=matchById.get(item.match_id);return <article key={`unresolved-${item.match_id}`}><div><strong>{match?`${match.home_label} – ${match.away_label}`:`Match ${item.match_id}`}</strong><small>{unresolvedLabel(item.reason)}</small></div><strong>MANUELLT</strong></article>})}</div>}</section>
     {analysis.ok?<div className="admin-code-placeholder" style={{marginBottom:16}}><b>Ingen krock hittad</b> · {analysis.match_duration_minutes} min match · {analysis.pitch_break_minutes} min planpaus · minst {analysis.minimum_team_rest_minutes} min lagvila.</div>:<section className="admin-panel" style={{marginBottom:16}}><div className="admin-panel__top"><span>SCHEMAKONTROLL</span><strong>{analysis.error_count} FEL · {analysis.warning_count} VARNINGAR</strong></div><h3>Åtgärda innan publicering</h3><div className="admin-team-list">{analysis.conflicts.map((conflict,index)=><article key={`${conflict.type}-${conflict.match_ids.join("-")}-${index}`}><div><strong>{conflict.severity==="error"?"STOPP":"VARNING"} · {conflict.message}</strong><small>{conflictMatches(conflict)}</small></div></article>)}</div></section>}
     {data.schedule_dirty&&<div className="admin-code-placeholder" style={{marginBottom:16}}><b>Kontroll krävs</b> · schemat är ändrat sedan senaste publicering. Konfliktlistan ovan räknas från aktuell serverdata.</div>}
     <div className="admin-team-actions" style={{marginBottom:16}}><button type="button" onClick={()=>setFilter("all")} disabled={filter==="all"}>Alla</button><button type="button" onClick={()=>setFilter("scheduled")} disabled={filter==="scheduled"}>Schemalagda</button><button type="button" onClick={()=>setFilter("unscheduled")} disabled={filter==="unscheduled"}>Oschemalagda</button></div>
@@ -71,6 +86,6 @@ export default function ScheduleAdmin({token,cupId}:{token:string;cupId:number})
         <div className="admin-team-actions"><button type="button" disabled={busy||match.played||match.schedule_locked||!match.scheduled_start||!match.pitch_number} onClick={()=>saveMatch(match)}>Spara</button>{match.scheduled_start&&<button type="button" disabled={busy||match.played||match.schedule_locked} onClick={()=>clearMatch(match)}>Gör oschemalagd</button>}</div>
       </article>):<div className="admin-empty"><strong>Inga matcher i filtret</strong><span>Byt filter eller skapa gruppmatcher i det avancerade schemaflödet.</span></div>}
     </div>
-    <div className="admin-form-footer"><span>Konfliktkontrollen är deterministisk och flyttar aldrig matcher automatiskt. Nästa schemaetapp kan använda samma motor för att skapa säkra schemaförslag.</span><button type="button" onClick={()=>void load()} disabled={busy}>{busy?"Hämtar…":"Uppdatera schema"}</button></div>
+    <div className="admin-form-footer"><span>Förslag och konfliktkontroll är deterministiska. Manuella ändringar skrivs först när du själv sparar den enskilda matchen.</span><button type="button" onClick={()=>void load()} disabled={busy}>{busy?"Hämtar…":"Uppdatera schema"}</button></div>
   </section>;
 }
