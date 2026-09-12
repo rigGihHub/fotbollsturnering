@@ -3,7 +3,14 @@ from pydantic import BaseModel
 from .publish_reporting_repository import admin_publication,set_publication,admin_reporting,save_result
 class PublicationWrite(BaseModel): published:bool
 class ResultWrite(BaseModel):
-    home_score:int;away_score:int;expected_home_score:int|None=None;expected_away_score:int|None=None
+    home_score:int
+    away_score:int
+    home_penalties:int|None=None
+    away_penalties:int|None=None
+    expected_home_score:int|None=None
+    expected_away_score:int|None=None
+    expected_home_penalties:int|None=None
+    expected_away_penalties:int|None=None
 def register_publish_reporting_routes(app,admin_identity):
     @app.get('/api/admin/cups/{tournament_id}/publication')
     def get_publication(tournament_id:int,authorization:str|None=Header(default=None)):
@@ -25,7 +32,15 @@ def register_publish_reporting_routes(app,admin_identity):
     @app.put('/api/admin/cups/{tournament_id}/reporting/matches/{match_id}')
     def put_result(tournament_id:int,match_id:int,payload:ResultWrite,authorization:str|None=Header(default=None)):
         a=admin_identity(authorization)
-        try:r=save_result(int(a['id']),tournament_id,match_id,payload.home_score,payload.away_score,payload.expected_home_score,payload.expected_away_score)
+        try:
+            r=save_result(
+                int(a['id']),tournament_id,match_id,payload.home_score,payload.away_score,
+                payload.expected_home_score,payload.expected_away_score,
+                home_penalties=payload.home_penalties,
+                away_penalties=payload.away_penalties,
+                expected_home_penalties=payload.expected_home_penalties,
+                expected_away_penalties=payload.expected_away_penalties,
+            )
         except ValueError as e:raise HTTPException(422,str(e)) from e
         except RuntimeError as e:raise HTTPException(409,str(e)) from e
         if r is None:raise HTTPException(404,'Match saknas eller åtkomst nekas')
