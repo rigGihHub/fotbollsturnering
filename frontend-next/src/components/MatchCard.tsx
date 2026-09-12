@@ -1,4 +1,4 @@
-import { Group, Match, MatchParticipantResolution, Team } from "@/lib/types";
+import { Group, Match, Team } from "@/lib/types";
 import { matchStatus, participantLabel, timeLabel } from "@/lib/format";
 
 function Kit({ color }: { color?: string | null }) {
@@ -6,15 +6,15 @@ function Kit({ color }: { color?: string | null }) {
   return <span className="kit" style={{ "--kit": safe } as React.CSSProperties} aria-hidden="true" />;
 }
 
-export function MatchCard({ match, teams, groups = [], resolution, index }: { match: Match; teams: Team[]; groups?:Group[]; resolution?:MatchParticipantResolution; index: number }) {
-  const homeId = resolution?.home?.resolved ? resolution.home.team_id ?? null : match.home_source?.startsWith("team:") ? Number(match.home_source.split(":")[1]) : null;
-  const awayId = resolution?.away?.resolved ? resolution.away.team_id ?? null : match.away_source?.startsWith("team:") ? Number(match.away_source.split(":")[1]) : null;
+export function MatchCard({ match, teams, groups = [], index }: { match: Match; teams: Team[]; groups?:Group[]; index: number }) {
+  const homeId = match.home_participant?.resolved ? match.home_participant.team_id ?? null : match.home_source?.startsWith("team:") ? Number(match.home_source.split(":")[1]) : null;
+  const awayId = match.away_participant?.resolved ? match.away_participant.team_id ?? null : match.away_source?.startsWith("team:") ? Number(match.away_source.split(":")[1]) : null;
   const home = teams.find((team) => team.id === homeId);
   const away = teams.find((team) => team.id === awayId);
   const status = matchStatus(match);
   const score = match.home_score == null || match.away_score == null ? "VS" : `${match.home_score}–${match.away_score}`;
-  const homeLabel=participantLabel(match.home_source,resolution?.home,teams,groups);
-  const awayLabel=participantLabel(match.away_source,resolution?.away,teams,groups);
+  const homeLabel=participantLabel(match.home_source,match.home_participant,teams,groups);
+  const awayLabel=participantLabel(match.away_source,match.away_participant,teams,groups);
   return (
     <article className={`match-card match-card--${status}`}>
       <div className="match-card__topline">
