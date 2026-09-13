@@ -43,6 +43,12 @@ type ImportProposal = {
   source_name?:string|null;
 };
 
+type InitialImportResult = {
+  saved:boolean;
+  snapshot_id?:number|null;
+  imported_matches:number;
+};
+
 async function request<T>(path: string, options: RequestInit, token: string): Promise<T> {
   const headers = new Headers(options.headers || {});
   if (options.body && !(options.body instanceof FormData)) headers.set("Content-Type", "application/json");
@@ -75,10 +81,12 @@ export default function CupCreateLauncher() {
   const [endDate, setEndDate] = useState("");
   const [files,setFiles] = useState<File[]>([]);
   const [proposal,setProposal] = useState<ImportProposal|null>(null);
+  const [importSchedule,setImportSchedule] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
   const proposalTeams = proposal?.teams || [];
+  const proposalMatches = proposal?.matches || [];
   const proposalGroups = useMemo(()=>uniqueGroups(proposalTeams),[proposalTeams]);
 
   useEffect(() => {
@@ -98,7 +106,7 @@ export default function CupCreateLauncher() {
   function resetDialog() {
     setMode("manual");
     setName(""); setStartDate(""); setEndDate("");
-    setFiles([]); setProposal(null); setError("");
+    setFiles([]); setProposal(null); setImportSchedule(false); setError("");
   }
 
   function closeDialog() {
@@ -118,6 +126,15 @@ export default function CupCreateLauncher() {
     url.searchParams.set("cup", String(cup.id));
     url.hash = "overview";
     window.location.assign(`${url.pathname}${url.search}${url.hash}`);
+  }
+
+  function updateImportedMatch(index:number, key:keyof ImportedMatch, value:string) {
+    setProposal(current => {
+      if (!current) return current;
+      const matches = [...(current.matches || [])];
+      matches[index] = {...matches[index],[key]:value || null};
+      return {...current,matches};
+    });
   }
 
   async function createCup(event: FormEvent) {
@@ -153,6 +170,7 @@ export default function CupCreateLauncher() {
       setName(result.tournament_name || "");
       setStartDate(result.start_date || "");
       setEndDate(result.end_date || result.start_date || "");
+      setImportSchedule(Boolean(result.matches?.length));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Underlaget kunde inte läsas.");
     } finally { setBusy(false); }
@@ -163,6 +181,10 @@ export default function CupCreateLauncher() {
     if (!token || !proposal || !name.trim()) return;
     if (startDate && endDate && endDate < startDate) {
       setError("Slutdatum kan inte vara före startdatum.");
+      return;
+    }
+    if (importSchedule && proposalMatches.length && !startDate) {
+      setError("Ange cupens startdatum innan du importerar matchschemat. CupNavi gissar inte vilket datum ett klockslag hör till.");
       return;
     }
     setBusy(true); setError("");
@@ -210,6 +232,11 @@ export default function CupCreateLauncher() {
         await request(`/api/admin/cups/${cup.id}/rules`,{method:"PUT",body:JSON.stringify(ruleValues)},token);
       }
 
+      await request<InitialImportResult>(`/api/admin/cups/${cup.id}/import/initial`,{
+        method:"POST",
+        body:JSON.stringify({proposal,import_matches:importSchedule && proposalMatches.length>0,fallback_date:startDate||null}),
+      },token);
+
       goToCup(cup);
     } catch (err) {
       const detail = err instanceof Error ? err.message : "Importen kunde inte slutföras.";
@@ -233,7 +260,7 @@ export default function CupCreateLauncher() {
     {open && <div className="cup-create-backdrop" role="presentation" onMouseDown={event => {
       if (event.target === event.currentTarget) closeDialog();
     }}>
-      <section className="cup-create-dialog" role="dialog" aria-modal="true" aria-labelledby="cup-create-title" style={{maxWidth:760}}>
+      <section className="cup-create-dialog" role="dialog" aria-modal="true" aria-labelledby="cup-create-title" style={{maxWidth:900}}>
         <div className="cup-create-dialog__head">
           <div><span>NY CUP</span><h2 id="cup-create-title">Hur vill du starta?</h2></div>
           <button type="button" className="cup-create-close" onClick={closeDialog} aria-label="Stäng">×</button>
@@ -267,7 +294,7 @@ export default function CupCreateLauncher() {
             <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:8,marginBottom:14}}>
               <div><strong>{proposalTeams.length}</strong><small style={{display:"block"}}>Lag</small></div>
               <div><strong>{proposalGroups.length}</strong><small style={{display:"block"}}>Grupper</small></div>
-              <div><strong>{(proposal.matches||[]).length}</strong><small style={{display:"block"}}>Matcher hittade</small></div>
+              <div><strong>{proposalMatches.length}</strong><small style={{display:"block"}}>Matcher hittade</small></div>
               <div><strong>{(proposal.venues||[]).length}</strong><small style={{display:"block"}}>Planer</small></div>
             </div>
             <label>Cupnamn<input value={name} onChange={event=>setName(event.target.value)} required /></label>
@@ -276,11 +303,23 @@ export default function CupCreateLauncher() {
             {!!proposalGroups.length && <p><strong>Grupper:</strong> {proposalGroups.join(", ")}</p>}
             {!!proposalTeams.length && <details open><summary><strong>Lag som kommer importeras ({proposalTeams.length})</strong></summary><ul>{proposalTeams.map((team,index)=><li key={`${team.name}-${index}`}>{team.name}{team.group_name?` — ${team.group_name}`:""}</li>)}</ul></details>}
             {!!(proposal.rules||[]).length && <details><summary><strong>Regler hittade ({proposal.rules!.length})</strong></summary><ul>{proposal.rules!.map((rule,index)=><li key={index}>{rule}</li>)}</ul></details>}
-            {!!(proposal.matches||[]).length && <p style={{padding:10,border:"1px solid currentColor",borderRadius:8}}><strong>Schema hittat:</strong> {(proposal.matches||[]).length} matcher. De är avlästa och visas i kontrollen, men själva matchschemat förs in i nästa återställningsblock så att vi inte skapar felaktiga fixtures automatiskt.</p>}
+            {!!proposalMatches.length && <details open style={{marginTop:14}}>
+              <summary><strong>Granska matchschema ({proposalMatches.length})</strong></summary>
+              <p style={{fontSize:13}}>Kontrollera varje rad. Importen stoppas om ett lag, en grupp eller plan inte stämmer med det du godkänner.</p>
+              <div style={{display:"grid",gap:8}}>{proposalMatches.map((match,index)=><div key={index} style={{display:"grid",gridTemplateColumns:"100px 1fr 1fr 1fr 1fr",gap:6,alignItems:"end"}}>
+                <label>Tid<input value={match.time||""} onChange={event=>updateImportedMatch(index,"time",event.target.value)} /></label>
+                <label>Grupp<input value={match.group_name||""} onChange={event=>updateImportedMatch(index,"group_name",event.target.value)} /></label>
+                <label>Hemma<input value={match.home_team||""} onChange={event=>updateImportedMatch(index,"home_team",event.target.value)} /></label>
+                <label>Borta<input value={match.away_team||""} onChange={event=>updateImportedMatch(index,"away_team",event.target.value)} /></label>
+                <label>Plan<input value={match.venue||""} onChange={event=>updateImportedMatch(index,"venue",event.target.value)} /></label>
+              </div>)}</div>
+              <label style={{display:"flex",gap:10,alignItems:"center",marginTop:12}}><input type="checkbox" checked={importSchedule} onChange={event=>setImportSchedule(event.target.checked)} /> Använd det granskade matchprogrammet som cupens befintliga schema</label>
+              <p style={{fontSize:13}}>Schemat låses som importerat underlag och publiceras inte automatiskt. Avmarkera om du bara vill spara avläsningen för senare.</p>
+            </details>}
             {!!(proposal.playoff_matches||[]).length && <p style={{padding:10,border:"1px solid currentColor",borderRadius:8}}><strong>Slutspel hittat:</strong> {(proposal.playoff_matches||[]).length} matcher/källor. Slutspelsimport kopplas in i nästa block.</p>}
             {!!(proposal.warnings||[]).length && <div className="cup-create-error"><strong>Kontrollera innan du fortsätter</strong><ul>{proposal.warnings!.map((warning,index)=><li key={index}>{warning}</li>)}</ul></div>}
             {error && <p className="cup-create-error" role="alert">{error}</p>}
-            <div className="cup-create-actions"><button type="button" className="is-secondary" disabled={busy} onClick={()=>{setProposal(null);setError("");}}>← Byt filer</button><button type="submit" disabled={busy||!name.trim()}>{busy?"Importerar…":"✓ Skapa cup från granskningen"}</button></div>
+            <div className="cup-create-actions"><button type="button" className="is-secondary" disabled={busy} onClick={()=>{setProposal(null);setImportSchedule(false);setError("");}}>← Byt filer</button><button type="submit" disabled={busy||!name.trim()}>{busy?"Importerar…":"✓ Skapa cup från granskningen"}</button></div>
           </form>}
         </div>}
       </section>
