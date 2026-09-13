@@ -39,13 +39,13 @@ def _duration_minutes(rules:dict)->int:
 
 
 def _slots(windows:list[dict],rules:dict)->list[tuple[datetime,int]]:
-    step=timedelta(minutes=_duration_minutes(rules)+max(0,int(rules.get("pitch_break_minutes") or 0)));result=[]
+    match_span=timedelta(minutes=_duration_minutes(rules));step=match_span+timedelta(minutes=max(0,int(rules.get("pitch_break_minutes") or 0)));result=[]
     for window in windows:
         try:
             pitch=int(window["pitch_number"]);first=datetime.fromisoformat(f"{window['play_date']}T{window['start_time']}");last=datetime.fromisoformat(f"{window['play_date']}T{window['end_time']}")
         except (KeyError,TypeError,ValueError):continue
         current=first
-        while current<=last:
+        while current+match_span<=last:
             result.append((current,pitch));current+=step
     return sorted(set(result),key=lambda item:(item[0],item[1]))
 
