@@ -38,7 +38,7 @@ jobs:
           PY
 
       - name: Run maintained test suite
-        run: python scripts/run_current_release_gate.py
+        run: python scripts/run_maintained_release_gate.py
 
       - name: Legacy Streamlit performance contract
         continue-on-error: true
