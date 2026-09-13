@@ -10,3 +10,29 @@
 .admin-login-help{margin-top:14px;padding-top:12px;border-top:1px solid rgba(19,35,45,.18);color:#41515a}
 .admin-login-help summary{cursor:pointer;font-weight:800;color:#13232d}
 .admin-login-help p{max-width:58ch;margin:8px 0 0;font-size:.9rem;line-height:1.5}
+
+/* Mobile admin hardening: data rows contain different numbers of controls. */
+@media(max-width:900px){
+  .admin-workspace{grid-template-columns:minmax(0,1fr);width:100%;overflow:hidden}
+  .admin-sidebar,.admin-main,.admin-panel,.admin-panel>*{min-width:0}
+  .admin-sidebar nav{max-width:100%;overflow-x:auto}
+  .admin-main{width:100%}
+  .admin-panel p,.admin-panel small,.admin-panel strong{overflow-wrap:anywhere}
+  .admin-panel input,.admin-panel select,.admin-panel textarea{display:block;width:100%;max-width:100%;min-width:0}
+  .admin-panel__top{align-items:flex-start;flex-wrap:wrap;line-height:1.35}
+  .admin-lock{max-width:100%;white-space:normal;line-height:1.35}
+  .admin-team-list article{grid-template-columns:minmax(0,1fr);align-items:stretch!important;gap:10px}
+  .admin-team-list article>*,.admin-team-list article>div,.admin-team-list article label{min-width:0!important;margin-left:0!important}
+  .admin-team-actions{width:100%;flex-wrap:wrap}
+  .admin-team-actions button,.admin-team-actions a{flex:1 1 auto}
+  .admin-code-placeholder{align-items:flex-start;flex-direction:column;gap:6px}
+  .admin-checks>div{grid-template-columns:24px minmax(0,1fr)}
+  .admin-checks small{grid-column:2}
+  .admin-color-input{grid-template-columns:52px minmax(0,1fr)}
+}
+@media(max-width:560px){
+  .admin-pagehead__actions{flex-wrap:wrap}
+  .admin-panel h2{font-size:25px}
+  .admin-team-list article .admin-team-actions{grid-column:auto}
+  .admin-team-list article .admin-team-actions button{flex:1 1 120px}
+}
