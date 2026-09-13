@@ -63,14 +63,18 @@ def test_v655_owner_only_ui_and_api_contract():
     api = (root / "cupnavi_api/main.py").read_text(encoding="utf-8")
     ui = (root / "frontend-next/src/components/admin-workspace.tsx").read_text(encoding="utf-8")
     assert '@app.delete("/api/admin/cups/{tournament_id}")' in api
-    assert "account.is_owner && activeCup" in ui
+    assert 'const isOwner = account.role === "owner" || account.is_owner === true;' in ui
+    assert "{isOwner && <>" in ui
+    assert "{activeCup && <button" in ui
     assert "Ta bort cup" in ui
     assert "confirmed_name" in ui
     assert "flyttats till papperskorgen" in ui
 
 
-def test_v655_release_is_synchronized():
+def test_v655_release_contract_survives_later_releases():
     root = Path(__file__).resolve().parents[1]
-    version = "2026.09.13-655-OWNER-CUP-TRASH"
-    assert (root / "VERSION.txt").read_text(encoding="utf-8").strip() == version
+    version = (root / "VERSION.txt").read_text(encoding="utf-8").strip()
+    parts = version.split("-", 2)
+    assert len(parts) == 3
+    assert int(parts[1]) >= 655
     assert f'APP_VERSION = "{version}"' in (root / "cupnavi_core/version.py").read_text(encoding="utf-8")
