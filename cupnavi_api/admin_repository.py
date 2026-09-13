@@ -25,6 +25,7 @@ CUPINFO_FIELDS = (
 
 TEAM_FIELDS = ("name", "age_class", "primary_color", "secondary_color")
 TEAM_PROJECTION = "id,tournament_id,name,group_id,age_class,primary_color,secondary_color"
+HIDDEN_LIFECYCLE_STATUSES = ("trashed", "purged")
 
 
 def authenticate_organizer(email: str, password: str):
@@ -73,7 +74,7 @@ def organizer_tournaments(account_id: int):
         rows = all_rows(
             """SELECT id,name,public_slug,start_date,end_date,is_published
                FROM tournaments
-               WHERE COALESCE(lifecycle_status,'draft')<>'trashed'
+               WHERE COALESCE(lifecycle_status,'draft') NOT IN ('trashed','purged')
                ORDER BY COALESCE(start_date,''),name,id"""
         )
         for row in rows:
@@ -84,7 +85,7 @@ def organizer_tournaments(account_id: int):
            FROM tournament_members tm
            JOIN tournaments t ON t.id=tm.tournament_id
            WHERE tm.organizer_account_id=?
-             AND COALESCE(t.lifecycle_status,'draft')<>'trashed'
+             AND COALESCE(t.lifecycle_status,'draft') NOT IN ('trashed','purged')
            ORDER BY COALESCE(t.start_date,''),t.name,t.id""",
         (int(account_id),),
     )
@@ -105,11 +106,32 @@ def trashed_tournaments(account_id: int):
     return rows
 
 
+def purge_trashed_tournaments(account_id: int) -> int:
+    """Empty the visible trash for the app owner.
+
+    Purged cups are kept as hidden tombstones instead of deleting relational data.
+    They are no longer listed, restorable, accessible in admin or published.
+    """
+    if int(account_id) != OWNER_ACCOUNT_ID:
+        raise PermissionError("Endast CupNavi-ägaren kan tömma papperskorgen")
+    with connect() as con:
+        cursor = con.execute(
+            """UPDATE tournaments
+               SET lifecycle_status='purged',trashed_at=NULL,is_published=0
+               WHERE COALESCE(lifecycle_status,'draft')='trashed'"""
+        )
+        count = getattr(cursor, "rowcount", None)
+        commit = getattr(con, "commit", None)
+        if callable(commit):
+            commit()
+    return max(0, int(count)) if count is not None and int(count) >= 0 else 0
+
+
 def _has_tournament_access(account_id: int, tournament_id: int) -> bool:
     if int(account_id) == OWNER_ACCOUNT_ID:
         return bool(one(
             """SELECT 1 AS allowed FROM tournaments
-               WHERE id=? AND COALESCE(lifecycle_status,'draft')<>'trashed'""",
+               WHERE id=? AND COALESCE(lifecycle_status,'draft') NOT IN ('trashed','purged')""",
             (int(tournament_id),),
         ))
     return bool(
@@ -117,7 +139,7 @@ def _has_tournament_access(account_id: int, tournament_id: int) -> bool:
             """SELECT 1 AS allowed FROM tournament_members tm
                JOIN tournaments t ON t.id=tm.tournament_id
                WHERE tm.organizer_account_id=? AND tm.tournament_id=?
-                 AND COALESCE(t.lifecycle_status,'draft')<>'trashed'""",
+                 AND COALESCE(t.lifecycle_status,'draft') NOT IN ('trashed','purged')""",
             (int(account_id), int(tournament_id)),
         )
     )
@@ -164,7 +186,7 @@ def trash_tournament(account_id: int, tournament_id: int, confirmed_name: str):
     current = one(
         """SELECT id,name,public_slug,start_date,end_date,is_published
            FROM tournaments
-           WHERE id=? AND COALESCE(lifecycle_status,'draft')<>'trashed'""",
+           WHERE id=? AND COALESCE(lifecycle_status,'draft') NOT IN ('trashed','purged')""",
         (int(tournament_id),),
     )
     if not current:
@@ -175,7 +197,7 @@ def trash_tournament(account_id: int, tournament_id: int, confirmed_name: str):
         cursor = con.execute(
             """UPDATE tournaments
                SET lifecycle_status='trashed',trashed_at=CURRENT_TIMESTAMP,is_published=0
-               WHERE id=? AND name=? AND COALESCE(lifecycle_status,'draft')<>'trashed'""",
+               WHERE id=? AND name=? AND COALESCE(lifecycle_status,'draft') NOT IN ('trashed','purged')""",
             (int(tournament_id), current["name"]),
         )
         rowcount = getattr(cursor, "rowcount", None)
