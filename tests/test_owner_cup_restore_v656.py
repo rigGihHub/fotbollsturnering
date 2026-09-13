@@ -74,11 +74,13 @@ def test_restore_only_accepts_cups_that_are_in_trash(cup_database):
     assert restore_tournament(0, 10) is None
 
 
-def test_v656_api_contract_and_release_are_synchronized():
+def test_v656_api_contract_survives_later_releases():
     root = Path(__file__).resolve().parents[1]
     api = (root / "cupnavi_api/main.py").read_text(encoding="utf-8")
     assert '@app.get("/api/admin/trash")' in api
     assert '@app.post("/api/admin/trash/{tournament_id}/restore")' in api
-    version = "2026.09.13-656-OWNER-CUP-RESTORE"
-    assert (root / "VERSION.txt").read_text(encoding="utf-8").strip() == version
+    version = (root / "VERSION.txt").read_text(encoding="utf-8").strip()
+    parts = version.split("-", 2)
+    assert len(parts) == 3
+    assert int(parts[1]) >= 656
     assert f'APP_VERSION = "{version}"' in (root / "cupnavi_core/version.py").read_text(encoding="utf-8")
