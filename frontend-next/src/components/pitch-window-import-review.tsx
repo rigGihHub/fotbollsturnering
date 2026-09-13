@@ -118,7 +118,7 @@ export default function PitchWindowImportReview() {
     </section>
 
     {open && <div className="cup-create-backdrop" role="presentation" onMouseDown={event=>{if(event.target===event.currentTarget&&!busy)setOpen(false);}}>
-      <section className="cup-create-dialog" role="dialog" aria-modal="true" aria-labelledby="pitch-window-import-title" style={{maxWidth:980}}>
+      <section className="cup-create-dialog" role="dialog" aria-modal="true" aria-labelledby="pitch-window-import-title" style={{maxWidth:980,width:"min(980px,calc(100vw - 20px))"}}>
         <div className="cup-create-dialog__head">
           <div><span>PLANIMPORT</span><h2 id="pitch-window-import-title">Kontrollera planernas tillgänglighet</h2></div>
           <button type="button" className="cup-create-close" onClick={()=>!busy&&setOpen(false)} aria-label="Stäng">×</button>
@@ -129,17 +129,17 @@ export default function PitchWindowImportReview() {
         <div style={{display:"grid",gap:10,maxHeight:"52vh",overflow:"auto",paddingRight:4}}>
           {rows.map((row,index)=><div key={index} style={{border:"1px solid currentColor",borderRadius:10,padding:10}}>
             <strong>Tidsfönster {index+1}</strong>
-            <div style={{display:"grid",gridTemplateColumns:"minmax(180px,1.5fr) minmax(145px,1fr) 110px 110px",gap:7,marginTop:8}}>
-              <label>Plan / anläggning<input value={row.venue||""} onChange={event=>updateRow(index,"venue",event.target.value)} placeholder="Plan 1" /></label>
-              <label>Datum<input type="date" value={row.date||""} onChange={event=>updateRow(index,"date",event.target.value)} /></label>
-              <label>Från<input type="time" value={row.start_time||""} onChange={event=>updateRow(index,"start_time",event.target.value)} /></label>
-              <label>Till<input type="time" value={row.end_time||""} onChange={event=>updateRow(index,"end_time",event.target.value)} /></label>
+            <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(min(180px,100%),1fr))",gap:7,marginTop:8}}>
+              <label>Plan / anläggning<input value={row.venue||""} onChange={event=>updateRow(index,"venue",event.target.value)} placeholder="Plan 1" style={{width:"100%"}} /></label>
+              <label>Datum<input type="date" value={row.date||""} onChange={event=>updateRow(index,"date",event.target.value)} style={{width:"100%"}} /></label>
+              <label>Från<input type="time" value={row.start_time||""} onChange={event=>updateRow(index,"start_time",event.target.value)} style={{width:"100%"}} /></label>
+              <label>Till<input type="time" value={row.end_time||""} onChange={event=>updateRow(index,"end_time",event.target.value)} style={{width:"100%"}} /></label>
             </div>
           </div>)}
         </div>
 
         {error && <p className="cup-create-error" role="alert">{error}</p>}
-        <div className="cup-create-actions"><button type="button" className="is-secondary" onClick={()=>setOpen(false)} disabled={busy}>Avbryt</button><button type="button" onClick={()=>void commit()} disabled={busy||!rows.length}>{busy?"Validerar och sparar…":"✓ Spara granskade plantider"}</button></div>
+        <div className="cup-create-actions" style={{flexWrap:"wrap"}}><button type="button" className="is-secondary" onClick={()=>setOpen(false)} disabled={busy}>Avbryt</button><button type="button" onClick={()=>void commit()} disabled={busy||!rows.length}>{busy?"Validerar och sparar…":"✓ Spara granskade plantider"}</button></div>
       </section>
     </div>}
   </>;
