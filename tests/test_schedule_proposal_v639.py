@@ -93,7 +93,8 @@ def test_capacity_shortage_is_explicit():
         _match(2, "team:3", "team:4"),
         _match(3, "team:5", "team:6"),
     ]
-    result = build_schedule_proposal(matches, _rules(), _windows(end="09:00"))
+    # A 45-minute match fits exactly in this window. Only one can be placed.
+    result = build_schedule_proposal(matches, _rules(), _windows(end="09:45"))
     assert result["placed_count"] == 1
     assert result["unresolved_count"] == 2
     assert {item["reason"] for item in result["unresolved"]} == {"no_feasible_slot"}
