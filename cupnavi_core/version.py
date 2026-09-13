@@ -1,4 +1,4 @@
-APP_VERSION = "2026.09.12-652-API-BASE-RECOVERY"
+APP_VERSION = "2026.09.12-653-ADMIN-LOGIN-DIAGNOSTICS"
 
 
 def release_ui_label(version: str | None = None) -> str:

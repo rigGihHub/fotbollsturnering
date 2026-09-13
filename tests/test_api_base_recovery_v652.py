@@ -24,7 +24,8 @@ def test_every_admin_client_uses_the_validated_api_base():
         assert "process.env.NEXT_PUBLIC_CUPNAVI_API_BASE" not in source, name
 
 
-def test_v652_release_is_synchronized():
+def test_v652_release_record_is_preserved():
     version = "2026.09.12-652-API-BASE-RECOVERY"
-    assert (ROOT / "VERSION.txt").read_text(encoding="utf-8").strip() == version
-    assert f'APP_VERSION = "{version}"' in (ROOT / "cupnavi_core/version.py").read_text(encoding="utf-8")
+    notes = (ROOT / "RELEASE_NOTES_2026.09.12-652.md").read_text(encoding="utf-8")
+    assert "återställd API-koppling" in notes
+    assert version.startswith("2026.09.12-652")

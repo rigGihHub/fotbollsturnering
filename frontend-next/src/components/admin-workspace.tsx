@@ -34,6 +34,7 @@ type CupInfo = {
   public_information?:string|null;
 };
 type SessionPayload = { account:Account; cups:Cup[]; token?:string };
+type ApiStatus = "checking" | "online" | "offline";
 type Team = { id:number; tournament_id:number; name:string; group_id?:number|null; age_class?:string|null; primary_color?:string|null; secondary_color?:string|null };
 type Group = { id:number; tournament_id:number; name:string; age_class?:string|null; team_count:number };
 const emptyTeam = {name:"",age_class:"",primary_color:"#111827",secondary_color:"#FFFFFF"};
@@ -46,7 +47,11 @@ async function request<T>(path:string, options:RequestInit = {}, token?:string|n
   const response = await fetch(`${API_BASE}${path}`, { ...options, headers, cache:"no-store" });
   const payload = await response.json().catch(() => null);
   if (!response.ok) {
-    const detail = payload && typeof payload.detail === "string" ? payload.detail : `API-fel ${response.status}`;
+    const serverDetail = payload && typeof payload.detail === "string" ? payload.detail : "";
+    const detail = response.status === 401 ? "Fel e-postadress eller lösenord."
+      : response.status === 429 ? "För många försök. Vänta en stund innan du provar igen."
+      : response.status === 503 ? "Admin är tillfälligt inte korrekt konfigurerat på servern."
+      : serverDetail || `API-fel ${response.status}`;
     throw new Error(detail);
   }
   return payload as T;
@@ -98,6 +103,7 @@ export default function AdminWorkspace() {
   const [busy,setBusy] = useState(false);
   const [message,setMessage] = useState("");
   const [error,setError] = useState("");
+  const [apiStatus,setApiStatus] = useState<ApiStatus>("checking");
 
   const activeCup = useMemo(() => cups.find(cup => cup.id === cupId) || null,[cups,cupId]);
 
@@ -115,6 +121,16 @@ export default function AdminWorkspace() {
     ]);
     setCupinfo(cleanCupInfo(data)); setTeams(teamData.teams || []); setGroups(groupData.groups || []);
     setEditingTeam(null); setTeamDraft(emptyTeam); setEditingGroup(null); setGroupDraft(emptyGroup);
+  },[]);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    const timeout = window.setTimeout(() => controller.abort(),8000);
+    fetch(`${API_BASE}/health`,{cache:"no-store",signal:controller.signal})
+      .then(response => { if (!response.ok) throw new Error("API unavailable"); setApiStatus("online"); })
+      .catch(() => setApiStatus("offline"))
+      .finally(() => window.clearTimeout(timeout));
+    return () => { controller.abort(); window.clearTimeout(timeout); };
   },[]);
 
   useEffect(() => {
@@ -252,13 +268,14 @@ export default function AdminWorkspace() {
     return <main className="admin-main" style={{maxWidth:720,margin:"0 auto"}}>
       <header className="admin-pagehead"><div><p className="kicker">CN//ADMIN</p><h1>Logga in</h1><p>Använd samma arrangörskonto som i CupNavi.</p></div></header>
       <form className="admin-panel admin-cupinfo" onSubmit={login}>
-        <div className="admin-panel__top"><span>ARRANGÖR</span><strong>RIKTIG BEHÖRIGHET</strong></div>
+        <div className="admin-panel__top"><span>ARRANGÖR</span><strong className={`admin-api-status is-${apiStatus}`}>{apiStatus==="online"?"API ONLINE":apiStatus==="offline"?"API EJ NÅBAR":"KONTROLLERAR API"}</strong></div>
         <h2>Cupadministration</h2>
         <div className="admin-form-grid">
           <label>E-post<input type="email" autoComplete="email" value={email} onChange={e=>setEmail(e.target.value)} required /></label>
           <label>Lösenord<input type="password" autoComplete="current-password" value={password} onChange={e=>setPassword(e.target.value)} required /></label>
         </div>
-        <div className="admin-form-footer"><span>{error || "Inloggningen verifieras mot befintliga arrangörskonton."}</span><button type="submit" disabled={busy}>{busy?"Kontrollerar…":"Logga in"}</button></div>
+        <div className="admin-form-footer"><span role={error?"alert":undefined}>{error || (apiStatus==="offline" ? "CupNavi kan inte nå servern just nu. Inloggning fungerar när API:t är online igen." : "Inloggningen verifieras mot befintliga arrangörskonton.")}</span><button type="submit" disabled={busy||apiStatus==="offline"}>{busy?"Kontrollerar…":"Logga in"}</button></div>
+        <details className="admin-login-help"><summary>Glömt lösenordet?</summary><p>Lösenord kan inte visas eller hämtas ur CupNavi. En behörig ägare behöver ange ett nytt lösenord i serverns säkra miljöinställningar.</p></details>
       </form>
     </main>;
   }
