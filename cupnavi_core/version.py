@@ -1,4 +1,4 @@
-APP_VERSION = "2026.09.13-655-OWNER-CUP-TRASH"
+APP_VERSION = "2026.09.13-656-OWNER-CUP-RESTORE"
 
 
 def release_ui_label(version: str | None = None) -> str:
