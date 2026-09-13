@@ -6,6 +6,8 @@ import { CLIENT_API_BASE } from "../lib/client-api";
 const API_BASE = CLIENT_API_BASE;
 const TOKEN_KEY = "cupnavi_admin_session_v629";
 const CUP_KEY = "cupnavi_admin_active_cup_v651";
+const AUTO_REVIEW_PREFIX = "cupnavi_playoff_review_seen_";
+const IMPORT_REVIEW_NEXT_EVENT = "cupnavi:import-review-next";
 
 type PlayoffRow = {
   time?:string|null;
@@ -23,6 +25,7 @@ type ReviewPayload = {
   existing_playoff_matches:number;
   existing_brackets:number;
 };
+type PitchReviewPayload = { available:boolean };
 type CommitPayload = { imported:number; bracket_id:number; validation?:{ready?:boolean;issue_count?:number} };
 
 async function request<T>(path:string, token:string, options:RequestInit = {}):Promise<T> {
@@ -52,6 +55,7 @@ export default function PlayoffImportReview() {
   const [open,setOpen] = useState(false);
   const [busy,setBusy] = useState(false);
   const [error,setError] = useState("");
+  const [reviewTick,setReviewTick] = useState(0);
 
   const load = useCallback(async (nextCupId:number) => {
     const token = localStorage.getItem(TOKEN_KEY);
@@ -79,6 +83,37 @@ export default function PlayoffImportReview() {
     },1000);
     return ()=>window.clearInterval(timer);
   },[load]);
+
+  useEffect(()=>{
+    const advance = () => setReviewTick(value=>value+1);
+    window.addEventListener(IMPORT_REVIEW_NEXT_EVENT,advance);
+    return ()=>window.removeEventListener(IMPORT_REVIEW_NEXT_EVENT,advance);
+  },[]);
+
+  useEffect(()=>{
+    if (!cupId || !review?.available || !rows.length || open || busy || review.existing_brackets > 0 || review.existing_playoff_matches > 0) return;
+    const key = `${AUTO_REVIEW_PREFIX}${cupId}`;
+    if (sessionStorage.getItem(key)) return;
+    const token = localStorage.getItem(TOKEN_KEY);
+    if (!token) return;
+    let cancelled = false;
+    void request<PitchReviewPayload>(`/api/admin/cups/${cupId}/import/pitch-windows`,token)
+      .then(pitchReview=>{
+        if (cancelled || pitchReview.available) return;
+        sessionStorage.setItem(key,"1");
+        setRows(review.playoff_matches.map(row=>({...row})));
+        setError("");
+        setOpen(true);
+      })
+      .catch(()=>{
+        if (cancelled) return;
+        sessionStorage.setItem(key,"1");
+        setRows(review.playoff_matches.map(row=>({...row})));
+        setError("");
+        setOpen(true);
+      });
+    return ()=>{cancelled=true;};
+  },[cupId,review,rows.length,open,busy,reviewTick]);
 
   function updateRow(index:number,key:keyof PlayoffRow,value:string) {
     setRows(current=>current.map((row,rowIndex)=>rowIndex===index?{...row,[key]:value||null}:row));
