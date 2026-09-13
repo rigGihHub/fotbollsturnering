@@ -220,7 +220,6 @@ export default function CupCreateLauncher() {
             {importStep === 0 && <div>
               <label>Cupnamn<input value={name} onChange={e => setName(e.target.value)} required /></label>
               <div className="cup-create-dates"><label>Startdatum<input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} /></label><label>Slutdatum<input type="date" min={startDate||undefined} value={endDate} onChange={e => setEndDate(e.target.value)} /></label></div>
-              {proposal.location && <p><strong>Plats:</strong> {proposal.location}</p>}
               {!!(proposal.venues||[]).length && <p><strong>Planer:</strong> {(proposal.venues||[]).join(", ")}</p>}
             </div>}
 
@@ -236,7 +235,7 @@ export default function CupCreateLauncher() {
 
             {importStep === 3 && <div><h3>Regler</h3>{(proposal.rules||[]).length ? <ul>{proposal.rules!.map((rule,index) => <li key={index}>{rule}</li>)}</ul> : <p>Inga regler hittades i underlaget.</p>}{!!(proposal.playoff_matches||[]).length && <p><strong>Slutspel hittat:</strong> {(proposal.playoff_matches||[]).length} matcher/källor.</p>}</div>}
 
-            {importStep === 4 && <div><h3>Slutkontroll</h3><p><strong>{name || "Cup utan namn"}</strong>{startDate?` · ${startDate}`:""}{proposal.location?` · ${proposal.location}`:""}</p>
+            {importStep === 4 && <div><h3>Slutkontroll</h3><p><strong>{name || "Cup utan namn"}</strong>{startDate?` · ${startDate}`:""}</p>
               <ul><li>{proposalTeams.length} lag i {proposalGroups.length} grupper</li><li>{proposalMatches.length} matcher hittade · {importSchedule?"schemat importeras":"schemat sparas inte som aktivt"}</li><li>{(proposal.venues||[]).length} planer</li><li>{(proposal.rules||[]).length} regler hittade</li></ul>
               {!!(proposal.warnings||[]).length && <div className="cup-create-error"><strong>Kontrollera innan du fortsätter</strong><ul>{proposal.warnings!.map((warning,index) => <li key={index}>{warning}</li>)}</ul></div>}
             </div>}
