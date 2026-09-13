@@ -2,6 +2,7 @@ from fastapi import Header,HTTPException
 from pydantic import BaseModel
 from .publish_reporting_repository import admin_publication,set_publication,admin_reporting,save_result
 from .match_events_admin_repository import admin_event_matches,admin_match_events,update_player_match_events
+from .result_correction_repository import playoff_result_correction_impact
 
 class PublicationWrite(BaseModel): published:bool
 class ResultWrite(BaseModel):
@@ -47,6 +48,13 @@ def register_publish_reporting_routes(app,admin_identity):
         a=admin_identity(authorization);r=admin_reporting(int(a['id']),tournament_id)
         if r is None:raise HTTPException(404,'Cup not found or access denied')
         return r
+    @app.post('/api/admin/cups/{tournament_id}/reporting/matches/{match_id}/impact')
+    def post_result_impact(tournament_id:int,match_id:int,payload:ResultWrite,authorization:str|None=Header(default=None)):
+        a=admin_identity(authorization)
+        try:r=playoff_result_correction_impact(int(a['id']),tournament_id,match_id,_model_values(payload))
+        except ValueError as e:raise HTTPException(422,str(e)) from e
+        if r is None:raise HTTPException(404,'Match saknas eller åtkomst nekas')
+        return r
     @app.put('/api/admin/cups/{tournament_id}/reporting/matches/{match_id}')
     def put_result(tournament_id:int,match_id:int,payload:ResultWrite,authorization:str|None=Header(default=None)):
         a=admin_identity(authorization)
@@ -85,4 +93,3 @@ def register_publish_reporting_routes(app,admin_identity):
         except ValueError as e:raise HTTPException(422,str(e)) from e
         except RuntimeError as e:raise HTTPException(409,str(e)) from e
         if r is None:raise HTTPException(404,'Match eller spelare saknas eller åtkomst nekas')
-        return r
