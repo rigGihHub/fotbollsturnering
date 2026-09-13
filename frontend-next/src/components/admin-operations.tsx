@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import ImportAdmin from "./import-admin";
 import PublishReportingAdmin from "./publish-reporting-admin";
+import RosterAdmin from "./roster-admin";
 import { CLIENT_API_BASE } from "../lib/client-api";
 
 const API = CLIENT_API_BASE;
@@ -61,13 +62,14 @@ export default function AdminOperations() {
   return <section className="admin-main" aria-label="Operativa cupmoduler">
     <section className="admin-panel" style={{marginBottom:14}}>
       <div className="admin-panel__top"><span>OPERATIV CUP</span><strong>SERVERVERIFIERAD ÅTKOMST</strong></div>
-      <label>Publicering, rapportering och import för
+      <label>Trupper, publicering, rapportering och import för
         <select value={cupId} onChange={event=>setCupId(Number(event.target.value))} style={{marginLeft:10}}>
           {cups.map(cup=><option key={cup.id} value={cup.id}>{cup.name} · {cup.role}</option>)}
         </select>
       </label>
       <p>Valet är separat och synligt så att inga skrivningar kan råka gå till en annan cup än den som visas här.</p>
     </section>
+    <RosterAdmin token={token} cupId={cupId}/>
     <PublishReportingAdmin token={token} cupId={cupId}/>
     <ImportAdmin token={token} cupId={cupId}/>
   </section>;
