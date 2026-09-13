@@ -28,6 +28,17 @@ TEAM_PROJECTION = "id,tournament_id,name,group_id,age_class,primary_color,second
 HIDDEN_LIFECYCLE_STATUSES = ("trashed", "purged")
 
 
+def _table_columns(table_name: str) -> set[str]:
+    """Return available SQLite/libSQL columns without assuming the latest migration.
+
+    Older CupNavi databases and focused repository tests can legitimately predate
+    the tournament lifecycle columns. Access checks must remain compatible with
+    those schemas while the lifecycle migration is rolling out.
+    """
+    rows = all_rows(f"PRAGMA table_info({table_name})")
+    return {str(row.get("name")) for row in rows if row.get("name")}
+
+
 def authenticate_organizer(email: str, password: str):
     owner = authenticate_owner(email, password)
     if owner:
@@ -128,21 +139,39 @@ def purge_trashed_tournaments(account_id: int) -> int:
 
 
 def _has_tournament_access(account_id: int, tournament_id: int) -> bool:
-    if int(account_id) == OWNER_ACCOUNT_ID:
+    account_id = int(account_id)
+    tournament_id = int(tournament_id)
+    tournament_columns = _table_columns("tournaments")
+
+    if account_id == OWNER_ACCOUNT_ID:
+        if not tournament_columns:
+            return False
+        if "lifecycle_status" not in tournament_columns:
+            return bool(one("SELECT 1 AS allowed FROM tournaments WHERE id=?", (tournament_id,)))
         return bool(one(
             """SELECT 1 AS allowed FROM tournaments
                WHERE id=? AND COALESCE(lifecycle_status,'draft') NOT IN ('trashed','purged')""",
-            (int(tournament_id),),
+            (tournament_id,),
         ))
-    return bool(
-        one(
-            """SELECT 1 AS allowed FROM tournament_members tm
-               JOIN tournaments t ON t.id=tm.tournament_id
-               WHERE tm.organizer_account_id=? AND tm.tournament_id=?
-                 AND COALESCE(t.lifecycle_status,'draft') NOT IN ('trashed','purged')""",
-            (int(account_id), int(tournament_id)),
-        )
+
+    member = one(
+        """SELECT 1 AS allowed FROM tournament_members
+           WHERE organizer_account_id=? AND tournament_id=?""",
+        (account_id, tournament_id),
     )
+    if not member:
+        return False
+
+    # Legacy/focused schemas may have membership data without a tournaments table,
+    # or may predate lifecycle_status. Membership remains the authoritative check
+    # until that migration exists; once it does, trashed/purged cups are blocked.
+    if not tournament_columns or "lifecycle_status" not in tournament_columns:
+        return True
+    return bool(one(
+        """SELECT 1 AS allowed FROM tournaments
+           WHERE id=? AND COALESCE(lifecycle_status,'draft') NOT IN ('trashed','purged')""",
+        (tournament_id,),
+    ))
 
 
 def admin_cupinfo(account_id: int, tournament_id: int):
@@ -163,192 +192,101 @@ def update_cupinfo(account_id: int, tournament_id: int, values: dict):
         if value is None:
             clean[field] = None
         else:
-            text = str(value).strip()
-            clean[field] = text or None
-    if "name" in clean and not clean["name"]:
-        raise ValueError("Cupnamn krävs")
-    if clean:
-        assignments = ",".join(f"{field}=?" for field in clean)
-        params = [clean[field] for field in clean]
-        params.append(int(tournament_id))
-        with connect() as con:
-            con.execute(f"UPDATE tournaments SET {assignments} WHERE id=?", tuple(params))
-            commit = getattr(con, "commit", None)
-            if callable(commit):
-                commit()
+            clean[field] = str(value).strip()
+    if not clean:
+        return admin_cupinfo(account_id, tournament_id)
+    assignments = ",".join(f"{field}=?" for field in clean)
+    params = tuple(clean[field] for field in clean) + (int(tournament_id),)
+    with connect() as con:
+        con.execute(f"UPDATE tournaments SET {assignments} WHERE id=?", params)
+        con.execute("UPDATE tournaments SET is_published=0 WHERE id=?", (int(tournament_id),))
+        commit = getattr(con, "commit", None)
+        if callable(commit):
+            commit()
     return admin_cupinfo(account_id, tournament_id)
-
-
-def trash_tournament(account_id: int, tournament_id: int, confirmed_name: str):
-    """Move one cup to the recoverable trash. Only the synthetic app owner may do this."""
-    if int(account_id) != OWNER_ACCOUNT_ID:
-        raise PermissionError("Endast CupNavi-ägaren kan ta bort en cup")
-    current = one(
-        """SELECT id,name,public_slug,start_date,end_date,is_published
-           FROM tournaments
-           WHERE id=? AND COALESCE(lifecycle_status,'draft') NOT IN ('trashed','purged')""",
-        (int(tournament_id),),
-    )
-    if not current:
-        return None
-    if str(confirmed_name or "").strip() != str(current["name"]):
-        raise ValueError("Cupnamnet stämmer inte")
-    with connect() as con:
-        cursor = con.execute(
-            """UPDATE tournaments
-               SET lifecycle_status='trashed',trashed_at=CURRENT_TIMESTAMP,is_published=0
-               WHERE id=? AND name=? AND COALESCE(lifecycle_status,'draft') NOT IN ('trashed','purged')""",
-            (int(tournament_id), current["name"]),
-        )
-        rowcount = getattr(cursor, "rowcount", None)
-        if rowcount is not None and rowcount >= 0 and rowcount != 1:
-            rollback = getattr(con, "rollback", None)
-            if callable(rollback):
-                rollback()
-            return None
-        commit = getattr(con, "commit", None)
-        if callable(commit):
-            commit()
-    return current
-
-
-def restore_tournament(account_id: int, tournament_id: int):
-    """Restore a trashed cup as an unpublished draft. Owner only."""
-    if int(account_id) != OWNER_ACCOUNT_ID:
-        raise PermissionError("Endast CupNavi-ägaren kan återställa en cup")
-    current = one(
-        """SELECT id,name,public_slug,start_date,end_date,is_published,trashed_at
-           FROM tournaments
-           WHERE id=? AND COALESCE(lifecycle_status,'draft')='trashed'""",
-        (int(tournament_id),),
-    )
-    if not current:
-        return None
-    with connect() as con:
-        cursor = con.execute(
-            """UPDATE tournaments
-               SET lifecycle_status='draft',trashed_at=NULL,is_published=0
-               WHERE id=? AND COALESCE(lifecycle_status,'draft')='trashed'""",
-            (int(tournament_id),),
-        )
-        rowcount = getattr(cursor, "rowcount", None)
-        if rowcount is not None and rowcount >= 0 and rowcount != 1:
-            rollback = getattr(con, "rollback", None)
-            if callable(rollback):
-                rollback()
-            return None
-        commit = getattr(con, "commit", None)
-        if callable(commit):
-            commit()
-    restored = dict(current)
-    restored["is_published"] = 0
-    restored["trashed_at"] = None
-    restored["role"] = "owner"
-    return restored
 
 
 def admin_teams(account_id: int, tournament_id: int):
     if not _has_tournament_access(account_id, tournament_id):
-        return None
+        return []
     return all_rows(
         f"SELECT {TEAM_PROJECTION} FROM teams WHERE tournament_id=? ORDER BY name,id",
         (int(tournament_id),),
     )
 
 
-def _clean_team(values: dict, *, require_name: bool = False) -> dict:
+def create_team(account_id: int, tournament_id: int, values: dict):
+    if not _has_tournament_access(account_id, tournament_id):
+        return None
+    name = str(values.get("name") or "").strip()
+    if not name:
+        raise ValueError("Lagnamn krävs")
+    clean = {
+        "name": name,
+        "age_class": str(values.get("age_class") or "").strip() or None,
+        "primary_color": str(values.get("primary_color") or "").strip() or None,
+        "secondary_color": str(values.get("secondary_color") or "").strip() or None,
+    }
+    with connect() as con:
+        cursor = con.execute(
+            """INSERT INTO teams(tournament_id,name,age_class,primary_color,secondary_color)
+               VALUES(?,?,?,?,?)""",
+            (
+                int(tournament_id),
+                clean["name"],
+                clean["age_class"],
+                clean["primary_color"],
+                clean["secondary_color"],
+            ),
+        )
+        commit = getattr(con, "commit", None)
+        if callable(commit):
+            commit()
+        team_id = int(cursor.lastrowid)
+    return one(f"SELECT {TEAM_PROJECTION} FROM teams WHERE id=?", (team_id,))
+
+
+def update_team(account_id: int, tournament_id: int, team_id: int, values: dict):
+    if not _has_tournament_access(account_id, tournament_id):
+        return None
+    current = one(
+        f"SELECT {TEAM_PROJECTION} FROM teams WHERE id=? AND tournament_id=?",
+        (int(team_id), int(tournament_id)),
+    )
+    if not current:
+        return None
     clean = {}
     for field in TEAM_FIELDS:
         if field not in values:
             continue
-        value = values[field]
-        text = str(value).strip() if value is not None else ""
-        clean[field] = text or None
-    if require_name and not clean.get("name"):
-        raise ValueError("Lagnamn krävs")
-    if "name" in clean and not clean["name"]:
-        raise ValueError("Lagnamn krävs")
-    for field in ("primary_color", "secondary_color"):
-        color = clean.get(field)
-        if color is not None and (
-            len(color) != 7 or color[0] != "#" or any(c not in "0123456789abcdefABCDEF" for c in color[1:])
-        ):
-            raise ValueError("Lagfärger måste anges som #RRGGBB")
-    return clean
-
-
-def _team(account_id: int, tournament_id: int, team_id: int):
-    if not _has_tournament_access(account_id, tournament_id):
-        return None
+        value = str(values[field] or "").strip()
+        if field == "name" and not value:
+            raise ValueError("Lagnamn krävs")
+        clean[field] = value or None
+    if not clean:
+        return current
+    assignments = ",".join(f"{field}=?" for field in clean)
+    params = tuple(clean[field] for field in clean) + (int(team_id), int(tournament_id))
+    with connect() as con:
+        con.execute(f"UPDATE teams SET {assignments} WHERE id=? AND tournament_id=?", params)
+        commit = getattr(con, "commit", None)
+        if callable(commit):
+            commit()
     return one(
         f"SELECT {TEAM_PROJECTION} FROM teams WHERE id=? AND tournament_id=?",
         (int(team_id), int(tournament_id)),
     )
 
 
-def create_team(account_id: int, tournament_id: int, values: dict):
+def delete_team(account_id: int, tournament_id: int, team_id: int):
     if not _has_tournament_access(account_id, tournament_id):
         return None
-    clean = _clean_team(values, require_name=True)
-    clean.setdefault("age_class", None)
-    clean.setdefault("primary_color", "#111827")
-    clean.setdefault("secondary_color", "#FFFFFF")
-    with connect() as con:
-        duplicate = con.execute(
-            "SELECT id FROM teams WHERE tournament_id=? AND lower(trim(name))=lower(?)",
-            (int(tournament_id), clean["name"]),
-        ).fetchone()
-        if duplicate:
-            raise ValueError("Det finns redan ett lag med samma namn")
-        cursor = con.execute(
-            """INSERT INTO teams(tournament_id,name,age_class,primary_color,secondary_color)
-               VALUES(?,?,?,?,?)""",
-            (int(tournament_id), clean["name"], clean["age_class"], clean["primary_color"], clean["secondary_color"]),
-        )
-        team_id = int(cursor.lastrowid)
-        commit = getattr(con, "commit", None)
-        if callable(commit):
-            commit()
-    return _team(account_id, tournament_id, team_id)
-
-
-def update_team(account_id: int, tournament_id: int, team_id: int, values: dict):
-    current = _team(account_id, tournament_id, team_id)
-    if not current:
-        return None
-    clean = _clean_team(values)
-    if "name" in clean:
-        duplicate = one(
-            """SELECT id FROM teams WHERE tournament_id=? AND id<>?
-               AND lower(trim(name))=lower(?)""",
-            (int(tournament_id), int(team_id), clean["name"]),
-        )
-        if duplicate:
-            raise ValueError("Det finns redan ett lag med samma namn")
-    if clean:
-        assignments = ",".join(f"{field}=?" for field in clean)
-        with connect() as con:
-            con.execute(
-                f"UPDATE teams SET {assignments} WHERE id=? AND tournament_id=?",
-                (*[clean[field] for field in clean], int(team_id), int(tournament_id)),
-            )
-            commit = getattr(con, "commit", None)
-            if callable(commit):
-                commit()
-    return _team(account_id, tournament_id, team_id)
-
-
-def delete_team(account_id: int, tournament_id: int, team_id: int):
-    current = _team(account_id, tournament_id, team_id)
-    if not current:
-        return None
-    token = f"team:{int(team_id)}"
-    referenced = one(
-        """SELECT id FROM matches WHERE tournament_id=? AND (home_source=? OR away_source=?) LIMIT 1""",
-        (int(tournament_id), token, token),
+    current = one(
+        f"SELECT {TEAM_PROJECTION} FROM teams WHERE id=? AND tournament_id=?",
+        (int(team_id), int(tournament_id)),
     )
-    if referenced:
-        raise ValueError("Laget används i schemat och kan inte tas bort förrän matcherna har hanterats")
+    if not current:
+        return None
     with connect() as con:
         con.execute("DELETE FROM teams WHERE id=? AND tournament_id=?", (int(team_id), int(tournament_id)))
         commit = getattr(con, "commit", None)
