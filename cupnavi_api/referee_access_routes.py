@@ -22,7 +22,7 @@ from cupnavi_core.rate_limit import consume_rate_limit
 from cupnavi_core.team_portal import generate_short_numeric_code, new_code_hash, verify_access_code
 from .admin_repository import _has_tournament_access
 from .participant_resolution_repository import tournament_participant_resolver
-from .repository import connect, one, all_rows
+from .repository import all_rows, connect, one
 
 SESSION_TTL_SECONDS = 60 * 60 * 8
 
@@ -31,6 +31,27 @@ class RefereeLogin(BaseModel):
     cup: str
     referee_id: int
     code: str
+
+
+def _table_columns(table: str) -> set[str]:
+    with connect() as con:
+        return {str(row[1]) for row in con.execute(f"PRAGMA table_info({table})").fetchall()}
+
+
+def _referee_projection() -> str:
+    columns = _table_columns("referees")
+    fields = [field for field in ("id", "name", "active") if field in columns]
+    return ",".join(fields)
+
+
+def _referee(tournament_id: int, referee_id: int):
+    projection = _referee_projection()
+    if not projection or "id" not in projection or "name" not in projection:
+        return None
+    return one(
+        f"SELECT {projection} FROM referees WHERE id=? AND tournament_id=?",
+        (int(referee_id), int(tournament_id)),
+    )
 
 
 def _ensure_table():
@@ -64,8 +85,11 @@ def referee_code_statuses(account_id: int, tournament_id: int):
     if not _has_tournament_access(account_id, tournament_id):
         return None
     _ensure_table()
+    projection = _referee_projection()
+    if not projection:
+        return {"referees": []}
     referees = all_rows(
-        "SELECT id,name,active FROM referees WHERE tournament_id=? ORDER BY name,id",
+        f"SELECT {projection} FROM referees WHERE tournament_id=? ORDER BY name,id",
         (int(tournament_id),),
     )
     credentials = {
@@ -93,10 +117,7 @@ def referee_code_statuses(account_id: int, tournament_id: int):
 def rotate_referee_code(account_id: int, tournament_id: int, referee_id: int):
     if not _has_tournament_access(account_id, tournament_id):
         return None
-    referee = one(
-        "SELECT id,name,active FROM referees WHERE id=? AND tournament_id=?",
-        (int(referee_id), int(tournament_id)),
-    )
+    referee = _referee(tournament_id, referee_id)
     if not referee:
         return None
     code = generate_short_numeric_code(4)
@@ -110,8 +131,7 @@ def rotate_referee_code(account_id: int, tournament_id: int, referee_id: int):
         ).fetchone()
         if existing:
             con.execute(
-                """UPDATE referee_portal_credentials
-                   SET code_salt=?,code_hash=?,rotated_at=?
+                """UPDATE referee_portal_credentials SET code_salt=?,code_hash=?,rotated_at=?
                    WHERE tournament_id=? AND referee_id=?""",
                 (salt, digest, now, int(tournament_id), int(referee_id)),
             )
@@ -197,20 +217,16 @@ def _find_cup(value: str):
 
 def _assignments(tournament_id: int, referee_id: int):
     tournament = one("SELECT * FROM tournaments WHERE id=?", (int(tournament_id),))
-    referee = one(
-        "SELECT id,name FROM referees WHERE id=? AND tournament_id=?",
-        (int(referee_id), int(tournament_id)),
-    )
+    referee = _referee(tournament_id, referee_id)
     if not tournament or not referee:
         return None
-    columns = {str(row[1]) for row in connect().__enter__().execute("PRAGMA table_info(matches)").fetchall()}
-    match_column = "referee_id" if "referee_id" in columns else "assigned_referee_id" if "assigned_referee_id" in columns else None
+    match_columns = _table_columns("matches")
+    match_column = "referee_id" if "referee_id" in match_columns else "assigned_referee_id" if "assigned_referee_id" in match_columns else None
     if not match_column:
-        return {"referee": referee, "matches": []}
+        return {"referee": {"id": int(referee["id"]), "name": referee.get("name")}, "matches": []}
     resolver = tournament_participant_resolver(tournament)
     rows = all_rows(
-        f"""SELECT id,stage,match_no,scheduled_start,pitch_number,home_source,away_source,
-                   home_score,away_score
+        f"""SELECT id,stage,match_no,scheduled_start,pitch_number,home_source,away_source,home_score,away_score
             FROM matches WHERE tournament_id=? AND {match_column}=?
             ORDER BY CASE WHEN scheduled_start IS NULL THEN 1 ELSE 0 END,scheduled_start,id""",
         (int(tournament_id), int(referee_id)),
@@ -224,7 +240,7 @@ def _assignments(tournament_id: int, referee_id: int):
         item["away_team"] = away.team_name if away.resolved else str(row.get("away_source") or "Ej avgjort")
         item["played"] = row.get("home_score") is not None and row.get("away_score") is not None
         result.append(item)
-    return {"referee": referee, "matches": result}
+    return {"referee": {"id": int(referee["id"]), "name": referee.get("name")}, "matches": result}
 
 
 def register_referee_access_routes(app, admin_identity):
@@ -249,10 +265,7 @@ def register_referee_access_routes(app, admin_identity):
         cup = _find_cup(payload.cup)
         if not cup:
             raise HTTPException(401, "Fel cup, domare eller kod")
-        referee = one(
-            "SELECT id,name,active FROM referees WHERE id=? AND tournament_id=?",
-            (int(payload.referee_id), int(cup["id"])),
-        )
+        referee = _referee(int(cup["id"]), int(payload.referee_id))
         if not referee or not bool(referee.get("active", 1)):
             raise HTTPException(401, "Fel cup, domare eller kod")
         subject = hashlib.sha256(f"{cup['id']}:{payload.referee_id}:{request.client.host if request.client else ''}".encode()).hexdigest()
@@ -273,8 +286,8 @@ def register_referee_access_routes(app, admin_identity):
     def referee_session(authorization: str | None = Header(default=None)):
         identity = _identity(authorization)
         cup = one("SELECT id,name,public_slug FROM tournaments WHERE id=?", (int(identity["tid"]),))
-        referee = one("SELECT id,name FROM referees WHERE id=? AND tournament_id=?", (int(identity["rid"]), int(identity["tid"])))
-        return {"cup": cup, "referee": referee, "role": "referee"}
+        referee = _referee(int(identity["tid"]), int(identity["rid"]))
+        return {"cup": cup, "referee": {"id": int(referee["id"]), "name": referee.get("name")} if referee else None, "role": "referee"}
 
     @app.get("/api/referee/assignments")
     def referee_assignments(authorization: str | None = Header(default=None)):
