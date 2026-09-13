@@ -5,6 +5,7 @@ from fastapi import Header, HTTPException
 from pydantic import BaseModel
 
 from .competition_admin_routes import register_competition_admin_routes
+from .cup_create_repository import create_owner_tournament
 from .rules_admin_repository import admin_rules, update_rules
 from .schedule_admin_repository import admin_schedule, update_match_schedule
 from .schedule_proposal_repository import ProposalStaleError, admin_schedule_proposal, apply_schedule_proposal
@@ -14,6 +15,12 @@ from .venue_admin_repository import (
     update_pitch_window,
     update_venue_rules,
 )
+
+
+class CupCreateWrite(BaseModel):
+    name: str
+    start_date: str | None = None
+    end_date: str | None = None
 
 
 class VenueRulesWrite(BaseModel):
@@ -66,6 +73,19 @@ def _model_values(model: BaseModel) -> dict:
 
 
 def register_venue_admin_routes(app, admin_identity):
+    @app.post("/api/admin/cups", status_code=201)
+    def post_admin_cup(payload: CupCreateWrite, authorization: str | None = Header(default=None)):
+        account = admin_identity(authorization)
+        try:
+            cup = create_owner_tournament(int(account["id"]), _model_values(payload))
+        except PermissionError as exc:
+            raise HTTPException(status_code=403, detail=str(exc)) from exc
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+        if not cup:
+            raise HTTPException(status_code=500, detail="Cupen skapades men kunde inte läsas tillbaka")
+        return cup
+
     @app.get("/api/admin/cups/{tournament_id}/venues")
     def get_admin_venues(tournament_id: int, authorization: str | None = Header(default=None)):
         account = admin_identity(authorization)
