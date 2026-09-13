@@ -1,6 +1,8 @@
 from fastapi import Header,HTTPException
 from pydantic import BaseModel
 from .publish_reporting_repository import admin_publication,set_publication,admin_reporting,save_result
+from .match_events_admin_repository import admin_event_matches,admin_match_events,update_player_match_events
+
 class PublicationWrite(BaseModel): published:bool
 class ResultWrite(BaseModel):
     home_score:int
@@ -11,6 +13,22 @@ class ResultWrite(BaseModel):
     expected_away_score:int|None=None
     expected_home_penalties:int|None=None
     expected_away_penalties:int|None=None
+class EventCounters(BaseModel):
+    goals:int=0
+    assists:int=0
+    yellow_cards:int=0
+    red_cards:int=0
+class PlayerEventWrite(BaseModel):
+    goals:int=0
+    assists:int=0
+    yellow_cards:int=0
+    red_cards:int=0
+    expected:EventCounters
+
+def _model_values(model):
+    dump=getattr(model,'model_dump',None)
+    return dump() if callable(dump) else model.dict()
+
 def register_publish_reporting_routes(app,admin_identity):
     @app.get('/api/admin/cups/{tournament_id}/publication')
     def get_publication(tournament_id:int,authorization:str|None=Header(default=None)):
@@ -44,4 +62,27 @@ def register_publish_reporting_routes(app,admin_identity):
         except ValueError as e:raise HTTPException(422,str(e)) from e
         except RuntimeError as e:raise HTTPException(409,str(e)) from e
         if r is None:raise HTTPException(404,'Match saknas eller åtkomst nekas')
+        return r
+
+    @app.get('/api/admin/cups/{tournament_id}/reporting/events')
+    def get_event_matches(tournament_id:int,authorization:str|None=Header(default=None)):
+        a=admin_identity(authorization);r=admin_event_matches(int(a['id']),tournament_id)
+        if r is None:raise HTTPException(404,'Cup not found or access denied')
+        return r
+
+    @app.get('/api/admin/cups/{tournament_id}/reporting/matches/{match_id}/events')
+    def get_match_events(tournament_id:int,match_id:int,authorization:str|None=Header(default=None)):
+        a=admin_identity(authorization)
+        try:r=admin_match_events(int(a['id']),tournament_id,match_id)
+        except ValueError as e:raise HTTPException(422,str(e)) from e
+        if r is None:raise HTTPException(404,'Match saknas, deltagare är inte avgjorda eller åtkomst nekas')
+        return r
+
+    @app.put('/api/admin/cups/{tournament_id}/reporting/matches/{match_id}/events/{player_id}')
+    def put_match_event(tournament_id:int,match_id:int,player_id:int,payload:PlayerEventWrite,authorization:str|None=Header(default=None)):
+        a=admin_identity(authorization)
+        try:r=update_player_match_events(int(a['id']),tournament_id,match_id,player_id,_model_values(payload))
+        except ValueError as e:raise HTTPException(422,str(e)) from e
+        except RuntimeError as e:raise HTTPException(409,str(e)) from e
+        if r is None:raise HTTPException(404,'Match eller spelare saknas eller åtkomst nekas')
         return r
