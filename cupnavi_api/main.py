@@ -21,6 +21,7 @@ from .admin_repository import (
     delete_team,
     organizer_account,
     organizer_tournaments,
+    purge_trashed_tournaments,
     restore_tournament,
     trashed_tournaments,
     trash_tournament,
@@ -185,6 +186,16 @@ def get_admin_trash(authorization:str|None=Header(default=None)):
     except PermissionError as exc:
         raise HTTPException(status_code=403,detail=str(exc)) from exc
     return {"cups":cups}
+
+
+@app.delete("/api/admin/trash")
+def empty_admin_trash(authorization:str|None=Header(default=None)):
+    account=_admin_identity(authorization)
+    try:
+        deleted=purge_trashed_tournaments(int(account["id"]))
+    except PermissionError as exc:
+        raise HTTPException(status_code=403,detail=str(exc)) from exc
+    return {"emptied":True,"deleted":deleted,"trash":[]}
 
 
 @app.post("/api/admin/trash/{tournament_id}/restore")
