@@ -119,7 +119,7 @@ export default function PlayoffImportReview() {
     </section>
 
     {open && <div className="cup-create-backdrop" role="presentation" onMouseDown={event=>{if(event.target===event.currentTarget&&!busy)setOpen(false);}}>
-      <section className="cup-create-dialog" role="dialog" aria-modal="true" aria-labelledby="playoff-import-title" style={{maxWidth:1040}}>
+      <section className="cup-create-dialog" role="dialog" aria-modal="true" aria-labelledby="playoff-import-title" style={{maxWidth:1040,width:"min(1040px,calc(100vw - 20px))"}}>
         <div className="cup-create-dialog__head">
           <div><span>SLUTSPELSIMPORT</span><h2 id="playoff-import-title">Kontrollera trädet innan import</h2></div>
           <button type="button" className="cup-create-close" onClick={()=>!busy&&setOpen(false)} aria-label="Stäng">×</button>
@@ -127,10 +127,10 @@ export default function PlayoffImportReview() {
         <p className="cup-create-lead">Deltagarkällor kan vara exakta lagnamn, exempelvis <strong>1:a Grupp A</strong> eller <strong>Vinnare semifinal 1</strong>. Om en koppling inte kan bevisas stoppas hela importen utan att ett halvt träd sparas.</p>
         {review.source_name && <p style={{fontSize:13}}><strong>Underlag:</strong> {review.source_name}</p>}
 
-        <div style={{display:"grid",gap:10,maxHeight:"52vh",overflow:"auto",paddingRight:4}}>
-          {rows.map((row,index)=><div key={index} style={{border:"1px solid currentColor",borderRadius:10,padding:10}}>
+        <div style={{display:"grid",gap:10,maxHeight:"52vh",overflowY:"auto",overflowX:"hidden",paddingRight:4}}>
+          {rows.map((row,index)=><div key={index} style={{border:"1px solid currentColor",borderRadius:10,padding:10,minWidth:0}}>
             <strong>Match {index+1}</strong>
-            <div style={{display:"grid",gridTemplateColumns:"minmax(120px,1.2fr) 90px minmax(140px,1fr) minmax(140px,1fr) minmax(110px,1fr)",gap:7,marginTop:8}}>
+            <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(150px,1fr))",gap:7,marginTop:8,minWidth:0}}>
               <label>Matchnamn<input value={row.label||""} onChange={event=>updateRow(index,"label",event.target.value)} placeholder="Semifinal 1" /></label>
               <label>Tid<input value={row.time||""} onChange={event=>updateRow(index,"time",event.target.value)} placeholder="14:00" /></label>
               <label>Lag/källa 1<input value={row.home_source||""} onChange={event=>updateRow(index,"home_source",event.target.value)} placeholder="1:a Grupp A" /></label>
@@ -140,7 +140,7 @@ export default function PlayoffImportReview() {
           </div>)}
         </div>
 
-        {review.playoff_rule_values && Object.values(review.playoff_rule_values).some(value=>value!=null&&value!=="") && <details style={{marginTop:12}}><summary><strong>Särskilda slutspelsregler hittades</strong></summary><pre style={{whiteSpace:"pre-wrap",fontSize:12}}>{JSON.stringify(review.playoff_rule_values,null,2)}</pre></details>}
+        {review.playoff_rule_values && Object.values(review.playoff_rule_values).some(value=>value!=null&&value!=="") && <details style={{marginTop:12}}><summary><strong>Särskilda slutspelsregler hittades</strong></summary><pre style={{whiteSpace:"pre-wrap",fontSize:12,overflowWrap:"anywhere"}}>{JSON.stringify(review.playoff_rule_values,null,2)}</pre></details>}
         {error && <p className="cup-create-error" role="alert">{error}</p>}
         <div className="cup-create-actions"><button type="button" className="is-secondary" onClick={()=>setOpen(false)} disabled={busy}>Avbryt</button><button type="button" onClick={()=>void commit()} disabled={busy||!rows.length}>{busy?"Validerar och importerar…":"✓ Importera granskat slutspel"}</button></div>
       </section>
