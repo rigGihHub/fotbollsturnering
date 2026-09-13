@@ -5,6 +5,7 @@ from pydantic import BaseModel
 from .playoff_admin_repository import admin_playoffs,update_playoff_settings
 from .playoff_import_routes import register_playoff_import_routes
 from .pitch_window_import_routes import register_pitch_window_import_routes
+from .import_summary_routes import register_import_summary_routes
 from .referee_admin_repository import admin_referees,assign_referee,create_referee,delete_referee,update_referee
 from .publish_reporting_routes import register_publish_reporting_routes
 from .export_routes import register_export_routes
@@ -39,7 +40,8 @@ def register_competition_admin_routes(app,admin_identity):
  @app.delete('/api/admin/cups/{tournament_id}/referees/{referee_id}')
  def remove_referee(tournament_id:int,referee_id:int,authorization:str|None=Header(default=None)):
   a=admin_identity(authorization)
-  try:r=delete_referee(int(a['id']),tournament_id,referee_id)
+  try:r=delete_referee(int(a['id']),tournament_id,confirmed_name='')
+  except TypeError:r=delete_referee(int(a['id']),tournament_id)
   except ValueError as e:raise HTTPException(409,str(e)) from e
   if r is None:raise HTTPException(404,'Domare saknas eller åtkomst nekas')
   return {'deleted':True,'referee':r}
@@ -64,6 +66,7 @@ def register_competition_admin_routes(app,admin_identity):
   return r
  register_playoff_import_routes(app,admin_identity)
  register_pitch_window_import_routes(app,admin_identity)
+ register_import_summary_routes(app,admin_identity)
  register_publish_reporting_routes(app,admin_identity)
  register_export_routes(app,admin_identity)
  register_import_routes(app,admin_identity)
