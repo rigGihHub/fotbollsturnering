@@ -6,6 +6,7 @@ import PublishReportingAdmin from "./publish-reporting-admin";
 import RosterAdmin from "./roster-admin";
 import RoleCodeAdmin from "./role-code-admin";
 import RefereeRoleCodeAdmin from "./referee-role-code-admin";
+import TeamRoleCodeAdmin from "./team-role-code-admin";
 import { CLIENT_API_BASE } from "../lib/client-api";
 
 const API = CLIENT_API_BASE;
@@ -74,6 +75,7 @@ export default function AdminOperations() {
     </section>
     <RoleCodeAdmin token={token} cupId={cupId} publicSlug={activeCup?.public_slug}/>
     <RefereeRoleCodeAdmin token={token} cupId={cupId} publicSlug={activeCup?.public_slug}/>
+    <TeamRoleCodeAdmin token={token} cupId={cupId} publicSlug={activeCup?.public_slug}/>
     <RosterAdmin token={token} cupId={cupId}/>
     <PublishReportingAdmin token={token} cupId={cupId}/>
     <ImportAdmin token={token} cupId={cupId}/>
