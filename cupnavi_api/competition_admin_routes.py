@@ -3,6 +3,7 @@ from __future__ import annotations
 from fastapi import Header,HTTPException
 from pydantic import BaseModel
 from .playoff_admin_repository import admin_playoffs,update_playoff_settings
+from .playoff_import_routes import register_playoff_import_routes
 from .referee_admin_repository import admin_referees,assign_referee,create_referee,delete_referee,update_referee
 from .publish_reporting_routes import register_publish_reporting_routes
 from .export_routes import register_export_routes
@@ -60,6 +61,7 @@ def register_competition_admin_routes(app,admin_identity):
   except ValueError as e:raise HTTPException(422,str(e)) from e
   if r is None:raise HTTPException(404,'Cup not found or access denied')
   return r
+ register_playoff_import_routes(app,admin_identity)
  register_publish_reporting_routes(app,admin_identity)
  register_export_routes(app,admin_identity)
  register_import_routes(app,admin_identity)
