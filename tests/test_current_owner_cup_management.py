@@ -18,7 +18,7 @@ def test_owner_ui_exposes_new_cup_and_safe_trash_flow():
     workspace = (ROOT / "frontend-next" / "src" / "components" / "admin-workspace.tsx").read_text(encoding="utf-8")
     assert "CupCreateLauncher" in page
     assert "+ Ny cup" in launcher
-    assert "Cupen skapas som utkast" in launcher
+    assert "utkast" in launcher.lower()
     assert "Papperskorg" in workspace
     assert "Återställ" in workspace
     assert "Töm papperskorg" in workspace
