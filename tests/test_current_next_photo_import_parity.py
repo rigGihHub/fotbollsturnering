@@ -33,6 +33,8 @@ def test_reviewed_import_restores_core_setup_data():
     assert "group_id" in LAUNCHER
 
 
-def test_schedule_and_playoffs_are_not_silently_written_yet():
-    assert "själva matchschemat förs in i nästa återställningsblock" in LAUNCHER
+def test_reviewed_schedule_can_be_persisted_but_playoffs_are_still_deferred():
+    assert "/import/initial`" in LAUNCHER
+    assert "import_matches" in LAUNCHER
+    assert "fallback_date" in LAUNCHER
     assert "Slutspelsimport kopplas in i nästa block" in LAUNCHER
