@@ -27,6 +27,7 @@ const modules = [
 
 type Account = { id:number; email:string; display_name?:string|null; role?:string|null; is_owner?:boolean };
 type Cup = { id:number; name:string; public_slug?:string|null; start_date?:string|null; end_date?:string|null; is_published?:number|boolean; role:string };
+type TrashedCup = Cup & { trashed_at?:string|null };
 type CupInfo = {
   id:number; public_slug?:string|null; is_published?:number|boolean;
   name:string; start_date?:string|null; end_date?:string|null; organizer?:string|null;
@@ -35,6 +36,7 @@ type CupInfo = {
 };
 type SessionPayload = { account:Account; cups:Cup[]; token?:string };
 type DeleteCupPayload = { deleted:boolean; recoverable:boolean; cup:Cup; cups:Cup[] };
+type RestoreCupPayload = { restored:boolean; cup:Cup; cups:Cup[]; trash:TrashedCup[] };
 type ApiStatus = "checking" | "online" | "offline";
 type Team = { id:number; tournament_id:number; name:string; group_id?:number|null; age_class?:string|null; primary_color?:string|null; secondary_color?:string|null };
 type Group = { id:number; tournament_id:number; name:string; age_class?:string|null; team_count:number };
@@ -98,6 +100,8 @@ export default function AdminWorkspace() {
   const [token,setToken] = useState<string|null>(null);
   const [account,setAccount] = useState<Account|null>(null);
   const [cups,setCups] = useState<Cup[]>([]);
+  const [trashedCups,setTrashedCups] = useState<TrashedCup[]>([]);
+  const [trashOpen,setTrashOpen] = useState(false);
   const [cupId,setCupId] = useState<number|null>(null);
   const [cupinfo,setCupinfo] = useState<CupInfo|null>(null);
   const [teams,setTeams] = useState<Team[]>([]);
@@ -114,10 +118,11 @@ export default function AdminWorkspace() {
   const [apiStatus,setApiStatus] = useState<ApiStatus>("checking");
 
   const activeCup = useMemo(() => cups.find(cup => cup.id === cupId) || null,[cups,cupId]);
+  const isOwnerAccount = account?.role === "owner" || account?.is_owner === true;
 
   const logout = useCallback(() => {
     localStorage.removeItem(TOKEN_KEY);
-    setToken(null); setAccount(null); setCups([]); setCupId(null); setCupinfo(null); setTeams([]); setGroups([]);
+    setToken(null); setAccount(null); setCups([]); setTrashedCups([]); setTrashOpen(false); setCupId(null); setCupinfo(null); setTeams([]); setGroups([]);
     setPassword(""); setMessage(""); setError("");
   },[]);
 
@@ -129,6 +134,11 @@ export default function AdminWorkspace() {
     ]);
     setCupinfo(cleanCupInfo(data)); setTeams(teamData.teams || []); setGroups(groupData.groups || []);
     setEditingTeam(null); setTeamDraft(emptyTeam); setEditingGroup(null); setGroupDraft(emptyGroup);
+  },[]);
+
+  const loadTrash = useCallback(async (nextToken:string) => {
+    const data = await request<{cups:TrashedCup[]}>("/api/admin/trash",{},nextToken);
+    setTrashedCups(data.cups || []);
   },[]);
 
   useEffect(() => {
@@ -148,12 +158,13 @@ export default function AdminWorkspace() {
     request<SessionPayload>("/api/admin/session",{},stored)
       .then(async data => {
         setToken(stored); setAccount(data.account); setCups(data.cups || []);
+        if (data.account.role === "owner" || data.account.is_owner === true) await loadTrash(stored);
         const selected = initialCup(data.cups || []);
         if (selected) { setCupId(selected.id); rememberCup(selected.id); await loadCupInfo(stored,selected.id); }
       })
       .catch(() => logout())
       .finally(() => setBusy(false));
-  },[loadCupInfo,logout]);
+  },[loadCupInfo,loadTrash,logout]);
 
   async function login(event:FormEvent) {
     event.preventDefault(); setBusy(true); setError(""); setMessage("");
@@ -162,6 +173,7 @@ export default function AdminWorkspace() {
       if (!data.token) throw new Error("API:t returnerade ingen session.");
       localStorage.setItem(TOKEN_KEY,data.token);
       setToken(data.token); setAccount(data.account); setCups(data.cups || []); setPassword("");
+      if (data.account.role === "owner" || data.account.is_owner === true) await loadTrash(data.token);
       const selected = initialCup(data.cups || []);
       if (selected) { setCupId(selected.id); rememberCup(selected.id); await loadCupInfo(data.token,selected.id); }
       else setMessage("Kontot är giltigt men är inte kopplat till någon cup ännu.");
@@ -179,26 +191,52 @@ export default function AdminWorkspace() {
   }
 
   async function removeCup() {
-    if (!token || !activeCup || !account?.is_owner) return;
-    const confirmedName = window.prompt(`Ta bort ${activeCup.name}?\n\nCupen avpubliceras och flyttas till papperskorgen. Skriv cupens exakta namn för att bekräfta:`);
-    if (confirmedName === null) return;
-    if (confirmedName.trim() !== activeCup.name) { setError("Cupnamnet stämmer inte. Cupen har inte tagits bort."); return; }
+    if (!token || !activeCup || !isOwnerAccount) return;
+    if (!window.confirm(`Flytta ${activeCup.name} till papperskorgen?\n\nCupen avpubliceras direkt men kan återställas från papperskorgen.`)) return;
     setBusy(true); setError(""); setMessage("");
     try {
+      const removedName = activeCup.name;
       const result = await request<DeleteCupPayload>(`/api/admin/cups/${activeCup.id}`,{
-        method:"DELETE",body:JSON.stringify({confirmed_name:confirmedName.trim()})
+        method:"DELETE",body:JSON.stringify({confirmed_name:activeCup.name})
       },token);
       const remaining = result.cups || [];
       setCups(remaining); setCupinfo(null); setTeams([]); setGroups([]);
+      await loadTrash(token);
       const nextCup = remaining[0];
       if (nextCup) {
         setCupId(nextCup.id); rememberCup(nextCup.id); await loadCupInfo(token,nextCup.id);
-        setMessage(`${activeCup.name} har flyttats till papperskorgen.`);
+        setMessage(`${removedName} har flyttats till papperskorgen.`);
       } else {
         setCupId(null); forgetCup();
-        setMessage(`${activeCup.name} har flyttats till papperskorgen. Det finns ingen aktiv cup kvar.`);
+        setMessage(`${removedName} har flyttats till papperskorgen. Det finns ingen aktiv cup kvar.`);
       }
     } catch (err) { setError(err instanceof Error ? err.message : "Cupen kunde inte tas bort."); }
+    finally { setBusy(false); }
+  }
+
+  async function restoreCup(cup:TrashedCup) {
+    if (!token || !isOwnerAccount) return;
+    setBusy(true); setError(""); setMessage("");
+    try {
+      const result = await request<RestoreCupPayload>(`/api/admin/trash/${cup.id}/restore`,{method:"POST"},token);
+      setCups(result.cups || []); setTrashedCups(result.trash || []);
+      setCupId(result.cup.id); rememberCup(result.cup.id); await loadCupInfo(token,result.cup.id);
+      setMessage(`${cup.name} har återställts som opublicerat utkast.`);
+      if (!(result.trash || []).length) setTrashOpen(false);
+    } catch (err) { setError(err instanceof Error ? err.message : "Cupen kunde inte återställas."); }
+    finally { setBusy(false); }
+  }
+
+  async function emptyTrash() {
+    if (!token || !isOwnerAccount || !trashedCups.length) return;
+    if (!window.confirm(`Töm papperskorgen?\n\n${trashedCups.length} ${trashedCups.length === 1 ? "cup" : "cuper"} tas bort från papperskorgen och kan inte återställas i admin efter detta.`)) return;
+    setBusy(true); setError(""); setMessage("");
+    try {
+      await request<{emptied:boolean;deleted:number;trash:TrashedCup[]}>("/api/admin/trash",{method:"DELETE"},token);
+      const count = trashedCups.length;
+      setTrashedCups([]); setTrashOpen(false);
+      setMessage(`Papperskorgen är tömd. ${count} ${count === 1 ? "cup" : "cuper"} togs bort från återställningsvyn.`);
+    } catch (err) { setError(err instanceof Error ? err.message : "Papperskorgen kunde inte tömmas."); }
     finally { setBusy(false); }
   }
 
@@ -321,7 +359,19 @@ export default function AdminWorkspace() {
     <aside className="admin-sidebar">
       <div className="admin-sidebar__cup"><span>AKTIV CUP</span><strong>{activeCup?.name || "Ingen cup"}</strong><small>{activeCup?.start_date || "Datum saknas"}</small></div>
       {cups.length > 1 && <label style={{display:"grid",gap:6,padding:"14px 10px"}}>Byt cup<select value={cupId || ""} onChange={e=>changeCup(Number(e.target.value))}>{cups.map(cup=><option key={cup.id} value={cup.id}>{cup.name}</option>)}</select></label>}
-      {account.is_owner && activeCup && <button className="admin-remove-cup" type="button" disabled={busy} onClick={()=>void removeCup()}>Ta bort cup</button>}
+      {isOwner && <>
+        <div className="admin-owner-actions">
+          {activeCup && <button className="admin-remove-cup" type="button" disabled={busy} onClick={()=>void removeCup()}>Ta bort cup</button>}
+          <button className={`admin-trash-button${trashOpen?" is-open":""}`} type="button" disabled={busy} onClick={()=>setTrashOpen(value=>!value)}>Papperskorg <span>{trashedCups.length}</span></button>
+        </div>
+        {trashOpen && <section className="admin-trash-panel" aria-label="Papperskorg">
+          <div className="admin-trash-head"><strong>Papperskorg</strong><span>{trashedCups.length} {trashedCups.length===1?"cup":"cuper"}</span></div>
+          {trashedCups.length ? <>
+            <div className="admin-trash-list">{trashedCups.map(cup=><div key={cup.id}><span><strong>{cup.name}</strong><small>{cup.start_date || "Datum saknas"}</small></span><button type="button" disabled={busy} onClick={()=>void restoreCup(cup)}>Återställ</button></div>)}</div>
+            <button className="admin-empty-trash" type="button" disabled={busy} onClick={()=>void emptyTrash()}>Töm papperskorg</button>
+          </> : <p className="admin-trash-empty">Papperskorgen är tom.</p>}
+        </section>}
+      </>}
       <nav aria-label="Cupadministration">{nav.map(([item,href],index)=><a className={index===0?"is-active":""} href={href} key={item}><span>{String(index+1).padStart(2,"0")}</span>{item}</a>)}</nav>
       {publicCup && <a className="admin-public-link" href={publicCup}>Visa publik cup ↗</a>}
       <button className="admin-public-link" type="button" onClick={logout}>Logga ut</button>
