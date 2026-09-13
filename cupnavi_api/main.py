@@ -21,6 +21,8 @@ from .admin_repository import (
     delete_team,
     organizer_account,
     organizer_tournaments,
+    restore_tournament,
+    trashed_tournaments,
     trash_tournament,
     update_cupinfo,
     update_team,
@@ -173,6 +175,33 @@ def admin_login(payload:AdminLoginRequest):
 def admin_session(authorization:str|None=Header(default=None)):
     account=_admin_identity(authorization)
     return {"account":account,"cups":organizer_tournaments(int(account["id"]))}
+
+
+@app.get("/api/admin/trash")
+def get_admin_trash(authorization:str|None=Header(default=None)):
+    account=_admin_identity(authorization)
+    try:
+        cups=trashed_tournaments(int(account["id"]))
+    except PermissionError as exc:
+        raise HTTPException(status_code=403,detail=str(exc)) from exc
+    return {"cups":cups}
+
+
+@app.post("/api/admin/trash/{tournament_id}/restore")
+def restore_admin_cup(tournament_id:int,authorization:str|None=Header(default=None)):
+    account=_admin_identity(authorization)
+    try:
+        restored=restore_tournament(int(account["id"]),tournament_id)
+    except PermissionError as exc:
+        raise HTTPException(status_code=403,detail=str(exc)) from exc
+    if not restored:
+        raise HTTPException(status_code=404,detail="Cupen finns inte i papperskorgen")
+    return {
+        "restored":True,
+        "cup":restored,
+        "cups":organizer_tournaments(int(account["id"])),
+        "trash":trashed_tournaments(int(account["id"])),
+    }
 
 
 @app.get("/api/admin/cups/{tournament_id}/cupinfo")
