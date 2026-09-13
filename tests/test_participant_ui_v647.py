@@ -37,6 +37,7 @@ def test_admin_playoff_hides_raw_symbolic_sources_from_primary_match_label():
 
 def test_v647_participant_ui_contract_survives_later_release_versions():
     version = (ROOT / "VERSION.txt").read_text(encoding="utf-8").strip()
-    assert version.startswith("2026.09.12-")
-    assert int(version.split("-", 2)[1]) >= 647
+    parts = version.split("-", 2)
+    assert len(parts) == 3
+    assert int(parts[1]) >= 647
     assert f'APP_VERSION = "{version}"' in _read("cupnavi_core/version.py")
