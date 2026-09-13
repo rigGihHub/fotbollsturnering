@@ -90,6 +90,21 @@ def organizer_tournaments(account_id: int):
     )
 
 
+def trashed_tournaments(account_id: int):
+    """Return recoverable cups for the app owner only."""
+    if int(account_id) != OWNER_ACCOUNT_ID:
+        raise PermissionError("Endast CupNavi-ägaren kan visa papperskorgen")
+    rows = all_rows(
+        """SELECT id,name,public_slug,start_date,end_date,is_published,trashed_at
+           FROM tournaments
+           WHERE COALESCE(lifecycle_status,'draft')='trashed'
+           ORDER BY COALESCE(trashed_at,'' ) DESC,name,id"""
+    )
+    for row in rows:
+        row["role"] = "owner"
+    return rows
+
+
 def _has_tournament_access(account_id: int, tournament_id: int) -> bool:
     if int(account_id) == OWNER_ACCOUNT_ID:
         return bool(one(
@@ -173,6 +188,41 @@ def trash_tournament(account_id: int, tournament_id: int, confirmed_name: str):
         if callable(commit):
             commit()
     return current
+
+
+def restore_tournament(account_id: int, tournament_id: int):
+    """Restore a trashed cup as an unpublished draft. Owner only."""
+    if int(account_id) != OWNER_ACCOUNT_ID:
+        raise PermissionError("Endast CupNavi-ägaren kan återställa en cup")
+    current = one(
+        """SELECT id,name,public_slug,start_date,end_date,is_published,trashed_at
+           FROM tournaments
+           WHERE id=? AND COALESCE(lifecycle_status,'draft')='trashed'""",
+        (int(tournament_id),),
+    )
+    if not current:
+        return None
+    with connect() as con:
+        cursor = con.execute(
+            """UPDATE tournaments
+               SET lifecycle_status='draft',trashed_at=NULL,is_published=0
+               WHERE id=? AND COALESCE(lifecycle_status,'draft')='trashed'""",
+            (int(tournament_id),),
+        )
+        rowcount = getattr(cursor, "rowcount", None)
+        if rowcount is not None and rowcount >= 0 and rowcount != 1:
+            rollback = getattr(con, "rollback", None)
+            if callable(rollback):
+                rollback()
+            return None
+        commit = getattr(con, "commit", None)
+        if callable(commit):
+            commit()
+    restored = dict(current)
+    restored["is_published"] = 0
+    restored["trashed_at"] = None
+    restored["role"] = "owner"
+    return restored
 
 
 def admin_teams(account_id: int, tournament_id: int):
