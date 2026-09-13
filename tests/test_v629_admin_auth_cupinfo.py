@@ -34,7 +34,9 @@ def _database(path):
                 organizer_phone TEXT,
                 feedback_email TEXT,
                 public_information TEXT,
-                is_published INTEGER NOT NULL DEFAULT 0
+                is_published INTEGER NOT NULL DEFAULT 0,
+                lifecycle_status TEXT NOT NULL DEFAULT 'draft',
+                trashed_at TEXT
             );
             CREATE TABLE tournament_members(
                 tournament_id INTEGER NOT NULL,
@@ -53,7 +55,7 @@ def _database(path):
             ("other@example.se", "Annan", salt, password_hash("annat lösenord", salt)),
         )
         con.execute(
-            "INSERT INTO tournaments(id,name,public_slug,is_published) VALUES (10,'Testcup','testcup',1)"
+            "INSERT INTO tournaments(id,name,public_slug,is_published,lifecycle_status) VALUES (10,'Testcup','testcup',1,'active')"
         )
         con.execute("INSERT INTO tournament_members VALUES (10,1,'owner')")
 
