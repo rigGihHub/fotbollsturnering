@@ -40,8 +40,7 @@ def register_competition_admin_routes(app,admin_identity):
  @app.delete('/api/admin/cups/{tournament_id}/referees/{referee_id}')
  def remove_referee(tournament_id:int,referee_id:int,authorization:str|None=Header(default=None)):
   a=admin_identity(authorization)
-  try:r=delete_referee(int(a['id']),tournament_id,confirmed_name='')
-  except TypeError:r=delete_referee(int(a['id']),tournament_id)
+  try:r=delete_referee(int(a['id']),tournament_id,referee_id)
   except ValueError as e:raise HTTPException(409,str(e)) from e
   if r is None:raise HTTPException(404,'Domare saknas eller åtkomst nekas')
   return {'deleted':True,'referee':r}
