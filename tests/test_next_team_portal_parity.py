@@ -9,15 +9,28 @@ page=(ROOT/'frontend-next'/'src'/'app'/'team'/'page.tsx').read_text(encoding='ut
 ops=(ROOT/'frontend-next'/'src'/'components'/'admin-operations.tsx').read_text(encoding='utf-8')
 
 assert 'team_portal_credentials' in backend
+assert 'team_portal_settings' in backend
+assert 'team_portal_state' in backend
+assert 'team_portal_audit' in backend
 assert 'PRIMARY KEY(tournament_id, team_id)' in backend
 assert '"role": "team"' in backend
 assert 'scope="team_login"' in backend
 assert '/api/team/portal' in backend
+assert '/api/team/players' in backend
+assert '/api/team/roster/confirm' in backend
+assert '/api/team/check-in' in backend
+assert '/team-portal-settings' in backend
+assert 'squad_deadline_at' in backend
+assert 'squad_is_locked' in backend
 assert 'home.team_id != int(team_id) and away.team_id != int(team_id)' in backend
 assert 'SELECT id,name,player_number FROM players WHERE team_id=?' in backend
 assert 'register_team_access_routes(app,admin_identity)' in routes
 assert 'Varje lag får en egen 4-siffrig kod' in admin
+assert 'Truppdeadline före första match' in admin
 assert '/team?cup=' in admin
 assert 'bara det egna laget' in portal
+assert 'Laget är klart' in portal
+assert 'Checka in laget' in portal
+assert 'Lägg till spelare' in portal
 assert 'TeamClient' in page
 assert '<TeamRoleCodeAdmin token={token} cupId={cupId}' in ops
