@@ -4,12 +4,13 @@ import { useCallback, useEffect, useState } from "react";
 import ImportAdmin from "./import-admin";
 import PublishReportingAdmin from "./publish-reporting-admin";
 import RosterAdmin from "./roster-admin";
+import RoleCodeAdmin from "./role-code-admin";
 import { CLIENT_API_BASE } from "../lib/client-api";
 
 const API = CLIENT_API_BASE;
 const TOKEN_KEY = "cupnavi_admin_session_v629";
 
-type Cup = { id:number; name:string; role:string };
+type Cup = { id:number; name:string; role:string; public_slug?:string|null };
 type SessionPayload = { cups:Cup[] };
 
 export default function AdminOperations() {
@@ -59,16 +60,18 @@ export default function AdminOperations() {
     return <section className="admin-main"><section className="admin-panel"><strong>Operativa moduler kunde inte laddas</strong><p>{error}</p></section></section>;
   }
 
+  const activeCup=cups.find(cup=>cup.id===cupId)||null;
   return <section className="admin-main" aria-label="Operativa cupmoduler">
     <section className="admin-panel" style={{marginBottom:14}}>
       <div className="admin-panel__top"><span>OPERATIV CUP</span><strong>SERVERVERIFIERAD ÅTKOMST</strong></div>
-      <label>Trupper, publicering, rapportering och import för
+      <label>Trupper, behörighet, publicering, rapportering och import för
         <select value={cupId} onChange={event=>setCupId(Number(event.target.value))} style={{marginLeft:10}}>
           {cups.map(cup=><option key={cup.id} value={cup.id}>{cup.name} · {cup.role}</option>)}
         </select>
       </label>
       <p>Valet är separat och synligt så att inga skrivningar kan råka gå till en annan cup än den som visas här.</p>
     </section>
+    <RoleCodeAdmin token={token} cupId={cupId} publicSlug={activeCup?.public_slug}/>
     <RosterAdmin token={token} cupId={cupId}/>
     <PublishReportingAdmin token={token} cupId={cupId}/>
     <ImportAdmin token={token} cupId={cupId}/>
