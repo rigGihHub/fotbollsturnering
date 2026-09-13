@@ -5,6 +5,7 @@ import ImportAdmin from "./import-admin";
 import PublishReportingAdmin from "./publish-reporting-admin";
 import RosterAdmin from "./roster-admin";
 import RoleCodeAdmin from "./role-code-admin";
+import RefereeRoleCodeAdmin from "./referee-role-code-admin";
 import { CLIENT_API_BASE } from "../lib/client-api";
 
 const API = CLIENT_API_BASE;
@@ -72,6 +73,7 @@ export default function AdminOperations() {
       <p>Valet är separat och synligt så att inga skrivningar kan råka gå till en annan cup än den som visas här.</p>
     </section>
     <RoleCodeAdmin token={token} cupId={cupId} publicSlug={activeCup?.public_slug}/>
+    <RefereeRoleCodeAdmin token={token} cupId={cupId} publicSlug={activeCup?.public_slug}/>
     <RosterAdmin token={token} cupId={cupId}/>
     <PublishReportingAdmin token={token} cupId={cupId}/>
     <ImportAdmin token={token} cupId={cupId}/>
