@@ -31,8 +31,10 @@ def test_offline_api_blocks_pointless_login_submission():
     assert 'role={error?"alert":undefined}' in WORKSPACE
 
 
-def test_v653_release_is_synchronized():
-    version = "2026.09.12-653-ADMIN-LOGIN-DIAGNOSTICS"
-    assert (ROOT / "VERSION.txt").read_text(encoding="utf-8").strip() == version
+def test_v653_release_contract_survives_later_releases():
+    version = (ROOT / "VERSION.txt").read_text(encoding="utf-8").strip()
+    parts = version.split("-", 2)
+    assert len(parts) == 3
+    assert int(parts[1]) >= 653
     version_module = (ROOT / "cupnavi_core/version.py").read_text(encoding="utf-8")
     assert f'APP_VERSION = "{version}"' in version_module
