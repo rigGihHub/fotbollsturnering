@@ -1,9 +1,12 @@
 """FastAPI route registration for organizer setup and schedule administration."""
 from __future__ import annotations
 
-from fastapi import Header, HTTPException
+import os
+
+from fastapi import File, Header, HTTPException, UploadFile
 from pydantic import BaseModel
 
+from cupnavi_core.ai_cup_document_import import extract_cup_setup_from_documents
 from .competition_admin_routes import register_competition_admin_routes
 from .cup_create_repository import create_owner_tournament
 from .rules_admin_repository import admin_rules, update_rules
@@ -85,6 +88,31 @@ def register_venue_admin_routes(app, admin_identity):
         if not cup:
             raise HTTPException(status_code=500, detail="Cupen skapades men kunde inte läsas tillbaka")
         return cup
+
+    @app.post("/api/admin/cup-import/analyze")
+    async def analyze_admin_cup_import(
+        files: list[UploadFile] = File(...),
+        authorization: str | None = Header(default=None),
+    ):
+        """Review-first AI extraction used by the Next admin new-cup flow."""
+        account = admin_identity(authorization)
+        if not (account.get("role") == "owner" or account.get("is_owner") is True):
+            raise HTTPException(status_code=403, detail="Endast CupNavi-ägaren kan skapa nya cuper")
+        api_key = os.getenv("OPENAI_API_KEY", "").strip()
+        if not api_key:
+            raise HTTPException(status_code=503, detail="AI-importen är inte konfigurerad på servern")
+        documents = []
+        for upload in files:
+            raw = await upload.read()
+            documents.append((raw, upload.filename or "dokument", upload.content_type or ""))
+        try:
+            extracted = extract_cup_setup_from_documents(documents, api_key)
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+        except RuntimeError as exc:
+            raise HTTPException(status_code=502, detail=str(exc)) from exc
+        extracted["source_name"] = ", ".join(upload.filename or "dokument" for upload in files)
+        return extracted
 
     @app.get("/api/admin/cups/{tournament_id}/venues")
     def get_admin_venues(tournament_id: int, authorization: str | None = Header(default=None)):
