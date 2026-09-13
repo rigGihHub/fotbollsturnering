@@ -10,7 +10,10 @@
 .admin-login-help{margin-top:14px;padding-top:12px;border-top:1px solid rgba(19,35,45,.18);color:#41515a}
 .admin-login-help summary{cursor:pointer;font-weight:800;color:#13232d}
 .admin-login-help p{max-width:58ch;margin:8px 0 0;font-size:.9rem;line-height:1.5}
-.admin-remove-cup{display:block;width:calc(100% - 20px);margin:8px 10px 14px;padding:10px;border:1.5px solid #a64a42;border-radius:9px;background:transparent;color:#8a1f17;font-weight:900;cursor:pointer}.admin-remove-cup:disabled{cursor:not-allowed;opacity:.55}
+.admin-remove-cup{display:block;padding:10px;border:1.5px solid #a64a42;border-radius:9px;background:transparent;color:#8a1f17;font-weight:900;cursor:pointer}.admin-remove-cup:disabled{cursor:not-allowed;opacity:.55}
+.admin-owner-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:10px 10px 8px}.admin-owner-actions>button{min-width:0;margin:0}
+.admin-trash-button{display:flex;justify-content:center;align-items:center;gap:7px;padding:10px;border:1.5px solid var(--line);border-radius:9px;background:#f4f1e8;color:var(--ink);font-weight:900;cursor:pointer}.admin-trash-button span{display:inline-grid;place-items:center;min-width:22px;height:22px;padding:0 6px;border-radius:999px;background:var(--ink);color:#fff;font-size:11px}.admin-trash-button.is-open{background:var(--ink);color:#fff}.admin-trash-button.is-open span{background:#fff;color:var(--ink)}
+.admin-trash-panel{margin:0 10px 12px;padding:11px;border:1.5px solid var(--line);border-radius:11px;background:#f7f4ea}.admin-trash-head{display:flex;justify-content:space-between;gap:8px;align-items:center;padding-bottom:9px;border-bottom:1px solid rgba(16,38,48,.15)}.admin-trash-head span{font-size:11px;color:var(--ink-2)}.admin-trash-list{display:grid}.admin-trash-list>div{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;align-items:center;padding:10px 0;border-bottom:1px solid rgba(16,38,48,.12)}.admin-trash-list>div>span{display:grid;gap:2px;min-width:0}.admin-trash-list strong,.admin-trash-list small{overflow-wrap:anywhere}.admin-trash-list small{color:var(--ink-2);font-size:11px}.admin-trash-list button,.admin-empty-trash{border:1.5px solid var(--line);border-radius:8px;background:#fff;padding:8px 9px;color:var(--ink);font-weight:900;cursor:pointer}.admin-empty-trash{width:100%;margin-top:10px;border-color:#a64a42;color:#8a1f17;background:transparent}.admin-trash-empty{margin:10px 0 0;color:var(--ink-2);font-size:12px}
 
 /* Mobile admin hardening: data rows contain different numbers of controls. */
 @media(max-width:900px){
@@ -30,10 +33,14 @@
   .admin-checks>div{grid-template-columns:24px minmax(0,1fr)}
   .admin-checks small{grid-column:2}
   .admin-color-input{grid-template-columns:52px minmax(0,1fr)}
+  .admin-owner-actions{margin:10px 4px 8px}
+  .admin-trash-panel{margin:0 4px 12px}
 }
 @media(max-width:560px){
   .admin-pagehead__actions{flex-wrap:wrap}
   .admin-panel h2{font-size:25px}
   .admin-team-list article .admin-team-actions{grid-column:auto}
   .admin-team-list article .admin-team-actions button{flex:1 1 120px}
+  .admin-owner-actions{grid-template-columns:1fr 1fr}
+  .admin-owner-actions button{padding:10px 7px;font-size:12px}
 }
