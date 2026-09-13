@@ -10,6 +10,7 @@
 .admin-login-help{margin-top:14px;padding-top:12px;border-top:1px solid rgba(19,35,45,.18);color:#41515a}
 .admin-login-help summary{cursor:pointer;font-weight:800;color:#13232d}
 .admin-login-help p{max-width:58ch;margin:8px 0 0;font-size:.9rem;line-height:1.5}
+.admin-remove-cup{display:block;width:calc(100% - 20px);margin:8px 10px 14px;padding:10px;border:1.5px solid #a64a42;border-radius:9px;background:transparent;color:#8a1f17;font-weight:900;cursor:pointer}.admin-remove-cup:disabled{cursor:not-allowed;opacity:.55}
 
 /* Mobile admin hardening: data rows contain different numbers of controls. */
 @media(max-width:900px){

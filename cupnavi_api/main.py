@@ -21,6 +21,7 @@ from .admin_repository import (
     delete_team,
     organizer_account,
     organizer_tournaments,
+    trash_tournament,
     update_cupinfo,
     update_team,
 )
@@ -83,6 +84,10 @@ class GroupWrite(BaseModel):
 
 class TeamGroupWrite(BaseModel):
     group_id: int | None = None
+
+
+class CupDeleteRequest(BaseModel):
+    confirmed_name: str
 
 
 def _model_values(model: BaseModel) -> dict:
@@ -189,6 +194,25 @@ def put_admin_cupinfo(tournament_id:int,payload:CupInfoUpdate,authorization:str|
     if not cupinfo:
         raise HTTPException(status_code=404,detail="Cup not found or access denied")
     return cupinfo
+
+
+@app.delete("/api/admin/cups/{tournament_id}")
+def remove_admin_cup(tournament_id:int,payload:CupDeleteRequest,authorization:str|None=Header(default=None)):
+    account=_admin_identity(authorization)
+    try:
+        deleted=trash_tournament(int(account["id"]),tournament_id,payload.confirmed_name)
+    except PermissionError as exc:
+        raise HTTPException(status_code=403,detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=422,detail=str(exc)) from exc
+    if not deleted:
+        raise HTTPException(status_code=404,detail="Cupen saknas eller har redan tagits bort")
+    return {
+        "deleted":True,
+        "recoverable":True,
+        "cup":deleted,
+        "cups":organizer_tournaments(int(account["id"])),
+    }
 
 
 @app.get("/api/admin/cups/{tournament_id}/teams")

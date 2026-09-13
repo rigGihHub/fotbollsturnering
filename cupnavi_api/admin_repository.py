@@ -73,6 +73,7 @@ def organizer_tournaments(account_id: int):
         rows = all_rows(
             """SELECT id,name,public_slug,start_date,end_date,is_published
                FROM tournaments
+               WHERE COALESCE(lifecycle_status,'draft')<>'trashed'
                ORDER BY COALESCE(start_date,''),name,id"""
         )
         for row in rows:
@@ -83,6 +84,7 @@ def organizer_tournaments(account_id: int):
            FROM tournament_members tm
            JOIN tournaments t ON t.id=tm.tournament_id
            WHERE tm.organizer_account_id=?
+             AND COALESCE(t.lifecycle_status,'draft')<>'trashed'
            ORDER BY COALESCE(t.start_date,''),t.name,t.id""",
         (int(account_id),),
     )
@@ -90,11 +92,17 @@ def organizer_tournaments(account_id: int):
 
 def _has_tournament_access(account_id: int, tournament_id: int) -> bool:
     if int(account_id) == OWNER_ACCOUNT_ID:
-        return bool(one("SELECT 1 AS allowed FROM tournaments WHERE id=?", (int(tournament_id),)))
+        return bool(one(
+            """SELECT 1 AS allowed FROM tournaments
+               WHERE id=? AND COALESCE(lifecycle_status,'draft')<>'trashed'""",
+            (int(tournament_id),),
+        ))
     return bool(
         one(
-            """SELECT 1 AS allowed FROM tournament_members
-               WHERE organizer_account_id=? AND tournament_id=?""",
+            """SELECT 1 AS allowed FROM tournament_members tm
+               JOIN tournaments t ON t.id=tm.tournament_id
+               WHERE tm.organizer_account_id=? AND tm.tournament_id=?
+                 AND COALESCE(t.lifecycle_status,'draft')<>'trashed'""",
             (int(account_id), int(tournament_id)),
         )
     )
@@ -132,6 +140,39 @@ def update_cupinfo(account_id: int, tournament_id: int, values: dict):
             if callable(commit):
                 commit()
     return admin_cupinfo(account_id, tournament_id)
+
+
+def trash_tournament(account_id: int, tournament_id: int, confirmed_name: str):
+    """Move one cup to the recoverable trash. Only the synthetic app owner may do this."""
+    if int(account_id) != OWNER_ACCOUNT_ID:
+        raise PermissionError("Endast CupNavi-ägaren kan ta bort en cup")
+    current = one(
+        """SELECT id,name,public_slug,start_date,end_date,is_published
+           FROM tournaments
+           WHERE id=? AND COALESCE(lifecycle_status,'draft')<>'trashed'""",
+        (int(tournament_id),),
+    )
+    if not current:
+        return None
+    if str(confirmed_name or "").strip() != str(current["name"]):
+        raise ValueError("Cupnamnet stämmer inte")
+    with connect() as con:
+        cursor = con.execute(
+            """UPDATE tournaments
+               SET lifecycle_status='trashed',trashed_at=CURRENT_TIMESTAMP,is_published=0
+               WHERE id=? AND name=? AND COALESCE(lifecycle_status,'draft')<>'trashed'""",
+            (int(tournament_id), current["name"]),
+        )
+        rowcount = getattr(cursor, "rowcount", None)
+        if rowcount is not None and rowcount >= 0 and rowcount != 1:
+            rollback = getattr(con, "rollback", None)
+            if callable(rollback):
+                rollback()
+            return None
+        commit = getattr(con, "commit", None)
+        if callable(commit):
+            commit()
+    return current
 
 
 def admin_teams(account_id: int, tournament_id: int):

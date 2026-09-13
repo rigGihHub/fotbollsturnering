@@ -264,6 +264,8 @@ def main() -> int:
         "tests/test_v629_admin_auth_cupinfo.py",
         "tests/test_v630_admin_team_crud.py",
         "tests/test_admin_login_diagnostics_v653.py",
+        "tests/test_current_release_gate_v654.py",
+        "tests/test_owner_cup_trash_v655.py",
     ]
     run([sys.executable, "-m", "pytest", *recent_nodes])
     print("CURRENT RELEASE GATE: PASS")

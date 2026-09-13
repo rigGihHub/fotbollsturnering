@@ -34,6 +34,7 @@ type CupInfo = {
   public_information?:string|null;
 };
 type SessionPayload = { account:Account; cups:Cup[]; token?:string };
+type DeleteCupPayload = { deleted:boolean; recoverable:boolean; cup:Cup; cups:Cup[] };
 type ApiStatus = "checking" | "online" | "offline";
 type Team = { id:number; tournament_id:number; name:string; group_id?:number|null; age_class?:string|null; primary_color?:string|null; secondary_color?:string|null };
 type Group = { id:number; tournament_id:number; name:string; age_class?:string|null; team_count:number };
@@ -83,6 +84,13 @@ function rememberCup(cupId:number) {
   localStorage.setItem(CUP_KEY,String(cupId));
   const url = new URL(window.location.href);
   url.searchParams.set("cup",String(cupId));
+  window.history.replaceState({},"",`${url.pathname}${url.search}${url.hash}`);
+}
+
+function forgetCup() {
+  localStorage.removeItem(CUP_KEY);
+  const url = new URL(window.location.href);
+  url.searchParams.delete("cup");
   window.history.replaceState({},"",`${url.pathname}${url.search}${url.hash}`);
 }
 
@@ -167,6 +175,30 @@ export default function AdminWorkspace() {
     setCupId(nextId); rememberCup(nextId); setBusy(true); setError(""); setMessage("");
     try { await loadCupInfo(token,nextId); }
     catch (err) { setError(err instanceof Error ? err.message : "Cupen kunde inte hämtas."); }
+    finally { setBusy(false); }
+  }
+
+  async function removeCup() {
+    if (!token || !activeCup || !account?.is_owner) return;
+    const confirmedName = window.prompt(`Ta bort ${activeCup.name}?\n\nCupen avpubliceras och flyttas till papperskorgen. Skriv cupens exakta namn för att bekräfta:`);
+    if (confirmedName === null) return;
+    if (confirmedName.trim() !== activeCup.name) { setError("Cupnamnet stämmer inte. Cupen har inte tagits bort."); return; }
+    setBusy(true); setError(""); setMessage("");
+    try {
+      const result = await request<DeleteCupPayload>(`/api/admin/cups/${activeCup.id}`,{
+        method:"DELETE",body:JSON.stringify({confirmed_name:confirmedName.trim()})
+      },token);
+      const remaining = result.cups || [];
+      setCups(remaining); setCupinfo(null); setTeams([]); setGroups([]);
+      const nextCup = remaining[0];
+      if (nextCup) {
+        setCupId(nextCup.id); rememberCup(nextCup.id); await loadCupInfo(token,nextCup.id);
+        setMessage(`${activeCup.name} har flyttats till papperskorgen.`);
+      } else {
+        setCupId(null); forgetCup();
+        setMessage(`${activeCup.name} har flyttats till papperskorgen. Det finns ingen aktiv cup kvar.`);
+      }
+    } catch (err) { setError(err instanceof Error ? err.message : "Cupen kunde inte tas bort."); }
     finally { setBusy(false); }
   }
 
@@ -289,6 +321,7 @@ export default function AdminWorkspace() {
     <aside className="admin-sidebar">
       <div className="admin-sidebar__cup"><span>AKTIV CUP</span><strong>{activeCup?.name || "Ingen cup"}</strong><small>{activeCup?.start_date || "Datum saknas"}</small></div>
       {cups.length > 1 && <label style={{display:"grid",gap:6,padding:"14px 10px"}}>Byt cup<select value={cupId || ""} onChange={e=>changeCup(Number(e.target.value))}>{cups.map(cup=><option key={cup.id} value={cup.id}>{cup.name}</option>)}</select></label>}
+      {account.is_owner && activeCup && <button className="admin-remove-cup" type="button" disabled={busy} onClick={()=>void removeCup()}>Ta bort cup</button>}
       <nav aria-label="Cupadministration">{nav.map(([item,href],index)=><a className={index===0?"is-active":""} href={href} key={item}><span>{String(index+1).padStart(2,"0")}</span>{item}</a>)}</nav>
       {publicCup && <a className="admin-public-link" href={publicCup}>Visa publik cup ↗</a>}
       <button className="admin-public-link" type="button" onClick={logout}>Logga ut</button>
