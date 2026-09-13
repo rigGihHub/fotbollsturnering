@@ -17,6 +17,16 @@ def team_database(tmp_path, monkeypatch):
     with sqlite3.connect(path) as con:
         con.executescript(
             """
+            CREATE TABLE tournaments(
+                id INTEGER PRIMARY KEY,
+                name TEXT NOT NULL,
+                public_slug TEXT,
+                start_date TEXT,
+                end_date TEXT,
+                is_published INTEGER NOT NULL DEFAULT 0,
+                lifecycle_status TEXT NOT NULL DEFAULT 'draft',
+                trashed_at TEXT
+            );
             CREATE TABLE tournament_members(
                 tournament_id INTEGER NOT NULL,
                 organizer_account_id INTEGER NOT NULL,
@@ -37,6 +47,8 @@ def team_database(tmp_path, monkeypatch):
                 home_source TEXT,
                 away_source TEXT
             );
+            INSERT INTO tournaments(id,name,public_slug,is_published,lifecycle_status)
+            VALUES(10,'Testcup','testcup',0,'draft');
             INSERT INTO tournament_members VALUES(10,1,'owner');
             """
         )
