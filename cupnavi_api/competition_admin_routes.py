@@ -10,6 +10,7 @@ from .schedule_revision_routes import register_schedule_revision_routes
 from .referee_admin_repository import admin_referees,assign_referee,create_referee,delete_referee,update_referee
 from .player_admin_repository import admin_rosters,create_player,delete_player,update_player
 from .publish_reporting_routes import register_publish_reporting_routes
+from .role_access_routes import register_role_access_routes
 from .export_routes import register_export_routes
 from .import_routes import register_import_routes
 class RefereeWrite(BaseModel):
@@ -99,5 +100,6 @@ def register_competition_admin_routes(app,admin_identity):
  register_import_summary_routes(app,admin_identity)
  register_schedule_revision_routes(app,admin_identity)
  register_publish_reporting_routes(app,admin_identity)
+ register_role_access_routes(app,admin_identity)
  register_export_routes(app,admin_identity)
  register_import_routes(app,admin_identity)
