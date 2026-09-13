@@ -44,6 +44,16 @@ function uniqueGroups(teams:ImportedTeam[]) {
   return [...found.values()];
 }
 
+function visibleImportNotes(warnings:string[], startDate:string, endDate:string) {
+  return warnings.filter(raw => {
+    const warning = raw.toLocaleLowerCase("sv");
+    const staleDateWarning = Boolean(startDate && endDate) && (
+      warning.includes("årtal") || warning.includes("start_date") || warning.includes("end_date")
+    );
+    return !staleDateWarning;
+  });
+}
+
 export default function CupCreateLauncher() {
   const [token,setToken] = useState<string|null>(null);
   const [isOwner,setIsOwner] = useState(false);
@@ -62,6 +72,7 @@ export default function CupCreateLauncher() {
   const proposalTeams = proposal?.teams || [];
   const proposalMatches = proposal?.matches || [];
   const proposalGroups = useMemo(() => uniqueGroups(proposalTeams), [proposalTeams]);
+  const importNotes = useMemo(() => visibleImportNotes(proposal?.warnings || [], startDate, endDate), [proposal?.warnings, startDate, endDate]);
   const hasDraft = Boolean(name || startDate || endDate || files.length || proposal);
 
   useEffect(() => {
@@ -237,7 +248,7 @@ export default function CupCreateLauncher() {
 
             {importStep === 4 && <div><h3>Slutkontroll</h3><p><strong>{name || "Cup utan namn"}</strong>{startDate?` · ${startDate}`:""}</p>
               <ul><li>{proposalTeams.length} lag i {proposalGroups.length} grupper</li><li>{proposalMatches.length} matcher hittade · {importSchedule?"schemat importeras":"schemat sparas inte som aktivt"}</li><li>{(proposal.venues||[]).length} planer</li><li>{(proposal.rules||[]).length} regler hittade</li></ul>
-              {!!(proposal.warnings||[]).length && <div className="cup-create-error"><strong>Kontrollera innan du fortsätter</strong><ul>{proposal.warnings!.map((warning,index) => <li key={index}>{warning}</li>)}</ul></div>}
+              {!!importNotes.length && <div style={{border:"1px solid rgba(16,38,48,.3)",borderRadius:10,padding:"10px 12px",background:"rgba(231,184,46,.08)"}}><strong>Noteringar från avläsningen</strong><p style={{fontSize:12,margin:"4px 0 8px"}}>Det här är information att känna till, inte hinder för att skapa cupen.</p><ul>{importNotes.map((warning,index) => <li key={index}>{warning}</li>)}</ul></div>}
             </div>}
 
             {error && <p className="cup-create-error" role="alert">{error}</p>}
