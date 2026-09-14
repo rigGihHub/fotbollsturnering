@@ -3,7 +3,7 @@ import "./globals.css";
 import "./ux-polish.css";
 import { PwaBoot } from "@/components/PwaBoot";
 
-const APP_VERSION = "2.6.0";
+const APP_VERSION = "2.6.1";
 
 export const metadata: Metadata = {
   title: `CupNavi v${APP_VERSION}`,
@@ -21,7 +21,8 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
     <html lang="sv">
       <body>
         <header className="brandbar">
-          <a href="/" className="brand">CUP<span>NAVI</span><small>/// MATCHDAY SYSTEM · v{APP_VERSION}</small></a>
+          <a href="/" className="brand">CUP<span>NAVI</span><small>/// MATCHDAY SYSTEM</small></a>
+          <span className="app-version-badge" aria-label={`CupNavi version ${APP_VERSION}`}>v{APP_VERSION}</span>
         </header>
         <PwaBoot />
         {children}
