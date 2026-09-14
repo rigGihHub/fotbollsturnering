@@ -1,5 +1,20 @@
 from datetime import date, datetime
+from contextlib import contextmanager
 import json
+
+
+@contextmanager
+def managed_connection(connection_factory):
+    """Support both legacy raw connections and API context-manager factories."""
+    resource = connection_factory()
+    if hasattr(resource, "execute"):
+        try:
+            yield resource
+        finally:
+            resource.close()
+        return
+    with resource as connection:
+        yield connection
 
 
 def render_cup_document_import(st, key_prefix, setting):
@@ -154,8 +169,8 @@ def save_setup_import_snapshot(connection_factory, tournament_id, prefill, *, im
     payload = dict(prefill or {})
     if not payload:
         return None
-    con = connection_factory()
-    try:
+    with managed_connection(connection_factory) as con:
+      try:
         con.execute(
             "DELETE FROM tournament_setup_imports WHERE tournament_id=? AND import_kind=?",
             (tournament_id, import_kind),
@@ -171,17 +186,15 @@ def save_setup_import_snapshot(connection_factory, tournament_id, prefill, *, im
         )
         con.commit()
         return getattr(cur, "lastrowid", None)
-    except Exception:
-        con.rollback()
-        raise
-    finally:
-        con.close()
+      except Exception:
+          con.rollback()
+          raise
 
 
 def load_setup_import_snapshot(connection_factory, tournament_id, *, import_kind="initial_setup"):
     """Return the latest persisted reviewed setup import, or an empty dict."""
-    con = connection_factory()
-    try:
+    with managed_connection(connection_factory) as con:
+      try:
         row = con.execute(
             "SELECT payload_json FROM tournament_setup_imports WHERE tournament_id=? AND import_kind=? ORDER BY id DESC LIMIT 1",
             (tournament_id, import_kind),
@@ -191,10 +204,8 @@ def load_setup_import_snapshot(connection_factory, tournament_id, *, import_kind
         raw = row[0] if not hasattr(row, "keys") else row["payload_json"]
         parsed = json.loads(str(raw or "{}"))
         return parsed if isinstance(parsed, dict) else {}
-    except Exception:
-        return {}
-    finally:
-        con.close()
+      except Exception:
+          return {}
 
 
 def document_group_assignments(prefill):
@@ -253,8 +264,8 @@ def apply_document_teams(connection_factory, tournament_id, prefill, *, assign_g
     teams = list(prefill.get("teams") or [])
     if not teams:
         return 0
-    con = connection_factory()
-    try:
+    with managed_connection(connection_factory) as con:
+      try:
         group_ids = {}
         for row in teams:
             group_name = str(row.get("group_name") or "").strip(); group_id = None
@@ -268,10 +279,8 @@ def apply_document_teams(connection_factory, tournament_id, prefill, *, assign_g
                 (tournament_id, str(row.get("name") or "").strip(), group_id, "#111827", "#FFFFFF", "Helfärgad", "#FFFFFF", "Helfärgad", "#111827", 0, 0, None, f"Importerad från {prefill.get('source_name') or 'cupportal'}", 0),
             )
         con.execute("UPDATE tournaments SET schedule_dirty=1 WHERE id=?", (tournament_id,)); con.commit(); return len(teams)
-    except Exception:
-        con.rollback(); raise
-    finally:
-        con.close()
+      except Exception:
+          con.rollback(); raise
 
 
 
@@ -338,8 +347,8 @@ def apply_document_matches(connection_factory, tournament_id, prefill, fallback_
     matches = list(prefill.get("matches") or [])
     if not matches:
         return 0
-    con = connection_factory()
-    try:
+    with managed_connection(connection_factory) as con:
+      try:
         if con.execute("SELECT COUNT(*) FROM matches WHERE tournament_id=?", (tournament_id,)).fetchone()[0]:
             raise ValueError("Cupen har redan ett schema. Importen avbryts utan att ändra något.")
         teams = con.execute("SELECT id,name,group_id FROM teams WHERE tournament_id=?", (tournament_id,)).fetchall()
@@ -373,7 +382,5 @@ def apply_document_matches(connection_factory, tournament_id, prefill, fallback_
                VALUES(?,?,'Gruppspel',?,?,?,?,?,1)""", prepared)
         con.execute("UPDATE tournaments SET schedule_dirty=0,is_published=0 WHERE id=?", (tournament_id,))
         con.commit(); return len(prepared)
-    except Exception:
+      except Exception:
         con.rollback(); raise
-    finally:
-        con.close()

@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from cupnavi_core.cup_document_creator_view import apply_document_matches as _apply_document_matches
+from cupnavi_core.cup_document_creator_view import apply_document_matches as _apply_document_matches, managed_connection
 
 
 def _name(value) -> str:
@@ -51,8 +51,7 @@ def _schedule_matches_proposal(connection_factory, tournament_id: int, prefill: 
     if not proposed:
         return False
 
-    con = connection_factory()
-    try:
+    with managed_connection(connection_factory) as con:
         existing = con.execute(
             """SELECT m.group_id,m.stage,m.match_no,m.home_source,m.away_source,
                       m.scheduled_start,p.name AS pitch_name
@@ -116,8 +115,6 @@ def _schedule_matches_proposal(connection_factory, tournament_id: int, prefill: 
                 )
             )
         return actual == expected
-    finally:
-        con.close()
 
 
 def apply_document_matches_idempotent(connection_factory, tournament_id: int, prefill: dict, fallback_date) -> tuple[int, bool]:
