@@ -9,6 +9,7 @@ import CupCreateLauncher from "./cup-create-launcher-resilient";
 import ApiWakeGuard from "./api-wake-guard";
 import ImportRecoveryGuard from "./import-recovery-guard";
 import { CLIENT_API_BASE } from "../lib/client-api";
+import { installAdminRequestCoordinator } from "../lib/admin-request-coordinator";
 import {
   authoritativeAdminSessionFetch,
   installAdminSessionFetchGate,
@@ -36,6 +37,7 @@ function writeVerifiedCache(token:string,payload:SessionPayload) {
 }
 
 export default function AdminAuthShell() {
+  installAdminRequestCoordinator();
   installAdminSessionFetchGate();
 
   const [state, setState] = useState<AuthState>("checking");
