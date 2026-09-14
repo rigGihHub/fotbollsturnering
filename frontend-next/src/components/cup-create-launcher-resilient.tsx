@@ -9,6 +9,7 @@ const TOKEN_KEY = "cupnavi_admin_session_v629";
 type SessionPayload = { account?: { role?: string | null; is_owner?: boolean } };
 
 export default function CupCreateLauncherResilient() {
+  const [hasToken, setHasToken] = useState(false);
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
@@ -17,7 +18,11 @@ export default function CupCreateLauncherResilient() {
 
     async function verifyOwner() {
       const token = localStorage.getItem(TOKEN_KEY);
-      if (!token || cancelled) return;
+      if (!token || cancelled) {
+        if (!cancelled) setHasToken(false);
+        return;
+      }
+      setHasToken(true);
       try {
         const response = await fetch(`${CLIENT_API_BASE}/api/admin/session`, {
           headers: { Authorization: `Bearer ${token}` },
@@ -43,5 +48,13 @@ export default function CupCreateLauncherResilient() {
     };
   }, []);
 
-  return ready ? <CupCreateLauncherV6 /> : null;
+  if (ready) return <CupCreateLauncherV6 />;
+  if (!hasToken) return null;
+
+  return (
+    <div className="cup-create-toolbar cup-create-toolbar--pending" aria-live="polite">
+      <div><span>ÄGARKONTO</span><strong>Verifierar behörighet…</strong></div>
+      <button type="button" disabled>+ Ny cup</button>
+    </div>
+  );
 }
