@@ -24,8 +24,8 @@ export default function AdminWorkspaceResilient() {
     document.addEventListener("click", markExplicitLogout, true);
 
     let cancelled = false;
-    let healthTimer: ReturnType<typeof setTimeout> | null = null;
-    let sessionTimer: ReturnType<typeof setInterval> | null = null;
+    let healthTimer: number | null = null;
+    let sessionTimer: number | null = null;
 
     async function checkHealth() {
       try {
@@ -42,7 +42,7 @@ export default function AdminWorkspaceResilient() {
       }
       if (!cancelled) {
         setState("waiting");
-        healthTimer = setTimeout(checkHealth, 2200);
+        healthTimer = window.setTimeout(checkHealth, 2200);
       }
     }
 
@@ -72,8 +72,8 @@ export default function AdminWorkspaceResilient() {
     return () => {
       cancelled = true;
       document.removeEventListener("click", markExplicitLogout, true);
-      if (healthTimer) clearTimeout(healthTimer);
-      if (sessionTimer) clearInterval(sessionTimer);
+      if (healthTimer !== null) window.clearTimeout(healthTimer);
+      if (sessionTimer !== null) window.clearInterval(sessionTimer);
     };
   }, []);
 
