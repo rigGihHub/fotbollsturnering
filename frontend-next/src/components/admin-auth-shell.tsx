@@ -6,7 +6,6 @@ import AdminOperations from "./admin-operations";
 import CupCreateLauncher from "./cup-create-launcher-resilient";
 import CupSetupGuide from "./cup-setup-guide";
 import ApiWakeGuard from "./api-wake-guard";
-import AdminRuntimeUx from "./admin-runtime-ux";
 import PlayoffImportReview from "./playoff-import-review";
 import PitchWindowImportReview from "./pitch-window-import-review";
 import ImportCompletionSummary from "./import-completion-summary";
@@ -52,7 +51,6 @@ export default function AdminAuthShell() {
           if (!cancelled) setState("unauthenticated");
           return;
         }
-
         if (!response.ok) throw new Error(`session ${response.status}`);
         if (!cancelled) setState("authenticated");
       } catch {
@@ -71,8 +69,7 @@ export default function AdminAuthShell() {
       lastTokenRef.current = token;
       if (retryRef.current !== null) window.clearTimeout(retryRef.current);
       setAuthKey(value => value + 1);
-      void verify();
-    }, 400);
+    }, 500);
 
     return () => {
       cancelled = true;
@@ -87,20 +84,19 @@ export default function AdminAuthShell() {
         <section className="admin-panel">
           <div className="admin-panel__top"><span>CUPNAVI</span><strong>{state === "waiting" ? "ÅTERANSLUTER" : "KONTROLLERAR SESSION"}</strong></div>
           <h2>{state === "waiting" ? "Servern svarar inte ännu" : "Öppnar administrationen"}</h2>
-          <p>{state === "waiting" ? "Din sparade inloggning ändras inte. CupNavi försöker ansluta igen automatiskt." : "CupNavi verifierar din sparade session innan admin visas."}</p>
+          <p>{state === "waiting" ? "Din sparade inloggning ändras inte. CupNavi försöker ansluta igen automatiskt." : "CupNavi verifierar din session innan admin visas."}</p>
         </section>
       </main>
     );
   }
 
   if (state === "unauthenticated") {
-    return <><ApiWakeGuard/><AdminRuntimeUx/><AdminWorkspace key={`login-${authKey}`} /></>;
+    return <><ApiWakeGuard/><AdminWorkspace key={`login-${authKey}`} /></>;
   }
 
   return (
     <>
       <ApiWakeGuard/>
-      <AdminRuntimeUx/>
       <ImportRecoveryGuard/>
       <CupCreateLauncher/>
       <CupSetupGuide/>
