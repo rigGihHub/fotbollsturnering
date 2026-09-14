@@ -11,6 +11,11 @@ import PitchWindowImportReview from "./pitch-window-import-review";
 import ImportCompletionSummary from "./import-completion-summary";
 import ImportRecoveryGuard from "./import-recovery-guard";
 import { CLIENT_API_BASE } from "../lib/client-api";
+import {
+  ADMIN_SESSION_AUTHORITATIVE_HEADER,
+  ADMIN_SESSION_AUTHORITATIVE_VALUE,
+  installAdminSessionFetchGate,
+} from "../lib/admin-session-fetch-gate";
 
 const TOKEN_KEY = "cupnavi_admin_session_v629";
 const VERIFIED_CACHE_KEY = "cupnavi_admin_verified_v1";
@@ -34,6 +39,8 @@ function writeVerifiedCache(token:string,payload:SessionPayload) {
 }
 
 export default function AdminAuthShell() {
+  installAdminSessionFetchGate();
+
   const [state, setState] = useState<AuthState>("checking");
   const [authKey, setAuthKey] = useState(0);
   const retryRef = useRef<number | null>(null);
@@ -76,15 +83,15 @@ export default function AdminAuthShell() {
         return;
       }
 
-      // Never unmount an already authenticated workspace merely because a
-      // background revalidation starts. Camera/file pickers hide the page on
-      // mobile and destroying the tree here loses in-progress work.
       setState(current => current === "authenticated" ? current : "checking");
       try {
         const controller = new AbortController();
         const timeout = window.setTimeout(() => controller.abort(), 9000);
         const response = await fetch(`${CLIENT_API_BASE}/api/admin/session`, {
-          headers: { Authorization: `Bearer ${token}` },
+          headers: {
+            Authorization: `Bearer ${token}`,
+            [ADMIN_SESSION_AUTHORITATIVE_HEADER]: ADMIN_SESSION_AUTHORITATIVE_VALUE,
+          },
           cache: "no-store",
           signal: controller.signal,
         });
@@ -114,7 +121,6 @@ export default function AdminAuthShell() {
       } catch {
         if (cancelled) return;
         unauthorizedRef.current = 0;
-        // Timeouts, 5xx and mobile resume keep the verified workspace alive.
         setState(current => current === "authenticated" ? current : "waiting");
         scheduleVerify(1800);
       }
