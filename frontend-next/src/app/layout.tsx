@@ -10,7 +10,7 @@ import "./ui-system-v2616.css";
 import { PwaBoot } from "@/components/PwaBoot";
 import { ViewModeSwitch } from "@/components/ViewModeSwitch";
 
-const APP_VERSION = "2.6.19";
+const APP_VERSION = "2.6.20";
 
 export const metadata: Metadata = {
   title: `CupNavi v${APP_VERSION}`,
