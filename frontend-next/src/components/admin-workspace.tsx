@@ -44,12 +44,21 @@ type KitSuggestion = {found:boolean;confidence:"low"|"medium"|"high";reason:stri
 const emptyTeam = {name:"",age_class:"",primary_color:"#111827",secondary_color:"#FFFFFF",home_pattern:"Helfärgad" as KitPattern,home_color_2:"#FFFFFF",away_pattern:"Helfärgad" as KitPattern,away_color_2:"#111827",logo_url:"",logo_source_url:""};
 const emptyGroup = {name:"",age_class:""};
 const kitPatterns:KitPattern[]=["Helfärgad","Vertikala ränder","Horisontella ränder","Rutigt","Delad"];
+const standardKitColors=[
+  {name:"Vit",value:"#FFFFFF"},{name:"Svart",value:"#111827"},{name:"Röd",value:"#D72638"},
+  {name:"Mörkblå",value:"#12355B"},{name:"Blå",value:"#246BCE"},{name:"Ljusblå",value:"#68B7E8"},
+  {name:"Grön",value:"#238636"},{name:"Gul",value:"#F4C430"},{name:"Orange",value:"#F28C28"},
+  {name:"Lila",value:"#713E8A"},{name:"Rosa",value:"#E56B9F"},{name:"Grå",value:"#7A8588"},
+];
 function kitBackground(pattern:KitPattern,c1:string,c2:string){
   if(pattern==="Vertikala ränder")return `repeating-linear-gradient(90deg,${c1} 0 8px,${c2} 8px 16px)`;
   if(pattern==="Horisontella ränder")return `repeating-linear-gradient(0deg,${c1} 0 8px,${c2} 8px 16px)`;
   if(pattern==="Rutigt")return `conic-gradient(${c1} 25%,${c2} 0 50%,${c1} 0 75%,${c2} 0) 0 0/16px 16px`;
   if(pattern==="Delad")return `linear-gradient(90deg,${c1} 0 50%,${c2} 50%)`;
   return c1;
+}
+function StandardKitColor({value,onChange,label}:{value:string;onChange:(value:string)=>void;label:string}){
+  return <div className="admin-kit-palette" role="group" aria-label={label}>{standardKitColors.map(color=><button key={color.value} type="button" className={value.toUpperCase()===color.value?"is-selected":""} style={{"--choice-color":color.value} as CSSProperties} title={color.name} aria-label={color.name} aria-pressed={value.toUpperCase()===color.value} onClick={()=>onChange(color.value)}><span aria-hidden="true"/></button>)}</div>;
 }
 
 class ApiError extends Error {
@@ -572,12 +581,18 @@ export default function AdminWorkspace({verifiedSession=null}:{verifiedSession?:
           <div className="admin-form-grid">
             <label>Lagnamn<input value={teamDraft.name} onChange={e=>setTeamDraft({...teamDraft,name:e.target.value})} required placeholder="Exempel: ÖSK P2014 Svart" /></label>
             <label>Klass<input value={teamDraft.age_class} onChange={e=>setTeamDraft({...teamDraft,age_class:e.target.value})} placeholder="Exempel: P2014" /></label>
-            <label>Primär färg<span className="admin-color-input"><span className="admin-shirt-picker" style={{"--shirt-color":teamDraft.primary_color} as CSSProperties}><input aria-label="Välj primär färg" type="color" value={teamDraft.primary_color} onChange={e=>setTeamDraft({...teamDraft,primary_color:e.target.value})} /></span><code>{teamDraft.primary_color}</code></span></label>
-            <label>Sekundär färg<span className="admin-color-input"><span className="admin-shirt-picker" style={{"--shirt-color":teamDraft.secondary_color} as CSSProperties}><input aria-label="Välj sekundär färg" type="color" value={teamDraft.secondary_color} onChange={e=>setTeamDraft({...teamDraft,secondary_color:e.target.value})} /></span><code>{teamDraft.secondary_color}</code></span></label>
-            <label>Hemmamönster<select value={teamDraft.home_pattern} onChange={e=>setTeamDraft({...teamDraft,home_pattern:e.target.value as KitPattern})}>{kitPatterns.map(pattern=><option key={pattern}>{pattern}</option>)}</select></label>
-            <label>Hemmafärg 2<span className="admin-color-input"><span className="admin-shirt-picker" style={{"--shirt-color":teamDraft.home_color_2} as CSSProperties}><input aria-label="Välj andra hemmafärg" type="color" value={teamDraft.home_color_2} onChange={e=>setTeamDraft({...teamDraft,home_color_2:e.target.value})}/></span><code>{teamDraft.home_color_2}</code></span></label>
-            <label>Bortamönster<select value={teamDraft.away_pattern} onChange={e=>setTeamDraft({...teamDraft,away_pattern:e.target.value as KitPattern})}>{kitPatterns.map(pattern=><option key={pattern}>{pattern}</option>)}</select></label>
-            <label>Bortafärg 2<span className="admin-color-input"><span className="admin-shirt-picker" style={{"--shirt-color":teamDraft.away_color_2} as CSSProperties}><input aria-label="Välj andra bortafärg" type="color" value={teamDraft.away_color_2} onChange={e=>setTeamDraft({...teamDraft,away_color_2:e.target.value})}/></span><code>{teamDraft.away_color_2}</code></span></label>
+            <section className="admin-kit-editor">
+              <div className="admin-kit-editor__head"><span className="admin-kit-editor__shirt" style={{background:kitBackground(teamDraft.home_pattern,teamDraft.primary_color,teamDraft.home_color_2)}} aria-hidden="true"/><div><h3>Hemmaställ</h3><p>Välj mönster och tröjfärger.</p></div></div>
+              <label>Mönster<select value={teamDraft.home_pattern} onChange={e=>setTeamDraft({...teamDraft,home_pattern:e.target.value as KitPattern})}>{kitPatterns.map(pattern=><option key={pattern}>{pattern}</option>)}</select></label>
+              <span className="admin-kit-color-label">Huvudfärg</span><StandardKitColor label="Hemmaställets huvudfärg" value={teamDraft.primary_color} onChange={primary_color=>setTeamDraft({...teamDraft,primary_color})}/>
+              {teamDraft.home_pattern!=="Helfärgad"&&<><span className="admin-kit-color-label">Andra färg</span><StandardKitColor label="Hemmaställets andra färg" value={teamDraft.home_color_2} onChange={home_color_2=>setTeamDraft({...teamDraft,home_color_2})}/></>}
+            </section>
+            <section className="admin-kit-editor">
+              <div className="admin-kit-editor__head"><span className="admin-kit-editor__shirt" style={{background:kitBackground(teamDraft.away_pattern,teamDraft.secondary_color,teamDraft.away_color_2)}} aria-hidden="true"/><div><h3>Bortaställ</h3><p>Välj ett tydligt alternativ till hemmastället.</p></div></div>
+              <label>Mönster<select value={teamDraft.away_pattern} onChange={e=>setTeamDraft({...teamDraft,away_pattern:e.target.value as KitPattern})}>{kitPatterns.map(pattern=><option key={pattern}>{pattern}</option>)}</select></label>
+              <span className="admin-kit-color-label">Huvudfärg</span><StandardKitColor label="Bortaställets huvudfärg" value={teamDraft.secondary_color} onChange={secondary_color=>setTeamDraft({...teamDraft,secondary_color})}/>
+              {teamDraft.away_pattern!=="Helfärgad"&&<><span className="admin-kit-color-label">Andra färg</span><StandardKitColor label="Bortaställets andra färg" value={teamDraft.away_color_2} onChange={away_color_2=>setTeamDraft({...teamDraft,away_color_2})}/></>}
+            </section>
             <label style={{gridColumn:"1 / -1"}}>Klubbmärke (HTTPS-bildadress)<input type="url" value={teamDraft.logo_url} onChange={e=>setTeamDraft({...teamDraft,logo_url:e.target.value})} placeholder="https://klubb.se/logo.png" /></label>
           </div>
           <section className="admin-kit-search" aria-label="Sök lagets matchställ">
