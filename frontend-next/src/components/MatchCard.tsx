@@ -1,9 +1,14 @@
 import { Group, Match, Team } from "@/lib/types";
 import { matchStatus, participantLabel, timeLabel } from "@/lib/format";
 
-function Kit({ color }: { color?: string | null }) {
-  const safe = color && /^#[0-9a-f]{6}$/i.test(color) ? color : "#2257d6";
-  return <span className="kit" style={{ "--kit": safe } as React.CSSProperties} aria-hidden="true" />;
+function Kit({ color, color2, pattern }: { color?: string | null; color2?:string|null; pattern?:string|null }) {
+  const c1 = color && /^#[0-9a-f]{6}$/i.test(color) ? color : "#2257d6";
+  const c2 = color2 && /^#[0-9a-f]{6}$/i.test(color2) ? color2 : "#ffffff";
+  const background=pattern==="Vertikala ränder"?`repeating-linear-gradient(90deg,${c1} 0 6px,${c2} 6px 12px)`
+    :pattern==="Horisontella ränder"?`repeating-linear-gradient(0deg,${c1} 0 6px,${c2} 6px 12px)`
+    :pattern==="Rutigt"?`conic-gradient(${c1} 25%,${c2} 0 50%,${c1} 0 75%,${c2} 0) 0 0/12px 12px`
+    :pattern==="Delad"?`linear-gradient(90deg,${c1} 0 50%,${c2} 50%)`:c1;
+  return <span className="kit" style={{ "--kit": c1, background } as React.CSSProperties} aria-hidden="true" />;
 }
 
 export function MatchCard({ match, teams, groups = [], index }: { match: Match; teams: Team[]; groups?:Group[]; index: number }) {
@@ -22,9 +27,9 @@ export function MatchCard({ match, teams, groups = [], index }: { match: Match; 
         <span>{status === "live" ? "LIVE" : status === "done" ? "SLUT" : timeLabel(match.scheduled_start)}</span>
       </div>
       <div className="match-card__body">
-        <div className="team team--home"><Kit color={home?.primary_color}/><strong>{homeLabel}</strong></div>
+        <div className="team team--home"><Kit color={home?.primary_color} color2={home?.home_color_2} pattern={home?.home_pattern}/><strong>{homeLabel}</strong></div>
         <div className="score-window"><small>{match.stage || "MATCH"}</small><strong>{score}</strong></div>
-        <div className="team team--away"><Kit color={away?.primary_color}/><strong>{awayLabel}</strong></div>
+        <div className="team team--away"><Kit color={away?.primary_color} color2={away?.home_color_2} pattern={away?.home_pattern}/><strong>{awayLabel}</strong></div>
       </div>
       <div className="match-card__footer"><span>PLAN {match.pitch_number || "–"}</span><span>CUPNAVI//LIVE</span></div>
     </article>

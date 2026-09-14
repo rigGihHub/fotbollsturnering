@@ -18,6 +18,22 @@ const STEPS = [
   ["export", "PDF & export"],
 ] as const;
 
+const STEP_GUIDE:Record<string,{goal:string;action:string;done:string}> = {
+  overview:{goal:"Se vad som redan är klart och var du bör börja.",action:"Öppna det rekommenderade nästa steget på översikten.",done:"Du vet vilken uppgift som står på tur."},
+  cupinfo:{goal:"Säkerställ att besökare får rätt grundinformation.",action:"Kontrollera namn, datum, arrangör, plats och kontaktuppgifter. Spara sedan.",done:"Uppgifterna är korrekta och sparade."},
+  teams:{goal:"Få in rätt lag och tydliga matchställ.",action:"Kontrollera lagnamn och klass. Sök sedan tröjfärger och bekräfta källbelagda förslag.",done:"Alla deltagande lag finns med och deras ställ är granskade."},
+  groups:{goal:"Placera varje lag i rätt grupp.",action:"Skapa grupper och välj grupp för alla lag som ska spela gruppspel.",done:"Inget lag som ska gruppspela är ogrupperat."},
+  venues:{goal:"Beskriv cupens verkliga plankapacitet.",action:"Lägg in planer, öppettider och eventuella begränsningar.",done:"Varje spelbar plan har korrekta tider."},
+  rules:{goal:"Bestäm reglerna som schemat ska följa.",action:"Kontrollera matchtid, pauser, minsta vila och tabellregler.",done:"Reglerna motsvarar cupens upplägg."},
+  schedule:{goal:"Skapa ett genomförbart matchprogram.",action:"Generera eller importera schemat och åtgärda alla blockerande konflikter.",done:"Alla matcher har tid, plan och tillräcklig vila."},
+  referees:{goal:"Gör domarbemanningen tydlig.",action:"Lägg till domare eller välj att hantera bemanningen senare.",done:"Varje match har en plan för domare."},
+  playoffs:{goal:"Koppla slutspelet till gruppresultaten.",action:"Kontrollera kvalvägar, slutspelsmatcher och tider.",done:"Varje slutspelsplats går att härleda korrekt."},
+  publish:{goal:"Släpp bara en cup som besökare kan lita på.",action:"Åtgärda blockerare, förhandsgranska publikvyn och publicera.",done:"Cupen är publicerad och publikvyn är kontrollerad."},
+  reporting:{goal:"Förbered snabb rapportering under cupdagen.",action:"Kontrollera rapportörsåtkomst och hur resultat ska registreras.",done:"Rätt personer kan rapportera utan adminåtkomst."},
+  import:{goal:"Läs in ändringar utan att förstöra befintligt arbete.",action:"Förhandsgranska filen, kontrollera skillnader och bekräfta först därefter.",done:"Importerade uppgifter är granskade och sparade."},
+  export:{goal:"Ta ut material för funktionärer och reservrutiner.",action:"Välj PDF eller export och kontrollera innehållet före utskrift.",done:"Rätt underlag är hämtat och går att använda."},
+};
+
 type StepId = (typeof STEPS)[number][0];
 const IDS = new Set<string>(STEPS.map(([id]) => id));
 
@@ -61,6 +77,7 @@ export default function AdminStepFlow() {
   const index = useMemo(() => STEPS.findIndex(([id]) => id === step), [step]);
   const previous = index > 0 ? STEPS[index - 1] : null;
   const next = index < STEPS.length - 1 ? STEPS[index + 1] : null;
+  const guide = STEP_GUIDE[step] || STEP_GUIDE.overview;
 
   return (
     <section className="admin-step-flow" aria-label="Cupens arbetsflöde">
@@ -69,6 +86,11 @@ export default function AdminStepFlow() {
         <strong>{STEPS[index]?.[1] || "Översikt"}</strong>
       </div>
       <div className="admin-step-flow__track" aria-hidden="true"><span style={{width:`${((index + 1) / STEPS.length) * 100}%`}} /></div>
+      <div className="admin-step-flow__guide">
+        <div><span>MÅL</span><strong>{guide.goal}</strong></div>
+        <div><span>GÖR NU</span><strong>{guide.action}</strong></div>
+        <div><span>KLAR NÄR</span><strong>{guide.done}</strong></div>
+      </div>
       <div className="admin-step-flow__actions">
         <button type="button" disabled={!previous} onClick={() => previous && select(previous[0])}>← Föregående</button>
         <button type="button" className="is-primary" disabled={!next} onClick={() => next && select(next[0])}>{next ? `Nästa: ${next[1]} →` : "Flödet klart"}</button>

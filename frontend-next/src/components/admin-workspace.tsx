@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { CSSProperties, Fragment, FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import VenueAdmin from "./venue-admin";
 import RulesAdmin from "./rules-admin";
 import ScheduleAdmin from "./schedule-admin";
@@ -35,11 +35,22 @@ type AdminStep = "overview"|"cupinfo"|"teams"|"groups"|"venues"|"rules"|"schedul
 type DeleteCupPayload = { deleted:boolean; recoverable:boolean; cup:Cup; cups:Cup[] };
 type RestoreCupPayload = { restored:boolean; cup:Cup; cups:Cup[]; trash:TrashedCup[] };
 type ApiStatus = "checking" | "online" | "offline";
-type Team = { id:number; tournament_id:number; name:string; group_id?:number|null; age_class?:string|null; primary_color?:string|null; secondary_color?:string|null };
+type KitPattern = "Helfärgad"|"Vertikala ränder"|"Horisontella ränder"|"Rutigt"|"Delad";
+type Team = { id:number; tournament_id:number; name:string; group_id?:number|null; age_class?:string|null; primary_color?:string|null; secondary_color?:string|null; home_pattern?:KitPattern|null; home_color_2?:string|null; away_pattern?:KitPattern|null; away_color_2?:string|null };
 type Group = { id:number; tournament_id:number; name:string; age_class?:string|null; team_count:number };
 type ImportWelcome = { cupId:number; cupName:string; teams:number; groups:number; matches:number; venues:number };
-const emptyTeam = {name:"",age_class:"",primary_color:"#111827",secondary_color:"#FFFFFF"};
+type KitCandidate = {name:string;location:string;country:string;source_url:string;reason:string;confidence:string};
+type KitSuggestion = {found:boolean;confidence:"low"|"medium"|"high";reason:string;club_match:string;identity_status:string;home_verified:boolean;away_verified:boolean;home_pattern:KitPattern;home_color_1:string;home_color_2:string;away_pattern:KitPattern;away_color_1:string;away_color_2:string;home_evidence:string;away_evidence:string;home_sources:string[];away_sources:string[];candidate_matches:KitCandidate[]};
+const emptyTeam = {name:"",age_class:"",primary_color:"#111827",secondary_color:"#FFFFFF",home_pattern:"Helfärgad" as KitPattern,home_color_2:"#FFFFFF",away_pattern:"Helfärgad" as KitPattern,away_color_2:"#111827"};
 const emptyGroup = {name:"",age_class:""};
+const kitPatterns:KitPattern[]=["Helfärgad","Vertikala ränder","Horisontella ränder","Rutigt","Delad"];
+function kitBackground(pattern:KitPattern,c1:string,c2:string){
+  if(pattern==="Vertikala ränder")return `repeating-linear-gradient(90deg,${c1} 0 8px,${c2} 8px 16px)`;
+  if(pattern==="Horisontella ränder")return `repeating-linear-gradient(0deg,${c1} 0 8px,${c2} 8px 16px)`;
+  if(pattern==="Rutigt")return `conic-gradient(${c1} 25%,${c2} 0 50%,${c1} 0 75%,${c2} 0) 0 0/16px 16px`;
+  if(pattern==="Delad")return `linear-gradient(90deg,${c1} 0 50%,${c2} 50%)`;
+  return c1;
+}
 
 class ApiError extends Error {
   status:number;
@@ -129,6 +140,9 @@ export default function AdminWorkspace({verifiedSession=null}:{verifiedSession?:
   const [activeStep,setActiveStep] = useState<AdminStep>("overview");
   const [importWelcome,setImportWelcome] = useState<ImportWelcome|null>(null);
   const [guideDismissed,setGuideDismissed] = useState(false);
+  const [kitBusy,setKitBusy] = useState(false);
+  const [kitHint,setKitHint] = useState("");
+  const [kitSuggestion,setKitSuggestion] = useState<KitSuggestion|null>(null);
 
   const activeCup = useMemo(() => cups.find(cup => cup.id === cupId) || null,[cups,cupId]);
   const isOwnerAccount = account?.role === "owner" || account?.is_owner === true;
@@ -349,10 +363,30 @@ export default function AdminWorkspace({verifiedSession=null}:{verifiedSession?:
 
   function beginTeamEdit(team:Team) {
     setEditingTeam(team.id);
-    setTeamDraft({name:team.name,age_class:team.age_class || "",primary_color:team.primary_color || "#111827",secondary_color:team.secondary_color || "#FFFFFF"});
+    setTeamDraft({name:team.name,age_class:team.age_class || "",primary_color:team.primary_color || "#111827",secondary_color:team.secondary_color || "#FFFFFF",home_pattern:team.home_pattern||"Helfärgad",home_color_2:team.home_color_2||"#FFFFFF",away_pattern:team.away_pattern||"Helfärgad",away_color_2:team.away_color_2||"#111827"});
+    setKitSuggestion(null);setKitHint("");
     setError(""); setMessage("");
   }
-  function cancelTeamEdit() { setEditingTeam(null); setTeamDraft(emptyTeam); }
+  function cancelTeamEdit() { setEditingTeam(null); setTeamDraft(emptyTeam); setKitSuggestion(null); setKitHint(""); }
+
+  async function searchKit(candidate?:KitCandidate) {
+    if(!token||!cupId||!teamDraft.name.trim())return;
+    setKitBusy(true);setError("");setMessage("");setKitSuggestion(null);
+    try{
+      const result=await request<KitSuggestion>(`/api/admin/cups/${cupId}/teams/kit-search`,{method:"POST",body:JSON.stringify({team_name:teamDraft.name,age_class:teamDraft.age_class||null,search_hint:kitHint||null,resolved_club:candidate?[candidate.name,candidate.location,candidate.country].filter(Boolean).join(" · "):null,resolved_source_url:candidate?.source_url||null})},token);
+      setKitSuggestion(result);
+    }catch(err){setError(err instanceof Error?err.message:"Tröjorna kunde inte sökas.");}
+    finally{setKitBusy(false);}
+  }
+
+  function applyKitSuggestion(){
+    if(!kitSuggestion)return;
+    setTeamDraft(current=>({...current,
+      ...(kitSuggestion.home_verified?{primary_color:kitSuggestion.home_color_1,home_color_2:kitSuggestion.home_color_2,home_pattern:kitSuggestion.home_pattern}:{}),
+      ...(kitSuggestion.away_verified?{secondary_color:kitSuggestion.away_color_1,away_color_2:kitSuggestion.away_color_2,away_pattern:kitSuggestion.away_pattern}:{}),
+    }));
+    setMessage("Tröjförslaget är infört i formuläret. Spara laget för att bekräfta ändringen.");
+  }
 
   async function saveTeam(event:FormEvent) {
     event.preventDefault();
@@ -514,12 +548,24 @@ export default function AdminWorkspace({verifiedSession=null}:{verifiedSession?:
             <label>Klass<input value={teamDraft.age_class} onChange={e=>setTeamDraft({...teamDraft,age_class:e.target.value})} placeholder="Exempel: P2014" /></label>
             <label>Primär färg<span className="admin-color-input"><input type="color" value={teamDraft.primary_color} onChange={e=>setTeamDraft({...teamDraft,primary_color:e.target.value})} /><code>{teamDraft.primary_color}</code></span></label>
             <label>Sekundär färg<span className="admin-color-input"><input type="color" value={teamDraft.secondary_color} onChange={e=>setTeamDraft({...teamDraft,secondary_color:e.target.value})} /><code>{teamDraft.secondary_color}</code></span></label>
+            <label>Hemmamönster<select value={teamDraft.home_pattern} onChange={e=>setTeamDraft({...teamDraft,home_pattern:e.target.value as KitPattern})}>{kitPatterns.map(pattern=><option key={pattern}>{pattern}</option>)}</select></label>
+            <label>Hemmafärg 2<span className="admin-color-input"><input type="color" value={teamDraft.home_color_2} onChange={e=>setTeamDraft({...teamDraft,home_color_2:e.target.value})}/><code>{teamDraft.home_color_2}</code></span></label>
+            <label>Bortamönster<select value={teamDraft.away_pattern} onChange={e=>setTeamDraft({...teamDraft,away_pattern:e.target.value as KitPattern})}>{kitPatterns.map(pattern=><option key={pattern}>{pattern}</option>)}</select></label>
+            <label>Bortafärg 2<span className="admin-color-input"><input type="color" value={teamDraft.away_color_2} onChange={e=>setTeamDraft({...teamDraft,away_color_2:e.target.value})}/><code>{teamDraft.away_color_2}</code></span></label>
           </div>
+          <section className="admin-kit-search" aria-label="Sök lagets matchställ">
+            <div><strong>Sök tröjfärger och mönster</strong><span>CupNavi söker på nätet och visar källorna. Du bestämmer vad som sparas.</span></div>
+            <label>Sökledtråd <input value={kitHint} onChange={e=>setKitHint(e.target.value)} placeholder="Valfritt: klubbens ort eller webbplats" /></label>
+            <button type="button" disabled={kitBusy||!teamDraft.name.trim()} onClick={()=>void searchKit()}>{kitBusy?"Söker på nätet…":"Sök matchställ"}</button>
+          </section>
+          {kitSuggestion&&<section className="admin-kit-result">
+            {kitSuggestion.candidate_matches?.length>0&&!kitSuggestion.found?<><strong>Vilken klubb är rätt?</strong><p>Flera möjliga klubbar hittades. Välj rätt identitet innan färger används.</p><div className="admin-kit-candidates">{kitSuggestion.candidate_matches.map(candidate=><button type="button" key={candidate.source_url} onClick={()=>void searchKit(candidate)}><b>{candidate.name}</b><span>{[candidate.location,candidate.country].filter(Boolean).join(" · ")}</span><small>{candidate.reason}</small></button>)}</div></>:<><div className="admin-kit-result__head"><div><span>{kitSuggestion.confidence==="high"?"HÖG SÄKERHET":kitSuggestion.confidence==="medium"?"MEDEL SÄKERHET":"LÅG SÄKERHET"}</span><strong>{kitSuggestion.club_match||teamDraft.name}</strong></div><button type="button" disabled={!kitSuggestion.home_verified&&!kitSuggestion.away_verified} onClick={applyKitSuggestion}>Använd verifierade uppgifter</button></div><div className="admin-kit-options"><div><i className="admin-kit-swatch" style={{background:kitBackground(kitSuggestion.home_pattern,kitSuggestion.home_color_1,kitSuggestion.home_color_2)} as CSSProperties}/><span><b>Hemma · {kitSuggestion.home_pattern}</b><small>{kitSuggestion.home_verified?kitSuggestion.home_evidence:"Inte verifierat"}</small></span></div><div><i className="admin-kit-swatch" style={{background:kitBackground(kitSuggestion.away_pattern,kitSuggestion.away_color_1,kitSuggestion.away_color_2)} as CSSProperties}/><span><b>Borta · {kitSuggestion.away_pattern}</b><small>{kitSuggestion.away_verified?kitSuggestion.away_evidence:"Inte verifierat"}</small></span></div></div><details><summary>Visa källor</summary><ul>{[...new Set([...(kitSuggestion.home_sources||[]),...(kitSuggestion.away_sources||[])])].map(url=><li key={url}><a href={url} target="_blank" rel="noreferrer">{url}</a></li>)}</ul></details></>}
+          </section>}
           <div className="admin-form-footer"><span>{editingTeam?"Du redigerar ett befintligt lag.":""}</span><div className="admin-team-actions">{editingTeam&&<button type="button" onClick={cancelTeamEdit}>Avbryt</button>}<button type="submit" disabled={busy||!teamDraft.name.trim()}>{busy?"Sparar…":editingTeam?"Spara lag":"Lägg till lag"}</button></div></div>
         </form>
         <div className="admin-team-list">
           {teams.length ? teams.map(team=><article key={team.id} className={editingTeam===team.id?"is-editing":""}>
-            <span className="admin-team-shirt" style={{background:`linear-gradient(135deg,${team.primary_color||"#111827"} 0 50%,${team.secondary_color||"#FFFFFF"} 50%)`}} aria-hidden="true" />
+            <span className="admin-team-shirt" style={{background:kitBackground(team.home_pattern||"Helfärgad",team.primary_color||"#111827",team.home_color_2||"#FFFFFF")}} aria-hidden="true" />
             <div><strong>{team.name}</strong><small>{team.age_class||"Klass saknas"}{team.group_id?` · ${groups.find(group=>group.id===team.group_id)?.name || `Grupp ${team.group_id}`}`:" · Ej gruppindelat"}</small></div>
             <div className="admin-team-actions"><button type="button" onClick={()=>beginTeamEdit(team)}>Redigera</button><button className="is-danger" type="button" onClick={()=>removeTeam(team)}>Ta bort</button></div>
           </article>) : <div className="admin-empty"><strong>Inga lag ännu</strong><span>Lägg till det första laget ovan.</span></div>}

@@ -96,9 +96,13 @@ def public_tournament(public_key):
     return _public_tournament_projection(row)
 
 def public_teams(tournament_id):
+    columns={str(row.get("name")) for row in all_rows("PRAGMA table_info(teams)")}
+    kit_projection=("home_pattern,home_color_2,away_pattern,away_color_2" if
+                    {"home_pattern","home_color_2","away_pattern","away_color_2"}.issubset(columns) else
+                    "'Helfärgad' AS home_pattern,'#FFFFFF' AS home_color_2,'Helfärgad' AS away_pattern,'#111827' AS away_color_2")
     return all_rows(
-        """SELECT id,name,group_id,age_class,primary_color,secondary_color
-           FROM teams WHERE tournament_id=? ORDER BY name""",
+        f"""SELECT id,name,group_id,age_class,primary_color,secondary_color,{kit_projection}
+            FROM teams WHERE tournament_id=? ORDER BY name""",
         (int(tournament_id),),
     )
 
@@ -253,7 +257,7 @@ def public_brackets(tournament_id):
         bracket["matches"]=by_bracket.get(int(bracket["id"]),[])
     return brackets
 
-def public_snapshot(public_key):
+def public_snapshot(public_key, *, include_unpublished=False):
     """Hydrate the public PWA snapshot with one database connection.
 
     This is intentionally uncached so live scores stay fresh; the optimization is
@@ -266,17 +270,22 @@ def public_snapshot(public_key):
             rows=many(sql, params)
             return rows[0] if rows else None
 
-        row=first("SELECT * FROM tournaments WHERE public_slug=? AND is_published=1", (str(public_key),))
+        publish_filter="" if include_unpublished else " AND is_published=1"
+        row=first(f"SELECT * FROM tournaments WHERE public_slug=?{publish_filter}", (str(public_key),))
         if not row:
             try:
-                row=first("SELECT * FROM tournaments WHERE id=? AND is_published=1", (int(public_key),))
+                row=first(f"SELECT * FROM tournaments WHERE id=?{publish_filter}", (int(public_key),))
             except (TypeError,ValueError):
                 row=None
         tournament=_public_tournament_projection(row)
         if not tournament:
             return None
         tid=int(tournament["id"])
-        teams=many("SELECT id,name,group_id,age_class,primary_color,secondary_color FROM teams WHERE tournament_id=? ORDER BY name", (tid,))
+        team_columns={str(item.get("name")) for item in many("PRAGMA table_info(teams)")}
+        kit_projection=("home_pattern,home_color_2,away_pattern,away_color_2" if
+                        {"home_pattern","home_color_2","away_pattern","away_color_2"}.issubset(team_columns) else
+                        "'Helfärgad' AS home_pattern,'#FFFFFF' AS home_color_2,'Helfärgad' AS away_pattern,'#111827' AS away_color_2")
+        teams=many(f"SELECT id,name,group_id,age_class,primary_color,secondary_color,{kit_projection} FROM teams WHERE tournament_id=? ORDER BY name", (tid,))
         groups=many("SELECT id,name,age_class FROM groups WHERE tournament_id=? ORDER BY name", (tid,))
         matches=many("""SELECT id,stage,group_id,bracket_id,round_no,match_no,home_source,away_source,
                               scheduled_start,pitch_number,home_score,away_score,home_penalties,away_penalties,

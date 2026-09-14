@@ -10,6 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 from cupnavi_core.version import APP_VERSION
+from cupnavi_core.ai_kit_suggestion import suggest_team_kit
 from cupnavi_core.public_competition import calculate_group_table, team_competition_summary
 from cupnavi_core.rate_limit import consume_rate_limit
 from .admin_auth import issue_session, normalize_email, verify_session
@@ -78,6 +79,18 @@ class TeamWrite(BaseModel):
     age_class: str | None = None
     primary_color: str | None = None
     secondary_color: str | None = None
+    home_pattern: str | None = None
+    home_color_2: str | None = None
+    away_pattern: str | None = None
+    away_color_2: str | None = None
+
+
+class KitSearchRequest(BaseModel):
+    team_name: str
+    age_class: str | None = None
+    search_hint: str | None = None
+    resolved_club: str | None = None
+    resolved_source_url: str | None = None
 
 
 class GroupWrite(BaseModel):
@@ -288,6 +301,30 @@ def put_admin_team(tournament_id:int,team_id:int,payload:TeamWrite,authorization
     return team
 
 
+@app.post("/api/admin/cups/{tournament_id}/teams/kit-search")
+def search_admin_team_kit(tournament_id:int,payload:KitSearchRequest,authorization:str|None=Header(default=None)):
+    account=_admin_identity(authorization)
+    cupinfo=admin_cupinfo(int(account["id"]),tournament_id)
+    if not cupinfo:
+        raise HTTPException(status_code=404,detail="Cup saknas eller åtkomst nekas")
+    api_key=os.getenv("OPENAI_API_KEY","").strip()
+    if not api_key:
+        raise HTTPException(status_code=503,detail="Tröjsökningen är inte konfigurerad ännu")
+    try:
+        return suggest_team_kit(
+            payload.team_name,api_key,
+            location=str(cupinfo.get("arena_address") or ""),
+            age_class=str(payload.age_class or ""),
+            search_hint=str(payload.search_hint or ""),
+            resolved_club=str(payload.resolved_club or ""),
+            resolved_source_url=str(payload.resolved_source_url or ""),
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=422,detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=502,detail="Tröjsökningen kunde inte slutföras. Försök igen.") from exc
+
+
 @app.delete("/api/admin/cups/{tournament_id}/teams/{team_id}")
 def remove_admin_team(tournament_id:int,team_id:int,authorization:str|None=Header(default=None)):
     account=_admin_identity(authorization)
@@ -380,6 +417,19 @@ def _standings_payload(tournament):
         )
         result.append({"group":group,"rows":rows})
     return result
+
+
+@app.get("/api/admin/cups/{tournament_id}/preview")
+def admin_cup_preview(tournament_id:int,authorization:str|None=Header(default=None)):
+    account=_admin_identity(authorization)
+    cupinfo=admin_cupinfo(int(account["id"]),tournament_id)
+    if not cupinfo:
+        raise HTTPException(status_code=404,detail="Cup saknas eller åtkomst nekas")
+    snapshot=public_snapshot(str(tournament_id),include_unpublished=True)
+    if not snapshot:
+        raise HTTPException(status_code=404,detail="Cupen kunde inte förhandsgranskas")
+    resolved=resolve_public_snapshot(snapshot)
+    return {"cup":resolved,"standings":_standings_payload(resolved["tournament"])}
 
 
 @app.get("/api/public/cups/{public_key}/standings")

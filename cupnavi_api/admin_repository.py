@@ -30,9 +30,38 @@ CUPINFO_OPTIONAL_TEXT_FIELDS = (
     "public_information",
 )
 
-TEAM_FIELDS = ("name", "age_class", "primary_color", "secondary_color")
-TEAM_PROJECTION = "id,tournament_id,name,group_id,age_class,primary_color,secondary_color"
+TEAM_FIELDS = (
+    "name", "age_class", "primary_color", "secondary_color",
+    "home_pattern", "home_color_2", "away_pattern", "away_color_2",
+)
+TEAM_PROJECTION = (
+    "id,tournament_id,name,group_id,age_class,primary_color,secondary_color,"
+    "home_pattern,home_color_2,away_pattern,away_color_2"
+)
+KIT_PATTERNS = {"Helfärgad", "Vertikala ränder", "Horisontella ränder", "Rutigt", "Delad"}
 HIDDEN_LIFECYCLE_STATUSES = ("trashed", "purged")
+
+
+def ensure_team_kit_schema() -> None:
+    """Bring API-only and older databases up to the established kit schema."""
+    columns = _table_columns("teams")
+    if not columns:
+        return
+    statements = {
+        "home_pattern": "ALTER TABLE teams ADD COLUMN home_pattern TEXT NOT NULL DEFAULT 'Helfärgad'",
+        "home_color_2": "ALTER TABLE teams ADD COLUMN home_color_2 TEXT NOT NULL DEFAULT '#FFFFFF'",
+        "away_pattern": "ALTER TABLE teams ADD COLUMN away_pattern TEXT NOT NULL DEFAULT 'Helfärgad'",
+        "away_color_2": "ALTER TABLE teams ADD COLUMN away_color_2 TEXT NOT NULL DEFAULT '#111827'",
+    }
+    missing = [name for name in statements if name not in columns]
+    if not missing:
+        return
+    with connect() as con:
+        for name in missing:
+            con.execute(statements[name])
+        commit = getattr(con, "commit", None)
+        if callable(commit):
+            commit()
 
 
 def _table_columns(table_name: str) -> set[str]:
@@ -306,6 +335,7 @@ def restore_tournament(account_id: int, tournament_id: int):
 def admin_teams(account_id: int, tournament_id: int):
     if not _has_tournament_access(account_id, tournament_id):
         return None
+    ensure_team_kit_schema()
     return all_rows(
         f"SELECT {TEAM_PROJECTION} FROM teams WHERE tournament_id=? ORDER BY name,id",
         (int(tournament_id),),
@@ -324,18 +354,22 @@ def _clean_team(values: dict, *, require_name: bool = False) -> dict:
         raise ValueError("Lagnamn krävs")
     if "name" in clean and not clean["name"]:
         raise ValueError("Lagnamn krävs")
-    for field in ("primary_color", "secondary_color"):
+    for field in ("primary_color", "secondary_color", "home_color_2", "away_color_2"):
         color = clean.get(field)
         if color is not None and (
             len(color) != 7 or color[0] != "#" or any(c not in "0123456789abcdefABCDEF" for c in color[1:])
         ):
             raise ValueError("Lagfärger måste anges som #RRGGBB")
+    for field in ("home_pattern", "away_pattern"):
+        if clean.get(field) is not None and clean[field] not in KIT_PATTERNS:
+            raise ValueError("Okänt tröjmönster")
     return clean
 
 
 def _team(account_id: int, tournament_id: int, team_id: int):
     if not _has_tournament_access(account_id, tournament_id):
         return None
+    ensure_team_kit_schema()
     return one(
         f"SELECT {TEAM_PROJECTION} FROM teams WHERE id=? AND tournament_id=?",
         (int(team_id), int(tournament_id)),
@@ -345,10 +379,15 @@ def _team(account_id: int, tournament_id: int, team_id: int):
 def create_team(account_id: int, tournament_id: int, values: dict):
     if not _has_tournament_access(account_id, tournament_id):
         return None
+    ensure_team_kit_schema()
     clean = _clean_team(values, require_name=True)
     clean.setdefault("age_class", None)
     clean.setdefault("primary_color", "#111827")
     clean.setdefault("secondary_color", "#FFFFFF")
+    clean.setdefault("home_pattern", "Helfärgad")
+    clean.setdefault("home_color_2", "#FFFFFF")
+    clean.setdefault("away_pattern", "Helfärgad")
+    clean.setdefault("away_color_2", "#111827")
     with connect() as con:
         duplicate = con.execute(
             "SELECT id FROM teams WHERE tournament_id=? AND lower(trim(name))=lower(?)",
@@ -357,9 +396,11 @@ def create_team(account_id: int, tournament_id: int, values: dict):
         if duplicate:
             raise ValueError("Det finns redan ett lag med samma namn")
         cursor = con.execute(
-            """INSERT INTO teams(tournament_id,name,age_class,primary_color,secondary_color)
-               VALUES(?,?,?,?,?)""",
-            (int(tournament_id), clean["name"], clean["age_class"], clean["primary_color"], clean["secondary_color"]),
+            """INSERT INTO teams(tournament_id,name,age_class,primary_color,secondary_color,
+                                  home_pattern,home_color_2,away_pattern,away_color_2)
+               VALUES(?,?,?,?,?,?,?,?,?)""",
+            (int(tournament_id), clean["name"], clean["age_class"], clean["primary_color"], clean["secondary_color"],
+             clean["home_pattern"], clean["home_color_2"], clean["away_pattern"], clean["away_color_2"]),
         )
         team_id = int(cursor.lastrowid)
         commit = getattr(con, "commit", None)

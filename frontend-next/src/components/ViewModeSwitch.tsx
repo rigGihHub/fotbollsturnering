@@ -46,7 +46,7 @@ export function ViewModeSwitch() {
     const storedId = Number(localStorage.getItem(CUP_KEY));
     const active = cups.find(cup => cup.id === storedId) || cups[0];
     if (active?.public_slug) {
-      window.location.href = `/cup/${active.public_slug}`;
+      window.location.href = `/cup/${active.public_slug}?preview=1&cup=${active.id}`;
       return;
     }
     window.location.href = "/admin";
