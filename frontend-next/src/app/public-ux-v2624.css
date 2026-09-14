@@ -1,0 +1,16 @@
+/* v2.6.24 — complete match browsing and reachable mobile navigation. */
+.match-view-filter{display:flex;gap:7px;margin:-2px 0 16px;padding:5px;width:max-content;max-width:100%;border:1px solid rgba(16,38,48,.18);border-radius:12px;background:rgba(251,250,245,.78)}
+.match-view-filter button{display:flex;align-items:center;gap:8px;min-height:38px;padding:0 12px;border:0;border-radius:8px;background:transparent;color:var(--ink-2);font-size:12px;font-weight:850;cursor:pointer}
+.match-view-filter button b{display:grid;place-items:center;min-width:22px;height:22px;padding:0 5px;border-radius:999px;background:rgba(16,38,48,.08);font:900 10px/1 ui-monospace,monospace}
+.match-view-filter button.is-active{background:var(--ink);color:#fff}.match-view-filter button.is-active b{background:rgba(255,255,255,.16);color:#fff36b}
+.mobile-more-menu{display:none}
+
+@media(max-width:760px){
+  .mobile-bottom-nav{grid-template-columns:repeat(5,1fr)!important}
+  .mobile-bottom-nav button{min-width:0!important}
+  .mobile-more-menu{position:fixed;display:grid;z-index:49;left:12px;right:12px;bottom:calc(max(8px,env(safe-area-inset-bottom)) + 68px);gap:6px;padding:12px;border:1.5px solid var(--line);border-radius:15px;background:rgba(251,250,245,.98);box-shadow:0 10px 32px rgba(3,7,8,.24);backdrop-filter:blur(14px)}
+  .mobile-more-menu>strong{padding:2px 4px 6px;color:var(--ink-2);font:900 10px/1 ui-monospace,monospace;letter-spacing:.12em;text-transform:uppercase}
+  .mobile-more-menu button{min-height:46px;padding:0 13px;border:1px solid rgba(16,38,48,.2);border-radius:10px;background:#fff;text-align:left;color:var(--ink);font-weight:850}
+  .match-view-filter{width:100%;display:grid;grid-template-columns:repeat(3,1fr);margin-bottom:12px}
+  .match-view-filter button{justify-content:center;padding:0 7px;font-size:11px}
+}

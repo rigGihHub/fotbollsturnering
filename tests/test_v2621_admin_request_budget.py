@@ -8,9 +8,9 @@ def test_frontend_release_is_synchronized():
     package = (ROOT / "frontend-next" / "package.json").read_text(encoding="utf-8")
     layout = (ROOT / "frontend-next" / "src" / "app" / "layout.tsx").read_text(encoding="utf-8")
     worker = (ROOT / "frontend-next" / "public" / "sw.js").read_text(encoding="utf-8")
-    assert '"version": "2.6.22"' in package
-    assert 'APP_VERSION = "2.6.22"' in layout
-    assert 'cupnavi-next-v2622' in worker
+    assert '"version": "2.6.24"' in package
+    assert 'APP_VERSION = "2.6.24"' in layout
+    assert 'cupnavi-next-v2624' in worker
 
 
 def test_authenticated_workspace_reuses_authoritative_session():
@@ -38,6 +38,16 @@ def test_import_recovery_has_no_subsecond_polling():
     assert 'window.addEventListener("focus", sync)' in guard
 
 
+def test_partial_cup_import_is_shown_as_paused_and_resumable():
+    launcher = (ROOT / "frontend-next" / "src" / "components" / "cup-create-launcher-v6.tsx").read_text(encoding="utf-8")
+    assert 'importFailure ? "is-paused"' in launcher
+    assert '"Importen pausades"' in launcher
+    assert '"Fortsätt importen"' in launcher
+    assert 'onClick={() => goToCup(importFailure.cup)}' in launcher
+    assert 'failed to fetch|networkerror|load failed' in launcher
+    assert 'setImportFailure({ cup, stage, detail })' in launcher
+
+
 def test_mutations_are_never_rejected_as_stale_cup_reads():
     coordinator = (ROOT / "frontend-next" / "src" / "lib" / "admin-request-coordinator.ts").read_text(encoding="utf-8")
     assert 'method === "GET" && cupId !== null && selectedCupId !== null' in coordinator
@@ -58,3 +68,21 @@ def test_publish_and_reporting_are_separate_focused_views():
     css = (ROOT / "frontend-next" / "src" / "app" / "admin-wow-v2622.css").read_text(encoding="utf-8")
     assert 'html[data-admin-step="publish"] .admin-operations-flow>.admin-flow-group' in css
     assert "grid-template-columns:30px minmax(0,1fr) auto!important" in css
+
+
+def test_public_mobile_navigation_and_match_list_are_complete():
+    public_view = (ROOT / "frontend-next" / "src" / "components" / "PublicCupView.tsx").read_text(encoding="utf-8")
+    assert "orderedMatches.slice(0,18)" not in public_view
+    assert 'type MatchView="upcoming"|"results"|"all"' in public_view
+    assert 'openTab("playoff")' not in public_view  # rendered from the typed navigation tuple
+    assert '["playoff","Slutspel","◆"]' in public_view
+    assert 'openTab("info")' in public_view
+    assert 'Cupinfo & karta' in public_view
+    assert 'className="mobile-more-menu"' in public_view
+
+
+def test_admin_navigation_has_work_phases():
+    workspace = (ROOT / "frontend-next" / "src" / "components" / "admin-workspace.tsx").read_text(encoding="utf-8")
+    for phase in ("Överblick", "Grundarbete", "Matchplanering", "Genomförande", "Verktyg"):
+        assert phase in workspace
+    assert 'className="admin-nav-phase"' in workspace

@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { Fragment, FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import VenueAdmin from "./venue-admin";
 import RulesAdmin from "./rules-admin";
 import ScheduleAdmin from "./schedule-admin";
@@ -18,6 +18,7 @@ const nav = [
   ["Planer & tider", "#venues"], ["Regler", "#rules"], ["Schema", "#schedule"], ["Domare", "#referees"],
   ["Slutspel", "#playoffs"], ["Publicering", "#publish"], ["Matchrapportering", "#reporting"], ["Import", "#import"], ["PDF & export", "#export"]
 ];
+const adminPhaseStarts:Record<number,string>={0:"Överblick",1:"Grundarbete",6:"Matchplanering",9:"Genomförande",11:"Verktyg"};
 
 type Account = { id:number; email:string; display_name?:string|null; role?:string|null; is_owner?:boolean };
 type Cup = { id:number; name:string; public_slug?:string|null; start_date?:string|null; end_date?:string|null; is_published?:number|boolean; role:string };
@@ -449,7 +450,7 @@ export default function AdminWorkspace({verifiedSession=null}:{verifiedSession?:
           </> : <p className="admin-trash-empty">Papperskorgen är tom.</p>}
         </section>}
       </>}
-      <nav aria-label="Cupadministration">{nav.map(([item,href],index)=><a className={href===`#${activeStep}`?"is-active":""} href={href} key={item}><span>{String(index+1).padStart(2,"0")}</span>{item}</a>)}</nav>
+      <nav aria-label="Cupadministration">{nav.map(([item,href],index)=><Fragment key={item}>{adminPhaseStarts[index]&&<strong className="admin-nav-phase">{adminPhaseStarts[index]}</strong>}<a className={href===`#${activeStep}`?"is-active":""} href={href}><span>{String(index+1).padStart(2,"0")}</span>{item}</a></Fragment>)}</nav>
       {publicCup && <a className="admin-public-link" href={publicCup}>Visa publik cup ↗</a>}
       <button className="admin-public-link" type="button" onClick={logout}>Logga ut</button>
     </aside>
