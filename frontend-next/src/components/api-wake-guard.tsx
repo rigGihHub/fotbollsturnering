@@ -29,7 +29,6 @@ export default function ApiWakeGuard() {
   const [state, setState] = useState<WakeState>("checking");
   const [seconds, setSeconds] = useState(0);
   const startedAt = useRef(0);
-  const hadFailure = useRef(false);
   const running = useRef(false);
 
   useEffect(() => {
@@ -46,13 +45,9 @@ export default function ApiWakeGuard() {
 
       if (ok) {
         setState("online");
-        if (hadFailure.current) {
-          window.setTimeout(() => window.location.reload(), 350);
-        }
         return;
       }
 
-      hadFailure.current = true;
       const elapsed = Date.now() - startedAt.current;
       if (elapsed >= MAX_WAIT_MS) {
         setState("failed");
