@@ -1,0 +1,247 @@
+/* CupNavi v2.6.15 — final visual/interaction override layer.
+   Keeps feature code intact while normalising hierarchy, touch targets and mobile layout. */
+
+:root{
+  --cn-radius-sm:10px;
+  --cn-radius:15px;
+  --cn-radius-lg:20px;
+  --cn-border:rgba(16,38,48,.23);
+  --cn-shadow:0 4px 0 rgba(16,38,48,.08);
+  --cn-shadow-float:0 14px 38px rgba(16,38,48,.14);
+}
+
+html{scroll-behavior:smooth}
+body{overflow-x:hidden}
+button,a,input,select,textarea{font:inherit}
+button,a,select,input[type="checkbox"],input[type="radio"]{touch-action:manipulation}
+button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:3px solid rgba(0,166,182,.35);outline-offset:2px}
+
+/* Global chrome */
+.brandbar{
+  min-height:72px;
+  padding:10px max(18px,env(safe-area-inset-left));
+  padding-right:max(18px,env(safe-area-inset-right));
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:16px;
+  border-bottom:1px solid rgba(16,38,48,.16);
+  background:rgba(244,241,232,.96);
+  backdrop-filter:blur(12px);
+  position:relative;
+  z-index:100;
+}
+.brand{display:inline-flex;align-items:center;gap:10px;text-decoration:none;color:var(--ink)}
+.brand-logo-mark{width:42px;height:42px;flex:0 0 auto}
+.brand-wordmark{font-size:28px;line-height:1;font-weight:950;letter-spacing:-.05em}
+.brand-wordmark span{color:var(--cyan)}
+.app-version-badge{flex:0 0 auto;padding:7px 11px;border:1px solid var(--cn-border);border-radius:999px;background:rgba(255,255,255,.46);font:800 12px/1 ui-monospace,SFMono-Regular,Consolas,monospace;letter-spacing:.08em;color:var(--ink-2)}
+.page-shell{width:min(1180px,calc(100% - 32px));margin:0 auto}
+
+/* Buttons and controls */
+.admin-workspace button,.admin-main button,.cup-create-dialog button,.edition-nav button,.mobile-bottom-nav button,.favorite-chip,.next-match-actions button{
+  min-height:44px;
+}
+.admin-workspace input,.admin-workspace select,.admin-workspace textarea,.cup-create-dialog input,.cup-create-dialog select,.cup-create-dialog textarea{
+  min-height:46px;
+  border-radius:var(--cn-radius-sm);
+}
+textarea{resize:vertical}
+button:disabled{cursor:not-allowed;opacity:.5}
+
+/* Admin: one focused workspace instead of a wall of panels */
+.admin-workspace{
+  width:min(1220px,calc(100% - 28px));
+  margin:18px auto 96px;
+  gap:18px;
+}
+.admin-sidebar{
+  border:1px solid var(--cn-border);
+  border-radius:var(--cn-radius-lg);
+  box-shadow:var(--cn-shadow);
+  overflow:hidden;
+}
+.admin-sidebar__cup{padding:18px}
+.admin-sidebar__cup span,.admin-panel__top span,.kicker{letter-spacing:.12em}
+.admin-sidebar__cup strong{font-size:22px;line-height:1.05}
+.admin-owner-actions{gap:8px;padding:10px 14px 14px}
+.admin-owner-actions button{min-height:44px;border-radius:11px}
+.admin-remove-cup{background:transparent!important;color:#8b4a42!important;border-color:rgba(139,74,66,.36)!important}
+.admin-sidebar nav{gap:3px;padding:8px}
+.admin-sidebar nav a{min-height:46px;border-radius:10px;padding:9px 10px}
+.admin-sidebar nav a.is-active{box-shadow:none}
+.admin-public-link{min-height:46px;margin:6px 10px;border-radius:10px!important;display:flex;align-items:center;justify-content:center}
+
+.admin-main{min-width:0}
+.admin-pagehead{margin-bottom:14px;align-items:end}
+.admin-pagehead h1{font-size:clamp(38px,5.6vw,64px);line-height:.95;letter-spacing:-.055em}
+.admin-pagehead__actions{gap:9px}
+.admin-pagehead__actions a{min-height:46px;display:inline-flex;align-items:center;padding:0 16px;border-radius:11px}
+.admin-draft{padding:7px 12px}
+.admin-panel{
+  border:1px solid var(--cn-border)!important;
+  border-radius:var(--cn-radius)!important;
+  box-shadow:var(--cn-shadow)!important;
+}
+.admin-panel__top{padding-bottom:11px;margin-bottom:14px}
+.admin-panel h2{letter-spacing:-.035em}
+.admin-dashboard-grid{gap:12px}
+.admin-panel--status{padding:20px}
+.admin-panel--status h2{font-size:clamp(28px,4vw,42px);line-height:1.02}
+.admin-checks{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.admin-checks>div{min-height:82px;border:1px solid rgba(16,38,48,.13);border-radius:12px;padding:12px;background:rgba(255,255,255,.42)}
+.admin-panel--codes{padding:20px}
+.admin-cupinfo,.admin-teams{padding:20px}
+.admin-cupinfo__head{gap:14px;margin-bottom:16px}
+.admin-cupinfo__head h2{font-size:32px}
+.admin-form-grid{gap:13px}
+.admin-form-grid label{gap:6px}
+.admin-form-footer{gap:12px;padding-top:14px}
+.admin-form-footer>button,.admin-team-actions>button{border-radius:10px;min-height:44px}
+.admin-team-list{gap:8px}
+.admin-team-list article{border-radius:12px;padding:12px 13px}
+.admin-module-grid{gap:12px}
+.admin-module-card{min-height:0!important;padding:18px!important}
+
+/* Step controller is the primary admin navigation. */
+.admin-step-flow{
+  width:min(1220px,calc(100% - 28px));
+  margin:12px auto 0;
+  border:1px solid var(--cn-border)!important;
+  border-radius:var(--cn-radius)!important;
+  box-shadow:var(--cn-shadow)!important;
+}
+.admin-step-flow nav,.admin-step-tabs,.admin-step-flow__nav{scrollbar-width:none}
+.admin-step-flow nav::-webkit-scrollbar,.admin-step-tabs::-webkit-scrollbar,.admin-step-flow__nav::-webkit-scrollbar{display:none}
+.admin-step-flow button,.admin-step-flow a{min-height:44px}
+.admin-step-flow .is-active{box-shadow:none!important}
+
+/* Avoid multiple heavyweight navigation systems visually competing. */
+.admin-operations-flow{margin-top:14px}
+.admin-flow-context{padding:16px!important}
+.admin-flow-context__title h2{font-size:26px;margin-bottom:4px}
+.admin-flow-jumps{display:flex;gap:7px;overflow-x:auto;scrollbar-width:none;padding-bottom:2px}
+.admin-flow-jumps::-webkit-scrollbar{display:none}
+.admin-flow-jumps a{white-space:nowrap;min-height:40px;display:inline-flex;align-items:center;padding:0 12px;border-radius:999px}
+.admin-flow-group{margin-top:12px}
+.admin-flow-group__label{margin-bottom:8px}
+
+/* New cup/import dialog */
+.cup-create-toolbar{
+  width:min(1220px,calc(100% - 28px));
+  margin:14px auto 0;
+  padding:12px 14px;
+  border:1px solid var(--cn-border);
+  border-radius:var(--cn-radius);
+  background:rgba(255,255,255,.48);
+  box-shadow:none;
+}
+.cup-create-toolbar>div strong{font-size:15px}
+.cup-create-toolbar>button{min-width:150px;border-radius:11px}
+.cup-create-backdrop{padding:max(10px,env(safe-area-inset-top)) max(10px,env(safe-area-inset-right)) max(10px,env(safe-area-inset-bottom)) max(10px,env(safe-area-inset-left));background:rgba(6,20,26,.52);backdrop-filter:blur(5px)}
+.cup-create-dialog{border-radius:18px!important;border:1px solid var(--cn-border)!important;box-shadow:var(--cn-shadow-float)!important}
+.cup-create-dialog__head h2{font-size:30px;line-height:1}
+.cup-create-close{width:46px;min-width:46px;height:46px;border-radius:50%!important}
+.cup-create-actions{gap:8px}
+.cup-create-actions button{flex:1;border-radius:10px}
+.cup-import-steps{display:flex!important;overflow-x:auto;gap:7px;scrollbar-width:none;padding-bottom:4px}
+.cup-import-steps::-webkit-scrollbar{display:none}
+.cup-import-steps button{white-space:nowrap;flex:0 0 auto}
+.cup-import-stats{gap:8px}
+.cup-import-stats>div{border-radius:12px}
+
+/* Public cup: fewer visual layers, same product language as admin. */
+.page-shell--matchday{padding-bottom:92px}
+.edition-nav{position:sticky;top:0;z-index:30;margin:12px 0 22px;padding:7px;border:1px solid var(--cn-border);border-radius:14px;background:rgba(244,241,232,.94);backdrop-filter:blur(12px);overflow-x:auto;scrollbar-width:none}
+.edition-nav::-webkit-scrollbar{display:none}
+.edition-nav button{white-space:nowrap;border-radius:9px;padding:0 14px}
+.edition-nav button.is-active{box-shadow:none}
+.section-heading{margin:28px 0 16px}
+.section-heading h2{font-size:clamp(34px,5vw,54px);line-height:.98;letter-spacing:-.05em;margin-block:4px 7px}
+.section-heading p{max-width:680px;margin:0;color:var(--ink-2)}
+.favorite-strip{border:1px solid var(--cn-border)!important;border-radius:var(--cn-radius)!important;padding:14px!important;box-shadow:none!important}
+.favorite-chips{gap:7px}
+.favorite-chip{border-radius:999px!important;padding:0 13px!important}
+.next-match-hero{border-radius:var(--cn-radius-lg)!important;border-width:1px!important;box-shadow:var(--cn-shadow)!important}
+.next-match-actions{gap:8px}
+.next-match-actions>*{min-height:44px;border-radius:10px!important}
+.match-grid{gap:12px}
+.match-grid>*{border-radius:var(--cn-radius)!important}
+.table-stack{gap:14px}
+.texttv{border-radius:var(--cn-radius)!important;overflow:hidden}
+.bracket-grid{gap:12px}
+.feature-card,.editorial-card,.team-pass,.empty-state{border-radius:var(--cn-radius)!important}
+.mobile-bottom-nav{border-radius:16px 16px 0 0;box-shadow:0 -8px 28px rgba(16,38,48,.12)}
+.mobile-bottom-nav button{min-height:58px}
+
+/* Floating mode switch should never dominate content. */
+body>div[style*="position: fixed"][style*="z-index: 10000"]{max-width:calc(100vw - 24px)}
+
+@media(max-width:900px){
+  .brandbar{min-height:64px;padding-top:8px;padding-bottom:8px}
+  .brand-logo-mark{width:36px;height:36px}
+  .brand-wordmark{font-size:24px}
+  .app-version-badge{font-size:11px;padding:6px 9px}
+  .page-shell{width:min(100% - 22px,760px)}
+  .admin-workspace{width:100%;margin:8px auto 88px;display:block}
+  .admin-sidebar{border-radius:0;border-left:0;border-right:0;box-shadow:none;margin-bottom:12px}
+  .admin-sidebar__cup{padding:14px 20px 8px}
+  .admin-sidebar__cup strong{font-size:26px}
+  .admin-sidebar nav{display:flex;overflow-x:auto;padding:8px 14px 10px;gap:6px;scrollbar-width:none}
+  .admin-sidebar nav::-webkit-scrollbar{display:none}
+  .admin-sidebar nav a{flex:0 0 auto;min-height:44px;white-space:nowrap;padding:8px 12px}
+  .admin-owner-actions{padding:8px 20px 12px}
+  .admin-trash-panel{margin:0 20px 12px}
+  .admin-public-link{margin-left:20px;margin-right:20px}
+  .admin-main{width:calc(100% - 28px);margin-left:auto;margin-right:auto}
+  .admin-pagehead h1{font-size:43px}
+  .admin-dashboard-grid{grid-template-columns:1fr}
+  .admin-panel--codes{display:none}
+  .admin-checks{grid-template-columns:1fr 1fr}
+  .admin-cupinfo,.admin-teams{padding:16px}
+  .admin-form-grid{grid-template-columns:1fr}
+  .admin-form-footer{align-items:stretch;flex-direction:column}
+  .admin-form-footer button{width:100%}
+  .admin-team-list article{align-items:flex-start;flex-wrap:wrap}
+  .admin-team-actions{width:100%;justify-content:flex-end}
+  .admin-step-flow,.cup-create-toolbar{width:calc(100% - 28px)}
+  .cup-create-toolbar{display:flex;align-items:center;gap:10px}
+  .cup-create-toolbar>div{min-width:0}
+  .cup-create-toolbar>div span{display:none}
+  .cup-create-toolbar>div strong{font-size:13px;line-height:1.25}
+  .cup-create-toolbar>button{min-width:116px;min-height:48px}
+  .admin-flow-context__title{display:block}
+  .admin-flow-context__title .admin-lock{display:none}
+  .edition-nav--desktop{display:none!important}
+  .section-heading{margin-top:20px}
+  .page-shell--matchday{width:100%;padding-left:12px;padding-right:12px}
+  .favorite-strip{padding:12px!important}
+  .favorite-strip__head{align-items:flex-start;gap:8px}
+  .next-match-actions{display:grid;grid-template-columns:1fr 1fr}
+}
+
+@media(max-width:560px){
+  .admin-main{width:calc(100% - 20px)}
+  .admin-step-flow,.cup-create-toolbar{width:calc(100% - 20px)}
+  .admin-pagehead{display:flex;align-items:flex-end;gap:10px}
+  .admin-pagehead h1{font-size:39px}
+  .admin-pagehead__actions{margin-left:auto}
+  .admin-pagehead__actions a{padding:0 12px}
+  .admin-checks{grid-template-columns:1fr}
+  .admin-checks>div{min-height:68px}
+  .admin-panel--status{padding:16px}
+  .admin-panel--status h2{font-size:30px}
+  .cup-create-toolbar>div{display:none}
+  .cup-create-toolbar>button{width:100%}
+  .cup-create-dialog{width:100%!important;max-height:calc(100dvh - 12px)!important;border-radius:15px!important}
+  .cup-create-dialog__head h2{font-size:27px}
+  .cup-create-actions{display:grid!important;grid-template-columns:1fr 1fr}
+  .cup-import-stats{grid-template-columns:repeat(2,1fr)!important}
+  .next-match-actions{grid-template-columns:1fr}
+  .section-heading h2{font-size:35px}
+}
+
+@media(prefers-reduced-motion:reduce){
+  html{scroll-behavior:auto}
+  *,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}
+}
