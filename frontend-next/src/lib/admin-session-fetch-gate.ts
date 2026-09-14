@@ -2,8 +2,6 @@ import { CLIENT_API_BASE } from "./client-api";
 
 const TOKEN_KEY = "cupnavi_admin_session_v629";
 const VERIFIED_CACHE_KEY = "cupnavi_admin_verified_v1";
-const AUTHORITATIVE_HEADER = "X-CupNavi-Auth-Probe";
-const AUTHORITATIVE_VALUE = "authoritative";
 
 type VerifiedCache = {
   token?: string;
@@ -75,8 +73,6 @@ export function installAdminSessionFetchGate() {
     if (url.origin !== sessionUrl.origin || url.pathname !== sessionUrl.pathname) return originalFetch(input,init);
 
     const headers = requestHeaders(input,init);
-    if (headers.get(AUTHORITATIVE_HEADER) === AUTHORITATIVE_VALUE) return originalFetch(input,init);
-
     const auth = headers.get("Authorization") || "";
     const token = auth.startsWith("Bearer ") ? auth.slice(7).trim() : localStorage.getItem(TOKEN_KEY) || "";
     if (!token) return originalFetch(input,init);
@@ -88,5 +84,9 @@ export function installAdminSessionFetchGate() {
   }) as typeof window.fetch;
 }
 
-export const ADMIN_SESSION_AUTHORITATIVE_HEADER = AUTHORITATIVE_HEADER;
-export const ADMIN_SESSION_AUTHORITATIVE_VALUE = AUTHORITATIVE_VALUE;
+export function authoritativeAdminSessionFetch(input:RequestInfo | URL, init?:RequestInit) {
+  if (typeof window === "undefined") return fetch(input,init);
+  const scoped = window as WindowWithGate;
+  const direct = scoped.__cupnaviOriginalFetch || window.fetch.bind(window);
+  return direct(input,init);
+}
