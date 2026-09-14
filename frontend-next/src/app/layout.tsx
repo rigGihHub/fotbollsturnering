@@ -3,8 +3,10 @@ import "./globals.css";
 import "./ux-polish.css";
 import { PwaBoot } from "@/components/PwaBoot";
 
+const APP_VERSION = "2.6.0";
+
 export const metadata: Metadata = {
-  title: "CupNavi",
+  title: `CupNavi v${APP_VERSION}`,
   description: "Cuper, matcher och liveinfo – utan krångel.",
   manifest: "/manifest.webmanifest",
 };
@@ -19,7 +21,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
     <html lang="sv">
       <body>
         <header className="brandbar">
-          <a href="/" className="brand">CUP<span>NAVI</span><small>/// MATCHDAY SYSTEM</small></a>
+          <a href="/" className="brand">CUP<span>NAVI</span><small>/// MATCHDAY SYSTEM · v{APP_VERSION}</small></a>
         </header>
         <PwaBoot />
         {children}
