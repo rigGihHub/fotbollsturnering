@@ -1,0 +1,42 @@
+/* v2.6.28 — one calm mobile type scale and a usable guided step header. */
+@media(max-width:760px){
+  .cup-create-toolbar{min-height:64px!important;padding:8px 14px!important}
+  .cup-create-toolbar>button{width:auto!important;min-width:180px!important;min-height:46px!important;margin-left:auto!important;font-size:14px!important}
+
+  .admin-step-flow{position:relative!important;top:auto!important;display:grid!important;grid-template-columns:1fr!important;width:calc(100% - 20px)!important;margin:10px auto!important;padding:12px!important;gap:10px!important;border:1px solid rgba(16,38,48,.22)!important;border-radius:14px!important}
+  .admin-step-flow__meta{display:flex!important;align-items:baseline!important;justify-content:space-between!important;gap:12px!important}
+  .admin-step-flow__meta span{font-size:9px!important;white-space:nowrap!important}
+  .admin-step-flow__meta strong{font-size:16px!important;line-height:1.2!important}
+  .admin-step-flow__guide{display:block!important;margin:0!important}
+  .admin-step-flow__guide>div{display:none!important}
+  .admin-step-flow__guide>div:nth-child(2){display:grid!important;padding:10px 12px!important;border-radius:10px!important}
+  .admin-step-flow__guide span{font-size:9px!important}
+  .admin-step-flow__guide strong{font-size:14px!important;line-height:1.35!important}
+  .admin-step-flow__track{grid-column:auto!important;grid-row:auto!important;width:100%!important;margin:0!important}
+  .admin-step-flow__actions{display:grid!important;grid-template-columns:1fr!important;width:100%!important}
+  .admin-step-flow__actions button:first-child{display:none!important}
+  .admin-step-flow__actions .is-primary{width:100%!important;max-width:none!important;min-height:46px!important;margin:0!important;padding:10px 14px!important;font-size:14px!important;line-height:1.25!important;white-space:normal!important}
+
+  .admin-sidebar{padding:10px 12px 8px!important}
+  .admin-sidebar__cup{grid-template-columns:minmax(0,1fr) auto!important;padding:8px 4px!important;column-gap:12px!important}
+  .admin-sidebar__cup span{font-size:9px!important}
+  .admin-sidebar__cup strong{font-size:22px!important;line-height:1.1!important}
+  .admin-sidebar__cup small{font-size:13px!important}
+  .admin-cup-switcher{padding:8px 4px!important}
+  .admin-cup-switcher>span{font-size:12px!important}
+  .admin-cup-switcher select{min-height:46px!important;font-size:16px!important}
+  .admin-owner-actions{margin:6px 0 8px!important;padding:0!important}
+  .admin-owner-actions>button{min-height:42px!important;font-size:12px!important}
+  .admin-sidebar nav a{font-size:14px!important}
+  .admin-sidebar nav a span{font-size:9px!important}
+
+  .admin-main{padding:18px 12px 36px!important}
+  .admin-pagehead{margin-bottom:14px!important}
+  .admin-pagehead h1{font-size:36px!important;line-height:1!important;letter-spacing:-.045em!important}
+  .admin-pagehead p,.admin-cupinfo__head p,.admin-panel p{font-size:14px!important;line-height:1.45!important}
+  .admin-panel h2,.admin-cupinfo__head h2{font-size:25px!important;line-height:1.05!important;letter-spacing:-.03em!important}
+  .admin-panel__top,.admin-lock,.admin-draft{font-size:9px!important}
+  .admin-form-grid label{font-size:13px!important}
+  .admin-form-grid input,.admin-form-grid select,.admin-form-grid textarea{font-size:16px!important}
+  .admin-form-footer,.admin-checks small{font-size:12px!important}
+}

@@ -7,7 +7,6 @@ import AdminStepFlow from "./admin-step-flow";
 import AdminLazyExtras from "./admin-lazy-extras";
 import CupCreateLauncher from "./cup-create-launcher-resilient";
 import ApiWakeGuard from "./api-wake-guard";
-import ImportRecoveryGuard from "./import-recovery-guard";
 import { CLIENT_API_BASE } from "../lib/client-api";
 import { installAdminRequestCoordinator } from "../lib/admin-request-coordinator";
 import {
@@ -178,7 +177,6 @@ export default function AdminAuthShell() {
   return (
     <>
       <ApiWakeGuard/>
-      <ImportRecoveryGuard/>
       <CupCreateLauncher/>
       <AdminStepFlow/>
       <AdminLazyExtras/>
