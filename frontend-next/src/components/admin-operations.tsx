@@ -36,8 +36,6 @@ export default function AdminOperations() {
       return;
     }
 
-    // Keep the last known-good operational state during transient network or
-    // server errors. Only a verified 401 is allowed to invalidate auth here.
     try {
       const response = await fetch(`${API}/api/admin/session`, {
         headers:{Authorization:`Bearer ${storedToken}`},
@@ -46,8 +44,10 @@ export default function AdminOperations() {
       const payload = await response.json().catch(() => null) as SessionPayload | {detail?:string} | null;
 
       if (response.status === 401) {
-        setToken(null); setCups([]); setCupId(null);
-        setError("Sessionen är inte längre giltig. Logga in igen.");
+        // AdminAuthShell is the only component allowed to invalidate the stored
+        // session. This child may report the problem, but must never create its
+        // own logout race while another request is still succeeding.
+        setError("Sessionen kunde inte verifieras i den här modulen ännu.");
         return;
       }
       if (!response.ok) {
@@ -62,29 +62,34 @@ export default function AdminOperations() {
       setCupId(requestedCupId(available));
       setError("");
     } catch (err) {
-      // A Render cold start, timeout or 5xx must not blank operational modules
-      // or create the visual impression that the user was logged out.
-      if (!token) setToken(storedToken);
+      // Keep the last known-good operational state during transient network,
+      // camera/file-picker resume and Render cold-start conditions.
+      setToken(current => current || storedToken);
       setError(err instanceof Error ? `Tillfälligt anslutningsproblem: ${err.message}` : "Tillfälligt anslutningsproblem.");
     }
-  },[token]);
+  },[]);
 
   useEffect(() => {
     void load();
-    const refresh = () => { void load(); };
+    const refresh = () => { if (document.visibilityState === "visible") void load(); };
     window.addEventListener("storage", refresh);
     window.addEventListener("focus", refresh);
-    const timer = window.setInterval(() => {
-      if (!cups.length) return;
-      const next = requestedCupId(cups);
-      setCupId(current => current === next ? current : next);
-    }, 800);
     return () => {
       window.removeEventListener("storage", refresh);
       window.removeEventListener("focus", refresh);
-      window.clearInterval(timer);
     };
-  },[load,cups]);
+  },[load]);
+
+  useEffect(() => {
+    if (!cups.length) return;
+    const syncCup = () => {
+      const next = requestedCupId(cups);
+      setCupId(current => current === next ? current : next);
+    };
+    syncCup();
+    const timer = window.setInterval(syncCup, 1000);
+    return () => window.clearInterval(timer);
+  },[cups]);
 
   if (!token || !cupId) {
     if (!error) return null;
