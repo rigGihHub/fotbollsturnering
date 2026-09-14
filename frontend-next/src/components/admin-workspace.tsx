@@ -11,28 +11,450 @@ import { CLIENT_API_BASE } from "../lib/client-api";
 const API_BASE = CLIENT_API_BASE;
 const TOKEN_KEY = "cupnavi_admin_session_v629";
 const CUP_KEY = "cupnavi_admin_active_cup_v651";
-const nav = [["Översikt","#overview"],["Cupinfo","#cupinfo"],["Lag","#teams"],["Grupper","#groups"],["Planer & tider","#venues"],["Regler","#rules"],["Schema","#schedule"],["Domare","#referees"],["Slutspel","#playoffs"],["Publicering","#publish"]];
-type Account={id:number;email:string;display_name?:string|null;role?:string|null;is_owner?:boolean};
-type Cup={id:number;name:string;public_slug?:string|null;start_date?:string|null;end_date?:string|null;is_published?:number|boolean;role:string};
-type CupInfo={id:number;public_slug?:string|null;is_published?:number|boolean;name:string;start_date?:string|null;end_date?:string|null;organizer?:string|null;arena_address?:string|null;organizer_phone?:string|null;feedback_email?:string|null;public_information?:string|null};
-type Team={id:number;tournament_id:number;name:string;group_id?:number|null;age_class?:string|null;primary_color?:string|null;secondary_color?:string|null};
-type Group={id:number;tournament_id:number;name:string;age_class?:string|null;team_count:number};
-type SessionPayload={account:Account;cups:Cup[];token?:string};
-const emptyTeam={name:"",age_class:"",primary_color:"#111827",secondary_color:"#FFFFFF"}; const emptyGroup={name:"",age_class:""};
-async function request<T>(path:string,options:RequestInit={},token?:string|null):Promise<T>{const headers=new Headers(options.headers||{});if(options.body)headers.set("Content-Type","application/json");if(token)headers.set("Authorization",`Bearer ${token}`);const r=await fetch(`${API_BASE}${path}`,{...options,headers,cache:"no-store"});const p=await r.json().catch(()=>null);if(!r.ok)throw new Error(p&&typeof p.detail==="string"?p.detail:`API-fel ${r.status}`);return p as T}
-function clean(v:CupInfo):CupInfo{return {...v,name:v.name||"",start_date:v.start_date||"",end_date:v.end_date||"",organizer:v.organizer||"",arena_address:v.arena_address||"",organizer_phone:v.organizer_phone||"",feedback_email:v.feedback_email||"",public_information:v.public_information||""}}
-export default function AdminWorkspace(){
- const[token,setToken]=useState<string|null>(null),[account,setAccount]=useState<Account|null>(null),[cups,setCups]=useState<Cup[]>([]),[cupId,setCupId]=useState<number|null>(null),[cupinfo,setCupinfo]=useState<CupInfo|null>(null),[teams,setTeams]=useState<Team[]>([]),[groups,setGroups]=useState<Group[]>([]),[email,setEmail]=useState(""),[password,setPassword]=useState(""),[busy,setBusy]=useState(false),[error,setError]=useState(""),[message,setMessage]=useState("");
- const[teamDraft,setTeamDraft]=useState(emptyTeam),[groupDraft,setGroupDraft]=useState(emptyGroup); const activeCup=useMemo(()=>cups.find(c=>c.id===cupId)||null,[cups,cupId]);
- const load=useCallback(async(t:string,id:number)=>{const[a,b,c]=await Promise.all([request<CupInfo>(`/api/admin/cups/${id}/cupinfo`,{},t),request<{teams:Team[]}>(`/api/admin/cups/${id}/teams`,{},t),request<{groups:Group[]}>(`/api/admin/cups/${id}/groups`,{},t)]);setCupinfo(clean(a));setTeams(b.teams||[]);setGroups(c.groups||[])},[]);
- useEffect(()=>{const stored=localStorage.getItem(TOKEN_KEY);if(!stored)return;request<SessionPayload>("/api/admin/session",{},stored).then(async d=>{setToken(stored);setAccount(d.account);setCups(d.cups||[]);const id=Number(localStorage.getItem(CUP_KEY))||d.cups?.[0]?.id;if(id){setCupId(id);await load(stored,id)}}).catch(()=>localStorage.removeItem(TOKEN_KEY))},[load]);
- async function login(e:FormEvent){e.preventDefault();setBusy(true);setError("");try{const d=await request<SessionPayload>("/api/admin/session",{method:"POST",body:JSON.stringify({email,password})});if(!d.token)throw new Error("Ingen session returnerades.");localStorage.setItem(TOKEN_KEY,d.token);setToken(d.token);setAccount(d.account);setCups(d.cups||[]);const id=d.cups?.[0]?.id;if(id){setCupId(id);localStorage.setItem(CUP_KEY,String(id));await load(d.token,id)}}catch(x){setError(x instanceof Error?x.message:"Inloggningen misslyckades.")}finally{setBusy(false)}}
- async function changeCup(id:number){if(!token)return;setCupId(id);localStorage.setItem(CUP_KEY,String(id));setBusy(true);setError("");try{await load(token,id)}catch(x){setError(x instanceof Error?x.message:"Cupen kunde inte hämtas.")}finally{setBusy(false)}}
- async function saveCupInfo(e:FormEvent){e.preventDefault();if(!token||!cupId||!cupinfo)return;setBusy(true);setError("");try{const s=await request<CupInfo>(`/api/admin/cups/${cupId}/cupinfo`,{method:"PUT",body:JSON.stringify(cupinfo)},token);setCupinfo(clean(s));setMessage("Cupinfo sparad.")}catch(x){setError(x instanceof Error?x.message:"Kunde inte spara.")}finally{setBusy(false)}}
- async function saveTeam(e:FormEvent){e.preventDefault();if(!token||!cupId||!teamDraft.name.trim())return;setBusy(true);try{const s=await request<Team>(`/api/admin/cups/${cupId}/teams`,{method:"POST",body:JSON.stringify(teamDraft)},token);setTeams(v=>[...v,s]);setTeamDraft(emptyTeam)}catch(x){setError(x instanceof Error?x.message:"Kunde inte lägga till lag.")}finally{setBusy(false)}}
- async function saveGroup(e:FormEvent){e.preventDefault();if(!token||!cupId||!groupDraft.name.trim())return;setBusy(true);try{const s=await request<Group>(`/api/admin/cups/${cupId}/groups`,{method:"POST",body:JSON.stringify(groupDraft)},token);setGroups(v=>[...v,s]);setGroupDraft(emptyGroup)}catch(x){setError(x instanceof Error?x.message:"Kunde inte skapa grupp.")}finally{setBusy(false)}}
- if(!account)return <main className="admin-main" style={{maxWidth:720,margin:"0 auto"}}><header className="admin-pagehead"><div><p className="kicker">CUPNAVI</p><h1>Logga in</h1></div></header><form className="admin-panel admin-cupinfo" onSubmit={login}><h2>Cupadministration</h2><div className="admin-form-grid"><label>E-post<input type="email" value={email} onChange={e=>setEmail(e.target.value)} required/></label><label>Lösenord<input type="password" value={password} onChange={e=>setPassword(e.target.value)} required/></label></div>{error&&<p>{error}</p>}<div className="admin-form-footer"><span>Logga in för att administrera dina cuper.</span><button disabled={busy}>{busy?"Kontrollerar…":"Logga in"}</button></div></form></main>;
- const grouped=teams.filter(t=>t.group_id!=null).length; const infoReady=Boolean(cupinfo?.name&&cupinfo?.start_date); const teamsReady=teams.length>0; const groupsReady=groups.length>0&&grouped===teams.length; const done=[infoReady,teamsReady,groupsReady,Boolean(activeCup?.is_published)].filter(Boolean).length; const next=!infoReady?["Fyll i cupens grunduppgifter","#cupinfo"]:!teamsReady?["Lägg till lagen som ska spela","#teams"]:!groupsReady?["Skapa grupper och placera lagen","#groups"]:["Kontrollera matcher och publicering","#schedule"];
- const publicCup=activeCup?.public_slug?`/cup/${activeCup.public_slug}`:null;
- return <main className="admin-workspace admin-home-v2"><aside className="admin-sidebar"><div className="admin-sidebar__cup"><span>AKTIV CUP</span><strong>{activeCup?.name||"Ingen cup"}</strong><small>{activeCup?.start_date||"Datum saknas"}</small></div>{cups.length>1&&<label className="admin-cup-switch">Byt cup<select value={cupId||""} onChange={e=>changeCup(Number(e.target.value))}>{cups.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select></label>}<nav aria-label="Cupadministration">{nav.map(([n,h],i)=><a className={i===0?"is-active":""} href={h} key={n}><span>{String(i+1).padStart(2,"0")}</span>{n}</a>)}</nav></aside><section className="admin-main" id="overview"><header className="admin-home-hero"><div><span className="admin-home-eyebrow">{activeCup?.is_published?"PUBLICERAD":"UTKAST"}</span><h1>{activeCup?.name||"Din cup"}</h1><p>{activeCup?.start_date||"Datum saknas"}</p></div>{publicCup&&<a href={publicCup}>Förhandsgranska</a>}</header>{error&&<section className="admin-connection-note"><strong>Anslutningen till CupNavi bröts</strong><p>{error==="Failed to fetch"?"Servern svarade inte. Försök igen om en liten stund.":error}</p></section>}{message&&<p className="admin-home-message">{message}</p>}<section className="admin-next-card"><span>NÄSTA STEG</span><h2>{next[0]}</h2><a href={next[1]}>Fortsätt →</a></section><section className="admin-home-progress"><div><strong>Cupstatus</strong><span>{done}/4 klara</span></div><div className="admin-home-statuses"><a href="#cupinfo" className={infoReady?"is-done":""}>{infoReady?"✓":"○"} Cupinfo</a><a href="#teams" className={teamsReady?"is-done":""}>{teamsReady?"✓":"○"} Lag</a><a href="#groups" className={groupsReady?"is-done":""}>{groupsReady?"✓":"○"} Grupper</a><a href="#publish" className={activeCup?.is_published?"is-done":""}>{activeCup?.is_published?"✓":"○"} Publicera</a></div></section><nav className="admin-quick-actions" aria-label="Snabbval"><a href="#teams">Lag</a><a href="#schedule">Matcher</a><a href="#groups">Grupper</a><a href="#cupinfo">Cupinfo</a></nav><form className="admin-panel admin-cupinfo" id="cupinfo" onSubmit={saveCupInfo}><div className="admin-panel__top"><span>CUPINFO</span><strong>GRUNDUPPGIFTER</strong></div><h2>Om cupen</h2>{cupinfo?<><div className="admin-form-grid"><label>Cupnamn<input value={cupinfo.name} onChange={e=>setCupinfo({...cupinfo,name:e.target.value})} required/></label><label>Startdatum<input type="date" value={cupinfo.start_date||""} onChange={e=>setCupinfo({...cupinfo,start_date:e.target.value})}/></label><label>Slutdatum<input type="date" value={cupinfo.end_date||""} onChange={e=>setCupinfo({...cupinfo,end_date:e.target.value})}/></label><label>Arrangör<input value={cupinfo.organizer||""} onChange={e=>setCupinfo({...cupinfo,organizer:e.target.value})}/></label></div><div className="admin-form-footer"><span>Grunduppgifterna används i hela cupen.</span><button disabled={busy}>Spara</button></div></>:<p>Hämtar cupinfo…</p>}</form><section className="admin-panel admin-teams" id="teams"><div className="admin-panel__top"><span>LAG</span><strong>{teams.length} REGISTRERADE</strong></div><h2>Lag</h2><form onSubmit={saveTeam} className="admin-team-editor"><div className="admin-form-grid"><label>Lagnamn<input value={teamDraft.name} onChange={e=>setTeamDraft({...teamDraft,name:e.target.value})} required/></label><label>Klass<input value={teamDraft.age_class} onChange={e=>setTeamDraft({...teamDraft,age_class:e.target.value})}/></label></div><div className="admin-form-footer"><span>Lägg till ett lag.</span><button disabled={busy}>Lägg till lag</button></div></form><div className="admin-team-list">{teams.map(t=><article key={t.id}><div><strong>{t.name}</strong><small>{t.age_class||"Klass saknas"}</small></div></article>)}</div></section><section className="admin-panel admin-teams" id="groups"><div className="admin-panel__top"><span>GRUPPER</span><strong>{groups.length} GRUPPER</strong></div><h2>Grupper</h2><form onSubmit={saveGroup} className="admin-team-editor"><div className="admin-form-grid"><label>Gruppnamn<input value={groupDraft.name} onChange={e=>setGroupDraft({...groupDraft,name:e.target.value})} required/></label><label>Klass<input value={groupDraft.age_class} onChange={e=>setGroupDraft({...groupDraft,age_class:e.target.value})}/></label></div><div className="admin-form-footer"><span>Skapa grupp.</span><button disabled={busy}>Skapa grupp</button></div></form></section>{token&&cupId&&<VenueAdmin token={token} cupId={cupId}/>} {token&&cupId&&<RulesAdmin token={token} cupId={cupId}/>} {token&&cupId&&<ScheduleAdmin token={token} cupId={cupId}/>} {token&&cupId&&<RefereeAdmin token={token} cupId={cupId}/>} {token&&cupId&&<PlayoffAdmin token={token} cupId={cupId}/>}</section></main>
+
+const nav = [
+  ["Översikt", "#overview"], ["Cupinfo", "#cupinfo"], ["Lag", "#teams"], ["Grupper", "#groups"],
+  ["Planer & tider", "#venues"], ["Regler", "#rules"], ["Schema", "#schedule"], ["Domare", "#referees"],
+  ["Slutspel", "#playoffs"], ["Publicering", "#publish"], ["Matchrapportering", "#reporting"], ["Import", "#import"], ["PDF & export", "#export"]
+];
+
+const modules = [
+  ["publish","10","Publicering","Förhandsgranska cupen och publicera först när checklistan är klar."],
+  ["reporting","11","Matchrapportering","Resultat, målskyttar, assist och kort när statistiken är aktiverad."],
+  ["import","12","Import","Läs in tidigare cupprogram från dokument eller flera bilder utan att skriva över data tyst."],
+  ["export","13","PDF & export","Förhandsgranska, skapa och ladda ned cupens PDF från samma flöde."]
+];
+
+type Account = { id:number; email:string; display_name?:string|null; role?:string|null; is_owner?:boolean };
+type Cup = { id:number; name:string; public_slug?:string|null; start_date?:string|null; end_date?:string|null; is_published?:number|boolean; role:string };
+type TrashedCup = Cup & { trashed_at?:string|null };
+type CupInfo = {
+  id:number; public_slug?:string|null; is_published?:number|boolean;
+  name:string; start_date?:string|null; end_date?:string|null; organizer?:string|null;
+  arena_address?:string|null; organizer_phone?:string|null; feedback_email?:string|null;
+  public_information?:string|null;
+};
+type SessionPayload = { account:Account; cups:Cup[]; token?:string };
+type DeleteCupPayload = { deleted:boolean; recoverable:boolean; cup:Cup; cups:Cup[] };
+type RestoreCupPayload = { restored:boolean; cup:Cup; cups:Cup[]; trash:TrashedCup[] };
+type ApiStatus = "checking" | "online" | "offline";
+type Team = { id:number; tournament_id:number; name:string; group_id?:number|null; age_class?:string|null; primary_color?:string|null; secondary_color?:string|null };
+type Group = { id:number; tournament_id:number; name:string; age_class?:string|null; team_count:number };
+const emptyTeam = {name:"",age_class:"",primary_color:"#111827",secondary_color:"#FFFFFF"};
+const emptyGroup = {name:"",age_class:""};
+
+async function request<T>(path:string, options:RequestInit = {}, token?:string|null):Promise<T> {
+  const headers = new Headers(options.headers || {});
+  if (options.body) headers.set("Content-Type", "application/json");
+  if (token) headers.set("Authorization", `Bearer ${token}`);
+  const response = await fetch(`${API_BASE}${path}`, { ...options, headers, cache:"no-store" });
+  const payload = await response.json().catch(() => null);
+  if (!response.ok) {
+    const serverDetail = payload && typeof payload.detail === "string" ? payload.detail : "";
+    const detail = response.status === 401 ? "Fel e-postadress eller lösenord."
+      : response.status === 429 ? "För många försök. Vänta en stund innan du provar igen."
+      : response.status === 503 ? "Admin är tillfälligt inte korrekt konfigurerat på servern."
+      : serverDetail || `API-fel ${response.status}`;
+    throw new Error(detail);
+  }
+  return payload as T;
+}
+
+function cleanCupInfo(value:CupInfo):CupInfo {
+  return {
+    ...value,
+    name:value.name || "",
+    start_date:value.start_date || "",
+    end_date:value.end_date || "",
+    organizer:value.organizer || "",
+    arena_address:value.arena_address || "",
+    organizer_phone:value.organizer_phone || "",
+    feedback_email:value.feedback_email || "",
+    public_information:value.public_information || "",
+  };
+}
+
+function initialCup(cups:Cup[]):Cup|undefined {
+  const requested = Number(new URLSearchParams(window.location.search).get("cup"));
+  const stored = Number(localStorage.getItem(CUP_KEY));
+  return cups.find(cup => cup.id === requested)
+    || cups.find(cup => cup.id === stored)
+    || cups[0];
+}
+
+function rememberCup(cupId:number) {
+  localStorage.setItem(CUP_KEY,String(cupId));
+  const url = new URL(window.location.href);
+  url.searchParams.set("cup",String(cupId));
+  window.history.replaceState({},"",`${url.pathname}${url.search}${url.hash}`);
+}
+
+function forgetCup() {
+  localStorage.removeItem(CUP_KEY);
+  const url = new URL(window.location.href);
+  url.searchParams.delete("cup");
+  window.history.replaceState({},"",`${url.pathname}${url.search}${url.hash}`);
+}
+
+export default function AdminWorkspace() {
+  const [token,setToken] = useState<string|null>(null);
+  const [account,setAccount] = useState<Account|null>(null);
+  const [cups,setCups] = useState<Cup[]>([]);
+  const [trashedCups,setTrashedCups] = useState<TrashedCup[]>([]);
+  const [trashOpen,setTrashOpen] = useState(false);
+  const [cupId,setCupId] = useState<number|null>(null);
+  const [cupinfo,setCupinfo] = useState<CupInfo|null>(null);
+  const [teams,setTeams] = useState<Team[]>([]);
+  const [groups,setGroups] = useState<Group[]>([]);
+  const [teamDraft,setTeamDraft] = useState(emptyTeam);
+  const [groupDraft,setGroupDraft] = useState(emptyGroup);
+  const [editingTeam,setEditingTeam] = useState<number|null>(null);
+  const [editingGroup,setEditingGroup] = useState<number|null>(null);
+  const [email,setEmail] = useState("");
+  const [password,setPassword] = useState("");
+  const [busy,setBusy] = useState(false);
+  const [message,setMessage] = useState("");
+  const [error,setError] = useState("");
+  const [apiStatus,setApiStatus] = useState<ApiStatus>("checking");
+
+  const activeCup = useMemo(() => cups.find(cup => cup.id === cupId) || null,[cups,cupId]);
+  const isOwnerAccount = account?.role === "owner" || account?.is_owner === true;
+
+  const logout = useCallback(() => {
+    localStorage.removeItem(TOKEN_KEY);
+    setToken(null); setAccount(null); setCups([]); setTrashedCups([]); setTrashOpen(false); setCupId(null); setCupinfo(null); setTeams([]); setGroups([]);
+    setPassword(""); setMessage(""); setError("");
+  },[]);
+
+  const loadCupInfo = useCallback(async (nextToken:string, nextCupId:number) => {
+    const [data,teamData,groupData] = await Promise.all([
+      request<CupInfo>(`/api/admin/cups/${nextCupId}/cupinfo`,{},nextToken),
+      request<{teams:Team[]}>(`/api/admin/cups/${nextCupId}/teams`,{},nextToken),
+      request<{groups:Group[]}>(`/api/admin/cups/${nextCupId}/groups`,{},nextToken),
+    ]);
+    setCupinfo(cleanCupInfo(data)); setTeams(teamData.teams || []); setGroups(groupData.groups || []);
+    setEditingTeam(null); setTeamDraft(emptyTeam); setEditingGroup(null); setGroupDraft(emptyGroup);
+  },[]);
+
+  const loadTrash = useCallback(async (nextToken:string) => {
+    const data = await request<{cups:TrashedCup[]}>("/api/admin/trash",{},nextToken);
+    setTrashedCups(data.cups || []);
+  },[]);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    const timeout = window.setTimeout(() => controller.abort(),8000);
+    fetch(`${API_BASE}/health`,{cache:"no-store",signal:controller.signal})
+      .then(response => { if (!response.ok) throw new Error("API unavailable"); setApiStatus("online"); })
+      .catch(() => setApiStatus("offline"))
+      .finally(() => window.clearTimeout(timeout));
+    return () => { controller.abort(); window.clearTimeout(timeout); };
+  },[]);
+
+  useEffect(() => {
+    const stored = localStorage.getItem(TOKEN_KEY);
+    if (!stored) return;
+    setBusy(true);
+    request<SessionPayload>("/api/admin/session",{},stored)
+      .then(async data => {
+        setToken(stored); setAccount(data.account); setCups(data.cups || []);
+        if (data.account.role === "owner" || data.account.is_owner === true) await loadTrash(stored);
+        const selected = initialCup(data.cups || []);
+        if (selected) { setCupId(selected.id); rememberCup(selected.id); await loadCupInfo(stored,selected.id); }
+      })
+      .catch(() => logout())
+      .finally(() => setBusy(false));
+  },[loadCupInfo,loadTrash,logout]);
+
+  async function login(event:FormEvent) {
+    event.preventDefault(); setBusy(true); setError(""); setMessage("");
+    try {
+      const data = await request<SessionPayload>("/api/admin/session",{method:"POST",body:JSON.stringify({email,password})});
+      if (!data.token) throw new Error("API:t returnerade ingen session.");
+      localStorage.setItem(TOKEN_KEY,data.token);
+      setToken(data.token); setAccount(data.account); setCups(data.cups || []); setPassword("");
+      if (data.account.role === "owner" || data.account.is_owner === true) await loadTrash(data.token);
+      const selected = initialCup(data.cups || []);
+      if (selected) { setCupId(selected.id); rememberCup(selected.id); await loadCupInfo(data.token,selected.id); }
+      else setMessage("Kontot är giltigt men är inte kopplat till någon cup ännu.");
+    } catch (err) { setError(err instanceof Error ? err.message : "Inloggningen misslyckades."); }
+    finally { setBusy(false); }
+  }
+
+  async function changeCup(nextId:number) {
+    if (!token) return;
+    if (!cups.some(cup => cup.id === nextId)) { setError("Cupen finns inte i din behöriga lista."); return; }
+    setCupId(nextId); rememberCup(nextId); setBusy(true); setError(""); setMessage("");
+    try { await loadCupInfo(token,nextId); }
+    catch (err) { setError(err instanceof Error ? err.message : "Cupen kunde inte hämtas."); }
+    finally { setBusy(false); }
+  }
+
+  async function removeCup() {
+    if (!token || !activeCup || !isOwnerAccount) return;
+    if (!window.confirm(`Flytta ${activeCup.name} till papperskorgen?\n\nCupen avpubliceras direkt men kan återställas från papperskorgen.`)) return;
+    setBusy(true); setError(""); setMessage("");
+    try {
+      const removedName = activeCup.name;
+      const result = await request<DeleteCupPayload>(`/api/admin/cups/${activeCup.id}`,{
+        method:"DELETE",body:JSON.stringify({confirmed_name:activeCup.name})
+      },token);
+      const remaining = result.cups || [];
+      setCups(remaining); setCupinfo(null); setTeams([]); setGroups([]);
+      await loadTrash(token);
+      const nextCup = remaining[0];
+      if (nextCup) {
+        setCupId(nextCup.id); rememberCup(nextCup.id); await loadCupInfo(token,nextCup.id);
+        setMessage(`${removedName} har flyttats till papperskorgen.`);
+      } else {
+        setCupId(null); forgetCup();
+        setMessage(`${removedName} har flyttats till papperskorgen. Det finns ingen aktiv cup kvar.`);
+      }
+    } catch (err) { setError(err instanceof Error ? err.message : "Cupen kunde inte tas bort."); }
+    finally { setBusy(false); }
+  }
+
+  async function restoreCup(cup:TrashedCup) {
+    if (!token || !isOwnerAccount) return;
+    setBusy(true); setError(""); setMessage("");
+    try {
+      const result = await request<RestoreCupPayload>(`/api/admin/trash/${cup.id}/restore`,{method:"POST"},token);
+      setCups(result.cups || []); setTrashedCups(result.trash || []);
+      setCupId(result.cup.id); rememberCup(result.cup.id); await loadCupInfo(token,result.cup.id);
+      setMessage(`${cup.name} har återställts som opublicerat utkast.`);
+      if (!(result.trash || []).length) setTrashOpen(false);
+    } catch (err) { setError(err instanceof Error ? err.message : "Cupen kunde inte återställas."); }
+    finally { setBusy(false); }
+  }
+
+  async function emptyTrash() {
+    if (!token || !isOwnerAccount || !trashedCups.length) return;
+    if (!window.confirm(`Töm papperskorgen?\n\n${trashedCups.length} ${trashedCups.length === 1 ? "cup" : "cuper"} tas bort från papperskorgen och kan inte återställas i admin efter detta.`)) return;
+    setBusy(true); setError(""); setMessage("");
+    try {
+      await request<{emptied:boolean;deleted:number;trash:TrashedCup[]}>("/api/admin/trash",{method:"DELETE"},token);
+      const count = trashedCups.length;
+      setTrashedCups([]); setTrashOpen(false);
+      setMessage(`Papperskorgen är tömd. ${count} ${count === 1 ? "cup" : "cuper"} togs bort från återställningsvyn.`);
+    } catch (err) { setError(err instanceof Error ? err.message : "Papperskorgen kunde inte tömmas."); }
+    finally { setBusy(false); }
+  }
+
+  async function saveCupInfo(event:FormEvent) {
+    event.preventDefault();
+    if (!token || !cupId || !cupinfo) return;
+    setBusy(true); setError(""); setMessage("");
+    try {
+      const saved = await request<CupInfo>(`/api/admin/cups/${cupId}/cupinfo`,{
+        method:"PUT",
+        body:JSON.stringify({name:cupinfo.name,start_date:cupinfo.start_date || null,end_date:cupinfo.end_date || null,organizer:cupinfo.organizer || null,arena_address:cupinfo.arena_address || null,organizer_phone:cupinfo.organizer_phone || null,feedback_email:cupinfo.feedback_email || null,public_information:cupinfo.public_information || null})
+      },token);
+      const normalized = cleanCupInfo(saved);
+      setCupinfo(normalized);
+      setCups(current => current.map(cup => cup.id === cupId ? {...cup,name:normalized.name,start_date:normalized.start_date,end_date:normalized.end_date,public_slug:normalized.public_slug,is_published:normalized.is_published} : cup));
+      setMessage("Cupinfo sparad i CupNavis riktiga databas.");
+    } catch (err) { setError(err instanceof Error ? err.message : "Cupinfo kunde inte sparas."); }
+    finally { setBusy(false); }
+  }
+
+  function beginTeamEdit(team:Team) {
+    setEditingTeam(team.id);
+    setTeamDraft({name:team.name,age_class:team.age_class || "",primary_color:team.primary_color || "#111827",secondary_color:team.secondary_color || "#FFFFFF"});
+    setError(""); setMessage("");
+  }
+  function cancelTeamEdit() { setEditingTeam(null); setTeamDraft(emptyTeam); }
+
+  async function saveTeam(event:FormEvent) {
+    event.preventDefault();
+    if (!token || !cupId) return;
+    setBusy(true); setError(""); setMessage("");
+    try {
+      const path = editingTeam ? `/api/admin/cups/${cupId}/teams/${editingTeam}` : `/api/admin/cups/${cupId}/teams`;
+      const saved = await request<Team>(path,{method:editingTeam?"PUT":"POST",body:JSON.stringify(teamDraft)},token);
+      setTeams(current => editingTeam ? current.map(team=>team.id===saved.id?saved:team).sort((a,b)=>a.name.localeCompare(b.name,"sv")) : [...current,saved].sort((a,b)=>a.name.localeCompare(b.name,"sv")));
+      setMessage(editingTeam ? "Laget har uppdaterats." : "Laget har lagts till.");
+      cancelTeamEdit();
+    } catch (err) { setError(err instanceof Error ? err.message : "Laget kunde inte sparas."); }
+    finally { setBusy(false); }
+  }
+
+  async function removeTeam(team:Team) {
+    if (!token || !cupId || !window.confirm(`Ta bort ${team.name}? Åtgärden går inte att ångra.`)) return;
+    setBusy(true); setError(""); setMessage("");
+    try {
+      await request(`/api/admin/cups/${cupId}/teams/${team.id}`,{method:"DELETE"},token);
+      setTeams(current=>current.filter(item=>item.id!==team.id));
+      if (editingTeam===team.id) cancelTeamEdit();
+      setMessage(`${team.name} har tagits bort.`);
+    } catch (err) { setError(err instanceof Error ? err.message : "Laget kunde inte tas bort."); }
+    finally { setBusy(false); }
+  }
+
+  function beginGroupEdit(group:Group) {
+    setEditingGroup(group.id); setGroupDraft({name:group.name,age_class:group.age_class || ""}); setError(""); setMessage("");
+  }
+  function cancelGroupEdit() { setEditingGroup(null); setGroupDraft(emptyGroup); }
+
+  async function saveGroup(event:FormEvent) {
+    event.preventDefault();
+    if (!token || !cupId) return;
+    setBusy(true); setError(""); setMessage("");
+    try {
+      const path = editingGroup ? `/api/admin/cups/${cupId}/groups/${editingGroup}` : `/api/admin/cups/${cupId}/groups`;
+      const saved = await request<Group>(path,{method:editingGroup?"PUT":"POST",body:JSON.stringify(groupDraft)},token);
+      setGroups(current => editingGroup ? current.map(group=>group.id===saved.id?saved:group).sort((a,b)=>a.name.localeCompare(b.name,"sv")) : [...current,saved].sort((a,b)=>a.name.localeCompare(b.name,"sv")));
+      setMessage(editingGroup ? "Gruppen har uppdaterats." : "Gruppen har skapats.");
+      cancelGroupEdit();
+    } catch (err) { setError(err instanceof Error ? err.message : "Gruppen kunde inte sparas."); }
+    finally { setBusy(false); }
+  }
+
+  async function removeGroup(group:Group) {
+    if (!token || !cupId || !window.confirm(`Ta bort ${group.name}? Gruppen måste vara tom och oanvänd i schemat.`)) return;
+    setBusy(true); setError(""); setMessage("");
+    try {
+      await request(`/api/admin/cups/${cupId}/groups/${group.id}`,{method:"DELETE"},token);
+      setGroups(current=>current.filter(item=>item.id!==group.id));
+      if (editingGroup===group.id) cancelGroupEdit();
+      setMessage(`${group.name} har tagits bort.`);
+    } catch (err) { setError(err instanceof Error ? err.message : "Gruppen kunde inte tas bort."); }
+    finally { setBusy(false); }
+  }
+
+  async function assignGroup(team:Team, groupId:number|null) {
+    if (!token || !cupId) return;
+    setBusy(true); setError(""); setMessage("");
+    try {
+      const saved = await request<Team>(`/api/admin/cups/${cupId}/teams/${team.id}/group`,{method:"PUT",body:JSON.stringify({group_id:groupId})},token);
+      setTeams(current=>current.map(item=>item.id===saved.id?saved:item));
+      const groupData = await request<{groups:Group[]}>(`/api/admin/cups/${cupId}/groups`,{},token);
+      setGroups(groupData.groups || []);
+      setMessage(groupId ? `${team.name} har flyttats till ${groups.find(group=>group.id===groupId)?.name || "gruppen"}.` : `${team.name} är nu ogrupperat.`);
+    } catch (err) { setError(err instanceof Error ? err.message : "Gruppindelningen kunde inte sparas."); }
+    finally { setBusy(false); }
+  }
+
+  if (!account) {
+    return <main className="admin-main" style={{maxWidth:720,margin:"0 auto"}}>
+      <header className="admin-pagehead"><div><p className="kicker">CN//ADMIN</p><h1>Logga in</h1><p>Använd samma arrangörskonto som i CupNavi.</p></div></header>
+      <form className="admin-panel admin-cupinfo" onSubmit={login}>
+        <div className="admin-panel__top"><span>ARRANGÖR</span><strong className={`admin-api-status is-${apiStatus}`}>{apiStatus==="online"?"API ONLINE":apiStatus==="offline"?"API EJ NÅBAR":"KONTROLLERAR API"}</strong></div>
+        <h2>Cupadministration</h2>
+        <div className="admin-form-grid">
+          <label>E-post<input type="email" autoComplete="email" value={email} onChange={e=>setEmail(e.target.value)} required /></label>
+          <label>Lösenord<input type="password" autoComplete="current-password" value={password} onChange={e=>setPassword(e.target.value)} required /></label>
+        </div>
+        <div className="admin-form-footer"><span role={error?"alert":undefined}>{error || (apiStatus==="offline" ? "CupNavi kan inte nå servern just nu. Inloggning fungerar när API:t är online igen." : "Inloggningen verifieras mot befintliga arrangörskonton.")}</span><button type="submit" disabled={busy||apiStatus==="offline"}>{busy?"Kontrollerar…":"Logga in"}</button></div>
+        <details className="admin-login-help"><summary>Glömt lösenordet?</summary><p>Lösenord kan inte visas eller hämtas ur CupNavi. En behörig ägare behöver ange ett nytt lösenord i serverns säkra miljöinställningar.</p></details>
+      </form>
+    </main>;
+  }
+
+  const publicCup = activeCup?.public_slug ? `/cup/${activeCup.public_slug}` : null;
+  const isOwner = account.role === "owner" || account.is_owner === true;
+  const groupedTeams = teams.filter(team=>team.group_id != null).length;
+  const checks = [["Cupinfo",cupinfo?.name ? "Påbörjad":"Ej klar"],["Lag",teams.length?`${teams.length} registrerade`:"Ej klar"],["Grupper",groups.length?`${groups.length} grupper · ${groupedTeams}/${teams.length} lag`:"Ej klar"],["Schema","Riktig modul inkopplad"],["Publicering",activeCup?.is_published ? "Publicerad":"Ej klar"]];
+
+  return <main className="admin-workspace">
+    <aside className="admin-sidebar">
+      <div className="admin-sidebar__cup"><span>AKTIV CUP</span><strong>{activeCup?.name || "Ingen cup"}</strong><small>{activeCup?.start_date || "Datum saknas"}</small></div>
+      {cups.length > 1 && <label style={{display:"grid",gap:6,padding:"14px 10px"}}>Byt cup<select value={cupId || ""} onChange={e=>changeCup(Number(e.target.value))}>{cups.map(cup=><option key={cup.id} value={cup.id}>{cup.name}</option>)}</select></label>}
+      {isOwner && <>
+        <div className="admin-owner-actions">
+          {activeCup && <button className="admin-remove-cup" type="button" disabled={busy} onClick={()=>void removeCup()}>Ta bort cup</button>}
+          <button className={`admin-trash-button${trashOpen?" is-open":""}`} type="button" disabled={busy} onClick={()=>setTrashOpen(value=>!value)}>Papperskorg <span>{trashedCups.length}</span></button>
+        </div>
+        {trashOpen && <section className="admin-trash-panel" aria-label="Papperskorg">
+          <div className="admin-trash-head"><strong>Papperskorg</strong><span>{trashedCups.length} {trashedCups.length===1?"cup":"cuper"}</span></div>
+          {trashedCups.length ? <>
+            <div className="admin-trash-list">{trashedCups.map(cup=><div key={cup.id}><span><strong>{cup.name}</strong><small>{cup.start_date || "Datum saknas"}</small></span><button type="button" disabled={busy} onClick={()=>void restoreCup(cup)}>Återställ</button></div>)}</div>
+            <button className="admin-empty-trash" type="button" disabled={busy} onClick={()=>void emptyTrash()}>Töm papperskorg</button>
+          </> : <p className="admin-trash-empty">Papperskorgen är tom.</p>}
+        </section>}
+      </>}
+      <nav aria-label="Cupadministration">{nav.map(([item,href],index)=><a className={index===0?"is-active":""} href={href} key={item}><span>{String(index+1).padStart(2,"0")}</span>{item}</a>)}</nav>
+      {publicCup && <a className="admin-public-link" href={publicCup}>Visa publik cup ↗</a>}
+      <button className="admin-public-link" type="button" onClick={logout}>Logga ut</button>
+    </aside>
+
+    <section className="admin-main" id="overview">
+      <header className="admin-pagehead"><div><p className="kicker">CN//ADMIN</p><h1>Cupöversikt</h1><p>{account.display_name || account.email} · {activeCup?.role || "arrangör"}</p></div><div className="admin-pagehead__actions"><span className="admin-draft">{activeCup?.is_published?"PUBLICERAD":"UTKAST"}</span>{publicCup&&<a href={publicCup}>Förhandsgranska</a>}</div></header>
+      {(error||message) && <section className="admin-panel" style={{marginBottom:14}}><strong>{error?"Kunde inte genomföra ändringen":"Klart"}</strong><p>{error||message}</p></section>}
+      <section className="admin-dashboard-grid">
+        <article className="admin-panel admin-panel--status"><div className="admin-panel__top"><span>PUBLICERINGSSTATUS</span><strong>{activeCup?.is_published?"LIVE":"ARBETE PÅGÅR"}</strong></div><h2>{activeCup?.is_published?"Cupen är publicerad":"Cupen är inte publicerad än"}</h2><div className="admin-checks">{checks.map(([name,status],i)=><div key={name}><span className={i===0?"is-progress":""}>{i===0?"◐":"○"}</span><strong>{name}</strong><small>{status}</small></div>)}</div></article>
+        <article className="admin-panel admin-panel--codes"><div className="admin-panel__top"><span>BEHÖRIGHET</span><strong>SERVERVERIFIERAD</strong></div><h2>Åtkomst</h2><p>{isOwner ? "Du är inloggad som CupNavi-ägare och har åtkomst till alla cuper. Din senast valda behöriga cup återställs automatiskt." : "Du är inloggad med CupNavis befintliga arrangörskonto. Cupåtkomst hämtas från tournament_members."}</p><div className="admin-code-placeholder">Konto <b>{account.email}</b></div><div className="admin-code-placeholder">Roll <b>{isOwner ? "ägare" : activeCup?.role || "—"}</b></div></article>
+      </section>
+
+      <form className="admin-panel admin-cupinfo" id="cupinfo" onSubmit={saveCupInfo}>
+        <div className="admin-panel__top"><span>02 / CUPINFO</span><strong>{busy?"ARBETAR":"SKRIVANDE API AKTIVT"}</strong></div>
+        <div className="admin-cupinfo__head"><div><h2>Grunduppgifter</h2><p>Fälten läses från och sparas direkt till den valda cupens befintliga tournament-post.</p></div><span className="admin-lock">BEHÖRIG</span></div>
+        {cupinfo ? <>
+          <div className="admin-form-grid">
+            <label>Cupnamn<input value={cupinfo.name} onChange={e=>setCupinfo({...cupinfo,name:e.target.value})} required /></label>
+            <label>Startdatum<input type="date" value={cupinfo.start_date || ""} onChange={e=>setCupinfo({...cupinfo,start_date:e.target.value})} /></label>
+            <label>Slutdatum<input type="date" value={cupinfo.end_date || ""} onChange={e=>setCupinfo({...cupinfo,end_date:e.target.value})} /></label>
+            <label>Arrangör<input value={cupinfo.organizer || ""} onChange={e=>setCupinfo({...cupinfo,organizer:e.target.value})} /></label>
+            <label>Anläggning / adress<input value={cupinfo.arena_address || ""} onChange={e=>setCupinfo({...cupinfo,arena_address:e.target.value})} /></label>
+            <label>Telefon<input value={cupinfo.organizer_phone || ""} onChange={e=>setCupinfo({...cupinfo,organizer_phone:e.target.value})} /></label>
+            <label>Kontakt-e-post<input type="email" value={cupinfo.feedback_email || ""} onChange={e=>setCupinfo({...cupinfo,feedback_email:e.target.value})} /></label>
+            <label style={{gridColumn:"1 / -1"}}>Publik information<textarea rows={5} value={cupinfo.public_information || ""} onChange={e=>setCupinfo({...cupinfo,public_information:e.target.value})} /></label>
+          </div>
+          <div className="admin-form-footer"><span>{message || "Ändringar blir publika enligt cupens vanliga publiceringsstatus."}</span><button type="submit" disabled={busy || !cupinfo.name.trim()}>{busy?"Sparar…":"Spara Cupinfo"}</button></div>
+        </> : <p>{busy?"Hämtar Cupinfo…":"Ingen Cupinfo tillgänglig."}</p>}
+      </form>
+
+      <section className="admin-panel admin-teams" id="teams">
+        <div className="admin-panel__top"><span>03 / LAG</span><strong>{teams.length} REGISTRERADE</strong></div>
+        <div className="admin-cupinfo__head"><div><h2>Lag</h2><p>Skapa lag och håll lagnamn, klass och matchställ uppdaterade. Alla ändringar sparas direkt i cupens databas.</p></div><span className="admin-lock">CRUD AKTIVT</span></div>
+        <form onSubmit={saveTeam} className="admin-team-editor">
+          <div className="admin-form-grid">
+            <label>Lagnamn<input value={teamDraft.name} onChange={e=>setTeamDraft({...teamDraft,name:e.target.value})} required placeholder="Exempel: ÖSK P2014 Svart" /></label>
+            <label>Klass<input value={teamDraft.age_class} onChange={e=>setTeamDraft({...teamDraft,age_class:e.target.value})} placeholder="Exempel: P2014" /></label>
+            <label>Primär färg<span className="admin-color-input"><input type="color" value={teamDraft.primary_color} onChange={e=>setTeamDraft({...teamDraft,primary_color:e.target.value})} /><code>{teamDraft.primary_color}</code></span></label>
+            <label>Sekundär färg<span className="admin-color-input"><input type="color" value={teamDraft.secondary_color} onChange={e=>setTeamDraft({...teamDraft,secondary_color:e.target.value})} /><code>{teamDraft.secondary_color}</code></span></label>
+          </div>
+          <div className="admin-form-footer"><span>{editingTeam?"Du redigerar ett befintligt lag.":"Lägg till ett lag i den aktiva cupen."}</span><div className="admin-team-actions">{editingTeam&&<button type="button" onClick={cancelTeamEdit}>Avbryt</button>}<button type="submit" disabled={busy||!teamDraft.name.trim()}>{busy?"Sparar…":editingTeam?"Spara lag":"Lägg till lag"}</button></div></div>
+        </form>
+        <div className="admin-team-list">
+          {teams.length ? teams.map(team=><article key={team.id} className={editingTeam===team.id?"is-editing":""}>
+            <span className="admin-team-shirt" style={{background:`linear-gradient(135deg,${team.primary_color||"#111827"} 0 50%,${team.secondary_color||"#FFFFFF"} 50%)`}} aria-hidden="true" />
+            <div><strong>{team.name}</strong><small>{team.age_class||"Klass saknas"}{team.group_id?` · ${groups.find(group=>group.id===team.group_id)?.name || `Grupp ${team.group_id}`}`:" · Ej gruppindelat"}</small></div>
+            <div className="admin-team-actions"><button type="button" onClick={()=>beginTeamEdit(team)}>Redigera</button><button className="is-danger" type="button" onClick={()=>removeTeam(team)}>Ta bort</button></div>
+          </article>) : <div className="admin-empty"><strong>Inga lag ännu</strong><span>Lägg till det första laget ovan.</span></div>}
+        </div>
+      </section>
+
+      <section className="admin-panel admin-teams" id="groups">
+        <div className="admin-panel__top"><span>04 / GRUPPER</span><strong>{groups.length} GRUPPER · {groupedTeams}/{teams.length} LAG</strong></div>
+        <div className="admin-cupinfo__head"><div><h2>Gruppindelning</h2><p>Skapa grupper och placera varje lag. Flyttar sparas direkt och används av tabeller och kommande schemagenerering.</p></div><span className="admin-lock">CRUD AKTIVT</span></div>
+        <form onSubmit={saveGroup} className="admin-team-editor">
+          <div className="admin-form-grid">
+            <label>Gruppnamn<input value={groupDraft.name} onChange={e=>setGroupDraft({...groupDraft,name:e.target.value})} required placeholder="Exempel: Grupp A" /></label>
+            <label>Klass<input value={groupDraft.age_class} onChange={e=>setGroupDraft({...groupDraft,age_class:e.target.value})} placeholder="Exempel: P2014" /></label>
+          </div>
+          <div className="admin-form-footer"><span>{editingGroup?"Du redigerar en befintlig grupp.":"Skapa en grupp i den aktiva cupen."}</span><div className="admin-team-actions">{editingGroup&&<button type="button" onClick={cancelGroupEdit}>Avbryt</button>}<button type="submit" disabled={busy||!groupDraft.name.trim()}>{busy?"Sparar…":editingGroup?"Spara grupp":"Skapa grupp"}</button></div></div>
+        </form>
+        <div className="admin-team-list">
+          {groups.length ? groups.map(group=><article key={group.id} className={editingGroup===group.id?"is-editing":""}>
+            <div><strong>{group.name}</strong><small>{group.age_class||"Ingen klass"} · {group.team_count} lag</small></div>
+            <div className="admin-team-actions"><button type="button" onClick={()=>beginGroupEdit(group)}>Redigera</button><button className="is-danger" type="button" onClick={()=>removeGroup(group)} disabled={group.team_count>0}>Ta bort</button></div>
+          </article>) : <div className="admin-empty"><strong>Inga grupper ännu</strong><span>Skapa den första gruppen ovan.</span></div>}
+        </div>
+        <div className="admin-team-list" style={{marginTop:18}}>
+          {teams.map(team=><article key={`group-team-${team.id}`}>
+            <div><strong>{team.name}</strong><small>{team.age_class||"Klass saknas"}</small></div>
+            <label style={{marginLeft:"auto"}}>Grupp<select value={team.group_id ?? ""} disabled={busy} onChange={e=>assignGroup(team,e.target.value?Number(e.target.value):null)}><option value="">Ej gruppindelat</option>{groups.map(group=><option key={group.id} value={group.id}>{group.name}</option>)}</select></label>
+          </article>)}
+        </div>
+      </section>
+
+      {token && cupId && <VenueAdmin token={token} cupId={cupId} />}
+      {token && cupId && <RulesAdmin token={token} cupId={cupId} />}
+      {token && cupId && <ScheduleAdmin token={token} cupId={cupId} />}
+      {token && cupId && <RefereeAdmin token={token} cupId={cupId} />}
+      {token && cupId && <PlayoffAdmin token={token} cupId={cupId} />}
+
+      <section className="admin-module-grid" aria-label="Cupens arbetsflöde">{modules.map(([id,n,title,text])=><article className="admin-panel admin-module-card" id={id} key={id}><div className="admin-panel__top"><span>{n} / MODUL</span><strong>FÖRBEREDD</strong></div><h2>{title}</h2><p>{text}</p><button disabled>Öppna när datalagret är inkopplat</button></article>)}</section>
+    </section>
+  </main>;
 }
