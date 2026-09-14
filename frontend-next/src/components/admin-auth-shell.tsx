@@ -12,8 +12,7 @@ import ImportCompletionSummary from "./import-completion-summary";
 import ImportRecoveryGuard from "./import-recovery-guard";
 import { CLIENT_API_BASE } from "../lib/client-api";
 import {
-  ADMIN_SESSION_AUTHORITATIVE_HEADER,
-  ADMIN_SESSION_AUTHORITATIVE_VALUE,
+  authoritativeAdminSessionFetch,
   installAdminSessionFetchGate,
 } from "../lib/admin-session-fetch-gate";
 
@@ -87,11 +86,8 @@ export default function AdminAuthShell() {
       try {
         const controller = new AbortController();
         const timeout = window.setTimeout(() => controller.abort(), 9000);
-        const response = await fetch(`${CLIENT_API_BASE}/api/admin/session`, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            [ADMIN_SESSION_AUTHORITATIVE_HEADER]: ADMIN_SESSION_AUTHORITATIVE_VALUE,
-          },
+        const response = await authoritativeAdminSessionFetch(`${CLIENT_API_BASE}/api/admin/session`, {
+          headers: { Authorization: `Bearer ${token}` },
           cache: "no-store",
           signal: controller.signal,
         });
