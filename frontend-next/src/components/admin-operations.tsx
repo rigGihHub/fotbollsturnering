@@ -1,20 +1,19 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import ImportAdmin from "./import-admin";
 import PublishReportingAdmin from "./publish-reporting-admin";
 import RosterAdmin from "./roster-admin";
 import RoleCodeAdmin from "./role-code-admin";
 import RefereeRoleCodeAdmin from "./referee-role-code-admin";
 import TeamRoleCodeAdmin from "./team-role-code-admin";
-import { CLIENT_API_BASE } from "../lib/client-api";
 
-const API = CLIENT_API_BASE;
 const TOKEN_KEY = "cupnavi_admin_session_v629";
+const VERIFIED_CACHE_KEY = "cupnavi_admin_verified_v1";
 const CUP_KEY = "cupnavi_admin_active_cup_v651";
 
 type Cup = { id:number; name:string; role:string; public_slug?:string|null };
-type SessionPayload = { cups:Cup[] };
+type VerifiedCache = { token:string; cups:Cup[]; verifiedAt:number };
 
 function requestedCupId(cups:Cup[]) {
   const query = Number(new URLSearchParams(window.location.search).get("cup"));
@@ -23,86 +22,56 @@ function requestedCupId(cups:Cup[]) {
   return cups.some(cup => cup.id === candidate) ? candidate : (cups[0]?.id ?? null);
 }
 
+function readVerified():VerifiedCache|null {
+  try {
+    const raw=sessionStorage.getItem(VERIFIED_CACHE_KEY);
+    if(!raw)return null;
+    const parsed=JSON.parse(raw) as VerifiedCache;
+    const storedToken=localStorage.getItem(TOKEN_KEY);
+    if(!storedToken||parsed.token!==storedToken||!Array.isArray(parsed.cups))return null;
+    return parsed;
+  } catch { return null; }
+}
+
 export default function AdminOperations() {
   const [token,setToken] = useState<string|null>(null);
   const [cups,setCups] = useState<Cup[]>([]);
   const [cupId,setCupId] = useState<number|null>(null);
-  const [error,setError] = useState("");
 
-  const load = useCallback(async () => {
-    const storedToken = localStorage.getItem(TOKEN_KEY);
-    if (!storedToken) {
-      setToken(null); setCups([]); setCupId(null); setError("");
-      return;
-    }
-
-    try {
-      const response = await fetch(`${API}/api/admin/session`, {
-        headers:{Authorization:`Bearer ${storedToken}`},
-        cache:"no-store",
+  useEffect(() => {
+    const sync = () => {
+      const verified=readVerified();
+      if(!verified){return;}
+      setToken(verified.token);
+      setCups(verified.cups || []);
+      setCupId(requestedCupId(verified.cups || []));
+    };
+    sync();
+    window.addEventListener("storage",sync);
+    window.addEventListener("cupnavi:session-refresh",sync);
+    const timer=window.setInterval(()=>{
+      const verified=readVerified();
+      if(!verified)return;
+      setCupId(current=>{
+        const next=requestedCupId(verified.cups || []);
+        return current===next?current:next;
       });
-      const payload = await response.json().catch(() => null) as SessionPayload | {detail?:string} | null;
-
-      if (response.status === 401) {
-        // AdminAuthShell is the only component allowed to invalidate the stored
-        // session. This child may report the problem, but must never create its
-        // own logout race while another request is still succeeding.
-        setError("Sessionen kunde inte verifieras i den här modulen ännu.");
-        return;
-      }
-      if (!response.ok) {
-        const detail = payload && "detail" in payload && payload.detail ? payload.detail : `API-fel ${response.status}`;
-        throw new Error(detail);
-      }
-
-      const session = payload as SessionPayload;
-      const available = session.cups || [];
-      setToken(storedToken);
-      setCups(available);
-      setCupId(requestedCupId(available));
-      setError("");
-    } catch (err) {
-      // Keep the last known-good operational state during transient network,
-      // camera/file-picker resume and Render cold-start conditions.
-      setToken(current => current || storedToken);
-      setError(err instanceof Error ? `Tillfälligt anslutningsproblem: ${err.message}` : "Tillfälligt anslutningsproblem.");
-    }
+    },1200);
+    return()=>{
+      window.removeEventListener("storage",sync);
+      window.removeEventListener("cupnavi:session-refresh",sync);
+      window.clearInterval(timer);
+    };
   },[]);
 
-  useEffect(() => {
-    void load();
-    const refresh = () => { if (document.visibilityState === "visible") void load(); };
-    window.addEventListener("storage", refresh);
-    window.addEventListener("focus", refresh);
-    return () => {
-      window.removeEventListener("storage", refresh);
-      window.removeEventListener("focus", refresh);
-    };
-  },[load]);
-
-  useEffect(() => {
-    if (!cups.length) return;
-    const syncCup = () => {
-      const next = requestedCupId(cups);
-      setCupId(current => current === next ? current : next);
-    };
-    syncCup();
-    const timer = window.setInterval(syncCup, 1000);
-    return () => window.clearInterval(timer);
-  },[cups]);
-
-  if (!token || !cupId) {
-    if (!error) return null;
-    return <section className="admin-main"><section className="admin-panel"><strong>Operativa moduler kunde inte laddas</strong><p>{error}</p></section></section>;
-  }
+  if (!token || !cupId) return null;
 
   const activeCup=cups.find(cup=>cup.id===cupId)||null;
   return <section className="admin-main admin-operations-flow" aria-label="Operativa cupmoduler">
-    {error && <section className="admin-panel" style={{marginBottom:14}}><strong>Återansluter</strong><p>{error}</p></section>}
     <section className="admin-panel admin-flow-context" style={{marginBottom:14}}>
       <div className="admin-panel__top"><span>FORTSÄTT MED CUPEN</span><strong>AKTIV CUP · {activeCup?.role?.toUpperCase()}</strong></div>
       <div className="admin-flow-context__title">
-        <div><h2>{activeCup?.name || "Cup"}</h2><p>Samma aktiva cup används nu i hela admin. Du behöver inte välja cup en gång till här.</p></div>
+        <div><h2>{activeCup?.name || "Cup"}</h2><p>Samma aktiva cup används i hela admin.</p></div>
         <span className="admin-lock">SYNKAD</span>
       </div>
       <nav className="admin-flow-jumps" aria-label="Snabblänkar till cupens fortsatta arbete">
