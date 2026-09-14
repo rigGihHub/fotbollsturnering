@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import AdminWorkspace from "./admin-workspace";
 import AdminOperations from "./admin-operations";
+import AdminStepFlow from "./admin-step-flow";
 import CupCreateLauncher from "./cup-create-launcher-resilient";
 import CupSetupGuide from "./cup-setup-guide";
 import ApiWakeGuard from "./api-wake-guard";
@@ -99,6 +100,7 @@ export default function AdminAuthShell() {
       <ApiWakeGuard/>
       <ImportRecoveryGuard/>
       <CupCreateLauncher/>
+      <AdminStepFlow/>
       <CupSetupGuide/>
       <PitchWindowImportReview/>
       <PlayoffImportReview/>
