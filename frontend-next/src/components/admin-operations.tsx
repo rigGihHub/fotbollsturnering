@@ -35,13 +35,26 @@ export default function AdminOperations() {
       setToken(null); setCups([]); setCupId(null); setError("");
       return;
     }
+
+    // Keep the last known-good operational state during transient network or
+    // server errors. Only a verified 401 is allowed to invalidate auth here.
     try {
       const response = await fetch(`${API}/api/admin/session`, {
         headers:{Authorization:`Bearer ${storedToken}`},
         cache:"no-store",
       });
       const payload = await response.json().catch(() => null) as SessionPayload | {detail?:string} | null;
-      if (!response.ok) throw new Error(payload && "detail" in payload && payload.detail ? payload.detail : `API-fel ${response.status}`);
+
+      if (response.status === 401) {
+        setToken(null); setCups([]); setCupId(null);
+        setError("Sessionen är inte längre giltig. Logga in igen.");
+        return;
+      }
+      if (!response.ok) {
+        const detail = payload && "detail" in payload && payload.detail ? payload.detail : `API-fel ${response.status}`;
+        throw new Error(detail);
+      }
+
       const session = payload as SessionPayload;
       const available = session.cups || [];
       setToken(storedToken);
@@ -49,10 +62,12 @@ export default function AdminOperations() {
       setCupId(requestedCupId(available));
       setError("");
     } catch (err) {
-      setToken(null); setCups([]); setCupId(null);
-      setError(err instanceof Error ? err.message : "De operativa modulerna kunde inte läsa arrangörssessionen.");
+      // A Render cold start, timeout or 5xx must not blank operational modules
+      // or create the visual impression that the user was logged out.
+      if (!token) setToken(storedToken);
+      setError(err instanceof Error ? `Tillfälligt anslutningsproblem: ${err.message}` : "Tillfälligt anslutningsproblem.");
     }
-  },[]);
+  },[token]);
 
   useEffect(() => {
     void load();
@@ -78,6 +93,7 @@ export default function AdminOperations() {
 
   const activeCup=cups.find(cup=>cup.id===cupId)||null;
   return <section className="admin-main admin-operations-flow" aria-label="Operativa cupmoduler">
+    {error && <section className="admin-panel" style={{marginBottom:14}}><strong>Återansluter</strong><p>{error}</p></section>}
     <section className="admin-panel admin-flow-context" style={{marginBottom:14}}>
       <div className="admin-panel__top"><span>FORTSÄTT MED CUPEN</span><strong>AKTIV CUP · {activeCup?.role?.toUpperCase()}</strong></div>
       <div className="admin-flow-context__title">
