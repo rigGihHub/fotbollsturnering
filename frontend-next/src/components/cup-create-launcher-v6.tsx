@@ -12,6 +12,7 @@ const API_BASE = CLIENT_API_BASE;
 const TOKEN_KEY = "cupnavi_admin_session_v629";
 const CUP_KEY = "cupnavi_admin_active_cup_v651";
 const IMPORT_RESUME_KEY = "cupnavi_import_resume_v1";
+const IMPORT_WELCOME_KEY = "cupnavi_import_welcome_v1";
 const IMPORT_RESUME_MAX_AGE_MS = 24 * 60 * 60 * 1000;
 
 type SessionPayload = {
@@ -533,6 +534,14 @@ export default function CupCreateLauncherV6() {
         );
       }
       clearResume();
+      localStorage.setItem(IMPORT_WELCOME_KEY,JSON.stringify({
+        cupId:cup.id,
+        cupName:cup.name,
+        teams:teams.length,
+        groups:groups.length,
+        matches:importSchedule?matches.length:0,
+        venues:(proposal.venues||[]).length,
+      }));
       goToCup(cup);
     } catch (err) {
       const detail = friendlyImportError(err);
