@@ -5,6 +5,7 @@ import "./ux-v262.css";
 import "./ux-v265.css";
 import "./admin-step-flow.css";
 import "./ui-system-v2615.css";
+import "./mode-switch-v2615.css";
 import { PwaBoot } from "@/components/PwaBoot";
 import { ViewModeSwitch } from "@/components/ViewModeSwitch";
 
