@@ -22,6 +22,13 @@ CUPINFO_FIELDS = (
     "feedback_email",
     "public_information",
 )
+CUPINFO_OPTIONAL_TEXT_FIELDS = (
+    "organizer",
+    "arena_address",
+    "organizer_phone",
+    "feedback_email",
+    "public_information",
+)
 
 TEAM_FIELDS = ("name", "age_class", "primary_color", "secondary_color")
 TEAM_PROJECTION = "id,tournament_id,name,group_id,age_class,primary_color,secondary_color"
@@ -32,6 +39,29 @@ def _table_columns(table_name: str) -> set[str]:
     """Return columns without assuming that every lifecycle migration exists yet."""
     rows = all_rows(f"PRAGMA table_info({table_name})")
     return {str(row.get("name")) for row in rows if row.get("name")}
+
+
+def _ensure_cupinfo_columns() -> set[str]:
+    """Repair legacy tournament schemas before Cupinfo is read or written.
+
+    Older CupNavi databases can predate the descriptive Cupinfo fields. The API
+    must not crash merely because the database was created before those columns
+    existed. Add only the known optional TEXT columns and leave core identity,
+    dates and publishing columns to the normal schema migrations.
+    """
+    columns = _table_columns("tournaments")
+    if not columns:
+        return columns
+    missing = [field for field in CUPINFO_OPTIONAL_TEXT_FIELDS if field not in columns]
+    if not missing:
+        return columns
+    with connect() as con:
+        for field in missing:
+            con.execute(f"ALTER TABLE tournaments ADD COLUMN {field} TEXT")
+        commit = getattr(con, "commit", None)
+        if callable(commit):
+            commit()
+    return _table_columns("tournaments")
 
 
 def authenticate_organizer(email: str, password: str):
@@ -168,16 +198,22 @@ def _has_tournament_access(account_id: int, tournament_id: int) -> bool:
 def admin_cupinfo(account_id: int, tournament_id: int):
     if not _has_tournament_access(account_id, tournament_id):
         return None
-    fields = ",".join(("id", "public_slug", "is_published", *CUPINFO_FIELDS))
+    columns = _ensure_cupinfo_columns()
+    required = ("id", "public_slug", "is_published", "name", "start_date", "end_date")
+    missing_required = [field for field in required if field not in columns]
+    if missing_required:
+        raise RuntimeError(f"Tournament schema missing required columns: {','.join(missing_required)}")
+    fields = ",".join((*required, *CUPINFO_OPTIONAL_TEXT_FIELDS))
     return one(f"SELECT {fields} FROM tournaments WHERE id=?", (int(tournament_id),))
 
 
 def update_cupinfo(account_id: int, tournament_id: int, values: dict):
     if not _has_tournament_access(account_id, tournament_id):
         return None
+    columns = _ensure_cupinfo_columns()
     clean = {}
     for field in CUPINFO_FIELDS:
-        if field not in values:
+        if field not in values or field not in columns:
             continue
         value = values[field]
         if value is None:
@@ -222,7 +258,7 @@ def trash_tournament(account_id: int, tournament_id: int, confirmed_name: str):
         )
         rowcount = getattr(cursor, "rowcount", None)
         if rowcount is not None and rowcount >= 0 and rowcount != 1:
-            rollback = getattr(con, "rollback", None)
+            rollback = getattr(con,"rollback",None)
             if callable(rollback):
                 rollback()
             return None
