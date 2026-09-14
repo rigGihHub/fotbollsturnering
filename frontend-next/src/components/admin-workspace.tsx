@@ -36,12 +36,12 @@ type DeleteCupPayload = { deleted:boolean; recoverable:boolean; cup:Cup; cups:Cu
 type RestoreCupPayload = { restored:boolean; cup:Cup; cups:Cup[]; trash:TrashedCup[] };
 type ApiStatus = "checking" | "online" | "offline";
 type KitPattern = "Helfärgad"|"Vertikala ränder"|"Horisontella ränder"|"Rutigt"|"Delad";
-type Team = { id:number; tournament_id:number; name:string; group_id?:number|null; age_class?:string|null; primary_color?:string|null; secondary_color?:string|null; home_pattern?:KitPattern|null; home_color_2?:string|null; away_pattern?:KitPattern|null; away_color_2?:string|null };
+type Team = { id:number; tournament_id:number; name:string; group_id?:number|null; age_class?:string|null; primary_color?:string|null; secondary_color?:string|null; home_pattern?:KitPattern|null; home_color_2?:string|null; away_pattern?:KitPattern|null; away_color_2?:string|null; logo_url?:string|null; logo_source_url?:string|null };
 type Group = { id:number; tournament_id:number; name:string; age_class?:string|null; team_count:number };
 type ImportWelcome = { cupId:number; cupName:string; teams:number; groups:number; matches:number; venues:number };
 type KitCandidate = {name:string;location:string;country:string;source_url:string;reason:string;confidence:string};
-type KitSuggestion = {found:boolean;confidence:"low"|"medium"|"high";reason:string;club_match:string;identity_status:string;home_verified:boolean;away_verified:boolean;home_pattern:KitPattern;home_color_1:string;home_color_2:string;away_pattern:KitPattern;away_color_1:string;away_color_2:string;home_evidence:string;away_evidence:string;home_sources:string[];away_sources:string[];candidate_matches:KitCandidate[]};
-const emptyTeam = {name:"",age_class:"",primary_color:"#111827",secondary_color:"#FFFFFF",home_pattern:"Helfärgad" as KitPattern,home_color_2:"#FFFFFF",away_pattern:"Helfärgad" as KitPattern,away_color_2:"#111827"};
+type KitSuggestion = {found:boolean;confidence:"low"|"medium"|"high";reason:string;club_match:string;identity_status:string;home_verified:boolean;away_verified:boolean;home_pattern:KitPattern;home_color_1:string;home_color_2:string;away_pattern:KitPattern;away_color_1:string;away_color_2:string;home_evidence:string;away_evidence:string;home_sources:string[];away_sources:string[];candidate_matches:KitCandidate[];logo_url:string;logo_source_url:string;logo_verified:boolean};
+const emptyTeam = {name:"",age_class:"",primary_color:"#111827",secondary_color:"#FFFFFF",home_pattern:"Helfärgad" as KitPattern,home_color_2:"#FFFFFF",away_pattern:"Helfärgad" as KitPattern,away_color_2:"#111827",logo_url:"",logo_source_url:""};
 const emptyGroup = {name:"",age_class:""};
 const kitPatterns:KitPattern[]=["Helfärgad","Vertikala ränder","Horisontella ränder","Rutigt","Delad"];
 function kitBackground(pattern:KitPattern,c1:string,c2:string){
@@ -143,6 +143,8 @@ export default function AdminWorkspace({verifiedSession=null}:{verifiedSession?:
   const [kitBusy,setKitBusy] = useState(false);
   const [kitHint,setKitHint] = useState("");
   const [kitSuggestion,setKitSuggestion] = useState<KitSuggestion|null>(null);
+  const [bulkKitBusy,setBulkKitBusy] = useState(false);
+  const [bulkKitProgress,setBulkKitProgress] = useState("");
 
   const activeCup = useMemo(() => cups.find(cup => cup.id === cupId) || null,[cups,cupId]);
   const isOwnerAccount = account?.role === "owner" || account?.is_owner === true;
@@ -357,13 +359,14 @@ export default function AdminWorkspace({verifiedSession=null}:{verifiedSession?:
       setCupinfo(normalized);
       setCups(current => current.map(cup => cup.id === cupId ? {...cup,name:normalized.name,start_date:normalized.start_date,end_date:normalized.end_date,public_slug:normalized.public_slug,is_published:normalized.is_published} : cup));
       setMessage("Cupinfo sparad.");
+      window.location.hash="teams";
     } catch (err) { setError(err instanceof Error ? err.message : "Cupinfo kunde inte sparas."); }
     finally { setBusy(false); }
   }
 
   function beginTeamEdit(team:Team) {
     setEditingTeam(team.id);
-    setTeamDraft({name:team.name,age_class:team.age_class || "",primary_color:team.primary_color || "#111827",secondary_color:team.secondary_color || "#FFFFFF",home_pattern:team.home_pattern||"Helfärgad",home_color_2:team.home_color_2||"#FFFFFF",away_pattern:team.away_pattern||"Helfärgad",away_color_2:team.away_color_2||"#111827"});
+    setTeamDraft({name:team.name,age_class:team.age_class || "",primary_color:team.primary_color || "#111827",secondary_color:team.secondary_color || "#FFFFFF",home_pattern:team.home_pattern||"Helfärgad",home_color_2:team.home_color_2||"#FFFFFF",away_pattern:team.away_pattern||"Helfärgad",away_color_2:team.away_color_2||"#111827",logo_url:team.logo_url||"",logo_source_url:team.logo_source_url||""});
     setKitSuggestion(null);setKitHint("");
     setError(""); setMessage("");
   }
@@ -384,8 +387,30 @@ export default function AdminWorkspace({verifiedSession=null}:{verifiedSession?:
     setTeamDraft(current=>({...current,
       ...(kitSuggestion.home_verified?{primary_color:kitSuggestion.home_color_1,home_color_2:kitSuggestion.home_color_2,home_pattern:kitSuggestion.home_pattern}:{}),
       ...(kitSuggestion.away_verified?{secondary_color:kitSuggestion.away_color_1,away_color_2:kitSuggestion.away_color_2,away_pattern:kitSuggestion.away_pattern}:{}),
+      ...(kitSuggestion.logo_verified?{logo_url:kitSuggestion.logo_url,logo_source_url:kitSuggestion.logo_source_url}:{}),
     }));
     setMessage("Tröjförslaget är infört i formuläret. Spara laget för att bekräfta ändringen.");
+  }
+
+  async function searchAllTeamAssets(){
+    if(!token||!cupId||!teams.length||bulkKitBusy)return;
+    setBulkKitBusy(true);setError("");setMessage("");let completed=0,saved=0,failed=0;const updated:Team[]=[];
+    for(let start=0;start<teams.length;start+=3){
+      const batch=teams.slice(start,start+3);
+      await Promise.all(batch.map(async team=>{try{
+        const suggestion=await request<KitSuggestion>(`/api/admin/cups/${cupId}/teams/kit-search`,{method:"POST",body:JSON.stringify({team_name:team.name,age_class:team.age_class||null})},token);
+        if(suggestion.identity_status==="ambiguous"||(!suggestion.home_verified&&!suggestion.away_verified&&!suggestion.logo_verified))return;
+        const payload={...team,
+          ...(suggestion.home_verified?{primary_color:suggestion.home_color_1,home_color_2:suggestion.home_color_2,home_pattern:suggestion.home_pattern}:{}),
+          ...(suggestion.away_verified?{secondary_color:suggestion.away_color_1,away_color_2:suggestion.away_color_2,away_pattern:suggestion.away_pattern}:{}),
+          ...(suggestion.logo_verified?{logo_url:suggestion.logo_url,logo_source_url:suggestion.logo_source_url}:{}),
+        };
+        const result=await request<Team>(`/api/admin/cups/${cupId}/teams/${team.id}`,{method:"PUT",body:JSON.stringify(payload)},token);updated.push(result);saved++;
+      }catch{failed++;}finally{completed++;setBulkKitProgress(`${completed} av ${teams.length} lag kontrollerade`);}}));
+    }
+    setTeams(current=>current.map(team=>updated.find(item=>item.id===team.id)||team));
+    setMessage(`${saved} lag uppdaterades med verifierade tröjor eller klubbmärken.${failed?` ${failed} sökningar misslyckades.`:""} Osäkra träffar lämnades oförändrade.`);
+    setBulkKitBusy(false);
   }
 
   async function saveTeam(event:FormEvent) {
@@ -535,13 +560,14 @@ export default function AdminWorkspace({verifiedSession=null}:{verifiedSession?:
             <label>Kontakt-e-post<input type="email" value={cupinfo.feedback_email || ""} onChange={e=>setCupinfo({...cupinfo,feedback_email:e.target.value})} /></label>
             <label style={{gridColumn:"1 / -1"}}>Publik information<textarea rows={5} value={cupinfo.public_information || ""} onChange={e=>setCupinfo({...cupinfo,public_information:e.target.value})} /></label>
           </div>
-          <div className="admin-form-footer"><span>{message || ""}</span><button type="submit" disabled={busy || !cupinfo.name.trim()}>{busy?"Sparar…":"Spara Cupinfo"}</button></div>
+          <div className="admin-form-footer"><span>{message || ""}</span><button type="submit" disabled={busy || !cupinfo.name.trim()}>{busy?"Sparar…":"Spara och fortsätt till Lag →"}</button></div>
         </> : <p>{busy?"Hämtar Cupinfo…":"Cupinfo kunde inte hämtas ännu."}</p>}
       </form>}
 
       {activeStep==="teams" && <section className="admin-panel admin-teams" id="teams">
         <div className="admin-panel__top"><span>03 / LAG</span><strong>{teams.length} REGISTRERADE</strong></div>
         <div className="admin-cupinfo__head"><div><h2>Lag</h2><p>Skapa och redigera lag.</p></div><span className="admin-lock">REDIGERING</span></div>
+        {teams.length>0&&<div className="admin-bulk-assets"><div><strong>Tröjor och klubbmärken</strong><span>{bulkKitProgress||"Sök igenom alla lag och spara bara entydigt verifierade träffar."}</span></div><button type="button" disabled={bulkKitBusy} onClick={()=>void searchAllTeamAssets()}>{bulkKitBusy?"Söker…":"Sök för alla lag"}</button></div>}
         <form onSubmit={saveTeam} className="admin-team-editor">
           <div className="admin-form-grid">
             <label>Lagnamn<input value={teamDraft.name} onChange={e=>setTeamDraft({...teamDraft,name:e.target.value})} required placeholder="Exempel: ÖSK P2014 Svart" /></label>
@@ -552,6 +578,7 @@ export default function AdminWorkspace({verifiedSession=null}:{verifiedSession?:
             <label>Hemmafärg 2<span className="admin-color-input"><input type="color" value={teamDraft.home_color_2} onChange={e=>setTeamDraft({...teamDraft,home_color_2:e.target.value})}/><code>{teamDraft.home_color_2}</code></span></label>
             <label>Bortamönster<select value={teamDraft.away_pattern} onChange={e=>setTeamDraft({...teamDraft,away_pattern:e.target.value as KitPattern})}>{kitPatterns.map(pattern=><option key={pattern}>{pattern}</option>)}</select></label>
             <label>Bortafärg 2<span className="admin-color-input"><input type="color" value={teamDraft.away_color_2} onChange={e=>setTeamDraft({...teamDraft,away_color_2:e.target.value})}/><code>{teamDraft.away_color_2}</code></span></label>
+            <label style={{gridColumn:"1 / -1"}}>Klubbmärke (HTTPS-bildadress)<input type="url" value={teamDraft.logo_url} onChange={e=>setTeamDraft({...teamDraft,logo_url:e.target.value})} placeholder="https://klubb.se/logo.png" /></label>
           </div>
           <section className="admin-kit-search" aria-label="Sök lagets matchställ">
             <div><strong>Sök tröjfärger och mönster</strong><span>CupNavi söker på nätet och visar källorna. Du bestämmer vad som sparas.</span></div>
@@ -565,11 +592,13 @@ export default function AdminWorkspace({verifiedSession=null}:{verifiedSession?:
         </form>
         <div className="admin-team-list">
           {teams.length ? teams.map(team=><article key={team.id} className={editingTeam===team.id?"is-editing":""}>
+            {team.logo_url?<img className="admin-team-logo" src={team.logo_url} alt={`${team.name} klubbmärke`} loading="lazy" referrerPolicy="no-referrer"/>:<span className="admin-team-logo is-empty" aria-hidden="true">CN</span>}
             <span className="admin-team-shirt" style={{background:kitBackground(team.home_pattern||"Helfärgad",team.primary_color||"#111827",team.home_color_2||"#FFFFFF")}} aria-hidden="true" />
             <div><strong>{team.name}</strong><small>{team.age_class||"Klass saknas"}{team.group_id?` · ${groups.find(group=>group.id===team.group_id)?.name || `Grupp ${team.group_id}`}`:" · Ej gruppindelat"}</small></div>
             <div className="admin-team-actions"><button type="button" onClick={()=>beginTeamEdit(team)}>Redigera</button><button className="is-danger" type="button" onClick={()=>removeTeam(team)}>Ta bort</button></div>
           </article>) : <div className="admin-empty"><strong>Inga lag ännu</strong><span>Lägg till det första laget ovan.</span></div>}
         </div>
+        {teams.length>0&&<div className="admin-step-complete"><span>Alla lag inlagda och kontrollerade?</span><a href="#groups">Klar med lag → Grupper</a></div>}
       </section>}
 
       {activeStep==="groups" && <section className="admin-panel admin-teams" id="groups">
@@ -594,6 +623,7 @@ export default function AdminWorkspace({verifiedSession=null}:{verifiedSession?:
             <label style={{marginLeft:"auto"}}>Grupp<select value={team.group_id ?? ""} disabled={busy} onChange={e=>assignGroup(team,e.target.value?Number(e.target.value):null)}><option value="">Ej gruppindelat</option>{groups.map(group=><option key={group.id} value={group.id}>{group.name}</option>)}</select></label>
           </article>)}
         </div>
+        {teams.length>0&&groupedTeams===teams.length&&<div className="admin-step-complete"><span>Alla lag är gruppindelade.</span><a href="#venues">Fortsätt till Planer & tider →</a></div>}
       </section>}
 
       {activeStep==="venues" && token && cupId && <VenueAdmin token={token} cupId={cupId} />}

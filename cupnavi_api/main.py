@@ -83,6 +83,8 @@ class TeamWrite(BaseModel):
     home_color_2: str | None = None
     away_pattern: str | None = None
     away_color_2: str | None = None
+    logo_url: str | None = None
+    logo_source_url: str | None = None
 
 
 class KitSearchRequest(BaseModel):

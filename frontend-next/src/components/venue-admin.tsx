@@ -57,6 +57,7 @@ export default function VenueAdmin({token,cupId}:{token:string;cupId:number}) {
         method:"PUT",body:JSON.stringify(data.rules)
       },token);
       setData(saved); setMessage(saved.scheduled_count?"Planinställningarna är sparade. Befintliga matcher är orörda och schemat är markerat för kontroll.":"Planinställningarna är sparade.");
+      window.location.hash="rules";
     } catch(err) { setError(err instanceof Error?err.message:"Planinställningarna kunde inte sparas."); }
     finally { setBusy(false); }
   }
@@ -108,7 +109,7 @@ export default function VenueAdmin({token,cupId}:{token:string;cupId:number}) {
         <label>Sista möjliga avspark<input type="time" value={data.rules.latest_kickoff_time} onChange={e=>setData({...data,rules:{...data.rules,latest_kickoff_time:e.target.value}})} /></label>
         <label style={{display:"flex",alignItems:"center",gap:10}}><input type="checkbox" checked={data.rules.consider_pitch_travel} onChange={e=>setData({...data,rules:{...data.rules,consider_pitch_travel:e.target.checked}})} /> Ta hänsyn till restid mellan planer</label>
       </div>
-      <div className="admin-form-footer"><span>Matchlängd och lagvila ligger under Regler; här anger du faktisk plankapacitet.</span><button type="submit" disabled={busy}>{busy?"Sparar…":"Spara plankapacitet"}</button></div>
+      <div className="admin-form-footer"><span>Matchlängd och lagvila ligger under Regler; här anger du faktisk plankapacitet.</span><button type="submit" disabled={busy}>{busy?"Sparar…":"Spara och fortsätt till Regler →"}</button></div>
     </form>
 
     <div className="admin-team-list" style={{marginTop:18}}>

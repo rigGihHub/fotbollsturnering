@@ -96,6 +96,11 @@ def normalize_kit_suggestion(payload):
     if identity_status not in ALLOWED_IDENTITY_STATUS:
         identity_status = "unknown"
     candidate_matches = _candidate_matches(payload.get("candidate_matches") or [])
+    logo_url = str(payload.get("logo_url") or "").strip()
+    logo_source_url = str(payload.get("logo_source_url") or "").strip()
+    logo_verified = bool(payload.get("logo_verified")) and logo_url.startswith("https://") and logo_source_url.startswith(("http://", "https://"))
+    if identity_status in {"ambiguous", "unknown"}:
+        logo_verified = False
 
     home_sources = _urls(payload.get("home_sources") or [])
     away_sources = _urls(payload.get("away_sources") or [])
@@ -151,6 +156,9 @@ def normalize_kit_suggestion(payload):
         "club_match": " ".join(str(payload.get("club_match") or "uncertain").split())[:120],
         "identity_status": identity_status,
         "candidate_matches": candidate_matches,
+        "logo_url": logo_url if logo_verified else "",
+        "logo_source_url": logo_source_url if logo_verified else "",
+        "logo_verified": logo_verified,
     }
 
 
@@ -236,6 +244,9 @@ def _schema():
             "away_verified": {"type": "boolean"},
             "club_match": {"type": "string"},
             "identity_status": {"type": "string", "enum": ALLOWED_IDENTITY_STATUS},
+            "logo_url": {"type": "string"},
+            "logo_source_url": {"type": "string"},
+            "logo_verified": {"type": "boolean"},
             "candidate_matches": {
                 "type": "array",
                 "maxItems": 4,
@@ -260,6 +271,7 @@ def _schema():
             "away_pattern", "away_color_1", "away_color_2",
             "home_sources", "away_sources", "home_evidence", "away_evidence", "sources",
             "home_verified", "away_verified", "club_match", "identity_status", "candidate_matches",
+            "logo_url", "logo_source_url", "logo_verified",
         ],
         "additionalProperties": False,
     }
@@ -279,6 +291,7 @@ def _request_suggestion(clean_name, api_key, *, model, timeout_seconds, strategy
         "Om flera trovärdiga källor motsäger varandra, välj den nyaste relevanta säsongen och sänk confidence. "
         "Det är bättre att returnera bara ett belagt hemmaställ än att fylla i ett osäkert bortaställ. "
         "För verifierade ställ: ange praktiska HEX-färger (#RRGGBB) och närmast passande tillåtet mönster. "
+        "Hitta även klubbens officiella logotyp. logo_url måste vara en direkt HTTPS-bildadress och logo_source_url sidan som belägger att märket tillhör rätt klubb. Sätt logo_verified=true endast när klubbidentiteten och bilden är tydliga. "
         "sources ska vara unionen av de viktigaste källorna. Inget sparas automatiskt; arrangören granskar förslaget."
     )
     body = {

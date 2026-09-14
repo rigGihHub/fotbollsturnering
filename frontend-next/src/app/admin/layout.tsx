@@ -9,6 +9,7 @@ import "../admin-v262.css";
 import "../admin-wow-v2622.css";
 import "../admin-import-welcome-v2626.css";
 import "../admin-mobile-cohesion-v2628.css";
+import "../admin-polish-v2629.css";
 
 export default function AdminLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return children;

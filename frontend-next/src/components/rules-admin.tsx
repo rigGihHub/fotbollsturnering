@@ -26,7 +26,7 @@ export default function RulesAdmin({token,cupId}:{token:string;cupId:number}){
   const[message,setMessage]=useState(""); const[error,setError]=useState("");
   const load=useCallback(async()=>{setBusy(true);setError("");try{setData(await api<RulesPayload>(`/api/admin/cups/${cupId}/rules`,{},token));}catch(err){setError(err instanceof Error?err.message:"Reglerna kunde inte hämtas.");}finally{setBusy(false);}},[cupId,token]);
   useEffect(()=>{void load();},[load]);
-  async function save(event:FormEvent){event.preventDefault();if(!data)return;setBusy(true);setError("");setMessage("");try{const saved=await api<RulesPayload>(`/api/admin/cups/${cupId}/rules`,{method:"PUT",body:JSON.stringify(data)},token);setData(saved);setMessage(saved.scheduled_count?"Reglerna är sparade. Schemat har markerats för kontroll där tidsregler påverkas.":"Reglerna är sparade.");}catch(err){setError(err instanceof Error?err.message:"Reglerna kunde inte sparas.");}finally{setBusy(false);}}
+  async function save(event:FormEvent){event.preventDefault();if(!data)return;setBusy(true);setError("");setMessage("");try{const saved=await api<RulesPayload>(`/api/admin/cups/${cupId}/rules`,{method:"PUT",body:JSON.stringify(data)},token);setData(saved);setMessage(saved.scheduled_count?"Reglerna är sparade. Schemat har markerats för kontroll där tidsregler påverkas.":"Reglerna är sparade.");window.location.hash="schedule";}catch(err){setError(err instanceof Error?err.message:"Reglerna kunde inte sparas.");}finally{setBusy(false);}}
   if(!data)return <section className="admin-panel admin-teams" id="rules"><div className="admin-panel__top"><span>06 / REGLER</span><strong>{busy?"HÄMTAR":"SAKNAS"}</strong></div><h2>Regler</h2><p>{error||"Hämtar cupens regler…"}</p></section>;
   return <section className="admin-panel admin-teams" id="rules">
     <div className="admin-panel__top"><span>06 / REGLER</span><strong>{data.sport.toUpperCase()} · {data.match_duration_minutes} MIN/MATCH</strong></div>
@@ -51,7 +51,7 @@ export default function RulesAdmin({token,cupId}:{token:string;cupId:number}){
         <label>Extra paus vid raka matcher<input type="number" min={0} max={180} disabled={!data.avoid_consecutive_matches} value={data.consecutive_match_break_minutes} onChange={e=>setData({...data,consecutive_match_break_minutes:Number(e.target.value)})}/></label>
         <label style={{display:"flex",alignItems:"center",gap:10}}><input type="checkbox" checked={data.avoid_consecutive_matches} onChange={e=>setData({...data,avoid_consecutive_matches:e.target.checked})}/> Undvik raka matcher för samma lag</label>
       </div>
-      <div className="admin-form-footer"><span>Beräknad matchtid: <b>{data.match_duration_minutes} minuter</b>. {data.scheduled_count?`${data.scheduled_count} matcher är redan schemalagda.`:"Inga matcher är schemalagda ännu."}</span><button type="submit" disabled={busy}>{busy?"Sparar…":"Spara regler"}</button></div>
+      <div className="admin-form-footer"><span>Beräknad matchtid: <b>{data.match_duration_minutes} minuter</b>. {data.scheduled_count?`${data.scheduled_count} matcher är redan schemalagda.`:"Inga matcher är schemalagda ännu."}</span><button type="submit" disabled={busy}>{busy?"Sparar…":"Spara och fortsätt till Schema →"}</button></div>
     </form>
   </section>;
 }
