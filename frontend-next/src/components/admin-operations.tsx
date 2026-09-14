@@ -14,6 +14,7 @@ const CUP_KEY = "cupnavi_admin_active_cup_v651";
 
 type Cup = { id:number; name:string; role:string; public_slug?:string|null };
 type VerifiedCache = { token:string; cups:Cup[]; verifiedAt:number };
+type HeavyStep = "publish"|"reporting"|"import"|"other";
 
 function requestedCupId(cups:Cup[]) {
   const query = Number(new URLSearchParams(window.location.search).get("cup"));
@@ -33,72 +34,80 @@ function readVerified():VerifiedCache|null {
   } catch { return null; }
 }
 
+function activeHeavyStep():HeavyStep {
+  const hash=window.location.hash.replace(/^#/,"");
+  if(hash==="publish")return "publish";
+  if(hash==="reporting")return "reporting";
+  if(hash==="import")return "import";
+  return "other";
+}
+
 export default function AdminOperations() {
   const [token,setToken] = useState<string|null>(null);
   const [cups,setCups] = useState<Cup[]>([]);
   const [cupId,setCupId] = useState<number|null>(null);
+  const [step,setStep] = useState<HeavyStep>("other");
 
   useEffect(() => {
     const sync = () => {
       const verified=readVerified();
-      if(!verified){return;}
-      setToken(verified.token);
-      setCups(verified.cups || []);
-      setCupId(requestedCupId(verified.cups || []));
+      if(verified){
+        setToken(verified.token);
+        setCups(verified.cups || []);
+        setCupId(requestedCupId(verified.cups || []));
+      }
+      setStep(activeHeavyStep());
+    };
+    const onStep=(event:Event)=>{
+      const detail=(event as CustomEvent<string>).detail;
+      if(detail==="publish"||detail==="reporting"||detail==="import")setStep(detail);
+      else setStep("other");
     };
     sync();
     window.addEventListener("storage",sync);
     window.addEventListener("cupnavi:session-refresh",sync);
-    const timer=window.setInterval(()=>{
-      const verified=readVerified();
-      if(!verified)return;
-      setCupId(current=>{
-        const next=requestedCupId(verified.cups || []);
-        return current===next?current:next;
-      });
-    },1200);
+    window.addEventListener("hashchange",sync);
+    window.addEventListener("cupnavi:admin-step",onStep);
     return()=>{
       window.removeEventListener("storage",sync);
       window.removeEventListener("cupnavi:session-refresh",sync);
-      window.clearInterval(timer);
+      window.removeEventListener("hashchange",sync);
+      window.removeEventListener("cupnavi:admin-step",onStep);
     };
   },[]);
 
-  if (!token || !cupId) return null;
+  if (!token || !cupId || step==="other") return null;
 
   const activeCup=cups.find(cup=>cup.id===cupId)||null;
-  return <section className="admin-main admin-operations-flow" aria-label="Operativa cupmoduler">
-    <section className="admin-panel admin-flow-context" style={{marginBottom:14}}>
-      <div className="admin-panel__top"><span>FORTSÄTT MED CUPEN</span><strong>AKTIV CUP · {activeCup?.role?.toUpperCase()}</strong></div>
-      <div className="admin-flow-context__title">
-        <div><h2>{activeCup?.name || "Cup"}</h2><p>Samma aktiva cup används i hela admin.</p></div>
-        <span className="admin-lock">SYNKAD</span>
+
+  if(step==="import") {
+    return <section className="admin-main admin-operations-flow" aria-label="Import">
+      <div className="admin-flow-group">
+        <div className="admin-flow-group__label"><span>12</span><div><strong>Import</strong><small>Uppdatera cupen från nytt underlag utan tysta överskrivningar.</small></div></div>
+        <ImportAdmin token={token} cupId={cupId}/>
       </div>
-      <nav className="admin-flow-jumps" aria-label="Snabblänkar till cupens fortsatta arbete">
-        <a href="#access-flow">Behörighet</a>
-        <a href="#roster-flow">Trupper</a>
-        <a href="#publish">Publicering</a>
-        <a href="#reporting">Rapportering</a>
-        <a href="#import">Import</a>
-      </nav>
+    </section>;
+  }
+
+  return <section className="admin-main admin-operations-flow" aria-label={step==="publish"?"Publicering":"Matchrapportering"}>
+    <section className="admin-panel admin-flow-context" style={{marginBottom:14}}>
+      <div className="admin-panel__top"><span>{step==="publish"?"PUBLICERING":"MATCHRAPPORTERING"}</span><strong>AKTIV CUP · {activeCup?.role?.toUpperCase()}</strong></div>
+      <div className="admin-flow-context__title"><div><h2>{activeCup?.name || "Cup"}</h2><p>Bara moduler för det valda steget laddas.</p></div><span className="admin-lock">SNABBLÄGE</span></div>
     </section>
-    <div id="access-flow" className="admin-flow-group">
-      <div className="admin-flow-group__label"><span>01</span><div><strong>Behörighet</strong><small>Koder för rapportör, domare och lagportal.</small></div></div>
-      <RoleCodeAdmin token={token} cupId={cupId} publicSlug={activeCup?.public_slug}/>
-      <RefereeRoleCodeAdmin token={token} cupId={cupId} publicSlug={activeCup?.public_slug}/>
-      <TeamRoleCodeAdmin token={token} cupId={cupId} publicSlug={activeCup?.public_slug}/>
-    </div>
-    <div id="roster-flow" className="admin-flow-group">
-      <div className="admin-flow-group__label"><span>02</span><div><strong>Trupper</strong><small>Spelare och lagens trupparbete.</small></div></div>
-      <RosterAdmin token={token} cupId={cupId}/>
-    </div>
+    {step==="reporting" && <>
+      <div id="access-flow" className="admin-flow-group">
+        <div className="admin-flow-group__label"><span>A</span><div><strong>Behörighet</strong><small>Koder för rapportör, domare och lagportal.</small></div></div>
+        <RoleCodeAdmin token={token} cupId={cupId} publicSlug={activeCup?.public_slug}/>
+        <RefereeRoleCodeAdmin token={token} cupId={cupId} publicSlug={activeCup?.public_slug}/>
+        <TeamRoleCodeAdmin token={token} cupId={cupId} publicSlug={activeCup?.public_slug}/>
+      </div>
+      <div id="roster-flow" className="admin-flow-group">
+        <div className="admin-flow-group__label"><span>B</span><div><strong>Trupper</strong><small>Spelare och lagens trupparbete.</small></div></div>
+        <RosterAdmin token={token} cupId={cupId}/>
+      </div>
+    </>}
     <div className="admin-flow-group">
-      <div className="admin-flow-group__label"><span>03</span><div><strong>Publicera & rapportera</strong><small>Kontrollera cupen, publicera och rapportera matcher.</small></div></div>
       <PublishReportingAdmin token={token} cupId={cupId}/>
-    </div>
-    <div className="admin-flow-group">
-      <div className="admin-flow-group__label"><span>04</span><div><strong>Import</strong><small>Uppdatera cupen från nytt underlag utan tysta överskrivningar.</small></div></div>
-      <ImportAdmin token={token} cupId={cupId}/>
     </div>
   </section>;
 }
