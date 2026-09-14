@@ -5,7 +5,6 @@ import AdminWorkspace from "./admin-workspace";
 import AdminOperations from "./admin-operations";
 import AdminStepFlow from "./admin-step-flow";
 import CupCreateLauncher from "./cup-create-launcher-resilient";
-import CupSetupGuide from "./cup-setup-guide";
 import ApiWakeGuard from "./api-wake-guard";
 import PlayoffImportReview from "./playoff-import-review";
 import PitchWindowImportReview from "./pitch-window-import-review";
@@ -62,6 +61,9 @@ export default function AdminAuthShell() {
         return;
       }
 
+      // Once admin is authenticated, never unmount the working UI just because
+      // a background revalidation starts. Camera/file pickers temporarily hide
+      // the page on mobile and destroying the tree here loses in-progress work.
       setState(current => current === "authenticated" ? current : "checking");
       try {
         const controller = new AbortController();
@@ -77,7 +79,9 @@ export default function AdminAuthShell() {
           unauthorizedRef.current += 1;
           const inResumeGrace = recentlyResumed();
           if (inResumeGrace || unauthorizedRef.current < UNAUTHORIZED_CONFIRMATIONS) {
-            if (!cancelled) setState("waiting");
+            // Preserve authenticated children while confirming the 401. A single
+            // stale/mobile-resume response must not wipe forms, imports or modals.
+            setState(current => current === "authenticated" ? current : "waiting");
             scheduleVerify(inResumeGrace ? 2500 : 900);
             return;
           }
@@ -94,7 +98,8 @@ export default function AdminAuthShell() {
       } catch {
         if (cancelled) return;
         unauthorizedRef.current = 0;
-        setState("waiting");
+        // Same rule for timeouts/5xx/offline: keep authenticated UI mounted.
+        setState(current => current === "authenticated" ? current : "waiting");
         scheduleVerify(1800);
       }
     }
@@ -150,7 +155,6 @@ export default function AdminAuthShell() {
       <ImportRecoveryGuard/>
       <CupCreateLauncher/>
       <AdminStepFlow/>
-      <CupSetupGuide/>
       <PitchWindowImportReview/>
       <PlayoffImportReview/>
       <ImportCompletionSummary/>
