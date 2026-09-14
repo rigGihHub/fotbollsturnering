@@ -116,7 +116,7 @@ export default function AdminAuthShell() {
         try { sessionStorage.setItem(BACKGROUND_KEY, String(Date.now())); } catch {}
         return;
       }
-      if (state !== "authenticated") scheduleVerify(350);
+      if (localStorage.getItem(TOKEN_KEY)) scheduleVerify(350);
     };
     document.addEventListener("visibilitychange", onVisibility);
 
@@ -126,7 +126,7 @@ export default function AdminAuthShell() {
       window.clearInterval(tokenWatcher);
       if (retryRef.current !== null) window.clearTimeout(retryRef.current);
     };
-  }, [authKey, state]);
+  }, [authKey]);
 
   if (state === "checking" || state === "waiting") {
     return (
