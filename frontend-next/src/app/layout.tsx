@@ -4,8 +4,9 @@ import "./ux-polish.css";
 import "./ux-v262.css";
 import "./ux-v265.css";
 import { PwaBoot } from "@/components/PwaBoot";
+import { ViewModeSwitch } from "@/components/ViewModeSwitch";
 
-const APP_VERSION = "2.6.7";
+const APP_VERSION = "2.6.11";
 
 export const metadata: Metadata = {
   title: `CupNavi v${APP_VERSION}`,
@@ -30,6 +31,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
           <span className="app-version-badge" aria-label={`CupNavi version ${APP_VERSION}`}>v{APP_VERSION}</span>
         </header>
         <PwaBoot />
+        <ViewModeSwitch />
         {children}
       </body>
     </html>
