@@ -4,7 +4,7 @@ import "./ux-polish.css";
 import "./ux-v262.css";
 import { PwaBoot } from "@/components/PwaBoot";
 
-const APP_VERSION = "2.6.3";
+const APP_VERSION = "2.6.4";
 
 export const metadata: Metadata = {
   title: `CupNavi v${APP_VERSION}`,
