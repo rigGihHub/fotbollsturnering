@@ -1,0 +1,54 @@
+/* CupNavi v2.6.16 — focused UX corrections after full-app review. */
+
+/* The real publish/report/import flows already exist below. Keeping a second
+   set of "kommer senare" cards in AdminWorkspace contradicted the actual UI
+   and made the page feel unfinished, so hide that legacy placeholder grid. */
+.admin-module-grid{display:none!important}
+
+/* On mobile the desktop edition nav was previously hidden while the bottom
+   nav only exposed four destinations. That made Slutspel and sometimes
+   Cupinfo unreachable. Keep the full tab rail available as a compact,
+   horizontally scrollable secondary navigation. */
+@media(max-width:900px){
+  .edition-nav--desktop{
+    display:flex!important;
+    position:sticky;
+    top:0;
+    z-index:35;
+    width:calc(100% + 24px);
+    margin:0 -12px 14px;
+    padding:6px 10px;
+    border-left:0;
+    border-right:0;
+    border-radius:0;
+    overflow-x:auto;
+    scroll-snap-type:x proximity;
+  }
+  .edition-nav--desktop button{
+    flex:0 0 auto;
+    min-height:42px;
+    padding:0 12px;
+    scroll-snap-align:start;
+  }
+  .edition-nav--desktop button span{font-size:9px}
+
+  /* The active cup should remain visible, but the mobile admin header must
+     consume less vertical space before the actual work starts. */
+  .admin-sidebar__cup small{margin-top:2px}
+  .admin-sidebar__cup span{font-size:9px}
+  .admin-sidebar__cup strong{line-height:1.05}
+
+  /* Avoid competing fixed controls near the public bottom navigation. */
+  .view-mode-switch.is-public{bottom:72px!important}
+}
+
+@media(max-width:560px){
+  .edition-nav--desktop{margin-bottom:10px}
+  .edition-nav--desktop button{min-height:40px;padding:0 10px;font-size:12px}
+  .mobile-bottom-nav{padding-bottom:max(4px,env(safe-area-inset-bottom))}
+
+  /* Forms were still visually dense in a few admin sections. */
+  .admin-cupinfo__head{align-items:flex-start}
+  .admin-lock{font-size:9px;padding:5px 7px}
+  .admin-team-actions button{flex:1}
+}
