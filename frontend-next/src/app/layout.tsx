@@ -1,9 +1,10 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import "./ux-polish.css";
+import "./ux-v262.css";
 import { PwaBoot } from "@/components/PwaBoot";
 
-const APP_VERSION = "2.6.1";
+const APP_VERSION = "2.6.2";
 
 export const metadata: Metadata = {
   title: `CupNavi v${APP_VERSION}`,
