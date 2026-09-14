@@ -1,0 +1,24 @@
+/* App-wide UX polish: touch targets, mobile spacing and overflow safety. */
+html{scroll-behavior:smooth}body{overflow-x:hidden}.brandbar{position:relative;z-index:90}.brand{min-height:46px;display:inline-flex;align-items:center}.brand small{white-space:nowrap}
+button,a,input,select,textarea{touch-action:manipulation}button,a{ -webkit-tap-highlight-color:transparent }
+button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:3px solid rgba(33,169,184,.38);outline-offset:2px}
+.page-shell{padding-bottom:86px}.edition-nav button,.mobile-bottom-nav button,.favorite-chip,.next-match-actions button,.next-match-actions a{min-height:44px}
+.match-grid,.bracket-grid,.my-teams-grid{min-width:0}.match-grid>*{min-width:0}.texttv__scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}.section-heading p{max-width:65ch}
+.mobile-bottom-nav{padding-bottom:max(8px,env(safe-area-inset-bottom));backdrop-filter:blur(12px);background:rgba(16,38,48,.96)}
+.mobile-bottom-nav button{min-width:0}.mobile-bottom-nav button span{line-height:1}
+
+@media(max-width:760px){
+  .brandbar{padding-left:14px!important;padding-right:14px!important}.brand{font-size:20px!important}.brand small{display:none!important}
+  .page-shell{width:100%;max-width:100%;padding-left:12px!important;padding-right:12px!important;padding-bottom:92px!important}
+  .edition-nav--desktop{display:none!important}
+  .section-heading{margin-top:18px!important;margin-bottom:12px!important}.section-heading h2{font-size:clamp(32px,10vw,45px)!important;line-height:.95!important}.section-heading p{font-size:14px!important;line-height:1.45!important}
+  .favorite-strip{padding:12px!important;border-radius:14px!important}.favorite-strip__head{gap:8px;align-items:flex-start}.favorite-strip__head span{display:block;margin-top:2px}.favorite-chips{gap:7px!important}.favorite-chip{min-height:42px!important;padding:8px 10px!important}
+  .next-match-hero{margin-top:12px!important}.next-match-hero__label{gap:8px;flex-wrap:wrap}.next-match-actions{display:grid!important;grid-template-columns:1fr 1fr;gap:8px!important}.next-match-actions>*{width:100%;justify-content:center}
+  .match-grid,.bracket-grid,.my-teams-grid{grid-template-columns:1fr!important;gap:10px!important}
+  .team-pass,.editorial-card,.feature-card,.empty-state{border-radius:14px!important}
+  .texttv{border-radius:12px!important;overflow:hidden}.texttv__header{gap:8px!important}.texttv table{min-width:560px}.texttv th,.texttv td{padding:9px 8px!important;font-size:12px!important}
+  .mobile-bottom-nav{left:8px!important;right:8px!important;bottom:8px!important;width:auto!important;border-radius:16px!important;overflow:hidden;box-shadow:0 8px 28px rgba(0,0,0,.2)}
+  .mobile-bottom-nav button{padding:8px 4px!important;font-size:11px!important}.mobile-bottom-nav button span{font-size:15px!important}
+}
+
+@media(max-width:380px){.page-shell{padding-left:9px!important;padding-right:9px!important}.next-match-actions{grid-template-columns:1fr}.mobile-bottom-nav{left:5px!important;right:5px!important;bottom:5px!important}.mobile-bottom-nav button{font-size:10px!important}}
