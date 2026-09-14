@@ -27,12 +27,17 @@ function stepFromHash(): StepId {
   return IDS.has(value) ? value as StepId : "overview";
 }
 
+function announceStep(step:StepId) {
+  document.documentElement.dataset.adminStep = step;
+  window.dispatchEvent(new CustomEvent("cupnavi:admin-step", { detail: step }));
+}
+
 export default function AdminStepFlow() {
   const [step, setStep] = useState<StepId>("overview");
 
   const select = useCallback((next: StepId) => {
     setStep(next);
-    document.documentElement.dataset.adminStep = next;
+    announceStep(next);
     const url = new URL(window.location.href);
     url.hash = next;
     window.history.replaceState({}, "", `${url.pathname}${url.search}${url.hash}`);
@@ -43,7 +48,7 @@ export default function AdminStepFlow() {
     const sync = () => {
       const next = stepFromHash();
       setStep(next);
-      document.documentElement.dataset.adminStep = next;
+      announceStep(next);
     };
     sync();
     window.addEventListener("hashchange", sync);
