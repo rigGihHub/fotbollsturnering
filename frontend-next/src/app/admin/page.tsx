@@ -1,6 +1,6 @@
 import AdminWorkspace from "@/components/admin-workspace";
 import AdminOperations from "@/components/admin-operations";
-import CupCreateLauncher from "@/components/cup-create-launcher-v5";
+import CupCreateLauncher from "@/components/cup-create-launcher-v6";
 import CupSetupGuide from "@/components/cup-setup-guide";
 import ApiWakeGuard from "@/components/api-wake-guard";
 import PlayoffImportReview from "@/components/playoff-import-review";
