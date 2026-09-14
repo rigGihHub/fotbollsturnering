@@ -4,11 +4,9 @@ import { useEffect, useRef, useState } from "react";
 import AdminWorkspace from "./admin-workspace";
 import AdminOperations from "./admin-operations";
 import AdminStepFlow from "./admin-step-flow";
+import AdminLazyExtras from "./admin-lazy-extras";
 import CupCreateLauncher from "./cup-create-launcher-resilient";
 import ApiWakeGuard from "./api-wake-guard";
-import PlayoffImportReview from "./playoff-import-review";
-import PitchWindowImportReview from "./pitch-window-import-review";
-import ImportCompletionSummary from "./import-completion-summary";
 import ImportRecoveryGuard from "./import-recovery-guard";
 import { CLIENT_API_BASE } from "../lib/client-api";
 import {
@@ -177,9 +175,7 @@ export default function AdminAuthShell() {
       <ImportRecoveryGuard/>
       <CupCreateLauncher/>
       <AdminStepFlow/>
-      <PitchWindowImportReview/>
-      <PlayoffImportReview/>
-      <ImportCompletionSummary/>
+      <AdminLazyExtras/>
       <AdminWorkspace key={`admin-${authKey}`} />
       <AdminOperations/>
     </>
