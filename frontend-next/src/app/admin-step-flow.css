@@ -1,0 +1,38 @@
+/* CupNavi v2.6.12: one admin step at a time. */
+.admin-step-flow{max-width:1180px;margin:14px auto 0;padding:14px 18px;border:1.5px solid #17313f;border-radius:22px;background:#f7f4eb;box-shadow:0 4px 0 rgba(23,49,63,.12)}
+.admin-step-flow__meta{display:flex;align-items:baseline;justify-content:space-between;gap:12px}.admin-step-flow__meta span{font-size:.78rem;letter-spacing:.14em;font-weight:800;color:#369eaa}.admin-step-flow__meta strong{font-size:1.05rem;color:#102f3c}.admin-step-flow__track{height:6px;margin:10px 0 12px;border-radius:999px;background:#dce3df;overflow:hidden}.admin-step-flow__track span{display:block;height:100%;background:#102f3c;border-radius:inherit;transition:width .2s ease}.admin-step-flow__actions{display:flex;justify-content:space-between;gap:10px}.admin-step-flow__actions button{min-height:44px;padding:9px 14px;border:1.5px solid #17313f;border-radius:14px;background:#fffdf7;color:#102f3c;font-weight:800}.admin-step-flow__actions button.is-primary{margin-left:auto;background:#102f3c;color:white}.admin-step-flow__actions button:disabled{opacity:.35}
+
+html[data-admin-step] #cupinfo,
+html[data-admin-step] #teams,
+html[data-admin-step] #groups,
+html[data-admin-step] #venues,
+html[data-admin-step] #rules,
+html[data-admin-step] #schedule,
+html[data-admin-step] #referees,
+html[data-admin-step] #playoffs,
+html[data-admin-step] .admin-workspace .admin-module-grid{display:none!important}
+html[data-admin-step]:not([data-admin-step="overview"]) .admin-workspace #overview>.admin-pagehead,
+html[data-admin-step]:not([data-admin-step="overview"]) .admin-workspace #overview>.admin-dashboard-grid{display:none!important}
+html[data-admin-step="cupinfo"] #cupinfo,
+html[data-admin-step="teams"] #teams,
+html[data-admin-step="groups"] #groups,
+html[data-admin-step="venues"] #venues,
+html[data-admin-step="rules"] #rules,
+html[data-admin-step="schedule"] #schedule,
+html[data-admin-step="referees"] #referees,
+html[data-admin-step="playoffs"] #playoffs{display:block!important}
+
+html[data-admin-step] .admin-operations-flow{display:none!important}
+html[data-admin-step="publish"] .admin-operations-flow,
+html[data-admin-step="reporting"] .admin-operations-flow,
+html[data-admin-step="import"] .admin-operations-flow{display:block!important}
+html[data-admin-step="publish"] .admin-operations-flow>.admin-flow-group,
+html[data-admin-step="reporting"] .admin-operations-flow>.admin-flow-group,
+html[data-admin-step="import"] .admin-operations-flow>.admin-flow-group{display:none!important}
+html[data-admin-step="publish"] .admin-operations-flow>.admin-flow-group:nth-of-type(3),
+html[data-admin-step="reporting"] .admin-operations-flow>.admin-flow-group:nth-of-type(3),
+html[data-admin-step="import"] .admin-operations-flow>.admin-flow-group:nth-of-type(4){display:block!important}
+html[data-admin-step="export"] .admin-workspace .admin-module-grid{display:grid!important}
+html[data-admin-step="export"] .admin-workspace .admin-module-grid>article:not(#export){display:none!important}
+
+@media(max-width:760px){.admin-step-flow{position:sticky;top:0;z-index:18;margin:0;border-radius:0;border-left:0;border-right:0;padding:10px 14px;background:rgba(247,244,235,.97);backdrop-filter:blur(10px)}.admin-step-flow__meta strong{font-size:.95rem}.admin-step-flow__actions button{font-size:.88rem;padding:8px 10px}.admin-step-flow__actions .is-primary{max-width:65%}}
