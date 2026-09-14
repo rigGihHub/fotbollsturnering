@@ -13,11 +13,25 @@ import ImportRecoveryGuard from "./import-recovery-guard";
 import { CLIENT_API_BASE } from "../lib/client-api";
 
 const TOKEN_KEY = "cupnavi_admin_session_v629";
+const VERIFIED_CACHE_KEY = "cupnavi_admin_verified_v1";
 const BACKGROUND_KEY = "cupnavi_admin_last_background_v1";
 const MOBILE_RESUME_GRACE_MS = 30_000;
 const UNAUTHORIZED_CONFIRMATIONS = 2;
 
 type AuthState = "checking" | "authenticated" | "unauthenticated" | "waiting";
+type Account = { id:number; email:string; role?:string|null; is_owner?:boolean };
+type Cup = { id:number; name:string; role:string; public_slug?:string|null };
+type SessionPayload = { account:Account; cups:Cup[] };
+
+function clearVerifiedCache() {
+  try { sessionStorage.removeItem(VERIFIED_CACHE_KEY); } catch {}
+}
+
+function writeVerifiedCache(token:string,payload:SessionPayload) {
+  try {
+    sessionStorage.setItem(VERIFIED_CACHE_KEY,JSON.stringify({token,account:payload.account,cups:payload.cups || [],verifiedAt:Date.now()}));
+  } catch {}
+}
 
 export default function AdminAuthShell() {
   const [state, setState] = useState<AuthState>("checking");
@@ -57,13 +71,14 @@ export default function AdminAuthShell() {
 
       if (!token) {
         unauthorizedRef.current = 0;
+        clearVerifiedCache();
         setState("unauthenticated");
         return;
       }
 
-      // Once admin is authenticated, never unmount the working UI just because
-      // a background revalidation starts. Camera/file pickers temporarily hide
-      // the page on mobile and destroying the tree here loses in-progress work.
+      // Never unmount an already authenticated workspace merely because a
+      // background revalidation starts. Camera/file pickers hide the page on
+      // mobile and destroying the tree here loses in-progress work.
       setState(current => current === "authenticated" ? current : "checking");
       try {
         const controller = new AbortController();
@@ -79,26 +94,27 @@ export default function AdminAuthShell() {
           unauthorizedRef.current += 1;
           const inResumeGrace = recentlyResumed();
           if (inResumeGrace || unauthorizedRef.current < UNAUTHORIZED_CONFIRMATIONS) {
-            // Preserve authenticated children while confirming the 401. A single
-            // stale/mobile-resume response must not wipe forms, imports or modals.
             setState(current => current === "authenticated" ? current : "waiting");
             scheduleVerify(inResumeGrace ? 2500 : 900);
             return;
           }
           localStorage.removeItem(TOKEN_KEY);
+          clearVerifiedCache();
           unauthorizedRef.current = 0;
           if (!cancelled) setState("unauthenticated");
           return;
         }
 
         if (!response.ok) throw new Error(`session ${response.status}`);
+        const payload = await response.json() as SessionPayload;
+        writeVerifiedCache(token,payload);
         unauthorizedRef.current = 0;
         try { sessionStorage.removeItem(BACKGROUND_KEY); } catch {}
         if (!cancelled) setState("authenticated");
       } catch {
         if (cancelled) return;
         unauthorizedRef.current = 0;
-        // Same rule for timeouts/5xx/offline: keep authenticated UI mounted.
+        // Timeouts, 5xx and mobile resume keep the verified workspace alive.
         setState(current => current === "authenticated" ? current : "waiting");
         scheduleVerify(1800);
       }
@@ -112,6 +128,7 @@ export default function AdminAuthShell() {
       if (token === lastTokenRef.current) return;
       lastTokenRef.current = token;
       unauthorizedRef.current = 0;
+      if (!token) clearVerifiedCache();
       if (retryRef.current !== null) window.clearTimeout(retryRef.current);
       setAuthKey(value => value + 1);
     }, 700);
@@ -123,11 +140,14 @@ export default function AdminAuthShell() {
       }
       if (localStorage.getItem(TOKEN_KEY)) scheduleVerify(350);
     };
+    const onSessionRefresh = () => scheduleVerify(50);
     document.addEventListener("visibilitychange", onVisibility);
+    window.addEventListener("cupnavi:session-refresh",onSessionRefresh);
 
     return () => {
       cancelled = true;
       document.removeEventListener("visibilitychange", onVisibility);
+      window.removeEventListener("cupnavi:session-refresh",onSessionRefresh);
       window.clearInterval(tokenWatcher);
       if (retryRef.current !== null) window.clearTimeout(retryRef.current);
     };
