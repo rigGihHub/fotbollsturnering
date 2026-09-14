@@ -82,12 +82,10 @@ export function installAdminRequestCoordinator() {
     const cupId = requestCupId(url);
     const selectedCupId = activeCupId();
 
-    if (cupId !== null && selectedCupId !== null && cupId !== selectedCupId) {
+    if (method === "GET" && cupId !== null && selectedCupId !== null && cupId !== selectedCupId) {
       const stale = new DOMException("Stale cup request", "AbortError");
       return Promise.reject(stale);
     }
-
-    if (cupId !== null) cancelStaleReads(cupId);
 
     if (method !== "GET") {
       // Mutations should never sit behind stale background reads.
@@ -97,6 +95,8 @@ export function installAdminRequestCoordinator() {
       }
       return originalFetch(input, init);
     }
+
+    if (cupId !== null) cancelStaleReads(cupId);
 
     const headers = new Headers(init?.headers || (typeof Request !== "undefined" && input instanceof Request ? input.headers : undefined));
     const auth = headers.get("Authorization") || "";

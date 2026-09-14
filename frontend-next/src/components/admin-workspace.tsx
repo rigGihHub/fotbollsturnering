@@ -6,6 +6,7 @@ import RulesAdmin from "./rules-admin";
 import ScheduleAdmin from "./schedule-admin";
 import RefereeAdmin from "./referee-admin";
 import PlayoffAdmin from "./playoff-admin";
+import ExportAdmin from "./export-admin";
 import { CLIENT_API_BASE } from "../lib/client-api";
 
 const API_BASE = CLIENT_API_BASE;
@@ -18,13 +19,6 @@ const nav = [
   ["Slutspel", "#playoffs"], ["Publicering", "#publish"], ["Matchrapportering", "#reporting"], ["Import", "#import"], ["PDF & export", "#export"]
 ];
 
-const modules = [
-  ["publish","10","Publicering","Förhandsgranska cupen och publicera först när checklistan är klar."],
-  ["reporting","11","Matchrapportering","Resultat, målskyttar, assist och kort när statistiken är aktiverad."],
-  ["import","12","Import","Läs in tidigare cupprogram från dokument eller flera bilder utan att skriva över data tyst."],
-  ["export","13","PDF & export","Förhandsgranska, skapa och ladda ned cupens PDF från samma flöde."]
-];
-
 type Account = { id:number; email:string; display_name?:string|null; role?:string|null; is_owner?:boolean };
 type Cup = { id:number; name:string; public_slug?:string|null; start_date?:string|null; end_date?:string|null; is_published?:number|boolean; role:string };
 type TrashedCup = Cup & { trashed_at?:string|null };
@@ -35,6 +29,7 @@ type CupInfo = {
   public_information?:string|null;
 };
 type SessionPayload = { account:Account; cups:Cup[]; token?:string };
+type AdminStep = "overview"|"cupinfo"|"teams"|"groups"|"venues"|"rules"|"schedule"|"referees"|"playoffs"|"publish"|"reporting"|"import"|"export";
 type DeleteCupPayload = { deleted:boolean; recoverable:boolean; cup:Cup; cups:Cup[] };
 type RestoreCupPayload = { restored:boolean; cup:Cup; cups:Cup[]; trash:TrashedCup[] };
 type ApiStatus = "checking" | "online" | "offline";
@@ -101,7 +96,12 @@ function forgetCup() {
   window.history.replaceState({},"",`${url.pathname}${url.search}${url.hash}`);
 }
 
-export default function AdminWorkspace() {
+function currentAdminStep():AdminStep {
+  const value=window.location.hash.replace(/^#/,"") as AdminStep;
+  return nav.some(([,href])=>href===`#${value}`) ? value : "overview";
+}
+
+export default function AdminWorkspace({verifiedSession=null}:{verifiedSession?:(SessionPayload & {token:string})|null}) {
   const [token,setToken] = useState<string|null>(null);
   const [account,setAccount] = useState<Account|null>(null);
   const [cups,setCups] = useState<Cup[]>([]);
@@ -123,6 +123,7 @@ export default function AdminWorkspace() {
   const [message,setMessage] = useState("");
   const [error,setError] = useState("");
   const [apiStatus,setApiStatus] = useState<ApiStatus>("checking");
+  const [activeStep,setActiveStep] = useState<AdminStep>("overview");
 
   const activeCup = useMemo(() => cups.find(cup => cup.id === cupId) || null,[cups,cupId]);
   const isOwnerAccount = account?.role === "owner" || account?.is_owner === true;
@@ -149,6 +150,15 @@ export default function AdminWorkspace() {
   },[]);
 
   useEffect(() => {
+    const sync=()=>setActiveStep(currentAdminStep());
+    const onStep=(event:Event)=>setActiveStep((event as CustomEvent<AdminStep>).detail || "overview");
+    sync();
+    window.addEventListener("hashchange",sync);
+    window.addEventListener("cupnavi:admin-step",onStep);
+    return()=>{window.removeEventListener("hashchange",sync);window.removeEventListener("cupnavi:admin-step",onStep);};
+  },[]);
+
+  useEffect(() => {
     const controller = new AbortController();
     const timeout = window.setTimeout(() => controller.abort(),8000);
     fetch(`${API_BASE}/health`,{cache:"no-store",signal:controller.signal})
@@ -163,6 +173,14 @@ export default function AdminWorkspace() {
     let retryTimer:number|undefined;
 
     async function restoreSession() {
+      if (verifiedSession) {
+        const selected=initialCup(verifiedSession.cups || []);
+        setToken(verifiedSession.token); setAccount(verifiedSession.account); setCups(verifiedSession.cups || []); setApiStatus("online");
+        if(selected){setCupId(selected.id);rememberCup(selected.id);await loadCupInfo(verifiedSession.token,selected.id).catch(err=>{if(!cancelled)setError(err instanceof Error?`Cupens data kunde inte hämtas: ${err.message}`:"Cupens data kunde inte hämtas.");});}
+        if(verifiedSession.account.role==="owner"||verifiedSession.account.is_owner===true)void loadTrash(verifiedSession.token).catch(()=>undefined);
+        setRestoringSession(false);
+        return;
+      }
       const stored = localStorage.getItem(TOKEN_KEY);
       if (!stored || cancelled) { setRestoringSession(false); return; }
       setRestoringSession(true);
@@ -195,7 +213,7 @@ export default function AdminWorkspace() {
 
     void restoreSession();
     return()=>{ cancelled=true; if(retryTimer!==undefined) window.clearTimeout(retryTimer); };
-  },[loadCupInfo,loadTrash,logout]);
+  },[loadCupInfo,loadTrash,logout,verifiedSession]);
 
   async function login(event:FormEvent) {
     event.preventDefault(); setBusy(true); setError(""); setMessage("");
@@ -237,24 +255,35 @@ export default function AdminWorkspace() {
     if (!token || !activeCup || !isOwnerAccount || deletingCup) return;
     if (!window.confirm(`Flytta ${activeCup.name} till papperskorgen?\n\nCupen avpubliceras direkt men kan återställas från papperskorgen.`)) return;
     setDeletingCup(true); setError(""); setMessage("");
+    const removedCup=activeCup;
+    const previous={cups,cupId,cupinfo,teams,groups};
+    const optimisticRemaining=cups.filter(cup=>cup.id!==removedCup.id);
+    const optimisticNext=optimisticRemaining[0] || null;
+    setCups(optimisticRemaining); setCupinfo(null); setTeams([]); setGroups([]);
+    if(optimisticNext){setCupId(optimisticNext.id);rememberCup(optimisticNext.id);}
+    else{setCupId(null);forgetCup();}
+    setMessage(`${removedCup.name} flyttas till papperskorgen…`);
     try {
-      const removedName = activeCup.name;
-      const result = await request<DeleteCupPayload>(`/api/admin/cups/${activeCup.id}`,{
-        method:"DELETE",body:JSON.stringify({confirmed_name:activeCup.name})
+      const result = await request<DeleteCupPayload>(`/api/admin/cups/${removedCup.id}`,{
+        method:"DELETE",body:JSON.stringify({confirmed_name:removedCup.name})
       },token);
       const remaining = result.cups || [];
-      setCups(remaining); setCupinfo(null); setTeams([]); setGroups([]);
-      try { await loadTrash(token); } catch { /* Cupen är redan borttagen; papperskorgen kan laddas om senare. */ }
-      const nextCup = remaining[0];
+      setCups(remaining);
+      void loadTrash(token).catch(() => undefined);
+      const nextCup = remaining.find(cup=>cup.id===optimisticNext?.id) || remaining[0];
       if (nextCup) {
         setCupId(nextCup.id); rememberCup(nextCup.id);
-        try { await loadCupInfo(token,nextCup.id); } catch { /* Behåll lyckad borttagning även om nästa cup laddar långsamt. */ }
-        setMessage(`${removedName} har flyttats till papperskorgen.`);
+        void loadCupInfo(token,nextCup.id).catch(() => undefined);
+        setMessage(`${removedCup.name} har flyttats till papperskorgen.`);
       } else {
         setCupId(null); forgetCup();
-        setMessage(`${removedName} har flyttats till papperskorgen. Det finns ingen aktiv cup kvar.`);
+        setMessage(`${removedCup.name} har flyttats till papperskorgen. Det finns ingen aktiv cup kvar.`);
       }
-    } catch (err) { setError(err instanceof Error ? err.message : "Cupen kunde inte tas bort."); }
+    } catch (err) {
+      setCups(previous.cups); setCupId(previous.cupId); setCupinfo(previous.cupinfo); setTeams(previous.teams); setGroups(previous.groups);
+      if(previous.cupId)rememberCup(previous.cupId);else forgetCup();
+      setMessage(""); setError(err instanceof Error ? `Cupen kunde inte tas bort och har återställts: ${err.message}` : "Cupen kunde inte tas bort och har återställts.");
+    }
     finally { setDeletingCup(false); }
   }
 
@@ -406,7 +435,7 @@ export default function AdminWorkspace() {
   return <main className="admin-workspace">
     <aside className="admin-sidebar">
       <div className="admin-sidebar__cup"><span>AKTIV CUP</span><strong>{activeCup?.name || "Ingen cup"}</strong><small>{activeCup?.start_date || "Datum saknas"}</small></div>
-      {cups.length > 1 && <label style={{display:"grid",gap:6,padding:"14px 10px"}}>Byt cup<select value={cupId || ""} onChange={e=>changeCup(Number(e.target.value))}>{cups.map(cup=><option key={cup.id} value={cup.id}>{cup.name}</option>)}</select></label>}
+      {cups.length > 1 && <label className="admin-cup-switcher"><span>Byt cup</span><select value={cupId || ""} onChange={e=>changeCup(Number(e.target.value))}>{cups.map(cup=><option key={cup.id} value={cup.id}>{cup.name}</option>)}</select></label>}
       {isOwner && <>
         <div className="admin-owner-actions">
           {activeCup && <button className="admin-remove-cup" type="button" disabled={deletingCup} onClick={()=>void removeCup()}>{deletingCup?"Tar bort…":"Ta bort cup"}</button>}
@@ -420,7 +449,7 @@ export default function AdminWorkspace() {
           </> : <p className="admin-trash-empty">Papperskorgen är tom.</p>}
         </section>}
       </>}
-      <nav aria-label="Cupadministration">{nav.map(([item,href],index)=><a className={index===0?"is-active":""} href={href} key={item}><span>{String(index+1).padStart(2,"0")}</span>{item}</a>)}</nav>
+      <nav aria-label="Cupadministration">{nav.map(([item,href],index)=><a className={href===`#${activeStep}`?"is-active":""} href={href} key={item}><span>{String(index+1).padStart(2,"0")}</span>{item}</a>)}</nav>
       {publicCup && <a className="admin-public-link" href={publicCup}>Visa publik cup ↗</a>}
       <button className="admin-public-link" type="button" onClick={logout}>Logga ut</button>
     </aside>
@@ -433,7 +462,7 @@ export default function AdminWorkspace() {
         <article className="admin-panel admin-panel--codes"><div className="admin-panel__top"><span>KONTO</span><strong>VERIFIERAT</strong></div><h2>Åtkomst</h2><p>{isOwner ? "Ägarkonto med åtkomst till alla cuper." : "Arrangörskonto med åtkomst till tilldelade cuper."}</p><div className="admin-code-placeholder">Konto <b>{account.email}</b></div><div className="admin-code-placeholder">Roll <b>{isOwner ? "ägare" : activeCup?.role || "—"}</b></div></article>
       </section>
 
-      <form className="admin-panel admin-cupinfo" id="cupinfo" onSubmit={saveCupInfo}>
+      {activeStep==="cupinfo" && <form className="admin-panel admin-cupinfo" id="cupinfo" onSubmit={saveCupInfo}>
         <div className="admin-panel__top"><span>02 / CUPINFO</span><strong>{busy?"ARBETAR":"REDO"}</strong></div>
         <div className="admin-cupinfo__head"><div><h2>Grunduppgifter</h2><p>Uppgifterna för den valda cupen.</p></div><span className="admin-lock">BEHÖRIG</span></div>
         {cupinfo ? <>
@@ -449,9 +478,9 @@ export default function AdminWorkspace() {
           </div>
           <div className="admin-form-footer"><span>{message || ""}</span><button type="submit" disabled={busy || !cupinfo.name.trim()}>{busy?"Sparar…":"Spara Cupinfo"}</button></div>
         </> : <p>{busy?"Hämtar Cupinfo…":"Cupinfo kunde inte hämtas ännu."}</p>}
-      </form>
+      </form>}
 
-      <section className="admin-panel admin-teams" id="teams">
+      {activeStep==="teams" && <section className="admin-panel admin-teams" id="teams">
         <div className="admin-panel__top"><span>03 / LAG</span><strong>{teams.length} REGISTRERADE</strong></div>
         <div className="admin-cupinfo__head"><div><h2>Lag</h2><p>Skapa och redigera lag.</p></div><span className="admin-lock">REDIGERING</span></div>
         <form onSubmit={saveTeam} className="admin-team-editor">
@@ -470,9 +499,9 @@ export default function AdminWorkspace() {
             <div className="admin-team-actions"><button type="button" onClick={()=>beginTeamEdit(team)}>Redigera</button><button className="is-danger" type="button" onClick={()=>removeTeam(team)}>Ta bort</button></div>
           </article>) : <div className="admin-empty"><strong>Inga lag ännu</strong><span>Lägg till det första laget ovan.</span></div>}
         </div>
-      </section>
+      </section>}
 
-      <section className="admin-panel admin-teams" id="groups">
+      {activeStep==="groups" && <section className="admin-panel admin-teams" id="groups">
         <div className="admin-panel__top"><span>04 / GRUPPER</span><strong>{groups.length} GRUPPER · {groupedTeams}/{teams.length} LAG</strong></div>
         <div className="admin-cupinfo__head"><div><h2>Gruppindelning</h2><p>Skapa grupper och placera lagen.</p></div><span className="admin-lock">REDIGERING</span></div>
         <form onSubmit={saveGroup} className="admin-team-editor">
@@ -494,15 +523,15 @@ export default function AdminWorkspace() {
             <label style={{marginLeft:"auto"}}>Grupp<select value={team.group_id ?? ""} disabled={busy} onChange={e=>assignGroup(team,e.target.value?Number(e.target.value):null)}><option value="">Ej gruppindelat</option>{groups.map(group=><option key={group.id} value={group.id}>{group.name}</option>)}</select></label>
           </article>)}
         </div>
-      </section>
+      </section>}
 
-      {token && cupId && <VenueAdmin token={token} cupId={cupId} />}
-      {token && cupId && <RulesAdmin token={token} cupId={cupId} />}
-      {token && cupId && <ScheduleAdmin token={token} cupId={cupId} />}
-      {token && cupId && <RefereeAdmin token={token} cupId={cupId} />}
-      {token && cupId && <PlayoffAdmin token={token} cupId={cupId} />}
+      {activeStep==="venues" && token && cupId && <VenueAdmin token={token} cupId={cupId} />}
+      {activeStep==="rules" && token && cupId && <RulesAdmin token={token} cupId={cupId} />}
+      {activeStep==="schedule" && token && cupId && <ScheduleAdmin token={token} cupId={cupId} />}
+      {activeStep==="referees" && token && cupId && <RefereeAdmin token={token} cupId={cupId} />}
+      {activeStep==="playoffs" && token && cupId && <PlayoffAdmin token={token} cupId={cupId} />}
 
-      <section className="admin-module-grid" aria-label="Cupens arbetsflöde">{modules.map(([id,n,title,text])=><article className="admin-panel admin-module-card" id={id} key={id}><div className="admin-panel__top"><span>{n} / MODUL</span><strong>KOMMER SENARE</strong></div><h2>{title}</h2><p>{text}</p><button disabled>Inte tillgänglig ännu</button></article>)}</section>
+      {activeStep==="export" && token && cupId && <ExportAdmin token={token} cupId={cupId}/>}
     </section>
   </main>;
 }

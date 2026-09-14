@@ -42,6 +42,7 @@ export default function AdminAuthShell() {
 
   const [state, setState] = useState<AuthState>("checking");
   const [authKey, setAuthKey] = useState(0);
+  const [verifiedSession, setVerifiedSession] = useState<(SessionPayload & { token:string }) | null>(null);
   const retryRef = useRef<number | null>(null);
   const lastTokenRef = useRef<string | null>(null);
   const unauthorizedRef = useRef(0);
@@ -78,6 +79,7 @@ export default function AdminAuthShell() {
       if (!token) {
         unauthorizedRef.current = 0;
         clearVerifiedCache();
+        setVerifiedSession(null);
         setState("unauthenticated");
         return;
       }
@@ -103,6 +105,7 @@ export default function AdminAuthShell() {
           }
           localStorage.removeItem(TOKEN_KEY);
           clearVerifiedCache();
+          setVerifiedSession(null);
           unauthorizedRef.current = 0;
           if (!cancelled) setState("unauthenticated");
           return;
@@ -111,6 +114,7 @@ export default function AdminAuthShell() {
         if (!response.ok) throw new Error(`session ${response.status}`);
         const payload = await response.json() as SessionPayload;
         writeVerifiedCache(token,payload);
+        setVerifiedSession({ ...payload, token });
         unauthorizedRef.current = 0;
         try { sessionStorage.removeItem(BACKGROUND_KEY); } catch {}
         if (!cancelled) setState("authenticated");
@@ -178,7 +182,7 @@ export default function AdminAuthShell() {
       <CupCreateLauncher/>
       <AdminStepFlow/>
       <AdminLazyExtras/>
-      <AdminWorkspace key={`admin-${authKey}`} />
+      <AdminWorkspace key={`admin-${authKey}`} verifiedSession={verifiedSession} />
       <AdminOperations/>
     </>
   );

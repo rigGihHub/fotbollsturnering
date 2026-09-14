@@ -24,13 +24,15 @@ export default function ImportRecoveryGuard() {
   useEffect(() => {
     const sync = () => setRecovery(readRecoveryState(ignoredCupId));
     sync();
-    const timer = window.setInterval(sync, 750);
     window.addEventListener("storage", sync);
     window.addEventListener("focus", sync);
+    window.addEventListener("popstate", sync);
+    window.addEventListener("cupnavi:admin-step", sync);
     return () => {
-      window.clearInterval(timer);
       window.removeEventListener("storage", sync);
       window.removeEventListener("focus", sync);
+      window.removeEventListener("popstate", sync);
+      window.removeEventListener("cupnavi:admin-step", sync);
     };
   }, [ignoredCupId]);
 

@@ -1,22 +1,135 @@
 "use client";
-import {useCallback,useEffect,useMemo,useState} from "react";
-import {CLIENT_API_BASE} from "../lib/client-api";
+
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { CLIENT_API_BASE } from "../lib/client-api";
 import MatchEventsAdmin from "./match-events-admin";
-const API=CLIENT_API_BASE;
-async function req(path:string,token:string,init:RequestInit={}){const h=new Headers(init.headers);h.set("Authorization",`Bearer ${token}`);if(init.body)h.set("Content-Type","application/json");const r=await fetch(`${API}${path}`,{...init,headers:h,cache:"no-store"});const p=await r.json().catch(()=>null);if(!r.ok)throw new Error(p?.detail||`API-fel ${r.status}`);return p;}
-type M={id:number;stage?:string|null;home_team:string;away_team:string;home_score:number|null;away_score:number|null;home_penalties?:number|null;away_penalties?:number|null;status:string;scheduled_start?:string|null};
+
+const API = CLIENT_API_BASE;
+
+async function req(path:string,token:string,init:RequestInit={}) {
+  const headers=new Headers(init.headers);
+  headers.set("Authorization",`Bearer ${token}`);
+  if(init.body)headers.set("Content-Type","application/json");
+  const response=await fetch(`${API}${path}`,{...init,headers,cache:"no-store"});
+  const payload=await response.json().catch(()=>null);
+  if(!response.ok)throw new Error(payload?.detail||`API-fel ${response.status}`);
+  return payload;
+}
+
+type Mode="publish"|"reporting";
+type Match={id:number;stage?:string|null;home_team:string;away_team:string;home_score:number|null;away_score:number|null;home_penalties?:number|null;away_penalties?:number|null;status:string;scheduled_start?:string|null};
 type ScheduleConflict={type:string;severity:"error"|"warning";message:string;match_ids?:number[]};
 type PublicationPayload={tournament?:{is_published?:boolean};ready:boolean;blockers:string[];schedule_conflict_analysis?:{error_count:number;warning_count:number;conflicts:ScheduleConflict[]}};
 type Impact={playoff:boolean;outcome_changes:boolean;blocked:boolean;downstream_count?:number;summary?:string;guidance?:string[];downstream?:Array<{id:number;stage?:string|null;match_no?:number|null;scheduled_start?:string|null;locked:boolean;recoverable:boolean;recovery_reason:string}>};
-function compactBlockers(rows:string[]){const map=new Map<string,number>();for(const row of rows){const key=String(row||"").trim();if(key)map.set(key,(map.get(key)||0)+1)}return [...map].map(([text,count])=>({text,count}))}
-export default function PublishReportingAdmin({token,cupId}:{token:string;cupId:number}){const[pub,setPub]=useState<PublicationPayload|null>(null),[matches,setMatches]=useState<M[]>([]),[error,setError]=useState(""),[busy,setBusy]=useState(false);const load=useCallback(async()=>{try{const[p,m]=await Promise.all([req(`/api/admin/cups/${cupId}/publication`,token),req(`/api/admin/cups/${cupId}/reporting`,token)]);setPub(p);setMatches(m.matches||[]);setError("")}catch(e){setError(e instanceof Error?e.message:"Kunde inte hämta data")}},[token,cupId]);useEffect(()=>{void load()},[load]);
-async function toggle(){setBusy(true);try{setError("");setPub(await req(`/api/admin/cups/${cupId}/publication`,token,{method:"PUT",body:JSON.stringify({published:!pub?.tournament?.is_published})}))}catch(e){setError(e instanceof Error?e.message:"Publicering misslyckades")}finally{setBusy(false)}}
-async function save(m:M,h:string,a:string,hp:string,ap:string){setBusy(true);try{setError("");const payload={home_score:Number(h),away_score:Number(a),home_penalties:hp===""?null:Number(hp),away_penalties:ap===""?null:Number(ap),expected_home_score:m.home_score,expected_away_score:m.away_score,expected_home_penalties:m.home_penalties??null,expected_away_penalties:m.away_penalties??null};if(m.stage!=="Gruppspel"&&(m.home_score!=null||m.away_score!=null)){const impact=await req(`/api/admin/cups/${cupId}/reporting/matches/${m.id}/impact`,token,{method:"POST",body:JSON.stringify(payload)}) as Impact;if(impact.blocked){const details=(impact.guidance||[]).join(" ");throw new Error(`STOPP: ${impact.summary||"Korrigeringen påverkar en senare slutspelsmatch."}${details?` ${details}`:""}`)}if(impact.outcome_changes&&(impact.downstream_count||0)>0){const rows=(impact.downstream||[]).map(x=>`${x.stage||"Slutspel"}${x.match_no?` #${x.match_no}`:""}${x.locked?" · LÅST":" · ej startad"}`).join("\n");if(!window.confirm(`Den här korrigeringen ändrar vilket lag som går vidare och påverkar ${impact.downstream_count} senare match${impact.downstream_count===1?"":"er"}.\n\n${rows}\n\nFortsätt bara om detta är rätt korrigering.`))return;}}await req(`/api/admin/cups/${cupId}/reporting/matches/${m.id}`,token,{method:"PUT",body:JSON.stringify(payload)});await load()}catch(e){setError(e instanceof Error?e.message:"Resultatet kunde inte sparas")}finally{setBusy(false)}}
-const blockers=pub?.blockers??[];
-const compact=useMemo(()=>compactBlockers(blockers),[blockers]);
-const scheduleErrors=pub?.schedule_conflict_analysis?.conflicts?.filter(x=>x.severity==="error")||[];
-const publicationStatus=error|| (scheduleErrors.length>0?`${scheduleErrors.length} blockerande schemafel hittades.`:"Publicering använder aktuell serverdata och kontrollerar schemat på nytt.");
-const played=matches.filter(m=>m.status==="played").length;
-const awaiting=matches.filter(m=>m.status==="awaiting_decision").length;
-return <><section className="admin-panel" id="publish"><div className="admin-panel__top"><span>10 / PUBLICERING</span><strong>{pub?.tournament?.is_published?"LIVE":"UTKAST"}</strong></div><h2>Publicering</h2><p>{pub?.ready?"Cupen klarar publiceringsspärrarna.":"Cupen är inte redo att publiceras."}</p>{compact.length>0&&<div className="admin-publication-blockers"><div className="admin-publication-blockers__head"><strong>Ändra innan publicering</strong><span>{blockers.length} varning{blockers.length===1?"":"ar"}</span></div><div className="admin-publication-blockers__list">{compact.map(({text,count})=><div key={text} className="admin-publication-blocker"><span className="admin-publication-blocker__icon">!</span><span className="admin-publication-blocker__text">{text}</span>{count>1&&<strong className="admin-publication-blocker__count">×{count}</strong>}</div>)}</div></div>}{scheduleErrors.length>0&&<div className="admin-team-list" style={{marginTop:16}}>{scheduleErrors.map((item,index)=><article key={`${item.type}-${index}`}><div><strong>STOPP · {item.message}</strong><small>{item.type==="round_order"?"Rondordningen i gruppspelet måste rättas innan publicering.":"Schemafelet måste åtgärdas innan publicering."}</small></div></article>)}</div>}<div className="admin-form-footer"><span>{publicationStatus}</span><div className="admin-team-actions">{scheduleErrors.length>0&&<a href="#schedule">Öppna Schema</a>}<button disabled={busy||(!pub?.tournament?.is_published&&!pub?.ready)} onClick={toggle}>{pub?.tournament?.is_published?"Avpublicera":"Publicera cup"}</button></div></div></section><section className="admin-panel" id="reporting"><div className="admin-panel__top"><span>11 / MATCHRAPPORTERING</span><strong>{played}/{matches.length} AVGJORDA{awaiting?` · ${awaiting} VÄNTAR AVGÖRANDE`:""}</strong></div><h2>Rapportera resultat</h2><p>Slutspelsmatcher som slutar lika avgörs med ett komplett straffresultat. Om ett redan sparat slutspelsresultat korrigeras visar CupNavi först hela kedjeeffekten och stoppar ändringen om en beroende match redan har börjat eller innehåller resultat/händelser.</p><div className="admin-team-list">{matches.map(m=><MatchRow key={m.id} m={m} busy={busy} save={save}/>)}</div></section><MatchEventsAdmin token={token} cupId={cupId}/></>}
-function MatchRow({m,busy,save}:{m:M;busy:boolean;save:(m:M,h:string,a:string,hp:string,ap:string)=>void}){const[h,setH]=useState(m.home_score==null?"":String(m.home_score)),[a,setA]=useState(m.away_score==null?"":String(m.away_score)),[hp,setHp]=useState(m.home_penalties==null?"":String(m.home_penalties)),[ap,setAp]=useState(m.away_penalties==null?"":String(m.away_penalties));const knockout=m.stage!=="Gruppspel";const tied=knockout&&h!==""&&a!==""&&Number(h)===Number(a);return <article style={{display:"block"}}><div><strong>{m.home_team} – {m.away_team}</strong><small>{m.stage||"Match"} · {m.scheduled_start||"Ej schemalagd"}{m.status==="awaiting_decision"?" · väntar avgörande":""}</small></div><div className="admin-team-actions" style={{marginTop:10,flexWrap:"wrap"}}><input aria-label="Hemmamål" type="number" min="0" value={h} onChange={e=>setH(e.target.value)} style={{width:64}}/><span>–</span><input aria-label="Bortamål" type="number" min="0" value={a} onChange={e=>setA(e.target.value)} style={{width:64}}/><button disabled={busy||h===""||a===""||(tied&&(hp===""||ap===""))} onClick={()=>save(m,h,a,hp,ap)}>{knockout&&m.home_score!=null?"Kontrollera & spara":"Spara"}</button></div>{tied&&<div className="admin-form-grid" style={{marginTop:10}}><label>Straffar {m.home_team}<input aria-label="Hemmastraffar" type="number" min="0" value={hp} onChange={e=>setHp(e.target.value)}/></label><label>Straffar {m.away_team}<input aria-label="Bortastraffar" type="number" min="0" value={ap} onChange={e=>setAp(e.target.value)}/></label></div>}</article>}
+
+function compactRows(rows:string[]) {
+  const counts=new Map<string,number>();
+  for(const row of rows){const text=String(row||"").trim();if(text)counts.set(text,(counts.get(text)||0)+1);}
+  return [...counts].map(([text,count])=>({text,count}));
+}
+
+function compactConflicts(rows:ScheduleConflict[]) {
+  const counts=new Map<string,{item:ScheduleConflict;count:number}>();
+  for(const item of rows){const key=`${item.type}:${item.message}`;const current=counts.get(key);counts.set(key,{item,count:(current?.count||0)+1});}
+  return [...counts.values()];
+}
+
+export default function PublishReportingAdmin({token,cupId,mode}:{token:string;cupId:number;mode:Mode}) {
+  const [publication,setPublication]=useState<PublicationPayload|null>(null);
+  const [matches,setMatches]=useState<Match[]>([]);
+  const [error,setError]=useState("");
+  const [busy,setBusy]=useState(false);
+
+  const load=useCallback(async()=>{
+    try{
+      if(mode==="publish")setPublication(await req(`/api/admin/cups/${cupId}/publication`,token));
+      else {const data=await req(`/api/admin/cups/${cupId}/reporting`,token);setMatches(data.matches||[]);}
+      setError("");
+    }catch(reason){setError(reason instanceof Error?reason.message:"Kunde inte hämta data");}
+  },[token,cupId,mode]);
+
+  useEffect(()=>{void load();},[load]);
+
+  async function togglePublication(){
+    setBusy(true);
+    try{
+      setError("");
+      setPublication(await req(`/api/admin/cups/${cupId}/publication`,token,{method:"PUT",body:JSON.stringify({published:!publication?.tournament?.is_published})}));
+    }catch(reason){setError(reason instanceof Error?reason.message:"Publicering misslyckades");}
+    finally{setBusy(false);}
+  }
+
+  async function save(match:Match,home:string,away:string,homePenalties:string,awayPenalties:string){
+    setBusy(true);
+    try{
+      setError("");
+      const payload={home_score:Number(home),away_score:Number(away),home_penalties:homePenalties===""?null:Number(homePenalties),away_penalties:awayPenalties===""?null:Number(awayPenalties),expected_home_score:match.home_score,expected_away_score:match.away_score,expected_home_penalties:match.home_penalties??null,expected_away_penalties:match.away_penalties??null};
+      if(match.stage!=="Gruppspel"&&(match.home_score!=null||match.away_score!=null)){
+        const impact=await req(`/api/admin/cups/${cupId}/reporting/matches/${match.id}/impact`,token,{method:"POST",body:JSON.stringify(payload)}) as Impact;
+        if(impact.blocked){const details=(impact.guidance||[]).join(" ");throw new Error(`${impact.summary||"Korrigeringen påverkar en senare slutspelsmatch."}${details?` ${details}`:""}`);}
+        if(impact.outcome_changes&&(impact.downstream_count||0)>0){
+          const rows=(impact.downstream||[]).map(item=>`${item.stage||"Slutspel"}${item.match_no?` #${item.match_no}`:""}${item.locked?" · låst":" · ej startad"}`).join("\n");
+          if(!window.confirm(`Korrigeringen ändrar vilket lag som går vidare och påverkar ${impact.downstream_count} senare match${impact.downstream_count===1?"":"er"}.\n\n${rows}\n\nVill du fortsätta?`))return;
+        }
+      }
+      await req(`/api/admin/cups/${cupId}/reporting/matches/${match.id}`,token,{method:"PUT",body:JSON.stringify(payload)});
+      await load();
+    }catch(reason){setError(reason instanceof Error?reason.message:"Resultatet kunde inte sparas");}
+    finally{setBusy(false);}
+  }
+
+  const blockers=publication?.blockers??[];
+  const scheduleErrors=publication?.schedule_conflict_analysis?.conflicts?.filter(item=>item.severity==="error")||[];
+  const otherBlockers=useMemo(()=>compactRows(blockers).filter(({text})=>!(scheduleErrors.length&&/schemafel/i.test(text))),[blockers,scheduleErrors.length]);
+  const conflictGroups=useMemo(()=>compactConflicts(scheduleErrors),[scheduleErrors]);
+  const played=matches.filter(match=>match.status==="played").length;
+  const awaiting=matches.filter(match=>match.status==="awaiting_decision").length;
+
+  if(mode==="publish"){
+    const isLive=Boolean(publication?.tournament?.is_published);
+    const isReady=Boolean(publication?.ready);
+    const issueCount=otherBlockers.reduce((sum,item)=>sum+item.count,0)+scheduleErrors.length;
+    return <section className={`admin-panel publication-console ${isReady?"is-ready":"needs-action"}`} id="publish">
+      <div className="publication-console__eyebrow"><span>10 · PUBLICERING</span><strong>{isLive?"LIVE":"UTKAST"}</strong></div>
+      <div className="publication-console__hero">
+        <span className="publication-console__signal" aria-hidden="true">{isReady?"✓":"!"}</span>
+        <div><p className="publication-console__kicker">{isReady?"Redo för publik":"Åtgärder krävs"}</p><h2>{isLive?"Cupen är publicerad":isReady?"Allt är klart":"Inte redo att publicera"}</h2><p>{isReady?"Kontrollerna är godkända. Du kan publicera cupen när du vill.":`${issueCount} ${issueCount===1?"sak behöver":"saker behöver"} rättas innan cupen kan bli publik.`}</p></div>
+      </div>
+      {error&&<div className="publication-console__error" role="alert"><strong>Något gick fel</strong><span>{error}</span></div>}
+      {!isReady&&<div className="publication-checklist">
+        <div className="publication-checklist__head"><div><span>CHECKLISTA</span><strong>Gör detta före publicering</strong></div><b>{issueCount}</b></div>
+        {otherBlockers.map(({text,count})=><div className="publication-checklist__item" key={text}><span className="publication-checklist__icon">!</span><div><strong>{text}</strong><small>Behöver åtgärdas innan publicering.</small></div>{count>1&&<b>×{count}</b>}</div>)}
+        {conflictGroups.map(({item,count})=><div className="publication-checklist__item is-blocking" key={`${item.type}:${item.message}`}><span className="publication-checklist__icon">!</span><div><strong>{item.message}</strong><small>{item.type==="round_order"?"Rätta rondordningen i Schema.":"Öppna Schema och rätta konflikten."}</small></div>{count>1&&<b>×{count}</b>}</div>)}
+      </div>}
+      <div className="publication-console__actions">
+        <span>{isLive?"Ändringar visas direkt i turneringsvyn.":isReady?"En sista kontroll görs när du publicerar.":"Publiceringsknappen aktiveras när checklistan är klar."}</span>
+        <div>{scheduleErrors.length>0&&<a className="admin-action-secondary" href="#schedule">Öppna Schema</a>}<button className="admin-action-primary" disabled={busy||(!isLive&&!isReady)} onClick={togglePublication}>{busy?"Arbetar…":isLive?"Avpublicera":"Publicera cup"}</button></div>
+      </div>
+    </section>;
+  }
+
+  return <>
+    <section className="admin-panel reporting-console" id="reporting">
+      <div className="publication-console__eyebrow"><span>11 · MATCHRAPPORTERING</span><strong>{played}/{matches.length} KLARA</strong></div>
+      <div className="reporting-console__head"><div><p className="publication-console__kicker">MATCHCENTRAL</p><h2>Rapportera resultat</h2><p>Välj en match, fyll i resultatet och spara. CupNavi kontrollerar automatiskt följdeffekter i slutspelet.</p></div>{awaiting>0&&<span className="reporting-console__waiting">{awaiting} väntar på avgörande</span>}</div>
+      {error&&<div className="publication-console__error" role="alert"><strong>Kunde inte spara</strong><span>{error}</span></div>}
+      <div className="reporting-match-list">{matches.length?matches.map(match=><MatchRow key={match.id} match={match} busy={busy} save={save}/>):<div className="reporting-empty"><strong>Inga matcher att rapportera</strong><span>Matcher visas här när schemat är skapat.</span></div>}</div>
+    </section>
+    <MatchEventsAdmin token={token} cupId={cupId}/>
+  </>;
+}
+
+function MatchRow({match,busy,save}:{match:Match;busy:boolean;save:(match:Match,home:string,away:string,homePenalties:string,awayPenalties:string)=>void}){
+  const [home,setHome]=useState(match.home_score==null?"":String(match.home_score));
+  const [away,setAway]=useState(match.away_score==null?"":String(match.away_score));
+  const [homePenalties,setHomePenalties]=useState(match.home_penalties==null?"":String(match.home_penalties));
+  const [awayPenalties,setAwayPenalties]=useState(match.away_penalties==null?"":String(match.away_penalties));
+  const knockout=match.stage!=="Gruppspel";
+  const tied=knockout&&home!==""&&away!==""&&Number(home)===Number(away);
+  return <article className="reporting-match">
+    <div className="reporting-match__meta"><span>{match.stage||"Match"}</span><small>{match.scheduled_start||"Ej schemalagd"}</small></div>
+    <div className="reporting-match__teams"><strong>{match.home_team}</strong><span>–</span><strong>{match.away_team}</strong></div>
+    <div className="reporting-match__score"><input aria-label="Hemmamål" type="number" min="0" value={home} onChange={event=>setHome(event.target.value)}/><span>–</span><input aria-label="Bortamål" type="number" min="0" value={away} onChange={event=>setAway(event.target.value)}/><button disabled={busy||home===""||away===""||(tied&&(homePenalties===""||awayPenalties===""))} onClick={()=>save(match,home,away,homePenalties,awayPenalties)}>{knockout&&match.home_score!=null?"Kontrollera & spara":"Spara"}</button></div>
+    {tied&&<div className="reporting-match__penalties"><span>Avgörande på straffar</span><label>{match.home_team}<input aria-label="Hemmastraffar" type="number" min="0" value={homePenalties} onChange={event=>setHomePenalties(event.target.value)}/></label><label>{match.away_team}<input aria-label="Bortastraffar" type="number" min="0" value={awayPenalties} onChange={event=>setAwayPenalties(event.target.value)}/></label></div>}
+  </article>;
+}

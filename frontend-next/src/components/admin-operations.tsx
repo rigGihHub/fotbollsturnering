@@ -107,7 +107,7 @@ export default function AdminOperations() {
       </div>
     </>}
     <div className="admin-flow-group">
-      <PublishReportingAdmin token={token} cupId={cupId}/>
+      <PublishReportingAdmin token={token} cupId={cupId} mode={step}/>
     </div>
   </section>;
 }
