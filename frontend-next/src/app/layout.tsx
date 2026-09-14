@@ -7,7 +7,7 @@ import "./admin-step-flow.css";
 import { PwaBoot } from "@/components/PwaBoot";
 import { ViewModeSwitch } from "@/components/ViewModeSwitch";
 
-const APP_VERSION = "2.6.12";
+const APP_VERSION = "2.6.13";
 
 export const metadata: Metadata = {
   title: `CupNavi v${APP_VERSION}`,
