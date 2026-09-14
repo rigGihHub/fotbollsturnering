@@ -8,9 +8,10 @@ from fastapi import File, Header, HTTPException, UploadFile
 from pydantic import BaseModel
 
 from cupnavi_core.ai_cup_document_import import extract_cup_setup_from_documents
-from cupnavi_core.cup_document_creator_view import apply_document_matches, save_setup_import_snapshot
+from cupnavi_core.cup_document_creator_view import save_setup_import_snapshot
 from .competition_admin_routes import register_competition_admin_routes
 from .cup_create_repository import create_owner_tournament
+from .initial_import_idempotency import apply_document_matches_idempotent
 from .repository import connect
 from .rules_admin_repository import admin_rules, update_rules
 from .schedule_admin_repository import admin_schedule, update_match_schedule
@@ -139,6 +140,7 @@ def register_venue_admin_routes(app, admin_identity):
             raise HTTPException(status_code=422, detail="Importunderlaget är tomt")
 
         imported_matches = 0
+        idempotent_replay = False
         if payload.import_matches and proposal.get("matches"):
             if not payload.fallback_date:
                 raise HTTPException(
@@ -150,7 +152,9 @@ def register_venue_admin_routes(app, admin_identity):
             except ValueError as exc:
                 raise HTTPException(status_code=422, detail="Ogiltigt startdatum för schemaimport") from exc
             try:
-                imported_matches = apply_document_matches(connect, tournament_id, proposal, fallback)
+                imported_matches, idempotent_replay = apply_document_matches_idempotent(
+                    connect, tournament_id, proposal, fallback
+                )
             except ValueError as exc:
                 raise HTTPException(status_code=422, detail=str(exc)) from exc
 
@@ -162,6 +166,7 @@ def register_venue_admin_routes(app, admin_identity):
             "saved": True,
             "snapshot_id": snapshot_id,
             "imported_matches": imported_matches,
+            "idempotent_replay": idempotent_replay,
             "schedule": admin_schedule(account_id, tournament_id),
         }
 
