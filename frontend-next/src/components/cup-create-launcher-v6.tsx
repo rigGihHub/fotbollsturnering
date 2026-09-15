@@ -615,27 +615,24 @@ export default function CupCreateLauncherV6() {
               Cupen blir alltid ett utkast först. Import sparar inget förrän du
               granskat resultatet.
             </p>
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "1fr 1fr",
-                gap: 10,
-                marginBottom: 18,
-              }}
-            >
+            <div className="cup-create-mode-tabs" role="tablist" aria-label="Välj hur cupen ska skapas">
               <button
                 type="button"
+                role="tab"
+                aria-selected={mode === "manual"}
                 className={mode === "manual" ? "" : "is-secondary"}
                 onClick={() => setMode("manual")}
               >
-                ✍️ Skapa manuellt
+                <span aria-hidden="true">01</span><strong>Skapa manuellt</strong><small>Fyll i själv</small>
               </button>
               <button
                 type="button"
+                role="tab"
+                aria-selected={mode === "import"}
                 className={mode === "import" ? "" : "is-secondary"}
                 onClick={() => setMode("import")}
               >
-                📷 Importera bild / PDF
+                <span aria-hidden="true">02</span><strong>Bild eller PDF</strong><small>CupNavi läser</small>
               </button>
             </div>
             {mode === "manual" ? (
@@ -687,17 +684,10 @@ export default function CupCreateLauncherV6() {
               </form>
             ) : !proposal ? (
               <>
-                <label
-                  style={{
-                    display: "grid",
-                    gap: 8,
-                    padding: 18,
-                    border: "2px dashed currentColor",
-                    borderRadius: 12,
-                    textAlign: "center",
-                  }}
-                >
+                <label className="cup-create-file-drop">
+                  <span aria-hidden="true">＋</span>
                   <strong>Välj bilder eller PDF</strong>
+                  <small>Fotografera ett spelschema eller välj filer från telefonen.</small>
                   <input
                     type="file"
                     multiple
@@ -705,11 +695,7 @@ export default function CupCreateLauncherV6() {
                     onChange={(e) => setFiles(Array.from(e.target.files || []))}
                   />
                 </label>
-                {!!files.length && (
-                  <p>
-                    <strong>{files.length} filer valda</strong>
-                  </p>
-                )}
+                {!!files.length && <p className="cup-create-file-count"><strong>{files.length}</strong> {files.length===1?"fil vald":"filer valda"}</p>}
                 {error && <p className="cup-create-error">{error}</p>}
                 <div className="cup-create-actions">
                   <button

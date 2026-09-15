@@ -1,0 +1,47 @@
+/* v2.6.40 — focused cup creation and import wizard */
+.cup-create-dialog{background:#fffdf7!important}
+.cup-create-dialog__head{border-bottom:2px solid #101f2a;padding-bottom:13px!important}
+.cup-create-dialog__head h2{font-size:clamp(30px,5vw,42px)!important;letter-spacing:-.045em!important}
+.cup-create-lead{max-width:680px;margin:13px 0 16px!important;font-size:14px}
+.cup-create-mode-tabs{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:18px}
+.cup-create-mode-tabs button{display:grid;grid-template-columns:auto 1fr;gap:2px 10px;align-items:center;min-height:70px;padding:10px 13px!important;border:2px solid #101f2a!important;border-radius:9px!important;text-align:left;background:#101f2a!important;color:#fff!important;box-shadow:3px 3px 0 #d7352a!important}
+.cup-create-mode-tabs button.is-secondary{background:#fffdf7!important;color:#101f2a!important;box-shadow:none!important}
+.cup-create-mode-tabs button>span{grid-row:1/span 2;color:#ffd83d;font:900 11px/1 ui-monospace,monospace;letter-spacing:.08em}
+.cup-create-mode-tabs button.is-secondary>span{color:#008f9a}
+.cup-create-mode-tabs button>strong{font-size:14px;line-height:1.1}
+.cup-create-mode-tabs button>small{font-size:10px;opacity:.72}
+.cup-create-file-drop{position:relative;display:grid!important;place-items:center;gap:6px!important;min-height:180px;padding:22px!important;border:2px dashed #52636c!important;border-radius:11px!important;background:linear-gradient(145deg,#fff 0 72%,#e4f3ef 72%);text-align:center;cursor:pointer}
+.cup-create-file-drop>span{display:grid;place-items:center;width:48px;height:48px;border:2px solid #101f2a;border-radius:50%;background:#ffd83d;font-size:27px;line-height:1}
+.cup-create-file-drop>strong{font-size:20px}
+.cup-create-file-drop>small{max-width:410px;color:#52636c;font-size:12px;font-weight:600;line-height:1.4}
+.cup-create-file-drop>input{margin-top:7px;max-width:440px;background:#fff!important}
+.cup-create-file-count{display:flex;align-items:center;gap:7px;margin:10px 0!important;padding:9px 11px;border:1px solid #7fa69f;border-radius:8px;background:#edf7f3;font-size:13px}
+.cup-create-file-count strong{display:grid;place-items:center;width:25px;height:25px;border-radius:50%;background:#101f2a;color:#fff;font-size:11px}
+.cup-import-steps{padding:4px;border:2px solid #101f2a;border-radius:9px;background:#f1eadb}
+.cup-import-steps button{min-height:42px;border:0!important;border-radius:5px!important;background:#101f2a!important;color:#fff!important;box-shadow:none!important}
+.cup-import-steps button.is-secondary{background:transparent!important;color:#52636c!important}
+.cup-import-stats>div{border:1.5px solid #101f2a!important;border-radius:8px!important;background:#fffdf7!important}
+.cup-import-stats strong{font-size:22px!important}
+.cup-create-actions{position:sticky;bottom:-18px;z-index:2;margin-top:4px;padding:12px 0 max(4px,env(safe-area-inset-bottom))!important;background:linear-gradient(180deg,rgba(255,253,247,0),#fffdf7 18%)}
+.cup-create-actions button:not(.is-secondary){background:#101f2a!important;color:#fff!important;box-shadow:3px 3px 0 #d7352a!important}
+.cup-create-actions button.is-secondary{background:#fffdf7!important;color:#101f2a!important}
+@media(max-width:560px){
+  .cup-create-dialog{padding:12px 12px 18px!important}
+  .cup-create-dialog__head{padding:3px 0 10px!important}
+  .cup-create-dialog__head h2{font-size:28px!important}
+  .cup-create-close{width:44px!important;min-width:44px!important;height:44px!important;border:2px solid #101f2a!important}
+  .cup-create-lead{font-size:12px!important;line-height:1.4!important}
+  .cup-create-mode-tabs{gap:7px;margin-bottom:13px}
+  .cup-create-mode-tabs button{min-height:64px!important;padding:8px!important;gap:2px 7px!important}
+  .cup-create-mode-tabs button>strong{font-size:12px}
+  .cup-create-mode-tabs button>small{font-size:9px}
+  .cup-create-file-drop{min-height:160px;padding:17px 12px!important}
+  .cup-create-file-drop>strong{font-size:18px}
+  .cup-create-file-drop>input{font-size:12px!important;padding:8px!important}
+  .cup-import-stats{gap:6px!important}
+  .cup-import-stats>div{padding:8px 5px!important}
+  .cup-import-steps{grid-template-columns:repeat(4,minmax(0,1fr))!important;gap:2px!important}
+  .cup-import-steps button{min-height:40px!important;padding:6px 2px!important;font-size:10px!important}
+  .cup-create-actions{bottom:-18px;grid-template-columns:.8fr 1.4fr!important}
+}
+@media(max-width:370px){.cup-create-mode-tabs button>small{display:none}.cup-create-mode-tabs button{min-height:54px!important}.cup-create-actions{grid-template-columns:1fr!important}}
