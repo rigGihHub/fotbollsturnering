@@ -533,13 +533,15 @@ export default function AdminWorkspace({verifiedSession=null}:{verifiedSession?:
 
   return <main className="admin-workspace">
     <aside className="admin-sidebar">
-      <div className="admin-sidebar__cup"><span>AKTIV CUP</span><strong>{activeCup?.name || "Ingen cup"}</strong><small>{activeCup?.start_date || "Datum saknas"}</small></div>
-      {cups.length > 1 && <label className="admin-cup-switcher"><span>Byt cup</span><select value={cupId || ""} onChange={e=>changeCup(Number(e.target.value))}>{cups.map(cup=><option key={cup.id} value={cup.id}>{cup.name}</option>)}</select></label>}
-      {isOwner && <>
-        <div className="admin-owner-actions">
-          {activeCup && <button className="admin-remove-cup" type="button" disabled={deletingCup} onClick={()=>void removeCup()}>{deletingCup?"Tar bort…":"Ta bort cup"}</button>}
+      <section className="admin-active-cup-card" aria-label="Aktiv cup">
+        <div className="admin-sidebar__cup"><span>AKTIV CUP</span><strong>{activeCup?.name || "Ingen cup"}</strong><small>{activeCup?.start_date || "Datum saknas"}</small></div>
+        {cups.length > 1 && <label className="admin-cup-switcher"><span>Byt cup</span><select value={cupId || ""} onChange={e=>changeCup(Number(e.target.value))}>{cups.map(cup=><option key={cup.id} value={cup.id}>{cup.name}</option>)}</select></label>}
+        {isOwner && <div className="admin-owner-actions">
           <button className={`admin-trash-button${trashOpen?" is-open":""}`} type="button" onClick={()=>setTrashOpen(value=>!value)}>Papperskorg <span>{trashedCups.length}</span></button>
-        </div>
+          {activeCup && <button className="admin-remove-cup" type="button" disabled={deletingCup} onClick={()=>void removeCup()}>{deletingCup?"Tar bort…":"Ta bort cup"}</button>}
+        </div>}
+      </section>
+      {isOwner && <>
         {trashOpen && <section className="admin-trash-panel" aria-label="Papperskorg">
           <div className="admin-trash-head"><strong>Papperskorg</strong><span>{trashedCups.length} {trashedCups.length===1?"cup":"cuper"}</span></div>
           {trashedCups.length ? <>
@@ -554,7 +556,7 @@ export default function AdminWorkspace({verifiedSession=null}:{verifiedSession?:
     </aside>
 
     <section className="admin-main" id="overview">
-      <header className="admin-pagehead"><div><h1>Cupöversikt</h1></div><div className="admin-pagehead__actions"><span className="admin-draft">{activeCup?.is_published?"PUBLICERAD":"UTKAST"}</span>{publicCup&&<a href={publicCup}>Förhandsgranska</a>}</div></header>
+      <header className="admin-pagehead"><div><h1>Cupöversikt</h1></div><div className="admin-pagehead__actions"><span className="admin-draft">{activeCup?.is_published?"PUBLICERAD":"UTKAST"}</span>{publicCup&&<a href={publicCup}>Förhandsgranska <span aria-hidden="true">→</span></a>}</div></header>
       {activeStep==="overview"&&importWelcome&&<section className="admin-import-welcome" aria-labelledby="import-welcome-title">
         <div className="admin-import-welcome__top"><span>IMPORTEN ÄR KLAR</span><button type="button" onClick={dismissImportWelcome} aria-label="Dölj introduktionen">×</button></div>
         <div className="admin-import-welcome__hero"><div className="admin-import-welcome__check">✓</div><div><h2 id="import-welcome-title">{importWelcome.cupName} är skapad</h2><p>CupNavi har lagt in underlaget. Kontrollera uppgifterna innan du publicerar.</p></div></div>

@@ -13,6 +13,7 @@ import "../admin-polish-v2629.css";
 import "../comic-card-v2634.css";
 import "../admin-mobile-layout-v2635.css";
 import "../admin-home-v2636.css";
+import "../admin-home-v2637.css";
 
 export default function AdminLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return children;

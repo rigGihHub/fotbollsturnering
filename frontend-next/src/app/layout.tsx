@@ -12,7 +12,7 @@ import "./comic-card-v2634.css";
 import { PwaBoot } from "@/components/PwaBoot";
 import { ViewModeSwitch } from "@/components/ViewModeSwitch";
 
-const APP_VERSION = "2.6.36";
+const APP_VERSION = "2.6.37";
 
 export const metadata: Metadata = {
   title: `CupNavi v${APP_VERSION}`,
@@ -31,8 +31,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
       <body>
         <header className="brandbar">
           <a href="/" className="brand" aria-label="CupNavi startsida">
-            <img className="brand-logo-mark" src="/cupnavi-icon.svg" alt="" aria-hidden="true" />
-            <span className="brand-wordmark"><strong>CUP</strong><span>NAVI</span></span>
+            <img className="brand-logo-original" src="/cupnavi-logo.png" alt="CupNavi" />
           </a>
           <span className="app-version-badge" aria-label={`CupNavi version ${APP_VERSION}`}>v{APP_VERSION}</span>
         </header>

@@ -1,0 +1,24 @@
+/* v2.6.37 — restored identity and cohesive overview controls */
+.brand-logo-original{display:block;width:min(250px,48vw);height:auto;object-fit:contain}
+.admin-active-cup-card{display:grid;gap:10px;padding:15px;border:2px solid #101f2a;border-radius:12px;background:linear-gradient(145deg,#fffdf7 0%,#f2eadb 100%);box-shadow:4px 4px 0 #101f2a}
+.admin-active-cup-card .admin-sidebar__cup{padding:0 0 11px!important;border-bottom:1px solid rgba(16,31,42,.22)!important}
+.admin-active-cup-card .admin-cup-switcher{padding:0!important}
+.admin-active-cup-card .admin-owner-actions{margin:0!important}
+.admin-pagehead__actions{padding:5px;border:2px solid #101f2a;border-radius:9px;background:#fffdf7;box-shadow:3px 3px 0 #101f2a}
+.admin-pagehead__actions .admin-draft{align-self:stretch;display:inline-flex;align-items:center;margin:0!important;border:0!important;border-radius:5px!important;box-shadow:none!important}
+.admin-pagehead__actions a{border:0!important;background:#101f2a!important;color:#fff!important;border-radius:5px!important;box-shadow:none!important}
+.admin-pagehead__actions a span{color:#ffd83d}
+@media(max-width:760px){
+  .brandbar{min-height:84px!important;padding:12px 20px!important}
+  .brand-logo-original{width:min(260px,65vw)!important}
+  .admin-active-cup-card{margin:0 0 10px;padding:12px;border-radius:9px;box-shadow:3px 3px 0 #101f2a}
+  .admin-active-cup-card .admin-sidebar__cup{padding:0 0 9px!important}
+  .admin-active-cup-card .admin-sidebar__cup strong{font-size:22px!important}
+  .admin-active-cup-card .admin-owner-actions{display:grid!important;grid-template-columns:1fr auto!important}
+  .admin-active-cup-card .admin-owner-actions>button{font-size:11px!important}
+  .admin-main#overview>.admin-pagehead{align-items:flex-end!important;flex-wrap:wrap!important}
+  .admin-main#overview>.admin-pagehead h1{font-size:32px!important;line-height:1!important}
+  .admin-main#overview>.admin-pagehead .admin-pagehead__actions{width:100%!important;margin:0!important;display:grid!important;grid-template-columns:auto minmax(0,1fr)!important;padding:4px!important}
+  .admin-main#overview>.admin-pagehead .admin-draft{justify-content:center;padding:0 10px!important;font-size:9px!important}
+  .admin-main#overview>.admin-pagehead .admin-pagehead__actions a{justify-content:center;min-height:42px!important;font-size:12px!important}
+}
