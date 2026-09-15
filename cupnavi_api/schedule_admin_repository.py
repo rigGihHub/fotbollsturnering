@@ -31,7 +31,7 @@ def admin_schedule(account_id: int, tournament_id: int):
     if not _has_tournament_access(account_id, tournament_id):
         return None
     tournament = one(
-        "SELECT id,start_date,end_date,schedule_dirty,is_published FROM tournaments WHERE id=?",
+        "SELECT id,start_date,end_date,schedule_dirty,is_published,arrangement_type FROM tournaments WHERE id=?",
         (int(tournament_id),),
     )
     if not tournament:
@@ -87,6 +87,7 @@ def admin_schedule(account_id: int, tournament_id: int):
         "end_date": tournament.get("end_date"),
         "schedule_dirty": bool(tournament.get("schedule_dirty") or 0),
         "is_published": bool(tournament.get("is_published") or 0),
+        "arrangement_type": tournament.get("arrangement_type") or "tournament",
         "conflict_analysis": conflict_analysis,
     }
 

@@ -6,6 +6,7 @@ from datetime import date
 
 from fastapi import File, Header, HTTPException, UploadFile
 from pydantic import BaseModel
+from .matchcamp_builder_repository import apply_matchcamp_pairing, matchcamp_pairing_proposal
 
 from cupnavi_core.ai_cup_document_import import extract_cup_setup_from_documents
 from cupnavi_core.cup_document_creator_view import save_setup_import_snapshot
@@ -76,6 +77,11 @@ class MatchScheduleWrite(BaseModel):
 
 class ScheduleProposalApply(BaseModel):
     fingerprint: str
+
+
+class MatchcampPairingWrite(BaseModel):
+    matches_per_team: int
+    fingerprint: str | None = None
 
 
 def _model_values(model: BaseModel) -> dict:
@@ -265,6 +271,22 @@ def register_venue_admin_routes(app, admin_identity):
         result = admin_schedule_proposal(int(account["id"]), tournament_id)
         if result is None:
             raise HTTPException(status_code=404, detail="Cup not found or access denied")
+        return result
+
+    @app.post("/api/admin/cups/{tournament_id}/matchcamp/pairings/preview")
+    def post_matchcamp_pairings_preview(tournament_id:int,payload:MatchcampPairingWrite,authorization:str|None=Header(default=None)):
+        account=admin_identity(authorization)
+        try:result=matchcamp_pairing_proposal(int(account["id"]),tournament_id,payload.matches_per_team)
+        except ValueError as exc:raise HTTPException(status_code=422,detail=str(exc)) from exc
+        if result is None:raise HTTPException(status_code=404,detail="Cup not found or access denied")
+        return result
+
+    @app.post("/api/admin/cups/{tournament_id}/matchcamp/pairings/apply")
+    def post_matchcamp_pairings_apply(tournament_id:int,payload:MatchcampPairingWrite,authorization:str|None=Header(default=None)):
+        account=admin_identity(authorization)
+        try:result=apply_matchcamp_pairing(int(account["id"]),tournament_id,payload.matches_per_team,payload.fingerprint or "")
+        except ValueError as exc:raise HTTPException(status_code=409,detail=str(exc)) from exc
+        if result is None:raise HTTPException(status_code=404,detail="Cup not found or access denied")
         return result
 
     @app.post("/api/admin/cups/{tournament_id}/schedule/proposal/apply")

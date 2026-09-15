@@ -23,7 +23,7 @@ type ConflictAnalysis={
 type SchedulePayload={
   matches:MatchRow[]; match_count:number; scheduled_count:number; unscheduled_count:number; pitch_count:number;
   first_match_time:string; latest_kickoff_time:string; start_date?:string|null; end_date?:string|null;
-  schedule_dirty:boolean; is_published:boolean; conflict_analysis:ConflictAnalysis;
+  schedule_dirty:boolean; is_published:boolean; arrangement_type?:string; conflict_analysis:ConflictAnalysis;
 };
 type ProposalPlacement={match_id:number;scheduled_start:string;pitch_number:number};
 type ProposalUnresolved={match_id:number;reason:"played_without_schedule"|"locked_without_schedule"|"no_feasible_slot"|"round_order_blocked"};
@@ -41,6 +41,8 @@ type ApplyResult={
   post_apply_conflict_analysis:ConflictAnalysis;schedule:SchedulePayload;
 };
 type ImportSummary={available:boolean;source_name?:string|null;expected?:{matches?:number};actual?:{matches?:number}};
+type MatchcampPair={match_no:number;home_team_id:number;home_name:string;away_team_id:number;away_name:string};
+type MatchcampProposal={writes_database:boolean;fingerprint:string;matches_per_team:number;team_count:number;match_count:number;minimum_matches:number;maximum_matches:number;balanced:boolean;pairs:MatchcampPair[]};
 
 async function api<T>(path:string,options:RequestInit,token:string):Promise<T>{
   const headers=new Headers(options.headers||{});if(options.body)headers.set("Content-Type","application/json");
@@ -67,6 +69,7 @@ function unresolvedLabel(reason:ProposalUnresolved["reason"]){
 export default function ScheduleAdmin({token,cupId}:{token:string;cupId:number}){
   const[data,setData]=useState<SchedulePayload|null>(null);const[proposal,setProposal]=useState<ScheduleProposal|null>(null);const[busy,setBusy]=useState(false);
   const[error,setError]=useState("");const[message,setMessage]=useState("");const[filter,setFilter]=useState<"all"|"scheduled"|"unscheduled">("all");const[importSummary,setImportSummary]=useState<ImportSummary|null>(null);
+  const[matchesPerTeam,setMatchesPerTeam]=useState(4);const[matchcampProposal,setMatchcampProposal]=useState<MatchcampProposal|null>(null);
   const load=useCallback(async()=>{setBusy(true);setError("");try{const schedule=await api<SchedulePayload>(`/api/admin/cups/${cupId}/schedule`,{},token);setData(schedule);setProposal(null);if(schedule.match_count===0){try{setImportSummary(await api<ImportSummary>(`/api/admin/cups/${cupId}/import/summary`,{},token));}catch{setImportSummary(null);}}else setImportSummary(null);}catch(err){setError(err instanceof Error?err.message:"Schemat kunde inte hämtas.");}finally{setBusy(false);}},[cupId,token]);
   useEffect(()=>{void load();},[load]);
   const visible=useMemo(()=>{if(!data)return[];if(filter==="scheduled")return data.matches.filter(m=>m.scheduled_start);if(filter==="unscheduled")return data.matches.filter(m=>!m.scheduled_start);return data.matches;},[data,filter]);
@@ -76,6 +79,8 @@ export default function ScheduleAdmin({token,cupId}:{token:string;cupId:number})
   async function clearMatch(match:MatchRow){if(!window.confirm(`Ta bort tid och plan för ${match.home_label} – ${match.away_label}?`))return;setBusy(true);setError("");setMessage("");try{const saved=await api<SchedulePayload>(`/api/admin/cups/${cupId}/schedule/matches/${match.id}`,{method:"PUT",body:JSON.stringify({scheduled_start:null,pitch_number:null})},token);setData(saved);setProposal(null);setMessage("Matchen är nu oschemalagd och konfliktkontrollen är omräknad.");}catch(err){setError(err instanceof Error?err.message:"Matchen kunde inte göras oschemalagd.");}finally{setBusy(false);}}
   async function createProposal(){setBusy(true);setError("");setMessage("");try{const next=await api<ScheduleProposal>(`/api/admin/cups/${cupId}/schedule/proposal`,{method:"POST"},token);setProposal(next);setMessage("Schemaförslaget är beräknat. Ingenting har skrivits till databasen.");}catch(err){setError(err instanceof Error?err.message:"Schemaförslaget kunde inte beräknas.");}finally{setBusy(false);}}
   async function restoreImportedMatches(){setBusy(true);setError("");setMessage("");try{const result=await api<{restored_count:number}>(`/api/admin/cups/${cupId}/import/restore-matches`,{method:"POST"},token);await load();setMessage(`${result.restored_count} matcher från den första importen har återställts.`);}catch(err){setError(err instanceof Error?err.message:"Matchprogrammet kunde inte återställas.");setBusy(false);}}
+  async function previewMatchcamp(){setBusy(true);setError("");setMessage("");setMatchcampProposal(null);try{const result=await api<MatchcampProposal>(`/api/admin/cups/${cupId}/matchcamp/pairings/preview`,{method:"POST",body:JSON.stringify({matches_per_team:matchesPerTeam})},token);setMatchcampProposal(result);setMessage("Matchförslaget är klart. Ingenting har sparats ännu.");}catch(err){setError(err instanceof Error?err.message:"Matchförslaget kunde inte skapas.");}finally{setBusy(false);}}
+  async function applyMatchcamp(){if(!matchcampProposal)return;setBusy(true);setError("");setMessage("");try{await api<{created_count:number}>(`/api/admin/cups/${cupId}/matchcamp/pairings/apply`,{method:"POST",body:JSON.stringify({matches_per_team:matchesPerTeam,fingerprint:matchcampProposal.fingerprint})},token);setMatchcampProposal(null);await load();setMessage("Matchmötena är sparade. Skapa nu ett schemaförslag för tider och planer.");}catch(err){setError(err instanceof Error?err.message:"Matchmötena kunde inte sparas.");setBusy(false);}}
   async function applyProposal(){
     if(!proposal||proposal.placed_count===0)return;
     const warning=proposal.unresolved_count?` ${proposal.unresolved_count} matcher kan fortfarande behöva lösas manuellt.`:"";
@@ -91,13 +96,18 @@ export default function ScheduleAdmin({token,cupId}:{token:string;cupId:number})
       setError(err instanceof Error?err.message:"Schemaförslaget kunde inte appliceras. Räkna om förslaget och försök igen.");
     }finally{setBusy(false);}
   }
-  if(!data)return <section className="admin-panel admin-teams" id="schedule"><div className="admin-panel__top"><span>06 / SCHEMA</span><strong>{busy?"HÄMTAR":"SAKNAS"}</strong></div><h2>Schema</h2><p>{error||"Hämtar riktiga matcher…"}</p></section>;
+  if(!data)return <section className="admin-panel admin-teams" id="schedule"><div className="admin-panel__top"><span>GUIDE / SCHEMA</span><strong>{busy?"HÄMTAR":"SAKNAS"}</strong></div><h2>Schema</h2><p>{error||"Hämtar riktiga matcher…"}</p></section>;
   const analysis=data.conflict_analysis;
   return <section className="admin-panel admin-teams" id="schedule">
-    <div className="admin-panel__top"><span>06 / SCHEMA</span><strong>{data.scheduled_count}/{data.match_count} SCHEMALAGDA</strong></div>
-    <div className="admin-cupinfo__head"><div><h2>Skapa matchschemat</h2><p>CupNavi placerar matcherna åt dig utifrån planer, öppettider och viloregler. Du granskar alltid resultatet innan det sparas.</p></div><span className="admin-lock">STEG 07 · SCHEMA</span></div>
+    <div className="admin-panel__top"><span>GUIDE / SCHEMA</span><strong>{data.scheduled_count}/{data.match_count} SCHEMALAGDA</strong></div>
+    <div className="admin-cupinfo__head"><div><h2>Skapa matchschemat</h2><p>CupNavi placerar matcherna åt dig utifrån planer, öppettider och viloregler. Du granskar alltid resultatet innan det sparas.</p></div><span className="admin-lock">GRANSKA → SPARA</span></div>
     {(error||message)&&<div className="admin-code-placeholder" style={{marginBottom:16}}><b>{error?"Fel":"Klart"}</b> · {error||message}</div>}
-    {data.match_count===0?<section className="schedule-empty-guide">
+    {data.match_count===0&&data.arrangement_type==="matchcamp"?<section className="matchcamp-builder">
+      <div className="admin-panel__top"><span>1 · SKAPA MÖTENA</span><strong>INGET SPARAS ÄN</strong></div>
+      <h3>Hur många matcher ska varje lag få?</h3><p>CupNavi skapar unika möten. Tider och planer läggs på först i nästa kontrollsteg.</p>
+      <div className="matchcamp-builder__controls"><label>Matcher per lag<input type="number" min={1} max={12} value={matchesPerTeam} onChange={e=>{setMatchesPerTeam(Number(e.target.value));setMatchcampProposal(null);}}/></label><button type="button" disabled={busy} onClick={()=>void previewMatchcamp()}>{busy?"Räknar…":"Skapa matchförslag"}</button></div>
+      {matchcampProposal&&<><div className="matchcamp-builder__summary"><strong>{matchcampProposal.match_count} matcher</strong><span>{matchcampProposal.minimum_matches===matchcampProposal.maximum_matches?`${matchcampProposal.minimum_matches} per lag`:`${matchcampProposal.minimum_matches}–${matchcampProposal.maximum_matches} per lag`}</span>{!matchcampProposal.balanced&&<small>Udda antal lag gör att ett lag vilar varje omgång.</small>}</div><div className="admin-team-list">{matchcampProposal.pairs.map(pair=><article key={pair.match_no}><strong>Match {pair.match_no}</strong><span>{pair.home_name} – {pair.away_name}</span></article>)}</div><div className="admin-form-footer"><span>Granska alla möten innan de skapas.</span><button type="button" disabled={busy} onClick={()=>void applyMatchcamp()}>Godkänn och skapa matcherna</button></div></>}
+    </section>:data.match_count===0?<section className="schedule-empty-guide">
       <span className="schedule-empty-guide__number">1</span>
       {Number(importSummary?.expected?.matches||0)>0?<><div><p className="kicker">ORIGINALIMPORT HITTAD</p><h3>Återställ det redan importerade schemat</h3><p>Den första importen innehöll {importSummary?.expected?.matches} matcher, men de saknas i schemat. Återställ dem från det sparade underlaget – du behöver inte ladda upp något igen.</p></div><div className="schedule-empty-guide__actions"><button className="is-primary" type="button" disabled={busy} onClick={()=>void restoreImportedMatches()}>{busy?"Återställer…":`Återställ ${importSummary?.expected?.matches} matcher`}</button><a href="#groups">Kontrollera grupper</a></div></>:<><div><p className="kicker">INGA MATCHER HITTADE</p><h3>Matchprogram saknas</h3><p>Den första importen innehöll inget användbart matchprogram. Kontrollera grupperna och öppna endast Import om du verkligen behöver lägga in ett nytt underlag.</p></div><div className="schedule-empty-guide__actions"><a className="is-primary" href="#groups">Kontrollera grupper</a><a href="#import">Öppna Import</a></div></>}
     </section>:<>
