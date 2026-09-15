@@ -220,7 +220,8 @@ def _search_strategies(clean_name, *, location="", country_code="", age_class=""
     fallback = (
         f"Första sökningen för '{clean_name}' var ofullständig. Fyll endast luckorna för {focus}. "
         f"Sök på '{club_name}' och den identifierade officiella domänen. Kontext: {context}. "
-        "För matchställ: använd officiell webbshop, materialpartner, aktuell lagbild eller färsk matchbild. "
+        "För matchställ: använd officiell webbshop, materialpartner, aktuell lagbild eller färsk matchbild. Sök även i offentliga, verifierbara Instagram- och Facebook-inlägg från klubbens eller lagets officiella konto. "
+        "Sociala medier får bara verifiera ett ställ när två aktuella bilder är samstämmiga, eller när en social bild bekräftas av en officiell klubb-, förbunds- eller materialpartnerkälla. Konton/inlägg som kräver inloggning är inte bevis. "
         "För klubbmärke: kräv att bilden kommer från officiell klubbdomän, förbundsprofil eller Wikimedia med tydlig klubbkoppling. "
         "Acceptera en verifierad delträff hellre än att gissa."
     )
@@ -292,7 +293,7 @@ def _request_suggestion(clean_name, api_key, *, model, timeout_seconds, strategy
         "Om arrangören har valt en klubbidentitet i kontexten ska den identiteten användas och inte ifrågasättas annat än vid uppenbar källkonflikt. "
         "VIKTIGT FÖR KORREKTHET: home_verified får bara vara true om minst en URL i home_sources faktiskt stöder hemmaställets färg/mönster. "
         "away_verified får bara vara true om minst en URL i away_sources faktiskt stöder bortastället. Samma källa får användas för båda bara om den tydligt visar båda. "
-        "Skriv i home_evidence/away_evidence vad källan visar. Prioritera officiell klubb/webbshop, sedan förbund/cup/lagplattform, därefter färska matchbilder. "
+        "Skriv i home_evidence/away_evidence vad källan visar. Prioritera officiell klubb/webbshop, sedan förbund/cup/lagplattform, därefter färska matchbilder. Offentliga inlägg från klubbens officiella Instagram eller Facebook får användas som kompletterande bildbevis, men aldrig ett ensamt gammalt eller odaterat inlägg. "
         "Om flera trovärdiga källor motsäger varandra, välj den nyaste relevanta säsongen och sänk confidence. "
         "Det är bättre att returnera bara ett belagt hemmaställ än att fylla i ett osäkert bortaställ. "
         "För verifierade ställ: ange praktiska HEX-färger (#RRGGBB) och närmast passande tillåtet mönster. "

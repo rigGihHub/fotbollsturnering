@@ -19,11 +19,12 @@ import "./reporting-admin-v2664.css";
 import "./reporter-v2665.css";
 import "./reporter-flow-v2667.css";
 import "./public-atmosphere-v2671.css";
+import "./public-texttv-v2675.css";
 import { PwaBoot } from "@/components/PwaBoot";
 import { ViewModeSwitch } from "@/components/ViewModeSwitch";
 import { HeaderShareAction } from "@/components/HeaderShareAction";
 
-const APP_VERSION = "2.6.74";
+const APP_VERSION = "2.6.75";
 
 export const metadata: Metadata = {
   title: `CupNavi v${APP_VERSION}`,

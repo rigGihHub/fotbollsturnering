@@ -1,5 +1,6 @@
 import { Tournament } from "@/lib/types";
 import { dateLabel } from "@/lib/format";
+import { CupShareButton } from "./CupShareButton";
 
 export function CupCover({ tournament, teamCount, matchCount, groupCount }: { tournament: Tournament; teamCount: number; matchCount:number; groupCount:number }) {
   return (
@@ -13,6 +14,7 @@ export function CupCover({ tournament, teamCount, matchCount, groupCount }: { to
             {tournament.arena_address || "Plats kommer"} <span>•</span> {dateLabel(tournament.start_date)}
           </p>
           <div className="cup-cover__facts"><span><b>{teamCount}</b> lag</span><span><b>{matchCount}</b> matcher</span>{groupCount>0&&<span><b>{groupCount}</b> grupper</span>}</div>
+          <CupShareButton cupName={tournament.name}/>
         </div>
         <div className="collectible-stamp" aria-label="CupNavi collector edition">
           <span>CN</span><strong>{String(tournament.id).padStart(3, "0")}</strong>

@@ -654,7 +654,7 @@ export default function AdminWorkspace({verifiedSession=null,children=null}:{ver
           </div>
           <section className="admin-kit-search" aria-label="Sök lagets matchställ och klubbmärke">
             <div><strong>Sök tröjfärger och mönster eller klubbmärke</strong><span>CupNavi identifierar klubben först och visar sedan verifierade källor. Inget förs in förrän du godkänner träffen.</span></div>
-            <label>Sökledtråd <input value={kitHint} onChange={e=>setKitHint(e.target.value)} placeholder="Valfritt: klubbens ort eller webbplats" /></label>
+            <label>Sökledtråd <input value={kitHint} onChange={e=>setKitHint(e.target.value)} placeholder="Ort, webbplats eller offentligt Instagramkonto" /></label>
             <div className="admin-asset-search-actions"><button type="button" disabled={kitBusy||!teamDraft.name.trim()} onClick={()=>void searchAssets("kit")}>{kitBusy&&assetFocus==="kit"?"Söker matchställ…":"Sök matchställ"}</button><button type="button" disabled={kitBusy||!teamDraft.name.trim()} onClick={()=>void searchAssets("logo")}>{kitBusy&&assetFocus==="logo"?"Söker klubbmärke…":"Sök klubbmärke"}</button></div>
           </section>
           {kitSuggestion&&<section className="admin-kit-result">
