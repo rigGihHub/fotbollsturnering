@@ -5,7 +5,6 @@ import ImportAdmin from "./import-admin";
 import PublishReportingAdmin from "./publish-reporting-admin";
 import RosterAdmin from "./roster-admin";
 import RoleCodeAdmin from "./role-code-admin";
-import RefereeRoleCodeAdmin from "./referee-role-code-admin";
 import TeamRoleCodeAdmin from "./team-role-code-admin";
 
 const TOKEN_KEY = "cupnavi_admin_session_v629";
@@ -96,9 +95,8 @@ export default function AdminOperations() {
     </section>
     {step==="reporting" && <>
       <div id="access-flow" className="admin-flow-group">
-        <div className="admin-flow-group__label"><span>A</span><div><strong>Behörighet</strong><small>Koder för rapportör, domare och lagportal.</small></div></div>
+        <div className="admin-flow-group__label"><span>A</span><div><strong>Behörighet</strong><small>En gemensam rapportörskod för resultat och separata lagkoder för trupper.</small></div></div>
         <RoleCodeAdmin token={token} cupId={cupId} publicSlug={activeCup?.public_slug}/>
-        <RefereeRoleCodeAdmin token={token} cupId={cupId} publicSlug={activeCup?.public_slug}/>
         <TeamRoleCodeAdmin token={token} cupId={cupId} publicSlug={activeCup?.public_slug}/>
       </div>
       <div id="roster-flow" className="admin-flow-group">

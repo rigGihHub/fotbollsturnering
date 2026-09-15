@@ -3,8 +3,6 @@ from pathlib import Path
 ROOT=Path(__file__).resolve().parents[1]
 backend=(ROOT/'cupnavi_api'/'referee_access_routes.py').read_text(encoding='utf-8')
 routes=(ROOT/'cupnavi_api'/'competition_admin_routes.py').read_text(encoding='utf-8')
-admin=(ROOT/'frontend-next'/'src'/'components'/'referee-role-code-admin.tsx').read_text(encoding='utf-8')
-portal=(ROOT/'frontend-next'/'src'/'components'/'referee-client.tsx').read_text(encoding='utf-8')
 page=(ROOT/'frontend-next'/'src'/'app'/'referee'/'page.tsx').read_text(encoding='utf-8')
 ops=(ROOT/'frontend-next'/'src'/'components'/'admin-operations.tsx').read_text(encoding='utf-8')
 
@@ -15,8 +13,6 @@ assert 'scope="referee_login"' in backend
 assert '/api/referee/assignments' in backend
 assert 'WHERE tournament_id=? AND {match_column}=?' in backend
 assert 'register_referee_access_routes(app,admin_identity)' in routes
-assert 'Varje domare får en egen 4-siffrig kod' in admin
-assert '/referee?cup=' in admin
-assert 'endast dina tilldelade matcher' in portal
-assert 'RefereeClient' in page
-assert '<RefereeRoleCodeAdmin token={token} cupId={cupId}' in ops
+assert 'redirect(cup?`/reporter?cup=' in page
+assert 'RefereeRoleCodeAdmin' not in ops
+assert 'En gemensam rapportörskod' in ops

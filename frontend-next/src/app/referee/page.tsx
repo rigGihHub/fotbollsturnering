@@ -1,5 +1,7 @@
-import RefereeClient from "@/components/referee-client";
+import { redirect } from "next/navigation";
 
-export default function RefereePage(){
-  return <RefereeClient/>;
+export default async function RefereePage({searchParams}:{searchParams:Promise<{cup?:string}>}){
+  const query=await searchParams;
+  const cup=query.cup?.trim();
+  redirect(cup?`/reporter?cup=${encodeURIComponent(cup)}`:"/reporter");
 }

@@ -5,11 +5,8 @@ ROOT = Path(__file__).resolve().parents[1]
 
 def test_role_links_can_be_copied_with_cup_and_identity():
     reporter = (ROOT / "frontend-next/src/components/role-code-admin.tsx").read_text()
-    referee = (ROOT / "frontend-next/src/components/referee-role-code-admin.tsx").read_text()
     assert "navigator.clipboard.writeText" in reporter
     assert "Kopiera inloggningslänk" in reporter
-    assert "navigator.clipboard.writeText" in referee
-    assert "referee=${referee.id}" in referee
 
 
 def test_linked_reporter_login_hides_technical_slug():
