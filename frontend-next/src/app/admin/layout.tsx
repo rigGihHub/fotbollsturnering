@@ -19,6 +19,7 @@ import "../admin-create-v2640.css";
 import "../admin-desktop-v2650.css";
 import "../schedule-clarity-v2651.css";
 import "../schedule-clarity-v2652.css";
+import "../publication-flow-v2653.css";
 
 export default function AdminLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return children;

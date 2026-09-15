@@ -1,0 +1,15 @@
+/* v2.6.53 — render heavy steps in the workspace's main column. */
+html[data-admin-step="publish"] .admin-workspace>#overview,
+html[data-admin-step="reporting"] .admin-workspace>#overview,
+html[data-admin-step="import"] .admin-workspace>#overview{display:none!important}
+html[data-admin-step="publish"] .admin-workspace>.admin-operations-flow,
+html[data-admin-step="reporting"] .admin-workspace>.admin-operations-flow,
+html[data-admin-step="import"] .admin-workspace>.admin-operations-flow{display:block!important;grid-column:2;grid-row:1;width:100%!important;margin:0!important;padding:18px 10px 88px 0!important}
+html[data-admin-step="publish"] .admin-operations-flow>.admin-flow-group,
+html[data-admin-step="reporting"] .admin-operations-flow>.admin-flow-group,
+html[data-admin-step="import"] .admin-operations-flow>.admin-flow-group{display:block!important}
+.publication-ready-steps{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:0 24px 22px}
+.publication-ready-steps>div{display:grid;grid-template-columns:32px minmax(0,1fr);gap:10px;padding:14px;border:1px solid #b8c9c0;border-radius:11px;background:#f4fbf5}
+.publication-ready-steps b{display:grid;place-items:center;width:30px;height:30px;border-radius:50%;background:#267047;color:#fff}
+.publication-ready-steps span{display:grid;gap:4px}.publication-ready-steps strong{font-size:13px}.publication-ready-steps small{color:#52636c;font-size:11px;line-height:1.4}
+@media(max-width:900px){html[data-admin-step="publish"] .admin-workspace>.admin-operations-flow,html[data-admin-step="reporting"] .admin-workspace>.admin-operations-flow,html[data-admin-step="import"] .admin-workspace>.admin-operations-flow{grid-column:1;width:calc(100% - 20px)!important;margin:0 auto!important;padding:10px 0 88px!important}.publication-ready-steps{grid-template-columns:1fr;margin:0 14px 16px}}

@@ -1,6 +1,6 @@
 "use client";
 
-import { CSSProperties, FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { CSSProperties, FormEvent, ReactNode, useCallback, useEffect, useMemo, useState } from "react";
 import VenueAdmin from "./venue-admin";
 import RulesAdmin from "./rules-admin";
 import ScheduleAdmin from "./schedule-admin";
@@ -127,7 +127,7 @@ function currentAdminStep():AdminStep {
   return nav.some(([,href])=>href===`#${value}`) ? value : "overview";
 }
 
-export default function AdminWorkspace({verifiedSession=null}:{verifiedSession?:(SessionPayload & {token:string})|null}) {
+export default function AdminWorkspace({verifiedSession=null,children=null}:{verifiedSession?:(SessionPayload & {token:string})|null;children?:ReactNode}) {
   const [token,setToken] = useState<string|null>(null);
   const [account,setAccount] = useState<Account|null>(null);
   const [cups,setCups] = useState<Cup[]>([]);
@@ -687,5 +687,6 @@ export default function AdminWorkspace({verifiedSession=null}:{verifiedSession?:
 
       {activeStep==="export" && token && cupId && <ExportAdmin token={token} cupId={cupId}/>}
     </section>
+    {children}
   </main>;
 }

@@ -34,7 +34,7 @@ function compactConflicts(rows:ScheduleConflict[]) {
   return [...counts.values()];
 }
 
-export default function PublishReportingAdmin({token,cupId,mode}:{token:string;cupId:number;mode:Mode}) {
+export default function PublishReportingAdmin({token,cupId,mode,publicSlug}:{token:string;cupId:number;mode:Mode;publicSlug?:string|null}) {
   const [publication,setPublication]=useState<PublicationPayload|null>(null);
   const [matches,setMatches]=useState<Match[]>([]);
   const [error,setError]=useState("");
@@ -86,11 +86,12 @@ export default function PublishReportingAdmin({token,cupId,mode}:{token:string;c
   const awaiting=matches.filter(match=>match.status==="awaiting_decision").length;
 
   if(mode==="publish"){
+    if(!publication&&!error)return <section className="admin-panel publication-console publication-console--loading" id="publish" aria-live="polite"><div className="publication-console__eyebrow"><span>07 · KONTROLL & PUBLICERING</span><strong>KONTROLLERAR</strong></div><div className="publication-console__hero"><span className="publication-console__signal" aria-hidden="true">…</span><div><p className="publication-console__kicker">Slutkontroll</p><h2>Kontrollerar cupen</h2><p>CupNavi hämtar aktuell cupdata och letar efter sådant som måste rättas före publicering.</p></div></div></section>;
     const isLive=Boolean(publication?.tournament?.is_published);
     const isReady=Boolean(publication?.ready);
     const issueCount=otherBlockers.reduce((sum,item)=>sum+item.count,0)+scheduleErrors.length;
     return <section className={`admin-panel publication-console ${isReady?"is-ready":"needs-action"}`} id="publish">
-      <div className="publication-console__eyebrow"><span>08 · KONTROLL & PUBLICERING</span><strong>{isLive?"LIVE":"UTKAST"}</strong></div>
+      <div className="publication-console__eyebrow"><span>07 · KONTROLL & PUBLICERING</span><strong>{isLive?"LIVE":"UTKAST"}</strong></div>
       <div className="publication-console__hero">
         <span className="publication-console__signal" aria-hidden="true">{isReady?"✓":"!"}</span>
         <div><p className="publication-console__kicker">{isReady?"Redo för publik":"Åtgärder krävs"}</p><h2>{isLive?"Cupen är publicerad":isReady?"Allt är klart":"Inte redo att publicera"}</h2><p>{isReady?"Kontrollerna är godkända. Du kan publicera cupen när du vill.":`${issueCount} ${issueCount===1?"sak behöver":"saker behöver"} rättas innan cupen kan bli publik.`}</p></div>
@@ -101,9 +102,10 @@ export default function PublishReportingAdmin({token,cupId,mode}:{token:string;c
         {otherBlockers.map(({text,count})=><div className="publication-checklist__item" key={text}><span className="publication-checklist__icon">!</span><div><strong>{text}</strong><small>Behöver åtgärdas innan publicering.</small></div>{count>1&&<b>×{count}</b>}</div>)}
         {conflictGroups.map(({item,count})=><div className="publication-checklist__item is-blocking" key={`${item.type}:${item.message}`}><span className="publication-checklist__icon">!</span><div><strong>{item.message}</strong><small>{item.type==="round_order"?"Rätta rondordningen i Schema.":"Öppna Schema och rätta konflikten."}</small></div>{count>1&&<b>×{count}</b>}</div>)}
       </div>}
+      {isReady&&<div className="publication-ready-steps"><div><b>1</b><span><strong>Kontrollera sammanfattningen</strong><small>CupNavi har inte hittat några blockerande fel.</small></span></div><div><b>2</b><span><strong>Förhandsgranska cupvyn</strong><small>Kontrollera hur tider, planer och lag visas för besökare.</small></span></div><div><b>3</b><span><strong>Publicera cupen</strong><small>Den publika länken blir tillgänglig för deltagarna.</small></span></div></div>}
       <div className="publication-console__actions">
         <span>{isLive?"Ändringar visas direkt i turneringsvyn.":isReady?"En sista kontroll görs när du publicerar.":"Publiceringsknappen aktiveras när checklistan är klar."}</span>
-        <div>{scheduleErrors.length>0&&<a className="admin-action-secondary" href="#schedule">Öppna Schema</a>}<button className="admin-action-primary" disabled={busy||(!isLive&&!isReady)} onClick={togglePublication}>{busy?"Arbetar…":isLive?"Avpublicera":"Publicera cup"}</button></div>
+        <div>{scheduleErrors.length>0&&<a className="admin-action-secondary" href="#schedule">Öppna Schema</a>}{publicSlug&&<a className="admin-action-secondary" href={`/cup/${publicSlug}`} target="_blank" rel="noreferrer">Förhandsgranska</a>}<button className="admin-action-primary" disabled={busy||(!isLive&&!isReady)} onClick={togglePublication}>{busy?"Arbetar…":isLive?"Avpublicera":"Publicera cup"}</button></div>
       </div>
     </section>;
   }

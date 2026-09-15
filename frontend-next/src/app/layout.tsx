@@ -16,7 +16,7 @@ import "./beginner-flow-v2645.css";
 import { PwaBoot } from "@/components/PwaBoot";
 import { ViewModeSwitch } from "@/components/ViewModeSwitch";
 
-const APP_VERSION = "2.6.52";
+const APP_VERSION = "2.6.53";
 
 export const metadata: Metadata = {
   title: `CupNavi v${APP_VERSION}`,

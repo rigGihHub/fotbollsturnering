@@ -180,8 +180,9 @@ export default function AdminAuthShell() {
       <CupCreateLauncher/>
       <AdminStepFlow/>
       <AdminLazyExtras/>
-      <AdminWorkspace key={`admin-${authKey}`} verifiedSession={verifiedSession} />
-      <AdminOperations/>
+      <AdminWorkspace key={`admin-${authKey}`} verifiedSession={verifiedSession}>
+        <AdminOperations/>
+      </AdminWorkspace>
     </>
   );
 }
