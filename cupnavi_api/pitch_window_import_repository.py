@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+from collections import Counter
 from datetime import date, datetime, timedelta
 
 from .admin_repository import _has_tournament_access
@@ -89,17 +90,42 @@ def pitch_window_import_review(account_id: int, tournament_id: int):
         (int(row["pitch_number"]), str(row["play_date"])): row
         for row in persisted
     }
+    # A reviewed import may map a source venue name (for example an arena) to a
+    # renamed CupNavi pitch (for example "Plan 1"). Remember confirmed values as
+    # a multiset so that this legitimate mapping does not re-open forever.
+    confirmed_values = Counter(
+        (
+            str(row.get("play_date") or ""),
+            str(row.get("start_time") or ""),
+            str(row.get("end_time") or ""),
+        )
+        for row in persisted
+        if bool(row.get("confirmed") or 0)
+    )
     pending = []
     already_applied = 0
     for row in rows:
         pitch_number = pitch_map.get(str(row.get("venue") or "").casefold())
         existing = current.get((pitch_number, str(row.get("date")))) if pitch_number is not None else None
-        if (
+        exact_match = (
             existing
             and bool(existing.get("confirmed") or 0)
             and str(existing.get("start_time") or "") == str(row.get("start_time") or "")
             and str(existing.get("end_time") or "") == str(row.get("end_time") or "")
-        ):
+        )
+        value_key = (
+            str(row.get("date") or ""),
+            str(row.get("start_time") or ""),
+            str(row.get("end_time") or ""),
+        )
+        if exact_match:
+            already_applied += 1
+            if confirmed_values[value_key] > 0:
+                confirmed_values[value_key] -= 1
+        elif confirmed_values[value_key] > 0:
+            # The values were confirmed against another/renamed pitch. Consume
+            # only one occurrence so equal times on multiple pitches stay safe.
+            confirmed_values[value_key] -= 1
             already_applied += 1
         else:
             pending.append(row)
@@ -161,7 +187,15 @@ def commit_pitch_window_import(account_id: int, tournament_id: int, pitch_window
 
     with connect() as con:
         try:
+            changed = False
             for values in clean:
+                current = con.execute(
+                    """SELECT start_time,end_time,confirmed FROM pitch_day_windows
+                       WHERE tournament_id=? AND pitch_number=? AND play_date=?""",
+                    values[:3],
+                ).fetchone()
+                if not current or str(current[0] or "") != values[3] or str(current[1] or "") != values[4] or not bool(current[2]):
+                    changed = True
                 con.execute(
                     """INSERT INTO pitch_day_windows(tournament_id,pitch_number,play_date,start_time,end_time,confirmed)
                        VALUES(?,?,?,?,?,?)
@@ -173,7 +207,7 @@ def commit_pitch_window_import(account_id: int, tournament_id: int, pitch_window
                 "SELECT COUNT(*) FROM matches WHERE tournament_id=? AND scheduled_start IS NOT NULL",
                 (int(tournament_id),),
             ).fetchone()
-            if scheduled and int(scheduled[0] or 0) > 0:
+            if changed and scheduled and int(scheduled[0] or 0) > 0:
                 con.execute(
                     "UPDATE tournaments SET schedule_dirty=1,is_published=0 WHERE id=?",
                     (int(tournament_id),),
@@ -186,4 +220,4 @@ def commit_pitch_window_import(account_id: int, tournament_id: int, pitch_window
             if callable(rollback):
                 rollback()
             raise
-    return {"imported": len(clean), "review": pitch_window_import_review(account_id, tournament_id)}
+    return {"imported": len(clean), "changed": changed, "review": pitch_window_import_review(account_id, tournament_id)}

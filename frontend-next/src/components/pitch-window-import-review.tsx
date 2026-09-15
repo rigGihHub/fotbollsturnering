@@ -24,7 +24,7 @@ type ReviewPayload = {
   already_applied_count:number;
 };
 
-type CommitPayload = { imported:number; review?:ReviewPayload };
+type CommitPayload = { imported:number; changed?:boolean; review?:ReviewPayload };
 
 async function request<T>(path:string, token:string, options:RequestInit = {}):Promise<T> {
   const headers = new Headers(options.headers || {});
@@ -108,8 +108,10 @@ export default function PitchWindowImportReview() {
       if (!result.imported) throw new Error("Inga plantider importerades.");
       setOpen(false);
       await load(cupId);
-      window.dispatchEvent(new Event(IMPORT_REVIEW_NEXT_EVENT));
-      window.location.hash="schedule";
+      if (result.changed !== false) {
+        window.dispatchEvent(new Event(IMPORT_REVIEW_NEXT_EVENT));
+        window.location.hash="schedule";
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Plantiderna kunde inte importeras.");
     } finally { setBusy(false); }

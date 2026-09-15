@@ -17,10 +17,10 @@ def test_pitch_window_import_backend_is_registered():
 
 
 def test_pitch_window_import_is_visible_in_next_admin():
-    page = (ROOT / "frontend-next" / "src" / "app" / "admin" / "page.tsx").read_text(encoding="utf-8")
+    page = (ROOT / "frontend-next" / "src" / "components" / "admin-lazy-extras.tsx").read_text(encoding="utf-8")
     component = (ROOT / "frontend-next" / "src" / "components" / "pitch-window-import-review.tsx").read_text(encoding="utf-8")
 
     assert "PitchWindowImportReview" in page
-    assert "Plantider väntar på granskning" in component
+    assert "Bekräfta när planerna är öppna" in component
     assert "Spara granskade plantider" in component
-    assert "CupNavi gissar inte datum eller plannamn" in component
+    assert "CupNavi chansar" in component
