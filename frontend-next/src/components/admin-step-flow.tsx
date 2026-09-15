@@ -115,9 +115,9 @@ export default function AdminStepFlow() {
       </div>
       <div className="admin-step-flow__track" aria-hidden="true"><span style={{width:`${index===0?0:(index / (activeFlow.length-1)) * 100}%`}} /></div>
       <div className="admin-step-flow__guide">
-        <div><span>MÅL</span><strong>{guide.goal}</strong></div>
-        <div><span>GÖR NU</span><strong>{guide.action}</strong></div>
-        <div><span>KLAR NÄR</span><strong>{guide.done}</strong></div>
+        <div><span>VARFÖR</span><strong>{guide.goal}</strong></div>
+        <div><span>NÄSTA UPPGIFT</span><strong>{guide.action}</strong></div>
+        <div><span>KLART NÄR</span><strong>{guide.done}</strong></div>
       </div>
       <div className="admin-step-flow__actions">
         <button type="button" disabled={!previous} onClick={() => previous && select(previous[0])}>← Föregående</button>

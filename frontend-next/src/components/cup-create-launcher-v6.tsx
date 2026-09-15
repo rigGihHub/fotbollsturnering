@@ -566,10 +566,8 @@ export default function CupCreateLauncherV6() {
     <>
       <section className="cup-create-toolbar">
         <div>
-          <span>CUPADMINISTRATION</span>
-          <strong>
-            Skapa en cup manuellt eller läs in ett befintligt underlag
-          </strong>
+          <span>MINA CUPER</span>
+          <strong>Hantera eller skapa cup</strong>
         </div>
         <button
           type="button"
@@ -578,7 +576,7 @@ export default function CupCreateLauncherV6() {
             setOpen(true);
           }}
         >
-          + Ny cup
+          Ny cup <span aria-hidden="true">+</span>
         </button>
       </section>
       {open && (

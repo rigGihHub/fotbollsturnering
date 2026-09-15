@@ -1,0 +1,61 @@
+/* v2.6.55 — one calm command bar instead of stacked cards and nested outlines. */
+.cup-create-toolbar{
+  min-height:54px!important;
+  padding:8px 14px!important;
+  border:0!important;
+  border-bottom:1px solid rgba(16,31,42,.18)!important;
+  border-radius:0!important;
+  background:rgba(255,253,248,.94)!important;
+  box-shadow:none!important;
+}
+.cup-create-toolbar>div{display:flex!important;align-items:baseline;gap:10px!important}
+.cup-create-toolbar>div span{color:#167f8b!important}
+.cup-create-toolbar>div strong{font-size:13px!important;font-weight:750!important;color:#52636a!important}
+.cup-create-toolbar>button{
+  display:inline-flex;align-items:center;justify-content:center;gap:9px;
+  min-width:132px!important;min-height:38px!important;padding:7px 15px!important;
+  border:1px solid #102f3c!important;border-radius:8px!important;
+  background:#102f3c!important;box-shadow:none!important;font-size:13px!important;
+}
+.cup-create-toolbar>button>span{font-size:18px;line-height:1;color:#fff!important}
+
+.admin-step-flow{
+  min-height:72px!important;
+  grid-template-columns:minmax(145px,190px) minmax(0,1fr) auto!important;
+  grid-template-areas:"meta guide actions" "track guide actions"!important;
+  gap:5px 18px!important;margin-top:8px!important;padding:11px 14px!important;
+  border:1px solid rgba(16,31,42,.24)!important;border-radius:11px!important;
+  background:#fffdf8!important;box-shadow:none!important;
+}
+.admin-step-flow__meta{gap:2px!important}
+.admin-step-flow__meta span{font-size:8px!important;color:#167f8b!important}
+.admin-step-flow__meta strong{font-size:16px!important;line-height:1.15!important}
+.admin-step-flow__track{height:4px!important;background:#dfe4df!important;border:0!important}
+.admin-step-flow__guide{
+  min-width:0;margin:0!important;padding:0 0 0 17px!important;
+  border:0!important;border-left:1px solid rgba(16,31,42,.18)!important;
+  border-radius:0!important;background:transparent!important;
+}
+.admin-step-flow__guide>div{min-height:0!important;padding:0!important;border:0!important;background:transparent!important}
+.admin-step-flow__guide>div:not(:nth-child(2)){display:none!important}
+.admin-step-flow__guide span{font-size:8px!important;color:#d7352a!important}
+.admin-step-flow__guide strong{font-size:13px!important;line-height:1.35!important;font-weight:750!important}
+.admin-step-flow__actions{gap:8px!important}
+.admin-step-flow__actions button{
+  min-width:0!important;min-height:40px!important;padding:7px 12px!important;
+  border:1px solid rgba(16,31,42,.3)!important;border-radius:8px!important;
+  box-shadow:none!important;font-size:12px!important;
+}
+.admin-step-flow__actions button.is-primary{border-color:#d7352a!important;background:#d7352a!important}
+.admin-step-flow__actions button:disabled{background:#f5f3ed!important;color:#8b9598!important;border-color:#d9ddda!important;opacity:1!important}
+
+@media(max-width:760px){
+  .cup-create-toolbar{min-height:54px!important;padding:8px 12px!important}
+  .cup-create-toolbar>div{display:none!important}
+  .cup-create-toolbar>button{width:100%!important;min-height:42px!important}
+  .admin-step-flow{grid-template-columns:1fr!important;grid-template-areas:"meta" "track" "guide" "actions"!important;margin:8px 10px!important;padding:11px!important;gap:8px!important}
+  .admin-step-flow__guide{padding:9px 0 0!important;border-left:0!important;border-top:1px solid rgba(16,31,42,.14)!important}
+  .admin-step-flow__actions{grid-template-columns:1fr!important}
+  .admin-step-flow__actions button:first-child{display:none!important}
+  .admin-step-flow__actions .is-primary{width:100%!important;max-width:none!important;min-height:44px!important}
+}

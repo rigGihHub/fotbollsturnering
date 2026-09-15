@@ -17,6 +17,7 @@ import "../admin-home-v2637.css";
 import "../admin-system-v2638.css";
 import "../admin-create-v2640.css";
 import "../admin-desktop-v2650.css";
+import "../admin-command-bar-v2655.css";
 import "../schedule-clarity-v2651.css";
 import "../schedule-clarity-v2652.css";
 import "../publication-flow-v2653.css";
