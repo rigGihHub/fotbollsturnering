@@ -7,6 +7,7 @@ import ScheduleAdmin from "./schedule-admin";
 import RefereeAdmin from "./referee-admin";
 import PlayoffAdmin from "./playoff-admin";
 import ExportAdmin from "./export-admin";
+import { TeamKit } from "./TeamKit";
 import { CLIENT_API_BASE } from "../lib/client-api";
 
 const API_BASE = CLIENT_API_BASE;
@@ -157,6 +158,7 @@ export default function AdminWorkspace({verifiedSession=null,children=null}:{ver
   const [kitSuggestion,setKitSuggestion] = useState<KitSuggestion|null>(null);
   const [bulkKitBusy,setBulkKitBusy] = useState(false);
   const [bulkKitProgress,setBulkKitProgress] = useState("");
+  const [bulkKitResult,setBulkKitResult] = useState("");
 
   const activeCup = useMemo(() => cups.find(cup => cup.id === cupId) || null,[cups,cupId]);
   const isOwnerAccount = account?.role === "owner" || account?.is_owner === true;
@@ -419,12 +421,12 @@ export default function AdminWorkspace({verifiedSession=null,children=null}:{ver
 
   async function searchAllTeamAssets(){
     if(!token||!cupId||!teams.length||bulkKitBusy)return;
-    setBulkKitBusy(true);setError("");setMessage("");let completed=0,saved=0,failed=0;const updated:Team[]=[];
+    setBulkKitBusy(true);setBulkKitResult("");setError("");setMessage("");let completed=0,saved=0,failed=0,uncertain=0;const updated:Team[]=[];
     for(let start=0;start<teams.length;start+=3){
       const batch=teams.slice(start,start+3);
       await Promise.all(batch.map(async team=>{try{
         const suggestion=await request<KitSuggestion>(`/api/admin/cups/${cupId}/teams/kit-search`,{method:"POST",body:JSON.stringify({team_name:team.name,age_class:team.age_class||null})},token);
-        if(suggestion.identity_status==="ambiguous"||(!suggestion.home_verified&&!suggestion.away_verified&&!suggestion.logo_verified))return;
+        if(suggestion.identity_status==="ambiguous"||(!suggestion.home_verified&&!suggestion.away_verified&&!suggestion.logo_verified)){uncertain++;return;}
         const payload={...team,
           ...(suggestion.home_verified?{primary_color:suggestion.home_color_1,home_color_2:suggestion.home_color_2,home_pattern:suggestion.home_pattern}:{}),
           ...(suggestion.away_verified?{secondary_color:suggestion.away_color_1,away_color_2:suggestion.away_color_2,away_pattern:suggestion.away_pattern}:{}),
@@ -434,7 +436,8 @@ export default function AdminWorkspace({verifiedSession=null,children=null}:{ver
       }catch{failed++;}finally{completed++;setBulkKitProgress(`${completed} av ${teams.length} lag kontrollerade`);}}));
     }
     setTeams(current=>current.map(team=>updated.find(item=>item.id===team.id)||team));
-    setMessage(`${saved} lag uppdaterades med verifierade tröjor eller klubbmärken.${failed?` ${failed} sökningar misslyckades.`:""} Osäkra träffar lämnades oförändrade.`);
+    const resultText=`${saved} uppdaterade · ${uncertain} behöver förtydligas · ${failed} misslyckade`;
+    setBulkKitResult(resultText);setBulkKitProgress("");setMessage(resultText);
     setBulkKitBusy(false);
   }
 
@@ -623,19 +626,19 @@ export default function AdminWorkspace({verifiedSession=null,children=null}:{ver
       {activeStep==="teams" && <section className="admin-panel admin-teams" id="teams">
         <div className="admin-panel__top"><span>02 / LAG</span><strong>{teams.length} REGISTRERADE</strong></div>
         <div className="admin-cupinfo__head"><div><h2>Lag</h2><p>Skapa och redigera lag.</p></div><span className="admin-lock">REDIGERING</span></div>
-        {teams.length>0&&<div className="admin-bulk-assets"><div><strong>Tröjor och klubbmärken</strong><span>{bulkKitProgress||"Sök igenom alla lag och spara bara entydigt verifierade träffar."}</span></div><button type="button" disabled={bulkKitBusy} onClick={()=>void searchAllTeamAssets()}>{bulkKitBusy?"Söker…":"Sök för alla lag"}</button></div>}
+        {teams.length>0&&<div className="admin-bulk-assets"><div><strong>Tröjor och klubbmärken</strong><span aria-live="polite">{bulkKitProgress||bulkKitResult||"Sök igenom alla lag och spara bara entydigt verifierade träffar."}</span>{bulkKitResult&&<small>Lag som behöver förtydligas söks individuellt med ort eller klubbwebbplats.</small>}</div><button type="button" disabled={bulkKitBusy} onClick={()=>void searchAllTeamAssets()}>{bulkKitBusy?"Söker…":"Sök för alla lag"}</button></div>}
         <form onSubmit={saveTeam} className="admin-team-editor">
           <div className="admin-form-grid">
             <label>Lagnamn<input value={teamDraft.name} onChange={e=>setTeamDraft({...teamDraft,name:e.target.value})} required placeholder="Exempel: ÖSK P2014 Svart" /></label>
             <label>Klass<input value={teamDraft.age_class} onChange={e=>setTeamDraft({...teamDraft,age_class:e.target.value})} placeholder="Exempel: P2014" /></label>
             <section className="admin-kit-editor">
-              <div className="admin-kit-editor__head"><span className="admin-kit-editor__shirt" style={{background:kitBackground(teamDraft.home_pattern,teamDraft.primary_color,teamDraft.home_color_2)}} aria-hidden="true"/><div><h3>Hemmaställ</h3><p>Välj mönster och tröjfärger.</p></div></div>
+              <div className="admin-kit-editor__head"><TeamKit primary={teamDraft.primary_color} secondary={teamDraft.home_color_2} pattern={teamDraft.home_pattern}/><div><h3>Hemmaställ</h3><p>Välj mönster och tröjfärger.</p></div></div>
               <label>Mönster<select value={teamDraft.home_pattern} onChange={e=>setTeamDraft({...teamDraft,home_pattern:e.target.value as KitPattern})}>{kitPatterns.map(pattern=><option key={pattern}>{pattern}</option>)}</select></label>
               <span className="admin-kit-color-label">Huvudfärg</span><StandardKitColor label="Hemmaställets huvudfärg" value={teamDraft.primary_color} onChange={primary_color=>setTeamDraft({...teamDraft,primary_color})}/>
               {teamDraft.home_pattern!=="Helfärgad"&&<><span className="admin-kit-color-label">Andra färg</span><StandardKitColor label="Hemmaställets andra färg" value={teamDraft.home_color_2} onChange={home_color_2=>setTeamDraft({...teamDraft,home_color_2})}/></>}
             </section>
             <section className="admin-kit-editor">
-              <div className="admin-kit-editor__head"><span className="admin-kit-editor__shirt" style={{background:kitBackground(teamDraft.away_pattern,teamDraft.secondary_color,teamDraft.away_color_2)}} aria-hidden="true"/><div><h3>Bortaställ</h3><p>Välj ett tydligt alternativ till hemmastället.</p></div></div>
+              <div className="admin-kit-editor__head"><TeamKit primary={teamDraft.secondary_color} secondary={teamDraft.away_color_2} pattern={teamDraft.away_pattern}/><div><h3>Bortaställ</h3><p>Välj ett tydligt alternativ till hemmastället.</p></div></div>
               <label>Mönster<select value={teamDraft.away_pattern} onChange={e=>setTeamDraft({...teamDraft,away_pattern:e.target.value as KitPattern})}>{kitPatterns.map(pattern=><option key={pattern}>{pattern}</option>)}</select></label>
               <span className="admin-kit-color-label">Huvudfärg</span><StandardKitColor label="Bortaställets huvudfärg" value={teamDraft.secondary_color} onChange={secondary_color=>setTeamDraft({...teamDraft,secondary_color})}/>
               {teamDraft.away_pattern!=="Helfärgad"&&<><span className="admin-kit-color-label">Andra färg</span><StandardKitColor label="Bortaställets andra färg" value={teamDraft.away_color_2} onChange={away_color_2=>setTeamDraft({...teamDraft,away_color_2})}/></>}
