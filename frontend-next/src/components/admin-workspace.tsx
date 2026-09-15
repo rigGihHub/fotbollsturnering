@@ -524,6 +524,7 @@ export default function AdminWorkspace({verifiedSession=null,children=null}:{ver
   const teamsReady=teams.length>0;
   const groupsReady=teamsReady&&groups.length>0&&groupedTeams===teams.length;
   const isMatchcamp=cupinfo?.arrangement_type==="matchcamp";
+  const isPublished=Boolean(activeCup?.is_published);
   const visibleSetupNav=setupNav.filter(([,href])=>{
     if(isMatchcamp)return href!=="#groups"&&href!=="#playoffs";
     if(cupinfo?.arrangement_type==="tournament")return href!=="#playoffs";
@@ -540,8 +541,8 @@ export default function AdminWorkspace({verifiedSession=null,children=null}:{ver
     {name:"Cupinfo",status:cupinfoReady?"Klar":"Komplettera",href:"#cupinfo",state:cupinfoReady?"done":"next"},
     {name:"Lag",status:teamsReady?`${teams.length} registrerade`:"Saknas",href:"#teams",state:teamsReady?"done":cupinfoReady?"next":"todo"},
     ...(!isMatchcamp?[{name:"Grupper",status:groups.length?`${groupedTeams}/${teams.length} lag placerade`:"Saknas",href:"#groups",state:groupsReady?"done":teamsReady?"next":"todo"}]:[]),
-    {name:"Planer & tider",status:(isMatchcamp?teamsReady:groupsReady)?"Redo att kontrollera":"Väntar",href:"#venues",state:(isMatchcamp?teamsReady:groupsReady)?"next":"todo"},
-    {name:"Publicering",status:activeCup?.is_published?"Publicerad":"Senare",href:"#publish",state:activeCup?.is_published?"done":"todo"},
+    {name:"Planer & tider",status:isPublished?"Godkända":(isMatchcamp?teamsReady:groupsReady)?"Redo att kontrollera":"Väntar",href:"#venues",state:isPublished?"done":(isMatchcamp?teamsReady:groupsReady)?"next":"todo"},
+    {name:"Publicering",status:isPublished?"Publicerad":"Senare",href:"#publish",state:isPublished?"done":"todo"},
   ];
 
   return <main className="admin-workspace">
