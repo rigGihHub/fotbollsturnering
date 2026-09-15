@@ -94,6 +94,8 @@ class KitSearchRequest(BaseModel):
     search_hint: str | None = None
     resolved_club: str | None = None
     resolved_source_url: str | None = None
+    search_focus: str = "kit"
+    force_refresh: bool = False
 
 
 class GroupWrite(BaseModel):
@@ -322,6 +324,8 @@ def search_admin_team_kit(tournament_id:int,payload:KitSearchRequest,authorizati
             search_hint=str(payload.search_hint or ""),
             resolved_club=str(payload.resolved_club or ""),
             resolved_source_url=str(payload.resolved_source_url or ""),
+            search_focus=str(payload.search_focus or "kit"),
+            use_cache=not payload.force_refresh,
         )
     except ValueError as exc:
         raise HTTPException(status_code=422,detail=str(exc)) from exc

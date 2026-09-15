@@ -10,6 +10,8 @@ ALLOWED_IDENTITY_STATUS = ["exact", "likely", "ambiguous", "unknown"]
 MAX_SOURCES = 6
 MAX_SEARCH_ATTEMPTS = 2
 CACHE_TTL_SECONDS = 60 * 60 * 12
+SEARCH_VERSION = "v672-identity-first-assets"
+ALLOWED_SEARCH_FOCUS = {"kit", "logo", "all"}
 
 # Process-local cache: Streamlit reruns keep the Python process alive. A repeated
 # search for the same club therefore returns immediately without a new web call.
@@ -197,7 +199,7 @@ def _context_text(location="", country_code="", age_class="", search_hint="", re
     return "; ".join(bits) or "ingen extra kontext"
 
 
-def _search_strategies(clean_name, *, location="", country_code="", age_class="", search_hint="", resolved_club="", resolved_source_url=""):
+def _search_strategies(clean_name, *, location="", country_code="", age_class="", search_hint="", resolved_club="", resolved_source_url="", search_focus="kit"):
     """Two strong passes instead of three narrow sequential passes.
 
     The Responses web-search tool can perform several searches inside one call,
@@ -206,18 +208,21 @@ def _search_strategies(clean_name, *, location="", country_code="", age_class=""
     """
     club_name = likely_club_name(clean_name)
     context = _context_text(location, country_code, age_class, search_hint, resolved_club, resolved_source_url)
+    focus = "klubbens officiella klubbmärke/logotyp" if search_focus == "logo" else "aktuella hemma- och bortaställ"
     primary = (
-        "Gör en snabb evidenssökning i flera spår i samma sökomgång: "
+        "Identifiera klubben först och sök därefter efter rätt tillgång. Gör flera sökfrågor i samma omgång: "
         f"(1) exakt lag '{clean_name}', (2) sannolikt klubbnamn '{club_name}', "
-        "(3) klubbens officiella webbplats/webbshop och (4) trovärdig lagsida/cupsida/förbundssida med aktuell bild eller text. "
-        f"Kontext: {context}. Prioritera den aktuella säsongen och kontrollera att källorna faktiskt avser rätt klubb. "
-        "För hemma- respektive bortaställ ska du ange separata källor; en allmän klubbsida räcker inte som bevis för båda."
+        f"(3) officiell webbplats eller förbundsprofil och (4) {focus}. "
+        f"Kontext: {context}. Cupens spelort är bara var turneringen hålls och får ALDRIG användas som belägg för klubbens hemort. "
+        "Jämför klubbnamn, ort, webbdomän och emblem innan identiteten godkänns. Prioritera officiella källor och aktuell säsong. "
+        "För hemma- respektive bortaställ ska separata källor anges; en allmän klubbsida räcker inte som tröjbevis."
     )
     fallback = (
-        f"Första evidenssökningen för '{clean_name}' var ofullständig. Fyll endast luckorna. "
-        f"Sök på '{club_name}' + matchställ/tröja/kit/home/away tillsammans med relevant ort eller land. Kontext: {context}. "
-        "Leta även i färska matchbilder, lagpresentationer, cupsidor och officiella sociala/webb-källor. "
-        "Acceptera hellre ett verifierat hemmaställ än att gissa ett bortaställ."
+        f"Första sökningen för '{clean_name}' var ofullständig. Fyll endast luckorna för {focus}. "
+        f"Sök på '{club_name}' och den identifierade officiella domänen. Kontext: {context}. "
+        "För matchställ: använd officiell webbshop, materialpartner, aktuell lagbild eller färsk matchbild. "
+        "För klubbmärke: kräv att bilden kommer från officiell klubbdomän, förbundsprofil eller Wikimedia med tydlig klubbkoppling. "
+        "Acceptera en verifierad delträff hellre än att gissa."
     )
     return [("Snabb multikällesökning", primary), ("Riktad lucksökning", fallback)]
 
@@ -277,9 +282,9 @@ def _schema():
     }
 
 
-def _request_suggestion(clean_name, api_key, *, model, timeout_seconds, strategy_instruction, opener):
+def _request_suggestion(clean_name, api_key, *, model, timeout_seconds, strategy_instruction, search_focus, opener):
     instructions = (
-        f"Du hjälper en svensk cuparrangör att hitta matchställ för laget '{clean_name}'. {strategy_instruction} "
+        f"Du hjälper en svensk cuparrangör att hitta klubbuppgifter för laget '{clean_name}'. Sökfokus: {search_focus}. {strategy_instruction} "
         "Ungdomslag kan heta P2014, F2013, U13, Svart, Blå, 1 eller 2 efter klubbnamnet; det är ofta lagetiketter och inte en annan klubb. "
         "Gissa aldrig klubbidentitet. club_match ska säga vilken klubb/ort som faktiskt matchades. "
         "Sätt identity_status=exact när identiteten är tydligt belagd, likely när en kandidat klart dominerar, ambiguous när flera klubbar/lag är rimliga och unknown när ingen kan beläggas. "
@@ -292,6 +297,7 @@ def _request_suggestion(clean_name, api_key, *, model, timeout_seconds, strategy
         "Det är bättre att returnera bara ett belagt hemmaställ än att fylla i ett osäkert bortaställ. "
         "För verifierade ställ: ange praktiska HEX-färger (#RRGGBB) och närmast passande tillåtet mönster. "
         "Hitta även klubbens officiella logotyp. logo_url måste vara en direkt HTTPS-bildadress och logo_source_url sidan som belägger att märket tillhör rätt klubb. Sätt logo_verified=true endast när klubbidentiteten och bilden är tydliga. "
+        "Om sökfokus är logo ska logotypen prioriteras och osökta matchställ lämnas overifierade. Om sökfokus är kit ska matchställen prioriteras; logotyp får bara följa med när den hittas på samma verifierade klubbkälla. "
         "sources ska vara unionen av de viktigaste källorna. Inget sparas automatiskt; arrangören granskar förslaget."
     )
     body = {
@@ -331,13 +337,48 @@ def _result_score(result):
     verified = int(bool(result.get("home_verified"))) + int(bool(result.get("away_verified")))
     confidence = {"low": 1, "medium": 2, "high": 3}.get(result.get("confidence"), 0)
     kit_sources = len(set((result.get("home_sources") or []) + (result.get("away_sources") or [])))
-    return (int(bool(result.get("found"))), verified, confidence, kit_sources)
+    identity = {"unknown": 0, "ambiguous": 0, "likely": 1, "exact": 2}.get(result.get("identity_status"), 0)
+    return (identity, int(bool(result.get("found"))), verified, int(bool(result.get("logo_verified"))), confidence, kit_sources)
 
 
-def _cache_key(clean_name, location, country_code, age_class, search_hint, model, resolved_club="", resolved_source_url=""):
+def _identity_key(result):
+    return " ".join(str(result.get("club_match") or "").casefold().split())
+
+
+def _merge_compatible_results(first, second):
+    """Keep complementary evidence only when both passes identify the same club.
+
+    A second search must never splice another club's badge into the first club's
+    kit. Exact selected-source retries are compatible even if naming differs.
+    """
+    if not first:
+        return dict(second or {})
+    if not second:
+        return dict(first)
+    first_key, second_key = _identity_key(first), _identity_key(second)
+    compatible = bool(first_key and second_key and (first_key == second_key or first_key in second_key or second_key in first_key))
+    if not compatible:
+        return dict(max((first, second), key=_result_score))
+
+    first_is_preferred = _result_score(first) >= _result_score(second)
+    preferred = dict(first if first_is_preferred else second)
+    other = second if first_is_preferred else first
+    for prefix in ("home", "away"):
+        if not preferred.get(f"{prefix}_verified") and other.get(f"{prefix}_verified"):
+            for suffix in ("verified", "pattern", "color_1", "color_2", "sources", "evidence"):
+                preferred[f"{prefix}_{suffix}"] = other.get(f"{prefix}_{suffix}")
+    if not preferred.get("logo_verified") and other.get("logo_verified"):
+        for key in ("logo_verified", "logo_url", "logo_source_url"):
+            preferred[key] = other.get(key)
+    preferred["sources"] = _urls((preferred.get("sources") or []) + (other.get("sources") or []))
+    preferred["found"] = bool(preferred.get("home_verified") or preferred.get("away_verified"))
+    return preferred
+
+
+def _cache_key(clean_name, location, country_code, age_class, search_hint, model, resolved_club="", resolved_source_url="", search_focus="kit"):
     return "|".join(
         " ".join(str(value or "").casefold().split())
-        for value in (likely_club_name(clean_name), clean_name, location, country_code, age_class, search_hint, model, resolved_club, resolved_source_url)
+        for value in (SEARCH_VERSION, likely_club_name(clean_name), clean_name, location, country_code, age_class, search_hint, model, resolved_club, resolved_source_url, search_focus)
     )
 
 
@@ -371,6 +412,7 @@ def suggest_team_kit(
     search_hint="",
     resolved_club="",
     resolved_source_url="",
+    search_focus="kit",
     opener=urlopen,
     use_cache=True,
 ):
@@ -384,8 +426,11 @@ def suggest_team_kit(
         raise ValueError("Ange ett lagnamn först.")
     if not api_key:
         raise ValueError("Ingen AI-nyckel är konfigurerad.")
+    search_focus = str(search_focus or "kit").strip().lower()
+    if search_focus not in ALLOWED_SEARCH_FOCUS:
+        raise ValueError("Okänt sökfokus.")
 
-    cache_key = _cache_key(clean_name, location, country_code, age_class, search_hint, model, resolved_club, resolved_source_url)
+    cache_key = _cache_key(clean_name, location, country_code, age_class, search_hint, model, resolved_club, resolved_source_url, search_focus)
     if use_cache and opener is urlopen:
         cached = _cache_get(cache_key)
         if cached:
@@ -403,6 +448,7 @@ def suggest_team_kit(
         search_hint=search_hint,
         resolved_club=resolved_club,
         resolved_source_url=resolved_source_url,
+        search_focus=search_focus,
     )[:MAX_SEARCH_ATTEMPTS]
     attempts = []
     best = None
@@ -413,6 +459,7 @@ def suggest_team_kit(
             model=model,
             timeout_seconds=timeout_seconds,
             strategy_instruction=strategy_instruction,
+            search_focus=search_focus,
             opener=opener,
         )
         attempts.append(label)
@@ -420,13 +467,12 @@ def suggest_team_kit(
         result["search_attempts"] = len(attempts)
         result["attempted_strategies"] = list(attempts)
         result["cache_hit"] = False
-        if best is None or _result_score(result) > _result_score(best):
-            best = result
+        best = _merge_compatible_results(best, result)
 
         # Stop after the fast first pass when the evidence is already useful.
-        both_verified = bool(result.get("home_verified") and result.get("away_verified"))
-        good_single = bool(result.get("found") and result.get("confidence") in {"medium", "high"})
-        if index == 0 and (both_verified or good_single):
+        both_verified = bool(best.get("home_verified") and best.get("away_verified"))
+        exact_logo = bool(best.get("identity_status") == "exact" and best.get("logo_verified"))
+        if index == 0 and ((search_focus == "logo" and exact_logo) or (search_focus != "logo" and both_verified and best.get("identity_status") == "exact")):
             break
 
     best = best or normalize_kit_suggestion({})

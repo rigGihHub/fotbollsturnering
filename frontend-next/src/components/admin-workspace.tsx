@@ -156,6 +156,7 @@ export default function AdminWorkspace({verifiedSession=null,children=null}:{ver
   const [kitBusy,setKitBusy] = useState(false);
   const [kitHint,setKitHint] = useState("");
   const [kitSuggestion,setKitSuggestion] = useState<KitSuggestion|null>(null);
+  const [assetFocus,setAssetFocus] = useState<"kit"|"logo">("kit");
   const [bulkKitBusy,setBulkKitBusy] = useState(false);
   const [bulkKitProgress,setBulkKitProgress] = useState("");
   const [bulkKitResult,setBulkKitResult] = useState("");
@@ -384,28 +385,24 @@ export default function AdminWorkspace({verifiedSession=null,children=null}:{ver
   function beginTeamEdit(team:Team) {
     setEditingTeam(team.id);
     setTeamDraft({name:team.name,age_class:team.age_class || "",primary_color:team.primary_color || "#111827",secondary_color:team.secondary_color || "#FFFFFF",home_pattern:team.home_pattern||"Helfärgad",home_color_2:team.home_color_2||"#FFFFFF",away_pattern:team.away_pattern||"Helfärgad",away_color_2:team.away_color_2||"#111827",logo_url:team.logo_url||"",logo_source_url:team.logo_source_url||""});
-    setKitSuggestion(null);setKitHint("");
+    setKitSuggestion(null);setKitHint("");setAssetFocus("kit");
     setError(""); setMessage("");
   }
-  function cancelTeamEdit() { setEditingTeam(null); setTeamDraft(emptyTeam); setKitSuggestion(null); setKitHint(""); }
+  function cancelTeamEdit() { setEditingTeam(null); setTeamDraft(emptyTeam); setKitSuggestion(null); setKitHint(""); setAssetFocus("kit"); }
 
-  async function searchKit(candidate?:KitCandidate) {
+  async function searchAssets(focus:"kit"|"logo",candidate?:KitCandidate) {
     if(!token||!cupId||!teamDraft.name.trim())return;
+    setAssetFocus(focus);
     setKitBusy(true);setError("");setMessage("");setKitSuggestion(null);
     try{
-      const result=await request<KitSuggestion>(`/api/admin/cups/${cupId}/teams/kit-search`,{method:"POST",body:JSON.stringify({team_name:teamDraft.name,age_class:teamDraft.age_class||null,search_hint:kitHint||null,resolved_club:candidate?[candidate.name,candidate.location,candidate.country].filter(Boolean).join(" · "):null,resolved_source_url:candidate?.source_url||null})},token);
+      const result=await request<KitSuggestion>(`/api/admin/cups/${cupId}/teams/kit-search`,{method:"POST",body:JSON.stringify({team_name:teamDraft.name,age_class:teamDraft.age_class||null,search_hint:kitHint||null,resolved_club:candidate?[candidate.name,candidate.location,candidate.country].filter(Boolean).join(" · "):null,resolved_source_url:candidate?.source_url||null,search_focus:focus,force_refresh:true})},token);
       setKitSuggestion(result);
-      if(result.identity_status!=="ambiguous"&&(result.home_verified||result.away_verified||result.logo_verified)){
-        setTeamDraft(current=>({...current,
-          ...(result.home_verified?{primary_color:result.home_color_1,home_color_2:result.home_color_2,home_pattern:result.home_pattern}:{}),
-          ...(result.away_verified?{secondary_color:result.away_color_1,away_color_2:result.away_color_2,away_pattern:result.away_pattern}:{}),
-          ...(result.logo_verified?{logo_url:result.logo_url,logo_source_url:result.logo_source_url}:{}),
-        }));
-        setMessage("Verifierade tröjfärger och mönster har fyllts i. Spara laget för att bekräfta.");
+      if(result.identity_status!=="ambiguous"&&(focus==="logo"?result.logo_verified:(result.home_verified||result.away_verified))){
+        setMessage(focus==="logo"?"Ett verifierat klubbmärke hittades. Granska och välj Använd verifierade uppgifter.":"Verifierade matchställ hittades. Granska källorna innan du använder uppgifterna.");
       }else if(!result.candidate_matches?.length){
-        setMessage("Ingen säker tröjkälla hittades. Lägg till ort eller klubbwebbplats som sökledtråd och försök igen.");
+        setMessage(focus==="logo"?"Inget säkert klubbmärke hittades. Lägg till klubbens ort eller webbplats och försök igen.":"Ingen säker tröjkälla hittades. Lägg till klubbens ort eller webbplats och försök igen.");
       }
-    }catch(err){setError(err instanceof Error?err.message:"Tröjorna kunde inte sökas.");}
+    }catch(err){setError(err instanceof Error?err.message:(focus==="logo"?"Klubbmärket kunde inte sökas.":"Tröjorna kunde inte sökas."));}
     finally{setKitBusy(false);}
   }
 
@@ -416,7 +413,7 @@ export default function AdminWorkspace({verifiedSession=null,children=null}:{ver
       ...(kitSuggestion.away_verified?{secondary_color:kitSuggestion.away_color_1,away_color_2:kitSuggestion.away_color_2,away_pattern:kitSuggestion.away_pattern}:{}),
       ...(kitSuggestion.logo_verified?{logo_url:kitSuggestion.logo_url,logo_source_url:kitSuggestion.logo_source_url}:{}),
     }));
-    setMessage("Tröjförslaget är infört i formuläret. Spara laget för att bekräfta ändringen.");
+    setMessage("De verifierade uppgifterna är införda i formuläret. Spara laget för att bekräfta ändringen.");
   }
 
   async function searchAllTeamAssets(){
@@ -425,8 +422,8 @@ export default function AdminWorkspace({verifiedSession=null,children=null}:{ver
     for(let start=0;start<teams.length;start+=3){
       const batch=teams.slice(start,start+3);
       await Promise.all(batch.map(async team=>{try{
-        const suggestion=await request<KitSuggestion>(`/api/admin/cups/${cupId}/teams/kit-search`,{method:"POST",body:JSON.stringify({team_name:team.name,age_class:team.age_class||null})},token);
-        if(suggestion.identity_status==="ambiguous"||(!suggestion.home_verified&&!suggestion.away_verified&&!suggestion.logo_verified)){uncertain++;return;}
+        const suggestion=await request<KitSuggestion>(`/api/admin/cups/${cupId}/teams/kit-search`,{method:"POST",body:JSON.stringify({team_name:team.name,age_class:team.age_class||null,search_focus:"all"})},token);
+        if(suggestion.identity_status!=="exact"||(!suggestion.home_verified&&!suggestion.away_verified&&!suggestion.logo_verified)){uncertain++;return;}
         const payload={...team,
           ...(suggestion.home_verified?{primary_color:suggestion.home_color_1,home_color_2:suggestion.home_color_2,home_pattern:suggestion.home_pattern}:{}),
           ...(suggestion.away_verified?{secondary_color:suggestion.away_color_1,away_color_2:suggestion.away_color_2,away_pattern:suggestion.away_pattern}:{}),
@@ -648,13 +645,13 @@ export default function AdminWorkspace({verifiedSession=null,children=null}:{ver
               <label>Klubbmärke<small>Ange en direkt bildadress, eller använd sökningen nedan.</small><input type="url" value={teamDraft.logo_url} onChange={e=>setTeamDraft({...teamDraft,logo_url:e.target.value})} onBlur={()=>setTeamDraft(current=>({...current,logo_url:normalizedWebUrl(current.logo_url)}))} placeholder="https://klubb.se/logo.png" /></label>
             </div>
           </div>
-          <section className="admin-kit-search" aria-label="Sök lagets matchställ">
-            <div><strong>Sök tröjfärger och mönster</strong><span>CupNavi söker på nätet och visar källorna. Du bestämmer vad som sparas.</span></div>
+          <section className="admin-kit-search" aria-label="Sök lagets matchställ och klubbmärke">
+            <div><strong>Sök tröjfärger och mönster eller klubbmärke</strong><span>CupNavi identifierar klubben först och visar sedan verifierade källor. Inget förs in förrän du godkänner träffen.</span></div>
             <label>Sökledtråd <input value={kitHint} onChange={e=>setKitHint(e.target.value)} placeholder="Valfritt: klubbens ort eller webbplats" /></label>
-            <button type="button" disabled={kitBusy||!teamDraft.name.trim()} onClick={()=>void searchKit()}>{kitBusy?"Söker på nätet…":"Sök matchställ"}</button>
+            <div className="admin-asset-search-actions"><button type="button" disabled={kitBusy||!teamDraft.name.trim()} onClick={()=>void searchAssets("kit")}>{kitBusy&&assetFocus==="kit"?"Söker matchställ…":"Sök matchställ"}</button><button type="button" disabled={kitBusy||!teamDraft.name.trim()} onClick={()=>void searchAssets("logo")}>{kitBusy&&assetFocus==="logo"?"Söker klubbmärke…":"Sök klubbmärke"}</button></div>
           </section>
           {kitSuggestion&&<section className="admin-kit-result">
-            {kitSuggestion.candidate_matches?.length>0&&!kitSuggestion.found?<><strong>Vilken klubb är rätt?</strong><p>Flera möjliga klubbar hittades. Välj rätt identitet innan färger används.</p><div className="admin-kit-candidates">{kitSuggestion.candidate_matches.map(candidate=><button type="button" key={candidate.source_url} onClick={()=>void searchKit(candidate)}><b>{candidate.name}</b><span>{[candidate.location,candidate.country].filter(Boolean).join(" · ")}</span><small>{candidate.reason}</small></button>)}</div></>:<><div className="admin-kit-result__head"><div><span>{kitSuggestion.confidence==="high"?"HÖG SÄKERHET":kitSuggestion.confidence==="medium"?"MEDEL SÄKERHET":"LÅG SÄKERHET"}</span><strong>{kitSuggestion.club_match||teamDraft.name}</strong></div><button type="button" disabled={!kitSuggestion.home_verified&&!kitSuggestion.away_verified&&!kitSuggestion.logo_verified} onClick={applyKitSuggestion}>Använd verifierade uppgifter</button></div><div className="admin-kit-options"><div><i className="admin-kit-swatch" style={{background:kitBackground(kitSuggestion.home_pattern,kitSuggestion.home_color_1,kitSuggestion.home_color_2)} as CSSProperties}/><span><b>Hemma · {kitSuggestion.home_pattern}</b><small>{kitSuggestion.home_verified?kitSuggestion.home_evidence:"Inte verifierat"}</small></span></div><div><i className="admin-kit-swatch" style={{background:kitBackground(kitSuggestion.away_pattern,kitSuggestion.away_color_1,kitSuggestion.away_color_2)} as CSSProperties}/><span><b>Borta · {kitSuggestion.away_pattern}</b><small>{kitSuggestion.away_verified?kitSuggestion.away_evidence:"Inte verifierat"}</small></span></div>{kitSuggestion.logo_verified&&<div><img className="admin-kit-logo-result" src={kitSuggestion.logo_url} alt="Hittat klubbmärke" referrerPolicy="no-referrer"/><span><b>Klubbmärke</b><small>Verifierat mot klubbkällan</small></span></div>}</div><details><summary>Visa källor</summary><ul>{[...new Set([...(kitSuggestion.home_sources||[]),...(kitSuggestion.away_sources||[]),...(kitSuggestion.logo_source_url?[kitSuggestion.logo_source_url]:[])])].map(url=><li key={url}><a href={url} target="_blank" rel="noreferrer">{url}</a></li>)}</ul></details></>}
+            {kitSuggestion.candidate_matches?.length>0&&!kitSuggestion.found&&!kitSuggestion.logo_verified?<><strong>Vilken klubb är rätt?</strong><p>Flera möjliga klubbar hittades. Välj rätt identitet innan uppgifter används.</p><div className="admin-kit-candidates">{kitSuggestion.candidate_matches.map(candidate=><button type="button" key={candidate.source_url} onClick={()=>void searchAssets(assetFocus,candidate)}><b>{candidate.name}</b><span>{[candidate.location,candidate.country].filter(Boolean).join(" · ")}</span><small>{candidate.reason}</small></button>)}</div></>:<><div className="admin-kit-result__head"><div><span>{kitSuggestion.confidence==="high"?"HÖG SÄKERHET":kitSuggestion.confidence==="medium"?"MEDEL SÄKERHET":"LÅG SÄKERHET"}</span><strong>{kitSuggestion.club_match||teamDraft.name}</strong></div><button type="button" disabled={!kitSuggestion.home_verified&&!kitSuggestion.away_verified&&!kitSuggestion.logo_verified} onClick={applyKitSuggestion}>Använd verifierade uppgifter</button></div><div className="admin-kit-options">{assetFocus!=="logo"&&<><div><i className="admin-kit-swatch" style={{background:kitBackground(kitSuggestion.home_pattern,kitSuggestion.home_color_1,kitSuggestion.home_color_2)} as CSSProperties}/><span><b>Hemma · {kitSuggestion.home_pattern}</b><small>{kitSuggestion.home_verified?kitSuggestion.home_evidence:"Inte verifierat"}</small></span></div><div><i className="admin-kit-swatch" style={{background:kitBackground(kitSuggestion.away_pattern,kitSuggestion.away_color_1,kitSuggestion.away_color_2)} as CSSProperties}/><span><b>Borta · {kitSuggestion.away_pattern}</b><small>{kitSuggestion.away_verified?kitSuggestion.away_evidence:"Inte verifierat"}</small></span></div></>}{kitSuggestion.logo_verified?<div><img className="admin-kit-logo-result" src={kitSuggestion.logo_url} alt="Hittat klubbmärke" referrerPolicy="no-referrer"/><span><b>Klubbmärke</b><small>Verifierat mot klubbkällan</small></span></div>:assetFocus==="logo"&&<div><span><b>Inget verifierat klubbmärke</b><small>Förtydliga klubbens ort eller officiella webbplats.</small></span></div>}</div><details><summary>Visa källor</summary><ul>{[...new Set([...(kitSuggestion.home_sources||[]),...(kitSuggestion.away_sources||[]),...(kitSuggestion.logo_source_url?[kitSuggestion.logo_source_url]:[])])].map(url=><li key={url}><a href={url} target="_blank" rel="noreferrer">{url}</a></li>)}</ul></details></>}
           </section>}
           <div className="admin-form-footer"><span>{editingTeam?"Du redigerar ett befintligt lag.":""}</span><div className="admin-team-actions">{editingTeam&&<button type="button" onClick={cancelTeamEdit}>Avbryt</button>}<button type="submit" disabled={busy||!teamDraft.name.trim()}>{busy?"Sparar…":editingTeam?"Spara lag":"Lägg till lag"}</button></div></div>
         </form>
