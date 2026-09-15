@@ -1,0 +1,91 @@
+/* v2.6.34 — CupNavi comic-book x football trading-card identity */
+:root{
+  --paper:#f3ead5;--paper-2:#fffaf0;--ink:#101f2a;--ink-2:#42545d;--line:#101f2a;
+  --blue:#1554d1;--cyan:#00a9b9;--yellow:#ffd83d;--green:#257448;--red:#d7352a;
+  --admin-bg:#f3ead5;--admin-surface:#fffaf0;--admin-ink:#101f2a;--admin-cyan:#00a9b9;
+  --shadow:6px 7px 0 #101f2a;
+}
+html{background:#f3ead5}
+body{
+  background-color:#f3ead5;
+  background-image:
+    radial-gradient(circle at 12% 8%,rgba(255,216,61,.62) 0 5rem,transparent 5.1rem),
+    radial-gradient(circle,rgba(16,31,42,.105) 1px,transparent 1.4px);
+  background-size:auto,12px 12px;
+}
+.brandbar{background:#101f2a!important;border-bottom:4px solid #ffd83d!important;box-shadow:0 3px 0 #d7352a;backdrop-filter:none!important}
+.brand{color:#fff!important;min-height:62px}.brand-wordmark strong{color:#fff!important}.brand-wordmark span{color:#55e7ef!important}.app-version-badge{background:#ffd83d!important;color:#101f2a!important;border:2px solid #101f2a!important;box-shadow:2px 2px 0 #fff}
+.cup-cover,.match-card,.feature-card,.editorial-card,.team-pass,.next-match-hero,.favorite-strip,
+.admin-panel,.admin-flow-context,.publication-console,.reporting-console,.cup-create-dialog{
+  position:relative;border:3px solid #101f2a!important;border-radius:12px!important;background:#fffaf0!important;
+  box-shadow:6px 7px 0 #101f2a!important;
+}
+.cup-cover:before,.admin-panel:before,.feature-card:before,.team-pass:before{
+  content:"";position:absolute;z-index:0;right:9px;top:9px;width:38px;height:38px;
+  background:radial-gradient(circle,#101f2a 1px,transparent 1.5px);background-size:6px 6px;opacity:.18;pointer-events:none;
+}
+.cup-cover>* ,.admin-panel>* ,.feature-card>* ,.team-pass>*{position:relative;z-index:1}
+h1,.cup-cover h1,.landing h1,.admin-pagehead h1{
+  font-family:Impact,"Arial Black",Inter,sans-serif!important;font-weight:900!important;
+  letter-spacing:-.025em!important;text-transform:uppercase;text-wrap:balance;
+}
+h2,.section-heading h2,.admin-panel h2,.publication-console h2{
+  font-family:"Arial Black",Inter,sans-serif!important;font-weight:950!important;letter-spacing:-.035em!important;
+}
+.kicker,.admin-panel__top,.cup-cover__eyebrow,.match-card__topline,.publication-console__eyebrow,
+.admin-step-flow__meta span,.admin-nav-phase{
+  font-family:ui-monospace,SFMono-Regular,Consolas,monospace!important;font-weight:950!important;letter-spacing:.12em!important;
+}
+.kicker,.admin-panel__top span,.cup-cover__eyebrow{color:#1554d1!important}
+.collectible-stamp{border:3px solid #101f2a!important;border-radius:8px!important;background:linear-gradient(145deg,#fff 12%,#66edf1 48%,#ffd83d 100%)!important;box-shadow:4px 5px 0 #101f2a!important;transform:rotate(3deg)}
+.cup-cover__stripe{opacity:1!important}
+.edition-nav button,.favorite-chip,.admin-sidebar nav a,.admin-team-actions button{
+  border:2px solid #101f2a!important;border-radius:7px!important;font-weight:950!important;
+}
+.edition-nav button.is-active,.favorite-chip.is-selected,.admin-sidebar nav a.is-active{background:#1554d1!important;color:#fff!important;box-shadow:3px 3px 0 #101f2a}
+button.is-primary,a.is-primary,.admin-form-footer button[type=submit]:not(:disabled),
+.admin-step-flow__actions .is-primary:not(:disabled),.admin-next-task{
+  background:#d7352a!important;border-color:#101f2a!important;color:#fff!important;box-shadow:3px 4px 0 #101f2a!important;
+}
+button:not(:disabled),a{transition:transform .12s ease,box-shadow .12s ease}
+button:not(:disabled):active,a:active{transform:translate(2px,2px);box-shadow:1px 1px 0 #101f2a!important}
+.match-card{overflow:hidden!important;outline:1px solid rgba(255,255,255,.8);outline-offset:-7px}
+.match-card__topline{background:#ffd83d!important;border-bottom:3px solid #101f2a!important;color:#101f2a!important}
+.match-card--live .match-card__topline{background:#d7352a!important;color:#fff!important}
+.match-card--done .match-card__topline{background:#55c982!important}
+.score-window{background:#101f2a!important;border-left:3px solid #101f2a!important;border-right:3px solid #101f2a!important}
+.score-window strong{color:#ffd83d!important;text-shadow:2px 2px 0 #d7352a}
+.kit,.admin-team-shirt,.admin-kit-editor__shirt,.admin-kit-swatch{filter:drop-shadow(2px 2px 0 rgba(16,31,42,.42))}
+.texttv{border:3px solid #101f2a!important;border-radius:8px!important;box-shadow:6px 7px 0 #1554d1!important}
+.admin-step-flow,.cup-create-toolbar{
+  border:3px solid #101f2a!important;border-radius:10px!important;background:#fffaf0!important;box-shadow:5px 6px 0 #101f2a!important;
+}
+.admin-step-flow__track{background:#d7d1c2!important;border:1px solid #101f2a}.admin-step-flow__track span{background:linear-gradient(90deg,#1554d1,#00a9b9,#ffd83d)!important}
+.admin-step-flow__guide{border:2px solid #101f2a!important;border-radius:8px!important;background:#fff!important}
+.admin-step-flow__guide>div+div{border-left:2px solid #101f2a!important}
+.admin-step-flow__guide span,.admin-import-welcome__top span{color:#d7352a!important}
+.admin-sidebar{background:#f7efdE!important;border-right:3px solid #101f2a!important}
+.admin-sidebar__cup{border-bottom:3px solid #101f2a!important}
+.admin-sidebar__cup>span,.admin-bulk-assets strong{color:#1554d1!important}
+.admin-lock,.admin-draft{background:#ffd83d!important;color:#101f2a!important;border:2px solid #101f2a!important;border-radius:5px!important}
+.admin-next-task{border:3px solid #101f2a!important;border-radius:9px!important}.admin-next-task>span{color:#ffd83d!important}.admin-next-task>small{color:#fff!important}
+.admin-checks>a{border:2px solid rgba(16,31,42,.2)!important;border-radius:7px!important;margin-top:6px;background:#fff!important}
+.admin-checks>a.is-next{border-color:#101f2a!important;background:#fff0a8!important;box-shadow:3px 3px 0 #101f2a}
+.admin-checks>a.is-done{background:#e2f4e7!important}
+.admin-kit-editor,.admin-logo-editor,.admin-bulk-assets{border:2px solid #101f2a!important;border-radius:9px!important;box-shadow:3px 3px 0 rgba(16,31,42,.22)}
+.admin-kit-editor__head{border-bottom:2px solid #101f2a!important}
+.admin-kit-palette button.is-selected{border-color:#101f2a!important;box-shadow:0 0 0 3px #ffd83d!important}
+.admin-form-grid input,.admin-form-grid select,.admin-form-grid textarea,.admin-team-editor input,.admin-team-editor select{
+  background:#fff!important;border:2px solid #101f2a!important;border-radius:7px!important;
+}
+.publication-console__signal{border:3px solid #101f2a!important;box-shadow:4px 4px 0 #101f2a}
+.cup-create-toolbar>button{background:#d7352a!important;color:#fff!important;border:3px solid #101f2a!important;box-shadow:3px 4px 0 #101f2a!important}
+@media(max-width:760px){
+  body{background-size:auto,10px 10px}
+  .brand{min-height:56px}.cup-cover,.match-card,.feature-card,.editorial-card,.team-pass,.next-match-hero,.favorite-strip,.admin-panel,.admin-flow-context,.publication-console,.reporting-console,.cup-create-dialog{border-width:2px!important;box-shadow:4px 5px 0 #101f2a!important}
+  .admin-step-flow,.cup-create-toolbar{border-width:2px!important;box-shadow:3px 4px 0 #101f2a!important}
+  .admin-step-flow__guide>div+div{border-left:0!important;border-top:2px solid #101f2a!important}
+  .admin-sidebar{border-right:0!important;border-bottom:3px solid #101f2a!important}
+  .admin-pagehead h1{font-size:38px!important}
+}
+@media(prefers-reduced-motion:reduce){button,a{transition:none!important}}

@@ -8,10 +8,11 @@ import "./ui-system-v2615.css";
 import "./mode-switch-v2615.css";
 import "./ui-system-v2616.css";
 import "./public-ux-v2624.css";
+import "./comic-card-v2634.css";
 import { PwaBoot } from "@/components/PwaBoot";
 import { ViewModeSwitch } from "@/components/ViewModeSwitch";
 
-const APP_VERSION = "2.6.33";
+const APP_VERSION = "2.6.34";
 
 export const metadata: Metadata = {
   title: `CupNavi v${APP_VERSION}`,
@@ -20,7 +21,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#f4f1e8",
+  themeColor: "#101f2a",
   colorScheme: "light",
 };
 
