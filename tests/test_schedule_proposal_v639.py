@@ -98,6 +98,21 @@ def test_capacity_shortage_is_explicit():
     assert result["placed_count"] == 1
     assert result["unresolved_count"] == 2
     assert {item["reason"] for item in result["unresolved"]} == {"no_feasible_slot"}
+    assert result["capacity"]["free_slot_count"] == 1
+    assert result["capacity"]["required_count"] == 3
+    assert "minst 2 lediga matchslotar" in result["capacity"]["suggestions"][0]
+
+
+def test_missing_confirmed_windows_explains_exact_next_step():
+    windows = _windows()
+    windows[0]["confirmed"] = False
+    result = build_schedule_proposal([_match(1, "team:1", "team:2")], _rules(), windows)
+
+    assert result["placed_count"] == 0
+    assert result["capacity"]["confirmed_window_count"] == 0
+    assert result["capacity"]["suggestions"] == [
+        "Bekräfta start- och sluttid för minst en plan under Planer & tider."
+    ]
 
 
 def test_unresolved_playoff_participants_do_not_create_fake_team_rest():

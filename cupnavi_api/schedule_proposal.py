@@ -41,6 +41,8 @@ def _duration_minutes(rules:dict)->int:
 def _slots(windows:list[dict],rules:dict)->list[tuple[datetime,int]]:
     match_span=timedelta(minutes=_duration_minutes(rules));step=match_span+timedelta(minutes=max(0,int(rules.get("pitch_break_minutes") or 0)));result=[]
     for window in windows:
+        if not bool(window.get("confirmed")):
+            continue
         try:
             pitch=int(window["pitch_number"]);first=datetime.fromisoformat(f"{window['play_date']}T{window['start_time']}");last=datetime.fromisoformat(f"{window['play_date']}T{window['end_time']}")
         except (KeyError,TypeError,ValueError):continue
@@ -129,7 +131,15 @@ def build_schedule_proposal(matches:list[dict],rules:dict,windows:list[dict])->d
             unresolved.append({"match_id":int(row["id"]),"reason":"locked_without_schedule"});continue
         candidates.append(row)
     candidates.sort(key=lambda row:(depths.get(int(row["id"]),0),int(row.get("round_no") or 0),int(row.get("bracket_id") or 0),int(row.get("group_id") or 0),int(row.get("match_no") or 0),int(row["id"])))
-    available_slots=_slots(windows,rules);placements=[];quality_plan_changes=0;quality_rest_minutes=[]
+    available_slots=_slots(windows,rules)
+    free_slots_before_proposal=sum(
+        1 for start,pitch in available_slots
+        if not any(
+            start<busy_end and start+pitch_span>busy_start
+            for busy_start,busy_end in pitch_busy.get(pitch,[])
+        )
+    )
+    placements=[];quality_plan_changes=0;quality_rest_minutes=[]
     for row in candidates:
         row_id=int(row["id"]);upstream_ids=dependencies.get(row_id,())
         if upstream_ids and any(upstream_id not in scheduled_starts for upstream_id in upstream_ids):
@@ -168,10 +178,30 @@ def build_schedule_proposal(matches:list[dict],rules:dict,windows:list[dict])->d
     avg_rest=round(sum(quality_rest_minutes)/len(quality_rest_minutes),1) if quality_rest_minutes else None;min_rest=min(quality_rest_minutes) if quality_rest_minutes else None
     starts=[_start(row.get("scheduled_start")) for row in final_rows];starts=[value for value in starts if value is not None]
     schedule_span=int((max(starts)-min(starts)).total_seconds()//60) if len(starts)>1 else 0
+    reason_counts={}
+    for item in unresolved:
+        reason=str(item["reason"]);reason_counts[reason]=reason_counts.get(reason,0)+1
+    suggestions=[]
+    confirmed_windows=sum(1 for window in windows if bool(window.get("confirmed")))
+    if not confirmed_windows:
+        suggestions.append("Bekräfta start- och sluttid för minst en plan under Planer & tider.")
+    elif reason_counts.get("no_feasible_slot"):
+        if free_slots_before_proposal<len(candidates):
+            shortage=len(candidates)-free_slots_before_proposal
+            suggestions.append(f"Det saknas minst {shortage} lediga matchslotar. Förläng en plantid eller lägg till en plan.")
+        else:
+            suggestions.append("Det finns plantid, men lagvila eller andra matcher blockerar placeringen. Sprid plantiderna över ett längre tidsfönster.")
+    if reason_counts.get("round_order_blocked"):
+        suggestions.append("Rundornas ordning blockerar placeringen. Ge senare rundor mer plantid.")
+    if reason_counts.get("playoff_dependency_blocked"):
+        suggestions.append("Slutspelsmatcher behöver tid efter sina kvalificerande matcher och lagvilan däremellan.")
     return {
         "deterministic":True,"writes_database":False,"fingerprint":schedule_proposal_fingerprint(matches,rules,windows),
         "match_duration_minutes":match_minutes,"pitch_break_minutes":pitch_break,"minimum_team_rest_minutes":minimum_rest,
         "preserved_count":preserved,"candidate_count":len(candidates),"placed_count":len(placements),"unresolved_count":len(unresolved),
         "placements":placements,"unresolved":sorted(unresolved,key=lambda item:item["match_id"]),
+        "capacity":{"window_count":len(windows),"confirmed_window_count":confirmed_windows,
+                    "slot_count":len(available_slots),"free_slot_count":free_slots_before_proposal,
+                    "required_count":len(candidates),"reason_counts":reason_counts,"suggestions":suggestions},
         "quality":{"strategy":"bounded_pitch_continuity_and_rest","round_order_enforced":True,"playoff_dependency_enforced":True,"participant_source_dependency_enforced":True,"plan_change_count":quality_plan_changes,"minimum_observed_rest_minutes":min_rest,"average_observed_rest_minutes":avg_rest,"schedule_span_minutes":schedule_span,"round_order_violation_count":_round_order_violations(final_rows)},
     }
