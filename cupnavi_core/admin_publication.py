@@ -39,7 +39,7 @@ def build_publish_blockers(
     if not int(scheduled_matches or 0):
         blockers.append("Spelschema saknas. Generera schemat under Schema.")
     if schedule_dirty and int(scheduled_matches or 0):
-        blockers.append("Schemat är inaktuellt eftersom förutsättningarna har ändrats. Regenerera schemat.")
+        blockers.append("Schemat behöver kontrolleras efter ändrade förutsättningar. Öppna Schema och godkänn det aktuella upplägget.")
     if schedule_errors:
         blockers.append(f"{len(schedule_errors)} blockerande schemafel måste åtgärdas.")
     if bracket_errors:

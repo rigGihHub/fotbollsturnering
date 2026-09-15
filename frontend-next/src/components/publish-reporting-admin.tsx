@@ -105,7 +105,7 @@ export default function PublishReportingAdmin({token,cupId,mode,publicSlug}:{tok
       {isReady&&<div className="publication-ready-steps"><div><b>1</b><span><strong>Kontrollera sammanfattningen</strong><small>CupNavi har inte hittat några blockerande fel.</small></span></div><div><b>2</b><span><strong>Förhandsgranska cupvyn</strong><small>Kontrollera hur tider, planer och lag visas för besökare.</small></span></div><div><b>3</b><span><strong>Publicera cupen</strong><small>Den publika länken blir tillgänglig för deltagarna.</small></span></div></div>}
       <div className="publication-console__actions">
         <span>{isLive?"Ändringar visas direkt i turneringsvyn.":isReady?"En sista kontroll görs när du publicerar.":"Publiceringsknappen aktiveras när checklistan är klar."}</span>
-        <div>{scheduleErrors.length>0&&<a className="admin-action-secondary" href="#schedule">Öppna Schema</a>}{publicSlug&&<a className="admin-action-secondary" href={`/cup/${publicSlug}`} target="_blank" rel="noreferrer">Förhandsgranska</a>}<button className="admin-action-primary" disabled={busy||(!isLive&&!isReady)} onClick={togglePublication}>{busy?"Arbetar…":isLive?"Avpublicera":"Publicera cup"}</button></div>
+        <div>{scheduleErrors.length>0&&<a className="admin-action-secondary" href="#schedule">Öppna Schema</a>}{publicSlug&&<a className="admin-action-secondary" href={`/cup/${publicSlug}?preview=1&cup=${cupId}`} target="_blank" rel="noreferrer">Förhandsgranska</a>}<button className="admin-action-primary" disabled={busy||(!isLive&&!isReady)} onClick={togglePublication}>{busy?"Arbetar…":isLive?"Avpublicera":"Publicera cup"}</button></div>
       </div>
     </section>;
   }

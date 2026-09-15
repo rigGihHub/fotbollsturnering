@@ -9,7 +9,7 @@ def test_missing_schedule_is_explained():
 
 def test_dirty_schedule_is_explained():
     blockers = publication_blockers(True, 12, True, 0, 0, False)
-    assert any("inaktuellt" in item for item in blockers)
+    assert any("behöver kontrolleras" in item for item in blockers)
 
 def test_errors_block_but_warnings_do_not():
     blockers = publication_blockers(True, 12, False, 2, 3, False)

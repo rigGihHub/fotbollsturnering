@@ -1,7 +1,7 @@
 """Organizer-scoped schedule administration for the new CupNavi admin."""
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from .admin_repository import _has_tournament_access
 from .repository import all_rows, connect, one
@@ -43,14 +43,9 @@ def admin_schedule(account_id: int, tournament_id: int):
            FROM schedule_rules WHERE tournament_id=?""",
         (int(tournament_id),),
     ) or {
-        "pitch_count": 1,
-        "first_match_time": "09:00",
-        "latest_kickoff_time": "18:00",
-        "halves": 2,
-        "minutes_per_half": 20,
-        "halftime_minutes": 5,
-        "pitch_break_minutes": 0,
-        "minimum_team_rest_minutes": 0,
+        "pitch_count": 1, "first_match_time": "09:00", "latest_kickoff_time": "18:00",
+        "halves": 2, "minutes_per_half": 20, "halftime_minutes": 5,
+        "pitch_break_minutes": 0, "minimum_team_rest_minutes": 0,
     }
     groups = all_rows(
         "SELECT id,name FROM groups WHERE tournament_id=? ORDER BY name,id",
@@ -90,6 +85,49 @@ def admin_schedule(account_id: int, tournament_id: int):
         "arrangement_type": tournament.get("arrangement_type") or "tournament",
         "conflict_analysis": conflict_analysis,
     }
+
+
+def confirm_current_schedule(account_id: int, tournament_id: int):
+    """Clear the stale flag only after validating the current saved schedule."""
+    payload = admin_schedule(account_id, tournament_id)
+    if payload is None:
+        return None
+    if payload["match_count"] <= 0:
+        raise ValueError("Det finns inga matcher att godkänna")
+    if payload["unscheduled_count"]:
+        raise ValueError(f"{payload['unscheduled_count']} matcher saknar fortfarande tid eller plan")
+    if int(payload["conflict_analysis"].get("error_count") or 0) > 0:
+        raise ValueError("Schemat har blockerande krockar som måste rättas först")
+    rules = one(
+        "SELECT halves,minutes_per_half,halftime_minutes FROM schedule_rules WHERE tournament_id=?",
+        (int(tournament_id),),
+    ) or {"halves": 2, "minutes_per_half": 20, "halftime_minutes": 5}
+    halves = max(1, int(rules.get("halves") or 2))
+    duration = halves * max(1, int(rules.get("minutes_per_half") or 20)) + max(0, halves - 1) * max(0, int(rules.get("halftime_minutes") or 0))
+    windows = all_rows(
+        "SELECT pitch_number,play_date,start_time,end_time FROM pitch_day_windows WHERE tournament_id=? AND confirmed=1",
+        (int(tournament_id),),
+    )
+    available = {(int(row["pitch_number"]), str(row["play_date"])): (str(row["start_time"]), str(row["end_time"])) for row in windows}
+    if not available:
+        raise ValueError("Bekräfta planernas öppettider innan schemat godkänns")
+    for match in payload["matches"]:
+        start = datetime.fromisoformat(str(match["scheduled_start"]))
+        pitch = int(match["pitch_number"])
+        window = available.get((pitch, start.date().isoformat()))
+        match_ref = match.get("match_no") or match["id"]
+        if not window:
+            raise ValueError(f"Match {match_ref} ligger på en plan eller dag utan bekräftad öppettid")
+        opens = datetime.fromisoformat(f"{start.date().isoformat()}T{window[0]}")
+        closes = datetime.fromisoformat(f"{start.date().isoformat()}T{window[1]}")
+        if start < opens or start + timedelta(minutes=duration) > closes:
+            raise ValueError(f"Match {match_ref} ligger utanför planens bekräftade öppettid")
+    with connect() as con:
+        con.execute("UPDATE tournaments SET schedule_dirty=0 WHERE id=?", (int(tournament_id),))
+        commit = getattr(con, "commit", None)
+        if callable(commit):
+            commit()
+    return admin_schedule(account_id, tournament_id)
 
 
 def update_match_schedule(account_id: int, tournament_id: int, match_id: int, values: dict):

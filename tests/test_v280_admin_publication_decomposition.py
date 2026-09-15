@@ -37,7 +37,7 @@ def test_publish_blockers_preserve_existing_admin_rules():
     )
     assert blockers == [
         "Slutspelsmodell och cupregler måste sparas på Översikt.",
-        "Schemat är inaktuellt eftersom förutsättningarna har ändrats. Regenerera schemat.",
+        "Schemat behöver kontrolleras efter ändrade förutsättningar. Öppna Schema och godkänn det aktuella upplägget.",
         "1 blockerande schemafel måste åtgärdas.",
     ]
 

@@ -15,7 +15,7 @@ from .cup_create_repository import create_owner_tournament
 from .initial_import_idempotency import apply_document_matches_idempotent
 from .repository import connect
 from .rules_admin_repository import admin_rules, update_rules
-from .schedule_admin_repository import admin_schedule, update_match_schedule
+from .schedule_admin_repository import admin_schedule, confirm_current_schedule, update_match_schedule
 from .schedule_proposal_repository import ProposalStaleError, admin_schedule_proposal, apply_schedule_proposal
 from .venue_admin_repository import (
     admin_venues,
@@ -261,6 +261,17 @@ def register_venue_admin_routes(app, admin_identity):
     def get_admin_schedule(tournament_id: int, authorization: str | None = Header(default=None)):
         account = admin_identity(authorization)
         payload = admin_schedule(int(account["id"]), tournament_id)
+        if payload is None:
+            raise HTTPException(status_code=404, detail="Cup not found or access denied")
+        return payload
+
+    @app.post("/api/admin/cups/{tournament_id}/schedule/confirm")
+    def post_admin_schedule_confirm(tournament_id: int, authorization: str | None = Header(default=None)):
+        account = admin_identity(authorization)
+        try:
+            payload = confirm_current_schedule(int(account["id"]), tournament_id)
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
         if payload is None:
             raise HTTPException(status_code=404, detail="Cup not found or access denied")
         return payload

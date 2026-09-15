@@ -8,8 +8,9 @@ CSS = (ROOT / "frontend-next/src/app/schedule-clarity-v2652.css").read_text(enco
 
 def test_complete_schedule_is_presented_as_a_review_task():
     assert '"Granska matchschemat"' in SCHEDULE
-    assert "Jag har granskat – fortsätt" in SCHEDULE
-    assert "Kontrollera särskilt avspark och plan" in SCHEDULE
+    assert "Godkänn schemat" in SCHEDULE
+    assert "Fortsätt till publicering" in SCHEDULE
+    assert "Kontrollera avspark och plan" in SCHEDULE
 
 
 def test_pending_pitch_windows_explain_why_review_is_required():
