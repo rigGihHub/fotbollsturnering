@@ -1,0 +1,16 @@
+.brandbar .header-share-action{display:inline-flex;align-items:center;gap:8px;margin-left:auto;min-height:40px;padding:0 15px;border:2px solid #ffd83d;border-radius:8px;background:#ffd83d;color:#101f2a;font-weight:950;cursor:pointer;box-shadow:3px 3px 0 #1554d1}
+.brandbar .header-share-action+.app-version-badge{margin-left:12px}
+body:has(.page-shell--matchday){background-image:radial-gradient(circle,rgba(16,31,42,.105) 1px,transparent 1.4px);background-size:12px 12px}
+.page-shell--matchday .edition-nav--desktop{grid-template-columns:repeat(auto-fit,minmax(150px,1fr))}
+.page-shell--matchday .mobile-bottom-nav{grid-template-columns:repeat(auto-fit,minmax(64px,1fr))!important}
+.page-shell--matchday{position:relative;isolation:isolate}
+.page-shell--matchday>*:not(.public-sports-atmosphere){position:relative;z-index:1}
+.public-sports-atmosphere{position:absolute;z-index:0;inset:-20px -120px 0;overflow:hidden;pointer-events:none;opacity:.17}
+.sport-art{position:absolute;display:block;color:#1554d1}
+.sport-art--ball{left:0;top:18px;width:116px;height:116px;border:7px solid #101f2a;border-radius:50%;background:radial-gradient(circle at 50% 50%,#101f2a 0 13%,transparent 14%),radial-gradient(circle at 20% 30%,#101f2a 0 8%,transparent 9%),radial-gradient(circle at 78% 31%,#101f2a 0 8%,transparent 9%),radial-gradient(circle at 28% 77%,#101f2a 0 8%,transparent 9%),radial-gradient(circle at 74% 76%,#101f2a 0 8%,transparent 9%),#fff;transform:rotate(-12deg)}
+.sport-art--cone{right:12px;top:300px;width:88px;height:112px;background:repeating-linear-gradient(180deg,#ed342d 0 24px,#fff 24px 38px);clip-path:polygon(42% 0,58% 0,82% 82%,100% 86%,100% 100%,0 100%,0 86%,18% 82%);transform:rotate(9deg)}
+.sport-art--whistle{left:24px;top:610px;width:94px;height:62px;border:8px solid #1554d1;border-radius:50%;transform:rotate(-17deg)}
+.sport-art--whistle:after{content:"";position:absolute;right:-38px;top:7px;width:52px;height:26px;border:8px solid #1554d1;border-left:0;border-radius:0 9px 9px 0}
+.sport-art--boot{right:2px;top:770px;width:124px;height:66px;background:#101f2a;clip-path:polygon(0 0,55% 25%,64% 50%,100% 58%,100% 88%,22% 100%,0 72%);transform:rotate(12deg)}
+@media(max-width:900px){.public-sports-atmosphere{inset:-10px -26px 0;opacity:.1}.sport-art--ball{width:74px;height:74px;border-width:5px}.sport-art--cone{width:54px;height:76px}.sport-art--whistle,.sport-art--boot{display:none}.brandbar .header-share-action{min-height:36px;padding:0 10px;font-size:12px}.brandbar .header-share-action+.app-version-badge{display:none}}
+@media(prefers-reduced-motion:reduce){.sport-art{transform:none}}

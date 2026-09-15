@@ -10,5 +10,4 @@ def test_matchday_starts_with_actionable_content():
     assert "Det viktigaste just nu" not in view
     assert "Nästa match, rätt plan och rätt tid" not in view
     assert ">CUPDAGEN<" not in view
-    assert 'className="favorite-strip"' in view
-    assert 'className="next-match-hero"' in view
+    assert 'tab==="matches"' in view

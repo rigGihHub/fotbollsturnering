@@ -18,10 +18,12 @@ import "./public-masterpiece-v2658.css";
 import "./reporting-admin-v2664.css";
 import "./reporter-v2665.css";
 import "./reporter-flow-v2667.css";
+import "./public-atmosphere-v2671.css";
 import { PwaBoot } from "@/components/PwaBoot";
 import { ViewModeSwitch } from "@/components/ViewModeSwitch";
+import { HeaderShareAction } from "@/components/HeaderShareAction";
 
-const APP_VERSION = "2.6.70";
+const APP_VERSION = "2.6.71";
 
 export const metadata: Metadata = {
   title: `CupNavi v${APP_VERSION}`,
@@ -45,6 +47,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
               <span className="brand-title"><strong>CUP</strong><strong>NAVI</strong><small>TURNERINGEN I FICKAN</small></span>
             </span>
           </a>
+          <HeaderShareAction />
           <span className="app-version-badge" aria-label={`CupNavi version ${APP_VERSION}`}>v{APP_VERSION}</span>
         </header>
         <PwaBoot />

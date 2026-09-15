@@ -2,6 +2,7 @@ export type Tournament = {
   id: number; name: string; public_slug?: string | null; sport?: string | null;
   start_date?: string | null; end_date?: string | null; organizer?: string | null;
   arena_address?: string | null; public_information?: string | null;
+  is_published?: number | boolean | null;
   arrangement_type?: "matchcamp"|"tournament"|"tournament_playoffs"|"custom"|null;
   results_counted?: number | boolean | null;
   show_scorer_stats?: number | boolean | null; show_assist_stats?: number | boolean | null;

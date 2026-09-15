@@ -23,5 +23,5 @@ export default function PublicCupPreview({publicKey,cupId}:{publicKey:string;cup
   },[cupId]);
   if(error)return <main className="page-shell"><article className="empty-state"><strong>Turneringsvyn kunde inte öppnas</strong><p>{error}</p><a href="/admin">Tillbaka till admin</a></article></main>;
   if(!data)return <main className="page-shell"><article className="empty-state"><strong>Öppnar turneringsvyn…</strong><p>CupNavi hämtar utkastet utan att publicera det.</p></article></main>;
-  return <><div className="preview-ribbon">FÖRHANDSGRANSKNING · CUPEN ÄR INTE PUBLICERAD</div><PublicCupView publicKey={publicKey} initialCup={data.cup} initialStandings={data.standings||[]}/></>;
+  return <>{!data.cup.tournament.is_published&&<div className="preview-ribbon">FÖRHANDSGRANSKNING · UTKAST</div>}<PublicCupView publicKey={publicKey} initialCup={data.cup} initialStandings={data.standings||[]}/></>;
 }
