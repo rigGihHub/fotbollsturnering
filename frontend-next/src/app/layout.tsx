@@ -17,10 +17,11 @@ import "./public-desktop-v2656.css";
 import "./public-masterpiece-v2658.css";
 import "./reporting-admin-v2664.css";
 import "./reporter-v2665.css";
+import "./reporter-flow-v2667.css";
 import { PwaBoot } from "@/components/PwaBoot";
 import { ViewModeSwitch } from "@/components/ViewModeSwitch";
 
-const APP_VERSION = "2.6.66";
+const APP_VERSION = "2.6.67";
 
 export const metadata: Metadata = {
   title: `CupNavi v${APP_VERSION}`,

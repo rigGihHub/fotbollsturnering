@@ -29,7 +29,7 @@ function DisciplineTable({stats}:{stats:PublicStatistics}){
   return <section className="texttv"><div className="texttv__header"><span>330</span><strong>Fair play</strong><span>LAG</span></div><div className="texttv__scroll"><table><thead><tr><th>#</th><th>Lag</th><th>Gula</th><th>Röda</th></tr></thead><tbody>{stats.discipline.length?stats.discipline.map((row,index)=><tr key={row.team_id}><td>{index+1}</td><td>{row.team_name}</td><td>{row.yellow_cards}</td><td><strong>{row.red_cards}</strong></td></tr>):<tr><td colSpan={4}>Ingen registrerad disciplinstatistik ännu.</td></tr>}</tbody></table></div></section>;
 }
 
-export function PublicCupView({ publicKey, initialCup, initialStandings }:{publicKey:string;initialCup:CupSnapshot;initialStandings:StandingsGroup[]}){
+export function PublicCupView({ publicKey, initialCup, initialStandings, reporterReturn=false }:{publicKey:string;initialCup:CupSnapshot;initialStandings:StandingsGroup[];reporterReturn?:boolean}){
   const [cup,setCup]=useState(()=>normalizeCup(initialCup)); const [standings,setStandings]=useState(Array.isArray(initialStandings)?initialStandings:[]);
   const [tab,setTab]=useState<Tab>("matchday"); const [favorites,setFavorites]=useState<number[]>([]);
   const [matchView,setMatchView]=useState<MatchView>("upcoming"); const [moreOpen,setMoreOpen]=useState(false);
@@ -67,6 +67,7 @@ export function PublicCupView({ publicKey, initialCup, initialStandings }:{publi
   const mobileItems:Array<[Tab,string,string]>=[["matchday","Idag","◉"],["matches","Matcher","▦"],...(showTables?[["table","Tabell","330"] as [Tab,string,string]]:[]),...(showPlayoffs?[["playoff","Slutspel","◆"] as [Tab,string,string]]:[])];
 
   return <main className="page-shell page-shell--matchday">
+    {reporterReturn&&<div className="public-role-return"><span>Du granskar den publika turneringsvyn</span><a href={`/reporter?cup=${encodeURIComponent(publicKey)}`}>← Till matchrapportering</a></div>}
     <CupCover tournament={cup.tournament} teamCount={cup.teams.length} matchCount={cup.matches.length} groupCount={cup.groups.length}/>
     <nav className="edition-nav edition-nav--desktop" aria-label="Cupens innehåll">{navItems.map(([key,label],i)=><button key={key} className={tab===key?"is-active":""} onClick={()=>setTab(key)}><span>0{i+1}</span>{label}</button>)}</nav>
 
