@@ -1,0 +1,19 @@
+/* v2.6.41 — CupNavi identity: artist-built emblem plus crisp live typography */
+.brandbar{background:#101f2a!important;border-bottom:0!important;box-shadow:inset 0 -5px 0 #ffd83d,0 3px 0 #d7352a!important}
+.brand{min-height:84px!important;padding:11px 22px 14px!important;align-items:center!important;justify-content:flex-start!important}
+.brand-lockup{display:flex;align-items:center;gap:12px;color:#fff!important}
+.brand-emblem{display:block;width:62px;height:62px;object-fit:contain;filter:drop-shadow(2px 2px 0 rgba(0,0,0,.28))}
+.brand-title{display:grid;grid-template-columns:auto auto;column-gap:0;align-items:center;font-style:italic;letter-spacing:-.055em;line-height:.82}
+.brand-title>strong{font-family:Arial Black,Inter,system-ui,sans-serif;font-size:34px;font-weight:1000;color:#fff}
+.brand-title>strong:nth-child(2){color:#16c5cf}
+.brand-title>small{grid-column:1/-1;margin:7px 0 0!important;color:#ffd83d!important;font:900 7px/1 ui-monospace,monospace!important;letter-spacing:.2em!important;font-style:normal}
+.brandbar .app-version-badge{margin-left:auto;background:#ffd83d!important;color:#101f2a!important;border:2px solid #101f2a!important;box-shadow:2px 2px 0 #fff!important}
+@media(max-width:760px){
+  .brandbar{min-height:72px!important;padding:0!important}
+  .brand{min-height:72px!important;padding:8px 16px 12px!important}
+  .brand-lockup{gap:8px}
+  .brand-emblem{width:50px;height:50px}
+  .brand-title>strong{font-size:27px}
+  .brand-title>small{margin-top:6px!important;font-size:6px!important;letter-spacing:.16em!important}
+}
+@media(max-width:350px){.brand-emblem{width:44px;height:44px}.brand-title>strong{font-size:24px}.brand-title>small{display:none}}

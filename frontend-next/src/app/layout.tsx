@@ -10,10 +10,11 @@ import "./ui-system-v2616.css";
 import "./public-ux-v2624.css";
 import "./comic-card-v2634.css";
 import "./public-system-v2639.css";
+import "./brand-v2641.css";
 import { PwaBoot } from "@/components/PwaBoot";
 import { ViewModeSwitch } from "@/components/ViewModeSwitch";
 
-const APP_VERSION = "2.6.40";
+const APP_VERSION = "2.6.41";
 
 export const metadata: Metadata = {
   title: `CupNavi v${APP_VERSION}`,
@@ -32,7 +33,10 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
       <body>
         <header className="brandbar">
           <a href="/" className="brand" aria-label="CupNavi startsida">
-            <img className="brand-logo-original" src="/cupnavi-logo.png" alt="CupNavi" />
+            <span className="brand-lockup">
+              <img className="brand-emblem" src="/cupnavi-emblem-v2641.png" alt="" aria-hidden="true" />
+              <span className="brand-title"><strong>CUP</strong><strong>NAVI</strong><small>TURNERINGEN I FICKAN</small></span>
+            </span>
           </a>
           <span className="app-version-badge" aria-label={`CupNavi version ${APP_VERSION}`}>v{APP_VERSION}</span>
         </header>
