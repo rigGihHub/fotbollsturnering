@@ -1,0 +1,72 @@
+/* v2.6.38 — one coherent visual and responsive system across admin steps */
+.admin-main input,.admin-main select,.admin-main textarea{
+  min-height:46px;border:1.5px solid #879399;border-radius:8px;background:#fffdf8;color:#101f2a;
+  padding:10px 12px;font:700 15px/1.2 inherit;box-shadow:inset 0 1px 0 rgba(16,31,42,.05)
+}
+.admin-main input:focus,.admin-main select:focus,.admin-main textarea:focus{outline:3px solid rgba(0,163,173,.22);border-color:#008f9a}
+.admin-main label{color:#101f2a;font-size:12px;font-weight:900;line-height:1.25}
+.admin-main button:not(:disabled){background:#fffdf8;color:#101f2a;border-color:#101f2a}
+.admin-main .admin-form-footer button:not(:disabled),.admin-main .admin-action-primary:not(:disabled),.admin-main .admin-team-actions button:first-child:not(:disabled){background:#101f2a;color:#fff}
+.admin-main button:disabled{background:#e5e5df!important;color:#7a8386!important;border-color:#b9c0bd!important;box-shadow:none!important;cursor:not-allowed;opacity:.78}
+.admin-main .admin-team-editor{border:1.5px solid rgba(16,31,42,.22);border-radius:12px;background:#fffdf8;padding:16px}
+.admin-main .admin-team-list>article{border:1.5px solid rgba(16,31,42,.18);border-radius:10px;background:#fffdf8}
+.admin-main .admin-panel__top{padding-bottom:11px;border-bottom:1px solid rgba(16,31,42,.16)}
+
+@media(max-width:760px){
+  .admin-main:not(#overview){padding:18px 12px 78px!important}
+  .admin-main>.admin-panel{padding:14px!important;border-radius:11px!important;box-shadow:3px 3px 0 rgba(16,31,42,.18)!important}
+  .admin-panel__top{align-items:center!important;gap:8px!important}
+  .admin-panel__top>span,.admin-panel__top>strong{font-size:8px!important;line-height:1.2!important;letter-spacing:.08em!important}
+  .admin-cupinfo__head{display:grid!important;gap:8px!important;margin:14px 0!important}
+  .admin-cupinfo__head h2{font-size:26px!important;line-height:1.02!important;margin:0 0 6px!important}
+  .admin-cupinfo__head p{margin:0!important;font-size:13px!important;line-height:1.4!important}
+  .admin-cupinfo__head .admin-lock{justify-self:start!important;max-width:100%;white-space:normal!important;padding:6px 8px!important;font-size:8px!important}
+  .admin-main .admin-team-editor{padding:12px!important;border-radius:9px!important}
+  .admin-form-grid{display:grid!important;grid-template-columns:minmax(0,1fr)!important;gap:12px!important;margin-top:12px!important}
+  .admin-form-grid>label{display:grid!important;grid-template-columns:minmax(0,1fr)!important;align-items:stretch!important;gap:6px!important;width:100%!important;min-width:0!important;margin:0!important}
+  .admin-form-grid input:not([type="checkbox"]),.admin-form-grid select,.admin-form-grid textarea{width:100%!important;min-width:0!important}
+  .admin-form-grid label:has(input[type="checkbox"]){display:flex!important;grid-template-columns:none!important;align-items:center!important;min-height:44px;padding:8px 0}
+  .admin-form-grid input[type="checkbox"]{width:24px!important;height:24px!important;min-height:24px!important;flex:0 0 24px;padding:0!important}
+  .admin-form-footer{display:grid!important;grid-template-columns:minmax(0,1fr)!important;gap:10px!important;align-items:stretch!important;margin-top:14px!important}
+  .admin-form-footer>span{font-size:12px!important;line-height:1.4!important}
+  .admin-form-footer>button,.admin-form-footer>.admin-team-actions,.admin-form-footer>.admin-team-actions button{width:100%!important;min-height:46px!important}
+  .admin-team-actions{display:grid!important;grid-template-columns:repeat(auto-fit,minmax(120px,1fr))!important;gap:8px!important;width:100%!important}
+  .admin-team-actions button{min-width:0!important;min-height:44px!important;padding:9px 10px!important}
+  .admin-code-placeholder{display:grid!important;gap:5px!important;padding:11px!important;font-size:12px!important;line-height:1.4!important;overflow-wrap:anywhere!important}
+  .admin-dashboard-grid{grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:7px!important}
+  .admin-dashboard-grid>.admin-panel{min-width:0!important;padding:11px 8px!important;text-align:center!important}
+  .admin-dashboard-grid>.admin-panel>strong{display:block;font-size:22px!important}
+  .admin-dashboard-grid>.admin-panel>small{display:block;font-size:9px!important;line-height:1.25!important}
+  .admin-team-list{gap:9px!important}
+  .admin-team-list>article{width:100%!important;min-width:0!important;padding:12px!important}
+  .admin-team-list>article>div{min-width:0!important}
+  .admin-team-list>article strong,.admin-team-list>article small{white-space:normal!important;overflow-wrap:anywhere!important;word-break:normal!important}
+  #groups .admin-group-list>article,#groups .admin-group-assignments>article,
+  #venues .admin-venue-list>article,#schedule>.admin-team-list>article,
+  #playoffs .admin-team-list>article{display:grid!important;grid-template-columns:minmax(0,1fr)!important;gap:11px!important;align-items:stretch!important}
+  #venues .admin-venue-list label,#schedule>.admin-team-list label{display:grid!important;gap:6px!important;width:100%!important;min-width:0!important}
+  #venues .admin-window-list>div{display:grid!important;gap:10px!important}
+  #venues .admin-window-list article{display:grid!important;grid-template-columns:minmax(0,1fr) minmax(0,1fr)!important;gap:10px!important;padding:12px!important}
+  #venues .admin-window-list article>div{grid-column:1/-1!important}
+  #venues .admin-window-list article label{display:grid!important;gap:5px!important;min-width:0!important}
+  #venues .admin-window-list article input{width:100%!important;min-width:0!important}
+  #venues .admin-window-list article button{grid-column:1/-1!important;width:100%!important;min-height:46px!important}
+  #schedule>.admin-team-actions{grid-template-columns:repeat(3,minmax(0,1fr))!important}
+  #schedule>.admin-team-actions button{font-size:11px!important;padding:8px 5px!important}
+  #schedule>.admin-team-list>article>div:first-child{min-width:0!important}
+  #schedule>.admin-team-list input,#schedule>.admin-team-list select{width:100%!important;min-width:0!important}
+  #rules h3,#venues h3,#schedule h3,#playoffs h3{font-size:19px!important;line-height:1.15!important;margin:18px 0 10px!important}
+  .publication-console__hero,.reporting-console__head{padding-left:12px!important;padding-right:12px!important}
+  .publication-console__hero h2,.reporting-console__head h2{font-size:27px!important;line-height:1.05!important}
+  .reporting-match{padding:12px!important;border-radius:9px!important}
+  .reporting-match__teams{font-size:14px!important}
+  .reporting-match__score{grid-template-columns:54px 12px 54px minmax(0,1fr)!important;width:100%!important}
+  .reporting-match__score input{width:54px!important;min-width:0!important;padding:8px!important;text-align:center}
+}
+
+@media(max-width:390px){
+  .admin-dashboard-grid{grid-template-columns:minmax(0,1fr)!important}
+  .reporting-match__score{grid-template-columns:1fr 12px 1fr!important}
+  .reporting-match__score input{width:100%!important}
+  .reporting-match__score button{grid-column:1/-1!important;width:100%!important}
+}

@@ -14,6 +14,7 @@ import "../comic-card-v2634.css";
 import "../admin-mobile-layout-v2635.css";
 import "../admin-home-v2636.css";
 import "../admin-home-v2637.css";
+import "../admin-system-v2638.css";
 
 export default function AdminLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return children;
