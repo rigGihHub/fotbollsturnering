@@ -64,6 +64,13 @@ function kitBackground(pattern:KitPattern,c1:string,c2:string){
 function StandardKitColor({value,onChange,label}:{value:string;onChange:(value:string)=>void;label:string}){
   return <div className="admin-kit-palette" role="group" aria-label={label}>{standardKitColors.map(color=><button key={color.value} type="button" className={value.toUpperCase()===color.value?"is-selected":""} style={{"--choice-color":color.value} as CSSProperties} title={color.name} aria-label={color.name} aria-pressed={value.toUpperCase()===color.value} onClick={()=>onChange(color.value)}><span aria-hidden="true"/></button>)}</div>;
 }
+function TeamLogo({team}:{team:Team}){
+  const [failed,setFailed]=useState(false);
+  const showImage=Boolean(team.logo_url)&&!failed;
+  return <span className={`admin-team-logo${showImage?"":" is-empty"}`} aria-label={showImage?`${team.name} klubbmärke`:`${team.name} saknar klubbmärke`}>
+    {showImage?<img src={normalizedWebUrl(team.logo_url||"")} alt="" loading="lazy" referrerPolicy="no-referrer" onError={()=>setFailed(true)}/>:<b>{team.name.slice(0,2).toLocaleUpperCase("sv")}</b>}
+  </span>;
+}
 
 class ApiError extends Error {
   status:number;
@@ -657,9 +664,9 @@ export default function AdminWorkspace({verifiedSession=null,children=null}:{ver
         </form>
         <div className="admin-team-list admin-team-roster">
           {teams.length ? teams.map(team=><article key={team.id} className={editingTeam===team.id?"is-editing":""}>
-            {team.logo_url?<img className="admin-team-logo" src={team.logo_url} alt={`${team.name} klubbmärke`} loading="lazy" referrerPolicy="no-referrer"/>:<span className="admin-team-logo is-empty" aria-hidden="true">CN</span>}
-            <span className="admin-team-kits" aria-label="Hemma- och bortaställ"><span className="admin-team-shirt" title="Hemmaställ" style={{background:kitBackground(team.home_pattern||"Helfärgad",team.primary_color||"#111827",team.home_color_2||"#FFFFFF")}}/><span className="admin-team-shirt" title="Bortaställ" style={{background:kitBackground(team.away_pattern||"Helfärgad",team.secondary_color||"#FFFFFF",team.away_color_2||"#111827")}}/></span>
-            <div><strong>{team.name}</strong><small>{team.age_class||"Klass saknas"}{team.group_id?` · ${groups.find(group=>group.id===team.group_id)?.name || `Grupp ${team.group_id}`}`:" · Ej gruppindelat"}</small></div>
+            <TeamLogo team={team}/>
+            <span className="admin-team-kits" aria-label="Hemma- och bortaställ"><span><TeamKit primary={team.primary_color} secondary={team.home_color_2} pattern={team.home_pattern}/><small>H</small></span><span><TeamKit primary={team.secondary_color} secondary={team.away_color_2} pattern={team.away_pattern}/><small>B</small></span></span>
+            <div className="admin-team-identity"><strong>{team.name}</strong><small><span>{team.age_class||"Klass saknas"}</span><span>{team.group_id?(groups.find(group=>group.id===team.group_id)?.name || `Grupp ${team.group_id}`):"Ej gruppindelat"}</span></small></div>
             <div className="admin-team-actions"><button type="button" onClick={()=>beginTeamEdit(team)}>Redigera</button><button className="is-danger" type="button" onClick={()=>removeTeam(team)}>Ta bort</button></div>
           </article>) : <div className="admin-empty"><strong>Inga lag ännu</strong><span>Lägg till det första laget ovan.</span></div>}
         </div>

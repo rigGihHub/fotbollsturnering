@@ -24,7 +24,7 @@ const TOOL_STEPS = [
 const STEP_GUIDE:Record<string,{goal:string;action:string;done:string}> = {
   overview:{goal:"Se vad som redan är klart och var du bör börja.",action:"Öppna det rekommenderade nästa steget på översikten.",done:"Du vet vilken uppgift som står på tur."},
   cupinfo:{goal:"Säkerställ att besökare får rätt grundinformation.",action:"Kontrollera namn, datum, arrangör, plats och kontaktuppgifter. Spara sedan.",done:"Uppgifterna är korrekta och sparade."},
-  teams:{goal:"Få in rätt lag och tydliga matchställ.",action:"Kontrollera lagnamn och klass. Sök sedan tröjfärger och bekräfta källbelagda förslag.",done:"Alla deltagande lag finns med och deras ställ är granskade."},
+  teams:{goal:"Få in rätt lag och tydliga matchställ.",action:"Kontrollera lagnamn och klass. Sök sedan matchställ eller klubbmärke.",done:"Alla deltagande lag finns med och deras ställ är granskade."},
   groups:{goal:"Placera varje lag i rätt grupp.",action:"Skapa grupper och välj grupp för alla lag som ska spela gruppspel.",done:"Inget lag som ska gruppspela är ogrupperat."},
   venues:{goal:"Beskriv cupens verkliga plankapacitet.",action:"Lägg in planer, öppettider och eventuella begränsningar.",done:"Varje spelbar plan har korrekta tider."},
   rules:{goal:"Bestäm reglerna som schemat ska följa.",action:"Kontrollera matchtid, pauser, minsta vila och tabellregler.",done:"Reglerna motsvarar cupens upplägg."},
