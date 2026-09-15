@@ -32,6 +32,12 @@ INCLUDED_PATTERNS = (
     "cupnavi_api/*.py",
     "cupnavi_core/*.py",
     "e2e/*.py",
+    "frontend-next/package.json",
+    "frontend-next/package-lock.json",
+    "frontend-next/*.ts",
+    "frontend-next/*.mjs",
+    "frontend-next/public/*",
+    "frontend-next/src/**/*",
     "public_pwa/*",
     "scripts/*.py",
     "staging/Caddyfile",
@@ -80,6 +86,11 @@ def is_release_file(path: Path, rel: Path) -> bool:
         elif p == ".streamlit/config.toml":
             allowed = True
         elif len(rel.parts) == 2 and rel.parts[0] == "assets":
+            allowed = True
+        elif rel.parts[0] == "frontend-next" and (
+            (len(rel.parts) == 2 and rel.name in {"package.json", "package-lock.json", "next.config.ts", "eslint.config.mjs", "tsconfig.json"})
+            or (len(rel.parts) >= 3 and rel.parts[1] in {"public", "src"})
+        ):
             allowed = True
         elif len(rel.parts) == 2 and rel.parts[0] in {"cupnavi_api", "cupnavi_core", "e2e", "scripts", "tests"} and rel.suffix == ".py":
             # app.py is a project-root entry point; a copy inside scripts/ or

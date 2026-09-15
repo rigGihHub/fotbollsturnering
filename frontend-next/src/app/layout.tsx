@@ -23,8 +23,9 @@ import "./public-texttv-v2675.css";
 import { PwaBoot } from "@/components/PwaBoot";
 import { ViewModeSwitch } from "@/components/ViewModeSwitch";
 import { HeaderShareAction } from "@/components/HeaderShareAction";
+import { SiteFooter } from "@/components/SiteFooter";
 
-const APP_VERSION = "2.6.76";
+const APP_VERSION = "2.6.77";
 
 export const metadata: Metadata = {
   title: `CupNavi v${APP_VERSION}`,
@@ -54,6 +55,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         <PwaBoot />
         <ViewModeSwitch />
         {children}
+        <SiteFooter />
       </body>
     </html>
   );

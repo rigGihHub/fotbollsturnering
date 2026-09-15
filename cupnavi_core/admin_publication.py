@@ -29,6 +29,7 @@ def build_publish_blockers(
     schedule_dirty: bool,
     schedule_errors: Sequence[str],
     bracket_errors: Sequence[str] = (),
+    cupinfo_errors: Sequence[str] = (),
     blocking_warnings: Sequence[str] = (),
     warnings_approved: bool = False,
 ) -> list[str]:
@@ -44,6 +45,7 @@ def build_publish_blockers(
         blockers.append(f"{len(schedule_errors)} blockerande schemafel måste åtgärdas.")
     if bracket_errors:
         blockers.append(f"{len(bracket_errors)} fel i slutspelsträdet måste åtgärdas.")
+    blockers.extend(str(item) for item in cupinfo_errors if str(item).strip())
     return blockers
 
 
@@ -88,6 +90,8 @@ def publication_problem_destination(message: str | None) -> tuple[str, str]:
         return "Slutspel", "Öppna Slutspel"
     if "spelschema saknas" in text:
         return "Skapa och publicera schema", "Öppna Schema"
+    if "spelplats" in text or "adress" in text:
+        return "Cupinformation", "Öppna Cupinfo"
     if "schemat är inaktuellt" in text or "schemafel" in text:
         return "Skapa och publicera schema", "Öppna Schema"
     return "Kontroller", "Visa mer"

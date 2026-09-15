@@ -69,7 +69,7 @@ export default function PublishReportingAdmin({token,cupId,mode,publicSlug}:{tok
         if(impact.blocked){const details=(impact.guidance||[]).join(" ");throw new Error(`${impact.summary||"Korrigeringen påverkar en senare slutspelsmatch."}${details?` ${details}`:""}`);}
         if(impact.outcome_changes&&(impact.downstream_count||0)>0){
           const rows=(impact.downstream||[]).map(item=>`${item.stage||"Slutspel"}${item.match_no?` #${item.match_no}`:""}${item.locked?" · låst":" · ej startad"}`).join("\n");
-          if(!window.confirm(`Korrigeringen ändrar vilket lag som går vidare och påverkar ${impact.downstream_count} senare match${impact.downstream_count===1?"":"er"}.\n\n${rows}\n\nVill du fortsätta?`))return;
+          if(!window.confirm(`Korrigeringen ändrar hela kedjeeffekten för vilket lag som går vidare och påverkar ${impact.downstream_count} senare match${impact.downstream_count===1?"":"er"}.\n\n${rows}\n\nVill du fortsätta?`))return;
         }
       }
       await req(`/api/admin/cups/${cupId}/reporting/matches/${match.id}`,token,{method:"PUT",body:JSON.stringify(payload)});

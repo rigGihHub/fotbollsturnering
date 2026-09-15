@@ -1,0 +1,1 @@
+export function SiteFooter(){return <footer className="site-footer"><span>CupNavi</span><nav aria-label="Juridik och support"><a href="/integritet">Integritet</a><a href="/villkor">Villkor</a><a href="/support">Support</a></nav></footer>}

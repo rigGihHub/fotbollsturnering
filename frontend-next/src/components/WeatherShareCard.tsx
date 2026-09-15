@@ -85,7 +85,7 @@ export function WeatherShareCard({
 
   return <>
     <article className="feature-card">
-      <span className="feature-card__number">WEATHER//LIVE</span>
+      <span className="feature-card__number">{weatherState==="ready"?"VÄDER//PROGNOS":"VÄDER//STATUS"}</span>
       <h3>Väder på cupdagen</h3>
       {weatherState==="loading"&&<p>Hämtar prognosen…</p>}
       {weatherState==="too-early"&&<p>Prognosen visas automatiskt när cupen är inom 16 dagar.</p>}

@@ -47,11 +47,11 @@ from .repository import (
 app=FastAPI(title="CupNavi API",version=APP_VERSION,docs_url="/docs",redoc_url=None)
 
 _cors_origins=[
-    item.strip() for item in os.getenv("CUPNAVI_PWA_ORIGINS","*").split(",") if item.strip()
+    item.strip() for item in os.getenv("CUPNAVI_PWA_ORIGINS","https://cupnavi-web.onrender.com,https://cup-navi.com,https://www.cup-navi.com").split(",") if item.strip()
 ]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=_cors_origins or ["*"],
+    allow_origins=_cors_origins,
     allow_credentials=False,
     allow_methods=["GET","POST","PUT","DELETE","OPTIONS"],
     allow_headers=["Authorization","Content-Type"],
@@ -126,6 +126,12 @@ async def add_server_timing(request:Request, call_next):
     elapsed_ms=(time.perf_counter()-started)*1000
     response.headers["Server-Timing"]=f"app;dur={elapsed_ms:.1f}"
     response.headers["X-CupNavi-Process-Ms"]=f"{elapsed_ms:.1f}"
+    response.headers["X-Content-Type-Options"]="nosniff"
+    response.headers["X-Frame-Options"]="DENY"
+    response.headers["Referrer-Policy"]="strict-origin-when-cross-origin"
+    response.headers["Permissions-Policy"]="camera=(), microphone=(), geolocation=(), payment=()"
+    if request.url.scheme == "https" or request.headers.get("x-forwarded-proto") == "https":
+        response.headers["Strict-Transport-Security"]="max-age=31536000; includeSubDomains"
     return response
 
 

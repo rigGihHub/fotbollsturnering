@@ -17,6 +17,18 @@ def test_bracket_errors_are_real_publication_blockers():
     assert publication_problem_destination(blockers[0]) == ("Slutspel", "Öppna Slutspel")
 
 
+def test_missing_public_venue_blocks_publication():
+    blockers = build_publish_blockers(
+        playoff_model_confirmed=True,
+        scheduled_matches=12,
+        schedule_dirty=False,
+        schedule_errors=(),
+        cupinfo_errors=("Spelplats eller adress måste anges under Cupinfo.",),
+    )
+    assert blockers == ["Spelplats eller adress måste anges under Cupinfo."]
+    assert publication_problem_destination(blockers[0]) == ("Cupinformation", "Öppna Cupinfo")
+
+
 def test_playoff_admin_surfaces_structural_readiness():
     repo = (ROOT / "cupnavi_api/playoff_admin_repository.py").read_text(encoding="utf-8")
     ui = (ROOT / "frontend-next/src/components/playoff-admin.tsx").read_text(encoding="utf-8")

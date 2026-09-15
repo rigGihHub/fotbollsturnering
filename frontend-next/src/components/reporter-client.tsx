@@ -3,6 +3,7 @@ import {FormEvent,useCallback,useEffect,useState} from "react";
 import {CLIENT_API_BASE} from "../lib/client-api";
 import ReporterMatchEvents from "./reporter-match-events";
 const API=CLIENT_API_BASE,KEY="cupnavi_reporter_session_v1";
+// Rollgräns: Cupinställningar är inte åtkomliga här; rapportören kan bara arbeta med matchdata.
 type Cup={id:number;name:string;public_slug?:string|null};
 type Match={id:number;stage?:string|null;home_team:string;away_team:string;home_score:number|null;away_score:number|null;home_penalties?:number|null;away_penalties?:number|null;status:string;scheduled_start?:string|null};
 async function call<T>(path:string,token?:string|null,init:RequestInit={}):Promise<T>{const headers=new Headers(init.headers);if(token)headers.set("Authorization",`Bearer ${token}`);if(init.body)headers.set("Content-Type","application/json");const response=await fetch(`${API}${path}`,{...init,headers,cache:"no-store"});const payload=await response.json().catch(()=>null);if(!response.ok)throw new Error(payload?.detail||`API-fel ${response.status}`);return payload as T;}

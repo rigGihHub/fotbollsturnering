@@ -1,0 +1,1 @@
+export default function CupNotFound(){return <main className="page-shell"><section className="status-page"><span>404 // CUP SAKNAS</span><h1>Cupen kunde inte hittas.</h1><p>Länken kan vara fel, eller så är cupen inte publicerad längre.</p><div><a href="/">Till startsidan</a><a href="/admin">Till admin</a></div></section></main>}

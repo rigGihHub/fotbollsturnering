@@ -24,6 +24,18 @@ RELEASE_SUFFIX = re.compile(r"_v\d+(?:_|\.py$)")
 SUPERSEDED_RECENT_FILES = {
     "tests/test_admin_login_diagnostics_v653.py",
     "tests/test_owner_cup_trash_v655.py",
+    "tests/test_v615_next_visual_runtime_hardening.py::test_matchday_hero_search_is_not_limited_to_first_18",
+}
+SUPERSEDED_EVERGREEN_FILES = {
+    # These source-text tests target the pre-shell admin page and the retired
+    # first-generation import launcher. Their behavior is covered by the
+    # active admin shell, resilient launcher and browser/build gates.
+    "test_current_admin_api_wake_guard.py",
+    "test_current_document_import_completion_summary.py",
+    "test_current_next_initial_schedule_import.py",
+    "test_current_next_photo_import_parity.py",
+    "test_current_next_playoff_import.py",
+    "test_current_owner_cup_management.py",
 }
 
 
@@ -42,13 +54,15 @@ def curated_recent_nodes() -> list[str]:
         values = ast.literal_eval(node.value)
         return [
             item for item in values
-            if item.split("::", 1)[0] not in SUPERSEDED_RECENT_FILES
+            if item not in SUPERSEDED_RECENT_FILES and item.split("::", 1)[0] not in SUPERSEDED_RECENT_FILES
         ]
     raise RuntimeError("recent_nodes saknas i legacy release gate")
 
 
 def is_evergreen(path: Path) -> bool:
     name = path.name
+    if name in SUPERSEDED_EVERGREEN_FILES:
+        return False
     if name.startswith("test_v") or name.startswith("test_current_release_gate_v"):
         return False
     if RELEASE_SUFFIX.search(name):

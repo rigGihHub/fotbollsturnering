@@ -2,9 +2,13 @@ import { CupSnapshot, Match, PublicStatistics, StandingRow } from "./types";
 
 const API_BASE = (process.env.CUPNAVI_API_BASE || process.env.NEXT_PUBLIC_CUPNAVI_API_BASE || "http://localhost:8000").replace(/\/$/, "");
 
+export class CupNaviApiError extends Error {
+  constructor(public readonly status:number, message:string){super(message);this.name="CupNaviApiError";}
+}
+
 async function apiGet<T>(path: string): Promise<T> {
   const response = await fetch(`${API_BASE}${path}`, { cache: "no-store" });
-  if (!response.ok) throw new Error(`CupNavi API svarade ${response.status}`);
+  if (!response.ok) throw new CupNaviApiError(response.status,`CupNavi API svarade ${response.status}`);
   return response.json() as Promise<T>;
 }
 

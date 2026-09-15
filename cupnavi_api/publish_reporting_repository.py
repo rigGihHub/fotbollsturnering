@@ -114,6 +114,7 @@ def _publication_payload(tournament_id: int):
         schedule_dirty=bool(tournament.get("schedule_dirty")) if "schedule_dirty" in tournament else False,
         schedule_errors=schedule_errors,
         bracket_errors=bracket_errors,
+        cupinfo_errors=(() if str(tournament.get("arena_address") or "").strip() else ("Spelplats eller adress måste anges under Cupinfo.",)),
     )
     return {
         "tournament": tournament,

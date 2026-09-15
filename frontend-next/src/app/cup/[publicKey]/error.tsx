@@ -1,0 +1,2 @@
+"use client";
+export default function CupError({reset}:{reset:()=>void}){return <main className="page-shell"><section className="status-page"><span>FEL // TILLFÄLLIGT AVBROTT</span><h1>Cupen går inte att hämta just nu.</h1><p>Försök igen. Om felet består kan arrangören kontrollera publiceringen i admin.</p><div><button onClick={reset}>Försök igen</button><a href="/">Till startsidan</a></div></section></main>}

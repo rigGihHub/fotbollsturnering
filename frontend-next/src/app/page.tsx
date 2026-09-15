@@ -20,7 +20,7 @@ export default function Home() {
               </p>
               <div className={styles.actions}>
                 <a className={styles.primary} href="/admin">Skapa eller administrera cup →</a>
-                <a className={styles.secondary} href="/cup/slottskampen-2026">Se publik cup →</a>
+                <a className={styles.secondary} href="/cup/slottskampen-2">Se publik cup →</a>
               </div>
             </div>
 
@@ -90,7 +90,7 @@ export default function Home() {
           </div>
           <div className={styles.actions}>
             <a className={styles.primary} href="/admin">Öppna admin →</a>
-            <a className={styles.secondary} href="/cup/slottskampen-2026">Se publik vy →</a>
+            <a className={styles.secondary} href="/cup/slottskampen-2">Se publik vy →</a>
           </div>
         </section>
       </div>
