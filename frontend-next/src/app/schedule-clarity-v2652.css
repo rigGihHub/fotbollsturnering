@@ -1,0 +1,27 @@
+/* v2.6.52 — a complete schedule is a review task, with legible desktop rows. */
+#schedule .admin-cupinfo__head h2{margin-top:18px!important}
+#schedule .admin-cupinfo__head p{font-size:15px;line-height:1.55;max-width:760px}
+#schedule .schedule-stats{grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:12px!important}
+#schedule .schedule-stats>article{min-height:92px;display:flex;flex-direction:column;justify-content:center;padding:16px 20px!important}
+#schedule .schedule-stats strong{font-size:30px;line-height:1}
+#schedule .schedule-stats small{margin-top:6px;font-size:12px;color:#52636c}
+.pitch-review-callout{border-color:#c69014!important;background:#fff8d7!important;box-shadow:5px 5px 0 #102630!important}
+.pitch-review-callout .admin-panel__top{color:#855b00!important}
+.pitch-review-callout h2{font-size:25px!important}
+.pitch-review-callout__action{min-height:46px!important;background:#ffd83d!important;color:#102630!important;border:2px solid #102630!important;box-shadow:3px 3px 0 #102630!important}
+.schedule-save-state{display:flex;align-items:center;gap:10px;margin:0 0 17px;padding:11px 14px;border-left:4px solid #d5a91d;background:#fff8d7;font-size:13px}
+.schedule-save-state b{white-space:nowrap}.schedule-save-state span{color:#52636c}
+.schedule-list-head{display:flex;align-items:flex-end;justify-content:space-between;gap:18px;margin:22px 0 12px;padding-bottom:12px;border-bottom:2px solid #102630}
+.schedule-list-head small{font:900 9px/1 ui-monospace,monospace;letter-spacing:.14em;color:#087d88}
+.schedule-list-head h3{margin:5px 0 0!important;font-size:22px!important}
+.schedule-filters{margin:0!important;display:flex!important;gap:7px!important}
+.schedule-filters button{display:flex;gap:7px;align-items:center;min-height:38px;padding:8px 12px!important}
+.schedule-filters button span{display:grid;place-items:center;min-width:21px;height:21px;padding:0 5px;border-radius:20px;background:#e7ebe7;font-size:10px}
+.schedule-filters button.is-active span{background:#fff;color:#102630}
+.schedule-match-identity{min-width:0!important}
+.schedule-match-identity>strong{display:grid;grid-template-columns:minmax(0,1fr) 16px minmax(0,1fr);align-items:center;gap:8px;font-size:15px;line-height:1.25}
+.schedule-match-identity>strong span{text-align:center;color:#758186}
+.schedule-match-meta{display:flex!important;gap:6px!important;align-items:center;margin-top:7px}
+.schedule-match-meta span{padding:3px 7px;border-radius:4px;background:#edf0ec;color:#52636c;font:800 9px/1 ui-monospace,monospace;letter-spacing:.04em;text-transform:uppercase}
+@media(min-width:1000px){#schedule{padding:26px!important}#schedule>.admin-team-list{gap:7px!important}#schedule>.admin-team-list>.schedule-match-row{padding:13px 15px!important}.schedule-match-row.is-readonly{grid-template-columns:minmax(330px,1.15fr) minmax(390px,.85fr)!important}.schedule-match-facts strong{font-size:14px!important}}
+@media(max-width:760px){#schedule .schedule-stats{grid-template-columns:repeat(3,minmax(0,1fr))!important}#schedule .schedule-stats>article{min-height:76px;padding:11px 8px!important;text-align:center}#schedule .schedule-stats strong{font-size:24px}.schedule-list-head{display:grid;align-items:stretch}.schedule-filters{display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr))!important}.schedule-filters button{justify-content:center;padding:8px 4px!important}.schedule-save-state{align-items:flex-start;display:grid;gap:3px}.schedule-match-identity>strong{font-size:14px}.pitch-review-callout{margin:10px!important}.pitch-review-callout__action{width:100%}}

@@ -118,15 +118,15 @@ export default function PitchWindowImportReview() {
   if (!review?.available || !rows.length) return null;
 
   return <>
-    <section className="admin-panel" style={{maxWidth:1120,margin:"12px auto",borderWidth:2}}>
-      <div className="admin-panel__top"><span>IMPORT · PLANER & TIDER</span><strong>{rows.length} TIDSFÖNSTER HITTADES</strong></div>
+    <section className="admin-panel pitch-review-callout" style={{maxWidth:1120,margin:"12px auto",borderWidth:2}}>
+      <div className="admin-panel__top"><span>GÖR DETTA FÖRST</span><strong>{rows.length} PLANTIDER ATT BEKRÄFTA</strong></div>
       <div style={{display:"flex",justifyContent:"space-between",gap:16,alignItems:"center",flexWrap:"wrap"}}>
         <div>
-          <h2 style={{marginBottom:5}}>Plantider väntar på granskning</h2>
-          <p style={{margin:0,maxWidth:680}}>Underlaget innehåller uttryckliga öppettider för planer eller anläggningar. CupNavi gissar inte datum eller plannamn utan låter dig kontrollera dem innan de blir riktiga schemabegränsningar.</p>
+          <h2 style={{marginBottom:5}}>Bekräfta när planerna är öppna</h2>
+          <p style={{margin:0,maxWidth:680}}>Kontrollera de importerade plantiderna innan du godkänner schemat. Annars går det inte att säkert avgöra om matcherna ryms på respektive plan.</p>
           {review.already_applied_count>0 && <small>{review.already_applied_count} tidsfönster är redan bekräftade och visas därför inte igen.</small>}
         </div>
-        <button type="button" onClick={()=>{setRows(review.pitch_windows.map(row=>({...row})));setError("");setOpen(true);}}>Granska plantider →</button>
+        <button type="button" className="pitch-review-callout__action" onClick={()=>{setRows(review.pitch_windows.map(row=>({...row})));setError("");setOpen(true);}}>Kontrollera {rows.length} plantider →</button>
       </div>
     </section>
 
