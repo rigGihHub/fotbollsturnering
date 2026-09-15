@@ -32,7 +32,7 @@ def admin_rules(account_id: int, tournament_id: int):
     if not _has_tournament_access(account_id, tournament_id):
         return None
     tournament = one(
-        """SELECT id,sport,points_win,points_draw,points_loss,table_tiebreak,schedule_dirty
+        """SELECT id,sport,points_win,points_draw,points_loss,table_tiebreak,schedule_dirty,arrangement_type
            FROM tournaments WHERE id=?""",
         (int(tournament_id),),
     )
@@ -50,6 +50,7 @@ def admin_rules(account_id: int, tournament_id: int):
     halftime_minutes = int(rules.get("halftime_minutes") or 5)
     return {
         "sport": tournament.get("sport") or "Fotboll",
+        "arrangement_type": tournament.get("arrangement_type") or "tournament",
         "points_win": int(tournament.get("points_win") or 0),
         "points_draw": int(tournament.get("points_draw") or 0),
         "points_loss": int(tournament.get("points_loss") or 0),

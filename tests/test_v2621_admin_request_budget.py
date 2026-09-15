@@ -8,9 +8,9 @@ def test_frontend_release_is_synchronized():
     package = (ROOT / "frontend-next" / "package.json").read_text(encoding="utf-8")
     layout = (ROOT / "frontend-next" / "src" / "app" / "layout.tsx").read_text(encoding="utf-8")
     worker = (ROOT / "frontend-next" / "public" / "sw.js").read_text(encoding="utf-8")
-    assert '"version": "2.6.44"' in package
-    assert 'APP_VERSION = "2.6.44"' in layout
-    assert 'cupnavi-next-v2644' in worker
+    assert '"version": "2.6.46"' in package
+    assert 'APP_VERSION = "2.6.46"' in layout
+    assert 'cupnavi-next-v2646' in worker
 
 
 def test_authenticated_workspace_reuses_authoritative_session():
@@ -83,7 +83,7 @@ def test_public_mobile_navigation_and_match_list_are_complete():
 
 def test_admin_navigation_has_work_phases():
     workspace = (ROOT / "frontend-next" / "src" / "components" / "admin-workspace.tsx").read_text(encoding="utf-8")
-    for phase in ("Överblick", "Grundarbete", "Matchplanering", "Genomförande", "Verktyg"):
+    for phase in ("SKAPA CUPEN", "VERKTYG & CUPDRIFT"):
         assert phase in workspace
     assert 'className="admin-nav-phase"' in workspace
 
@@ -93,7 +93,7 @@ def test_photo_import_hands_off_to_a_clear_admin_flow():
     workspace = (ROOT / "frontend-next" / "src" / "components" / "admin-workspace.tsx").read_text(encoding="utf-8")
     assert "IMPORT_WELCOME_KEY" in launcher
     assert "teams:teams.length" in launcher
-    assert '"IMPORTEN ÄR KLAR"' in workspace
+    assert '>IMPORTEN ÄR KLAR<' in workspace
     assert "Börja med Cupinfo →" in workspace
     assert "Kontrollera schemat" in workspace
-    assert "showDraftGuide" in workspace
+    assert "importWelcome" in workspace

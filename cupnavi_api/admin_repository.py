@@ -21,6 +21,7 @@ CUPINFO_FIELDS = (
     "organizer_phone",
     "feedback_email",
     "public_information",
+    "arrangement_type",
 )
 CUPINFO_OPTIONAL_TEXT_FIELDS = (
     "organizer",
@@ -28,6 +29,7 @@ CUPINFO_OPTIONAL_TEXT_FIELDS = (
     "organizer_phone",
     "feedback_email",
     "public_information",
+    "arrangement_type",
 )
 
 TEAM_FIELDS = (
@@ -89,7 +91,10 @@ def _ensure_cupinfo_columns() -> set[str]:
         return columns
     with connect() as con:
         for field in missing:
-            con.execute(f"ALTER TABLE tournaments ADD COLUMN {field} TEXT")
+            if field == "arrangement_type":
+                con.execute("ALTER TABLE tournaments ADD COLUMN arrangement_type TEXT NOT NULL DEFAULT 'tournament'")
+            else:
+                con.execute(f"ALTER TABLE tournaments ADD COLUMN {field} TEXT")
         commit = getattr(con, "commit", None)
         if callable(commit):
             commit()
@@ -255,6 +260,8 @@ def update_cupinfo(account_id: int, tournament_id: int, values: dict):
             clean[field] = text or None
     if "name" in clean and not clean["name"]:
         raise ValueError("Cupnamn krävs")
+    if "arrangement_type" in clean and clean["arrangement_type"] not in {"matchcamp", "tournament", "tournament_playoffs", "custom"}:
+        raise ValueError("Ogiltig arrangemangstyp")
     if clean:
         assignments = ",".join(f"{field}=?" for field in clean)
         params = [clean[field] for field in clean]

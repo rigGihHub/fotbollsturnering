@@ -72,6 +72,7 @@ class CupInfoUpdate(BaseModel):
     organizer_phone: str | None = None
     feedback_email: str | None = None
     public_information: str | None = None
+    arrangement_type: str | None = None
 
 
 class TeamWrite(BaseModel):

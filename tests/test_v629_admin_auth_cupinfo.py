@@ -113,3 +113,10 @@ def test_cupinfo_update_is_whitelisted_and_requires_membership(admin_database):
 def test_cupinfo_rejects_blank_name(admin_database):
     with pytest.raises(ValueError, match="Cupnamn krävs"):
         update_cupinfo(1, 10, {"name": "   "})
+
+
+def test_arrangement_type_is_persisted_and_validated(admin_database):
+    saved = update_cupinfo(1, 10, {"arrangement_type": "matchcamp"})
+    assert saved["arrangement_type"] == "matchcamp"
+    with pytest.raises(ValueError, match="Ogiltig arrangemangstyp"):
+        update_cupinfo(1, 10, {"arrangement_type": "seriespel"})

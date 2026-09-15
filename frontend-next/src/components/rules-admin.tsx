@@ -6,7 +6,7 @@ import { CLIENT_API_BASE } from "../lib/client-api";
 const API_BASE=CLIENT_API_BASE;
 
 type RulesPayload={
-  sport:string; points_win:number; points_draw:number; points_loss:number; table_tiebreak:string;
+  sport:string; arrangement_type?:string; points_win:number; points_draw:number; points_loss:number; table_tiebreak:string;
   halves:number; minutes_per_half:number; halftime_minutes:number; pitch_break_minutes:number;
   minimum_team_rest_minutes:number; avoid_consecutive_matches:boolean; consecutive_match_break_minutes:number;
   match_duration_minutes:number; scheduled_count:number; completed_count:number; schedule_dirty:boolean;
@@ -30,17 +30,17 @@ export default function RulesAdmin({token,cupId}:{token:string;cupId:number}){
   if(!data)return <section className="admin-panel admin-teams" id="rules"><div className="admin-panel__top"><span>05 / REGLER</span><strong>{busy?"HÄMTAR":"SAKNAS"}</strong></div><h2>Regler</h2><p>{error||"Hämtar cupens regler…"}</p></section>;
   return <section className="admin-panel admin-teams" id="rules">
     <div className="admin-panel__top"><span>05 / REGLER</span><strong>{data.sport.toUpperCase()} · {data.match_duration_minutes} MIN/MATCH</strong></div>
-    <div className="admin-cupinfo__head"><div><h2>Tävlings- och schemaregler</h2><p>Poäng, tabellskiljning, matchstruktur, pauser och lagvila. Planer och öppettider ligger separat under Planer & tider.</p></div><span className="admin-lock">RIKTIGA REGLER</span></div>
+    <div className="admin-cupinfo__head"><div><h2>{data.arrangement_type==="matchcamp"?"Match- och viloregler":"Tävlings- och schemaregler"}</h2><p>{data.arrangement_type==="matchcamp"?"Ställ in matchlängd, planpaus och lagvila. Tabellpoäng och slutspelsregler används inte för en matchcamp.":"Poäng, tabellskiljning, matchstruktur, pauser och lagvila. Planer och öppettider ligger separat under Planer & tider."}</p></div><span className="admin-lock">RIKTIGA REGLER</span></div>
     {(error||message)&&<div className="admin-code-placeholder" style={{marginBottom:16}}><b>{error?"Fel":"Sparat"}</b> · {error||message}</div>}
     {data.completed_count>0&&<div className="admin-code-placeholder" style={{marginBottom:16}}><b>{data.completed_count} färdigspelade matcher</b> · matchstrukturen är därför låst mot ändringar som skulle göra historiken inkonsekvent.</div>}
     <form onSubmit={save} className="admin-team-editor">
-      <h3>Poäng och tabell</h3>
+      {data.arrangement_type!=="matchcamp"&&<><h3>Poäng och tabell</h3>
       <div className="admin-form-grid">
         <label>Poäng för vinst<input type="number" min={0} max={10} value={data.points_win} onChange={e=>setData({...data,points_win:Number(e.target.value)})}/></label>
         <label>Poäng för oavgjort<input type="number" min={0} max={10} value={data.points_draw} onChange={e=>setData({...data,points_draw:Number(e.target.value)})}/></label>
         <label>Poäng för förlust<input type="number" min={0} max={10} value={data.points_loss} onChange={e=>setData({...data,points_loss:Number(e.target.value)})}/></label>
         <label>Tabellskiljning<select value={data.table_tiebreak} onChange={e=>setData({...data,table_tiebreak:e.target.value})}><option>Målskillnad först</option><option>Inbördes möten först</option></select></label>
-      </div>
+      </div></>}
       <h3 style={{marginTop:22}}>Matchstruktur</h3>
       <div className="admin-form-grid">
         <label>Halvlekar / perioder<input type="number" min={1} max={4} disabled={data.completed_count>0} value={data.halves} onChange={e=>setData({...data,halves:Number(e.target.value)})}/></label>

@@ -30,6 +30,7 @@ type CupInfo = {
   name:string; start_date?:string|null; end_date?:string|null; organizer?:string|null;
   arena_address?:string|null; organizer_phone?:string|null; feedback_email?:string|null;
   public_information?:string|null;
+  arrangement_type?:"matchcamp"|"tournament"|"tournament_playoffs"|"custom"|null;
 };
 type SessionPayload = { account:Account; cups:Cup[]; token?:string };
 type AdminStep = "overview"|"cupinfo"|"teams"|"groups"|"venues"|"rules"|"schedule"|"referees"|"playoffs"|"publish"|"reporting"|"import"|"export";
@@ -95,6 +96,7 @@ function cleanCupInfo(value:CupInfo):CupInfo {
     organizer_phone:value.organizer_phone || "",
     feedback_email:value.feedback_email || "",
     public_information:value.public_information || "",
+    arrangement_type:value.arrangement_type || "tournament",
   };
 }
 
@@ -170,7 +172,9 @@ export default function AdminWorkspace({verifiedSession=null}:{verifiedSession?:
       request<{teams:Team[]}>(`/api/admin/cups/${nextCupId}/teams`,{},nextToken),
       request<{groups:Group[]}>(`/api/admin/cups/${nextCupId}/groups`,{},nextToken),
     ]);
-    setCupinfo(cleanCupInfo(data)); setTeams(teamData.teams || []); setGroups(groupData.groups || []);
+    const normalized=cleanCupInfo(data); setCupinfo(normalized); setTeams(teamData.teams || []); setGroups(groupData.groups || []);
+    document.documentElement.dataset.arrangementType=normalized.arrangement_type || "tournament";
+    window.dispatchEvent(new CustomEvent("cupnavi:arrangement-type",{detail:normalized.arrangement_type || "tournament"}));
     setEditingTeam(null); setTeamDraft(emptyTeam); setEditingGroup(null); setGroupDraft(emptyGroup);
   },[]);
 
@@ -361,10 +365,12 @@ export default function AdminWorkspace({verifiedSession=null}:{verifiedSession?:
     try {
       const saved = await request<CupInfo>(`/api/admin/cups/${cupId}/cupinfo`,{
         method:"PUT",
-        body:JSON.stringify({name:cupinfo.name,start_date:cupinfo.start_date || null,end_date:cupinfo.end_date || null,organizer:cupinfo.organizer || null,arena_address:cupinfo.arena_address || null,organizer_phone:cupinfo.organizer_phone || null,feedback_email:cupinfo.feedback_email || null,public_information:cupinfo.public_information || null})
+        body:JSON.stringify({name:cupinfo.name,start_date:cupinfo.start_date || null,end_date:cupinfo.end_date || null,organizer:cupinfo.organizer || null,arena_address:cupinfo.arena_address || null,organizer_phone:cupinfo.organizer_phone || null,feedback_email:cupinfo.feedback_email || null,public_information:cupinfo.public_information || null,arrangement_type:cupinfo.arrangement_type || "tournament"})
       },token);
       const normalized = cleanCupInfo(saved);
       setCupinfo(normalized);
+      document.documentElement.dataset.arrangementType=normalized.arrangement_type || "tournament";
+      window.dispatchEvent(new CustomEvent("cupnavi:arrangement-type",{detail:normalized.arrangement_type || "tournament"}));
       setCups(current => current.map(cup => cup.id === cupId ? {...cup,name:normalized.name,start_date:normalized.start_date,end_date:normalized.end_date,public_slug:normalized.public_slug,is_published:normalized.is_published} : cup));
       setMessage("Cupinfo sparad.");
       window.location.hash="teams";
@@ -517,18 +523,24 @@ export default function AdminWorkspace({verifiedSession=null}:{verifiedSession?:
   const cupinfoReady=Boolean(cupinfo?.name&&cupinfo?.start_date);
   const teamsReady=teams.length>0;
   const groupsReady=teamsReady&&groups.length>0&&groupedTeams===teams.length;
+  const isMatchcamp=cupinfo?.arrangement_type==="matchcamp";
+  const visibleSetupNav=setupNav.filter(([,href])=>{
+    if(isMatchcamp)return href!=="#groups"&&href!=="#playoffs";
+    if(cupinfo?.arrangement_type==="tournament")return href!=="#playoffs";
+    return true;
+  });
   const nextTask=!cupinfoReady
     ? {href:"#cupinfo",label:"Komplettera Cupinfo",detail:"Kontrollera cupnamn och datum."}
     : !teamsReady
       ? {href:"#teams",label:"Lägg till lagen",detail:"Registrera lagen och deras matchställ."}
-      : !groupsReady
+      : !isMatchcamp&&!groupsReady
         ? {href:"#groups",label:"Gör gruppindelningen",detail:`${teams.length-groupedTeams} lag saknar fortfarande grupp.`}
         : {href:"#venues",label:"Kontrollera planer och tider",detail:"Ange cupens kapacitet innan schemat skapas."};
   const checks=[
     {name:"Cupinfo",status:cupinfoReady?"Klar":"Komplettera",href:"#cupinfo",state:cupinfoReady?"done":"next"},
     {name:"Lag",status:teamsReady?`${teams.length} registrerade`:"Saknas",href:"#teams",state:teamsReady?"done":cupinfoReady?"next":"todo"},
-    {name:"Grupper",status:groups.length?`${groupedTeams}/${teams.length} lag placerade`:"Saknas",href:"#groups",state:groupsReady?"done":teamsReady?"next":"todo"},
-    {name:"Planer & tider",status:groupsReady?"Redo att kontrollera":"Väntar",href:"#venues",state:groupsReady?"next":"todo"},
+    ...(!isMatchcamp?[{name:"Grupper",status:groups.length?`${groupedTeams}/${teams.length} lag placerade`:"Saknas",href:"#groups",state:groupsReady?"done":teamsReady?"next":"todo"}]:[]),
+    {name:"Planer & tider",status:(isMatchcamp?teamsReady:groupsReady)?"Redo att kontrollera":"Väntar",href:"#venues",state:(isMatchcamp?teamsReady:groupsReady)?"next":"todo"},
     {name:"Publicering",status:activeCup?.is_published?"Publicerad":"Senare",href:"#publish",state:activeCup?.is_published?"done":"todo"},
   ];
 
@@ -553,7 +565,7 @@ export default function AdminWorkspace({verifiedSession=null}:{verifiedSession?:
       </>}
       <nav aria-label="Cupadministration">
         <strong className="admin-nav-phase">SKAPA CUPEN</strong>
-        {setupNav.map(([item,href],index)=><a key={item} className={href===`#${activeStep}`?"is-active":""} href={href}><span>{index===0?"00":String(index).padStart(2,"0")}</span>{item}</a>)}
+        {visibleSetupNav.map(([item,href],index)=><a key={item} className={href===`#${activeStep}`?"is-active":""} href={href}><span>{index===0?"00":String(index).padStart(2,"0")}</span>{item}</a>)}
         <strong className="admin-nav-phase">VERKTYG & CUPDRIFT</strong>
         {toolNav.map(([item,href])=><a key={item} className={`admin-nav-tool ${href===`#${activeStep}`?"is-active":""}`} href={href}><span>↗</span>{item}</a>)}
       </nav>
@@ -582,6 +594,7 @@ export default function AdminWorkspace({verifiedSession=null}:{verifiedSession?:
         <div className="admin-cupinfo__head"><div><h2>Grunduppgifter</h2><p>Uppgifterna för den valda cupen.</p></div><span className="admin-lock">BEHÖRIG</span></div>
         {cupinfo ? <>
           <div className="admin-form-grid">
+            <label style={{gridColumn:"1 / -1"}}>Typ av arrangemang<select value={cupinfo.arrangement_type || "tournament"} onChange={e=>{const arrangement_type=e.target.value as CupInfo["arrangement_type"];setCupinfo({...cupinfo,arrangement_type});document.documentElement.dataset.arrangementType=arrangement_type || "tournament";window.dispatchEvent(new CustomEvent("cupnavi:arrangement-type",{detail:arrangement_type}));}}><option value="matchcamp">Matchcamp – matcher utan tabell eller slutspel</option><option value="tournament">Turnering – gruppspel utan slutspel</option><option value="tournament_playoffs">Turnering – gruppspel och slutspel</option><option value="custom">Eget upplägg</option></select><small>Valet anpassar guiden och tar inte bort redan sparad information.</small></label>
             <label>Cupnamn<input value={cupinfo.name} onChange={e=>setCupinfo({...cupinfo,name:e.target.value})} required /></label>
             <label>Startdatum<input type="date" value={cupinfo.start_date || ""} onChange={e=>setCupinfo({...cupinfo,start_date:e.target.value})} /></label>
             <label>Slutdatum<input type="date" value={cupinfo.end_date || ""} onChange={e=>setCupinfo({...cupinfo,end_date:e.target.value})} /></label>
@@ -638,7 +651,7 @@ export default function AdminWorkspace({verifiedSession=null}:{verifiedSession?:
             <div className="admin-team-actions"><button type="button" onClick={()=>beginTeamEdit(team)}>Redigera</button><button className="is-danger" type="button" onClick={()=>removeTeam(team)}>Ta bort</button></div>
           </article>) : <div className="admin-empty"><strong>Inga lag ännu</strong><span>Lägg till det första laget ovan.</span></div>}
         </div>
-        {teams.length>0&&<div className="admin-step-complete"><span>Alla lag inlagda och kontrollerade?</span><a href="#groups">Klar med lag → Grupper</a></div>}
+        {teams.length>0&&<div className="admin-step-complete"><span>Alla lag inlagda och kontrollerade?</span><a href={isMatchcamp?"#venues":"#groups"}>Klar med lag → {isMatchcamp?"Planer & tider":"Grupper"}</a></div>}
       </section>}
 
       {activeStep==="groups" && <section className="admin-panel admin-teams" id="groups">

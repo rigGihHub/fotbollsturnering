@@ -53,6 +53,7 @@ function announceStep(step:StepId) {
 
 export default function AdminStepFlow() {
   const [step, setStep] = useState<StepId>("overview");
+  const [arrangementType,setArrangementType]=useState("tournament");
 
   const select = useCallback((next: StepId) => {
     setStep(next);
@@ -77,11 +78,28 @@ export default function AdminStepFlow() {
     };
   }, []);
 
-  const index = useMemo(() => FLOW_STEPS.findIndex(([id]) => id === step), [step]);
+  useEffect(()=>{
+    const sync=(event?:Event)=>setArrangementType((event as CustomEvent<string>|undefined)?.detail || document.documentElement.dataset.arrangementType || "tournament");
+    sync();
+    window.addEventListener("cupnavi:arrangement-type",sync);
+    return()=>window.removeEventListener("cupnavi:arrangement-type",sync);
+  },[]);
+
+  const activeFlow=useMemo(()=>arrangementType==="matchcamp"
+    ? FLOW_STEPS.filter(([id])=>id!=="groups"&&id!=="playoffs")
+    : arrangementType==="tournament"
+      ? FLOW_STEPS.filter(([id])=>id!=="playoffs")
+      : FLOW_STEPS,[arrangementType]);
+
+  const index = useMemo(() => activeFlow.findIndex(([id]) => id === step), [activeFlow,step]);
   const tool = TOOL_STEPS.find(([id])=>id===step);
-  const previous = index > 0 ? FLOW_STEPS[index - 1] : null;
-  const next = index >= 0 && index < FLOW_STEPS.length - 1 ? FLOW_STEPS[index + 1] : null;
+  const previous = index > 0 ? activeFlow[index - 1] : null;
+  const next = index >= 0 && index < activeFlow.length - 1 ? activeFlow[index + 1] : null;
   const guide = STEP_GUIDE[step] || STEP_GUIDE.overview;
+
+  useEffect(()=>{
+    if(index<0&&!tool)select("overview");
+  },[index,select,tool]);
 
   if(tool) return <section className="admin-step-flow admin-step-flow--tool" aria-label="Cupverktyg">
     <div className="admin-step-flow__meta"><span>VERKTYG & CUPDRIFT</span><strong>{tool[1]}</strong></div>
@@ -92,10 +110,10 @@ export default function AdminStepFlow() {
   return (
     <section className="admin-step-flow" aria-label="Cupens arbetsflöde">
       <div className="admin-step-flow__meta">
-        <span>{index===0?"DIN CUPGUIDE":`STEG ${index} AV ${FLOW_STEPS.length-1}`}</span>
-        <strong>{FLOW_STEPS[index]?.[1] || "Översikt"}</strong>
+        <span>{index===0?(arrangementType==="matchcamp"?"DIN MATCHCAMPGUIDE":"DIN CUPGUIDE"):`STEG ${index} AV ${activeFlow.length-1}`}</span>
+        <strong>{activeFlow[index]?.[1] || "Översikt"}</strong>
       </div>
-      <div className="admin-step-flow__track" aria-hidden="true"><span style={{width:`${index===0?0:(index / (FLOW_STEPS.length-1)) * 100}%`}} /></div>
+      <div className="admin-step-flow__track" aria-hidden="true"><span style={{width:`${index===0?0:(index / (activeFlow.length-1)) * 100}%`}} /></div>
       <div className="admin-step-flow__guide">
         <div><span>MÅL</span><strong>{guide.goal}</strong></div>
         <div><span>GÖR NU</span><strong>{guide.action}</strong></div>
