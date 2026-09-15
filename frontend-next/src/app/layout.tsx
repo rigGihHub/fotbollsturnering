@@ -23,7 +23,7 @@ import { PwaBoot } from "@/components/PwaBoot";
 import { ViewModeSwitch } from "@/components/ViewModeSwitch";
 import { HeaderShareAction } from "@/components/HeaderShareAction";
 
-const APP_VERSION = "2.6.71";
+const APP_VERSION = "2.6.72";
 
 export const metadata: Metadata = {
   title: `CupNavi v${APP_VERSION}`,

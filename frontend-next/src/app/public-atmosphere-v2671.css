@@ -13,4 +13,23 @@ body:has(.page-shell--matchday){background-image:radial-gradient(circle,rgba(16,
 .sport-art--whistle:after{content:"";position:absolute;right:-38px;top:7px;width:52px;height:26px;border:8px solid #1554d1;border-left:0;border-radius:0 9px 9px 0}
 .sport-art--boot{right:2px;top:770px;width:124px;height:66px;background:#101f2a;clip-path:polygon(0 0,55% 25%,64% 50%,100% 58%,100% 88%,22% 100%,0 72%);transform:rotate(12deg)}
 @media(max-width:900px){.public-sports-atmosphere{inset:-10px -26px 0;opacity:.1}.sport-art--ball{width:74px;height:74px;border-width:5px}.sport-art--cone{width:54px;height:76px}.sport-art--whistle,.sport-art--boot{display:none}.brandbar .header-share-action{min-height:36px;padding:0 10px;font-size:12px}.brandbar .header-share-action+.app-version-badge{display:none}}
+@media(min-width:901px){
+  .page-shell--matchday{padding-top:16px!important}
+  .page-shell--matchday .cup-cover{min-height:0!important;padding:14px 22px 15px!important}
+  .page-shell--matchday .cup-cover__content{margin-top:8px!important;align-items:center!important}
+  .page-shell--matchday .cup-cover .kicker{margin-bottom:2px!important;font-size:9px!important}
+  .page-shell--matchday .cup-cover h1{margin-bottom:6px!important;font-size:clamp(42px,3.7vw,56px)!important;line-height:.88!important}
+  .page-shell--matchday .cup-cover__meta{font-size:12px!important}
+  .page-shell--matchday .cup-cover__facts{gap:6px;margin-top:8px!important}
+  .page-shell--matchday .cup-cover__facts span{padding:4px 8px!important;font-size:11px!important}
+  .page-shell--matchday .cup-cover__facts b{font-size:14px!important}
+  .page-shell--matchday .collectible-stamp{width:58px!important;height:70px!important}
+  .page-shell--matchday .collectible-stamp strong{font-size:22px!important}
+  .page-shell--matchday .cup-cover__burst{right:100px;bottom:12px;padding:5px 9px;font-size:11px}
+  .page-shell--matchday .cup-cover__stripe{width:82px!important;height:52px!important}
+  .page-shell--matchday .edition-nav--desktop{margin:10px 0 22px!important;padding:4px!important}
+  .page-shell--matchday .edition-nav--desktop button{min-height:40px!important;padding:6px 12px!important}
+  .page-shell--matchday .section-heading{margin-bottom:12px!important}
+  .page-shell--matchday .section-heading h2{font-size:42px!important}
+}
 @media(prefers-reduced-motion:reduce){.sport-art{transform:none}}
