@@ -148,7 +148,6 @@ export default function AdminWorkspace({verifiedSession=null}:{verifiedSession?:
   const [apiStatus,setApiStatus] = useState<ApiStatus>("checking");
   const [activeStep,setActiveStep] = useState<AdminStep>("overview");
   const [importWelcome,setImportWelcome] = useState<ImportWelcome|null>(null);
-  const [guideDismissed,setGuideDismissed] = useState(false);
   const [kitBusy,setKitBusy] = useState(false);
   const [kitHint,setKitHint] = useState("");
   const [kitSuggestion,setKitSuggestion] = useState<KitSuggestion|null>(null);
@@ -194,11 +193,10 @@ export default function AdminWorkspace({verifiedSession=null}:{verifiedSession?:
       const raw=localStorage.getItem(IMPORT_WELCOME_KEY);
       const parsed=raw?JSON.parse(raw) as ImportWelcome:null;
       setImportWelcome(parsed?.cupId===cupId?parsed:null);
-      setGuideDismissed(localStorage.getItem(`${IMPORT_WELCOME_KEY}:dismissed:${cupId}`)==="1");
     }catch{localStorage.removeItem(IMPORT_WELCOME_KEY);setImportWelcome(null);}
   },[cupId]);
 
-  function dismissImportWelcome(){localStorage.removeItem(IMPORT_WELCOME_KEY);if(cupId)localStorage.setItem(`${IMPORT_WELCOME_KEY}:dismissed:${cupId}`,"1");setImportWelcome(null);setGuideDismissed(true);}
+  function dismissImportWelcome(){localStorage.removeItem(IMPORT_WELCOME_KEY);if(cupId)localStorage.setItem(`${IMPORT_WELCOME_KEY}:dismissed:${cupId}`,"1");setImportWelcome(null);}
 
   useEffect(() => {
     const controller = new AbortController();
@@ -515,8 +513,23 @@ export default function AdminWorkspace({verifiedSession=null}:{verifiedSession?:
   const publicCup = activeCup?.public_slug ? `/cup/${activeCup.public_slug}` : null;
   const isOwner = account.role === "owner" || account.is_owner === true;
   const groupedTeams = teams.filter(team=>team.group_id != null).length;
-  const checks = [["Cupinfo",cupinfo?.name ? "Påbörjad":"Ej klar"],["Lag",teams.length?`${teams.length} registrerade`:"Ej klar"],["Grupper",groups.length?`${groups.length} grupper · ${groupedTeams}/${teams.length} lag`:"Ej klar"],["Schema","Redo att konfigurera"],["Publicering",activeCup?.is_published ? "Publicerad":"Ej klar"]];
-  const showDraftGuide=!guideDismissed&&!activeCup?.is_published&&teams.length>0&&groups.length>0;
+  const cupinfoReady=Boolean(cupinfo?.name&&cupinfo?.start_date);
+  const teamsReady=teams.length>0;
+  const groupsReady=teamsReady&&groups.length>0&&groupedTeams===teams.length;
+  const nextTask=!cupinfoReady
+    ? {href:"#cupinfo",label:"Komplettera Cupinfo",detail:"Kontrollera cupnamn och datum."}
+    : !teamsReady
+      ? {href:"#teams",label:"Lägg till lagen",detail:"Registrera lagen och deras matchställ."}
+      : !groupsReady
+        ? {href:"#groups",label:"Gör gruppindelningen",detail:`${teams.length-groupedTeams} lag saknar fortfarande grupp.`}
+        : {href:"#venues",label:"Kontrollera planer och tider",detail:"Ange cupens kapacitet innan schemat skapas."};
+  const checks=[
+    {name:"Cupinfo",status:cupinfoReady?"Klar":"Komplettera",href:"#cupinfo",state:cupinfoReady?"done":"next"},
+    {name:"Lag",status:teamsReady?`${teams.length} registrerade`:"Saknas",href:"#teams",state:teamsReady?"done":cupinfoReady?"next":"todo"},
+    {name:"Grupper",status:groups.length?`${groupedTeams}/${teams.length} lag placerade`:"Saknas",href:"#groups",state:groupsReady?"done":teamsReady?"next":"todo"},
+    {name:"Planer & tider",status:groupsReady?"Redo att kontrollera":"Väntar",href:"#venues",state:groupsReady?"next":"todo"},
+    {name:"Publicering",status:activeCup?.is_published?"Publicerad":"Senare",href:"#publish",state:activeCup?.is_published?"done":"todo"},
+  ];
 
   return <main className="admin-workspace">
     <aside className="admin-sidebar">
@@ -542,16 +555,17 @@ export default function AdminWorkspace({verifiedSession=null}:{verifiedSession?:
 
     <section className="admin-main" id="overview">
       <header className="admin-pagehead"><div><h1>Cupöversikt</h1></div><div className="admin-pagehead__actions"><span className="admin-draft">{activeCup?.is_published?"PUBLICERAD":"UTKAST"}</span>{publicCup&&<a href={publicCup}>Förhandsgranska</a>}</div></header>
-      {activeStep==="overview"&&(importWelcome||showDraftGuide)&&<section className="admin-import-welcome" aria-labelledby="import-welcome-title">
-        <div className="admin-import-welcome__top"><span>{importWelcome?"IMPORTEN ÄR KLAR":"REKOMMENDERAT NÄSTA STEG"}</span><button type="button" onClick={dismissImportWelcome} aria-label="Dölj introduktionen">×</button></div>
-        <div className="admin-import-welcome__hero"><div className="admin-import-welcome__check">✓</div><div><h2 id="import-welcome-title">{importWelcome?`${importWelcome.cupName} är skapad`:"Grunduppgifterna finns på plats"}</h2><p>{importWelcome?"CupNavi har lagt in underlaget. Kontrollera nu uppgifterna i en enkel ordning innan du publicerar.":"Lag och grupper finns registrerade. Fortsätt med kontrollerna nedan innan cupen publiceras."}</p></div></div>
-        <div className={`admin-import-welcome__facts${importWelcome?"":" is-compact"}`}><span><b>{importWelcome?.teams??teams.length}</b> lag</span><span><b>{importWelcome?.groups??groups.length}</b> grupper</span>{importWelcome&&<><span><b>{importWelcome.matches}</b> matcher</span><span><b>{importWelcome.venues}</b> planer</span></>}</div>
+      {activeStep==="overview"&&importWelcome&&<section className="admin-import-welcome" aria-labelledby="import-welcome-title">
+        <div className="admin-import-welcome__top"><span>IMPORTEN ÄR KLAR</span><button type="button" onClick={dismissImportWelcome} aria-label="Dölj introduktionen">×</button></div>
+        <div className="admin-import-welcome__hero"><div className="admin-import-welcome__check">✓</div><div><h2 id="import-welcome-title">{importWelcome.cupName} är skapad</h2><p>CupNavi har lagt in underlaget. Kontrollera uppgifterna innan du publicerar.</p></div></div>
+        <div className="admin-import-welcome__facts"><span><b>{importWelcome.teams}</b> lag</span><span><b>{importWelcome.groups}</b> grupper</span><span><b>{importWelcome.matches}</b> matcher</span><span><b>{importWelcome.venues}</b> planer</span></div>
         <ol className="admin-import-welcome__steps"><li><b>Kontrollera cupinfo</b><span>Namn, datum, arrangör och adress.</span></li><li><b>Kontrollera planer och schema</b><span>Säkerställ tider, planer och vilopauser.</span></li><li><b>Förhandsgranska och publicera</b><span>Se publikvyn och publicera när allt stämmer.</span></li></ol>
         <div className="admin-import-welcome__actions"><a className="is-primary" href="#cupinfo">Börja med Cupinfo →</a><a href="#schedule">Kontrollera schemat</a></div>
       </section>}
+      {activeStep==="overview"&&!activeCup?.is_published&&<a className="admin-next-task" href={nextTask.href}><span>NÄSTA UPPGIFT</span><strong>{nextTask.label} →</strong><small>{nextTask.detail}</small></a>}
       {(error||message) && <section className="admin-panel" style={{marginBottom:14}}><strong>{error?"Meddelande":"Klart"}</strong><p>{error||message}</p></section>}
       <section className="admin-dashboard-grid">
-        <article className="admin-panel admin-panel--status"><div className="admin-panel__top"><span>STATUS</span><strong>{activeCup?.is_published?"LIVE":"ARBETE PÅGÅR"}</strong></div><h2>{activeCup?.is_published?"Cupen är publicerad":"Cupen är inte publicerad än"}</h2><div className="admin-checks">{checks.map(([name,status],i)=><div key={name}><span className={i===0?"is-progress":""}>{i===0?"◐":"○"}</span><strong>{name}</strong><small>{status}</small></div>)}</div></article>
+        <article className="admin-panel admin-panel--status"><div className="admin-panel__top"><span>STATUS</span><strong>{activeCup?.is_published?"LIVE":"ARBETE PÅGÅR"}</strong></div><h2>{activeCup?.is_published?"Cupen är publicerad":"Vägen till publicering"}</h2><div className="admin-checks">{checks.map(check=><a href={check.href} className={`is-${check.state}`} key={check.name}><span>{check.state==="done"?"✓":check.state==="next"?"→":"○"}</span><strong>{check.name}</strong><small>{check.status}</small></a>)}</div></article>
         <article className="admin-panel admin-panel--codes"><div className="admin-panel__top"><span>KONTO</span><strong>VERIFIERAT</strong></div><h2>Åtkomst</h2><p>{isOwner ? "Ägarkonto med åtkomst till alla cuper." : "Arrangörskonto med åtkomst till tilldelade cuper."}</p><div className="admin-code-placeholder">Konto <b>{account.email}</b></div><div className="admin-code-placeholder">Roll <b>{isOwner ? "ägare" : activeCup?.role || "—"}</b></div></article>
       </section>
 
