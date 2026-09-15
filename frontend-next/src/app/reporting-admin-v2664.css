@@ -1,0 +1,242 @@
+/* Matchrapportering: kompakt behörighetsöversikt utan arv från lagredigeringens rutnät. */
+html[data-admin-step="reporting"] .admin-operations-flow {
+  --report-line: rgba(16, 31, 42, .18);
+  --report-soft: #eef5f2;
+}
+
+html[data-admin-step="reporting"] .admin-flow-context {
+  padding: 15px 18px;
+  margin-bottom: 10px !important;
+}
+
+html[data-admin-step="reporting"] .admin-flow-context__title {
+  align-items: center;
+}
+
+html[data-admin-step="reporting"] .admin-flow-context__title h2 {
+  margin: 12px 0 3px;
+  font-size: clamp(22px, 2.5vw, 30px);
+}
+
+html[data-admin-step="reporting"] .admin-flow-context__title p {
+  max-width: 680px;
+  font-size: 13px;
+}
+
+html[data-admin-step="reporting"] .admin-flow-group {
+  gap: 10px;
+  margin-top: 14px;
+}
+
+html[data-admin-step="reporting"] .admin-flow-group__label {
+  padding: 0 2px;
+}
+
+html[data-admin-step="reporting"] .admin-flow-group__label > span {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+}
+
+html[data-admin-step="reporting"] #role-codes,
+html[data-admin-step="reporting"] #referee-codes,
+html[data-admin-step="reporting"] #team-codes {
+  padding: 16px 18px;
+  border-radius: 13px;
+  box-shadow: 2px 3px 0 rgba(16, 31, 42, .08);
+}
+
+html[data-admin-step="reporting"] #role-codes .admin-cupinfo__head,
+html[data-admin-step="reporting"] #referee-codes .admin-cupinfo__head,
+html[data-admin-step="reporting"] #team-codes .admin-cupinfo__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+  margin: 12px 0 !important;
+}
+
+html[data-admin-step="reporting"] #role-codes .admin-cupinfo__head h2,
+html[data-admin-step="reporting"] #referee-codes .admin-cupinfo__head h2,
+html[data-admin-step="reporting"] #team-codes .admin-cupinfo__head h2 {
+  margin: 0 0 4px;
+  font-size: 23px;
+}
+
+html[data-admin-step="reporting"] #role-codes .admin-cupinfo__head p,
+html[data-admin-step="reporting"] #referee-codes .admin-cupinfo__head p,
+html[data-admin-step="reporting"] #team-codes .admin-cupinfo__head p {
+  max-width: 760px;
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+html[data-admin-step="reporting"] #role-codes .admin-form-footer,
+html[data-admin-step="reporting"] #team-codes > .admin-form-footer {
+  margin-top: 10px !important;
+  padding: 11px 0 0 !important;
+}
+
+html[data-admin-step="reporting"] #role-codes .admin-form-footer {
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) auto;
+  align-items: center;
+  gap: 14px;
+}
+
+html[data-admin-step="reporting"] #team-codes > .admin-form-grid {
+  grid-template-columns: minmax(250px, 1.35fr) minmax(150px, .7fr) minmax(150px, .7fr);
+  gap: 10px;
+  margin: 10px 0 !important;
+  padding: 12px;
+  border: 1px solid var(--report-line);
+  border-radius: 10px;
+  background: var(--report-soft);
+}
+
+html[data-admin-step="reporting"] #team-codes > .admin-form-grid input,
+html[data-admin-step="reporting"] #team-codes > .admin-form-grid select {
+  min-height: 42px;
+}
+
+html[data-admin-step="reporting"] #team-codes > .admin-form-grid small {
+  line-height: 1.35;
+}
+
+html[data-admin-step="reporting"] #referee-codes .admin-team-list,
+html[data-admin-step="reporting"] #team-codes .admin-team-list {
+  display: grid;
+  gap: 7px;
+  margin-top: 12px !important;
+  border-top: 0;
+}
+
+html[data-admin-step="reporting"] #referee-codes .admin-team-list > article,
+html[data-admin-step="reporting"] #team-codes .admin-team-list > article {
+  display: grid !important;
+  grid-template-columns: minmax(220px, 1fr) auto !important;
+  align-items: center !important;
+  gap: 16px !important;
+  min-width: 0;
+  padding: 10px 12px !important;
+  border: 1px solid var(--report-line);
+  border-radius: 9px;
+  background: #fffdf8;
+}
+
+html[data-admin-step="reporting"] #referee-codes .admin-team-list > article > div:first-child,
+html[data-admin-step="reporting"] #team-codes .admin-team-list > article > div:first-child {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+html[data-admin-step="reporting"] #referee-codes .admin-team-list strong,
+html[data-admin-step="reporting"] #team-codes .admin-team-list strong {
+  font-size: 14px;
+  line-height: 1.25;
+  white-space: normal !important;
+  overflow-wrap: normal !important;
+  word-break: normal !important;
+}
+
+html[data-admin-step="reporting"] #referee-codes .admin-team-list small,
+html[data-admin-step="reporting"] #team-codes .admin-team-list small {
+  display: block;
+  font-size: 11px;
+  line-height: 1.35;
+  white-space: normal !important;
+  overflow-wrap: normal !important;
+  word-break: normal !important;
+}
+
+html[data-admin-step="reporting"] #role-codes .admin-team-actions,
+html[data-admin-step="reporting"] #referee-codes .admin-team-actions,
+html[data-admin-step="reporting"] #team-codes .admin-team-actions {
+  display: flex !important;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  min-width: max-content;
+}
+
+html[data-admin-step="reporting"] #role-codes .admin-team-actions a,
+html[data-admin-step="reporting"] #referee-codes .admin-team-actions a,
+html[data-admin-step="reporting"] #team-codes .admin-team-actions a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 40px;
+  padding: 8px 11px;
+  border: 1.5px solid #102630;
+  border-radius: 8px;
+  color: #102630;
+  background: #fff;
+  text-decoration: none;
+  font-size: 12px;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+html[data-admin-step="reporting"] #role-codes .admin-team-actions button,
+html[data-admin-step="reporting"] #referee-codes .admin-team-actions button,
+html[data-admin-step="reporting"] #team-codes .admin-team-actions button {
+  min-height: 40px;
+  padding: 8px 12px;
+  white-space: nowrap;
+}
+
+html[data-admin-step="reporting"] #referee-codes .admin-empty,
+html[data-admin-step="reporting"] #team-codes .admin-empty {
+  margin-top: 10px;
+  padding: 14px;
+  border: 1px dashed rgba(16, 31, 42, .28);
+  border-radius: 9px;
+  background: #f8f6ee;
+}
+
+@media (max-width: 760px) {
+  html[data-admin-step="reporting"] #role-codes .admin-cupinfo__head,
+  html[data-admin-step="reporting"] #referee-codes .admin-cupinfo__head,
+  html[data-admin-step="reporting"] #team-codes .admin-cupinfo__head,
+  html[data-admin-step="reporting"] #role-codes .admin-form-footer {
+    display: grid !important;
+    grid-template-columns: 1fr !important;
+  }
+
+  html[data-admin-step="reporting"] #team-codes > .admin-form-grid,
+  html[data-admin-step="reporting"] #referee-codes .admin-team-list > article,
+  html[data-admin-step="reporting"] #team-codes .admin-team-list > article {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  html[data-admin-step="reporting"] #role-codes .admin-team-actions,
+  html[data-admin-step="reporting"] #referee-codes .admin-team-actions,
+  html[data-admin-step="reporting"] #team-codes .admin-team-actions {
+    min-width: 0;
+    width: 100%;
+    justify-content: stretch;
+  }
+
+  html[data-admin-step="reporting"] #role-codes .admin-team-actions > *,
+  html[data-admin-step="reporting"] #referee-codes .admin-team-actions > *,
+  html[data-admin-step="reporting"] #team-codes .admin-team-actions > * {
+    flex: 1 1 0;
+  }
+}
+
+@media (max-width: 430px) {
+  html[data-admin-step="reporting"] #role-codes,
+  html[data-admin-step="reporting"] #referee-codes,
+  html[data-admin-step="reporting"] #team-codes {
+    padding: 14px 12px;
+  }
+
+  html[data-admin-step="reporting"] #role-codes .admin-team-actions,
+  html[data-admin-step="reporting"] #referee-codes .admin-team-actions,
+  html[data-admin-step="reporting"] #team-codes .admin-team-actions {
+    display: grid !important;
+    grid-template-columns: 1fr;
+  }
+}
