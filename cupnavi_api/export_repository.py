@@ -42,15 +42,14 @@ def export_snapshot(account_id: int, tournament_id: int):
         return None
     groups = all_rows("SELECT id,name,age_class FROM groups WHERE tournament_id=? ORDER BY name,id", (int(tournament_id),))
     teams = all_rows("SELECT id,name,group_id,age_class FROM teams WHERE tournament_id=? ORDER BY name,id", (int(tournament_id),))
+    # Optional export fields differ between older CupNavi databases. Reading the
+    # complete rows lets the renderer safely use dict.get() instead of crashing.
     matches = all_rows(
-        """SELECT id,stage,group_id,round_no,match_no,home_source,away_source,scheduled_start,
-                  pitch_number,home_score,away_score,home_penalties,away_penalties
-           FROM matches WHERE tournament_id=?
-           ORDER BY COALESCE(scheduled_start,''),stage,round_no,match_no,id""",
+        "SELECT * FROM matches WHERE tournament_id=? ORDER BY COALESCE(scheduled_start,''),id",
         (int(tournament_id),),
     )
     pitches = all_rows(
-        "SELECT pitch_number,name,address FROM pitches WHERE tournament_id=? ORDER BY pitch_number",
+        "SELECT * FROM pitches WHERE tournament_id=? ORDER BY pitch_number",
         (int(tournament_id),),
     )
     return {"tournament": tournament, "groups": groups, "teams": teams, "matches": matches, "pitches": pitches}

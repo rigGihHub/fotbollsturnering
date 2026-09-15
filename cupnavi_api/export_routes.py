@@ -23,5 +23,6 @@ def register_export_routes(app, admin_identity):
             headers={
                 'Content-Disposition': disposition,
                 'Cache-Control': 'no-store',
+                'Content-Length': str(len(result['content'])),
             },
         )

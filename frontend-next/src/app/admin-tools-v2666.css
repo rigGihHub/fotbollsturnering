@@ -1,0 +1,19 @@
+html[data-admin-step="referees"] #referees{padding:22px}
+html[data-admin-step="referees"] #referees>.admin-team-editor{padding:16px;border:1px solid rgba(16,31,42,.2);border-radius:11px;background:#fffdf8}
+html[data-admin-step="referees"] .referee-assignment-title{margin:22px 0 10px;padding-top:16px;border-top:1px solid rgba(16,31,42,.17);font-size:20px}
+html[data-admin-step="referees"] .referee-assignment-list{display:grid;gap:7px;margin-top:0;border:0}
+html[data-admin-step="referees"] .referee-assignment-list>article{display:grid!important;grid-template-columns:minmax(260px,1fr) minmax(180px,240px)!important;gap:18px!important;align-items:center!important;padding:10px 12px!important}
+html[data-admin-step="referees"] .referee-assignment-match{display:grid;gap:3px;min-width:0}
+html[data-admin-step="referees"] .referee-assignment-match strong{font-size:14px;white-space:normal!important;overflow-wrap:normal!important}
+html[data-admin-step="referees"] .referee-assignment-match small{font-size:11px;white-space:normal!important;overflow-wrap:normal!important}
+html[data-admin-step="referees"] .referee-assignment-list label{display:grid;grid-template-columns:auto minmax(0,1fr);align-items:center;gap:8px;font-size:11px;font-weight:900}
+html[data-admin-step="referees"] .referee-assignment-list select{width:100%;min-height:40px}
+html[data-admin-step="import"] .import-update-card{padding:20px}
+html[data-admin-step="import"] .import-file-picker{display:grid!important;grid-template-columns:minmax(280px,.7fr) minmax(320px,1.3fr)!important;align-items:center!important;gap:18px!important;padding:15px!important;border:1px solid rgba(16,31,42,.2)!important;border-radius:11px!important;background:#fffdf8}
+html[data-admin-step="import"] .import-file-picker label{display:grid;grid-template-columns:auto minmax(0,1fr);align-items:center;gap:10px}
+html[data-admin-step="import"] .import-file-picker input{width:100%;min-width:0;min-height:44px;padding:7px;border:1.5px solid #718287;border-radius:8px;background:#fff}
+html[data-admin-step="import"] .import-file-picker small{font-size:12px;line-height:1.45;color:#52626a}
+html[data-admin-step="export"] #export{max-width:900px;margin:0 auto}
+html[data-admin-step="export"] #export .export-console__body{padding:30px}
+html[data-admin-step="export"] #export .publication-console__actions{padding:18px 30px}
+@media(max-width:760px){html[data-admin-step="referees"] .referee-assignment-list>article{grid-template-columns:1fr!important}html[data-admin-step="import"] .import-file-picker{grid-template-columns:1fr!important}html[data-admin-step="import"] .import-file-picker label{grid-template-columns:1fr}html[data-admin-step="export"] #export .export-console__body,html[data-admin-step="export"] #export .publication-console__actions{padding:18px}}

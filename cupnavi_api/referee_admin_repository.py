@@ -43,6 +43,8 @@ def admin_referees(account_id: int, tournament_id: int):
         (int(tournament_id),),
     )
     referee_by_id = {int(row["id"]): str(row.get("name") or f"Domare {row['id']}") for row in referees}
+    teams = all_rows("SELECT id,name FROM teams WHERE tournament_id=?", (int(tournament_id),))
+    team_by_id = {int(row["id"]): str(row.get("name") or f"Lag {row['id']}") for row in teams}
     match_column = _match_referee_column()
     matches = []
     if match_column:
@@ -57,6 +59,15 @@ def admin_referees(account_id: int, tournament_id: int):
             referee_id = match.get("referee_id")
             match["referee_name"] = referee_by_id.get(int(referee_id)) if referee_id is not None else None
             match["played"] = match.get("home_score") is not None and match.get("away_score") is not None
+            for side in ("home", "away"):
+                source = str(match.get(f"{side}_source") or "").strip()
+                label = source or "Ej klart"
+                if source.startswith("team:"):
+                    try:
+                        label = team_by_id.get(int(source.split(":", 1)[1]), label)
+                    except ValueError:
+                        pass
+                match[f"{side}_team"] = label
     assignment_counts = {int(row["id"]): 0 for row in referees}
     for match in matches:
         rid = match.get("referee_id")
