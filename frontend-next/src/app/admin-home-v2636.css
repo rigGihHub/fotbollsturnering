@@ -1,0 +1,52 @@
+/* v2.6.36 — professional, compact admin home on phones */
+@media(max-width:760px){
+  .app-version-badge{display:none!important}
+  .cup-create-toolbar{
+    position:sticky!important;top:0!important;width:100%!important;min-height:0!important;
+    margin:0!important;padding:8px 12px!important;border:0!important;border-radius:0!important;
+    background:rgba(243,234,213,.96)!important;box-shadow:none!important;
+  }
+  .cup-create-toolbar>button{
+    width:100%!important;min-width:0!important;min-height:48px!important;margin:0!important;padding:9px 16px!important;
+    border:2px solid #101f2a!important;border-radius:8px!important;background:#101f2a!important;color:#fff!important;
+    box-shadow:3px 3px 0 #d7352a!important;font-size:15px!important;
+  }
+  .admin-step-flow{
+    width:calc(100% - 24px)!important;margin:10px 12px!important;padding:10px 12px!important;gap:7px!important;
+    border-radius:9px!important;box-shadow:3px 3px 0 #101f2a!important;
+  }
+  html[data-admin-step="overview"] .admin-step-flow__guide,
+  html[data-admin-step="overview"] .admin-step-flow__actions{display:none!important}
+  .admin-step-flow__meta strong{font-size:15px!important}
+  .admin-step-flow__track{height:5px!important;margin:2px 0 0!important}
+  .admin-sidebar{padding:10px 12px 8px!important}
+  .admin-sidebar__cup{padding:5px 2px 8px!important;grid-template-columns:minmax(0,1fr) auto!important}
+  .admin-sidebar__cup span{font-size:8px!important}
+  .admin-sidebar__cup strong{font-size:20px!important;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .admin-sidebar__cup small{font-size:12px!important}
+  .admin-cup-switcher{padding:5px 2px!important;gap:4px!important}
+  .admin-cup-switcher>span{font-size:10px!important}
+  .admin-cup-switcher select{min-height:42px!important;padding:0 10px!important;font-size:15px!important}
+  .admin-owner-actions{margin:5px 2px!important;gap:7px!important}
+  .admin-owner-actions>button{min-height:38px!important;padding:6px 9px!important;font-size:11px!important}
+  .admin-sidebar nav{margin:8px -2px 0!important;padding:7px 2px 4px!important;border-top:2px solid #101f2a!important;gap:5px!important}
+  .admin-sidebar nav a{min-height:44px!important;padding:8px 11px!important;border-radius:7px!important;font-size:12px!important}
+  .admin-main{padding:22px 12px 78px!important}
+  .admin-main#overview>.admin-pagehead{display:flex!important;flex-direction:row!important;align-items:center!important;margin:0 0 14px!important;gap:10px!important}
+  .admin-main#overview>.admin-pagehead h1{font-size:38px!important;line-height:.95!important;margin:0!important}
+  .admin-main#overview>.admin-pagehead .admin-pagehead__actions{width:auto!important;margin-left:auto!important;gap:6px!important}
+  .admin-main#overview>.admin-pagehead .admin-draft{padding:6px 8px!important;font-size:8px!important}
+  .admin-main#overview>.admin-pagehead .admin-pagehead__actions a{min-height:38px!important;padding:7px 9px!important;font-size:11px!important}
+  .admin-next-task{margin-bottom:12px!important;padding:13px 14px!important;gap:3px!important;box-shadow:3px 3px 0 #101f2a!important}
+  .admin-next-task>strong{font-size:19px!important;line-height:1.12!important}
+  .admin-next-task>small{font-size:12px!important}
+  .admin-panel--status{padding:13px!important}
+  .admin-panel--status h2{font-size:22px!important;margin:11px 0!important}
+  .view-mode-switch{right:8px!important;bottom:max(8px,env(safe-area-inset-bottom))!important;padding:3px!important;border-radius:9px!important}
+  .view-mode-switch button,.view-mode-switch a{min-height:38px!important;padding:0 9px!important;font-size:11px!important;border-radius:7px!important}
+}
+@media(max-width:390px){
+  .admin-main#overview>.admin-pagehead{align-items:flex-start!important}
+  .admin-main#overview>.admin-pagehead h1{font-size:34px!important}
+  .admin-main#overview>.admin-pagehead .admin-pagehead__actions{display:grid!important;justify-items:end}
+}
