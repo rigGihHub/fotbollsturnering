@@ -9,6 +9,7 @@ REPOSITORY = (ROOT / "cupnavi_api/admin_repository.py").read_text(encoding="utf-
 PUBLIC_REPOSITORY = (ROOT / "cupnavi_api/repository.py").read_text(encoding="utf-8")
 PREVIEW = (ROOT / "frontend-next/src/components/public-cup-preview.tsx").read_text(encoding="utf-8")
 MODE_SWITCH = (ROOT / "frontend-next/src/components/ViewModeSwitch.tsx").read_text(encoding="utf-8")
+PUBLIC_VIEW = (ROOT / "frontend-next/src/components/PublicCupView.tsx").read_text(encoding="utf-8")
 
 
 def test_every_admin_step_has_concrete_guidance():
@@ -45,3 +46,11 @@ def test_empty_draft_uses_authenticated_preview_instead_of_public_api():
     assert "data.standings||[]" in PREVIEW
     assert "?preview=1&cup=" in MODE_SWITCH
     assert "include_unpublished=False" in PUBLIC_REPOSITORY
+
+
+def test_public_preview_survives_incomplete_cup_data():
+    assert "const normalizeCup=" in PUBLIC_VIEW
+    for collection in ("teams", "groups", "matches", "brackets", "venue_points"):
+        assert f"Array.isArray(snapshot?.{collection})" in PUBLIC_VIEW
+    assert "Cupen förbereds" in PUBLIC_VIEW
+    assert "Inga tabeller ännu" in PUBLIC_VIEW

@@ -1,0 +1,37 @@
+/* v2.6.39 — resilient, compact public cup experience */
+.public-setup-state{position:relative;overflow:hidden;display:grid;gap:9px;padding:24px;border:2px solid #101f2a;border-radius:15px;background:linear-gradient(135deg,#fffdf7 0 68%,#dff3ef 68%);box-shadow:5px 5px 0 #101f2a}
+.public-setup-state:after{content:"";position:absolute;right:-25px;bottom:-35px;width:115px;height:115px;border:18px solid rgba(0,151,161,.16);border-radius:50%}
+.public-setup-state>span{color:#087e89;font:900 10px/1 ui-monospace,monospace;letter-spacing:.14em}
+.public-setup-state>strong{position:relative;z-index:1;font-size:28px;line-height:1.05;letter-spacing:-.035em}
+.public-setup-state>p{position:relative;z-index:1;max-width:620px;margin:0;color:#52636c;line-height:1.45}
+.public-setup-state>a{position:relative;z-index:1;justify-self:start;margin-top:4px;padding:11px 14px;border-radius:8px;background:#101f2a;color:#fff;text-decoration:none;font-weight:900}
+.empty-state p{max-width:560px;margin:8px auto 0;color:#52636c;line-height:1.45}
+@media(max-width:760px){
+  .page-shell--matchday{padding:10px 10px 94px!important}
+  .cup-cover{padding:14px!important;border-radius:12px!important;box-shadow:3px 3px 0 #101f2a!important}
+  .cup-cover__content{margin-top:16px!important;gap:10px!important}
+  .cup-cover h1{font-size:clamp(32px,10vw,48px)!important;line-height:.95!important;margin-bottom:8px!important}
+  .cup-cover__meta{max-width:240px;font-size:11px!important}
+  .collectible-stamp{width:48px!important;height:60px!important;border-radius:8px!important}
+  .collectible-stamp strong{font-size:19px!important}
+  .section-heading{margin:14px 2px 11px!important}
+  .section-heading>span{font-size:8px!important}
+  .section-heading h2,.section-heading--compact h2{font-size:30px!important;line-height:1!important;margin:3px 0 5px!important}
+  .section-heading p{font-size:12px!important;line-height:1.4!important}
+  .public-setup-state{padding:18px;border-radius:11px;box-shadow:3px 3px 0 #101f2a}
+  .public-setup-state>strong{max-width:260px;font-size:23px}
+  .public-setup-state>p{max-width:270px;font-size:13px}
+  .public-setup-state>a{width:100%;text-align:center;min-height:44px}
+  .match-card{border-radius:11px!important;box-shadow:3px 3px 0 rgba(16,31,42,.18)!important}
+  .match-card__body{grid-template-columns:minmax(0,1fr) 62px minmax(0,1fr)!important}
+  .match-card .team{min-width:0!important;padding:10px 7px!important;gap:6px!important}
+  .match-card .team strong{max-width:100%;font-size:13px!important;line-height:1.1!important;overflow-wrap:anywhere}
+  .match-card .kit{width:22px;height:27px}
+  .match-card .score-window strong{font-size:25px!important}
+  .match-card__footer{font-size:8px!important}
+  .favorite-strip{padding:11px!important;border-radius:11px!important}
+  .empty-state{padding:20px 14px!important;border-radius:11px!important}
+  .mobile-bottom-nav{left:6px!important;right:6px!important;border:2px solid #101f2a!important;border-radius:10px!important;box-shadow:3px 3px 0 #101f2a!important}
+  .mobile-bottom-nav button{min-height:54px!important}
+  .mobile-more-menu{left:8px!important;right:8px!important;border:2px solid #101f2a!important;border-radius:10px!important;box-shadow:4px 4px 0 #101f2a!important}
+}

@@ -9,10 +9,11 @@ import "./mode-switch-v2615.css";
 import "./ui-system-v2616.css";
 import "./public-ux-v2624.css";
 import "./comic-card-v2634.css";
+import "./public-system-v2639.css";
 import { PwaBoot } from "@/components/PwaBoot";
 import { ViewModeSwitch } from "@/components/ViewModeSwitch";
 
-const APP_VERSION = "2.6.38";
+const APP_VERSION = "2.6.39";
 
 export const metadata: Metadata = {
   title: `CupNavi v${APP_VERSION}`,
