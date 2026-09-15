@@ -52,6 +52,7 @@ const standardKitColors=[
   {name:"Grön",value:"#238636"},{name:"Gul",value:"#F4C430"},{name:"Orange",value:"#F28C28"},
   {name:"Lila",value:"#713E8A"},{name:"Rosa",value:"#E56B9F"},{name:"Grå",value:"#7A8588"},
 ];
+function normalizedWebUrl(value:string){const text=value.trim();return text&&/^www\./i.test(text)?`https://${text}`:text;}
 function kitBackground(pattern:KitPattern,c1:string,c2:string){
   if(pattern==="Vertikala ränder")return `repeating-linear-gradient(90deg,${c1} 0 8px,${c2} 8px 16px)`;
   if(pattern==="Horisontella ränder")return `repeating-linear-gradient(0deg,${c1} 0 8px,${c2} 8px 16px)`;
@@ -433,7 +434,7 @@ export default function AdminWorkspace({verifiedSession=null,children=null}:{ver
     setBusy(true); setError(""); setMessage("");
     try {
       const path = editingTeam ? `/api/admin/cups/${cupId}/teams/${editingTeam}` : `/api/admin/cups/${cupId}/teams`;
-      const saved = await request<Team>(path,{method:editingTeam?"PUT":"POST",body:JSON.stringify(teamDraft)},token);
+      const saved = await request<Team>(path,{method:editingTeam?"PUT":"POST",body:JSON.stringify({...teamDraft,logo_url:normalizedWebUrl(teamDraft.logo_url)})},token);
       setTeams(current => editingTeam ? current.map(team=>team.id===saved.id?saved:team).sort((a,b)=>a.name.localeCompare(b.name,"sv")) : [...current,saved].sort((a,b)=>a.name.localeCompare(b.name,"sv")));
       setMessage(editingTeam ? "Laget har uppdaterats." : "Laget har lagts till.");
       cancelTeamEdit();
@@ -630,8 +631,8 @@ export default function AdminWorkspace({verifiedSession=null,children=null}:{ver
               {teamDraft.away_pattern!=="Helfärgad"&&<><span className="admin-kit-color-label">Andra färg</span><StandardKitColor label="Bortaställets andra färg" value={teamDraft.away_color_2} onChange={away_color_2=>setTeamDraft({...teamDraft,away_color_2})}/></>}
             </section>
             <div className="admin-logo-editor">
-              {teamDraft.logo_url?<img src={teamDraft.logo_url} alt="Förhandsvisning av klubbmärke" referrerPolicy="no-referrer"/>:<span aria-hidden="true">CN</span>}
-              <label>Klubbmärke<small>Klistra in en bildadress eller använd sökningen nedan.</small><input type="url" value={teamDraft.logo_url} onChange={e=>setTeamDraft({...teamDraft,logo_url:e.target.value})} placeholder="https://klubb.se/logo.png" /></label>
+              {teamDraft.logo_url?<img src={normalizedWebUrl(teamDraft.logo_url)} alt="Förhandsvisning av klubbmärke" referrerPolicy="no-referrer"/>:<span aria-hidden="true">CN</span>}
+              <label>Klubbmärke<small>Ange en direkt bildadress, eller använd sökningen nedan.</small><input type="url" value={teamDraft.logo_url} onChange={e=>setTeamDraft({...teamDraft,logo_url:e.target.value})} onBlur={()=>setTeamDraft(current=>({...current,logo_url:normalizedWebUrl(current.logo_url)}))} placeholder="https://klubb.se/logo.png" /></label>
             </div>
           </div>
           <section className="admin-kit-search" aria-label="Sök lagets matchställ">

@@ -55,7 +55,7 @@ button:not(:disabled):active,a:active{transform:translate(2px,2px);box-shadow:1p
 .match-card--done .match-card__topline{background:#55c982!important}
 .score-window{background:#101f2a!important;border-left:3px solid #101f2a!important;border-right:3px solid #101f2a!important}
 .score-window strong{color:#ffd83d!important;text-shadow:2px 2px 0 #d7352a}
-.kit,.admin-team-shirt,.admin-kit-editor__shirt,.admin-kit-swatch{filter:drop-shadow(1px 0 #101f2a) drop-shadow(-1px 0 #101f2a) drop-shadow(0 1px #101f2a) drop-shadow(0 -1px #101f2a) drop-shadow(2px 2px 0 rgba(16,31,42,.42))!important}
+.kit,.admin-team-shirt,.admin-kit-editor__shirt,.admin-kit-swatch{filter:drop-shadow(1px 0 #000) drop-shadow(-1px 0 #000) drop-shadow(0 1px #000) drop-shadow(0 -1px #000) drop-shadow(1px 1px #000) drop-shadow(-1px -1px #000) drop-shadow(2px 2px 0 rgba(16,31,42,.42))!important}
 .texttv{border:3px solid #101f2a!important;border-radius:8px!important;box-shadow:6px 7px 0 #1554d1!important}
 .admin-step-flow,.cup-create-toolbar{
   border:3px solid #101f2a!important;border-radius:10px!important;background:#fffaf0!important;box-shadow:5px 6px 0 #101f2a!important;

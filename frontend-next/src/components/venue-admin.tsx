@@ -83,6 +83,26 @@ export default function VenueAdmin({token,cupId}:{token:string;cupId:number}) {
     finally { setBusy(false); }
   }
 
+  async function saveEverything() {
+    if (!data) return;
+    const snapshot=data;
+    setBusy(true); setError(""); setMessage("");
+    try {
+      await api<VenuePayload>(`/api/admin/cups/${cupId}/venues/rules`,{method:"PUT",body:JSON.stringify(snapshot.rules)},token);
+      for (const pitch of snapshot.pitches) {
+        await api<VenuePayload>(`/api/admin/cups/${cupId}/venues/pitches/${pitch.pitch_number}`,{method:"PUT",body:JSON.stringify({name:pitch.name,address:pitch.address || null})},token);
+      }
+      for (const row of snapshot.windows) {
+        await api<VenuePayload>(`/api/admin/cups/${cupId}/venues/pitches/${row.pitch_number}/windows/${row.play_date}`,{method:"PUT",body:JSON.stringify({start_time:row.start_time,end_time:row.end_time,confirmed:true})},token);
+      }
+      const verified=await api<VenuePayload>(`/api/admin/cups/${cupId}/venues`,{},token);
+      const missing=snapshot.windows.some(expected=>!verified.windows.some(actual=>actual.pitch_number===expected.pitch_number&&actual.play_date===expected.play_date&&actual.start_time===expected.start_time&&actual.end_time===expected.end_time&&Boolean(actual.confirmed)));
+      if(missing)throw new Error("Servern kunde inte verifiera alla plantider efter sparningen.");
+      setData(verified); setMessage(`Alla ${verified.pitches.length} planer och ${verified.windows.length} plantider är sparade och verifierade.`);
+    } catch(err) { setError(err instanceof Error?err.message:"Planer och tider kunde inte sparas komplett."); }
+    finally { setBusy(false); }
+  }
+
   function patchPitch(number:number, patch:Partial<Pitch>) {
     if (!data) return;
     setData({...data,pitches:data.pitches.map(p=>p.pitch_number===number?{...p,...patch}:p)});
@@ -139,6 +159,6 @@ export default function VenueAdmin({token,cupId}:{token:string;cupId:number}) {
         })}
       </div>)}
     </div>
-    <div className="admin-next-step"><div><strong>Planerna är klara?</strong><span>Fortsätt och ange matchlängd, pauser och lagvila.</span></div><a href="#rules">Fortsätt till Regler →</a></div>
+    <div className="admin-next-step"><div><strong>Spara hela planupplägget</strong><span>CupNavi sparar och läser tillbaka alla planer och tider innan du går vidare.</span></div><button type="button" disabled={busy||data.windows.some(row=>row.start_time>=row.end_time)||data.pitches.some(pitch=>!pitch.name.trim())} onClick={()=>void saveEverything()}>{busy?"Sparar och kontrollerar…":"Spara alla planer och tider"}</button><a href="#rules">Fortsätt till Regler →</a></div>
   </section>;
 }
