@@ -1,0 +1,18 @@
+/* v2.6.35 — dedicated list grids; prevents team-kit columns leaking into other tabs */
+.admin-group-list article{grid-template-columns:minmax(0,1fr) auto!important}
+.admin-group-assignments article{grid-template-columns:minmax(0,1fr) minmax(210px,280px)!important}
+.admin-venue-list article{grid-template-columns:minmax(150px,1fr) minmax(180px,.8fr) minmax(220px,1.2fr) auto!important}
+.admin-window-list article{grid-template-columns:minmax(150px,1fr) minmax(120px,150px) minmax(120px,150px) auto!important}
+.admin-venue-list article>div,.admin-window-list article>div,.admin-group-list article>div,.admin-group-assignments article>div{min-width:0!important}
+.admin-venue-list small,.admin-window-list small,.admin-group-list small,.admin-group-assignments small{display:block;margin-top:4px;overflow-wrap:normal!important;word-break:normal!important}
+@media(max-width:760px){
+  .admin-group-list article,.admin-group-assignments article,.admin-venue-list article{grid-template-columns:minmax(0,1fr)!important;align-items:stretch!important}
+  .admin-group-list article .admin-team-actions{grid-column:1!important;display:grid!important;grid-template-columns:1fr 1fr;width:100%!important}
+  .admin-group-assignments article label,.admin-venue-list article label{width:100%!important;min-width:0!important;margin:0!important}
+  .admin-group-assignments select,.admin-venue-list input,.admin-venue-list button{width:100%!important}
+  .admin-window-list article{grid-template-columns:minmax(0,1fr) minmax(0,1fr)!important;align-items:end!important}
+  .admin-window-list article>div{grid-column:1/-1}
+  .admin-window-list article label{min-width:0!important;width:100%!important}
+  .admin-window-list article button{grid-column:1/-1;width:100%!important;min-height:46px}
+  .admin-team-list article strong,.admin-team-list article small{overflow-wrap:normal!important;word-break:normal!important}
+}

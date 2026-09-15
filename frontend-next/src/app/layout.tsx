@@ -12,7 +12,7 @@ import "./comic-card-v2634.css";
 import { PwaBoot } from "@/components/PwaBoot";
 import { ViewModeSwitch } from "@/components/ViewModeSwitch";
 
-const APP_VERSION = "2.6.34";
+const APP_VERSION = "2.6.35";
 
 export const metadata: Metadata = {
   title: `CupNavi v${APP_VERSION}`,

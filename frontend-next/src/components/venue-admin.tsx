@@ -112,7 +112,7 @@ export default function VenueAdmin({token,cupId}:{token:string;cupId:number}) {
       <div className="admin-form-footer"><span>Matchlängd och lagvila ligger under Regler; här anger du faktisk plankapacitet.</span><button type="submit" disabled={busy}>{busy?"Sparar…":"Spara och fortsätt till Regler →"}</button></div>
     </form>
 
-    <div className="admin-team-list" style={{marginTop:18}}>
+    <div className="admin-team-list admin-venue-list" style={{marginTop:18}}>
       {data.pitches.map(pitch=><article key={pitch.pitch_number} style={{alignItems:"end"}}>
         <div style={{flex:1}}><strong>#{pitch.pitch_number} · {pitch.name}</strong><small>{pitch.address || "Adress saknas"}{pitch.address_verified?" · verifierad adress":""}</small></div>
         <label style={{minWidth:180}}>Plannamn<input value={pitch.name} onChange={e=>patchPitch(pitch.pitch_number,{name:e.target.value})} /></label>
@@ -122,7 +122,7 @@ export default function VenueAdmin({token,cupId}:{token:string;cupId:number}) {
     </div>
 
     <div style={{marginTop:24}}><h3>Öppettider per plan och cupdag</h3><p>Varje plan kan ha egna tider. Sluttiden måste vara senare än starttiden.</p></div>
-    <div className="admin-team-list">
+    <div className="admin-team-list admin-window-list">
       {data.dates.map(playDate=><div key={playDate} style={{display:"grid",gap:8}}>
         <strong>{playDate}</strong>
         {data.windows.filter(w=>w.play_date===playDate).map(row=>{

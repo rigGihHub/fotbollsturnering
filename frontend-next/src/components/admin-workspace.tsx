@@ -622,7 +622,7 @@ export default function AdminWorkspace({verifiedSession=null}:{verifiedSession?:
           </section>}
           <div className="admin-form-footer"><span>{editingTeam?"Du redigerar ett befintligt lag.":""}</span><div className="admin-team-actions">{editingTeam&&<button type="button" onClick={cancelTeamEdit}>Avbryt</button>}<button type="submit" disabled={busy||!teamDraft.name.trim()}>{busy?"Sparar…":editingTeam?"Spara lag":"Lägg till lag"}</button></div></div>
         </form>
-        <div className="admin-team-list">
+        <div className="admin-team-list admin-team-roster">
           {teams.length ? teams.map(team=><article key={team.id} className={editingTeam===team.id?"is-editing":""}>
             {team.logo_url?<img className="admin-team-logo" src={team.logo_url} alt={`${team.name} klubbmärke`} loading="lazy" referrerPolicy="no-referrer"/>:<span className="admin-team-logo is-empty" aria-hidden="true">CN</span>}
             <span className="admin-team-kits" aria-label="Hemma- och bortaställ"><span className="admin-team-shirt" title="Hemmaställ" style={{background:kitBackground(team.home_pattern||"Helfärgad",team.primary_color||"#111827",team.home_color_2||"#FFFFFF")}}/><span className="admin-team-shirt" title="Bortaställ" style={{background:kitBackground(team.away_pattern||"Helfärgad",team.secondary_color||"#FFFFFF",team.away_color_2||"#111827")}}/></span>
@@ -643,13 +643,13 @@ export default function AdminWorkspace({verifiedSession=null}:{verifiedSession?:
           </div>
           <div className="admin-form-footer"><span>{editingGroup?"Du redigerar en befintlig grupp.":""}</span><div className="admin-team-actions">{editingGroup&&<button type="button" onClick={cancelGroupEdit}>Avbryt</button>}<button type="submit" disabled={busy||!groupDraft.name.trim()}>{busy?"Sparar…":editingGroup?"Spara grupp":"Skapa grupp"}</button></div></div>
         </form>
-        <div className="admin-team-list">
+        <div className="admin-team-list admin-group-list">
           {groups.length ? groups.map(group=><article key={group.id} className={editingGroup===group.id?"is-editing":""}>
             <div><strong>{group.name}</strong><small>{group.age_class||"Ingen klass"} · {group.team_count} lag</small></div>
             <div className="admin-team-actions"><button type="button" onClick={()=>beginGroupEdit(group)}>Redigera</button><button className="is-danger" type="button" onClick={()=>removeGroup(group)} disabled={group.team_count>0}>Ta bort</button></div>
           </article>) : <div className="admin-empty"><strong>Inga grupper ännu</strong><span>Skapa den första gruppen ovan.</span></div>}
         </div>
-        <div className="admin-team-list" style={{marginTop:18}}>
+        <div className="admin-team-list admin-group-assignments" style={{marginTop:18}}>
           {teams.map(team=><article key={`group-team-${team.id}`}>
             <div><strong>{team.name}</strong><small>{team.age_class||"Klass saknas"}</small></div>
             <label style={{marginLeft:"auto"}}>Grupp<select value={team.group_id ?? ""} disabled={busy} onChange={e=>assignGroup(team,e.target.value?Number(e.target.value):null)}><option value="">Ej gruppindelat</option>{groups.map(group=><option key={group.id} value={group.id}>{group.name}</option>)}</select></label>
