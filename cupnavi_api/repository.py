@@ -9,6 +9,7 @@ from contextlib import contextmanager
 
 PUBLIC_TOURNAMENT_FIELDS = (
     "id","name","public_slug","sport","start_date","end_date","organizer","arena_address",
+    "arrangement_type","results_counted",
     "kiosk_available","kiosk_information","public_information","organizer_phone",
     "feedback_email","instagram_url","playoff_format","bronze_match","points_win",
     "points_draw","points_loss","table_tiebreak","show_scorer_stats","show_assist_stats",

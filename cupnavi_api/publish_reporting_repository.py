@@ -16,6 +16,23 @@ from .participant_resolution_repository import tournament_participant_resolver
 from .repository import all_rows, connect, one
 from .schedule_conflicts import analyze_schedule_conflicts
 
+_KNOCKOUT_STAGES = {"slutspel", "åttondelsfinal", "kvartsfinal", "semifinal", "bronsmatch", "final"}
+
+
+def _match_requires_winner(match: dict) -> bool:
+    """Only bracket matches need a decisive result; matchcamp draws are valid."""
+    if match.get("bracket_id") is not None:
+        return True
+    return str(match.get("stage") or "").strip().lower() in _KNOCKOUT_STAGES
+
+
+def _uses_playoffs(tournament: dict) -> bool:
+    arrangement_type = str(tournament.get("arrangement_type") or "tournament")
+    if arrangement_type in {"matchcamp", "tournament"}:
+        return False
+    playoff_format = str(tournament.get("playoff_format") or "").strip()
+    return arrangement_type == "tournament_playoffs" or playoff_format not in {"", "Inget slutspel"}
+
 
 def _table_columns(table_name: str) -> set[str]:
     if table_name not in {"teams", "groups", "matches"}:
@@ -80,10 +97,19 @@ def _publication_payload(tournament_id: int):
     schedule_errors = tuple(
         item["message"] for item in conflict_analysis.get("conflicts", []) if item.get("severity") == "error"
     )
-    bracket_analysis = _bracket_publication_analysis(tournament_id)
-    bracket_errors = tuple(item["message"] for item in bracket_analysis.get("issues", []))
+    uses_playoffs = _uses_playoffs(tournament)
+    bracket_analysis = _bracket_publication_analysis(tournament_id) if uses_playoffs else {
+        "ready": True, "issue_count": 0, "issues": [], "playoff_match_count": 0,
+        "skipped": True, "reason": "Arrangemanget använder inte slutspel.",
+    }
+    bracket_errors = tuple(item["message"] for item in bracket_analysis.get("issues", [])) if uses_playoffs else ()
+    playoff_model_confirmed = (
+        bool(tournament.get("playoff_model_confirmed"))
+        if uses_playoffs and "playoff_model_confirmed" in tournament
+        else True
+    )
     blockers = build_publish_blockers(
-        playoff_model_confirmed=bool(tournament.get("playoff_format")) if "playoff_format" in tournament else True,
+        playoff_model_confirmed=playoff_model_confirmed,
         scheduled_matches=scheduled,
         schedule_dirty=bool(tournament.get("schedule_dirty")) if "schedule_dirty" in tournament else False,
         schedule_errors=schedule_errors,
@@ -163,7 +189,7 @@ def admin_reporting(account_id: int, tournament_id: int):
         scores_present = match.get("home_score") is not None and match.get("away_score") is not None
         if not scores_present:
             match["status"] = "scheduled"
-        elif str(match.get("stage") or "") != "Gruppspel" and winner_side(
+        elif _match_requires_winner(match) and winner_side(
             home_score=match.get("home_score"),
             away_score=match.get("away_score"),
             home_penalties=match.get("home_penalties"),
@@ -234,16 +260,17 @@ def save_result(
     old_manual_side = decided_side_from_team_id(
         row.get("decided_winner_id"), home_team_id=home_team_id, away_team_id=away_team_id
     )
+    requires_winner = _match_requires_winner(row)
     old_side = winner_side(
         home_score=row.get("home_score"),
         away_score=row.get("away_score"),
         home_penalties=row.get("home_penalties"),
         away_penalties=row.get("away_penalties"),
         decided_winner_side=old_manual_side,
-    ) if str(row.get("stage") or "") != "Gruppspel" else None
+    ) if requires_winner else None
 
     prepared = prepare_result(
-        stage=row.get("stage"),
+        stage=row.get("stage") if requires_winner else "Gruppspel",
         home_score=home_score,
         away_score=away_score,
         home_penalties=home_penalties,
@@ -255,7 +282,7 @@ def save_result(
     new_decided_winner_id = None
     new_side = prepared.winner_side
     if (
-        str(row.get("stage") or "") != "Gruppspel"
+        requires_winner
         and prepared.home_score == prepared.away_score
         and prepared.home_penalties is None
         and old_manual_side is not None
@@ -311,8 +338,8 @@ def save_result(
         (int(match_id), int(tournament_id)),
     )
     if updated:
-        updated["status"] = "played" if (str(updated.get("stage") or "") == "Gruppspel" or new_side is not None) else "awaiting_decision"
-        updated["outcome_resolved"] = str(updated.get("stage") or "") == "Gruppspel" or new_side is not None
+        updated["status"] = "played" if (not requires_winner or new_side is not None) else "awaiting_decision"
+        updated["outcome_resolved"] = not requires_winner or new_side is not None
         updated["winner_side"] = new_side
         updated["winner_team_id"] = home_team_id if new_side == "home" else away_team_id if new_side == "away" else None
     return updated
