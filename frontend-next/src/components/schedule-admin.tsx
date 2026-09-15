@@ -91,10 +91,10 @@ export default function ScheduleAdmin({token,cupId}:{token:string;cupId:number})
       setError(err instanceof Error?err.message:"Schemaförslaget kunde inte appliceras. Räkna om förslaget och försök igen.");
     }finally{setBusy(false);}
   }
-  if(!data)return <section className="admin-panel admin-teams" id="schedule"><div className="admin-panel__top"><span>07 / SCHEMA</span><strong>{busy?"HÄMTAR":"SAKNAS"}</strong></div><h2>Schema</h2><p>{error||"Hämtar riktiga matcher…"}</p></section>;
+  if(!data)return <section className="admin-panel admin-teams" id="schedule"><div className="admin-panel__top"><span>06 / SCHEMA</span><strong>{busy?"HÄMTAR":"SAKNAS"}</strong></div><h2>Schema</h2><p>{error||"Hämtar riktiga matcher…"}</p></section>;
   const analysis=data.conflict_analysis;
   return <section className="admin-panel admin-teams" id="schedule">
-    <div className="admin-panel__top"><span>07 / SCHEMA</span><strong>{data.scheduled_count}/{data.match_count} SCHEMALAGDA</strong></div>
+    <div className="admin-panel__top"><span>06 / SCHEMA</span><strong>{data.scheduled_count}/{data.match_count} SCHEMALAGDA</strong></div>
     <div className="admin-cupinfo__head"><div><h2>Skapa matchschemat</h2><p>CupNavi placerar matcherna åt dig utifrån planer, öppettider och viloregler. Du granskar alltid resultatet innan det sparas.</p></div><span className="admin-lock">STEG 07 · SCHEMA</span></div>
     {(error||message)&&<div className="admin-code-placeholder" style={{marginBottom:16}}><b>{error?"Fel":"Klart"}</b> · {error||message}</div>}
     {data.match_count===0?<section className="schedule-empty-guide">

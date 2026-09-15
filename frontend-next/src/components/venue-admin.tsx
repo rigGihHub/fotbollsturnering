@@ -92,10 +92,10 @@ export default function VenueAdmin({token,cupId}:{token:string;cupId:number}) {
     setData({...data,windows:data.windows.map(w=>w.pitch_number===number&&w.play_date===playDate?{...w,...patch}:w)});
   }
 
-  if (!data) return <section className="admin-panel admin-teams" id="venues"><div className="admin-panel__top"><span>05 / PLANER & TIDER</span><strong>{busy?"HÄMTAR":"SAKNAS"}</strong></div><h2>Planer & tider</h2><p>{error || "Hämtar cupens plankapacitet…"}</p></section>;
+  if (!data) return <section className="admin-panel admin-teams" id="venues"><div className="admin-panel__top"><span>04 / PLANER & TIDER</span><strong>{busy?"HÄMTAR":"SAKNAS"}</strong></div><h2>Planer & tider</h2><p>{error || "Hämtar cupens plankapacitet…"}</p></section>;
 
   return <section className="admin-panel admin-teams" id="venues">
-    <div className="admin-panel__top"><span>05 / PLANER & TIDER</span><strong>{data.rules.pitch_count} SPELYTOR · {data.dates.length} CUPDAGAR</strong></div>
+    <div className="admin-panel__top"><span>04 / PLANER & TIDER</span><strong>{data.rules.pitch_count} SPELYTOR · {data.dates.length} CUPDAGAR</strong></div>
     <div className="admin-cupinfo__head"><div><h2>Planer & tider</h2><p>Berätta vilka planer som kan användas och när varje plan är öppen. CupNavi använder detta när schemat skapas.</p></div><span className="admin-lock">STEG 1 AV 3</span></div>
     {(error||message) && <div className="admin-code-placeholder" style={{marginBottom:16}}><b>{error?"Fel":"Sparat"}</b> · {error||message}</div>}
     {data.scheduled_count>0 && <div className="admin-code-placeholder" style={{marginBottom:16}}><b>{data.scheduled_count} schemalagda matcher</b> · ändringar här flyttar aldrig matcher automatiskt. {data.schedule_dirty?"Schemat behöver redan kontrolleras.":"Vid ändring markeras schemat för kontroll."}</div>}

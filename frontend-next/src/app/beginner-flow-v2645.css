@@ -1,0 +1,17 @@
+/* v2.6.45 — shorter beginner journey and clearly separated utilities */
+.admin-step-flow--tool{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:10px 20px}
+.admin-step-flow--tool .admin-step-flow__meta{grid-column:1/-1}
+.admin-step-flow--tool p{margin:0;color:#475d66;max-width:72ch}
+.admin-step-flow--tool>button{min-height:44px;padding:9px 15px;border:2px solid #101f2a;border-radius:9px;background:#fffdf8;color:#101f2a;font-weight:900}
+.admin-sidebar nav .admin-nav-tool{background:#f3f0e7;border-style:dashed}
+.admin-sidebar nav .admin-nav-tool span{font-size:14px}
+@media(max-width:760px){
+  .admin-step-flow{padding:16px!important;gap:12px!important}
+  .admin-step-flow__guide{grid-template-columns:1fr!important}
+  .admin-step-flow__guide>div:not(:nth-child(2)){display:none}
+  .admin-step-flow__guide>div{padding:12px!important}
+  .admin-step-flow__actions{grid-template-columns:1fr 1.4fr!important;gap:8px!important}
+  .admin-step-flow__actions button{min-width:0!important;padding:9px 8px!important;font-size:13px!important}
+  .admin-step-flow--tool{grid-template-columns:1fr}
+  .admin-step-flow--tool>button{width:100%}
+}

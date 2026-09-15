@@ -90,7 +90,7 @@ export default function PublishReportingAdmin({token,cupId,mode}:{token:string;c
     const isReady=Boolean(publication?.ready);
     const issueCount=otherBlockers.reduce((sum,item)=>sum+item.count,0)+scheduleErrors.length;
     return <section className={`admin-panel publication-console ${isReady?"is-ready":"needs-action"}`} id="publish">
-      <div className="publication-console__eyebrow"><span>10 · PUBLICERING</span><strong>{isLive?"LIVE":"UTKAST"}</strong></div>
+      <div className="publication-console__eyebrow"><span>08 · KONTROLL & PUBLICERING</span><strong>{isLive?"LIVE":"UTKAST"}</strong></div>
       <div className="publication-console__hero">
         <span className="publication-console__signal" aria-hidden="true">{isReady?"✓":"!"}</span>
         <div><p className="publication-console__kicker">{isReady?"Redo för publik":"Åtgärder krävs"}</p><h2>{isLive?"Cupen är publicerad":isReady?"Allt är klart":"Inte redo att publicera"}</h2><p>{isReady?"Kontrollerna är godkända. Du kan publicera cupen när du vill.":`${issueCount} ${issueCount===1?"sak behöver":"saker behöver"} rättas innan cupen kan bli publik.`}</p></div>
@@ -110,7 +110,7 @@ export default function PublishReportingAdmin({token,cupId,mode}:{token:string;c
 
   return <>
     <section className="admin-panel reporting-console" id="reporting">
-      <div className="publication-console__eyebrow"><span>11 · MATCHRAPPORTERING</span><strong>{played}/{matches.length} KLARA</strong></div>
+      <div className="publication-console__eyebrow"><span>VERKTYG · MATCHRAPPORTERING</span><strong>{played}/{matches.length} KLARA</strong></div>
       <div className="reporting-console__head"><div><p className="publication-console__kicker">MATCHCENTRAL</p><h2>Rapportera resultat</h2><p>Välj en match, fyll i resultatet och spara. CupNavi kontrollerar automatiskt följdeffekter i slutspelet.</p></div>{awaiting>0&&<span className="reporting-console__waiting">{awaiting} väntar på avgörande</span>}</div>
       {error&&<div className="publication-console__error" role="alert"><strong>Kunde inte spara</strong><span>{error}</span></div>}
       <div className="reporting-match-list">{matches.length?matches.map(match=><MatchRow key={match.id} match={match} busy={busy} save={save}/>):<div className="reporting-empty"><strong>Inga matcher att rapportera</strong><span>Matcher visas här när schemat är skapat.</span></div>}</div>

@@ -23,7 +23,7 @@ export default function ExportAdmin({token,cupId}:{token:string;cupId:number}){
   }
 
   return <section className="admin-panel export-console" id="export">
-    <div className="publication-console__eyebrow"><span>13 · PDF & EXPORT</span><strong>FÄRSK DATA</strong></div>
+    <div className="publication-console__eyebrow"><span>VERKTYG · PDF & EXPORT</span><strong>FÄRSK DATA</strong></div>
     <div className="export-console__body"><p className="publication-console__kicker">CUPDOKUMENT</p><h2>Ta med cupen</h2><p>Skapa en ny PDF med cupinfo, grupper, lag, planer, schema och resultat. Dokumentet byggs från den aktuella serverdatan när du klickar.</p>{error&&<div className="publication-console__error" role="alert"><strong>PDF kunde inte skapas</strong><span>{error}</span></div>}</div>
     <div className="publication-console__actions"><span>PDF-filen cachelagras inte.</span><div><button className="admin-action-primary" type="button" onClick={downloadPdf} disabled={busy}>{busy?"Skapar PDF…":"Ladda ner cup-PDF"}</button></div></div>
   </section>;

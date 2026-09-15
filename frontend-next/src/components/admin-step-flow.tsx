@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 
-const STEPS = [
+const FLOW_STEPS = [
   ["overview", "Översikt"],
   ["cupinfo", "Cupinfo"],
   ["teams", "Lag"],
@@ -10,11 +10,14 @@ const STEPS = [
   ["venues", "Planer & tider"],
   ["rules", "Regler"],
   ["schedule", "Schema"],
-  ["referees", "Domare"],
   ["playoffs", "Slutspel"],
-  ["publish", "Publicering"],
+  ["publish", "Kontroll & publicering"],
+] as const;
+
+const TOOL_STEPS = [
+  ["referees", "Domare"],
   ["reporting", "Matchrapportering"],
-  ["import", "Import"],
+  ["import", "Uppdatera från fil"],
   ["export", "PDF & export"],
 ] as const;
 
@@ -25,7 +28,7 @@ const STEP_GUIDE:Record<string,{goal:string;action:string;done:string}> = {
   groups:{goal:"Placera varje lag i rätt grupp.",action:"Skapa grupper och välj grupp för alla lag som ska spela gruppspel.",done:"Inget lag som ska gruppspela är ogrupperat."},
   venues:{goal:"Beskriv cupens verkliga plankapacitet.",action:"Lägg in planer, öppettider och eventuella begränsningar.",done:"Varje spelbar plan har korrekta tider."},
   rules:{goal:"Bestäm reglerna som schemat ska följa.",action:"Kontrollera matchtid, pauser, minsta vila och tabellregler.",done:"Reglerna motsvarar cupens upplägg."},
-  schedule:{goal:"Skapa ett genomförbart matchprogram.",action:"Generera eller importera schemat och åtgärda alla blockerande konflikter.",done:"Alla matcher har tid, plan och tillräcklig vila."},
+  schedule:{goal:"Skapa ett genomförbart matchprogram.",action:"Granska redan importerade matcher. Saknas matcher kan du återställa dem från första importen eller skapa ett förslag.",done:"Alla matcher har tid, plan och tillräcklig vila."},
   referees:{goal:"Gör domarbemanningen tydlig.",action:"Lägg till domare eller välj att hantera bemanningen senare.",done:"Varje match har en plan för domare."},
   playoffs:{goal:"Koppla slutspelet till gruppresultaten.",action:"Kontrollera kvalvägar, slutspelsmatcher och tider.",done:"Varje slutspelsplats går att härleda korrekt."},
   publish:{goal:"Släpp bara en cup som besökare kan lita på.",action:"Åtgärda blockerare, förhandsgranska publikvyn och publicera.",done:"Cupen är publicerad och publikvyn är kontrollerad."},
@@ -34,8 +37,8 @@ const STEP_GUIDE:Record<string,{goal:string;action:string;done:string}> = {
   export:{goal:"Ta ut material för funktionärer och reservrutiner.",action:"Välj PDF eller export och kontrollera innehållet före utskrift.",done:"Rätt underlag är hämtat och går att använda."},
 };
 
-type StepId = (typeof STEPS)[number][0];
-const IDS = new Set<string>(STEPS.map(([id]) => id));
+type StepId = (typeof FLOW_STEPS)[number][0] | (typeof TOOL_STEPS)[number][0];
+const IDS = new Set<string>([...FLOW_STEPS,...TOOL_STEPS].map(([id]) => id));
 
 function stepFromHash(): StepId {
   if (typeof window === "undefined") return "overview";
@@ -74,18 +77,25 @@ export default function AdminStepFlow() {
     };
   }, []);
 
-  const index = useMemo(() => STEPS.findIndex(([id]) => id === step), [step]);
-  const previous = index > 0 ? STEPS[index - 1] : null;
-  const next = index < STEPS.length - 1 ? STEPS[index + 1] : null;
+  const index = useMemo(() => FLOW_STEPS.findIndex(([id]) => id === step), [step]);
+  const tool = TOOL_STEPS.find(([id])=>id===step);
+  const previous = index > 0 ? FLOW_STEPS[index - 1] : null;
+  const next = index >= 0 && index < FLOW_STEPS.length - 1 ? FLOW_STEPS[index + 1] : null;
   const guide = STEP_GUIDE[step] || STEP_GUIDE.overview;
+
+  if(tool) return <section className="admin-step-flow admin-step-flow--tool" aria-label="Cupverktyg">
+    <div className="admin-step-flow__meta"><span>VERKTYG & CUPDRIFT</span><strong>{tool[1]}</strong></div>
+    <p>{guide.goal} {guide.action}</p>
+    <button type="button" onClick={()=>select("overview")}>← Till cupöversikten</button>
+  </section>;
 
   return (
     <section className="admin-step-flow" aria-label="Cupens arbetsflöde">
       <div className="admin-step-flow__meta">
-        <span>STEG {index + 1} AV {STEPS.length}</span>
-        <strong>{STEPS[index]?.[1] || "Översikt"}</strong>
+        <span>{index===0?"DIN CUPGUIDE":`STEG ${index} AV ${FLOW_STEPS.length-1}`}</span>
+        <strong>{FLOW_STEPS[index]?.[1] || "Översikt"}</strong>
       </div>
-      <div className="admin-step-flow__track" aria-hidden="true"><span style={{width:`${((index + 1) / STEPS.length) * 100}%`}} /></div>
+      <div className="admin-step-flow__track" aria-hidden="true"><span style={{width:`${index===0?0:(index / (FLOW_STEPS.length-1)) * 100}%`}} /></div>
       <div className="admin-step-flow__guide">
         <div><span>MÅL</span><strong>{guide.goal}</strong></div>
         <div><span>GÖR NU</span><strong>{guide.action}</strong></div>

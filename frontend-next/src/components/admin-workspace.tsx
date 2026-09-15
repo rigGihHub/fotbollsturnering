@@ -1,6 +1,6 @@
 "use client";
 
-import { CSSProperties, Fragment, FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { CSSProperties, FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import VenueAdmin from "./venue-admin";
 import RulesAdmin from "./rules-admin";
 import ScheduleAdmin from "./schedule-admin";
@@ -14,12 +14,13 @@ const TOKEN_KEY = "cupnavi_admin_session_v629";
 const CUP_KEY = "cupnavi_admin_active_cup_v651";
 const IMPORT_WELCOME_KEY = "cupnavi_import_welcome_v1";
 
-const nav = [
+const setupNav = [
   ["Översikt", "#overview"], ["Cupinfo", "#cupinfo"], ["Lag", "#teams"], ["Grupper", "#groups"],
-  ["Planer & tider", "#venues"], ["Regler", "#rules"], ["Schema", "#schedule"], ["Domare", "#referees"],
-  ["Slutspel", "#playoffs"], ["Publicering", "#publish"], ["Matchrapportering", "#reporting"], ["Import", "#import"], ["PDF & export", "#export"]
+  ["Planer & tider", "#venues"], ["Regler", "#rules"], ["Schema", "#schedule"],
+  ["Slutspel", "#playoffs"], ["Kontroll & publicering", "#publish"]
 ];
-const adminPhaseStarts:Record<number,string>={0:"Överblick",1:"Grundarbete",6:"Matchplanering",9:"Genomförande",11:"Verktyg"};
+const toolNav = [["Domare", "#referees"], ["Matchrapportering", "#reporting"], ["Uppdatera från fil", "#import"], ["PDF & export", "#export"]];
+const nav=[...setupNav,...toolNav];
 
 type Account = { id:number; email:string; display_name?:string|null; role?:string|null; is_owner?:boolean };
 type Cup = { id:number; name:string; public_slug?:string|null; start_date?:string|null; end_date?:string|null; is_published?:number|boolean; role:string };
@@ -550,7 +551,12 @@ export default function AdminWorkspace({verifiedSession=null}:{verifiedSession?:
           </> : <p className="admin-trash-empty">Papperskorgen är tom.</p>}
         </section>}
       </>}
-      <nav aria-label="Cupadministration">{nav.map(([item,href],index)=><Fragment key={item}>{adminPhaseStarts[index]&&<strong className="admin-nav-phase">{adminPhaseStarts[index]}</strong>}<a className={href===`#${activeStep}`?"is-active":""} href={href}><span>{String(index+1).padStart(2,"0")}</span>{item}</a></Fragment>)}</nav>
+      <nav aria-label="Cupadministration">
+        <strong className="admin-nav-phase">SKAPA CUPEN</strong>
+        {setupNav.map(([item,href],index)=><a key={item} className={href===`#${activeStep}`?"is-active":""} href={href}><span>{index===0?"00":String(index).padStart(2,"0")}</span>{item}</a>)}
+        <strong className="admin-nav-phase">VERKTYG & CUPDRIFT</strong>
+        {toolNav.map(([item,href])=><a key={item} className={`admin-nav-tool ${href===`#${activeStep}`?"is-active":""}`} href={href}><span>↗</span>{item}</a>)}
+      </nav>
       {publicCup && <a className="admin-public-link" href={publicCup}>Visa publik cup ↗</a>}
       <button className="admin-public-link" type="button" onClick={logout}>Logga ut</button>
     </aside>
@@ -559,7 +565,7 @@ export default function AdminWorkspace({verifiedSession=null}:{verifiedSession?:
       <header className="admin-pagehead"><div><h1>Cupöversikt</h1></div><div className="admin-pagehead__actions"><span className="admin-draft">{activeCup?.is_published?"PUBLICERAD":"UTKAST"}</span>{publicCup&&<a href={publicCup}>Förhandsgranska <span aria-hidden="true">→</span></a>}</div></header>
       {activeStep==="overview"&&importWelcome&&<section className="admin-import-welcome" aria-labelledby="import-welcome-title">
         <div className="admin-import-welcome__top"><span>IMPORTEN ÄR KLAR</span><button type="button" onClick={dismissImportWelcome} aria-label="Dölj introduktionen">×</button></div>
-        <div className="admin-import-welcome__hero"><div className="admin-import-welcome__check">✓</div><div><h2 id="import-welcome-title">{importWelcome.cupName} är skapad</h2><p>CupNavi har lagt in underlaget. Kontrollera uppgifterna innan du publicerar.</p></div></div>
+        <div className="admin-import-welcome__hero"><div className="admin-import-welcome__check">✓</div><div><h2 id="import-welcome-title">{importWelcome.cupName} är skapad</h2><p>CupNavi har redan lagt in underlaget. Du ska granska det som finns – inte importera lagen eller schemat igen.</p></div></div>
         <div className="admin-import-welcome__facts"><span><b>{importWelcome.teams}</b> lag</span><span><b>{importWelcome.groups}</b> grupper</span><span><b>{importWelcome.matches}</b> matcher</span><span><b>{importWelcome.venues}</b> planer</span></div>
         <ol className="admin-import-welcome__steps"><li><b>Kontrollera cupinfo</b><span>Namn, datum, arrangör och adress.</span></li><li><b>Kontrollera planer och schema</b><span>Säkerställ tider, planer och vilopauser.</span></li><li><b>Förhandsgranska och publicera</b><span>Se publikvyn och publicera när allt stämmer.</span></li></ol>
         <div className="admin-import-welcome__actions"><a className="is-primary" href="#cupinfo">Börja med Cupinfo →</a><a href="#schedule">Kontrollera schemat</a></div>
@@ -572,7 +578,7 @@ export default function AdminWorkspace({verifiedSession=null}:{verifiedSession?:
       </section>
 
       {activeStep==="cupinfo" && <form className="admin-panel admin-cupinfo" id="cupinfo" onSubmit={saveCupInfo}>
-        <div className="admin-panel__top"><span>02 / CUPINFO</span><strong>{busy?"ARBETAR":"REDO"}</strong></div>
+        <div className="admin-panel__top"><span>01 / CUPINFO</span><strong>{busy?"ARBETAR":"REDO"}</strong></div>
         <div className="admin-cupinfo__head"><div><h2>Grunduppgifter</h2><p>Uppgifterna för den valda cupen.</p></div><span className="admin-lock">BEHÖRIG</span></div>
         {cupinfo ? <>
           <div className="admin-form-grid">
@@ -590,7 +596,7 @@ export default function AdminWorkspace({verifiedSession=null}:{verifiedSession?:
       </form>}
 
       {activeStep==="teams" && <section className="admin-panel admin-teams" id="teams">
-        <div className="admin-panel__top"><span>03 / LAG</span><strong>{teams.length} REGISTRERADE</strong></div>
+        <div className="admin-panel__top"><span>02 / LAG</span><strong>{teams.length} REGISTRERADE</strong></div>
         <div className="admin-cupinfo__head"><div><h2>Lag</h2><p>Skapa och redigera lag.</p></div><span className="admin-lock">REDIGERING</span></div>
         {teams.length>0&&<div className="admin-bulk-assets"><div><strong>Tröjor och klubbmärken</strong><span>{bulkKitProgress||"Sök igenom alla lag och spara bara entydigt verifierade träffar."}</span></div><button type="button" disabled={bulkKitBusy} onClick={()=>void searchAllTeamAssets()}>{bulkKitBusy?"Söker…":"Sök för alla lag"}</button></div>}
         <form onSubmit={saveTeam} className="admin-team-editor">
@@ -636,7 +642,7 @@ export default function AdminWorkspace({verifiedSession=null}:{verifiedSession?:
       </section>}
 
       {activeStep==="groups" && <section className="admin-panel admin-teams" id="groups">
-        <div className="admin-panel__top"><span>04 / GRUPPER</span><strong>{groups.length} GRUPPER · {groupedTeams}/{teams.length} LAG</strong></div>
+        <div className="admin-panel__top"><span>03 / GRUPPER</span><strong>{groups.length} GRUPPER · {groupedTeams}/{teams.length} LAG</strong></div>
         <div className="admin-cupinfo__head"><div><h2>Gruppindelning</h2><p>Skapa grupper och placera lagen.</p></div><span className="admin-lock">REDIGERING</span></div>
         <form onSubmit={saveGroup} className="admin-team-editor">
           <div className="admin-form-grid">

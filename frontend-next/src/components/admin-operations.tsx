@@ -83,7 +83,7 @@ export default function AdminOperations() {
   if(step==="import") {
     return <section className="admin-main admin-operations-flow" aria-label="Import">
       <div className="admin-flow-group">
-        <div className="admin-flow-group__label"><span>12</span><div><strong>Import</strong><small>Uppdatera cupen från nytt underlag utan tysta överskrivningar.</small></div></div>
+        <div className="admin-flow-group__label"><span>↗</span><div><strong>Uppdatera från fil</strong><small>Frivilligt verktyg när ett redan sparat underlag faktiskt har ändrats.</small></div></div>
         <ImportAdmin token={token} cupId={cupId}/>
       </div>
     </section>;
@@ -91,8 +91,8 @@ export default function AdminOperations() {
 
   return <section className="admin-main admin-operations-flow" aria-label={step==="publish"?"Publicering":"Matchrapportering"}>
     <section className="admin-panel admin-flow-context" style={{marginBottom:14}}>
-      <div className="admin-panel__top"><span>{step==="publish"?"PUBLICERING":"MATCHRAPPORTERING"}</span><strong>AKTIV CUP · {activeCup?.role?.toUpperCase()}</strong></div>
-      <div className="admin-flow-context__title"><div><h2>{activeCup?.name || "Cup"}</h2><p>Bara moduler för det valda steget laddas.</p></div><span className="admin-lock">SNABBLÄGE</span></div>
+      <div className="admin-panel__top"><span>{step==="publish"?"STEG 8 · KONTROLL & PUBLICERING":"VERKTYG · MATCHRAPPORTERING"}</span><strong>AKTIV CUP · {activeCup?.role?.toUpperCase()}</strong></div>
+      <div className="admin-flow-context__title"><div><h2>{activeCup?.name || "Cup"}</h2><p>{step==="publish"?"Kontrollera blockerare, förhandsgranska och publicera när allt stämmer.":"Förbered behörigheter och resultatrapportering inför cupdagen."}</p></div><span className="admin-lock">{step==="publish"?"SLUTKONTROLL":"CUPDRIFT"}</span></div>
     </section>
     {step==="reporting" && <>
       <div id="access-flow" className="admin-flow-group">
