@@ -393,6 +393,16 @@ export default function AdminWorkspace({verifiedSession=null,children=null}:{ver
     try{
       const result=await request<KitSuggestion>(`/api/admin/cups/${cupId}/teams/kit-search`,{method:"POST",body:JSON.stringify({team_name:teamDraft.name,age_class:teamDraft.age_class||null,search_hint:kitHint||null,resolved_club:candidate?[candidate.name,candidate.location,candidate.country].filter(Boolean).join(" · "):null,resolved_source_url:candidate?.source_url||null})},token);
       setKitSuggestion(result);
+      if(result.identity_status!=="ambiguous"&&(result.home_verified||result.away_verified||result.logo_verified)){
+        setTeamDraft(current=>({...current,
+          ...(result.home_verified?{primary_color:result.home_color_1,home_color_2:result.home_color_2,home_pattern:result.home_pattern}:{}),
+          ...(result.away_verified?{secondary_color:result.away_color_1,away_color_2:result.away_color_2,away_pattern:result.away_pattern}:{}),
+          ...(result.logo_verified?{logo_url:result.logo_url,logo_source_url:result.logo_source_url}:{}),
+        }));
+        setMessage("Verifierade tröjfärger och mönster har fyllts i. Spara laget för att bekräfta.");
+      }else if(!result.candidate_matches?.length){
+        setMessage("Ingen säker tröjkälla hittades. Lägg till ort eller klubbwebbplats som sökledtråd och försök igen.");
+      }
     }catch(err){setError(err instanceof Error?err.message:"Tröjorna kunde inte sökas.");}
     finally{setKitBusy(false);}
   }

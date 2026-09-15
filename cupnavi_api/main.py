@@ -316,6 +316,7 @@ def search_admin_team_kit(tournament_id:int,payload:KitSearchRequest,authorizati
     try:
         return suggest_team_kit(
             payload.team_name,api_key,
+            model=os.getenv("CUPNAVI_AI_KIT_MODEL","gpt-4.1-mini").strip() or "gpt-4.1-mini",
             location=str(cupinfo.get("arena_address") or ""),
             age_class=str(payload.age_class or ""),
             search_hint=str(payload.search_hint or ""),
@@ -325,7 +326,14 @@ def search_admin_team_kit(tournament_id:int,payload:KitSearchRequest,authorizati
     except ValueError as exc:
         raise HTTPException(status_code=422,detail=str(exc)) from exc
     except RuntimeError as exc:
-        raise HTTPException(status_code=502,detail="Tröjsökningen kunde inte slutföras. Försök igen.") from exc
+        detail=str(exc)
+        if "timed out" in detail.lower() or "timeout" in detail.lower():
+            detail="Tröjsökningen tog för lång tid. Försök igen."
+        elif "401" in detail or "authentication" in detail.lower():
+            detail="Tröjsökningens anslutning är inte korrekt konfigurerad."
+        else:
+            detail="Tröjsökningen kunde inte slutföras mot söktjänsten."
+        raise HTTPException(status_code=502,detail=detail) from exc
 
 
 @app.delete("/api/admin/cups/{tournament_id}/teams/{team_id}")

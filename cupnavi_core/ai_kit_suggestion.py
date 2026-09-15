@@ -363,7 +363,7 @@ def suggest_team_kit(
     team_name,
     api_key,
     *,
-    model="gpt-5.6-luna",
+    model="gpt-4.1-mini",
     timeout_seconds=22,
     location="",
     country_code="",
