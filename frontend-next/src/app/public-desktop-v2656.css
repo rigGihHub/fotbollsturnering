@@ -1,0 +1,26 @@
+/* v2.6.56 — denser, better-proportioned public tournament view. */
+@media(min-width:900px){
+  .page-shell--matchday{width:min(1280px,calc(100% - 56px))!important;max-width:none!important;padding-top:26px!important}
+  .cup-cover{min-height:154px!important;padding:20px 28px!important;border-radius:14px!important}
+  .cup-cover__content{margin-top:18px!important;align-items:center!important}
+  .cup-cover h1{font-size:clamp(48px,4.2vw,66px)!important;line-height:.92!important}
+  .cup-cover__stripe{height:72px!important;width:118px!important}
+  .collectible-stamp{width:70px!important;height:88px!important}
+  .edition-nav--desktop{top:0!important;margin:12px 0 30px!important;padding:5px!important;border:1px solid rgba(16,31,42,.28);border-radius:11px;background:rgba(255,250,240,.96)!important}
+  .edition-nav--desktop button{min-height:46px!important;padding:8px 14px!important}
+  .section-heading{grid-template-columns:140px minmax(0,1fr)!important;max-width:920px;margin:0 auto 18px!important}
+  .section-heading h2,.section-heading--compact h2{font-size:clamp(38px,3.4vw,50px)!important;line-height:1!important}
+  .matchday{gap:16px!important}
+  .matchday>.favorite-strip,.matchday>.next-match-hero,.matchday>.empty-state,.matchday>.public-setup-state{width:min(100%,1080px);margin-left:auto!important;margin-right:auto!important}
+  .favorite-strip{padding:14px 16px!important;box-shadow:4px 5px 0 #101f2a!important}
+  .match-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:18px!important}
+  .bracket-grid{grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:18px!important}
+  .bracket-grid>.editorial-card:first-child{grid-column:span 2;max-width:none!important}
+  .feature-card,.editorial-card{min-height:210px!important;padding:20px!important}
+  .feature-card h3,.editorial-card h3{margin-top:25px!important;font-size:24px!important}
+  .empty-state{padding:32px!important;background:rgba(255,250,240,.62)}
+}
+
+@media(min-width:1400px){
+  .page-shell--matchday{width:min(1320px,calc(100% - 72px))!important}
+}

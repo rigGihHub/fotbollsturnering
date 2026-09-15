@@ -290,17 +290,18 @@ def public_snapshot(public_key, *, include_unpublished=False):
         logo_projection=("logo_url,logo_source_url" if {"logo_url","logo_source_url"}.issubset(team_columns) else "NULL AS logo_url,NULL AS logo_source_url")
         teams=many(f"SELECT id,name,group_id,age_class,primary_color,secondary_color,{kit_projection},{logo_projection} FROM teams WHERE tournament_id=? ORDER BY name", (tid,))
         groups=many("SELECT id,name,age_class FROM groups WHERE tournament_id=? ORDER BY name", (tid,))
-        matches=many("""SELECT id,stage,group_id,bracket_id,round_no,match_no,home_source,away_source,
+        match_publish_filter="" if include_unpublished else " AND schedule_published=1"
+        matches=many(f"""SELECT id,stage,group_id,bracket_id,round_no,match_no,home_source,away_source,
                               scheduled_start,pitch_number,home_score,away_score,home_penalties,away_penalties,
                               decided_winner_id,schedule_published
-                       FROM matches WHERE tournament_id=? AND schedule_published=1 AND scheduled_start IS NOT NULL
+                       FROM matches WHERE tournament_id=?{match_publish_filter} AND scheduled_start IS NOT NULL
                        ORDER BY scheduled_start,pitch_number,id""", (tid,))
         venue_points=many("SELECT id,kind,label,detail,url FROM venue_points WHERE tournament_id=? ORDER BY label,id", (tid,))
         brackets=many("SELECT id,name,size,bronze_match FROM brackets WHERE tournament_id=? ORDER BY id", (tid,))
         if brackets:
-            bracket_matches=many("""SELECT id,bracket_id,stage,round_no,match_no,home_source,away_source,scheduled_start,pitch_number,
+            bracket_matches=many(f"""SELECT id,bracket_id,stage,round_no,match_no,home_source,away_source,scheduled_start,pitch_number,
                                           home_score,away_score,home_penalties,away_penalties,decided_winner_id,schedule_published
-                                   FROM matches WHERE tournament_id=? AND bracket_id IS NOT NULL AND schedule_published=1
+                                   FROM matches WHERE tournament_id=? AND bracket_id IS NOT NULL{match_publish_filter}
                                    ORDER BY bracket_id,round_no,match_no,id""", (tid,))
             by_bracket={}
             for match in bracket_matches:

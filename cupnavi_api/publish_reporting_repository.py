@@ -140,6 +140,13 @@ def set_publication(account_id: int, tournament_id: int, published: bool):
     if published and state["blockers"]:
         raise ValueError("Cupen kan inte publiceras ännu: " + " ".join(state["blockers"]))
     with connect() as conn:
+        if published:
+            # The tournament flag opens the public route; the per-match flag controls
+            # which scheduled rows are included. Publish both in the same transaction.
+            conn.execute(
+                "UPDATE matches SET schedule_published=1 WHERE tournament_id=? AND scheduled_start IS NOT NULL",
+                (int(tournament_id),),
+            )
         conn.execute("UPDATE tournaments SET is_published=? WHERE id=?", (1 if published else 0, int(tournament_id)))
         commit = getattr(conn, "commit", None)
         if callable(commit):
