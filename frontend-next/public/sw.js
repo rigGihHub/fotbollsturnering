@@ -1,5 +1,5 @@
-const CACHE="cupnavi-next-v2641";
-const SHELL=["/","/manifest.webmanifest","/cupnavi-emblem-v2641.png","/cupnavi-icon.svg"];
+const CACHE="cupnavi-next-v2642";
+const SHELL=["/","/manifest.webmanifest","/cupnavi-emblem-v2642.png","/cupnavi-icon.svg"];
 self.addEventListener("install",event=>event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(SHELL)).then(()=>self.skipWaiting())));
 self.addEventListener("activate",event=>event.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k!==CACHE).map(k=>caches.delete(k)))).then(()=>self.clients.claim())));
 self.addEventListener("fetch",event=>{

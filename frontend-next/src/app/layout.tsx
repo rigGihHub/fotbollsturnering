@@ -14,7 +14,7 @@ import "./brand-v2641.css";
 import { PwaBoot } from "@/components/PwaBoot";
 import { ViewModeSwitch } from "@/components/ViewModeSwitch";
 
-const APP_VERSION = "2.6.41";
+const APP_VERSION = "2.6.42";
 
 export const metadata: Metadata = {
   title: `CupNavi v${APP_VERSION}`,
@@ -34,7 +34,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         <header className="brandbar">
           <a href="/" className="brand" aria-label="CupNavi startsida">
             <span className="brand-lockup">
-              <img className="brand-emblem" src="/cupnavi-emblem-v2641.png" alt="" aria-hidden="true" />
+              <img className="brand-emblem" src="/cupnavi-emblem-v2642.png" alt="" aria-hidden="true" />
               <span className="brand-title"><strong>CUP</strong><strong>NAVI</strong><small>TURNERINGEN I FICKAN</small></span>
             </span>
           </a>
