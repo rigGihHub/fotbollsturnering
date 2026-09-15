@@ -1,0 +1,75 @@
+/* v2.6.50 — desktop is a full-size workspace, not a scaled-up mobile canvas. */
+@media (min-width: 1000px) {
+  .cup-create-toolbar,
+  .admin-step-flow,
+  .admin-workspace {
+    width: min(1500px, calc(100% - 48px)) !important;
+    max-width: none !important;
+  }
+
+  .cup-create-toolbar {
+    min-height: 72px;
+    padding: 12px 18px !important;
+  }
+  .cup-create-toolbar > div strong { font-size: 16px !important; }
+  .cup-create-toolbar > button { min-width: 170px; min-height: 48px; font-size: 15px !important; }
+
+  .admin-step-flow {
+    display: grid;
+    grid-template-columns: 190px minmax(360px, 1fr) auto;
+    grid-template-areas:
+      "meta guide actions"
+      "track guide actions";
+    align-items: center;
+    gap: 8px 18px;
+    min-height: 96px;
+    padding: 15px 18px !important;
+  }
+  .admin-step-flow__meta { grid-area: meta; display: grid; gap: 5px; }
+  .admin-step-flow__meta span { font-size: 10px; }
+  .admin-step-flow__meta strong { font-size: 18px; }
+  .admin-step-flow__track { grid-area: track; width: 100%; margin: 0; }
+  .admin-step-flow__guide { grid-area: guide; display: block; margin: 0; }
+  .admin-step-flow__guide > div { min-height: 62px; padding: 12px 15px; }
+  .admin-step-flow__guide > div:not(:nth-child(2)) { display: none; }
+  .admin-step-flow__guide span { font-size: 10px; }
+  .admin-step-flow__guide strong { font-size: 14px; line-height: 1.4; }
+  .admin-step-flow__actions { grid-area: actions; justify-content: flex-end; }
+  .admin-step-flow__actions button { min-width: 118px; min-height: 48px; font-size: 14px; }
+
+  .admin-workspace {
+    grid-template-columns: 280px minmax(0, 1fr) !important;
+    gap: 24px !important;
+    margin-top: 18px !important;
+  }
+  .admin-sidebar { padding: 18px 14px 36px !important; }
+  .admin-active-cup-card { padding: 17px !important; }
+  .admin-sidebar__cup strong { font-size: 23px !important; }
+  .admin-sidebar__cup small { font-size: 13px; }
+  .admin-sidebar nav { gap: 5px; padding: 16px 2px; }
+  .admin-sidebar nav a { min-height: 48px; padding: 10px 12px; font-size: 14px; }
+  .admin-sidebar nav a span { font-size: 10px; }
+  .admin-nav-phase { margin: 11px 9px 4px; font-size: 10px; letter-spacing: .13em; }
+  .admin-public-link { min-height: 46px; font-size: 13px; }
+
+  .admin-main { padding: 18px 10px 88px 0 !important; }
+  .admin-pagehead { min-height: 62px; margin-bottom: 18px !important; }
+  .admin-pagehead h1 { font-size: clamp(48px, 4vw, 66px) !important; }
+  .admin-pagehead__actions a { min-height: 48px; font-size: 14px; }
+  .admin-draft { font-size: 10px; }
+  .admin-next-task { min-height: 82px; padding: 18px 20px; }
+  .admin-next-task > strong { font-size: 24px; }
+  .admin-next-task > small { font-size: 14px; }
+
+  .admin-dashboard-grid { grid-template-columns: minmax(0, 1.45fr) minmax(330px, .75fr); gap: 18px !important; }
+  .admin-panel { padding: 22px !important; }
+  .admin-panel--status h2 { font-size: 34px; }
+  .admin-panel--codes h2 { font-size: 32px; }
+  .admin-panel--codes p { font-size: 15px; }
+  .admin-panel__top { font-size: 10px; }
+  .admin-checks { gap: 10px; }
+  .admin-checks > a { min-height: 60px; padding: 13px 12px; font-size: 15px; }
+  .admin-checks > a > span { font-size: 20px; }
+  .admin-checks small { font-size: 13px; }
+  .admin-code-placeholder { min-height: 48px; font-size: 14px; }
+}
