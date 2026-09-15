@@ -41,6 +41,10 @@ type ApiStatus = "checking" | "online" | "offline";
 type KitPattern = "Helfärgad"|"Vertikala ränder"|"Horisontella ränder"|"Rutigt"|"Delad";
 type Team = { id:number; tournament_id:number; name:string; group_id?:number|null; age_class?:string|null; primary_color?:string|null; secondary_color?:string|null; home_pattern?:KitPattern|null; home_color_2?:string|null; away_pattern?:KitPattern|null; away_color_2?:string|null; logo_url?:string|null; logo_source_url?:string|null };
 type Group = { id:number; tournament_id:number; name:string; age_class?:string|null; team_count:number };
+type ScheduleOverview = {
+  match_count:number; scheduled_count:number; unscheduled_count:number; pitch_count:number;
+  schedule_dirty:boolean; conflict_analysis:{error_count:number;warning_count:number};
+};
 type ImportWelcome = { cupId:number; cupName:string; teams:number; groups:number; matches:number; venues:number };
 type KitCandidate = {name:string;location:string;country:string;source_url:string;reason:string;confidence:string};
 type KitSuggestion = {found:boolean;confidence:"low"|"medium"|"high";reason:string;club_match:string;identity_status:string;home_verified:boolean;away_verified:boolean;home_pattern:KitPattern;home_color_1:string;home_color_2:string;away_pattern:KitPattern;away_color_1:string;away_color_2:string;home_evidence:string;away_evidence:string;home_sources:string[];away_sources:string[];candidate_matches:KitCandidate[];logo_url:string;logo_source_url:string;logo_verified:boolean};
@@ -146,6 +150,7 @@ export default function AdminWorkspace({verifiedSession=null,children=null}:{ver
   const [cupinfo,setCupinfo] = useState<CupInfo|null>(null);
   const [teams,setTeams] = useState<Team[]>([]);
   const [groups,setGroups] = useState<Group[]>([]);
+  const [scheduleOverview,setScheduleOverview] = useState<ScheduleOverview|null>(null);
   const [teamDraft,setTeamDraft] = useState(emptyTeam);
   const [groupDraft,setGroupDraft] = useState(emptyGroup);
   const [editingTeam,setEditingTeam] = useState<number|null>(null);
@@ -178,16 +183,23 @@ export default function AdminWorkspace({verifiedSession=null,children=null}:{ver
   },[]);
 
   const loadCupInfo = useCallback(async (nextToken:string, nextCupId:number) => {
-    const [data,teamData,groupData] = await Promise.all([
+    const [data,teamData,groupData,scheduleData] = await Promise.all([
       request<CupInfo>(`/api/admin/cups/${nextCupId}/cupinfo`,{},nextToken),
       request<{teams:Team[]}>(`/api/admin/cups/${nextCupId}/teams`,{},nextToken),
       request<{groups:Group[]}>(`/api/admin/cups/${nextCupId}/groups`,{},nextToken),
+      request<ScheduleOverview>(`/api/admin/cups/${nextCupId}/schedule`,{},nextToken),
     ]);
-    const normalized=cleanCupInfo(data); setCupinfo(normalized); setTeams(teamData.teams || []); setGroups(groupData.groups || []);
+    const normalized=cleanCupInfo(data); setCupinfo(normalized); setTeams(teamData.teams || []); setGroups(groupData.groups || []); setScheduleOverview(scheduleData);
     document.documentElement.dataset.arrangementType=normalized.arrangement_type || "tournament";
     window.dispatchEvent(new CustomEvent("cupnavi:arrangement-type",{detail:normalized.arrangement_type || "tournament"}));
     setEditingTeam(null); setTeamDraft(emptyTeam); setEditingGroup(null); setGroupDraft(emptyGroup);
   },[]);
+
+  const refreshScheduleOverview = useCallback(async () => {
+    if(!token||!cupId)return;
+    try{setScheduleOverview(await request<ScheduleOverview>(`/api/admin/cups/${cupId}/schedule`,{},token));}
+    catch{/* Schedule page owns detailed error handling; keep the last known overview here. */}
+  },[token,cupId]);
 
   const loadTrash = useCallback(async (nextToken:string) => {
     const data = await request<{cups:TrashedCup[]}>("/api/admin/trash",{},nextToken);
@@ -202,6 +214,8 @@ export default function AdminWorkspace({verifiedSession=null,children=null}:{ver
     window.addEventListener("cupnavi:admin-step",onStep);
     return()=>{window.removeEventListener("hashchange",sync);window.removeEventListener("cupnavi:admin-step",onStep);};
   },[]);
+
+  useEffect(()=>{if(activeStep==="overview")void refreshScheduleOverview();},[activeStep,refreshScheduleOverview]);
 
   useEffect(()=>{
     if(!cupId)return;
@@ -548,19 +562,37 @@ export default function AdminWorkspace({verifiedSession=null,children=null}:{ver
     if(cupinfo?.arrangement_type==="tournament")return href!=="#playoffs";
     return true;
   });
+  const scheduleStatus=!scheduleOverview||scheduleOverview.match_count===0?"missing"
+    : scheduleOverview.unscheduled_count>0?"incomplete"
+      : scheduleOverview.conflict_analysis.error_count>0?"conflicts"
+        : scheduleOverview.schedule_dirty?"stale":"current";
+  const scheduleReady=scheduleStatus==="current";
+  const scheduleStatusLabel=scheduleStatus==="missing"?"Saknas"
+    : scheduleStatus==="incomplete"?`${scheduleOverview?.unscheduled_count||0} matcher saknar tid`
+      : scheduleStatus==="conflicts"?`${scheduleOverview?.conflict_analysis.error_count||0} blockerande fel`
+        : scheduleStatus==="stale"?"Behöver godkännas":"Aktuellt och godkänt";
   const nextTask=!cupinfoReady
     ? {href:"#cupinfo",label:"Komplettera Cupinfo",detail:"Kontrollera cupnamn och datum."}
     : !teamsReady
       ? {href:"#teams",label:"Lägg till lagen",detail:"Registrera lagen och deras matchställ."}
       : !isMatchcamp&&!groupsReady
         ? {href:"#groups",label:"Gör gruppindelningen",detail:`${teams.length-groupedTeams} lag saknar fortfarande grupp.`}
-        : {href:"#venues",label:"Kontrollera planer och tider",detail:"Ange cupens kapacitet innan schemat skapas."};
+        : scheduleStatus==="missing"
+          ? {href:"#schedule",label:"Skapa matchschemat",detail:"Det finns ännu inga matcher att publicera."}
+          : scheduleStatus==="incomplete"
+            ? {href:"#schedule",label:"Schemalägg alla matcher",detail:`${scheduleOverview?.unscheduled_count||0} matcher saknar tid eller plan.`}
+            : scheduleStatus==="conflicts"
+              ? {href:"#schedule",label:"Rätta schemakrockarna",detail:`${scheduleOverview?.conflict_analysis.error_count||0} blockerande fel måste lösas.`}
+              : scheduleStatus==="stale"
+                ? {href:"#schedule",label:"Godkänn det ändrade schemat",detail:"Schemat har ändrats sedan senaste kontrollen."}
+                : {href:"#publish",label:"Kontrollera och publicera",detail:"Grunddata och schema är klara för slutkontroll."};
   const checks=[
     {name:"Cupinfo",status:cupinfoReady?"Klar":"Komplettera",href:"#cupinfo",state:cupinfoReady?"done":"next"},
     {name:"Lag",status:teamsReady?`${teams.length} registrerade`:"Saknas",href:"#teams",state:teamsReady?"done":cupinfoReady?"next":"todo"},
     ...(!isMatchcamp?[{name:"Grupper",status:groups.length?`${groupedTeams}/${teams.length} lag placerade`:"Saknas",href:"#groups",state:groupsReady?"done":teamsReady?"next":"todo"}]:[]),
-    {name:"Planer & tider",status:isPublished?"Godkända":(isMatchcamp?teamsReady:groupsReady)?"Redo att kontrollera":"Väntar",href:"#venues",state:isPublished?"done":(isMatchcamp?teamsReady:groupsReady)?"next":"todo"},
-    {name:"Publicering",status:isPublished?"Publicerad":"Senare",href:"#publish",state:isPublished?"done":"todo"},
+    {name:"Planer & tider",status:scheduleOverview?`${scheduleOverview.pitch_count} ${scheduleOverview.pitch_count===1?"plan":"planer"}`:"Kontrolleras",href:"#venues",state:(isMatchcamp?teamsReady:groupsReady)?"done":"todo"},
+    {name:"Schema",status:scheduleStatusLabel,href:"#schedule",state:scheduleReady?"done":(isMatchcamp?teamsReady:groupsReady)?"next":"todo"},
+    {name:"Publicering",status:isPublished?"Publicerad":scheduleReady?"Redo för slutkontroll":"Väntar på schema",href:"#publish",state:isPublished?"done":scheduleReady?"next":"todo"},
   ];
 
   return <main className="admin-workspace">
