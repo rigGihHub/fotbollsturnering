@@ -631,7 +631,7 @@ export default function AdminWorkspace({verifiedSession=null,children=null}:{ver
               {teamDraft.away_pattern!=="Helfärgad"&&<><span className="admin-kit-color-label">Andra färg</span><StandardKitColor label="Bortaställets andra färg" value={teamDraft.away_color_2} onChange={away_color_2=>setTeamDraft({...teamDraft,away_color_2})}/></>}
             </section>
             <div className="admin-logo-editor">
-              {teamDraft.logo_url?<img src={normalizedWebUrl(teamDraft.logo_url)} alt="Förhandsvisning av klubbmärke" referrerPolicy="no-referrer"/>:<span aria-hidden="true">CN</span>}
+              <span className="admin-logo-preview" aria-hidden="true"><b>CN</b>{teamDraft.logo_url&&<img src={normalizedWebUrl(teamDraft.logo_url)} alt="" referrerPolicy="no-referrer" onError={event=>{event.currentTarget.style.display="none"}} onLoad={event=>{event.currentTarget.style.display="block"}}/>}</span>
               <label>Klubbmärke<small>Ange en direkt bildadress, eller använd sökningen nedan.</small><input type="url" value={teamDraft.logo_url} onChange={e=>setTeamDraft({...teamDraft,logo_url:e.target.value})} onBlur={()=>setTeamDraft(current=>({...current,logo_url:normalizedWebUrl(current.logo_url)}))} placeholder="https://klubb.se/logo.png" /></label>
             </div>
           </div>
