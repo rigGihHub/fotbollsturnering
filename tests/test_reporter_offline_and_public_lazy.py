@@ -44,11 +44,11 @@ def test_public_first_paint_defers_nonessential_work_and_long_lists():
     assert "Visa fler" in public_view
 
 
-def test_release_2692_is_synchronized_and_ci_uses_maintained_gate():
-    assert '"version": "2.6.92"' in read("frontend-next/package.json")
-    assert '"version": "2.6.92"' in read("frontend-next/package-lock.json")
-    assert 'APP_VERSION = "2.6.92"' in read("frontend-next/src/app/layout.tsx")
-    assert 'cupnavi-next-v2692' in read("frontend-next/public/sw.js")
+def test_release_2693_is_synchronized_and_ci_uses_maintained_gate():
+    assert '"version": "2.6.93"' in read("frontend-next/package.json")
+    assert '"version": "2.6.93"' in read("frontend-next/package-lock.json")
+    assert 'APP_VERSION = "2.6.93"' in read("frontend-next/src/app/layout.tsx")
+    assert 'cupnavi-next-v2693' in read("frontend-next/public/sw.js")
     workflow = read(".github/workflows/v139-quality.yml")
     assert "python scripts/run_maintained_release_gate.py" in workflow
     assert "python scripts/run_current_release_gate.py" not in workflow

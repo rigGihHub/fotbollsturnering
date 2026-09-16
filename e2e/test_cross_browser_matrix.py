@@ -68,7 +68,17 @@ def test_next_reporter_login_cross_browser(next_server, browser_name, viewport):
         overflow = page.evaluate(
             "() => Math.max(0, document.documentElement.scrollWidth-document.documentElement.clientWidth)"
         )
-        assert overflow <= 4
+        offenders = page.evaluate(
+            """() => [...document.querySelectorAll('body *')]
+              .map(element => {
+                const rect = element.getBoundingClientRect();
+                return {tag: element.tagName, classes: element.className,
+                        left: Math.round(rect.left), right: Math.round(rect.right)};
+              })
+              .filter(item => item.left < -4 || item.right > window.innerWidth + 4)
+              .slice(0, 10)"""
+        )
+        assert overflow <= 4, f"Horizontal overflow {overflow}px caused by {offenders}"
         button_box = page.get_by_role("button", name="Öppna matchrapportering").bounding_box()
         assert button_box and button_box["height"] >= 44
         context.close()
