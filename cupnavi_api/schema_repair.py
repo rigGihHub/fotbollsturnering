@@ -16,6 +16,7 @@ TOURNAMENT_RUNTIME_COLUMNS = {
     "public_information": "TEXT",
     "lifecycle_status": "TEXT DEFAULT 'draft'",
     "trashed_at": "TEXT",
+    "admin_revision": "INTEGER NOT NULL DEFAULT 1",
 }
 
 
@@ -57,4 +58,36 @@ def ensure_runtime_schema() -> set[str]:
                 raise
         columns = _table_columns("tournaments")
 
+    account_columns = _table_columns("organizer_accounts")
+    if account_columns and "session_version" not in account_columns:
+        try:
+            with connect() as con:
+                con.execute("ALTER TABLE organizer_accounts ADD COLUMN session_version INTEGER NOT NULL DEFAULT 1")
+                commit = getattr(con, "commit", None)
+                if callable(commit):
+                    commit()
+        except Exception as exc:
+            refreshed = _table_columns("organizer_accounts")
+            if "session_version" not in refreshed and not _duplicate_column_error(exc):
+                raise
+
+    with connect() as con:
+        con.execute("""CREATE TABLE IF NOT EXISTS admin_activity (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            tournament_id INTEGER NOT NULL REFERENCES tournaments(id) ON DELETE CASCADE,
+            organizer_account_id INTEGER,
+            actor_email TEXT NOT NULL,
+            action TEXT NOT NULL,
+            entity_type TEXT NOT NULL,
+            entity_id INTEGER,
+            summary TEXT NOT NULL,
+            created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+        )""")
+        con.execute(
+            "CREATE INDEX IF NOT EXISTS idx_admin_activity_tournament_created "
+            "ON admin_activity(tournament_id,created_at,id)"
+        )
+        commit = getattr(con, "commit", None)
+        if callable(commit):
+            commit()
     return columns

@@ -45,6 +45,10 @@ KIT_PATTERNS = {"Helfärgad", "Vertikala ränder", "Horisontella ränder", "Ruti
 HIDDEN_LIFECYCLE_STATUSES = ("trashed", "purged")
 
 
+class ConcurrentUpdateError(ValueError):
+    """The client attempted to save an older tournament revision."""
+
+
 def ensure_team_kit_schema() -> None:
     """Bring API-only and older databases up to the established kit schema."""
     columns = _table_columns("teams")
@@ -87,14 +91,25 @@ def _ensure_cupinfo_columns() -> set[str]:
     if not columns:
         return columns
     missing = [field for field in CUPINFO_OPTIONAL_TEXT_FIELDS if field not in columns]
-    if not missing:
-        return columns
     with connect() as con:
         for field in missing:
             if field == "arrangement_type":
                 con.execute("ALTER TABLE tournaments ADD COLUMN arrangement_type TEXT NOT NULL DEFAULT 'tournament'")
             else:
                 con.execute(f"ALTER TABLE tournaments ADD COLUMN {field} TEXT")
+        if "admin_revision" not in columns:
+            con.execute("ALTER TABLE tournaments ADD COLUMN admin_revision INTEGER NOT NULL DEFAULT 1")
+        con.execute("""CREATE TABLE IF NOT EXISTS admin_activity (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            tournament_id INTEGER NOT NULL,
+            organizer_account_id INTEGER,
+            actor_email TEXT NOT NULL,
+            action TEXT NOT NULL,
+            entity_type TEXT NOT NULL,
+            entity_id INTEGER,
+            summary TEXT NOT NULL,
+            created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+        )""")
         commit = getattr(con, "commit", None)
         if callable(commit):
             commit()
@@ -106,8 +121,9 @@ def authenticate_organizer(email: str, password: str):
     if owner:
         return owner
     normalized_email = normalize_email(email)
+    session_projection = "session_version" if "session_version" in _table_columns("organizer_accounts") else "1 AS session_version"
     account = one(
-        """SELECT id,email,display_name,password_salt,password_hash,disabled_at
+        f"""SELECT id,email,display_name,password_salt,password_hash,disabled_at,{session_projection}
            FROM organizer_accounts WHERE email=?""",
         (normalized_email,),
     )
@@ -129,8 +145,9 @@ def authenticate_organizer(email: str, password: str):
 def organizer_account(account_id: int):
     if int(account_id) == OWNER_ACCOUNT_ID:
         return owner_identity()
+    session_projection = "session_version" if "session_version" in _table_columns("organizer_accounts") else "1 AS session_version"
     row = one(
-        "SELECT id,email,display_name,disabled_at FROM organizer_accounts WHERE id=?",
+        f"SELECT id,email,display_name,disabled_at,{session_projection} FROM organizer_accounts WHERE id=?",
         (int(account_id),),
     )
     if not row or row.get("disabled_at"):
@@ -139,6 +156,7 @@ def organizer_account(account_id: int):
         "id": int(row["id"]),
         "email": normalize_email(row["email"]),
         "display_name": row.get("display_name"),
+        "session_version": int(row.get("session_version") or 1),
     }
 
 
@@ -165,15 +183,22 @@ def organizer_tournaments(account_id: int):
 
 
 def trashed_tournaments(account_id: int):
-    """Return recoverable cups for the app owner only."""
-    if int(account_id) != OWNER_ACCOUNT_ID:
-        raise PermissionError("Endast CupNavi-ägaren kan visa papperskorgen")
-    rows = all_rows(
-        """SELECT id,name,public_slug,start_date,end_date,is_published,trashed_at
-           FROM tournaments
-           WHERE COALESCE(lifecycle_status,'draft')='trashed'
-           ORDER BY COALESCE(trashed_at,'' ) DESC,name,id"""
-    )
+    """Return the platform trash or cups owned by the current organizer."""
+    if int(account_id) == OWNER_ACCOUNT_ID:
+        rows = all_rows(
+            """SELECT id,name,public_slug,start_date,end_date,is_published,trashed_at
+               FROM tournaments WHERE COALESCE(lifecycle_status,'draft')='trashed'
+               ORDER BY COALESCE(trashed_at,'') DESC,name,id"""
+        )
+    else:
+        rows = all_rows(
+            """SELECT t.id,t.name,t.public_slug,t.start_date,t.end_date,t.is_published,t.trashed_at
+               FROM tournaments t JOIN tournament_members tm ON tm.tournament_id=t.id
+               WHERE tm.organizer_account_id=? AND tm.role='owner'
+                 AND COALESCE(t.lifecycle_status,'draft')='trashed'
+               ORDER BY COALESCE(t.trashed_at,'') DESC,t.name,t.id""",
+            (int(account_id),),
+        )
     for row in rows:
         row["role"] = "owner"
     return rows
@@ -236,7 +261,7 @@ def admin_cupinfo(account_id: int, tournament_id: int):
     if not _has_tournament_access(account_id, tournament_id):
         return None
     columns = _ensure_cupinfo_columns()
-    required = ("id", "public_slug", "is_published", "name", "start_date", "end_date")
+    required = ("id", "public_slug", "is_published", "name", "start_date", "end_date", "admin_revision")
     missing_required = [field for field in required if field not in columns]
     if missing_required:
         raise RuntimeError(f"Tournament schema missing required columns: {','.join(missing_required)}")
@@ -262,12 +287,42 @@ def update_cupinfo(account_id: int, tournament_id: int, values: dict):
         raise ValueError("Cupnamn krävs")
     if "arrangement_type" in clean and clean["arrangement_type"] not in {"matchcamp", "tournament", "tournament_playoffs", "custom"}:
         raise ValueError("Ogiltig arrangemangstyp")
+    expected_revision = values.get("expected_revision")
+    if expected_revision is not None:
+        try:
+            expected_revision = int(expected_revision)
+        except (TypeError, ValueError) as exc:
+            raise ValueError("Ogiltig versionskontroll") from exc
     if clean:
         assignments = ",".join(f"{field}=?" for field in clean)
         params = [clean[field] for field in clean]
+        where = "id=?"
         params.append(int(tournament_id))
+        if expected_revision is not None:
+            where += " AND admin_revision=?"
+            params.append(expected_revision)
         with connect() as con:
-            con.execute(f"UPDATE tournaments SET {assignments} WHERE id=?", tuple(params))
+            cursor = con.execute(
+                f"UPDATE tournaments SET {assignments},admin_revision=admin_revision+1 WHERE {where}",
+                tuple(params),
+            )
+            rowcount = getattr(cursor, "rowcount", None)
+            revision_conflict = expected_revision is not None and rowcount is not None and int(rowcount) == 0
+            if expected_revision is not None and (rowcount is None or int(rowcount) < 0):
+                revision_row = con.execute("SELECT admin_revision FROM tournaments WHERE id=?", (int(tournament_id),)).fetchone()
+                revision_conflict = not revision_row or int(revision_row[0]) != expected_revision + 1
+            if revision_conflict:
+                rollback = getattr(con, "rollback", None)
+                if callable(rollback):
+                    rollback()
+                raise ConcurrentUpdateError("Cupinfo har ändrats av en annan administratör. Ladda om innan du sparar igen.")
+            actor = organizer_account(int(account_id)) or {"email": "CupNavi Owner"}
+            con.execute(
+                """INSERT INTO admin_activity(
+                       tournament_id,organizer_account_id,actor_email,action,entity_type,entity_id,summary
+                   ) VALUES(?,?,?,?,?,?,?)""",
+                (int(tournament_id), None if int(account_id) == OWNER_ACCOUNT_ID else int(account_id), str(actor.get("email") or "CupNavi Owner"), "updated", "cupinfo", int(tournament_id), "Cupinformationen uppdaterades"),
+            )
             commit = getattr(con, "commit", None)
             if callable(commit):
                 commit()
@@ -275,9 +330,12 @@ def update_cupinfo(account_id: int, tournament_id: int, values: dict):
 
 
 def trash_tournament(account_id: int, tournament_id: int, confirmed_name: str):
-    """Move one cup to the recoverable trash. Only the synthetic app owner may do this."""
-    if int(account_id) != OWNER_ACCOUNT_ID:
-        raise PermissionError("Endast CupNavi-ägaren kan ta bort en cup")
+    """Move one cup to recoverable trash. Tournament owners only."""
+    if int(account_id) != OWNER_ACCOUNT_ID and not one(
+        "SELECT 1 AS ok FROM tournament_members WHERE tournament_id=? AND organizer_account_id=? AND role='owner'",
+        (int(tournament_id), int(account_id)),
+    ):
+        raise PermissionError("Endast cupens ägare kan ta bort cupen")
     current = one(
         """SELECT id,name,public_slug,start_date,end_date,is_published
            FROM tournaments
@@ -309,8 +367,11 @@ def trash_tournament(account_id: int, tournament_id: int, confirmed_name: str):
 
 def restore_tournament(account_id: int, tournament_id: int):
     """Restore a trashed cup as an unpublished draft. Owner only."""
-    if int(account_id) != OWNER_ACCOUNT_ID:
-        raise PermissionError("Endast CupNavi-ägaren kan återställa en cup")
+    if int(account_id) != OWNER_ACCOUNT_ID and not one(
+        "SELECT 1 AS ok FROM tournament_members WHERE tournament_id=? AND organizer_account_id=? AND role='owner'",
+        (int(tournament_id), int(account_id)),
+    ):
+        raise PermissionError("Endast cupens ägare kan återställa cupen")
     current = one(
         """SELECT id,name,public_slug,start_date,end_date,is_published,trashed_at
            FROM tournaments

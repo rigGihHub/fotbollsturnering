@@ -9,7 +9,7 @@ Regel:
 from dataclasses import dataclass
 from datetime import datetime, timezone
 
-LATEST_SCHEMA_VERSION = 36
+LATEST_SCHEMA_VERSION = 37
 # Historical QA anchor: LATEST_SCHEMA_VERSION = 27
 
 
@@ -558,6 +558,11 @@ MIGRATIONS = (
         "playoff_match_timing_overrides",
         (),
     ),
+    Migration(
+        37,
+        "multi_user_admin_hardening",
+        (),
+    ),
 
 )
 
@@ -1018,6 +1023,37 @@ def ensure_v36_schema_compat(con):
             con.execute(f"ALTER TABLE schedule_rules ADD COLUMN {column} {sql_type}")
 
 
+def ensure_v37_schema_compat(con):
+    """Add optimistic revisions and a dedicated administrator activity trail."""
+    try:
+        columns = {row[1] for row in con.execute("PRAGMA table_info(tournaments)").fetchall()}
+    except Exception:
+        columns = set()
+    if columns and "admin_revision" not in columns:
+        con.execute("ALTER TABLE tournaments ADD COLUMN admin_revision INTEGER NOT NULL DEFAULT 1")
+    try:
+        account_columns = {row[1] for row in con.execute("PRAGMA table_info(organizer_accounts)").fetchall()}
+    except Exception:
+        account_columns = set()
+    if account_columns and "session_version" not in account_columns:
+        con.execute("ALTER TABLE organizer_accounts ADD COLUMN session_version INTEGER NOT NULL DEFAULT 1")
+    con.execute("""CREATE TABLE IF NOT EXISTS admin_activity (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        tournament_id INTEGER NOT NULL REFERENCES tournaments(id) ON DELETE CASCADE,
+        organizer_account_id INTEGER,
+        actor_email TEXT NOT NULL,
+        action TEXT NOT NULL,
+        entity_type TEXT NOT NULL,
+        entity_id INTEGER,
+        summary TEXT NOT NULL,
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    )""")
+    con.execute(
+        "CREATE INDEX IF NOT EXISTS idx_admin_activity_tournament_created "
+        "ON admin_activity(tournament_id,created_at,id)"
+    )
+
+
 def apply_migrations(con):
     """Applicera alla saknade migreringar och returnera nya versionsnummer."""
     ensure_migration_table(con)
@@ -1057,6 +1093,8 @@ def apply_migrations(con):
             ensure_v35_schema_compat(con)
         if migration.version == 36:
             ensure_v36_schema_compat(con)
+        if migration.version == 37:
+            ensure_v37_schema_compat(con)
         for statement in migration.statements:
             _execute(con, statement)
         _execute(

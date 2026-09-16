@@ -15,9 +15,7 @@ const IMPORT_RESUME_KEY = "cupnavi_import_resume_v1";
 const IMPORT_WELCOME_KEY = "cupnavi_import_welcome_v1";
 const IMPORT_RESUME_MAX_AGE_MS = 24 * 60 * 60 * 1000;
 
-type SessionPayload = {
-  account?: { role?: string | null; is_owner?: boolean };
-};
+type SessionPayload = { account?: { id?: number } };
 type CreatedCup = { id: number; name: string };
 type CreatedGroup = { id: number; name: string };
 type CreatedTeam = { id: number; name: string; group_id?: number | null };
@@ -198,7 +196,7 @@ function friendlyImportError(error: unknown) {
 
 export default function CupCreateLauncherV6() {
   const [token, setToken] = useState<string | null>(null),
-    [isOwner, setIsOwner] = useState(false),
+    [canCreate, setCanCreate] = useState(false),
     [open, setOpen] = useState(false),
     [mode, setMode] = useState<"manual" | "import">("manual");
   const [name, setName] = useState(""),
@@ -255,9 +253,9 @@ export default function CupCreateLauncherV6() {
     if (!stored) return;
     request<SessionPayload>("/api/admin/session", {}, stored)
       .then((data) => {
-        if (data.account?.role === "owner" || data.account?.is_owner === true) {
+        if (data.account?.id !== undefined) {
           setToken(stored);
-          setIsOwner(true);
+          setCanCreate(true);
         }
       })
       .catch(() => undefined);
@@ -554,7 +552,7 @@ export default function CupCreateLauncherV6() {
     }
   }
 
-  if (!isOwner) return null;
+  if (!canCreate) return null;
   const modalStyle = {
     maxWidth: 900,
     width: "min(900px, calc(100vw - 20px))",

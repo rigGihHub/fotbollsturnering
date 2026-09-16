@@ -1,4 +1,4 @@
-"""Owner-only creation of new CupNavi cups."""
+"""Authenticated organizer creation of new CupNavi cups."""
 from __future__ import annotations
 
 import re
@@ -26,9 +26,7 @@ def _unique_slug(name: str) -> str:
 
 
 def create_owner_tournament(account_id: int, values: dict):
-    if int(account_id) != OWNER_ACCOUNT_ID:
-        raise PermissionError("Endast CupNavi-ägaren kan skapa en ny cup")
-
+    account_id = int(account_id)
     name = str(values.get("name") or "").strip()
     if not name:
         raise ValueError("Cupnamn krävs")
@@ -42,12 +40,30 @@ def create_owner_tournament(account_id: int, values: dict):
 
     slug = _unique_slug(name)
     with connect() as con:
+        actor_email = "CupNavi Owner"
+        if account_id != OWNER_ACCOUNT_ID:
+            actor_row = con.execute("SELECT email FROM organizer_accounts WHERE id=?", (account_id,)).fetchone()
+            if not actor_row:
+                raise PermissionError("Arrangörskontot finns inte")
+            actor_email = str(actor_row[0])
         cursor = con.execute(
             """INSERT INTO tournaments(name,public_slug,start_date,end_date,is_published,lifecycle_status)
                VALUES(?,?,?,?,0,'draft')""",
             (name, slug, start_date, end_date),
         )
         cup_id = int(cursor.lastrowid)
+        if account_id != OWNER_ACCOUNT_ID:
+            con.execute(
+                """INSERT INTO tournament_members(tournament_id,organizer_account_id,role)
+                   VALUES(?,?,'owner')""",
+                (cup_id, account_id),
+            )
+        con.execute(
+            """INSERT INTO admin_activity(
+                   tournament_id,organizer_account_id,actor_email,action,entity_type,entity_id,summary
+               ) VALUES(?,?,?,'created','tournament',?,?)""",
+            (cup_id, None if account_id == OWNER_ACCOUNT_ID else account_id, actor_email, cup_id, "Cupen skapades"),
+        )
         commit = getattr(con, "commit", None)
         if callable(commit):
             commit()

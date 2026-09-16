@@ -41,6 +41,7 @@ def owner_identity() -> dict | None:
         "display_name": "CupNavi Owner",
         "role": OWNER_ROLE,
         "is_owner": True,
+        "session_version": 1,
     }
 
 
@@ -94,6 +95,7 @@ def issue_session(account: dict) -> str:
         "role": role,
         "iat": now,
         "exp": now + SESSION_TTL_SECONDS,
+        "sv": int(account.get("session_version") or 1),
     }
     body = _b64encode(json.dumps(payload, separators=(",", ":"), sort_keys=True).encode("utf-8"))
     signature = _b64encode(hmac.new(_session_secret(), body.encode("ascii"), hashlib.sha256).digest())

@@ -112,8 +112,6 @@ def register_venue_admin_routes(app, admin_identity):
     ):
         """Review-first AI extraction used by the Next admin new-cup flow."""
         account = admin_identity(authorization)
-        if not (account.get("role") == "owner" or account.get("is_owner") is True):
-            raise HTTPException(status_code=403, detail="Endast CupNavi-ägaren kan skapa nya cuper")
         api_key = os.getenv("OPENAI_API_KEY", "").strip()
         if not api_key:
             raise HTTPException(status_code=503, detail="AI-importen är inte konfigurerad på servern")

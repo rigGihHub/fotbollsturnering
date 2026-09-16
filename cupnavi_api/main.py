@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import hashlib
 import os
+import re
 import time
 
 from fastapi import FastAPI, Header, HTTPException, Response, Request
@@ -28,6 +29,7 @@ from .admin_repository import (
     trash_tournament,
     update_cupinfo,
     update_team,
+    ConcurrentUpdateError,
 )
 from .group_admin_repository import (
     admin_groups,
@@ -38,6 +40,7 @@ from .group_admin_repository import (
 )
 from .participant_resolution_repository import public_bracket_resolution, resolve_public_snapshot
 from .venue_admin_routes import register_venue_admin_routes
+from .access_routes import register_access_routes
 from .repository import (
     public_tournament, public_teams, public_groups, public_matches, public_venue_points,
     public_notifications, public_brackets, public_snapshot, public_statistics,
@@ -73,6 +76,7 @@ class CupInfoUpdate(BaseModel):
     feedback_email: str | None = None
     public_information: str | None = None
     arrangement_type: str | None = None
+    expected_revision: int | None = None
 
 
 class TeamWrite(BaseModel):
@@ -132,6 +136,29 @@ async def add_server_timing(request:Request, call_next):
     response.headers["Permissions-Policy"]="camera=(), microphone=(), geolocation=(), payment=()"
     if request.url.scheme == "https" or request.headers.get("x-forwarded-proto") == "https":
         response.headers["Strict-Transport-Security"]="max-age=31536000; includeSubDomains"
+    if request.method in {"POST","PUT","DELETE"} and response.status_code < 400:
+        match=re.match(r"^/api/admin/cups/(\d+)(?:/|$)",request.url.path)
+        manually_logged=request.url.path.endswith("/cupinfo") or "/members" in request.url.path
+        if match and not manually_logged:
+            try:
+                authorization=request.headers.get("authorization") or ""
+                token=authorization.split(" ",1)[1] if authorization.lower().startswith("bearer ") else ""
+                payload=verify_session(token)
+                account=organizer_account(int(payload["sub"])) if payload else None
+                if account:
+                    tail=request.url.path.split(f"/cups/{match.group(1)}",1)[-1].strip("/") or "cup"
+                    with connect() as con:
+                        con.execute(
+                            """INSERT INTO admin_activity(
+                                   tournament_id,organizer_account_id,actor_email,action,entity_type,summary
+                               ) VALUES(?,?,?,?,?,?)""",
+                            (int(match.group(1)),None if int(account["id"])==0 else int(account["id"]),str(account.get("email") or "CupNavi Owner"),request.method.casefold(),tail.split("/",1)[0],f"{request.method} {tail}"),
+                        )
+                        commit=getattr(con,"commit",None)
+                        if callable(commit):commit()
+            except Exception:
+                # Logging must never turn a completed tournament write into an API failure.
+                pass
     return response
 
 
@@ -144,10 +171,13 @@ def _admin_identity(authorization: str | None):
     account=organizer_account(int(payload["sub"]))
     if not account:
         raise HTTPException(status_code=401,detail="Organizer account unavailable")
+    if int(payload.get("sv") or 1) != int(account.get("session_version") or 1):
+        raise HTTPException(status_code=401,detail="Session expired or invalid")
     return account
 
 
 register_venue_admin_routes(app, _admin_identity)
+register_access_routes(app, _admin_identity)
 
 
 @app.get("/health")
@@ -190,7 +220,7 @@ def admin_login(payload:AdminLoginRequest):
     if not account:
         raise HTTPException(status_code=401,detail="Fel e-postadress eller lösenord")
     try:
-        token=issue_session(account)
+        token=issue_session(organizer_account(int(account["id"])) or account)
     except RuntimeError as exc:
         raise HTTPException(status_code=503,detail="Admin sessions are not configured") from exc
     return {"token":token,"account":account,"cups":organizer_tournaments(int(account["id"]))}
@@ -253,6 +283,8 @@ def put_admin_cupinfo(tournament_id:int,payload:CupInfoUpdate,authorization:str|
     account=_admin_identity(authorization)
     try:
         cupinfo=update_cupinfo(int(account["id"]),tournament_id,_model_values(payload))
+    except ConcurrentUpdateError as exc:
+        raise HTTPException(status_code=409,detail=str(exc)) from exc
     except ValueError as exc:
         raise HTTPException(status_code=422,detail=str(exc)) from exc
     if not cupinfo:

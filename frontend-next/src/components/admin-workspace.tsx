@@ -9,6 +9,7 @@ import PlayoffAdmin from "./playoff-admin";
 import ExportAdmin from "./export-admin";
 import { TeamKit } from "./TeamKit";
 import { CLIENT_API_BASE } from "../lib/client-api";
+import AccessAdmin from "./access-admin";
 
 const API_BASE = CLIENT_API_BASE;
 const TOKEN_KEY = "cupnavi_admin_session_v629";
@@ -20,7 +21,7 @@ const setupNav = [
   ["Planer & tider", "#venues"], ["Regler", "#rules"], ["Schema", "#schedule"],
   ["Slutspel", "#playoffs"], ["Kontroll & publicering", "#publish"]
 ];
-const toolNav = [["Domare", "#referees"], ["Matchrapportering", "#reporting"], ["Uppdatera från fil", "#import"], ["PDF & export", "#export"]];
+const toolNav = [["Användare", "#access"], ["Domare", "#referees"], ["Matchrapportering", "#reporting"], ["Uppdatera från fil", "#import"], ["PDF & export", "#export"]];
 const nav=[...setupNav,...toolNav];
 
 type Account = { id:number; email:string; display_name?:string|null; role?:string|null; is_owner?:boolean };
@@ -32,9 +33,10 @@ type CupInfo = {
   arena_address?:string|null; organizer_phone?:string|null; feedback_email?:string|null;
   public_information?:string|null;
   arrangement_type?:"matchcamp"|"tournament"|"tournament_playoffs"|"custom"|null;
+  admin_revision:number;
 };
 type SessionPayload = { account:Account; cups:Cup[]; token?:string };
-type AdminStep = "overview"|"cupinfo"|"teams"|"groups"|"venues"|"rules"|"schedule"|"referees"|"playoffs"|"publish"|"reporting"|"import"|"export";
+type AdminStep = "overview"|"cupinfo"|"teams"|"groups"|"venues"|"rules"|"schedule"|"referees"|"playoffs"|"publish"|"reporting"|"import"|"export"|"access";
 type DeleteCupPayload = { deleted:boolean; recoverable:boolean; cup:Cup; cups:Cup[] };
 type RestoreCupPayload = { restored:boolean; cup:Cup; cups:Cup[]; trash:TrashedCup[] };
 type ApiStatus = "checking" | "online" | "offline";
@@ -174,7 +176,7 @@ export default function AdminWorkspace({verifiedSession=null,children=null}:{ver
   const [bulkKitResult,setBulkKitResult] = useState("");
 
   const activeCup = useMemo(() => cups.find(cup => cup.id === cupId) || null,[cups,cupId]);
-  const isOwnerAccount = account?.role === "owner" || account?.is_owner === true;
+  const isOwnerAccount = account?.role === "owner" || account?.is_owner === true || activeCup?.role === "owner";
 
   const logout = useCallback(() => {
     localStorage.removeItem(TOKEN_KEY);
@@ -247,7 +249,7 @@ export default function AdminWorkspace({verifiedSession=null,children=null}:{ver
         const selected=initialCup(verifiedSession.cups || []);
         setToken(verifiedSession.token); setAccount(verifiedSession.account); setCups(verifiedSession.cups || []); setApiStatus("online");
         if(selected){setCupId(selected.id);rememberCup(selected.id);await loadCupInfo(verifiedSession.token,selected.id).catch(err=>{if(!cancelled)setError(err instanceof Error?`Cupens data kunde inte hämtas: ${err.message}`:"Cupens data kunde inte hämtas.");});}
-        if(verifiedSession.account.role==="owner"||verifiedSession.account.is_owner===true)void loadTrash(verifiedSession.token).catch(()=>undefined);
+        void loadTrash(verifiedSession.token).catch(()=>undefined);
         setRestoringSession(false);
         return;
       }
@@ -262,11 +264,9 @@ export default function AdminWorkspace({verifiedSession=null,children=null}:{ver
         if (selected) { setCupId(selected.id); rememberCup(selected.id); }
         setRestoringSession(false);
 
-        if (data.account.role === "owner" || data.account.is_owner === true) {
-          loadTrash(stored).catch(err => {
-            if (!cancelled) setError(err instanceof Error ? `Papperskorgen kunde inte hämtas: ${err.message}` : "Papperskorgen kunde inte hämtas.");
-          });
-        }
+        loadTrash(stored).catch(err => {
+          if (!cancelled) setError(err instanceof Error ? `Papperskorgen kunde inte hämtas: ${err.message}` : "Papperskorgen kunde inte hämtas.");
+        });
         if (selected) {
           loadCupInfo(stored,selected.id).catch(err => {
             if (!cancelled) setError(err instanceof Error ? `Cupens data kunde inte hämtas: ${err.message}` : "Cupens data kunde inte hämtas.");
@@ -305,7 +305,7 @@ export default function AdminWorkspace({verifiedSession=null,children=null}:{ver
     setBusy(false);
 
     try {
-      if (data.account.role === "owner" || data.account.is_owner === true) await loadTrash(data.token!);
+      await loadTrash(data.token!);
       if (selected) await loadCupInfo(data.token!,selected.id);
     } catch (err) {
       setError(err instanceof Error ? `Du är inloggad, men all cupdata kunde inte hämtas: ${err.message}` : "Du är inloggad, men all cupdata kunde inte hämtas.");
@@ -358,7 +358,7 @@ export default function AdminWorkspace({verifiedSession=null,children=null}:{ver
   }
 
   async function restoreCup(cup:TrashedCup) {
-    if (!token || !isOwnerAccount) return;
+    if (!token) return;
     setBusy(true); setError(""); setMessage("");
     try {
       const result = await request<RestoreCupPayload>(`/api/admin/trash/${cup.id}/restore`,{method:"POST"},token);
@@ -390,7 +390,7 @@ export default function AdminWorkspace({verifiedSession=null,children=null}:{ver
     try {
       const saved = await request<CupInfo>(`/api/admin/cups/${cupId}/cupinfo`,{
         method:"PUT",
-        body:JSON.stringify({name:cupinfo.name,start_date:cupinfo.start_date || null,end_date:cupinfo.end_date || null,organizer:cupinfo.organizer || null,arena_address:cupinfo.arena_address || null,organizer_phone:cupinfo.organizer_phone || null,feedback_email:cupinfo.feedback_email || null,public_information:cupinfo.public_information || null,arrangement_type:cupinfo.arrangement_type || "tournament"})
+        body:JSON.stringify({name:cupinfo.name,start_date:cupinfo.start_date || null,end_date:cupinfo.end_date || null,organizer:cupinfo.organizer || null,arena_address:cupinfo.arena_address || null,organizer_phone:cupinfo.organizer_phone || null,feedback_email:cupinfo.feedback_email || null,public_information:cupinfo.public_information || null,arrangement_type:cupinfo.arrangement_type || "tournament",expected_revision:cupinfo.admin_revision})
       },token);
       const normalized = cleanCupInfo(saved);
       setCupinfo(normalized);
@@ -399,7 +399,10 @@ export default function AdminWorkspace({verifiedSession=null,children=null}:{ver
       setCups(current => current.map(cup => cup.id === cupId ? {...cup,name:normalized.name,start_date:normalized.start_date,end_date:normalized.end_date,public_slug:normalized.public_slug,is_published:normalized.is_published} : cup));
       setMessage("Cupinfo sparad.");
       window.location.hash="teams";
-    } catch (err) { setError(err instanceof Error ? err.message : "Cupinfo kunde inte sparas."); }
+    } catch (err) {
+      if(err instanceof ApiError&&err.status===409){await loadCupInfo(token,cupId).catch(()=>undefined);setError("En annan administratör hann ändra Cupinfo. Den senaste versionen har hämtats; kontrollera uppgifterna innan du sparar igen.");}
+      else setError(err instanceof Error ? err.message : "Cupinfo kunde inte sparas.");
+    }
     finally { setBusy(false); }
   }
 
@@ -551,6 +554,7 @@ export default function AdminWorkspace({verifiedSession=null,children=null}:{ver
 
   const publicCup = activeCup?.public_slug ? `/cup/${activeCup.public_slug}` : null;
   const isOwner = account.role === "owner" || account.is_owner === true;
+  const canManageCup = isOwner || activeCup?.role === "owner";
   const groupedTeams = teams.filter(team=>team.group_id != null).length;
   const cupinfoReady=Boolean(cupinfo?.name&&cupinfo?.start_date);
   const teamsReady=teams.length>0;
@@ -600,17 +604,17 @@ export default function AdminWorkspace({verifiedSession=null,children=null}:{ver
       <section className="admin-active-cup-card" aria-label="Aktiv cup">
         <div className="admin-sidebar__cup"><span>AKTIV CUP</span><strong>{activeCup?.name || "Ingen cup"}</strong><small>{activeCup?.start_date || "Datum saknas"}</small></div>
         {cups.length > 1 && <label className="admin-cup-switcher"><span>Byt cup</span><select value={cupId || ""} onChange={e=>changeCup(Number(e.target.value))}>{cups.map(cup=><option key={cup.id} value={cup.id}>{cup.name}</option>)}</select></label>}
-        {isOwner && <div className="admin-owner-actions">
+        {(canManageCup||trashedCups.length>0) && <div className="admin-owner-actions">
           <button className={`admin-trash-button${trashOpen?" is-open":""}`} type="button" onClick={()=>setTrashOpen(value=>!value)}>Papperskorg <span>{trashedCups.length}</span></button>
-          {activeCup && <button className="admin-remove-cup" type="button" disabled={deletingCup} onClick={()=>void removeCup()}>{deletingCup?"Tar bort…":"Ta bort cup"}</button>}
+          {activeCup&&canManageCup && <button className="admin-remove-cup" type="button" disabled={deletingCup} onClick={()=>void removeCup()}>{deletingCup?"Tar bort…":"Ta bort cup"}</button>}
         </div>}
       </section>
-      {isOwner && <>
+      {(canManageCup||trashedCups.length>0) && <>
         {trashOpen && <section className="admin-trash-panel" aria-label="Papperskorg">
           <div className="admin-trash-head"><strong>Papperskorg</strong><span>{trashedCups.length} {trashedCups.length===1?"cup":"cuper"}</span></div>
           {trashedCups.length ? <>
             <div className="admin-trash-list">{trashedCups.map(cup=><div key={cup.id}><span><strong>{cup.name}</strong><small>{cup.start_date || "Datum saknas"}</small></span><button type="button" disabled={busy} onClick={()=>void restoreCup(cup)}>Återställ</button></div>)}</div>
-            <button className="admin-empty-trash" type="button" disabled={busy} onClick={()=>void emptyTrash()}>Töm papperskorg</button>
+            {isOwner&&<button className="admin-empty-trash" type="button" disabled={busy} onClick={()=>void emptyTrash()}>Töm papperskorg</button>}
           </> : <p className="admin-trash-empty">Papperskorgen är tom.</p>}
         </section>}
       </>}
@@ -735,6 +739,7 @@ export default function AdminWorkspace({verifiedSession=null,children=null}:{ver
       {activeStep==="schedule" && token && cupId && <ScheduleAdmin token={token} cupId={cupId} />}
       {activeStep==="referees" && token && cupId && <RefereeAdmin token={token} cupId={cupId} />}
       {activeStep==="playoffs" && token && cupId && <PlayoffAdmin token={token} cupId={cupId} />}
+      {activeStep==="access" && token && cupId && account && <AccessAdmin token={token} cupId={cupId} accountId={account.id} isPlatformOwner={isOwner}/>}
 
       {activeStep==="export" && token && cupId && <ExportAdmin token={token} cupId={cupId}/>}
     </section>
