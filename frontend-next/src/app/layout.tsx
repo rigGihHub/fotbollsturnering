@@ -20,12 +20,13 @@ import "./reporter-v2665.css";
 import "./reporter-flow-v2667.css";
 import "./public-atmosphere-v2671.css";
 import "./public-texttv-v2675.css";
+import "./ios-safe-area-v2684.css";
 import { PwaBoot } from "@/components/PwaBoot";
 import { ViewModeSwitch } from "@/components/ViewModeSwitch";
 import { HeaderShareAction } from "@/components/HeaderShareAction";
 import { SiteFooter } from "@/components/SiteFooter";
 
-const APP_VERSION = "2.6.83";
+const APP_VERSION = "2.6.84";
 
 export const metadata: Metadata = {
   title: `CupNavi v${APP_VERSION}`,
@@ -34,6 +35,9 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
   themeColor: "#101f2a",
   colorScheme: "light",
 };

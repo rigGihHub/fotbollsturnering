@@ -1,0 +1,37 @@
+/* v2.6.84 — keep public navigation clear of iOS system chrome. */
+@media(max-width:900px){
+  .brandbar{
+    padding-top:env(safe-area-inset-top)!important;
+  }
+
+  .page-shell--matchday .edition-nav--desktop{
+    top:env(safe-area-inset-top)!important;
+  }
+}
+
+@media(max-width:760px){
+  .page-shell--matchday{
+    padding-bottom:calc(72px + env(safe-area-inset-bottom))!important;
+  }
+
+  .page-shell--matchday .mobile-bottom-nav{
+    bottom:max(6px,env(safe-area-inset-bottom))!important;
+    padding-bottom:0!important;
+  }
+
+  .page-shell--matchday .mobile-bottom-nav button{
+    min-height:48px!important;
+    padding:5px 4px!important;
+  }
+
+  .page-shell--matchday .mobile-more-menu{
+    bottom:calc(max(6px,env(safe-area-inset-bottom)) + 58px)!important;
+  }
+}
+
+@media(display-mode:standalone) and (max-width:760px){
+  .page-shell--matchday .mobile-bottom-nav{
+    left:max(6px,env(safe-area-inset-left))!important;
+    right:max(6px,env(safe-area-inset-right))!important;
+  }
+}
