@@ -44,9 +44,9 @@ def participant_source_dependencies(matches: list[dict]) -> dict[int, tuple[int,
     """Return explicit upstream match ids from canonical participant sources.
 
     ``winner``/``loser`` reference one exact match. ``group`` conservatively
-    depends on every group-stage match in the referenced group, because the
-    qualifying team and its safe rest window are not final before group play is
-    complete. Legacy text creates no dependency.
+    depends on every preliminary group-stage match in the referenced group,
+    because the qualifying team and its safe rest window are not final before
+    that group is complete. This same contract powers placement-group matches.
     """
     rows_by_id = {
         int(row["id"]): row
@@ -89,12 +89,7 @@ def participant_source_dependencies(matches: list[dict]) -> dict[int, tuple[int,
 
 
 def schedule_dependencies(matches: list[dict]) -> dict[int, tuple[int, ...]]:
-    """Prefer canonical source dependencies; use v644 structure only as fallback.
-
-    A match that contains an explicit dependency source is never supplemented by
-    guessed structural participants. This is important for loser paths such as
-    bronze matches, which do not necessarily mirror winner-bracket structure.
-    """
+    """Prefer canonical source dependencies; use v644 structure only as fallback."""
     explicit = participant_source_dependencies(matches)
     structural = structural_playoff_dependencies(matches)
     result = dict(structural)
