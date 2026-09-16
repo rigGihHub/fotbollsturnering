@@ -7,6 +7,7 @@ import { CupCover } from "./CupCover";
 import { MatchCard } from "./MatchCard";
 import { TextTvStandings } from "./TextTvStandings";
 import { WeatherShareCard } from "./WeatherShareCard";
+import { matchStatus } from "@/lib/format";
 
 type StandingsGroup={group:{id:number;name:string};rows:StandingRow[]};
 type Tab="matches"|"table"|"stats"|"playoff"|"info";
@@ -46,8 +47,8 @@ export function PublicCupView({ publicKey, initialCup, initialStandings, reporte
   useEffect(()=>{if((tab==="table"&&!showTables)||(tab==="playoff"&&!showPlayoffs))setTab("matches")},[tab,showTables,showPlayoffs]);
 
   const orderedMatches=useMemo(()=>[...cup.matches].sort((a,b)=>(matchTime(a.scheduled_start)??Infinity)-(matchTime(b.scheduled_start)??Infinity)),[cup.matches]);
-  const upcoming=useMemo(()=>orderedMatches.filter(m=>m.home_score==null&&m.away_score==null),[orderedMatches]);
-  const results=useMemo(()=>orderedMatches.filter(m=>m.home_score!=null&&m.away_score!=null).reverse(),[orderedMatches]);
+  const upcoming=useMemo(()=>orderedMatches.filter(m=>matchStatus(m)!=="done"),[orderedMatches]);
+  const results=useMemo(()=>orderedMatches.filter(m=>matchStatus(m)==="done").reverse(),[orderedMatches]);
   const filteredMatches=matchView==="upcoming"?upcoming:matchView==="results"?results:orderedMatches;
   const visibleMatches=filteredMatches.slice(0,visibleCount);
   useEffect(()=>{setVisibleCount(18)},[matchView]);

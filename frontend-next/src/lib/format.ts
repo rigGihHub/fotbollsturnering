@@ -61,12 +61,10 @@ export function dateLabel(value?: string | null): string {
   return new Intl.DateTimeFormat("sv-SE", { day: "numeric", month: "long", year: "numeric" }).format(date);
 }
 
-export function matchStatus(match: Match): "live" | "done" | "next" {
+export function matchStatus(match: Match): "live" | "halftime" | "done" | "next" {
+  if (match.match_status === "live") return "live";
+  if (match.match_status === "halftime") return "halftime";
+  if (match.match_status === "finished") return "done";
   if (match.home_score !== null && match.home_score !== undefined && match.away_score !== null && match.away_score !== undefined) return "done";
-  if (match.scheduled_start) {
-    const start = new Date(match.scheduled_start).getTime();
-    const now = Date.now();
-    if (Number.isFinite(start) && start <= now && now <= start + 90 * 60 * 1000) return "live";
-  }
   return "next";
 }

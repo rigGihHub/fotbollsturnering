@@ -1,6 +1,8 @@
 """Authenticated publication and match-result administration for the Next admin."""
 from __future__ import annotations
 
+from datetime import datetime
+
 from cupnavi_core.admin_publication import build_publish_blockers
 from cupnavi_core.bracket_validation import validate_bracket_sources
 from cupnavi_core.playoff_dependency_safety import (
@@ -10,6 +12,14 @@ from cupnavi_core.playoff_dependency_safety import (
     winner_side,
 )
 from cupnavi_core.playoff_result_progression import decided_side_from_team_id, prepare_result
+from cupnavi_core.match_status import (
+    MATCH_FINISHED,
+    MATCH_HALFTIME,
+    MATCH_LIVE,
+    MATCH_NOT_STARTED,
+    MATCH_STATUSES,
+    normalize_match_status,
+)
 
 from .admin_repository import _has_tournament_access
 from .participant_resolution_repository import tournament_participant_resolver
@@ -17,6 +27,12 @@ from .repository import all_rows, connect, one
 from .schedule_conflicts import analyze_schedule_conflicts
 
 _KNOCKOUT_STAGES = {"slutspel", "åttondelsfinal", "kvartsfinal", "semifinal", "bronsmatch", "final"}
+_REPORTER_STATUS_TRANSITIONS = {
+    MATCH_NOT_STARTED: {MATCH_LIVE},
+    MATCH_LIVE: {MATCH_HALFTIME, MATCH_FINISHED},
+    MATCH_HALFTIME: {MATCH_LIVE, MATCH_FINISHED},
+    MATCH_FINISHED: set(),
+}
 
 
 def _match_requires_winner(match: dict) -> bool:
@@ -195,7 +211,10 @@ def admin_reporting(account_id: int, tournament_id: int):
         match["home_team_id"] = home.team_id if home and home.resolved else None
         match["away_team_id"] = away.team_id if away and away.resolved else None
         scores_present = match.get("home_score") is not None and match.get("away_score") is not None
-        if not scores_present:
+        lifecycle = normalize_match_status(match.get("match_status"), has_result=False)
+        if lifecycle in {MATCH_LIVE, MATCH_HALFTIME}:
+            match["status"] = lifecycle
+        elif not scores_present:
             match["status"] = "scheduled"
         elif _match_requires_winner(match) and winner_side(
             home_score=match.get("home_score"),
@@ -212,6 +231,65 @@ def admin_reporting(account_id: int, tournament_id: int):
         else:
             match["status"] = "played"
     return {"matches": matches}
+
+
+def set_reporter_match_status(
+    account_id: int,
+    tournament_id: int,
+    match_id: int,
+    new_status: str,
+    expected_status: str,
+):
+    """Move a reporter match through its explicit lifecycle with compare-and-swap safety."""
+    if not _has_tournament_access(account_id, tournament_id):
+        return None
+    wanted_raw = str(new_status or "").strip().lower()
+    expected_raw = str(expected_status or "").strip().lower()
+    if wanted_raw not in MATCH_STATUSES or expected_raw not in MATCH_STATUSES:
+        raise ValueError("Ogiltig matchstatus.")
+    row = one("SELECT * FROM matches WHERE id=? AND tournament_id=?", (int(match_id), int(tournament_id)))
+    if not row:
+        return None
+    current = normalize_match_status(row.get("match_status"), has_result=False)
+    expected = normalize_match_status(expected_raw, has_result=False)
+    wanted = normalize_match_status(wanted_raw, has_result=False)
+    if current != expected:
+        raise RuntimeError("Matchstatusen har ändrats av någon annan. Den senaste statusen måste hämtas först.")
+    if wanted == current:
+        return row
+    if wanted not in _REPORTER_STATUS_TRANSITIONS[current]:
+        raise ValueError("Den statusändringen är inte tillåten för matchrapportören.")
+    if wanted == MATCH_FINISHED and (row.get("home_score") is None or row.get("away_score") is None):
+        raise ValueError("Spara slutresultatet innan matchen avslutas.")
+
+    now = datetime.now().isoformat(timespec="seconds")
+    started_at = row.get("actual_started_at")
+    finished_at = row.get("actual_finished_at")
+    if wanted in {MATCH_LIVE, MATCH_HALFTIME}:
+        started_at = started_at or now
+        finished_at = None
+    elif wanted == MATCH_FINISHED:
+        started_at = started_at or now
+        finished_at = now
+
+    with connect() as conn:
+        cursor = conn.execute(
+            """UPDATE matches
+               SET match_status=?,status_updated_at=?,actual_started_at=?,actual_finished_at=?
+               WHERE id=? AND tournament_id=? AND COALESCE(match_status,'not_started')=?""",
+            (wanted, now, started_at, finished_at, int(match_id), int(tournament_id), expected),
+        )
+        if getattr(cursor, "rowcount", 1) == 0:
+            raise RuntimeError("Matchstatusen har ändrats av någon annan. Den senaste statusen måste hämtas först.")
+        commit = getattr(conn, "commit", None)
+        if callable(commit):
+            commit()
+    return one(
+        """SELECT id,match_status,status_updated_at,actual_started_at,actual_finished_at,
+                  home_score,away_score
+           FROM matches WHERE id=? AND tournament_id=?""",
+        (int(match_id), int(tournament_id)),
+    )
 
 
 def _row_value(row, key, default=None):

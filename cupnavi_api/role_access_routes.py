@@ -17,7 +17,7 @@ from cupnavi_core.team_portal import generate_short_numeric_code, new_code_hash,
 from .admin_auth import OWNER_ACCOUNT_ID
 from .admin_repository import _has_tournament_access
 from .match_events_admin_repository import admin_event_matches, admin_match_events, update_player_match_events
-from .publish_reporting_repository import admin_reporting, save_result
+from .publish_reporting_repository import admin_reporting, save_result, set_reporter_match_status
 from .repository import connect, one
 
 SESSION_TTL_SECONDS = 60 * 60 * 8
@@ -52,6 +52,11 @@ class ReporterEventWrite(BaseModel):
     yellow_cards: int = 0
     red_cards: int = 0
     expected: EventCounters
+
+
+class ReporterStatusWrite(BaseModel):
+    status: str
+    expected_status: str
 
 
 def _model_values(model):
@@ -248,6 +253,25 @@ def register_role_access_routes(app, admin_identity):
                 expected_home_penalties=payload.expected_home_penalties,
                 expected_away_penalties=payload.expected_away_penalties,
             )
+        except ValueError as exc:
+            raise HTTPException(422, str(exc)) from exc
+        except RuntimeError as exc:
+            raise HTTPException(409, str(exc)) from exc
+
+    @app.put("/api/reporter/reporting/matches/{match_id}/status")
+    def reporter_put_status(match_id: int, payload: ReporterStatusWrite, authorization: str | None = Header(default=None)):
+        identity = _reporter_identity(authorization)
+        try:
+            result = set_reporter_match_status(
+                OWNER_ACCOUNT_ID,
+                int(identity["tid"]),
+                match_id,
+                payload.status,
+                payload.expected_status,
+            )
+            if result is None:
+                raise HTTPException(404, "Match saknas eller åtkomst nekas")
+            return result
         except ValueError as exc:
             raise HTTPException(422, str(exc)) from exc
         except RuntimeError as exc:

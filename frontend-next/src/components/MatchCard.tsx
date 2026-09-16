@@ -30,7 +30,7 @@ export function MatchCard({ match, teams, groups = [], index }: { match: Match; 
     <article className={`match-card match-card--${status}`}>
       <div className="match-card__topline">
         <span>#{String(index + 1).padStart(2, "0")}</span>
-        <span>{status === "live" ? "LIVE" : status === "done" ? "SLUT" : timeLabel(match.scheduled_start)}</span>
+        <span>{status === "live" ? "LIVE" : status === "halftime" ? "PAUS" : status === "done" ? "SLUT" : timeLabel(match.scheduled_start)}</span>
       </div>
       <div className="match-card__body">
         <TeamIdentity team={home} label={homeLabel} side="home"/>

@@ -2,10 +2,14 @@ export type EventValues={goals:number;assists:number;yellow_cards:number;red_car
 
 export type ReporterMutation=
  | {id:string;kind:"result";cupId:number;matchId:number;createdAt:number;state:"queued"|"uncertain"|"conflict";payload:{home_score:number;away_score:number;home_penalties:number|null;away_penalties:number|null;expected_home_score:number|null;expected_away_score:number|null;expected_home_penalties:number|null;expected_away_penalties:number|null}}
+ | {id:string;kind:"status";cupId:number;matchId:number;createdAt:number;state:"queued"|"uncertain"|"conflict";payload:{status:"not_started"|"live"|"halftime"|"finished";expected_status:"not_started"|"live"|"halftime"|"finished"}}
  | {id:string;kind:"event";cupId:number;matchId:number;playerId:number;createdAt:number;state:"queued"|"uncertain"|"conflict";payload:EventValues&{expected:EventValues}};
 export type ResultMutation=Extract<ReporterMutation,{kind:"result"}>;
+export type StatusMutation=Extract<ReporterMutation,{kind:"status"}>;
 export type EventMutation=Extract<ReporterMutation,{kind:"event"}>;
 export const isResultMutation=(item:ReporterMutation):item is ResultMutation=>item.kind==="result";
+export const isStatusMutation=(item:ReporterMutation):item is StatusMutation=>item.kind==="status";
+export const isResultOrStatusMutation=(item:ReporterMutation):item is ResultMutation|StatusMutation=>isResultMutation(item)||isStatusMutation(item);
 export const isEventMutation=(item:ReporterMutation):item is EventMutation=>item.kind==="event";
 
 const QUEUE_KEY="cupnavi_reporter_queue_v1";
@@ -40,6 +44,23 @@ export function upsertReporterMutation(mutation:ReporterMutation){
   }
   queue[index]=mutation;
  }else queue.push(mutation);
+ writeReporterQueue(queue);
+}
+
+export function appendReporterMutation(mutation:ReporterMutation){writeReporterQueue([...readReporterQueue(),mutation]);}
+
+export function completeReporterResultMutation(processed:ResultMutation){
+ const queue=readReporterQueue();
+ const index=queue.findIndex(item=>item.id===processed.id);
+ if(index<0)return;
+ const current=queue[index];
+ if(current.kind!=="result")return;
+ if(current.createdAt===processed.createdAt){queue.splice(index,1);writeReporterQueue(queue);return}
+ current.payload.expected_home_score=processed.payload.home_score;
+ current.payload.expected_away_score=processed.payload.away_score;
+ current.payload.expected_home_penalties=processed.payload.home_penalties;
+ current.payload.expected_away_penalties=processed.payload.away_penalties;
+ if(current.payload.home_score===processed.payload.home_score&&current.payload.away_score===processed.payload.away_score&&current.payload.home_penalties===processed.payload.home_penalties&&current.payload.away_penalties===processed.payload.away_penalties)queue.splice(index,1);
  writeReporterQueue(queue);
 }
 

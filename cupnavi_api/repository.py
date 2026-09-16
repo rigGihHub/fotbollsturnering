@@ -118,7 +118,8 @@ def public_matches(tournament_id):
     return all_rows(
         """SELECT id,stage,group_id,bracket_id,round_no,match_no,home_source,away_source,
                   scheduled_start,pitch_number,home_score,away_score,home_penalties,away_penalties,
-                  decided_winner_id,schedule_published
+                  decided_winner_id,schedule_published,match_status,status_updated_at,
+                  actual_started_at,actual_finished_at
            FROM matches
            WHERE tournament_id=? AND schedule_published=1 AND scheduled_start IS NOT NULL
            ORDER BY scheduled_start,pitch_number,id""",
@@ -293,14 +294,16 @@ def public_snapshot(public_key, *, include_unpublished=False):
         match_publish_filter="" if include_unpublished else " AND schedule_published=1"
         matches=many(f"""SELECT id,stage,group_id,bracket_id,round_no,match_no,home_source,away_source,
                               scheduled_start,pitch_number,home_score,away_score,home_penalties,away_penalties,
-                              decided_winner_id,schedule_published
+                              decided_winner_id,schedule_published,match_status,status_updated_at,
+                              actual_started_at,actual_finished_at
                        FROM matches WHERE tournament_id=?{match_publish_filter} AND scheduled_start IS NOT NULL
                        ORDER BY scheduled_start,pitch_number,id""", (tid,))
         venue_points=many("SELECT id,kind,label,detail,url FROM venue_points WHERE tournament_id=? ORDER BY label,id", (tid,))
         brackets=many("SELECT id,name,size,bronze_match FROM brackets WHERE tournament_id=? ORDER BY id", (tid,))
         if brackets:
             bracket_matches=many(f"""SELECT id,bracket_id,stage,round_no,match_no,home_source,away_source,scheduled_start,pitch_number,
-                                          home_score,away_score,home_penalties,away_penalties,decided_winner_id,schedule_published
+                                          home_score,away_score,home_penalties,away_penalties,decided_winner_id,schedule_published,
+                                          match_status,status_updated_at,actual_started_at,actual_finished_at
                                    FROM matches WHERE tournament_id=? AND bracket_id IS NOT NULL{match_publish_filter}
                                    ORDER BY bracket_id,round_no,match_no,id""", (tid,))
             by_bracket={}

@@ -59,6 +59,7 @@ def test_reporting_accepts_drawn_matchcamp_match(monkeypatch):
 def test_matchcamp_publication_skips_bracket_validation(monkeypatch):
     tournament = {
         "id": 7,
+        "arena_address": "Planen",
         "arrangement_type": "matchcamp",
         "playoff_format": "Slutspel – gammalt värde",
         "playoff_model_confirmed": 0,
