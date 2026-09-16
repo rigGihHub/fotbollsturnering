@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { CupSnapshot, PublicStatistics, StandingRow } from "@/lib/types";
-import { getCup, getStandings, getStatistics } from "@/lib/api";
+import { CupNaviApiError, getCup, getStandings, getStatistics } from "@/lib/api";
 import { CupCover } from "./CupCover";
 import { MatchCard } from "./MatchCard";
 import { TextTvStandings } from "./TextTvStandings";
@@ -31,6 +31,7 @@ export function PublicCupView({ publicKey, initialCup, initialStandings, reporte
   const [cup,setCup]=useState(()=>normalizeCup(initialCup)); const [standings,setStandings]=useState(Array.isArray(initialStandings)?initialStandings:[]);
   const [tab,setTab]=useState<Tab>("matches");
   const [matchView,setMatchView]=useState<MatchView>("upcoming"); const [moreOpen,setMoreOpen]=useState(false);
+  const [unavailable,setUnavailable]=useState(false);
   const [statistics,setStatistics]=useState<PublicStatistics|null>(null); const [statisticsLoading,setStatisticsLoading]=useState(false);
   const statsEnabled=Boolean(cup.tournament.show_scorer_stats||cup.tournament.show_assist_stats||cup.tournament.show_card_stats||cup.tournament.show_fairness);
   const isMatchcamp=cup.tournament.arrangement_type==="matchcamp";
@@ -38,7 +39,7 @@ export function PublicCupView({ publicKey, initialCup, initialStandings, reporte
   const showPlayoffs=!isMatchcamp&&cup.brackets.length>0;
 
   useEffect(()=>{if(tab!=="stats"||statistics||statisticsLoading)return;let cancelled=false;setStatisticsLoading(true);getStatistics(publicKey).then(data=>{if(!cancelled)setStatistics(data)}).catch(()=>{}).finally(()=>{if(!cancelled)setStatisticsLoading(false)});return()=>{cancelled=true}},[tab,statistics,statisticsLoading,publicKey]);
-  useEffect(()=>{const timer=window.setInterval(async()=>{try{const [freshCup,freshStandings]=await Promise.all([getCup(publicKey),getStandings(publicKey)]);setCup(normalizeCup(freshCup));setStandings(Array.isArray(freshStandings.groups)?freshStandings.groups:[]);if(tab==="stats"&&statsEnabled){try{setStatistics(await getStatistics(publicKey))}catch{}}}catch{}},30000);return()=>window.clearInterval(timer)},[publicKey,tab,statsEnabled]);
+  useEffect(()=>{const timer=window.setInterval(async()=>{try{const [freshCup,freshStandings]=await Promise.all([getCup(publicKey),getStandings(publicKey)]);setUnavailable(false);setCup(normalizeCup(freshCup));setStandings(Array.isArray(freshStandings.groups)?freshStandings.groups:[]);if(tab==="stats"&&statsEnabled){try{setStatistics(await getStatistics(publicKey))}catch{}}}catch(error){if(error instanceof CupNaviApiError&&error.status===404)setUnavailable(true)}},30000);return()=>window.clearInterval(timer)},[publicKey,tab,statsEnabled]);
   useEffect(()=>{if((tab==="table"&&!showTables)||(tab==="playoff"&&!showPlayoffs))setTab("matches")},[tab,showTables,showPlayoffs]);
 
   const orderedMatches=useMemo(()=>[...cup.matches].sort((a,b)=>(matchTime(a.scheduled_start)??Infinity)-(matchTime(b.scheduled_start)??Infinity)),[cup.matches]);
@@ -49,6 +50,8 @@ export function PublicCupView({ publicKey, initialCup, initialStandings, reporte
   const openTab=(next:Tab)=>{setTab(next);setMoreOpen(false);window.scrollTo({top:0,behavior:"smooth"});};
   const navItems:Array<[Tab,string]>=[["matches","Matcher"],...(showTables?[["table","Tabeller"] as [Tab,string]]:[]),...(statsEnabled?[["stats","Topplistor"] as [Tab,string]]:[]),...(showPlayoffs?[["playoff","Slutspel"] as [Tab,string]]:[]),["info",isMatchcamp?"Matchcampinfo":"Cupinfo"]];
   const mobileItems:Array<[Tab,string,string]>=[["matches","Matcher","▦"],...(showTables?[["table","Tabell","330"] as [Tab,string,string]]:[]),...(showPlayoffs?[["playoff","Slutspel","◆"] as [Tab,string,string]]:[])];
+
+  if(unavailable)return <main className="page-shell page-shell--matchday"><article className="empty-state"><strong>Cupen är inte längre publicerad.</strong><p>Den kan ha flyttats till papperskorgen eller fått en ny publik adress.</p><a href="/">Till CupNavi</a></article></main>;
 
   return <main className="page-shell page-shell--matchday">
     {reporterReturn&&<div className="public-role-return"><span>Du granskar den publika turneringsvyn</span><a href={`/reporter?cup=${encodeURIComponent(publicKey)}`}>← Till matchrapportering</a></div>}

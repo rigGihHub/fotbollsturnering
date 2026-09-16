@@ -8,9 +8,9 @@ def test_frontend_release_is_synchronized():
     package = (ROOT / "frontend-next" / "package.json").read_text(encoding="utf-8")
     layout = (ROOT / "frontend-next" / "src" / "app" / "layout.tsx").read_text(encoding="utf-8")
     worker = (ROOT / "frontend-next" / "public" / "sw.js").read_text(encoding="utf-8")
-    assert '"version": "2.6.86"' in package
-    assert 'APP_VERSION = "2.6.86"' in layout
-    assert 'cupnavi-next-v2686' in worker
+    assert '"version": "2.6.87"' in package
+    assert 'APP_VERSION = "2.6.87"' in layout
+    assert 'cupnavi-next-v2687' in worker
 
 
 def test_css_uses_widely_supported_flex_alignment_values():
@@ -35,9 +35,9 @@ def test_public_api_retries_only_transient_failures():
     assert "error.status<500" in api
     assert '`${API_BASE}${path}${separator}_cn_attempt=${attempt}`' in api
     page = (ROOT / "frontend-next" / "src" / "app" / "cup" / "[publicKey]" / "page.tsx").read_text(encoding="utf-8")
-    assert 'unstable_cache((publicKey:string)=>getCup(publicKey)' in page
-    assert 'unstable_cache((publicKey:string)=>getStandings(publicKey)' in page
-    assert "{revalidate:30}" in page
+    assert 'dynamic="force-dynamic"' in page
+    assert "revalidate=0" in page
+    assert "unstable_cache" not in page
 
 
 def test_public_qr_is_generated_locally():
