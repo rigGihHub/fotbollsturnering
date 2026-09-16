@@ -12,7 +12,6 @@ VER = (ROOT / 'cupnavi_core' / 'version.py').read_text(encoding='utf-8')
 
 
 def test_v581_version_and_revision_import_is_review_first():
-    assert '581-REVISION-IMPORT-AND-PLAYOFF-RULES' in VER
     assert '🔄 Ny eller ändrad PDF / foto' in APP
     assert 'Jämför det nya underlaget med cupen' in APP
     assert '✓ Tillämpa valda ändringar' in APP
@@ -47,7 +46,11 @@ def test_playoff_can_have_own_match_duration_and_falls_back_to_group_rules():
 
 
 def test_v36_persists_playoff_timing_overrides():
-    assert 'LATEST_SCHEMA_VERSION = 36' in MIGRATIONS
+    # Migration 36 must remain immutable, but later migrations may raise the
+    # current schema version. Pinning the latest version made the maintained
+    # release gate fail as soon as schema v37 was added.
+    assert 'LATEST_SCHEMA_VERSION = 37' in MIGRATIONS
+    assert 'Migration(\n        36,' in MIGRATIONS
     for field in ('playoff_halves', 'playoff_minutes_per_half', 'playoff_halftime_minutes', 'playoff_pitch_break_minutes'):
         assert field in MIGRATIONS
         assert field in APP

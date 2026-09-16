@@ -3,7 +3,7 @@ from pathlib import Path
 ROOT=Path(__file__).resolve().parents[1]
 TABLE=(ROOT/"frontend-next/src/components/TextTvStandings.tsx").read_text()
 COVER=(ROOT/"frontend-next/src/components/CupCover.tsx").read_text()
-SHARE=(ROOT/"frontend-next/src/components/CupShareButton.tsx").read_text()
+SHARE=(ROOT/"frontend-next/src/components/HeaderShareAction.tsx").read_text()
 CSS=(ROOT/"frontend-next/src/app/public-texttv-v2675.css").read_text()
 KIT=(ROOT/"cupnavi_core/ai_kit_suggestion.py").read_text()
 
@@ -14,11 +14,11 @@ def test_standings_copy_classic_text_tv_hierarchy():
         assert color in CSS
     assert '"Courier New"' in CSS
 
-def test_share_action_is_visible_inside_cup_cover():
-    assert "<CupShareButton" in COVER
+def test_share_action_uses_the_global_header():
+    layout=(ROOT/"frontend-next/src/app/layout.tsx").read_text()
+    assert "<HeaderShareAction" in layout
     assert "navigator.share" in SHARE
     assert "navigator.clipboard.writeText" in SHARE
-    assert "cup-cover__share" in CSS
 
 def test_social_media_is_bounded_supporting_evidence_for_kits():
     assert "Instagram- och Facebook-inlägg" in KIT

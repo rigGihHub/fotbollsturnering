@@ -50,22 +50,22 @@ def test_owner_moves_cup_to_recoverable_trash(cup_database):
     assert admin_cupinfo(0, 10) is None
 
 
-def test_wrong_name_and_non_owner_cannot_remove_cup(cup_database):
+def test_wrong_name_and_non_member_cannot_remove_cup(cup_database):
     with pytest.raises(ValueError, match="stämmer inte"):
         trash_tournament(0, 10, "Fel cup")
-    with pytest.raises(PermissionError, match="CupNavi-ägaren"):
-        trash_tournament(1, 10, "Örebro Cupen")
+    with pytest.raises(PermissionError, match="cupens ägare"):
+        trash_tournament(2, 10, "Örebro Cupen")
     assert [cup["id"] for cup in organizer_tournaments(0)] == [11, 10]
 
 
-def test_v655_owner_only_ui_and_api_contract():
+def test_v655_cup_owner_ui_and_api_contract():
     root = Path(__file__).resolve().parents[1]
     api = (root / "cupnavi_api/main.py").read_text(encoding="utf-8")
     ui = (root / "frontend-next/src/components/admin-workspace.tsx").read_text(encoding="utf-8")
     assert '@app.delete("/api/admin/cups/{tournament_id}")' in api
     assert 'const isOwner = account.role === "owner" || account.is_owner === true;' in ui
-    assert "{isOwner && <>" in ui
-    assert "{activeCup && <button" in ui
+    assert 'const canManageCup = isOwner || activeCup?.role === "owner";' in ui
+    assert "activeCup&&canManageCup" in ui
     assert "Ta bort cup" in ui
     assert "confirmed_name" in ui
     assert "flyttats till papperskorgen" in ui

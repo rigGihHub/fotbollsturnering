@@ -64,9 +64,8 @@ def test_owner_can_list_and_restore_trashed_cup(cup_database):
 
 def test_non_owner_cannot_read_or_restore_trash(cup_database):
     trash_tournament(0, 10, "Örebro Cupen")
-    with pytest.raises(PermissionError, match="CupNavi-ägaren"):
-        trashed_tournaments(1)
-    with pytest.raises(PermissionError, match="CupNavi-ägaren"):
+    assert trashed_tournaments(1) == []
+    with pytest.raises(PermissionError, match="cupens ägare"):
         restore_tournament(1, 10)
 
 

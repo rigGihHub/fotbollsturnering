@@ -205,19 +205,30 @@ def trashed_tournaments(account_id: int):
 
 
 def purge_trashed_tournaments(account_id: int) -> int:
-    """Empty the visible trash for the app owner.
+    """Empty only the trash visible to the current cup owner.
 
     Purged cups are kept as hidden tombstones instead of deleting relational data.
     They are no longer listed, restorable, accessible in admin or published.
     """
-    if int(account_id) != OWNER_ACCOUNT_ID:
-        raise PermissionError("Endast CupNavi-ägaren kan tömma papperskorgen")
+    account_id = int(account_id)
     with connect() as con:
-        cursor = con.execute(
-            """UPDATE tournaments
-               SET lifecycle_status='purged',trashed_at=NULL,is_published=0
-               WHERE COALESCE(lifecycle_status,'draft')='trashed'"""
-        )
+        if account_id == OWNER_ACCOUNT_ID:
+            cursor = con.execute(
+                """UPDATE tournaments
+                   SET lifecycle_status='purged',trashed_at=NULL,is_published=0
+                   WHERE COALESCE(lifecycle_status,'draft')='trashed'"""
+            )
+        else:
+            cursor = con.execute(
+                """UPDATE tournaments
+                   SET lifecycle_status='purged',trashed_at=NULL,is_published=0
+                   WHERE COALESCE(lifecycle_status,'draft')='trashed'
+                     AND id IN (
+                         SELECT tournament_id FROM tournament_members
+                         WHERE organizer_account_id=? AND role='owner'
+                     )""",
+                (account_id,),
+            )
         count = getattr(cursor, "rowcount", None)
         commit = getattr(con, "commit", None)
         if callable(commit):

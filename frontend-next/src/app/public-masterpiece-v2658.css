@@ -15,6 +15,7 @@
 
 /* v2.6.62 — compact match art cards */
 .page-shell--matchday .match-grid{gap:13px!important}
+.public-lazy-sentinel{display:flex;align-items:center;justify-content:center;gap:14px;min-height:88px;padding:18px;color:#52626a;font-weight:800}.public-lazy-sentinel button{min-height:48px;padding:10px 18px;border:2px solid var(--ink);border-radius:10px;background:var(--ink);color:#fff;font-weight:900}.match-grid>.match-card{content-visibility:auto;contain-intrinsic-size:180px}
 .page-shell--matchday .match-card{background:linear-gradient(120deg,#fffdf7,#f5fbfa)!important;border-width:1.5px!important;border-radius:11px!important;box-shadow:4px 4px var(--ink)!important}
 .page-shell--matchday .match-card:hover{box-shadow:5px 7px var(--blue)!important}
 .page-shell--matchday .match-card__topline{min-height:22px;padding:4px 9px!important;background:linear-gradient(90deg,var(--yellow),#ffe982)!important;border-bottom-width:1.5px!important;font-size:9px!important}

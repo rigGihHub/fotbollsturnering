@@ -377,7 +377,7 @@ export default function AdminWorkspace({verifiedSession=null,children=null}:{ver
   }
 
   async function emptyTrash() {
-    if (!token || !isOwnerAccount || !trashedCups.length) return;
+    if (!token || !trashedCups.length) return;
     if (!window.confirm(`Töm papperskorgen?\n\n${trashedCups.length} ${trashedCups.length === 1 ? "cup" : "cuper"} tas bort från papperskorgen och kan inte återställas i admin efter detta.`)) return;
     setBusy(true); setError(""); setMessage("");
     try {
@@ -619,7 +619,7 @@ export default function AdminWorkspace({verifiedSession=null,children=null}:{ver
           <div className="admin-trash-head"><strong>Papperskorg</strong><span>{trashedCups.length} {trashedCups.length===1?"cup":"cuper"}</span></div>
           {trashedCups.length ? <>
             <div className="admin-trash-list">{trashedCups.map(cup=><div key={cup.id}><span><strong>{cup.name}</strong><small>{cup.start_date || "Datum saknas"}</small></span><button type="button" disabled={busy} onClick={()=>void restoreCup(cup)}>Återställ</button></div>)}</div>
-            {isOwner&&<button className="admin-empty-trash" type="button" disabled={busy} onClick={()=>void emptyTrash()}>Töm papperskorg</button>}
+            <button className="admin-empty-trash" type="button" disabled={busy} onClick={()=>void emptyTrash()}>Töm papperskorg</button>
           </> : <p className="admin-trash-empty">Papperskorgen är tom.</p>}
         </section>}
       </>}

@@ -1,6 +1,6 @@
 # CupNavi – Streamlit → Next feature-parity audit
 
-Status: 2026-09-13. This is a product-function audit, not a visual component count. A feature is only marked **Transferred** when the current Next/PWA flow exposes the equivalent user outcome; old Python modules merely remaining in `cupnavi_core/` do not count.
+Status: updated 2026-09-16. This is a product-function audit, not a visual component count. A feature is only marked **Transferred** when the current Next/PWA flow exposes the equivalent user outcome; old Python modules merely remaining in `cupnavi_core/` do not count.
 
 ## Executive result
 
@@ -51,7 +51,7 @@ Status: 2026-09-13. This is a product-function audit, not a visual component cou
 | Enter final score | **Transferred** | `publish-reporting-admin.tsx` |
 | Penalty result for tied knockout | **Transferred** | same UI/API |
 | Fast mobile +/- score reporter | **Missing** | Streamlit contract had quick-score callbacks; Next currently uses number inputs |
-| Register scorer, assist, yellow/red cards per player | **Missing in current Next reporting UI** | public API can display persisted statistics, but `publish-reporting-admin.tsx` currently only edits score/penalties |
+| Register scorer, assist, yellow/red cards per player | **Transferred** | `match-events-admin.tsx`, `reporter-match-events.tsx` and authenticated event routes |
 | Match status controls / reset quick result | **Missing/partial** | older reporter workspace had explicit status and reset actions |
 | Referee CRUD + assignment | **Transferred** | `referee-admin.tsx` |
 | Dedicated cup-day operational pulse (now/problems/next 45 min) | **Missing** | present in older Streamlit performance contract, no equivalent Next admin module found |
@@ -61,9 +61,9 @@ Status: 2026-09-13. This is a product-function audit, not a visual component cou
 | Capability | Next status | Evidence / note |
 |---|---|---|
 | Owner + organizer authenticated admin | **Transferred** | organizer sessions and tournament membership API |
-| Role codes / delegated limited-role access | **Missing in Next UI** | Streamlit `admin_role_codes_view.py` remains; no current Next role-code module found |
-| Team portal/checklist | **Missing** | Streamlit `team_portal_view.py` contract remains; no equivalent Next page/component found |
-| Team check-in flow | **Partial/backend field only** | public tournament still has `enable_team_checkin`, but no full Next team check-in journey found |
+| Role codes / delegated limited-role access | **Transferred** | `role-code-admin.tsx`, team/referee role-code modules and scoped API sessions |
+| Team portal/checklist | **Transferred** | `/team`, `team-client.tsx`, roster and team-portal API routes |
+| Team check-in flow | **Transferred** | team portal workflow and persisted check-in state |
 
 ## Publication, PDF and export
 
@@ -96,12 +96,23 @@ Status: 2026-09-13. This is a product-function audit, not a visual component cou
 
 ## Priority order from this audit
 
-1. **P0 – match reporting parity:** player events (goals, assists, cards), fast mobile score controls, match status/reset.
-2. **P0 – playoff correction safety UI:** downstream dependency impact and safe recovery controls.
-3. **P1 – role/team operations:** role codes, team portal, check-in.
-4. **P1 – public parity:** public PDF, per-match events, family timeline/travel guidance, match-specific weather.
-5. **P1 – later setup revisions:** group/photo revision and richer conflict repair guidance.
-6. **P2 – polish/parity edge cases:** notification delivery and remaining secondary Streamlit conveniences.
+1. **P0 – match reporting parity:** fast mobile score controls and explicit match status/reset.
+2. **P0 – playoff correction safety UI:** verify the current correction controls end-to-end against downstream dependencies.
+3. **P1 – public parity:** public PDF, per-match events, family timeline/travel guidance, match-specific weather.
+4. **P1 – later setup revisions:** group/photo revision and richer conflict repair guidance.
+5. **P2 – polish/parity edge cases:** notification delivery and remaining secondary Streamlit conveniences.
+
+## Retirement boundary and cleanup decision
+
+| Area | Decision | Reason |
+|---|---|---|
+| `app.py` and Streamlit-only view modules | **Keep quarantined for now** | They remain the comparison source for unresolved parity gaps. They are not copied into the FastAPI production image. |
+| Domain modules imported by `cupnavi_api` | **Keep and gradually rename/extract** | These are active backend code even when they originated during the Streamlit period. Deleting by age would break the API. |
+| Historical release notes and old tests | **Keep outside the release gate** | Useful archaeology, but not evidence for current behavior. The scheduled legacy audit may remain non-blocking. |
+| Superseded, unreferenced Next components | **Delete** | Versioned cup launchers v2–v5, the pre-v6 launcher and orphan recovery/guide wrappers had no runtime import path. Removed in the current cleanup. |
+| Streamlit dependencies in the API container | **Remove** | The production API now installs `requirements-api.txt`; legacy UI dependencies remain only in the legacy/dev requirements. |
+
+Streamlit itself can be removed only after every remaining P0/P1 item is either implemented in a reachable Next flow or explicitly rejected as unwanted product scope. At that point remove `app.py`, Streamlit-only view modules, Streamlit browser jobs and the `streamlit*` packages together in one separately tested retirement release.
 
 ## Rule for future migration work
 

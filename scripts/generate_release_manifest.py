@@ -15,6 +15,7 @@ INCLUDED_TOP_LEVEL_FILES = {
     "app.py",
     "VERSION.txt",
     "requirements.txt",
+    "requirements-api.txt",
     "requirements-dev.txt",
     "pyproject.toml",
     "Dockerfile.api",

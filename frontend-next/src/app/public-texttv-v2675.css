@@ -1,4 +1,4 @@
-/* v2.6.75 — classic Text-TV standings and an unmistakable cup share action. */
+/* Classic Text-TV standings. The global header owns sharing. */
 .texttv--standings{border:0!important;border-radius:2px!important;background:#000!important;box-shadow:4px 5px 0 #1554d1!important}
 .texttv--standings .texttv__header{grid-template-columns:62px 1fr auto!important;min-height:34px;padding:4px 9px!important;border:0!important;background:#001cf5!important;color:#fff!important;font:800 16px/1.1 "Courier New",ui-monospace,monospace!important;letter-spacing:.08em!important}
 .texttv--standings .texttv__header>span:first-child{background:#fff!important;color:#001cf5!important;padding:2px 5px!important}
@@ -13,6 +13,4 @@
 .texttv--standings tbody tr.is-bottom{color:#00e7ff}
 .texttv--standings tbody tr:hover{background:#101010}
 .texttv--standings td strong{color:inherit!important;font-weight:900}
-.cup-cover__share{position:relative;z-index:3;display:inline-flex;align-items:center;gap:8px;min-height:38px;margin-top:10px;padding:0 13px;border:2px solid #ffd83d;border-radius:7px;background:#ffd83d;color:#101f2a;font-weight:950;cursor:pointer;box-shadow:3px 3px 0 #1554d1}
-.cup-cover__share:hover{transform:translate(-1px,-1px);box-shadow:4px 4px 0 #1554d1}
-@media(max-width:760px){.texttv--standings .texttv__header{font-size:13px!important}.texttv--standings table{min-width:450px!important;font-size:12px!important}.texttv--standings th,.texttv--standings td{height:24px;padding:3px 6px!important}.cup-cover__share{min-height:36px;font-size:12px}}
+@media(max-width:760px){.texttv--standings .texttv__header{font-size:13px!important}.texttv--standings table{min-width:450px!important;font-size:12px!important}.texttv--standings th,.texttv--standings td{height:24px;padding:3px 6px!important}}

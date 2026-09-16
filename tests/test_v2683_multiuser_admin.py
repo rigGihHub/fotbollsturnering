@@ -16,9 +16,14 @@ from cupnavi_api.admin_repository import (
     admin_cupinfo,
     organizer_account,
     organizer_tournaments,
+    purge_trashed_tournaments,
+    restore_tournament,
+    trash_tournament,
+    trashed_tournaments,
     update_cupinfo,
 )
 from cupnavi_api.cup_create_repository import create_owner_tournament
+from cupnavi_api.publish_reporting_repository import admin_publication, set_publication
 from cupnavi_core.migrations import ensure_v37_schema_compat
 
 
@@ -104,3 +109,50 @@ def test_password_change_increments_session_version(multiuser_database):
     after = organizer_account(1)
     assert after["session_version"] == 2
     assert verify_session(old_token)["sv"] != after["session_version"]
+
+
+def test_each_owner_has_an_isolated_trash_lifecycle(multiuser_database):
+    owner_cup = create_owner_tournament(1, {"name": "Ägarens cup"})
+    other_cup = create_owner_tournament(2, {"name": "Andras cup"})
+
+    trash_tournament(1, owner_cup["id"], owner_cup["name"])
+    trash_tournament(2, other_cup["id"], other_cup["name"])
+
+    assert [cup["id"] for cup in trashed_tournaments(1)] == [owner_cup["id"]]
+    assert [cup["id"] for cup in trashed_tournaments(2)] == [other_cup["id"]]
+    with pytest.raises(PermissionError):
+        restore_tournament(1, other_cup["id"])
+
+    assert purge_trashed_tournaments(1) == 1
+    assert trashed_tournaments(1) == []
+    assert [cup["id"] for cup in trashed_tournaments(2)] == [other_cup["id"]]
+    assert restore_tournament(2, other_cup["id"])["id"] == other_cup["id"]
+
+
+def test_cross_account_ids_cannot_read_edit_publish_or_delete(multiuser_database):
+    owner_cup = create_owner_tournament(1, {"name": "Privat cup"})
+    cup_id = owner_cup["id"]
+
+    assert admin_cupinfo(2, cup_id) is None
+    assert update_cupinfo(2, cup_id, {"name": "Kapad cup"}) is None
+    assert admin_publication(2, cup_id) is None
+    assert set_publication(2, cup_id, False) is None
+    with pytest.raises(PermissionError, match="cupens ägare"):
+        trash_tournament(2, cup_id, owner_cup["name"])
+
+    current = admin_cupinfo(1, cup_id)
+    assert current["name"] == "Privat cup"
+    assert current["is_published"] == 0
+
+
+def test_admin_can_edit_and_unpublish_but_cannot_manage_ownership(multiuser_database):
+    cup = create_owner_tournament(1, {"name": "Delad drift"})
+    owner = {"id": 1, "email": "owner@example.se"}
+    add_tournament_member(owner, cup["id"], {"email": "other@example.se", "role": "admin"})
+
+    edited = update_cupinfo(2, cup["id"], {"name": "Delad drift 2"})
+    assert edited["name"] == "Delad drift 2"
+    with pytest.raises(PermissionError):
+        trash_tournament(2, cup["id"], "Delad drift 2")
+    with pytest.raises(PermissionError):
+        add_tournament_member({"id": 2, "email": "other@example.se"}, cup["id"], {"email": "third@example.se"})

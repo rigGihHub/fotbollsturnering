@@ -8,9 +8,9 @@ def test_frontend_release_is_synchronized():
     package = (ROOT / "frontend-next" / "package.json").read_text(encoding="utf-8")
     layout = (ROOT / "frontend-next" / "src" / "app" / "layout.tsx").read_text(encoding="utf-8")
     worker = (ROOT / "frontend-next" / "public" / "sw.js").read_text(encoding="utf-8")
-    assert '"version": "2.6.87"' in package
-    assert 'APP_VERSION = "2.6.87"' in layout
-    assert 'cupnavi-next-v2687' in worker
+    assert '"version": "2.6.90"' in package
+    assert 'APP_VERSION = "2.6.90"' in layout
+    assert 'cupnavi-next-v2690' in worker
 
 
 def test_css_uses_widely_supported_flex_alignment_values():
@@ -60,9 +60,9 @@ def test_heavy_admin_modules_only_mount_for_active_step():
 
 
 def test_import_recovery_has_no_subsecond_polling():
-    guard = (ROOT / "frontend-next" / "src" / "components" / "import-recovery-guard.tsx").read_text(encoding="utf-8")
-    assert "setInterval" not in guard
-    assert 'window.addEventListener("focus", sync)' in guard
+    launcher = (ROOT / "frontend-next" / "src" / "components" / "cup-create-launcher-v6.tsx").read_text(encoding="utf-8")
+    assert "setInterval" not in launcher
+    assert 'className="cup-import-recovery"' in launcher
 
 
 def test_partial_cup_import_is_shown_as_paused_and_resumable():
