@@ -8,9 +8,9 @@ def test_frontend_release_is_synchronized():
     package = (ROOT / "frontend-next" / "package.json").read_text(encoding="utf-8")
     layout = (ROOT / "frontend-next" / "src" / "app" / "layout.tsx").read_text(encoding="utf-8")
     worker = (ROOT / "frontend-next" / "public" / "sw.js").read_text(encoding="utf-8")
-    assert '"version": "2.6.77"' in package
-    assert 'APP_VERSION = "2.6.77"' in layout
-    assert 'cupnavi-next-v2677' in worker
+    assert '"version": "2.6.78"' in package
+    assert 'APP_VERSION = "2.6.78"' in layout
+    assert 'cupnavi-next-v2678' in worker
 
 
 def test_authenticated_workspace_reuses_authoritative_session():
@@ -18,6 +18,13 @@ def test_authenticated_workspace_reuses_authoritative_session():
     workspace = (ROOT / "frontend-next" / "src" / "components" / "admin-workspace.tsx").read_text(encoding="utf-8")
     assert "verifiedSession={verifiedSession}" in shell
     assert "if (verifiedSession)" in workspace
+
+
+def test_public_api_retries_only_transient_failures():
+    api = (ROOT / "frontend-next" / "src" / "lib" / "api.ts").read_text(encoding="utf-8")
+    assert "RETRY_DELAYS_MS=[750,1500]" in api
+    assert "response.status<500" in api
+    assert "error.status<500" in api
 
 
 def test_heavy_admin_modules_only_mount_for_active_step():

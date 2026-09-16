@@ -6,10 +6,25 @@ export class CupNaviApiError extends Error {
   constructor(public readonly status:number, message:string){super(message);this.name="CupNaviApiError";}
 }
 
+const RETRY_DELAYS_MS=[750,1500];
+
 async function apiGet<T>(path: string): Promise<T> {
-  const response = await fetch(`${API_BASE}${path}`, { cache: "no-store" });
-  if (!response.ok) throw new CupNaviApiError(response.status,`CupNavi API svarade ${response.status}`);
-  return response.json() as Promise<T>;
+  let lastError:unknown;
+  for(let attempt=0;attempt<=RETRY_DELAYS_MS.length;attempt+=1){
+    try{
+      const response = await fetch(`${API_BASE}${path}`, { cache: "no-store" });
+      if(response.ok)return response.json() as Promise<T>;
+      const error=new CupNaviApiError(response.status,`CupNavi API svarade ${response.status}`);
+      if(response.status<500||attempt===RETRY_DELAYS_MS.length)throw error;
+      lastError=error;
+    }catch(error){
+      if(error instanceof CupNaviApiError&&error.status<500)throw error;
+      lastError=error;
+      if(attempt===RETRY_DELAYS_MS.length)throw error;
+    }
+    await new Promise(resolve=>setTimeout(resolve,RETRY_DELAYS_MS[attempt]));
+  }
+  throw lastError;
 }
 
 function hydrateMatch(match:Match,cup:CupSnapshot):Match {
