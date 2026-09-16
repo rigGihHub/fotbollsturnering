@@ -7,7 +7,7 @@
 .admin-team-logo.is-empty{background:#f1f4f2!important;border-style:dashed!important}
 .admin-team-logo.is-empty b{color:#65757b;font:900 10px/1 ui-monospace,monospace;letter-spacing:.05em}
 .admin-team-kits{display:flex;align-items:center;gap:5px!important}
-.admin-team-kits>span{display:grid;grid-template-columns:38px 12px;align-items:end;gap:1px}
+.admin-team-kits>span{display:grid;grid-template-columns:38px 12px;align-items:flex-end;gap:1px}
 .admin-team-kits .team-kit{display:block;width:38px;height:40px;overflow:visible}
 .admin-team-kits small{padding-bottom:3px;color:#758389;font:900 8px/1 ui-monospace,monospace}
 .admin-team-identity{display:grid!important;align-content:center;gap:5px;min-width:0}

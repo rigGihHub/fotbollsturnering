@@ -10,7 +10,7 @@
   .admin-group-list article .admin-team-actions{grid-column:1!important;display:grid!important;grid-template-columns:1fr 1fr;width:100%!important}
   .admin-group-assignments article label,.admin-venue-list article label{width:100%!important;min-width:0!important;margin:0!important}
   .admin-group-assignments select,.admin-venue-list input,.admin-venue-list button{width:100%!important}
-  .admin-window-list article{grid-template-columns:minmax(0,1fr) minmax(0,1fr)!important;align-items:end!important}
+  .admin-window-list article{grid-template-columns:minmax(0,1fr) minmax(0,1fr)!important;align-items:flex-end!important}
   .admin-window-list article>div{grid-column:1/-1}
   .admin-window-list article label{min-width:0!important;width:100%!important}
   .admin-window-list article button{grid-column:1/-1;width:100%!important;min-height:46px}

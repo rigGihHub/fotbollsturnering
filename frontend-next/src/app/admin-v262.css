@@ -93,7 +93,7 @@
   }
   .admin-main#overview > .admin-pagehead {
     grid-template-columns:minmax(0,1fr) auto!important;
-    align-items:end!important;
+    align-items:flex-end!important;
     gap:8px!important;
     margin:0 0 12px!important;
   }

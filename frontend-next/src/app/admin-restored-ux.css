@@ -22,7 +22,7 @@
   .admin-sidebar nav{display:flex!important;gap:5px!important;overflow-x:auto!important;overscroll-behavior-x:contain;padding:7px 0 5px!important;margin:0!important;scroll-snap-type:x proximity}
   .admin-sidebar nav a{flex:0 0 auto!important;scroll-snap-align:start;padding:9px 11px!important;min-height:40px!important}
   .admin-main{padding:18px 12px 88px!important}
-  .admin-pagehead{display:grid!important;grid-template-columns:1fr auto;align-items:end!important;gap:10px!important}.admin-pagehead>div:first-child{min-width:0}.admin-pagehead h1{font-size:clamp(36px,10vw,48px)!important;margin-bottom:5px!important}.admin-pagehead__actions{width:auto!important;justify-content:flex-end!important}
+  .admin-pagehead{display:grid!important;grid-template-columns:1fr auto;align-items:flex-end!important;gap:10px!important}.admin-pagehead>div:first-child{min-width:0}.admin-pagehead h1{font-size:clamp(36px,10vw,48px)!important;margin-bottom:5px!important}.admin-pagehead__actions{width:auto!important;justify-content:flex-end!important}
   .admin-dashboard-grid{grid-template-columns:1fr!important}
   .admin-panel--codes{order:2}.admin-panel--codes p{display:none!important}.admin-code-placeholder{padding:7px 0!important}
   .admin-checks>div{grid-template-columns:24px minmax(0,1fr) auto!important}.admin-checks small{grid-column:auto!important;text-align:right}

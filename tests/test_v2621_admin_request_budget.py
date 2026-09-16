@@ -8,9 +8,17 @@ def test_frontend_release_is_synchronized():
     package = (ROOT / "frontend-next" / "package.json").read_text(encoding="utf-8")
     layout = (ROOT / "frontend-next" / "src" / "app" / "layout.tsx").read_text(encoding="utf-8")
     worker = (ROOT / "frontend-next" / "public" / "sw.js").read_text(encoding="utf-8")
-    assert '"version": "2.6.81"' in package
-    assert 'APP_VERSION = "2.6.81"' in layout
-    assert 'cupnavi-next-v2681' in worker
+    assert '"version": "2.6.82"' in package
+    assert 'APP_VERSION = "2.6.82"' in layout
+    assert 'cupnavi-next-v2682' in worker
+
+
+def test_css_uses_widely_supported_flex_alignment_values():
+    styles = "\n".join(
+        path.read_text(encoding="utf-8")
+        for path in (ROOT / "frontend-next" / "src").rglob("*.css")
+    )
+    assert "align-items:end" not in styles
 
 
 def test_authenticated_workspace_reuses_authoritative_session():

@@ -9,7 +9,7 @@
   .brandbar{min-height:62px;padding:9px 14px;position:sticky;top:0;z-index:120}
   .brand-logo-mark{width:32px;height:32px}.brand-wordmark{font-size:25px}.app-version-badge{font-size:10px;padding:6px 9px}
   .admin-sidebar{border-bottom:1px solid rgba(16,38,48,.12)!important}
-  .admin-sidebar__cup{display:grid!important;grid-template-columns:1fr auto;align-items:end;column-gap:10px!important}
+  .admin-sidebar__cup{display:grid!important;grid-template-columns:1fr auto;align-items:flex-end;column-gap:10px!important}
   .admin-sidebar__cup span{grid-column:1/-1}.admin-sidebar__cup strong{font-size:26px!important;letter-spacing:-.035em}.admin-sidebar__cup small{justify-self:end;color:#66757d}
   .admin-owner-actions{display:flex!important;gap:8px!important}.admin-owner-actions button{border-radius:10px!important;min-height:42px!important}
   .admin-remove-cup{opacity:1!important;color:#8a3f39!important;border-color:rgba(138,63,57,.34)!important}.admin-remove-cup:disabled{opacity:.45!important}

@@ -7,7 +7,7 @@
 .admin-sidebar nav .admin-nav-tool span{font-size:14px}
 .matchcamp-builder{margin-top:18px;padding:22px;border:2px solid #101f2a;border-radius:14px;background:#fff4bd;box-shadow:5px 5px 0 #101f2a}
 .matchcamp-builder>h3{margin:18px 0 5px;font-size:25px}.matchcamp-builder>p{margin:0;color:#475d66}
-.matchcamp-builder__controls{display:grid;grid-template-columns:minmax(180px,260px) minmax(220px,1fr);align-items:end;gap:12px;margin:18px 0}
+.matchcamp-builder__controls{display:grid;grid-template-columns:minmax(180px,260px) minmax(220px,1fr);align-items:flex-end;gap:12px;margin:18px 0}
 .matchcamp-builder__controls label{display:grid;gap:6px;font-weight:900}.matchcamp-builder__controls input{min-height:48px;padding:8px 12px;border:2px solid #101f2a;border-radius:9px;font:inherit}
 .matchcamp-builder__controls button{min-height:48px;border:2px solid #101f2a;border-radius:9px;background:#101f2a;color:#fff;font-weight:900}
 .matchcamp-builder__summary{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;margin:18px 0 10px;padding:12px;border:2px solid #101f2a;border-radius:9px;background:#fffdf8}
