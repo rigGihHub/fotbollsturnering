@@ -1,6 +1,6 @@
 "use client";
 
-import { CSSProperties, FormEvent, ReactNode, useCallback, useEffect, useMemo, useState } from "react";
+import { CSSProperties, FormEvent, ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import VenueAdmin from "./venue-admin";
 import RulesAdmin from "./rules-admin";
 import ScheduleAdmin from "./schedule-admin";
@@ -159,6 +159,8 @@ export default function AdminWorkspace({verifiedSession=null,children=null}:{ver
   const [teamDraft,setTeamDraft] = useState(emptyTeam);
   const [groupDraft,setGroupDraft] = useState(emptyGroup);
   const [editingTeam,setEditingTeam] = useState<number|null>(null);
+  const [teamFormOpen,setTeamFormOpen] = useState(false);
+  const teamFormRef = useRef<HTMLFormElement|null>(null);
   const [editingGroup,setEditingGroup] = useState<number|null>(null);
   const [email,setEmail] = useState("");
   const [password,setPassword] = useState("");
@@ -202,7 +204,7 @@ export default function AdminWorkspace({verifiedSession=null,children=null}:{ver
     const normalized=cleanCupInfo(data); setCupinfo(normalized); setTeams(teamData.teams || []); setGroups(groupData.groups || []); setScheduleOverview(scheduleData);
     document.documentElement.dataset.arrangementType=normalized.arrangement_type || "tournament";
     window.dispatchEvent(new CustomEvent("cupnavi:arrangement-type",{detail:normalized.arrangement_type || "tournament"}));
-    setEditingTeam(null); setTeamDraft(emptyTeam); setEditingGroup(null); setGroupDraft(emptyGroup);
+    setEditingTeam(null); setTeamFormOpen(false); setTeamDraft(emptyTeam); setEditingGroup(null); setGroupDraft(emptyGroup);
   },[]);
 
   const refreshScheduleOverview = useCallback(async () => {
@@ -416,11 +418,18 @@ export default function AdminWorkspace({verifiedSession=null,children=null}:{ver
 
   function beginTeamEdit(team:Team) {
     setEditingTeam(team.id);
+    setTeamFormOpen(true);
     setTeamDraft({name:team.name,age_class:team.age_class || "",primary_color:team.primary_color || "#111827",secondary_color:team.secondary_color || "#FFFFFF",home_pattern:team.home_pattern||"Helfärgad",home_color_2:team.home_color_2||"#FFFFFF",away_pattern:team.away_pattern||"Helfärgad",away_color_2:team.away_color_2||"#111827",logo_url:team.logo_url||"",logo_source_url:team.logo_source_url||""});
     setKitSuggestion(null);setKitHint("");setAssetFocus("kit");
     setError(""); setMessage("");
   }
-  function cancelTeamEdit() { setEditingTeam(null); setTeamDraft(emptyTeam); setKitSuggestion(null); setKitHint(""); setAssetFocus("kit"); }
+  function cancelTeamEdit() { setEditingTeam(null); setTeamFormOpen(false); setTeamDraft(emptyTeam); setKitSuggestion(null); setKitHint(""); setAssetFocus("kit"); }
+
+  useEffect(() => {
+    if (!editingTeam) return;
+    const frame = window.requestAnimationFrame(() => teamFormRef.current?.scrollIntoView({behavior:"smooth",block:"start"}));
+    return () => window.cancelAnimationFrame(frame);
+  }, [editingTeam]);
 
   async function searchAssets(focus:"kit"|"logo",candidate?:KitCandidate) {
     if(!token||!cupId||!teamDraft.name.trim())return;
@@ -675,7 +684,7 @@ export default function AdminWorkspace({verifiedSession=null,children=null}:{ver
         <div className="admin-panel__top"><span>02 / LAG</span><strong>{teams.length} REGISTRERADE</strong></div>
         <div className="admin-cupinfo__head"><div><h2>Lag</h2><p>Skapa och redigera lag.</p></div><span className="admin-lock">REDIGERING</span></div>
         {teams.length>0&&<div className="admin-bulk-assets"><div><strong>Tröjor och klubbmärken</strong><span aria-live="polite">{bulkKitProgress||bulkKitResult||"Sök igenom alla lag och spara bara entydigt verifierade träffar."}</span>{bulkKitResult&&<small>Lag som behöver förtydligas söks individuellt med ort eller klubbwebbplats.</small>}</div><button type="button" disabled={bulkKitBusy} onClick={()=>void searchAllTeamAssets()}>{bulkKitBusy?"Söker…":"Sök för alla lag"}</button></div>}
-        <form onSubmit={saveTeam} className="admin-team-editor">
+        {(!teams.length || teamFormOpen) && <form ref={teamFormRef} onSubmit={saveTeam} className="admin-team-editor">
           <div className="admin-form-grid">
             <label>Lagnamn<input value={teamDraft.name} onChange={e=>setTeamDraft({...teamDraft,name:e.target.value})} required placeholder="Exempel: ÖSK P2014 Svart" /></label>
             <label>Klass<input value={teamDraft.age_class} onChange={e=>setTeamDraft({...teamDraft,age_class:e.target.value})} placeholder="Exempel: P2014" /></label>
@@ -705,7 +714,8 @@ export default function AdminWorkspace({verifiedSession=null,children=null}:{ver
             {kitSuggestion.candidate_matches?.length>0&&!kitSuggestion.found&&!kitSuggestion.logo_verified?<><strong>Vilken klubb är rätt?</strong><p>Flera möjliga klubbar hittades. Välj rätt identitet innan uppgifter används.</p><div className="admin-kit-candidates">{kitSuggestion.candidate_matches.map(candidate=><button type="button" key={candidate.source_url} onClick={()=>void searchAssets(assetFocus,candidate)}><b>{candidate.name}</b><span>{[candidate.location,candidate.country].filter(Boolean).join(" · ")}</span><small>{candidate.reason}</small></button>)}</div></>:<><div className="admin-kit-result__head"><div><span>{kitSuggestion.confidence==="high"?"HÖG SÄKERHET":kitSuggestion.confidence==="medium"?"MEDEL SÄKERHET":"LÅG SÄKERHET"}</span><strong>{kitSuggestion.club_match||teamDraft.name}</strong></div><button type="button" disabled={!kitSuggestion.home_verified&&!kitSuggestion.away_verified&&!kitSuggestion.logo_verified} onClick={applyKitSuggestion}>Använd verifierade uppgifter</button></div><div className="admin-kit-options">{assetFocus!=="logo"&&<><div><i className="admin-kit-swatch" style={{background:kitBackground(kitSuggestion.home_pattern,kitSuggestion.home_color_1,kitSuggestion.home_color_2)} as CSSProperties}/><span><b>Hemma · {kitSuggestion.home_pattern}</b><small>{kitSuggestion.home_verified?kitSuggestion.home_evidence:"Inte verifierat"}</small></span></div><div><i className="admin-kit-swatch" style={{background:kitBackground(kitSuggestion.away_pattern,kitSuggestion.away_color_1,kitSuggestion.away_color_2)} as CSSProperties}/><span><b>Borta · {kitSuggestion.away_pattern}</b><small>{kitSuggestion.away_verified?kitSuggestion.away_evidence:"Inte verifierat"}</small></span></div></>}{kitSuggestion.logo_verified?<div><img className="admin-kit-logo-result" src={kitSuggestion.logo_url} alt="Hittat klubbmärke" referrerPolicy="no-referrer"/><span><b>Klubbmärke</b><small>Verifierat mot klubbkällan</small></span></div>:assetFocus==="logo"&&<div><span><b>Inget verifierat klubbmärke</b><small>Förtydliga klubbens ort eller officiella webbplats.</small></span></div>}</div><details><summary>Visa källor</summary><ul>{[...new Set([...(kitSuggestion.home_sources||[]),...(kitSuggestion.away_sources||[]),...(kitSuggestion.logo_source_url?[kitSuggestion.logo_source_url]:[])])].map(url=><li key={url}><a href={url} target="_blank" rel="noreferrer">{url}</a></li>)}</ul></details></>}
           </section>}
           <div className="admin-form-footer"><span>{editingTeam?"Du redigerar ett befintligt lag.":""}</span><div className="admin-team-actions">{editingTeam&&<button type="button" onClick={cancelTeamEdit}>Avbryt</button>}<button type="submit" disabled={busy||!teamDraft.name.trim()}>{busy?"Sparar…":editingTeam?"Spara lag":"Lägg till lag"}</button></div></div>
-        </form>
+        </form>}
+        {teams.length>0&&!teamFormOpen&&<button type="button" className="admin-add-team-compact" onClick={()=>setTeamFormOpen(true)}>＋ Lägg till lag</button>}
         <div className="admin-team-list admin-team-roster">
           {teams.length ? teams.map(team=><article key={team.id} className={editingTeam===team.id?"is-editing":""}>
             <TeamLogo team={team}/>
