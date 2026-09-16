@@ -13,7 +13,7 @@ async function apiGet<T>(path: string): Promise<T> {
   for(let attempt=0;attempt<=RETRY_DELAYS_MS.length;attempt+=1){
     try{
       const separator=path.includes("?")?"&":"?";
-      const response = await fetch(`${API_BASE}${path}${separator}_cn_attempt=${attempt}`, { cache: "no-store" });
+      const response = await fetch(`${API_BASE}${path}${separator}_cn_attempt=${attempt}`,{ cache: "no-store" });
       if(response.ok)return response.json() as Promise<T>;
       const error=new CupNaviApiError(response.status,`CupNavi API svarade ${response.status}`);
       if(response.status<500||attempt===RETRY_DELAYS_MS.length)throw error;
