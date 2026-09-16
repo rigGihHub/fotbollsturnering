@@ -6,10 +6,10 @@ COMPONENTS = ROOT / "frontend-next" / "src" / "components"
 
 
 def test_release_version_is_synchronized():
-    assert '"version": "2.6.91"' in (ROOT / "frontend-next/package.json").read_text(encoding="utf-8")
-    assert '"version": "2.6.91"' in (ROOT / "frontend-next/package-lock.json").read_text(encoding="utf-8")
-    assert 'const APP_VERSION = "2.6.91";' in (ROOT / "frontend-next/src/app/layout.tsx").read_text(encoding="utf-8")
-    assert 'const CACHE="cupnavi-next-v2691";' in (ROOT / "frontend-next/public/sw.js").read_text(encoding="utf-8")
+    assert '"version": "2.6.92"' in (ROOT / "frontend-next/package.json").read_text(encoding="utf-8")
+    assert '"version": "2.6.92"' in (ROOT / "frontend-next/package-lock.json").read_text(encoding="utf-8")
+    assert 'const APP_VERSION = "2.6.92";' in (ROOT / "frontend-next/src/app/layout.tsx").read_text(encoding="utf-8")
+    assert 'const CACHE="cupnavi-next-v2692";' in (ROOT / "frontend-next/public/sw.js").read_text(encoding="utf-8")
 
 
 def test_superseded_next_components_are_removed():

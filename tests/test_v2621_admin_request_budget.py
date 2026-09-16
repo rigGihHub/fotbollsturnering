@@ -8,9 +8,9 @@ def test_frontend_release_is_synchronized():
     package = (ROOT / "frontend-next" / "package.json").read_text(encoding="utf-8")
     layout = (ROOT / "frontend-next" / "src" / "app" / "layout.tsx").read_text(encoding="utf-8")
     worker = (ROOT / "frontend-next" / "public" / "sw.js").read_text(encoding="utf-8")
-    assert '"version": "2.6.91"' in package
-    assert 'APP_VERSION = "2.6.91"' in layout
-    assert 'cupnavi-next-v2691' in worker
+    assert '"version": "2.6.92"' in package
+    assert 'APP_VERSION = "2.6.92"' in layout
+    assert 'cupnavi-next-v2692' in worker
 
 
 def test_css_uses_widely_supported_flex_alignment_values():

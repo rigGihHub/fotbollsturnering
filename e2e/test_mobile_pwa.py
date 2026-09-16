@@ -1,98 +1,119 @@
 from __future__ import annotations
+
 from pathlib import Path
-import os, subprocess, sys, time, urllib.request, json, shutil
+import os
+import shutil
+import subprocess
+import time
+import urllib.request
+
 import pytest
 
-playwright = pytest.importorskip("playwright.sync_api")
-from playwright.sync_api import sync_playwright
+pytest.importorskip("playwright.sync_api")
+from playwright.sync_api import Route, sync_playwright
 
-ROOT=Path(__file__).resolve().parents[1]
-FIXTURE=Path(os.getenv("CUPNAVI_PARITY_FIXTURE","/tmp/cupnavi-mobile-e2e.db"))
-API_PORT=int(os.getenv("CUPNAVI_E2E_API_PORT","8871"))
-WEB_PORT=int(os.getenv("CUPNAVI_E2E_WEB_PORT","8872"))
-API_BASE=f"http://127.0.0.1:{API_PORT}"
-WEB_BASE=f"http://127.0.0.1:{WEB_PORT}"
 
-def wait_url(url, timeout=20):
-    deadline=time.time()+timeout
-    while time.time()<deadline:
+ROOT = Path(__file__).resolve().parents[1]
+FRONTEND = ROOT / "frontend-next"
+PORT = int(os.getenv("CUPNAVI_E2E_WEB_PORT", "8872"))
+BASE = f"http://127.0.0.1:{PORT}"
+
+
+def wait_url(url: str, timeout: int = 30) -> None:
+    deadline = time.time() + timeout
+    while time.time() < deadline:
         try:
-            with urllib.request.urlopen(url,timeout=2) as resp:
-                if resp.status==200:
+            with urllib.request.urlopen(url, timeout=2) as response:
+                if response.status == 200:
                     return
         except Exception:
-            time.sleep(.3)
+            time.sleep(0.3)
     raise RuntimeError(f"Timed out waiting for {url}")
 
+
 @pytest.fixture(scope="module")
-def servers():
-    env=os.environ.copy()
-    env["CUPNAVI_API_SQLITE_PATH"]=str(FIXTURE)
-    subprocess.run([sys.executable,"scripts/create_parity_fixture.py"],cwd=ROOT,env={**env,"CUPNAVI_PARITY_FIXTURE":str(FIXTURE)},check=True)
-
-    # Inject API base for static PWA test origin.
-    config=ROOT/"public_pwa/config.js"
-    original=config.read_text(encoding="utf-8")
-    config.write_text(f'window.CUPNAVI_API_BASE = "{API_BASE}";\n',encoding="utf-8")
-
-    api=subprocess.Popen(
-        [sys.executable,"-m","uvicorn","cupnavi_api.main:app","--host","127.0.0.1","--port",str(API_PORT)],
-        cwd=ROOT,env=env,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,
-    )
-    web=subprocess.Popen(
-        [sys.executable,"-m","http.server",str(WEB_PORT),"-d","public_pwa"],
-        cwd=ROOT,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,
+def next_server():
+    standalone = FRONTEND / ".next" / "standalone"
+    if not (standalone / "server.js").exists():
+        pytest.fail("Next production build missing; run npm run build in frontend-next first")
+    shutil.copytree(FRONTEND / "public", standalone / "public", dirs_exist_ok=True)
+    shutil.copytree(FRONTEND / ".next" / "static", standalone / ".next" / "static", dirs_exist_ok=True)
+    process = subprocess.Popen(
+        ["node", "server.js"],
+        cwd=standalone,
+        env={**os.environ, "PORT": str(PORT), "HOSTNAME": "127.0.0.1"},
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
     )
     try:
-        wait_url(f"{API_BASE}/health")
-        wait_url(f"{WEB_BASE}/index.html")
+        wait_url(f"{BASE}/reporter")
         yield
     finally:
-        for proc in (api,web):
-            proc.terminate()
-            try: proc.wait(timeout=4)
-            except subprocess.TimeoutExpired: proc.kill()
-        config.write_text(original,encoding="utf-8")
+        process.terminate()
+        try:
+            process.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            process.kill()
 
-def _run_device(browser, device, servers):
-    context=browser.new_context(**device)
-    page=context.new_page()
-    page.goto(f"{WEB_BASE}/?cup=parity-cup",wait_until="networkidle")
-    page.wait_for_selector("#teamSelect:not(.hidden)")
-    assert "Parity Cup" in page.locator("#cupName").inner_text()
 
-    # Core mobile navigation must all be reachable.
-    for page_name in ("matches","table","playoff","info"):
-        page.locator(f'nav button[data-page="{page_name}"]').click()
-        page.wait_for_timeout(200)
-        assert page.locator(f'nav button[data-page="{page_name}"]').get_attribute("class") is not None
+MATCH = {
+    "id": 10,
+    "stage": "Gruppspel",
+    "home_team": "Parity FC",
+    "away_team": "Test United",
+    "home_score": None,
+    "away_score": None,
+    "home_penalties": None,
+    "away_penalties": None,
+    "status": "scheduled",
+    "scheduled_start": "2026-09-16T12:00",
+}
 
-    # Follow a team and verify Min cup context.
-    page.locator("#teamSelect").select_option("1")
-    page.locator('nav button[data-page="matches"]').click()
-    page.wait_for_timeout(300)
-    assert "Mitt lag" in page.locator("#view").inner_text()
 
-    # Offline navigation is tested only after CupNavi confirms that the
-    # current cup payload has been copied into the service-worker cache.
-    page.wait_for_function(
-        "() => window.CUPNAVI_OFFLINE_READY && typeof window.CUPNAVI_OFFLINE_READY.then === 'function'",
-        timeout=10000,
-    )
-    offline_ready=page.evaluate("() => window.CUPNAVI_OFFLINE_READY")
-    assert offline_ready.get("ok") is True, offline_ready
+def mock_reporter_api(route: Route) -> None:
+    url = route.request.url
+    if url.endswith("/api/reporter/session"):
+        route.fulfill(json={"cup": {"id": 1, "name": "Parity Cup", "public_slug": "parity-cup"}})
+    elif url.endswith("/api/reporter/reporting/events"):
+        route.fulfill(json={"matches": []})
+    elif url.endswith("/api/reporter/reporting"):
+        route.fulfill(json={"matches": [MATCH]})
+    else:
+        route.fulfill(status=404, json={"detail": "not mocked"})
 
-    context.set_offline(True)
-    page.reload(wait_until="domcontentloaded")
-    page.wait_for_selector("#nav:not(.hidden)",timeout=10000)
-    assert page.locator("#nav").is_visible()
-    assert "Parity Cup" in page.locator("#cupName").inner_text()
-    context.close()
 
-def test_android_and_iphone_mobile_pwa(servers):
-    with sync_playwright() as p:
-        system_chromium=shutil.which("chromium") or shutil.which("chromium-browser") or shutil.which("google-chrome")
-        browser=p.chromium.launch(headless=True, executable_path=system_chromium) if system_chromium else p.chromium.launch(headless=True)
-        _run_device(browser,p.devices["Pixel 7"],servers)
-        _run_device(browser,p.devices["iPhone 14"],servers)
+def test_android_and_iphone_keep_reporter_result_offline(next_server):
+    with sync_playwright() as playwright:
+        browser = playwright.chromium.launch(headless=True)
+        for device_name in ("Pixel 7", "iPhone 14"):
+            context = browser.new_context(**playwright.devices[device_name], service_workers="allow")
+            context.add_init_script(
+                "localStorage.setItem('cupnavi_reporter_session_v1','e2e-token')"
+            )
+            page = context.new_page()
+            page.route("https://cupnavi-api.onrender.com/api/reporter/**", mock_reporter_api)
+            page.goto(f"{BASE}/reporter?cup=parity-cup", wait_until="networkidle")
+            page.get_by_text("Parity FC", exact=True).first.wait_for()
+            assert page.locator(".reporter-network").get_by_text("Online", exact=True).is_visible()
+
+            page.evaluate("() => navigator.serviceWorker.ready.then(() => true)")
+            page.reload(wait_until="networkidle")
+            page.get_by_text("Parity FC", exact=True).first.wait_for()
+
+            context.set_offline(True)
+            page.get_by_label("Mål för Parity FC").fill("2")
+            page.get_by_label("Mål för Test United").fill("1")
+            page.get_by_role("button", name="Spara resultat").click()
+            assert page.locator(".reporter-network").get_by_text("Offline", exact=True).is_visible()
+            assert page.get_by_text("Väntar på nät", exact=True).is_visible()
+            queued = page.evaluate(
+                "() => JSON.parse(localStorage.getItem('cupnavi_reporter_queue_v1') || '[]')"
+            )
+            assert queued[0]["payload"]["home_score"] == 2
+            assert queued[0]["payload"]["away_score"] == 1
+
+            page.reload(wait_until="domcontentloaded")
+            page.get_by_text("Parity FC", exact=True).first.wait_for(timeout=10_000)
+            assert page.get_by_text("Väntar på nät", exact=True).is_visible()
+            context.close()
         browser.close()

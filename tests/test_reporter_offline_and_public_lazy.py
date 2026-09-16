@@ -44,11 +44,21 @@ def test_public_first_paint_defers_nonessential_work_and_long_lists():
     assert "Visa fler" in public_view
 
 
-def test_release_2691_is_synchronized_and_ci_uses_maintained_gate():
-    assert '"version": "2.6.91"' in read("frontend-next/package.json")
-    assert '"version": "2.6.91"' in read("frontend-next/package-lock.json")
-    assert 'APP_VERSION = "2.6.91"' in read("frontend-next/src/app/layout.tsx")
-    assert 'cupnavi-next-v2691' in read("frontend-next/public/sw.js")
+def test_release_2692_is_synchronized_and_ci_uses_maintained_gate():
+    assert '"version": "2.6.92"' in read("frontend-next/package.json")
+    assert '"version": "2.6.92"' in read("frontend-next/package-lock.json")
+    assert 'APP_VERSION = "2.6.92"' in read("frontend-next/src/app/layout.tsx")
+    assert 'cupnavi-next-v2692' in read("frontend-next/public/sw.js")
     workflow = read(".github/workflows/v139-quality.yml")
     assert "python scripts/run_maintained_release_gate.py" in workflow
     assert "python scripts/run_current_release_gate.py" not in workflow
+
+
+def test_browser_workflows_target_next_not_legacy_streamlit_or_public_pwa():
+    mobile = read("e2e/test_mobile_pwa.py")
+    matrix = read(".github/workflows/cross-browser.yml")
+    assert 'standalone / "server.js"' in mobile
+    assert "cupnavi_reporter_queue_v1" in mobile
+    assert "public_pwa" not in mobile
+    assert "test_streamlit_browser_smoke.py" not in matrix
+    assert "npm run build --prefix frontend-next" in matrix

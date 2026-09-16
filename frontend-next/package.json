@@ -1,6 +1,6 @@
 {
   "name": "cupnavi-web",
-  "version": "2.6.91",
+  "version": "2.6.92",
   "private": true,
   "scripts": {
     "dev": "next dev",

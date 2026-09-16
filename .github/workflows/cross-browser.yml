@@ -13,13 +13,18 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - name: Install application dependencies
-        run: pip install -r requirements.txt
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend-next/package-lock.json
       - name: Install browser test dependencies
         run: |
           pip install pytest playwright
           python -m playwright install --with-deps chromium firefox webkit
-      - name: Run PWA browser matrix
+      - name: Build current Next.js application
+        run: |
+          npm ci --prefix frontend-next
+          npm run build --prefix frontend-next
+      - name: Run Next.js browser matrix
         run: pytest -q e2e/test_cross_browser_matrix.py
-      - name: Run Streamlit browser smoke matrix
-        run: pytest -q e2e/test_streamlit_browser_smoke.py
