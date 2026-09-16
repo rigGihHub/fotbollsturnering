@@ -15,7 +15,7 @@ jobs:
       - run: pip install -r requirements.txt -r requirements-dev.txt
       - run: python -m compileall -q .
       - name: Run maintained quality tests
-        run: python scripts/run_current_release_gate.py
+        run: python scripts/run_maintained_release_gate.py
       - run: python scripts/check_schema_contract.py
       - name: Create public parity fixture
         run: python scripts/create_parity_fixture.py
