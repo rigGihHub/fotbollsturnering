@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
+import QRCode from "qrcode";
 
 type Forecast = {
   date: string;
@@ -36,6 +37,7 @@ export function WeatherShareCard({
   const [forecast,setForecast] = useState<Forecast[]>([]);
   const [weatherState,setWeatherState] = useState<"idle"|"loading"|"ready"|"too-early"|"missing"|"error">("idle");
   const [pageUrl,setPageUrl] = useState("");
+  const [qrSrc,setQrSrc] = useState("");
 
   useEffect(()=>{ setPageUrl(window.location.href); },[]);
 
@@ -81,7 +83,14 @@ export function WeatherShareCard({
     return()=>{cancelled=true};
   },[address,startDate,endDate]);
 
-  const qrSrc = useMemo(()=> pageUrl ? `https://quickchart.io/qr?text=${encodeURIComponent(pageUrl)}&size=220&margin=1&ecLevel=M` : "",[pageUrl]);
+  useEffect(()=>{
+    let cancelled=false;
+    if(!pageUrl){setQrSrc("");return;}
+    QRCode.toDataURL(pageUrl,{width:220,margin:1,errorCorrectionLevel:"M"})
+      .then(value=>{if(!cancelled)setQrSrc(value)})
+      .catch(()=>{if(!cancelled)setQrSrc("")});
+    return()=>{cancelled=true};
+  },[pageUrl]);
 
   return <>
     <article className="feature-card">

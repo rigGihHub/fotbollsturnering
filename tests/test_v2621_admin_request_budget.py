@@ -8,9 +8,9 @@ def test_frontend_release_is_synchronized():
     package = (ROOT / "frontend-next" / "package.json").read_text(encoding="utf-8")
     layout = (ROOT / "frontend-next" / "src" / "app" / "layout.tsx").read_text(encoding="utf-8")
     worker = (ROOT / "frontend-next" / "public" / "sw.js").read_text(encoding="utf-8")
-    assert '"version": "2.6.80"' in package
-    assert 'APP_VERSION = "2.6.80"' in layout
-    assert 'cupnavi-next-v2680' in worker
+    assert '"version": "2.6.81"' in package
+    assert 'APP_VERSION = "2.6.81"' in layout
+    assert 'cupnavi-next-v2681' in worker
 
 
 def test_authenticated_workspace_reuses_authoritative_session():
@@ -30,6 +30,13 @@ def test_public_api_retries_only_transient_failures():
     assert 'unstable_cache((publicKey:string)=>getCup(publicKey)' in page
     assert 'unstable_cache((publicKey:string)=>getStandings(publicKey)' in page
     assert "{revalidate:30}" in page
+
+
+def test_public_qr_is_generated_locally():
+    card = (ROOT / "frontend-next" / "src" / "components" / "WeatherShareCard.tsx").read_text(encoding="utf-8")
+    assert 'from "qrcode"' in card
+    assert "QRCode.toDataURL" in card
+    assert "quickchart.io" not in card
 
 
 def test_heavy_admin_modules_only_mount_for_active_step():
