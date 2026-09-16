@@ -41,7 +41,7 @@ TEAM_PROJECTION = (
     "id,tournament_id,name,group_id,age_class,primary_color,secondary_color,"
     "home_pattern,home_color_2,away_pattern,away_color_2,logo_url,logo_source_url"
 )
-KIT_PATTERNS = {"Helfärgad", "Vertikala ränder", "Horisontella ränder", "Rutigt", "Delad"}
+KIT_PATTERNS = {"Helfärgad", "Vertikala ränder", "Horisontella ränder", "Rutigt", "Delad", "Diagonala ränder", "Grafiskt"}
 HIDDEN_LIFECYCLE_STATUSES = ("trashed", "purged")
 
 

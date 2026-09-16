@@ -41,7 +41,7 @@ type DeleteCupPayload = { deleted:boolean; recoverable:boolean; cup:Cup; cups:Cu
 type RestoreCupPayload = { restored:boolean; cup:Cup; cups:Cup[]; trash:TrashedCup[] };
 type ApiStatus = "checking" | "online" | "offline";
 const comparableCupName=(value:string)=>value.normalize("NFKD").replace(/[\u0300-\u036f]/g,"").replace(/[^a-zA-Z0-9]/g,"").toLocaleLowerCase("sv");
-type KitPattern = "Helfärgad"|"Vertikala ränder"|"Horisontella ränder"|"Rutigt"|"Delad";
+type KitPattern = "Helfärgad"|"Vertikala ränder"|"Horisontella ränder"|"Rutigt"|"Delad"|"Diagonala ränder"|"Grafiskt";
 type Team = { id:number; tournament_id:number; name:string; group_id?:number|null; age_class?:string|null; primary_color?:string|null; secondary_color?:string|null; home_pattern?:KitPattern|null; home_color_2?:string|null; away_pattern?:KitPattern|null; away_color_2?:string|null; logo_url?:string|null; logo_source_url?:string|null };
 type Group = { id:number; tournament_id:number; name:string; age_class?:string|null; team_count:number };
 type ScheduleOverview = {
@@ -53,7 +53,7 @@ type KitCandidate = {name:string;location:string;country:string;source_url:strin
 type KitSuggestion = {found:boolean;confidence:"low"|"medium"|"high";reason:string;club_match:string;identity_status:string;home_verified:boolean;away_verified:boolean;home_pattern:KitPattern;home_color_1:string;home_color_2:string;away_pattern:KitPattern;away_color_1:string;away_color_2:string;home_evidence:string;away_evidence:string;home_sources:string[];away_sources:string[];candidate_matches:KitCandidate[];logo_url:string;logo_source_url:string;logo_verified:boolean};
 const emptyTeam = {name:"",age_class:"",primary_color:"#111827",secondary_color:"#FFFFFF",home_pattern:"Helfärgad" as KitPattern,home_color_2:"#FFFFFF",away_pattern:"Helfärgad" as KitPattern,away_color_2:"#111827",logo_url:"",logo_source_url:""};
 const emptyGroup = {name:"",age_class:""};
-const kitPatterns:KitPattern[]=["Helfärgad","Vertikala ränder","Horisontella ränder","Rutigt","Delad"];
+const kitPatterns:KitPattern[]=["Helfärgad","Vertikala ränder","Horisontella ränder","Rutigt","Delad","Diagonala ränder","Grafiskt"];
 const standardKitColors=[
   {name:"Vit",value:"#FFFFFF"},{name:"Svart",value:"#111827"},{name:"Röd",value:"#D72638"},
   {name:"Mörkblå",value:"#12355B"},{name:"Blå",value:"#246BCE"},{name:"Ljusblå",value:"#68B7E8"},
@@ -66,6 +66,8 @@ function kitBackground(pattern:KitPattern,c1:string,c2:string){
   if(pattern==="Horisontella ränder")return `repeating-linear-gradient(0deg,${c1} 0 8px,${c2} 8px 16px)`;
   if(pattern==="Rutigt")return `conic-gradient(${c1} 25%,${c2} 0 50%,${c1} 0 75%,${c2} 0) 0 0/16px 16px`;
   if(pattern==="Delad")return `linear-gradient(90deg,${c1} 0 50%,${c2} 50%)`;
+  if(pattern==="Diagonala ränder")return `repeating-linear-gradient(135deg,${c1} 0 8px,${c2} 8px 16px)`;
+  if(pattern==="Grafiskt")return `linear-gradient(135deg,${c1} 0 42%,${c2} 42% 58%,${c1} 58%)`;
   return c1;
 }
 function StandardKitColor({value,onChange,label}:{value:string;onChange:(value:string)=>void;label:string}){

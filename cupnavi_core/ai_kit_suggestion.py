@@ -4,7 +4,7 @@ import time
 from threading import Lock
 from urllib.request import Request, urlopen
 
-ALLOWED_PATTERNS = ["Helfärgad", "Vertikala ränder", "Horisontella ränder", "Rutigt", "Delad"]
+ALLOWED_PATTERNS = ["Helfärgad", "Vertikala ränder", "Horisontella ränder", "Rutigt", "Delad", "Diagonala ränder", "Grafiskt"]
 ALLOWED_CONFIDENCE = ["low", "medium", "high"]
 ALLOWED_IDENTITY_STATUS = ["exact", "likely", "ambiguous", "unknown"]
 MAX_SOURCES = 6
@@ -214,7 +214,8 @@ def _search_strategies(clean_name, *, location="", country_code="", age_class=""
         f"(1) exakt lag '{clean_name}', (2) sannolikt klubbnamn '{club_name}', "
         f"(3) officiell webbplats eller förbundsprofil och (4) {focus}. "
         f"Kontext: {context}. Cupens spelort är bara var turneringen hålls och får ALDRIG användas som belägg för klubbens hemort. "
-        "Jämför klubbnamn, ort, webbdomän och emblem innan identiteten godkänns. Prioritera officiella källor och aktuell säsong. "
+        "Jämför klubbnamn, ort, webbdomän och emblem innan identiteten godkänns. Prioritera officiella källor och senaste relevanta säsongen. "
+        "Källan måste visa själva tröjan eller uttryckligen beskriva stället; klubbens färger utan tröjbild är inte bevis. "
         "För hemma- respektive bortaställ ska separata källor anges; en allmän klubbsida räcker inte som tröjbevis."
     )
     fallback = (
@@ -293,10 +294,10 @@ def _request_suggestion(clean_name, api_key, *, model, timeout_seconds, strategy
         "Om arrangören har valt en klubbidentitet i kontexten ska den identiteten användas och inte ifrågasättas annat än vid uppenbar källkonflikt. "
         "VIKTIGT FÖR KORREKTHET: home_verified får bara vara true om minst en URL i home_sources faktiskt stöder hemmaställets färg/mönster. "
         "away_verified får bara vara true om minst en URL i away_sources faktiskt stöder bortastället. Samma källa får användas för båda bara om den tydligt visar båda. "
-        "Skriv i home_evidence/away_evidence vad källan visar. Prioritera officiell klubb/webbshop, sedan förbund/cup/lagplattform, därefter färska matchbilder. Offentliga inlägg från klubbens officiella Instagram eller Facebook får användas som kompletterande bildbevis, men aldrig ett ensamt gammalt eller odaterat inlägg. "
+        "Skriv i home_evidence/away_evidence vad källan visar. Prioritera officiell klubb/webbshop, sedan förbund/cup/lagplattform, därefter färska matchbilder. Kontrollera att källan faktiskt visar tröjan eller uttryckligen beskriver stället; klubbens färger, arena, flagga eller en logotypbild räknas inte som tröjbevis. Läs bildtext, alt-text och sidans säsong/uppdateringsdatum och välj den senaste relevanta säsongen. Offentliga inlägg från klubbens officiella Instagram eller Facebook får användas som kompletterande bildbevis, men aldrig ett ensamt gammalt eller odaterat inlägg. "
         "Om flera trovärdiga källor motsäger varandra, välj den nyaste relevanta säsongen och sänk confidence. "
         "Det är bättre att returnera bara ett belagt hemmaställ än att fylla i ett osäkert bortaställ. "
-        "För verifierade ställ: ange praktiska HEX-färger (#RRGGBB) och närmast passande tillåtet mönster. "
+        "För verifierade ställ: ange praktiska HEX-färger (#RRGGBB) utifrån själva tröjan, inte färgnamn från klubbens profil. Beskriv huvudfärg först och den tydliga kontrastfärgen därefter. Välj närmast passande mönster bland Helfärgad, Vertikala ränder, Horisontella ränder, Rutigt, Delad, Diagonala ränder eller Grafiskt; välj Grafiskt när designen är chevron, camo, gradient eller annan tydlig grafik och gissa inte ränder. "
         "Hitta även klubbens officiella logotyp. logo_url måste vara en direkt HTTPS-bildadress och logo_source_url sidan som belägger att märket tillhör rätt klubb. Sätt logo_verified=true endast när klubbidentiteten och bilden är tydliga. "
         "Om sökfokus är logo ska logotypen prioriteras och osökta matchställ lämnas overifierade. Om sökfokus är kit ska matchställen prioriteras; logotyp får bara följa med när den hittas på samma verifierade klubbkälla. "
         "sources ska vara unionen av de viktigaste källorna. Inget sparas automatiskt; arrangören granskar förslaget."
@@ -346,6 +347,19 @@ def _identity_key(result):
     return " ".join(str(result.get("club_match") or "").casefold().split())
 
 
+def _identities_compatible(first_key, second_key):
+    """Allow naming suffixes, but never merge two same-named clubs from different places."""
+    if not first_key or not second_key:
+        return False
+    if first_key == second_key:
+        return True
+    generic = {"if", "ff", "fk", "ik", "fotboll", "football", "club", "förening", "forening"}
+    first_tokens, second_tokens = set(first_key.split()), set(second_key.split())
+    shared = first_tokens & second_tokens
+    extra = (first_tokens | second_tokens) - shared
+    return len(shared) >= 2 and extra <= generic
+
+
 def _merge_compatible_results(first, second):
     """Keep complementary evidence only when both passes identify the same club.
 
@@ -357,7 +371,7 @@ def _merge_compatible_results(first, second):
     if not second:
         return dict(first)
     first_key, second_key = _identity_key(first), _identity_key(second)
-    compatible = bool(first_key and second_key and (first_key == second_key or first_key in second_key or second_key in first_key))
+    compatible = _identities_compatible(first_key, second_key)
     if not compatible:
         return dict(max((first, second), key=_result_score))
 
