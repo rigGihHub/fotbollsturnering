@@ -286,11 +286,11 @@ export default function CupCreateLauncherV6() {
     setOpen(false);
     reset();
   }
-  function goToCup(cup: CreatedCup) {
+  function goToCup(cup: CreatedCup, step = "overview") {
     localStorage.setItem(CUP_KEY, String(cup.id));
     const url = new URL(window.location.href);
     url.searchParams.set("cup", String(cup.id));
-    url.hash = "overview";
+    url.hash = step;
     window.location.assign(`${url.pathname}${url.search}${url.hash}`);
   }
   function updateMatch(index: number, key: keyof ImportedMatch, value: string) {
@@ -539,8 +539,9 @@ export default function CupCreateLauncherV6() {
         groups:groups.length,
         matches:importSchedule?matches.length:0,
         venues:(proposal.venues||[]).length,
+        playoffs:(proposal.playoff_matches||[]).length,
       }));
-      goToCup(cup);
+      goToCup(cup,(proposal.playoff_matches||[]).length?"playoffs":"overview");
     } catch (err) {
       const detail = friendlyImportError(err);
       if (cup) {

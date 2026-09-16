@@ -69,14 +69,15 @@ export default function ImportCompletionSummary() {
     return ()=>window.clearInterval(timer);
   },[refresh]);
 
-  if (!cupId || !summary?.available || !summary.complete || !summary.expected || !summary.actual) return null;
+  if (!cupId || !summary?.available || !summary.expected || !summary.actual) return null;
   const expected=summary.expected, actual=summary.actual;
+  const playoffPending=summary.pending?.includes("playoff_matches")&&expected.playoff_matches>actual.playoff_matches;
 
-  return <section className="admin-panel" style={{maxWidth:1120,margin:"12px auto",borderWidth:2}} aria-label="Import klar">
-    <div className="admin-panel__top"><span>IMPORT · KLAR</span><strong>✓ GRANSKNINGSKEDJAN ÄR FÄRDIG</strong></div>
+  return <section className="admin-panel" style={{maxWidth:1120,margin:"12px auto",borderWidth:2}} aria-label={summary.complete?"Import klar":"Import behöver slutföras"}>
+    <div className="admin-panel__top"><span>IMPORT · {summary.complete?"KLAR":"ÅTGÄRD KRÄVS"}</span><strong>{summary.complete?"✓ GRANSKNINGSKEDJAN ÄR FÄRDIG":"! DELAR VÄNTAR PÅ GRANSKNING"}</strong></div>
     <div>
-      <h2 style={{marginBottom:5}}>Import klar</h2>
-      <p style={{marginTop:0,maxWidth:760}}>CupNavi har gått igenom de delar av foto/PDF-underlaget som kräver särskild granskning. Siffrorna nedan skiljer på vad som hittades och vad som faktiskt finns sparat i cupen.</p>
+      <h2 style={{marginBottom:5}}>{summary.complete?"Import klar":"Importen är inte färdig"}</h2>
+      <p style={{marginTop:0,maxWidth:760}}>{summary.complete?"CupNavi har gått igenom de delar av foto/PDF-underlaget som kräver särskild granskning.":"Underlaget är sparat, men allt som hittades har ännu inte granskats och lagts in i cupen."} Siffrorna nedan skiljer på vad som hittades och vad som faktiskt finns sparat i cupen.</p>
       {summary.source_name && <p style={{fontSize:13}}><strong>Underlag:</strong> {summary.source_name}</p>}
       <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(125px,1fr))",gap:8,marginTop:12}}>
         <Stat label="lag" found={expected.teams} saved={actual.teams}/>
@@ -86,8 +87,9 @@ export default function ImportCompletionSummary() {
         <Stat label="plantider" found={expected.pitch_windows} saved={actual.pitch_windows}/>
         <Stat label="slutspelsmatcher" found={expected.playoff_matches} saved={actual.playoff_matches}/>
       </div>
+      {playoffPending&&<p style={{marginTop:14}}><a href="#playoffs" style={{display:"inline-flex",minHeight:44,alignItems:"center",padding:"0 14px",borderRadius:9,background:"#101f2a",color:"#fff",fontWeight:900,textDecoration:"none"}}>Granska och spara slutspelet →</a></p>}
       {!!summary.warnings?.length && <details style={{marginTop:12}}><summary><strong>Varningar från avläsningen ({summary.warnings.length})</strong></summary><ul>{summary.warnings.map((warning,index)=><li key={index}>{warning}</li>)}</ul></details>}
-      <p style={{fontSize:13,marginBottom:0,marginTop:12}}>Importen publicerar aldrig cupen automatiskt. Kontrollera cupöversikten och publicera först när allt ser rätt ut.</p>
+      <p style={{fontSize:13,marginBottom:0,marginTop:12}}>{summary.complete?"Importen publicerar aldrig cupen automatiskt. Kontrollera cupöversikten och publicera först när allt ser rätt ut.":"Cupen kan inte betraktas som färdigimporterad förrän väntande delar har granskats."}</p>
     </div>
   </section>;
 }
