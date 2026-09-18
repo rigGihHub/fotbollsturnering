@@ -116,6 +116,19 @@ def normalize_kit_suggestion(payload):
 
     home_verified = bool(payload.get("home_verified")) and bool(home_sources)
     away_verified = bool(payload.get("away_verified")) and bool(away_sources)
+
+    def strong_kit_evidence(evidence, sources):
+        text = str(evidence or "").casefold()
+        # Official/product evidence may stand alone. Otherwise require the model
+        # to report multiple concordant current visual sources.
+        official = any(word in text for word in ("officiell", "official", "webbshop", "produkt", "manufacturer", "materialpartner"))
+        consensus = any(token in text for token in ("2 ", "två ", "3 ", "tre ", "flera ", "samstämm"))
+        return bool(sources) and (official or (len(set(sources)) >= 2 and consensus))
+
+    if home_verified and not strong_kit_evidence(payload.get("home_evidence"), home_sources):
+        home_verified = False
+    if away_verified and not strong_kit_evidence(payload.get("away_evidence"), away_sources):
+        away_verified = False
     sources = _urls(home_sources + away_sources + legacy_sources)
     found = bool(payload.get("found")) and (home_verified or away_verified)
 
