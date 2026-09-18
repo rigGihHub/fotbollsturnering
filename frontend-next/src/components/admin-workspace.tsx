@@ -25,7 +25,7 @@ const toolNav = [["Användare", "#access"], ["Domare", "#referees"], ["Matchrapp
 const nav=[...setupNav,...toolNav];
 
 type Account = { id:number; email:string; display_name?:string|null; role?:string|null; is_owner?:boolean };
-type Cup = { id:number; name:string; public_slug?:string|null; start_date?:string|null; end_date?:string|null; is_published?:number|boolean; role:string };
+type Cup = { id:number; name:string; public_slug?:string|null; start_date?:string|null; end_date?:string|null; created_at?:string|null; is_published?:number|boolean; role:string };
 type TrashedCup = Cup & { trashed_at?:string|null };
 type CupInfo = {
   id:number; public_slug?:string|null; is_published?:number|boolean;
@@ -41,6 +41,7 @@ type DeleteCupPayload = { deleted:boolean; recoverable:boolean; cup:Cup; cups:Cu
 type RestoreCupPayload = { restored:boolean; cup:Cup; cups:Cup[]; trash:TrashedCup[] };
 type ApiStatus = "checking" | "online" | "offline";
 const comparableCupName=(value:string)=>value.normalize("NFKD").replace(/[\u0300-\u036f]/g,"").replace(/[^a-zA-Z0-9]/g,"").toLocaleLowerCase("sv");
+const createdLabel=(value?:string|null)=>{if(!value)return "skapad tid saknas";const normalized=/[zZ]|[+-]\d\d:?\d\d$/.test(value)?value:`${value.replace(" ","T")}Z`;const date=new Date(normalized);return Number.isNaN(date.getTime())?"skapad tid saknas":`skapad ${new Intl.DateTimeFormat("sv-SE",{dateStyle:"medium",timeStyle:"short"}).format(date)}`;};
 type KitPattern = "Helfärgad"|"Vertikala ränder"|"Horisontella ränder"|"Rutigt"|"Delad"|"Diagonala ränder"|"Grafiskt";
 type Team = { id:number; tournament_id:number; name:string; group_id?:number|null; age_class?:string|null; primary_color?:string|null; secondary_color?:string|null; home_pattern?:KitPattern|null; home_color_2?:string|null; away_pattern?:KitPattern|null; away_color_2?:string|null; logo_url?:string|null; logo_source_url?:string|null };
 type Group = { id:number; tournament_id:number; name:string; age_class?:string|null; team_count:number };
@@ -618,8 +619,8 @@ export default function AdminWorkspace({verifiedSession=null,children=null}:{ver
   return <main className="admin-workspace">
     <aside className="admin-sidebar">
       <section className="admin-active-cup-card" aria-label="Aktiv cup">
-        <div className="admin-sidebar__cup"><span>AKTIV CUP</span><strong>{activeCup?.name || "Ingen cup"}</strong><small>{activeCup?`${activeCup.is_published?"Publicerad":"Utkast"} · ${activeCup.start_date || "datum saknas"}`:"Datum saknas"}</small></div>
-        {cups.length > 1 && <label className="admin-cup-switcher"><span>Byt cup</span><select value={cupId || ""} onChange={e=>changeCup(Number(e.target.value))}>{cups.map(cup=><option key={cup.id} value={cup.id}>{cup.name} — {cup.is_published?"PUBLICERAD":"UTKAST"}</option>)}</select></label>}
+        <div className="admin-sidebar__cup"><span>AKTIV CUP</span><strong>{activeCup?.name || "Ingen cup"}</strong><small>{activeCup?`${activeCup.is_published?"Publicerad":"Utkast"} · ${createdLabel(activeCup.created_at)}`:"Datum saknas"}</small></div>
+        {cups.length > 1 && <label className="admin-cup-switcher"><span>Byt cup</span><select value={cupId || ""} onChange={e=>changeCup(Number(e.target.value))}>{cups.map(cup=><option key={cup.id} value={cup.id}>{cup.name} — {createdLabel(cup.created_at)} — {cup.is_published?"PUBLICERAD":"UTKAST"}</option>)}</select></label>}
         {(canManageCup||trashedCups.length>0) && <div className="admin-owner-actions">
           <button className={`admin-trash-button${trashOpen?" is-open":""}`} type="button" onClick={()=>setTrashOpen(value=>!value)}>Papperskorg <span>{trashedCups.length}</span></button>
           {activeCup&&canManageCup && <button className="admin-remove-cup" type="button" disabled={deletingCup} onClick={()=>void removeCup()}>{deletingCup?"Tar bort…":"Ta bort cup"}</button>}
