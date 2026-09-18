@@ -194,6 +194,15 @@ def _find_cup(value: str):
         return None
 
 
+def _reporter_match_in_cup(tournament_id: int, match_id: int) -> bool:
+    return bool(one("SELECT 1 AS ok FROM matches WHERE id=? AND tournament_id=?", (int(match_id), int(tournament_id))))
+
+
+def _require_reporter_match(tournament_id: int, match_id: int):
+    if not _reporter_match_in_cup(tournament_id, match_id):
+        raise HTTPException(404, "Match saknas eller tillhör en annan cup")
+
+
 def register_role_access_routes(app, admin_identity):
     @app.get("/api/admin/cups/{tournament_id}/role-codes/reporter")
     def get_reporter_code_status(tournament_id: int, authorization: str | None = Header(default=None)):
@@ -244,6 +253,7 @@ def register_role_access_routes(app, admin_identity):
     @app.put("/api/reporter/reporting/matches/{match_id}")
     def reporter_put_result(match_id: int, payload: ReporterResultWrite, authorization: str | None = Header(default=None)):
         identity = _reporter_identity(authorization)
+        _require_reporter_match(int(identity["tid"]), match_id)
         try:
             return save_result(
                 OWNER_ACCOUNT_ID, int(identity["tid"]), match_id,
@@ -261,6 +271,7 @@ def register_role_access_routes(app, admin_identity):
     @app.put("/api/reporter/reporting/matches/{match_id}/status")
     def reporter_put_status(match_id: int, payload: ReporterStatusWrite, authorization: str | None = Header(default=None)):
         identity = _reporter_identity(authorization)
+        _require_reporter_match(int(identity["tid"]), match_id)
         try:
             result = set_reporter_match_status(
                 OWNER_ACCOUNT_ID,
@@ -285,11 +296,13 @@ def register_role_access_routes(app, admin_identity):
     @app.get("/api/reporter/reporting/matches/{match_id}/events")
     def reporter_match_events(match_id: int, authorization: str | None = Header(default=None)):
         identity = _reporter_identity(authorization)
+        _require_reporter_match(int(identity["tid"]), match_id)
         return admin_match_events(OWNER_ACCOUNT_ID, int(identity["tid"]), match_id)
 
     @app.put("/api/reporter/reporting/matches/{match_id}/events/{player_id}")
     def reporter_put_event(match_id: int, player_id: int, payload: ReporterEventWrite, authorization: str | None = Header(default=None)):
         identity = _reporter_identity(authorization)
+        _require_reporter_match(int(identity["tid"]), match_id)
         try:
             return update_player_match_events(OWNER_ACCOUNT_ID, int(identity["tid"]), match_id, player_id, _model_values(payload))
         except ValueError as exc:
