@@ -61,7 +61,8 @@ const standardKitColors=[
   {name:"Grön",value:"#238636"},{name:"Gul",value:"#F4C430"},{name:"Orange",value:"#F28C28"},
   {name:"Lila",value:"#713E8A"},{name:"Rosa",value:"#E56B9F"},{name:"Grå",value:"#7A8588"},
 ];
-function directImageUrl(value:string){try{const u=new URL(value);return /\.(?:png|jpe?g|webp|gif)(?:$|\?)/i.test(u.pathname+u.search)?u.toString():"";}catch{return "";}}\nfunction normalizedWebUrl(value:string){const text=value.trim();return text&&/^www\./i.test(text)?`https://${text}`:text;}
+function directImageUrl(value:string){try{const u=new URL(value);return /\.(?:png|jpe?g|webp|gif)(?:$|\?)/i.test(u.pathname+u.search)?u.toString():"";}catch{return "";}}
+function normalizedWebUrl(value:string){const text=value.trim();return text&&/^www\./i.test(text)?`https://${text}`:text;}
 function kitBackground(pattern:KitPattern,c1:string,c2:string){
   if(pattern==="Vertikala ränder")return `repeating-linear-gradient(90deg,${c1} 0 8px,${c2} 8px 16px)`;
   if(pattern==="Horisontella ränder")return `repeating-linear-gradient(0deg,${c1} 0 8px,${c2} 8px 16px)`;
