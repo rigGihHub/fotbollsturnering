@@ -101,8 +101,8 @@ def test_android_and_iphone_keep_reporter_result_offline(next_server):
             page.get_by_text("Parity FC", exact=True).first.wait_for()
 
             context.set_offline(True)
-            page.get_by_label("Mål för Parity FC").fill("2")
-            page.get_by_label("Mål för Test United").fill("1")
+            page.get_by_role("spinbutton", name="Mål för Parity FC", exact=True).fill("2")
+            page.get_by_role("spinbutton", name="Mål för Test United", exact=True).fill("1")
             page.get_by_role("button", name="Spara resultat").click()
             assert page.locator(".reporter-network").get_by_text("Offline", exact=True).is_visible()
             assert page.get_by_text("Väntar på nät", exact=True).is_visible()
