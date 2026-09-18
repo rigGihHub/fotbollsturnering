@@ -180,6 +180,7 @@ export default function AdminWorkspace({verifiedSession=null,children=null}:{ver
   const [bulkKitBusy,setBulkKitBusy] = useState(false);
   const [bulkKitProgress,setBulkKitProgress] = useState("");
   const [bulkKitResult,setBulkKitResult] = useState("");
+  const [bulkKitIssues,setBulkKitIssues] = useState<Array<{teamId:number;teamName:string;reason:string}>>([]);
 
   const activeCup = useMemo(() => cups.find(cup => cup.id === cupId) || null,[cups,cupId]);
   const publishedTwin = useMemo(() => {
@@ -460,23 +461,23 @@ export default function AdminWorkspace({verifiedSession=null,children=null}:{ver
 
   async function searchAllTeamAssets(){
     if(!token||!cupId||!teams.length||bulkKitBusy)return;
-    setBulkKitBusy(true);setBulkKitResult("");setError("");setMessage("");let completed=0,saved=0,failed=0,uncertain=0;const updated:Team[]=[];
+    setBulkKitBusy(true);setBulkKitResult("");setBulkKitIssues([]);setError("");setMessage("");let completed=0,saved=0,failed=0,uncertain=0;const updated:Team[]=[];const issues:Array<{teamId:number;teamName:string;reason:string}>=[];
     for(let start=0;start<teams.length;start+=3){
       const batch=teams.slice(start,start+3);
       await Promise.all(batch.map(async team=>{try{
         const suggestion=await request<KitSuggestion>(`/api/admin/cups/${cupId}/teams/kit-search`,{method:"POST",body:JSON.stringify({team_name:team.name,age_class:team.age_class||null,search_focus:"all"})},token);
-        if(suggestion.identity_status!=="exact"||(!suggestion.home_verified&&!suggestion.away_verified&&!suggestion.logo_verified)){uncertain++;return;}
+        if(suggestion.identity_status!=="exact"||(!suggestion.home_verified&&!suggestion.away_verified&&!suggestion.logo_verified)){uncertain++;issues.push({teamId:team.id,teamName:team.name,reason:suggestion.identity_status!=="exact"?"Klubbidentiteten behöver förtydligas.":"Ingen säker tröja eller logotyp hittades."});return;}
         const payload={...team,
           ...(suggestion.home_verified?{primary_color:suggestion.home_color_1,home_color_2:suggestion.home_color_2,home_pattern:suggestion.home_pattern}:{}),
           ...(suggestion.away_verified?{secondary_color:suggestion.away_color_1,away_color_2:suggestion.away_color_2,away_pattern:suggestion.away_pattern}:{}),
           ...(suggestion.logo_verified?{logo_url:suggestion.logo_url,logo_source_url:suggestion.logo_source_url}:{}),
         };
         const result=await request<Team>(`/api/admin/cups/${cupId}/teams/${team.id}`,{method:"PUT",body:JSON.stringify(payload)},token);updated.push(result);saved++;
-      }catch{failed++;}finally{completed++;setBulkKitProgress(`${completed} av ${teams.length} lag kontrollerade`);}}));
+      }catch{failed++;issues.push({teamId:team.id,teamName:team.name,reason:"Sökningen misslyckades. Försök igen individuellt."});}finally{completed++;setBulkKitProgress(`${completed} av ${teams.length} lag kontrollerade`);}}));
     }
     setTeams(current=>current.map(team=>updated.find(item=>item.id===team.id)||team));
     const resultText=`${saved} uppdaterade · ${uncertain} behöver förtydligas · ${failed} misslyckade`;
-    setBulkKitResult(resultText);setBulkKitProgress("");setMessage(resultText);
+    setBulkKitResult(resultText);setBulkKitIssues(issues.sort((a,b)=>a.teamName.localeCompare(b.teamName,"sv")));setBulkKitProgress("");setMessage(resultText);
     setBulkKitBusy(false);
   }
 
@@ -684,7 +685,7 @@ export default function AdminWorkspace({verifiedSession=null,children=null}:{ver
       {activeStep==="teams" && <section className="admin-panel admin-teams" id="teams">
         <div className="admin-panel__top"><span>02 / LAG</span><strong>{teams.length} REGISTRERADE</strong></div>
         <div className="admin-cupinfo__head"><div><h2>Lag</h2><p>Skapa och redigera lag.</p></div><span className="admin-lock">REDIGERING</span></div>
-        {teams.length>0&&<div className="admin-bulk-assets"><div><strong>Tröjor och klubbmärken</strong><span aria-live="polite">{bulkKitProgress||bulkKitResult||"Sök igenom alla lag och spara bara entydigt verifierade träffar."}</span>{bulkKitResult&&<small>Lag som behöver förtydligas söks individuellt med ort eller klubbwebbplats.</small>}</div><button type="button" disabled={bulkKitBusy} onClick={()=>void searchAllTeamAssets()}>{bulkKitBusy?"Söker…":"Sök för alla lag"}</button></div>}
+        {teams.length>0&&<div className="admin-bulk-assets"><div><strong>Tröjor och klubbmärken</strong><span aria-live="polite">{bulkKitProgress||bulkKitResult||"Sök igenom alla lag och spara bara entydigt verifierade träffar."}</span>{bulkKitResult&&<small>Lag som behöver förtydligas söks individuellt med ort eller klubbwebbplats.</small>}</div><button type="button" disabled={bulkKitBusy} onClick={()=>void searchAllTeamAssets()}>{bulkKitBusy?"Söker…":"Sök för alla lag"}</button></div>}{bulkKitIssues.length>0&&<section className="admin-kit-issues"><div><strong>Lag att lösa</strong><span>{bulkKitIssues.length} lag behöver din hjälp</span></div>{bulkKitIssues.map(issue=><article key={issue.teamId}><span><b>{issue.teamName}</b><small>{issue.reason}</small></span><button type="button" onClick={()=>{const team=teams.find(item=>item.id===issue.teamId);if(team){beginTeamEdit(team);setKitHint("");document.getElementById("teams")?.scrollIntoView({behavior:"smooth",block:"start"});}}}>Förtydliga →</button></article>)}</section>}
         {(!teams.length || teamFormOpen) && <form ref={teamFormRef} onSubmit={saveTeam} className="admin-team-editor">
           <div className="admin-form-grid">
             <label>Lagnamn<input value={teamDraft.name} onChange={e=>setTeamDraft({...teamDraft,name:e.target.value})} required placeholder="Exempel: ÖSK P2014 Svart" /></label>
