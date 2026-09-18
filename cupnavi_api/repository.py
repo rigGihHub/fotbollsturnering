@@ -299,6 +299,7 @@ def public_snapshot(public_key, *, include_unpublished=False):
                        FROM matches WHERE tournament_id=?{match_publish_filter} AND scheduled_start IS NOT NULL
                        ORDER BY scheduled_start,pitch_number,id""", (tid,))
         venue_points=many("SELECT id,kind,label,detail,url FROM venue_points WHERE tournament_id=? ORDER BY label,id", (tid,))
+        pitches=many("SELECT pitch_number,name FROM pitches WHERE tournament_id=? ORDER BY pitch_number", (tid,))
         brackets=many("SELECT id,name,size,bronze_match FROM brackets WHERE tournament_id=? ORDER BY id", (tid,))
         if brackets:
             bracket_matches=many(f"""SELECT id,bracket_id,stage,round_no,match_no,home_source,away_source,scheduled_start,pitch_number,
@@ -318,4 +319,5 @@ def public_snapshot(public_key, *, include_unpublished=False):
             "matches":matches,
             "brackets":brackets,
             "venue_points":venue_points,
+            "pitches":pitches,
         }
