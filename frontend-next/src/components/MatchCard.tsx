@@ -1,4 +1,5 @@
-import { Group, Match, Team } from "@/lib/types";
+import { Group, Match, Pitch, Team } from "@/lib/types";
+import { pitchLabel } from "@/lib/pitch-label";
 import { matchStatus, participantLabel, timeLabel } from "@/lib/format";
 import { TeamKit } from "./TeamKit";
 
@@ -17,7 +18,7 @@ function TeamIdentity({team,label,side}:{team?:Team;label:string;side:"home"|"aw
   </div>;
 }
 
-export function MatchCard({ match, teams, groups = [], index }: { match: Match; teams: Team[]; groups?:Group[]; index: number }) {
+export function MatchCard({ match, teams, groups = [], pitches = [], index }: { match: Match; teams: Team[]; groups?:Group[]; pitches?:Pitch[]; index: number }) {
   const homeId = match.home_participant?.resolved ? match.home_participant.team_id ?? null : match.home_source?.startsWith("team:") ? Number(match.home_source.split(":")[1]) : null;
   const awayId = match.away_participant?.resolved ? match.away_participant.team_id ?? null : match.away_source?.startsWith("team:") ? Number(match.away_source.split(":")[1]) : null;
   const home = teams.find((team) => team.id === homeId);
@@ -26,6 +27,7 @@ export function MatchCard({ match, teams, groups = [], index }: { match: Match; 
   const score = match.home_score == null || match.away_score == null ? "VS" : `${match.home_score}–${match.away_score}`;
   const homeLabel=participantLabel(match.home_source,match.home_participant,teams,groups);
   const awayLabel=participantLabel(match.away_source,match.away_participant,teams,groups);
+  const pitchNames=Object.fromEntries(pitches.map(pitch=>[String(pitch.pitch_number),pitch.name]));
   return (
     <article className={`match-card match-card--${status}`}>
       <div className="match-card__topline">
@@ -37,7 +39,7 @@ export function MatchCard({ match, teams, groups = [], index }: { match: Match; 
         <div className="score-window"><small>{match.stage || "MATCH"}</small><strong>{score}</strong></div>
         <TeamIdentity team={away} label={awayLabel} side="away"/>
       </div>
-      <div className="match-card__footer"><span>PLAN {match.pitch_number || "–"}</span><span>CUPNAVI//LIVE</span></div>
+      <div className="match-card__footer"><span>{pitchLabel(match.pitch_number==null?null:Number(match.pitch_number),pitchNames)}</span><span>CUPNAVI//LIVE</span></div>
     </article>
   );
 }

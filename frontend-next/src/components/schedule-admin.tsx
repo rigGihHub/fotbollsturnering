@@ -2,13 +2,14 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { CLIENT_API_BASE } from "../lib/client-api";
+import { pitchLabel } from "../lib/pitch-label";
 
 const API_BASE=CLIENT_API_BASE;
 
 type MatchRow={
   id:number; group_id?:number|null; group_name?:string|null; stage:string; match_no?:number|null; round_no?:number|null;
   home_source?:string|null; away_source?:string|null; home_label:string; away_label:string;
-  scheduled_start?:string|null; pitch_number?:number|null; schedule_locked:boolean; schedule_published:boolean; played:boolean;
+  scheduled_start?:string|null; pitch_number?:number|null; pitch_name?:string|null; schedule_locked:boolean; schedule_published:boolean; played:boolean;
 };
 type ConflictMatch={match_id:number;match_no?:number|null;home_label?:string|null;away_label?:string|null;scheduled_start?:string|null;pitch_number?:number|null};
 type ScheduleConflict={
@@ -21,7 +22,7 @@ type ConflictAnalysis={
   pitch_break_minutes:number;minimum_team_rest_minutes:number;conflicts:ScheduleConflict[];
 };
 type SchedulePayload={
-  matches:MatchRow[]; match_count:number; scheduled_count:number; unscheduled_count:number; pitch_count:number;
+  matches:MatchRow[]; match_count:number; scheduled_count:number; unscheduled_count:number; pitch_count:number; pitch_names:Record<string,string>;
   first_match_time:string; latest_kickoff_time:string; start_date?:string|null; end_date?:string|null;
   schedule_dirty:boolean; is_published:boolean; arrangement_type?:string; conflict_analysis:ConflictAnalysis;
 };
@@ -133,7 +134,7 @@ export default function ScheduleAdmin({token,cupId}:{token:string;cupId:number})
     <div className="admin-team-list">
       {visible.length?visible.map(match=><article className={match.played||match.schedule_locked?"schedule-match-row is-readonly":"schedule-match-row"} key={match.id}>
         <div className="schedule-match-identity"><strong>{match.home_label}<span aria-hidden="true">–</span>{match.away_label}</strong><div className="schedule-match-meta"><span>{match.stage}</span>{match.group_name&&<span>{match.group_name}</span>}{match.match_no&&<span>Match {match.match_no}</span>}</div></div>
-        {match.played||match.schedule_locked?<div className="schedule-match-facts"><span><small>AVSPARK</small><strong>{readableKickoff(match.scheduled_start)}</strong></span><span><small>PLAN</small><strong>{match.pitch_number?`Plan ${match.pitch_number}`:"Saknas"}</strong></span><b>{match.played?"SPELAD":"LÅST"}</b></div>:<><label style={{minWidth:190}}>Tid<input type="datetime-local" disabled={busy} value={localInput(match.scheduled_start)} onChange={e=>patchMatch(match.id,{scheduled_start:e.target.value||null})}/></label><label style={{minWidth:110}}>Plan<select disabled={busy} value={match.pitch_number??""} onChange={e=>patchMatch(match.id,{pitch_number:e.target.value?Number(e.target.value):null})}><option value="">Ingen</option>{Array.from({length:data.pitch_count},(_,i)=>i+1).map(n=><option key={n} value={n}>Plan {n}</option>)}</select></label><div className="admin-team-actions"><button type="button" disabled={busy||!match.scheduled_start||!match.pitch_number} onClick={()=>saveMatch(match)}>Spara</button>{match.scheduled_start&&<button type="button" disabled={busy} onClick={()=>clearMatch(match)}>Gör oschemalagd</button>}</div></>}
+        {match.played||match.schedule_locked?<div className="schedule-match-facts"><span><small>AVSPARK</small><strong>{readableKickoff(match.scheduled_start)}</strong></span><span><small>PLAN</small><strong>{pitchLabel(match.pitch_number,data.pitch_names)}</strong></span><b>{match.played?"SPELAD":"LÅST"}</b></div>:<><label style={{minWidth:190}}>Tid<input type="datetime-local" disabled={busy} value={localInput(match.scheduled_start)} onChange={e=>patchMatch(match.id,{scheduled_start:e.target.value||null})}/></label><label style={{minWidth:110}}>Plan<select disabled={busy} value={match.pitch_number??""} onChange={e=>patchMatch(match.id,{pitch_number:e.target.value?Number(e.target.value):null})}><option value="">Ingen</option>{Array.from({length:data.pitch_count},(_,i)=>i+1).map(n=><option key={n} value={n}>{pitchLabel(n,data.pitch_names)}</option>)}</select></label><div className="admin-team-actions"><button type="button" disabled={busy||!match.scheduled_start||!match.pitch_number} onClick={()=>saveMatch(match)}>Spara</button>{match.scheduled_start&&<button type="button" disabled={busy} onClick={()=>clearMatch(match)}>Gör oschemalagd</button>}</div></>}
       </article>):<div className="admin-empty"><strong>Inga matcher i den här listan</strong><span>Välj ett annat filter ovan.</span></div>}
     </div>
     <div className="admin-form-footer"><span>CupNavi kontrollerar automatiskt krockar och lagvila varje gång schemat sparas.</span><button type="button" onClick={()=>void load()} disabled={busy}>{busy?"Hämtar…":"Kontrollera schemat igen"}</button></div>

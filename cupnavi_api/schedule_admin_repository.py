@@ -16,6 +16,17 @@ def _team_names(tournament_id: int) -> dict[int, str]:
     return {int(row["id"]): str(row["name"]) for row in rows}
 
 
+def _pitch_names(tournament_id: int) -> dict[int, str]:
+    rows = all_rows(
+        "SELECT pitch_number,name FROM pitches WHERE tournament_id=? ORDER BY pitch_number",
+        (int(tournament_id),),
+    )
+    return {
+        int(row["pitch_number"]): str(row.get("name") or f"Plan {row['pitch_number']}").strip()
+        for row in rows
+    }
+
+
 def _source_label(source, team_names: dict[int, str]) -> str:
     text = str(source or "").strip()
     if text.startswith("team:"):
@@ -53,6 +64,7 @@ def admin_schedule(account_id: int, tournament_id: int):
     )
     group_names = {int(row["id"]): str(row["name"]) for row in groups}
     team_names = _team_names(tournament_id)
+    pitch_names = _pitch_names(tournament_id)
     # Current production includes bracket_id; historical SQLite fixtures do not.
     # Reading the full row keeps the analyzer compatible with both shapes.
     rows = all_rows(
@@ -65,17 +77,24 @@ def admin_schedule(account_id: int, tournament_id: int):
         row["home_label"] = _source_label(row.get("home_source"), team_names)
         row["away_label"] = _source_label(row.get("away_source"), team_names)
         row["group_name"] = group_names.get(int(row["group_id"])) if row.get("group_id") is not None else None
+        pitch_number = row.get("pitch_number")
+        row["pitch_name"] = (
+            pitch_names.get(int(pitch_number), f"Plan {pitch_number}")
+            if pitch_number is not None else None
+        )
         row["played"] = row.get("home_score") is not None and row.get("away_score") is not None
         row["schedule_locked"] = bool(row.get("schedule_locked") or 0)
         row["schedule_published"] = bool(row.get("schedule_published") or 0)
     scheduled_count = sum(1 for row in rows if row.get("scheduled_start"))
     conflict_analysis = analyze_schedule_conflicts(rows, rules)
+    pitch_count = max(1, int(rules.get("pitch_count") or 1))
     return {
         "matches": rows,
         "match_count": len(rows),
         "scheduled_count": scheduled_count,
         "unscheduled_count": len(rows) - scheduled_count,
-        "pitch_count": max(1, int(rules.get("pitch_count") or 1)),
+        "pitch_count": pitch_count,
+        "pitch_names": {str(n): pitch_names.get(n, f"Plan {n}") for n in range(1, pitch_count + 1)},
         "first_match_time": str(rules.get("first_match_time") or "09:00"),
         "latest_kickoff_time": str(rules.get("latest_kickoff_time") or "18:00"),
         "start_date": tournament.get("start_date"),

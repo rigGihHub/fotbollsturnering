@@ -17,10 +17,12 @@ CREATE TABLE teams(id INTEGER PRIMARY KEY,tournament_id INTEGER,name TEXT,group_
 CREATE TABLE matches(
  id INTEGER PRIMARY KEY,tournament_id INTEGER,stage TEXT,group_id INTEGER,bracket_id INTEGER,round_no INTEGER,
  match_no INTEGER,home_source TEXT,away_source TEXT,scheduled_start TEXT,pitch_number INTEGER,home_score INTEGER,
- away_score INTEGER,home_penalties INTEGER,away_penalties INTEGER,decided_winner_id INTEGER,schedule_published INTEGER
+ away_score INTEGER,home_penalties INTEGER,away_penalties INTEGER,decided_winner_id INTEGER,schedule_published INTEGER,
+ match_status TEXT,status_updated_at TEXT,actual_started_at TEXT,actual_finished_at TEXT
 );
 CREATE TABLE brackets(id INTEGER PRIMARY KEY,tournament_id INTEGER,name TEXT,size INTEGER,bronze_match INTEGER);
 CREATE TABLE venue_points(id INTEGER PRIMARY KEY,tournament_id INTEGER,kind TEXT,label TEXT,detail TEXT,url TEXT);
+CREATE TABLE pitches(id INTEGER PRIMARY KEY,tournament_id INTEGER,pitch_number INTEGER,name TEXT);
 CREATE TABLE notifications(id INTEGER PRIMARY KEY,tournament_id INTEGER,team_id INTEGER,created_at TEXT,title TEXT,message TEXT);
 """)
 con.execute("""INSERT INTO tournaments VALUES(
@@ -38,8 +40,9 @@ matches=[
  (3,1,'Semifinal',None,1,1,1,'team:1','team:4','2026-08-24T12:00:00',1,None,None,None,None,None,1),
  (4,1,'Semifinal',None,1,1,2,'team:3','team:2','2026-08-24T12:00:00',2,None,None,None,None,None,1),
 ]
-con.executemany("INSERT INTO matches VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",matches)
+con.executemany("INSERT INTO matches(id,tournament_id,stage,group_id,bracket_id,round_no,match_no,home_source,away_source,scheduled_start,pitch_number,home_score,away_score,home_penalties,away_penalties,decided_winner_id,schedule_published) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",matches)
 con.execute("INSERT INTO brackets VALUES(1,1,'A-slutspel',4,0)")
 con.execute("INSERT INTO venue_points VALUES(1,1,'Plan','Plan 1','Huvudplan','https://example.com')")
+con.executemany("INSERT INTO pitches VALUES(?,?,?,?)",[(1,1,1,'Huvudplan'),(2,1,2,'Plan 2')])
 con.commit(); con.close()
 print(path)
