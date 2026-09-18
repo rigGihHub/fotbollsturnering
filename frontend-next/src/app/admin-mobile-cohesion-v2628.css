@@ -59,3 +59,15 @@
   .admin-next-task{border-width:1px!important;box-shadow:none!important}
   .view-mode-switch{position:sticky!important;right:auto!important;bottom:auto!important;z-index:20!important;width:fit-content!important;margin:12px 12px 16px auto!important;box-shadow:none!important;backdrop-filter:none!important}
 }
+
+@media(max-width:760px){
+  .admin-step-flow{min-height:0!important;height:auto!important;overflow:visible!important}
+  .admin-step-flow__guide{position:static!important;display:grid!important;grid-template-columns:minmax(0,1fr)!important;gap:8px!important;height:auto!important;overflow:visible!important}
+  .admin-step-flow__guide>div,.admin-step-flow__guide>div:nth-child(2){position:static!important;inset:auto!important;width:auto!important;max-width:none!important;transform:none!important}
+  .admin-step-flow__actions{position:static!important;inset:auto!important;transform:none!important;margin:0!important}
+  .admin-step-flow__actions .is-primary{position:static!important;transform:none!important;box-shadow:none!important}
+  .admin-team-kits{gap:10px!important;align-items:center!important}
+  .admin-team-kits>span{display:grid!important;grid-template-columns:auto auto!important;gap:3px!important;align-items:center!important}
+  .admin-team-kits small{position:static!important;line-height:1!important;margin:0!important}
+  .admin-bulk-assets{border-width:1px!important;box-shadow:none!important;padding:14px!important}
+}
