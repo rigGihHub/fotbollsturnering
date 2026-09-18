@@ -20,7 +20,7 @@ from .match_events_admin_repository import admin_event_matches, admin_match_even
 from .publish_reporting_repository import admin_reporting, save_result, set_reporter_match_status
 from .repository import connect, one
 
-SESSION_TTL_SECONDS = 60 * 60 * 48
+MAX_REPORTER_SESSION_SECONDS = 60 * 60 * 24 * 7
 
 
 class ReporterLogin(BaseModel):
@@ -154,7 +154,7 @@ def _b64d(value: str) -> bytes:
 
 def _issue_reporter_session(tournament_id: int, revision: str, valid_hours: int = 48) -> str:
     now = int(time.time())
-    payload = {"tid": int(tournament_id), "role": "reporter", "rev": revision, "iat": now, "exp": now + min(SESSION_TTL_SECONDS, max(1, int(valid_hours)) * 60 * 60)}
+    payload = {"tid": int(tournament_id), "role": "reporter", "rev": revision, "iat": now, "exp": now + min(MAX_REPORTER_SESSION_SECONDS, max(1, int(valid_hours)) * 60 * 60)}
     body = _b64e(json.dumps(payload, separators=(",", ":"), sort_keys=True).encode("utf-8"))
     sig = _b64e(hmac.new(_session_secret(), body.encode("ascii"), hashlib.sha256).digest())
     return f"{body}.{sig}"
