@@ -20,7 +20,7 @@ from .match_events_admin_repository import admin_event_matches, admin_match_even
 from .publish_reporting_repository import admin_reporting, save_result, set_reporter_match_status
 from .repository import connect, one
 
-SESSION_TTL_SECONDS = 60 * 60 * 36
+SESSION_TTL_SECONDS = 60 * 60 * 48
 
 
 class ReporterLogin(BaseModel):
