@@ -166,7 +166,7 @@ def organizer_account(account_id: int):
 def organizer_tournaments(account_id: int):
     if int(account_id) == OWNER_ACCOUNT_ID:
         rows = all_rows(
-            """SELECT id,name,public_slug,start_date,end_date,is_published
+            """SELECT id,name,public_slug,start_date,end_date,is_published,created_at
                FROM tournaments
                WHERE COALESCE(lifecycle_status,'draft') NOT IN ('trashed','purged')
                ORDER BY COALESCE(start_date,''),name,id"""
@@ -175,7 +175,7 @@ def organizer_tournaments(account_id: int):
             row["role"] = "owner"
         return rows
     return all_rows(
-        """SELECT t.id,t.name,t.public_slug,t.start_date,t.end_date,t.is_published,tm.role
+        """SELECT t.id,t.name,t.public_slug,t.start_date,t.end_date,t.is_published,t.created_at,tm.role
            FROM tournament_members tm
            JOIN tournaments t ON t.id=tm.tournament_id
            WHERE tm.organizer_account_id=?
