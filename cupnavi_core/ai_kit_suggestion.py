@@ -258,7 +258,8 @@ def _search_strategies(clean_name, *, location="", country_code="", age_class=""
     )
     rescue = (
         f"RÄDDNINGSSÖKNING för '{clean_name}'. Tidigare försök gav inte ett tillräckligt verifierat resultat. "
-        f"Fastställ först exakt klubbidentitet för '{club_name}'. Sök sedan hemma och borta var för sig med aktuell säsong. "
+        + (f"Klubbidentiteten är redan vald/verifierad som '{resolved_club}'. Lägg INGEN söktid på ny klubbidentifiering eller logotyp. Fokusera helt på visuella bevis för hemma- och bortaställ. " if resolved_club else f"Fastställ först exakt klubbidentitet för '{club_name}'. ")
+        + "Sök hemma och borta var för sig med aktuell säsong. Använd bildcentrerade frågor som klubbnamn + matchfoto/lagfoto/home kit/away kit/hemmatröja/bortatröja och kontrollera själva tröjan i resultatets bild eller produktfoto. "
         "Prioritera officiell klubbshop och materialleverantör. Om de saknas, sök specifikt efter färska matchfoton/lagfoton på klubbens officiella webb och offentliga sociala konton, "
         "därefter motståndares aktuella matchreferat/bildgallerier och förbundets lag-/matchsidor. Använd flera alternativa svenska och engelska termer: hemmatröja, bortatröja, matchställ, matchtröja, home kit, away kit, jersey, shirt. "
         "Om klubbnamnet är tvetydigt ska du INTE ge upp eller gissa: returnera 2–4 candidate_matches med identitetskälla så arrangören kan välja. "
