@@ -39,7 +39,7 @@ export function MatchCard({ match, teams, groups = [], pitches = [], index }: { 
         <div className="score-window"><small>{match.stage || "MATCH"}</small><strong>{score}</strong></div>
         <TeamIdentity team={away} label={awayLabel} side="away"/>
       </div>
-      <div className="match-card__footer"><span>{pitchLabel(match.pitch_number,pitchNames)}</span><span>CUPNAVI//LIVE</span></div>
+      <div className="match-card__footer"><span>{pitchLabel(match.pitch_number==null?null:Number(match.pitch_number),pitchNames)}</span><span>CUPNAVI//LIVE</span></div>
     </article>
   );
 }
