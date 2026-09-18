@@ -22,6 +22,7 @@ CREATE TABLE matches(
 );
 CREATE TABLE brackets(id INTEGER PRIMARY KEY,tournament_id INTEGER,name TEXT,size INTEGER,bronze_match INTEGER);
 CREATE TABLE venue_points(id INTEGER PRIMARY KEY,tournament_id INTEGER,kind TEXT,label TEXT,detail TEXT,url TEXT);
+CREATE TABLE pitches(id INTEGER PRIMARY KEY,tournament_id INTEGER,pitch_number INTEGER,name TEXT);
 CREATE TABLE notifications(id INTEGER PRIMARY KEY,tournament_id INTEGER,team_id INTEGER,created_at TEXT,title TEXT,message TEXT);
 """)
 con.execute("""INSERT INTO tournaments VALUES(
@@ -42,5 +43,6 @@ matches=[
 con.executemany("INSERT INTO matches(id,tournament_id,stage,group_id,bracket_id,round_no,match_no,home_source,away_source,scheduled_start,pitch_number,home_score,away_score,home_penalties,away_penalties,decided_winner_id,schedule_published) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",matches)
 con.execute("INSERT INTO brackets VALUES(1,1,'A-slutspel',4,0)")
 con.execute("INSERT INTO venue_points VALUES(1,1,'Plan','Plan 1','Huvudplan','https://example.com')")
+con.executemany("INSERT INTO pitches VALUES(?,?,?,?)",[(1,1,1,'Huvudplan'),(2,1,2,'Plan 2')])
 con.commit(); con.close()
 print(path)
