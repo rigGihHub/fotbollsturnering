@@ -6,6 +6,8 @@ ROLE = (ROOT / "cupnavi_api/role_access_routes.py").read_text(encoding="utf-8")
 
 def test_reporter_session_lasts_48_hours():
     assert "SESSION_TTL_SECONDS = 60 * 60 * 48" in ROLE
+    assert "valid_hours INTEGER NOT NULL DEFAULT 48" in ROLE
+    assert "min(SESSION_TTL_SECONDS, max(1, int(valid_hours)) * 60 * 60)" in ROLE
 
 
 def test_reporter_session_is_invalidated_when_code_rotates():
