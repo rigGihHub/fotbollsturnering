@@ -87,3 +87,20 @@
   .admin-team-kits>span{display:flex!important;flex-direction:column!important;gap:2px!important}
   .admin-team-kits small{display:block!important;font-size:9px!important;line-height:1!important;text-align:center!important}
 }
+
+/* v2.6.98 — hard mobile reset for guide/toolbar after legacy cascade leaks. */
+@media(max-width:760px){
+  .cup-create-toolbar{position:static!important;top:auto!important;inset:auto!important;margin:10px 12px!important;width:auto!important;min-height:0!important}
+  .admin-step-flow{position:static!important;display:flex!important;flex-direction:column!important;align-items:stretch!important;width:auto!important;margin:10px 12px!important;padding:14px!important;gap:12px!important;min-height:0!important;height:auto!important;max-height:none!important;overflow:visible!important}
+  .admin-step-flow__meta{order:1!important;display:grid!important;grid-template-columns:1fr!important;gap:4px!important}
+  .admin-step-flow__track{order:2!important;position:static!important;width:100%!important}
+  .admin-step-flow__guide{order:3!important;position:static!important;display:block!important;width:100%!important;height:auto!important;min-height:0!important;margin:0!important;padding:0!important;border:0!important;background:transparent!important;overflow:visible!important}
+  .admin-step-flow__guide>div{display:none!important}
+  .admin-step-flow__guide>div:nth-child(2){display:block!important;position:static!important;width:100%!important;height:auto!important;min-height:0!important;margin:0!important;padding:12px!important;border:1px solid rgba(16,38,48,.18)!important;border-radius:10px!important;transform:none!important}
+  .admin-step-flow__guide>div:nth-child(2) strong{display:block!important;max-width:none!important;margin-top:5px!important}
+  .admin-step-flow__actions{order:4!important;position:static!important;display:block!important;width:100%!important;height:auto!important;margin:0!important;transform:none!important}
+  .admin-step-flow__actions .is-primary{display:block!important;position:static!important;width:100%!important;min-height:46px!important;margin:0!important;transform:none!important}
+  .admin-team-kits{display:flex!important;gap:12px!important;align-items:flex-start!important}
+  .admin-team-kits>span{display:flex!important;flex-direction:column!important;align-items:center!important;gap:4px!important}
+  .admin-team-kits>span small{display:block!important;position:static!important;font-size:9px!important;line-height:1!important}
+}
