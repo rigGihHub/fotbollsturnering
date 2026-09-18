@@ -1,0 +1,43 @@
+# CupNavi Render blueprint target.
+# Purpose: keep web and API deploys independent so a frontend-only change does
+# not consume an API build, and vice versa. Existing manually-created Render
+# services are not changed merely by adding this file.
+services:
+  - type: web
+    name: cupnavi-web
+    runtime: node
+    region: frankfurt
+    plan: free
+    repo: https://github.com/rigGihHub/fotbollsturnering
+    branch: main
+    rootDir: frontend-next
+    buildCommand: npm ci && npm run build
+    startCommand: npm start -- -H 0.0.0.0 -p $PORT
+    autoDeployTrigger: checksPass
+    buildFilter:
+      paths:
+        - frontend-next/**
+      ignoredPaths:
+        - "**/*.md"
+        - tests/**
+
+  - type: web
+    name: cupnavi-api
+    runtime: python
+    region: frankfurt
+    plan: free
+    repo: https://github.com/rigGihHub/fotbollsturnering
+    branch: main
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn cupnavi_api.main:app --host 0.0.0.0 --port $PORT
+    autoDeployTrigger: checksPass
+    buildFilter:
+      paths:
+        - cupnavi_api/**
+        - cupnavi_core/**
+        - requirements.txt
+        - requirements*.txt
+      ignoredPaths:
+        - "**/*.md"
+        - frontend-next/**
+        - tests/**
