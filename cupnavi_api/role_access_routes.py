@@ -28,6 +28,10 @@ class ReporterLogin(BaseModel):
     code: str
 
 
+class ReporterCodeRotate(BaseModel):
+    valid_hours: int = 48
+
+
 class ReporterResultWrite(BaseModel):
     home_score: int
     away_score: int
@@ -72,9 +76,13 @@ def _ensure_reporter_table():
                 code_salt TEXT NOT NULL,
                 code_hash TEXT NOT NULL,
                 created_at TEXT NOT NULL,
-                rotated_at TEXT
+                rotated_at TEXT,
+                valid_hours INTEGER NOT NULL DEFAULT 48
             )"""
         )
+        columns = {str(row[1]) for row in con.execute("PRAGMA table_info(match_reporter_credentials)").fetchall()}
+        if "valid_hours" not in columns:
+            con.execute("ALTER TABLE match_reporter_credentials ADD COLUMN valid_hours INTEGER NOT NULL DEFAULT 48")
         commit = getattr(con, "commit", None)
         if callable(commit):
             commit()
@@ -83,7 +91,7 @@ def _ensure_reporter_table():
 def _credential(tournament_id: int):
     _ensure_reporter_table()
     return one(
-        "SELECT tournament_id,code_salt,code_hash,created_at,rotated_at FROM match_reporter_credentials WHERE tournament_id=?",
+        "SELECT tournament_id,code_salt,code_hash,created_at,rotated_at,valid_hours FROM match_reporter_credentials WHERE tournament_id=?",
         (int(tournament_id),),
     )
 
@@ -96,12 +104,14 @@ def reporter_code_status(account_id: int, tournament_id: int):
         "active": bool(row),
         "created_at": row.get("created_at") if row else None,
         "rotated_at": row.get("rotated_at") if row else None,
+        "valid_hours": int(row.get("valid_hours") or 48) if row else 48,
     }
 
 
-def rotate_reporter_code(account_id: int, tournament_id: int):
+def rotate_reporter_code(account_id: int, tournament_id: int, valid_hours: int = 48):
     if not _has_tournament_access(account_id, tournament_id):
         return None
+    valid_hours = max(1, min(168, int(valid_hours)))
     code = generate_short_numeric_code(4)
     salt, digest = new_code_hash(code)
     now = datetime.now().isoformat(timespec="seconds")
@@ -113,13 +123,13 @@ def rotate_reporter_code(account_id: int, tournament_id: int):
         ).fetchone()
         if existing:
             con.execute(
-                "UPDATE match_reporter_credentials SET code_salt=?,code_hash=?,rotated_at=? WHERE tournament_id=?",
-                (salt, digest, now, int(tournament_id)),
+                "UPDATE match_reporter_credentials SET code_salt=?,code_hash=?,rotated_at=?,valid_hours=? WHERE tournament_id=?",
+                (salt, digest, now, valid_hours, int(tournament_id)),
             )
         else:
             con.execute(
-                "INSERT INTO match_reporter_credentials(tournament_id,code_salt,code_hash,created_at,rotated_at) VALUES(?,?,?,?,?)",
-                (int(tournament_id), salt, digest, now, now),
+                "INSERT INTO match_reporter_credentials(tournament_id,code_salt,code_hash,created_at,rotated_at,valid_hours) VALUES(?,?,?,?,?,?)",
+                (int(tournament_id), salt, digest, now, now, valid_hours),
             )
         commit = getattr(con, "commit", None)
         if callable(commit):
@@ -142,9 +152,9 @@ def _b64d(value: str) -> bytes:
     return base64.urlsafe_b64decode(value + "=" * (-len(value) % 4))
 
 
-def _issue_reporter_session(tournament_id: int, revision: str) -> str:
+def _issue_reporter_session(tournament_id: int, revision: str, valid_hours: int = 48) -> str:
     now = int(time.time())
-    payload = {"tid": int(tournament_id), "role": "reporter", "rev": revision, "iat": now, "exp": now + SESSION_TTL_SECONDS}
+    payload = {"tid": int(tournament_id), "role": "reporter", "rev": revision, "iat": now, "exp": now + min(SESSION_TTL_SECONDS, max(1, int(valid_hours)) * 60 * 60)}
     body = _b64e(json.dumps(payload, separators=(",", ":"), sort_keys=True).encode("utf-8"))
     sig = _b64e(hmac.new(_session_secret(), body.encode("ascii"), hashlib.sha256).digest())
     return f"{body}.{sig}"
@@ -213,9 +223,9 @@ def register_role_access_routes(app, admin_identity):
         return result
 
     @app.post("/api/admin/cups/{tournament_id}/role-codes/reporter/rotate")
-    def post_rotate_reporter_code(tournament_id: int, authorization: str | None = Header(default=None)):
+    def post_rotate_reporter_code(tournament_id: int, payload: ReporterCodeRotate, authorization: str | None = Header(default=None)):
         account = admin_identity(authorization)
-        result = rotate_reporter_code(int(account["id"]), tournament_id)
+        result = rotate_reporter_code(int(account["id"]), tournament_id, payload.valid_hours)
         if result is None:
             raise HTTPException(404, "Cup not found or access denied")
         return result
@@ -237,7 +247,7 @@ def register_role_access_routes(app, admin_identity):
         if not credential or not verify_access_code(payload.code, credential["code_salt"], credential["code_hash"]):
             raise HTTPException(401, "Fel cup eller kod")
         revision = str(credential.get("rotated_at") or credential.get("created_at") or "")
-        return {"token": _issue_reporter_session(int(cup["id"]), revision), "cup": cup, "role": "reporter"}
+        return {"token": _issue_reporter_session(int(cup["id"]), revision, int(credential.get("valid_hours") or 48)), "cup": cup, "role": "reporter"}
 
     @app.get("/api/reporter/session")
     def reporter_session(authorization: str | None = Header(default=None)):
