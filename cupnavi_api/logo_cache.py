@@ -42,3 +42,14 @@ def cache_verified_logo(url: str, *, opener=urlopen) -> tuple[str, str]:
     if not path.exists():
         path.write_bytes(data)
     return digest, suffix
+
+
+def cached_logo_path(digest: str):
+    value = str(digest or "").strip().lower()
+    if len(value) != 64 or any(ch not in "0123456789abcdef" for ch in value):
+        return None
+    for suffix in ALLOWED_TYPES.values():
+        path = CACHE_DIR / f"{value}{suffix}"
+        if path.is_file():
+            return path
+    return None
