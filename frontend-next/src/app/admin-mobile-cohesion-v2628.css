@@ -71,3 +71,19 @@
   .admin-team-kits small{position:static!important;line-height:1!important;margin:0!important}
   .admin-bulk-assets{border-width:1px!important;box-shadow:none!important;padding:14px!important}
 }
+
+/* v2.6.98 — hard mobile reset for the guide: no desktop positioning may leak through. */
+@media(max-width:760px){
+  .cup-create-toolbar{position:static!important;top:auto!important;inset:auto!important;transform:none!important;margin:0 0 10px!important}
+  .admin-step-flow{position:static!important;display:flex!important;flex-direction:column!important;align-items:stretch!important;min-height:0!important;height:auto!important;max-height:none!important;padding:14px!important;gap:10px!important;overflow:visible!important}
+  .admin-step-flow__meta{position:static!important;display:grid!important;grid-template-columns:1fr!important;gap:4px!important}
+  .admin-step-flow__track{position:static!important;order:2!important}
+  .admin-step-flow__guide{position:static!important;order:3!important;display:block!important;width:100%!important;min-height:0!important;height:auto!important;padding:0!important;border:0!important;background:transparent!important;box-shadow:none!important;overflow:visible!important}
+  .admin-step-flow__guide>div{display:none!important}
+  .admin-step-flow__guide>div:nth-child(2){position:static!important;display:grid!important;grid-template-columns:1fr!important;gap:4px!important;width:100%!important;min-height:0!important;height:auto!important;padding:10px 12px!important;margin:0!important;border:1px solid rgba(16,38,48,.16)!important;border-radius:10px!important;transform:none!important}
+  .admin-step-flow__guide>div:nth-child(2) strong{max-width:none!important;width:auto!important}
+  .admin-step-flow__actions{position:static!important;order:4!important;display:block!important;width:100%!important;height:auto!important;margin:0!important;padding:0!important;transform:none!important}
+  .admin-step-flow__actions .is-primary{position:static!important;display:flex!important;width:100%!important;min-height:44px!important;height:auto!important;margin:0!important;transform:none!important}
+  .admin-team-kits>span{display:flex!important;flex-direction:column!important;gap:2px!important}
+  .admin-team-kits small{display:block!important;font-size:9px!important;line-height:1!important;text-align:center!important}
+}
