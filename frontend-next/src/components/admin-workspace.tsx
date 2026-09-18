@@ -466,7 +466,7 @@ export default function AdminWorkspace({verifiedSession=null,children=null}:{ver
       const batch=teams.slice(start,start+3);
       await Promise.all(batch.map(async team=>{try{
         const suggestion=await request<KitSuggestion>(`/api/admin/cups/${cupId}/teams/kit-search`,{method:"POST",body:JSON.stringify({team_name:team.name,age_class:team.age_class||null,search_focus:"all"})},token);
-        if(suggestion.identity_status!=="exact"||(!suggestion.home_verified&&!suggestion.away_verified&&!suggestion.logo_verified)){uncertain++;issues.push({teamId:team.id,teamName:team.name,reason:suggestion.identity_status!=="exact"?"Klubbidentiteten behöver förtydligas.":"Ingen säker tröja eller logotyp hittades."});return;}
+        const strongKit=suggestion.identity_status==="exact"&&suggestion.confidence==="high"&&(suggestion.home_verified||suggestion.away_verified);if(!strongKit){uncertain++;issues.push({teamId:team.id,teamName:team.name,reason:suggestion.identity_status!=="exact"?"Klubbidentiteten behöver förtydligas.":suggestion.home_verified||suggestion.away_verified?"Tröjan hittades men behöver kontrolleras innan den sparas.":"Ingen säker tröja hittades."});return;}
         const payload={...team,
           ...(suggestion.home_verified?{primary_color:suggestion.home_color_1,home_color_2:suggestion.home_color_2,home_pattern:suggestion.home_pattern}:{}),
           ...(suggestion.away_verified?{secondary_color:suggestion.away_color_1,away_color_2:suggestion.away_color_2,away_pattern:suggestion.away_pattern}:{}),
