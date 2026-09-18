@@ -720,7 +720,7 @@ export default function AdminWorkspace({verifiedSession=null,children=null}:{ver
         <div className="admin-team-list admin-team-roster">
           {teams.length ? teams.map(team=><article key={team.id} className={editingTeam===team.id?"is-editing":""}>
             <TeamLogo team={team}/>
-            <span className="admin-team-kits" aria-label="Hemma- och bortaställ"><span><TeamKit primary={team.primary_color} secondary={team.home_color_2} pattern={team.home_pattern}/><small>H</small></span><span><TeamKit primary={team.secondary_color} secondary={team.away_color_2} pattern={team.away_pattern}/><small>B</small></span></span>
+            <span className="admin-team-kits" aria-label="Hemma- och bortaställ"><span><TeamKit primary={team.primary_color} secondary={team.home_color_2} pattern={team.home_pattern}/><small>Hemma</small></span><span><TeamKit primary={team.secondary_color} secondary={team.away_color_2} pattern={team.away_pattern}/><small>Borta</small></span></span>
             <div className="admin-team-identity"><strong>{team.name}</strong><small><span>{team.age_class||"Klass saknas"}</span><span>{team.group_id?(groups.find(group=>group.id===team.group_id)?.name || `Grupp ${team.group_id}`):"Ej gruppindelat"}</span></small></div>
             <div className="admin-team-actions"><button type="button" onClick={()=>beginTeamEdit(team)}>Redigera</button><button className="is-danger" type="button" onClick={()=>removeTeam(team)}>Ta bort</button></div>
           </article>) : <div className="admin-empty"><strong>Inga lag ännu</strong><span>Lägg till det första laget ovan.</span></div>}
