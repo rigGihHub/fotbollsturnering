@@ -247,7 +247,8 @@ def public_brackets(tournament_id):
         return []
     matches=all_rows(
         """SELECT id,bracket_id,stage,round_no,match_no,home_source,away_source,scheduled_start,pitch_number,
-                  home_score,away_score,home_penalties,away_penalties,decided_winner_id,schedule_published
+                  home_score,away_score,home_penalties,away_penalties,decided_winner_id,schedule_published,
+                  match_status,status_updated_at,actual_started_at,actual_finished_at
            FROM matches
            WHERE tournament_id=? AND bracket_id IS NOT NULL AND schedule_published=1
            ORDER BY bracket_id,round_no,match_no,id""",
