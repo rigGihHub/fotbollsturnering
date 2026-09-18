@@ -99,6 +99,9 @@ def _ensure_cupinfo_columns() -> set[str]:
                 con.execute(f"ALTER TABLE tournaments ADD COLUMN {field} TEXT")
         if "admin_revision" not in columns:
             con.execute("ALTER TABLE tournaments ADD COLUMN admin_revision INTEGER NOT NULL DEFAULT 1")
+        if "created_at" not in columns:
+            con.execute("ALTER TABLE tournaments ADD COLUMN created_at TEXT")
+            con.execute("UPDATE tournaments SET created_at=CURRENT_TIMESTAMP WHERE created_at IS NULL OR TRIM(created_at)=''")
         con.execute("""CREATE TABLE IF NOT EXISTS admin_activity (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             tournament_id INTEGER NOT NULL,
