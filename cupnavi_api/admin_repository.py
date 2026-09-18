@@ -164,6 +164,7 @@ def organizer_account(account_id: int):
 
 
 def organizer_tournaments(account_id: int):
+    _ensure_cupinfo_columns()
     if int(account_id) == OWNER_ACCOUNT_ID:
         rows = all_rows(
             """SELECT id,name,public_slug,start_date,end_date,is_published,created_at
