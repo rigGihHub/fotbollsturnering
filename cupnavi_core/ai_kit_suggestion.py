@@ -135,8 +135,23 @@ def normalize_kit_suggestion(payload):
         confidence = "low"
 
     def pattern(name):
-        value = str(payload.get(name) or "Helfärgad")
-        return value if value in ALLOWED_PATTERNS else "Helfärgad"
+        raw = " ".join(str(payload.get(name) or "").strip().lower().replace("_", " ").replace("-", " ").split())
+        aliases = {
+            "helfärgad": "Helfärgad", "enfärgad": "Helfärgad", "solid": "Helfärgad", "plain": "Helfärgad",
+            "vertikala ränder": "Vertikala ränder", "vertical stripes": "Vertikala ränder", "vertical striped": "Vertikala ränder", "striped": "Vertikala ränder", "stripes": "Vertikala ränder",
+            "horisontella ränder": "Horisontella ränder", "horizontal stripes": "Horisontella ränder", "horizontal striped": "Horisontella ränder", "hoops": "Horisontella ränder", "hooped": "Horisontella ränder",
+            "rutigt": "Rutigt", "checkered": "Rutigt", "checked": "Rutigt", "checkerboard": "Rutigt",
+            "delad": "Delad", "split": "Delad", "halves": "Delad", "half and half": "Delad",
+            "diagonala ränder": "Diagonala ränder", "diagonal stripes": "Diagonala ränder", "diagonal striped": "Diagonala ränder",
+            "grafiskt": "Grafiskt", "graphic": "Grafiskt", "geometric": "Grafiskt", "gradient": "Grafiskt", "chevron": "Grafiskt", "camo": "Grafiskt",
+        }
+        if raw in aliases:
+            return aliases[raw]
+        exact = next((value for value in ALLOWED_PATTERNS if value.lower() == raw), None)
+        if exact:
+            return exact
+        # Unknown pattern language is uncertainty, not evidence that the shirt is plain.
+        return "Grafiskt" if raw else "Helfärgad"
 
     return {
         "found": found,
