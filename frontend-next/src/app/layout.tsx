@@ -7,6 +7,7 @@ import "./admin-step-flow.css";
 import "./ui-system-v2615.css";
 import "./mode-switch-v2615.css";
 import "./ui-system-v2616.css";
+import "./admin-mobile-cohesion-v2628.css";
 import "./public-ux-v2624.css";
 import "./comic-card-v2634.css";
 import "./public-system-v2639.css";
