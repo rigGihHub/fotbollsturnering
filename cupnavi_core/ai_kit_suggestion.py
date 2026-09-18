@@ -10,7 +10,7 @@ ALLOWED_IDENTITY_STATUS = ["exact", "likely", "ambiguous", "unknown"]
 MAX_SOURCES = 6
 MAX_SEARCH_ATTEMPTS = 2
 CACHE_TTL_SECONDS = 60 * 60 * 12
-SEARCH_VERSION = "v672-identity-first-assets"
+SEARCH_VERSION = "v673-pattern-first-assets"
 ALLOWED_SEARCH_FOCUS = {"kit", "logo", "all"}
 
 # Process-local cache: Streamlit reruns keep the Python process alive. A repeated
@@ -297,7 +297,7 @@ def _request_suggestion(clean_name, api_key, *, model, timeout_seconds, strategy
         "Skriv i home_evidence/away_evidence vad källan visar. Prioritera officiell klubb/webbshop, sedan förbund/cup/lagplattform, därefter färska matchbilder. Kontrollera att källan faktiskt visar tröjan eller uttryckligen beskriver stället; klubbens färger, arena, flagga eller en logotypbild räknas inte som tröjbevis. Läs bildtext, alt-text och sidans säsong/uppdateringsdatum och välj den senaste relevanta säsongen. Offentliga inlägg från klubbens officiella Instagram eller Facebook får användas som kompletterande bildbevis, men aldrig ett ensamt gammalt eller odaterat inlägg. "
         "Om flera trovärdiga källor motsäger varandra, välj den nyaste relevanta säsongen och sänk confidence. "
         "Det är bättre att returnera bara ett belagt hemmaställ än att fylla i ett osäkert bortaställ. "
-        "För verifierade ställ: ange praktiska HEX-färger (#RRGGBB) utifrån själva tröjan, inte färgnamn från klubbens profil. Beskriv huvudfärg först och den tydliga kontrastfärgen därefter. Välj närmast passande mönster bland Helfärgad, Vertikala ränder, Horisontella ränder, Rutigt, Delad, Diagonala ränder eller Grafiskt; välj Grafiskt när designen är chevron, camo, gradient eller annan tydlig grafik och gissa inte ränder. "
+        "För verifierade ställ: analysera TRÖJANS GEOMETRI separat från klubbfärgerna. Avgör först om tyget visuellt är enfärgat, vertikalrandigt, horisontalrandigt, rutigt, delat, diagonalrandigt eller grafiskt. Välj Helfärgad endast när den verifierade tröjbilden verkligen saknar ett tydligt återkommande mönster; två eller fler tydliga kontrasterande vertikala band ska ge Vertikala ränder och motsvarande horisontella band Horisontella ränder. Logotyp, sponsortryck, krage och ärmkanter är inte ett tröjmönster. Skriv i home_evidence/away_evidence vilket visuellt kännetecken som motiverar mönstret. Ange därefter praktiska HEX-färger (#RRGGBB) utifrån själva tröjan, inte färgnamn från klubbens profil. Beskriv huvudfärg först och den tydliga kontrastfärgen därefter. Välj närmast passande mönster bland Helfärgad, Vertikala ränder, Horisontella ränder, Rutigt, Delad, Diagonala ränder eller Grafiskt; välj Grafiskt när designen är chevron, camo, gradient eller annan tydlig grafik och gissa inte ränder. "
         "Hitta även klubbens officiella logotyp. logo_url måste vara en direkt HTTPS-bildadress och logo_source_url sidan som belägger att märket tillhör rätt klubb. Sätt logo_verified=true endast när klubbidentiteten och bilden är tydliga. "
         "Om sökfokus är logo ska logotypen prioriteras och osökta matchställ lämnas overifierade. Om sökfokus är kit ska matchställen prioriteras; logotyp får bara följa med när den hittas på samma verifierade klubbkälla. "
         "sources ska vara unionen av de viktigaste källorna. Inget sparas automatiskt; arrangören granskar förslaget."
