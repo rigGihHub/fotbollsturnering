@@ -8,7 +8,7 @@ ALLOWED_PATTERNS = ["Helfärgad", "Vertikala ränder", "Horisontella ränder", "
 ALLOWED_CONFIDENCE = ["low", "medium", "high"]
 ALLOWED_IDENTITY_STATUS = ["exact", "likely", "ambiguous", "unknown"]
 MAX_SOURCES = 6
-MAX_SEARCH_ATTEMPTS = 2
+MAX_SEARCH_ATTEMPTS = 3
 CACHE_TTL_SECONDS = 60 * 60 * 12
 SEARCH_VERSION = "v673-pattern-first-assets"
 ALLOWED_SEARCH_FOCUS = {"kit", "logo", "all"}
@@ -256,7 +256,15 @@ def _search_strategies(clean_name, *, location="", country_code="", age_class=""
         "För klubbmärke: kräv att bilden kommer från officiell klubbdomän, förbundsprofil eller Wikimedia med tydlig klubbkoppling. "
         "Acceptera en verifierad delträff hellre än att gissa."
     )
-    return [("Snabb multikällesökning", primary), ("Riktad lucksökning", fallback)]
+    rescue = (
+        f"RÄDDNINGSSÖKNING för '{clean_name}'. Tidigare försök gav inte ett tillräckligt verifierat resultat. "
+        f"Fastställ först exakt klubbidentitet för '{club_name}'. Sök sedan hemma och borta var för sig med aktuell säsong. "
+        "Prioritera officiell klubbshop och materialleverantör. Om de saknas, sök specifikt efter färska matchfoton/lagfoton på klubbens officiella webb och offentliga sociala konton, "
+        "därefter motståndares aktuella matchreferat/bildgallerier och förbundets lag-/matchsidor. Använd flera alternativa svenska och engelska termer: hemmatröja, bortatröja, matchställ, matchtröja, home kit, away kit, jersey, shirt. "
+        "Om klubbnamnet är tvetydigt ska du INTE ge upp eller gissa: returnera 2–4 candidate_matches med identitetskälla så arrangören kan välja. "
+        "Om klubbidentiteten är exakt men bara ett ställ kan verifieras, returnera den verifierade delträffen och beskriv tydligt vad som saknas."
+    )
+    return [("Snabb multikällesökning", primary), ("Riktad lucksökning", fallback), ("Automatisk räddningssökning", rescue)]
 
 
 def _schema():
