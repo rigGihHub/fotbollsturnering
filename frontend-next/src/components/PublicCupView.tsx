@@ -60,9 +60,8 @@ export function PublicCupView({ publicKey, initialCup, initialStandings, reporte
 
   if(unavailable)return <main className="page-shell page-shell--matchday"><article className="empty-state"><strong>Cupen är inte längre publicerad.</strong><p>Den kan ha flyttats till papperskorgen eller fått en ny publik adress.</p><a href="/">Till CupNavi</a></article></main>;
 
-  return <main className="page-shell page-shell--matchday">
+  return <main className="page-shell page-shell--matchday page-shell--public-v3">
     {reporterReturn&&<div className="public-role-return"><span>Du granskar den publika turneringsvyn</span><a href={`/reporter?cup=${encodeURIComponent(publicKey)}`}>← Till matchrapportering</a></div>}
-    <div className="public-sports-atmosphere" aria-hidden="true"><span className="sport-art sport-art--ball"/><span className="sport-art sport-art--cone"/><span className="sport-art sport-art--whistle"/><span className="sport-art sport-art--boot"/></div>
     <CupCover tournament={cup.tournament} teamCount={cup.teams.length} matchCount={cup.matches.length} groupCount={cup.groups.length}/>
     <nav className="edition-nav edition-nav--desktop" aria-label="Cupens innehåll">{navItems.map(([key,label],i)=><button key={key} className={tab===key?"is-active":""} onClick={()=>setTab(key)}><span>0{i+1}</span>{label}</button>)}</nav>
 
