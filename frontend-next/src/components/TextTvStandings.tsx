@@ -1,6 +1,6 @@
 import { StandingRow } from "@/lib/types";
 
-export function TextTvStandings({ name, rows }: { name: string; rows: StandingRow[] }) {
+export function TextTvStandings({ name, rows, destinations=[] }: { name: string; rows: StandingRow[]; destinations?:string[] }) {
   const tones=["is-leading","is-neutral","is-playoff","is-sky"];
   const tone=(index:number)=>tones[index]||"is-neutral";
   return (
@@ -11,7 +11,7 @@ export function TextTvStandings({ name, rows }: { name: string; rows: StandingRo
           <thead><tr><th>PL</th><th>LAG</th><th>S</th><th>V</th><th>O</th><th>F</th><th>MS</th><th>P</th></tr></thead>
           <tbody>{rows.map((row,index)=><tr className={tone(index)} key={row.team_id}><td>{row.position}</td><td>{row.Lag}</td><td>{row.S}</td><td>{row.V}</td><td>{row.O}</td><td>{row.F}</td><td>{row.MS}</td><td><strong>{row.P}</strong></td></tr>)}</tbody>
         </table>
-      </div>
+      </div>{destinations.length>0&&<div className="texttv__legend">{destinations.map((label,index)=><span className={tone(index)} key={`${label}-${index}`}><i/> {label}</span>)}</div>}
     </section>
   );
 }
