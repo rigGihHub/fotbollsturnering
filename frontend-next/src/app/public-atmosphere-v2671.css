@@ -231,3 +231,19 @@ body:has(.page-shell--matchday){background-image:radial-gradient(circle,rgba(16,
 
 .texttv--standings tbody tr.is-neutral{color:#fff!important}
 .texttv--standings tbody tr.is-sky{color:#67dfff!important}
+
+/* Cupinfo v3.1 — editorial hierarchy instead of two plain boxes */
+.public-info-hero{display:flex;align-items:flex-end;justify-content:space-between;gap:24px;margin:0 0 18px;padding:22px 24px;border-radius:14px;background:#e7f5f3;color:#102632}
+.public-info-hero>div>span{display:block;margin-bottom:5px;font-size:9px;font-weight:900;letter-spacing:.14em;text-transform:uppercase;color:#258b94}
+.public-info-hero h2{margin:0;font-size:32px;letter-spacing:-.035em}
+.public-info-hero p{margin:7px 0 0;color:#587078}
+.public-info-hero__facts{display:flex;gap:8px}
+.public-info-hero__facts b{display:flex;min-width:68px;flex-direction:column;align-items:center;padding:9px 10px;border:1px solid #c8dfdc;border-radius:10px;background:#fff;font-size:18px}
+.public-info-hero__facts small{margin-top:2px;font-size:8px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#71878c}
+.public-info-grid{grid-template-columns:minmax(0,1.15fr) minmax(0,.85fr)!important;align-items:start}
+.public-info-card{box-shadow:0 3px 0 rgba(16,38,50,.06)}
+.public-info-card--rules{grid-row:auto!important}
+.public-info-card--rules h3{font-size:26px}
+.public-rule-list>div{padding:15px 0}
+.public-rule-list b{font-size:16px}
+@media(max-width:800px){.public-info-hero{align-items:flex-start;flex-direction:column}.public-info-hero h2{font-size:28px}.public-info-hero__facts{width:100%}.public-info-hero__facts b{flex:1}.public-info-grid{grid-template-columns:1fr!important}}
