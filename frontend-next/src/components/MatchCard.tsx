@@ -6,20 +6,20 @@ import { pitchLabel } from "@/lib/pitch-label";
 import { matchStatus, participantLabel, timeLabel } from "@/lib/format";
 import { TeamKit } from "./TeamKit";
 
-function Side({team,label,away=false,showKits=true,showLogos=true}:{team?:Team;label:string;away?:boolean;showKits?:boolean;showLogos?:boolean}){
+function Side({team,label,away=false,showKits=true,showAwayKits=true,showLogos=true}:{team?:Team;label:string;away?:boolean;showKits?:boolean;showAwayKits?:boolean;showLogos?:boolean}){
   const [logoFailed,setLogoFailed]=useState(false);
   const logoSrc=String(team?.logo_url||"").trim();
   const usableLogo=/^https:\/\//i.test(logoSrc)&&!logoSrc.includes("/api/assets/club-logos/");
   return <div className={`public-match-team ${away?"public-match-team--away":""}`}>
     <div className="public-match-team__visual">
       {showLogos&&usableLogo&&!logoFailed?<img className="team-crest public-team-crest" src={logoSrc} alt="" referrerPolicy="no-referrer" onError={()=>setLogoFailed(true)}/>:null}
-      {showKits&&<TeamKit primary={away?team?.secondary_color:team?.primary_color} secondary={away?team?.away_color_2:team?.home_color_2} pattern={away?team?.away_pattern:team?.home_pattern}/>}
+      {showKits&&<TeamKit primary={away&&showAwayKits?team?.secondary_color:team?.primary_color} secondary={away&&showAwayKits?team?.away_color_2:team?.home_color_2} pattern={away&&showAwayKits?team?.away_pattern:team?.home_pattern}/>}
     </div>
     <div><small>{away?"Borta":"Hemma"}</small><strong>{label}</strong></div>
   </div>;
 }
 
-export function MatchCard({match,teams,groups=[],pitches=[],index,showKits=true,showLogos=true}:{match:Match;teams:Team[];groups?:Group[];pitches?:Pitch[];index:number;showKits?:boolean;showLogos?:boolean}){
+export function MatchCard({match,teams,groups=[],pitches=[],index,showKits=true,showAwayKits=true,showLogos=true}:{match:Match;teams:Team[];groups?:Group[];pitches?:Pitch[];index:number;showKits?:boolean;showAwayKits?:boolean;showLogos?:boolean}){
   const homeId=match.home_participant?.resolved?match.home_participant.team_id??null:match.home_source?.startsWith("team:")?Number(match.home_source.split(":")[1]):null;
   const awayId=match.away_participant?.resolved?match.away_participant.team_id??null:match.away_source?.startsWith("team:")?Number(match.away_source.split(":")[1]):null;
   const home=teams.find(team=>team.id===homeId); const away=teams.find(team=>team.id===awayId);
@@ -32,7 +32,7 @@ export function MatchCard({match,teams,groups=[],pitches=[],index,showKits=true,
   return <article className={`public-match-card public-match-card--${status}`}>
     <header className="public-match-card__meta"><span>Match {index+1}</span><b>{state}</b></header>
     <div className="public-match-card__teams">
-      <Side team={home} label={homeLabel} showKits={showKits} showLogos={showLogos}/>
+      <Side team={home} label={homeLabel} showKits={showKits} showAwayKits={showAwayKits} showLogos={showLogos}/>
       <div className="public-match-card__score"><strong>{score||"vs"}</strong></div>
       <Side team={away} label={awayLabel} away showKits={showKits} showLogos={showLogos}/>
     </div>
