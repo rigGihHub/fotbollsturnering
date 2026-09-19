@@ -77,6 +77,7 @@ function StandardKitColor({value,onChange,label}:{value:string;onChange:(value:s
 }
 function TeamLogo({team}:{team:Team}){
   const [failed,setFailed]=useState(false);
+  useEffect(()=>setFailed(false),[team.logo_url]);
   const showImage=Boolean(team.logo_url)&&!failed;
   return <span className={`admin-team-logo${showImage?"":" is-empty"}`} aria-label={showImage?`${team.name} klubbmärke`:`${team.name} saknar klubbmärke`}>
     {showImage?<img src={normalizedWebUrl(team.logo_url||"")} alt="" loading="lazy" referrerPolicy="no-referrer" onError={()=>setFailed(true)}/>:<b>{team.name.slice(0,2).toLocaleUpperCase("sv")}</b>}

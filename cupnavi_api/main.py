@@ -67,6 +67,23 @@ app.add_middleware(
 def get_cached_club_logo(digest: str):
     path = cached_logo_path(digest)
     if path is None:
+        # Render's local /tmp cache is ephemeral and can also differ between
+        # instances. Rebuild a missing verified asset from the source URL
+        # persisted with the team instead of leaving a permanent broken logo.
+        try:
+            with connect() as con:
+                row = con.execute(
+                    "SELECT logo_source_url FROM teams WHERE logo_url LIKE ? AND logo_source_url IS NOT NULL LIMIT 1",
+                    (f"%/api/assets/club-logos/{digest}",),
+                ).fetchone()
+            source_url = row[0] if row else None
+            if source_url:
+                restored_digest, _ = cache_verified_logo(str(source_url))
+                if restored_digest == digest:
+                    path = cached_logo_path(digest)
+        except (ValueError, OSError):
+            path = None
+    if path is None:
         raise HTTPException(status_code=404, detail="Club logo not found")
     return FileResponse(path, headers={"Cache-Control": "public, max-age=86400, immutable"})
 
