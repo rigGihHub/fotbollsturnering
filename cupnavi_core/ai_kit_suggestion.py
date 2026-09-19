@@ -363,10 +363,22 @@ def _request_suggestion(clean_name, api_key, *, model, timeout_seconds, strategy
             response_payload = json.loads(response.read().decode("utf-8"))
     except HTTPError as exc:
         retry_after=str(exc.headers.get("Retry-After") or "").strip() if exc.headers else ""
+        error_code=""
+        error_message=""
+        try:
+            error_payload=json.loads(exc.read().decode("utf-8"))
+            error_obj=error_payload.get("error") if isinstance(error_payload,dict) else None
+            if isinstance(error_obj,dict):
+                error_code=str(error_obj.get("code") or error_obj.get("type") or "").strip()
+                error_message=" ".join(str(error_obj.get("message") or "").split())[:240]
+        except Exception:
+            pass
         if exc.code == 429:
-            suffix=f" Vänta {retry_after} sekunder." if retry_after.isdigit() else " Vänta en stund innan nästa försök."
-            raise RuntimeError(f"AI_RATE_LIMIT: söktjänstens kapacitetsgräns nåddes.{suffix}") from exc
-        raise RuntimeError(f"AI_HTTP_{exc.code}: söktjänsten svarade med HTTP {exc.code}.") from exc
+            suffix=f" Vänta {retry_after} sekunder." if retry_after.isdigit() else ""
+            kind=error_code or "rate_limit_exceeded"
+            message=f" ({error_message})" if error_message else ""
+            raise RuntimeError(f"AI_RATE_LIMIT[{kind}]: söktjänsten avvisade anropet{message}.{suffix}") from exc
+        raise RuntimeError(f"AI_HTTP_{exc.code}[{error_code or 'unknown'}]: söktjänsten svarade med HTTP {exc.code}.") from exc
     except Exception as exc:
         raise RuntimeError(f"AI-förslaget misslyckades: {exc}") from exc
     if response_payload.get("error"):
