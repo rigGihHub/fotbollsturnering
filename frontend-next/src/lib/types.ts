@@ -7,6 +7,7 @@ export type Tournament = {
   results_counted?: number | boolean | null;
   show_scorer_stats?: number | boolean | null; show_assist_stats?: number | boolean | null;
   show_card_stats?: number | boolean | null; show_fairness?: number | boolean | null;
+  show_public_weather?: number | boolean | null; show_public_kits?: number | boolean | null; show_public_logos?: number | boolean | null;
 };
 export type Team = { id:number; name:string; group_id?:number|null; age_class?:string|null; primary_color?:string|null; secondary_color?:string|null; home_pattern?:string|null; home_color_2?:string|null; away_pattern?:string|null; away_color_2?:string|null; logo_url?:string|null; logo_source_url?:string|null };
 export type ResolvedParticipant = { source:string; kind:string; resolved:boolean; team_id?:number|null; team_name?:string|null; reason?:string };
