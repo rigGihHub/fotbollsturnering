@@ -414,6 +414,10 @@ def search_admin_team_kit(tournament_id:int,payload:KitSearchRequest,authorizati
         raise HTTPException(status_code=404,detail="Cup saknas eller åtkomst nekas")
     api_key=os.getenv("OPENAI_API_KEY","").strip()
     free_result=_free_club_asset_result(payload.team_name,str(payload.search_focus or "kit"))
+    # Prefer CupNavi's own free knowledge for known clubs. This avoids spending
+    # paid AI credits on facts we already know and makes repeated cup setup stable.
+    if free_result is not None and not payload.force_refresh:
+        return free_result
     if not api_key:
         if free_result is not None:
             return free_result
