@@ -467,7 +467,11 @@ export default function AdminWorkspace({verifiedSession=null,children=null}:{ver
     for(let start=0;start<teams.length;start+=3){
       const batch=teams.slice(start,start+3);
       await Promise.all(batch.map(async team=>{try{
-        let suggestion=await request<KitSuggestion>(`/api/admin/cups/${cupId}/teams/kit-search`,{method:"POST",body:JSON.stringify({team_name:team.name,age_class:team.age_class||null,search_focus:"all"})},token);
+        const missingLogo=!team.logo_url;
+        // Existing kit data is valuable user state. Bulk lookup must not re-search
+        // and destabilize it merely because a crest is missing.
+        const searchFocus=missingLogo?"logo":"all";
+        let suggestion=await request<KitSuggestion>(`/api/admin/cups/${cupId}/teams/kit-search`,{method:"POST",body:JSON.stringify({team_name:team.name,age_class:team.age_class||null,search_focus:searchFocus})},token);
         // A combined shirt search may legitimately prioritize kit evidence and omit the crest.
         // For bulk mode, follow up with a logo-focused search before deciding that the crest is missing.
         if(suggestion.identity_status==="exact"&&!suggestion.logo_verified){
