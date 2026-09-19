@@ -467,7 +467,15 @@ export default function AdminWorkspace({verifiedSession=null,children=null}:{ver
     for(let start=0;start<teams.length;start+=3){
       const batch=teams.slice(start,start+3);
       await Promise.all(batch.map(async team=>{try{
-        const suggestion=await request<KitSuggestion>(`/api/admin/cups/${cupId}/teams/kit-search`,{method:"POST",body:JSON.stringify({team_name:team.name,age_class:team.age_class||null,search_focus:"all"})},token);
+        let suggestion=await request<KitSuggestion>(`/api/admin/cups/${cupId}/teams/kit-search`,{method:"POST",body:JSON.stringify({team_name:team.name,age_class:team.age_class||null,search_focus:"all"})},token);
+        // A combined shirt search may legitimately prioritize kit evidence and omit the crest.
+        // For bulk mode, follow up with a logo-focused search before deciding that the crest is missing.
+        if(suggestion.identity_status==="exact"&&!suggestion.logo_verified){
+          try{
+            const logoSuggestion=await request<KitSuggestion>(`/api/admin/cups/${cupId}/teams/kit-search`,{method:"POST",body:JSON.stringify({team_name:team.name,age_class:team.age_class||null,resolved_club:suggestion.club_match||team.name,search_focus:"logo",force_refresh:true})},token);
+            if(logoSuggestion.identity_status==="exact"&&logoSuggestion.logo_verified){suggestion={...suggestion,logo_verified:true,logo_url:logoSuggestion.logo_url,logo_source_url:logoSuggestion.logo_source_url};}
+          }catch{/* A logo retry must never discard already verified kit data. */}
+        }
         const strongKit=suggestion.identity_status==="exact"&&suggestion.home_verified&&suggestion.away_verified;if(!strongKit){if(suggestion.identity_status==="exact"&&suggestion.logo_verified){try{const logoPayload={...team,logo_url:suggestion.logo_url,logo_source_url:suggestion.logo_source_url};const logoSaved=await request<Team>(`/api/admin/cups/${cupId}/teams/${team.id}`,{method:"PUT",body:JSON.stringify(logoPayload)},token);updated.push(logoSaved);}catch{/* Kit review still continues even if logo persistence fails. */}}uncertain++;const identityOk=suggestion.identity_status==="exact";const parts=[!identityOk?"Klubbidentiteten behöver förtydligas.":"Klubbidentitet: verifierad.",suggestion.home_verified?"Hemma: verifierat.":"Hemma: behöver kontrolleras.",suggestion.away_verified?"Borta: verifierat.":"Borta: behöver kontrolleras.",suggestion.logo_verified?"Klubbmärke: verifierat.":""];issues.push({teamId:team.id,teamName:team.name,reason:parts.filter(Boolean).join(" ")});return;}
         const payload={...team,
           ...(suggestion.home_verified?{primary_color:suggestion.home_color_1,home_color_2:suggestion.home_color_2,home_pattern:suggestion.home_pattern}:{}),
