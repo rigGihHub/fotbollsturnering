@@ -7,7 +7,7 @@ export type Tournament = {
   results_counted?: number | boolean | null;
   show_scorer_stats?: number | boolean | null; show_assist_stats?: number | boolean | null;
   show_card_stats?: number | boolean | null; show_fairness?: number | boolean | null;
-  show_public_weather?: number | boolean | null; show_public_kits?: number | boolean | null; show_public_logos?: number | boolean | null;
+  show_public_weather?: number | boolean | null; show_public_kits?: number | boolean | null; show_public_away_kits?: number | boolean | null; show_public_logos?: number | boolean | null;
   points_win?:number|null; points_draw?:number|null; points_loss?:number|null; table_tiebreak?:string|null;
   halves?:number|null; minutes_per_half?:number|null; halftime_minutes?:number|null; pitch_break_minutes?:number|null; minimum_team_rest_minutes?:number|null; avoid_consecutive_matches?:number|boolean|null; consecutive_match_break_minutes?:number|null;
 };
