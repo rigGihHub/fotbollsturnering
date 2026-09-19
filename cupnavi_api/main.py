@@ -16,7 +16,7 @@ from cupnavi_core.ai_kit_suggestion import suggest_team_kit
 from cupnavi_core.public_competition import calculate_group_table, team_competition_summary
 from cupnavi_core.rate_limit import consume_rate_limit
 from .admin_auth import issue_session, normalize_email, verify_session
-from .logo_cache import cached_logo_path
+from .logo_cache import cached_logo_path, cache_verified_logo
 from .admin_repository import (
     admin_cupinfo,
     admin_teams,
@@ -363,7 +363,7 @@ def search_admin_team_kit(tournament_id:int,payload:KitSearchRequest,authorizati
     if not api_key:
         raise HTTPException(status_code=503,detail="Tröjsökningen är inte konfigurerad ännu")
     try:
-        return suggest_team_kit(
+        result = suggest_team_kit(
             payload.team_name,api_key,
             model=os.getenv("CUPNAVI_AI_KIT_MODEL","gpt-4.1-mini").strip() or "gpt-4.1-mini",
             location=str(cupinfo.get("arena_address") or ""),
@@ -374,6 +374,18 @@ def search_admin_team_kit(tournament_id:int,payload:KitSearchRequest,authorizati
             search_focus=str(payload.search_focus or "kit"),
             use_cache=not payload.force_refresh,
         )
+        if result.get("logo_verified") and result.get("logo_url"):
+            original_logo_url = str(result["logo_url"])
+            try:
+                digest, _ = cache_verified_logo(original_logo_url)
+                result["logo_url"] = f"/api/assets/club-logos/{digest}"
+                result["logo_source_url"] = str(result.get("logo_source_url") or original_logo_url)
+            except (ValueError, OSError):
+                # Keep the verified source evidence, but do not return an
+                # external image URL that may fail or block hotlinking.
+                result["logo_url"] = ""
+                result["logo_verified"] = False
+        return result
     except ValueError as exc:
         raise HTTPException(status_code=422,detail=str(exc)) from exc
     except RuntimeError as exc:
