@@ -228,3 +228,6 @@ body:has(.page-shell--matchday){background-image:radial-gradient(circle,rgba(16,
 .public-rule-list small{grid-column:1/-1;color:#829aa1;font-size:9px;text-align:right}
 .public-info-card a{font-weight:800;color:#1554d1}
 @media(max-width:800px){.public-info-grid{grid-template-columns:1fr}.public-info-card--rules{grid-row:auto}.public-info-card{padding:18px}}
+
+.texttv--standings tbody tr.is-neutral{color:#fff!important}
+.texttv--standings tbody tr.is-sky{color:#67dfff!important}
