@@ -149,3 +149,11 @@ body:has(.page-shell--matchday){background-image:radial-gradient(circle,rgba(16,
 .public-match-card--live .public-match-card__score{background:#fff3d0}.public-match-card--live .public-match-card__meta b{color:#b23b2c}
 .public-match-card__pitch{min-height:30px;padding:7px 16px;border-top:1px solid #e8ece9;background:#f7fbfa;font-size:10px;font-weight:750;color:#61747a}
 @media(max-width:700px){.public-match-card__teams{grid-template-columns:minmax(0,1fr) 58px minmax(0,1fr)}.public-match-team{gap:7px;padding:12px 9px}.public-match-team strong{font-size:15px}.public-match-team__visual .team-crest{width:24px;height:24px}.public-match-card__score strong{font-size:20px}}
+
+.public-matches-v3{width:100%}
+.public-section-head{display:flex;align-items:flex-end;justify-content:space-between;gap:24px;margin:0 0 14px;padding:0 2px}
+.public-section-head span{display:block;margin-bottom:4px;font-size:10px;font-weight:850;letter-spacing:.14em;text-transform:uppercase;color:#58717b}
+.public-section-head h2{margin:0;font-size:34px;line-height:1;letter-spacing:-.035em;color:#102632}
+.public-section-head p{margin:0 0 2px;color:#6a797f;font-size:13px}
+.page-shell--public-v3 .match-grid{align-items:start}
+@media(max-width:900px){.public-section-head{align-items:flex-start;flex-direction:column;gap:5px}.public-section-head h2{font-size:30px}}
