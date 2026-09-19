@@ -420,6 +420,7 @@ def search_admin_team_kit(tournament_id:int,payload:KitSearchRequest,authorizati
         raise HTTPException(status_code=422,detail=str(exc)) from exc
     except RuntimeError as exc:
         raw_detail=" ".join(str(exc).split())[:500]
+        print(f"[kit-search] upstream failure focus={payload.search_focus} team={payload.team_name!r}: {raw_detail}", flush=True)
         detail=raw_detail
         if "timed out" in raw_detail.lower() or "timeout" in raw_detail.lower():
             detail=f"Tröjsökningen tog för lång tid. Teknisk detalj: {raw_detail}"
