@@ -464,9 +464,10 @@ export default function AdminWorkspace({verifiedSession=null,children=null}:{ver
   async function searchAllTeamAssets(){
     if(!token||!cupId||!teams.length||bulkKitBusy)return;
     setBulkKitBusy(true);setBulkKitResult("");setBulkKitIssues([]);setError("");setMessage("");let completed=0,saved=0,failed=0,uncertain=0;const updated:Team[]=[];const issues:Array<{teamId:number;teamName:string;reason:string}>=[];
-    for(let start=0;start<teams.length;start+=3){
-      const batch=teams.slice(start,start+3);
-      await Promise.all(batch.map(async team=>{try{
+    // Run one club at a time. Parallel web-search calls can exhaust the
+    // upstream search quota and turn one transient 429 into a full-cup failure.
+    for(const team of teams){
+      try{
         const missingLogo=!team.logo_url;
         // Existing kit data is valuable user state. Bulk lookup must not re-search
         // and destabilize it merely because a crest is missing.
@@ -487,7 +488,19 @@ export default function AdminWorkspace({verifiedSession=null,children=null}:{ver
           ...(suggestion.logo_verified?{logo_url:suggestion.logo_url,logo_source_url:suggestion.logo_source_url}:{}),
         };
         const result=await request<Team>(`/api/admin/cups/${cupId}/teams/${team.id}`,{method:"PUT",body:JSON.stringify(payload)},token);updated.push(result);saved++;
-      }catch(err){failed++;const detail=err instanceof Error?err.message:"Okänt fel";issues.push({teamId:team.id,teamName:team.name,reason:`Sökningen misslyckades [diag-v2]: ${detail}`});}finally{completed++;setBulkKitProgress(`${completed} av ${teams.length} lag kontrollerade`);}}));
+      }catch(err){
+        const detail=err instanceof Error?err.message:"Okänt fel";
+        if(/429|AI_RATE_LIMIT|kapacitetsgräns/i.test(detail)){
+          issues.push({teamId:team.id,teamName:team.name,reason:"Söktjänsten är tillfälligt upptagen. CupNavi pausade massökningen så övriga lag inte förbrukas i onödan."});
+          failed++;completed++;setBulkKitProgress("");
+          break;
+        }
+        failed++;issues.push({teamId:team.id,teamName:team.name,reason:`Sökningen misslyckades [diag-v2]: ${detail}`});
+      }finally{
+        if(completed<teams.length){completed++;setBulkKitProgress(`${completed} av ${teams.length} lag kontrollerade`);}
+      }
+      // Small spacing between expensive web-search calls reduces burst pressure.
+      await new Promise(resolve=>window.setTimeout(resolve,900));
     }
     setTeams(current=>current.map(team=>updated.find(item=>item.id===team.id)||team));
     const resultText=`${saved} uppdaterade · ${uncertain} behöver förtydligas · ${failed} misslyckade`;
