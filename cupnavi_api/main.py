@@ -378,7 +378,8 @@ def search_admin_team_kit(tournament_id:int,payload:KitSearchRequest,authorizati
             original_logo_url = str(result["logo_url"])
             try:
                 digest, _ = cache_verified_logo(original_logo_url)
-                api_public_base=os.getenv("CUPNAVI_API_PUBLIC_BASE","https://cupnavi-api.onrender.com").rstrip("/")\n                result["logo_url"] = f"{api_public_base}/api/assets/club-logos/{digest}"
+                api_public_base=os.getenv("CUPNAVI_API_PUBLIC_BASE","https://cupnavi-api.onrender.com").rstrip("/")
+                result["logo_url"] = f"{api_public_base}/api/assets/club-logos/{digest}"
                 result["logo_source_url"] = str(result.get("logo_source_url") or original_logo_url)
             except (ValueError, OSError):
                 # Keep the verified source evidence, but do not return an
