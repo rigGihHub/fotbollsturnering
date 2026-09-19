@@ -474,7 +474,7 @@ export default function AdminWorkspace({verifiedSession=null,children=null}:{ver
         let suggestion=await request<KitSuggestion>(`/api/admin/cups/${cupId}/teams/kit-search`,{method:"POST",body:JSON.stringify({team_name:team.name,age_class:team.age_class||null,search_focus:searchFocus})},token);
         // A combined shirt search may legitimately prioritize kit evidence and omit the crest.
         // For bulk mode, follow up with a logo-focused search before deciding that the crest is missing.
-        if(suggestion.identity_status==="exact"&&!suggestion.logo_verified){
+        if(searchFocus!=="logo"&&suggestion.identity_status==="exact"&&!suggestion.logo_verified){
           try{
             const logoSuggestion=await request<KitSuggestion>(`/api/admin/cups/${cupId}/teams/kit-search`,{method:"POST",body:JSON.stringify({team_name:team.name,age_class:team.age_class||null,resolved_club:suggestion.club_match||team.name,search_focus:"logo",force_refresh:true})},token);
             if(logoSuggestion.identity_status==="exact"&&logoSuggestion.logo_verified){suggestion={...suggestion,logo_verified:true,logo_url:logoSuggestion.logo_url,logo_source_url:logoSuggestion.logo_source_url};}
