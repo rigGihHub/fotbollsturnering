@@ -247,3 +247,8 @@ body:has(.page-shell--matchday){background-image:radial-gradient(circle,rgba(16,
 .public-rule-list>div{padding:15px 0}
 .public-rule-list b{font-size:16px}
 @media(max-width:800px){.public-info-hero{align-items:flex-start;flex-direction:column}.public-info-hero h2{font-size:28px}.public-info-hero__facts{width:100%}.public-info-hero__facts b{flex:1}.public-info-grid{grid-template-columns:1fr!important}}
+
+.texttv__legend{display:flex;flex-wrap:wrap;gap:8px 18px;padding:10px 14px 8px;background:#102632;border-top:1px solid rgba(255,255,255,.12);font-family:monospace;font-size:11px;font-weight:800}
+.texttv__legend span{display:inline-flex;align-items:center;gap:6px}
+.texttv__legend i{width:10px;height:10px;border-radius:2px;background:currentColor}
+.texttv__legend .is-leading{color:#00ff5a}.texttv__legend .is-neutral{color:#fff}.texttv__legend .is-playoff{color:#ffff00}.texttv__legend .is-sky{color:#67dfff}
