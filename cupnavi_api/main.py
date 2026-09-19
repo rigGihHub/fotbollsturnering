@@ -419,13 +419,14 @@ def search_admin_team_kit(tournament_id:int,payload:KitSearchRequest,authorizati
     except ValueError as exc:
         raise HTTPException(status_code=422,detail=str(exc)) from exc
     except RuntimeError as exc:
-        detail=str(exc)
-        if "timed out" in detail.lower() or "timeout" in detail.lower():
-            detail="Tröjsökningen tog för lång tid. Försök igen."
-        elif "401" in detail or "authentication" in detail.lower():
-            detail="Tröjsökningens anslutning är inte korrekt konfigurerad."
+        raw_detail=" ".join(str(exc).split())[:500]
+        detail=raw_detail
+        if "timed out" in raw_detail.lower() or "timeout" in raw_detail.lower():
+            detail=f"Tröjsökningen tog för lång tid. Teknisk detalj: {raw_detail}"
+        elif "401" in raw_detail or "authentication" in raw_detail.lower():
+            detail=f"Tröjsökningens anslutning är inte korrekt konfigurerad. Teknisk detalj: {raw_detail}"
         else:
-            detail="Tröjsökningen kunde inte slutföras mot söktjänsten."
+            detail=f"Tröjsökningen kunde inte slutföras mot söktjänsten. Teknisk detalj: {raw_detail}"
         raise HTTPException(status_code=502,detail=detail) from exc
 
 
