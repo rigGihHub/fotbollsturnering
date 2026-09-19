@@ -15,6 +15,7 @@ PUBLIC_TOURNAMENT_FIELDS = (
     "points_draw","points_loss","table_tiebreak","show_scorer_stats","show_assist_stats",
     "show_card_stats","show_fairness","show_public_weather","show_public_kits","show_public_away_kits","show_public_logos","enable_team_checkin","is_published",
     "halves","minutes_per_half","halftime_minutes","pitch_break_minutes","minimum_team_rest_minutes","avoid_consecutive_matches","consecutive_match_break_minutes",
+    "organizer_phone","feedback_email","instagram_url","playoff_format","bronze_match",
 )
 
 def backend_name() -> str:
