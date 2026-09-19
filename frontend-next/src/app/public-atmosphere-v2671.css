@@ -78,3 +78,42 @@ body:has(.page-shell--matchday){background-image:radial-gradient(circle,rgba(16,
 @media(min-width:1500px){
   .page-shell--matchday{max-width:1500px!important}
 }
+
+
+/* Public v3 — isolated desktop rebuild. Deliberately overrides legacy matchday art. */
+@media(min-width:901px){
+  body:has(.page-shell--public-v3){background:#f4f1e9!important;background-image:none!important}
+  .page-shell--public-v3{width:min(1440px,calc(100% - 56px))!important;max-width:1440px!important;margin:0 auto!important;padding:18px 0 72px!important}
+  .page-shell--public-v3 .cup-cover{width:100%!important;min-height:0!important;padding:24px 30px!important;border:0!important;border-radius:16px!important;background:#102632!important;box-shadow:none!important}
+  .page-shell--public-v3 .cup-cover:before,.page-shell--public-v3 .cup-cover:after{display:none!important}
+  .page-shell--public-v3 .cup-cover__content{margin:0!important}
+  .page-shell--public-v3 .cup-cover h1{font-size:44px!important;line-height:1!important;letter-spacing:-.04em!important;text-shadow:none!important}
+  .page-shell--public-v3 .cup-cover__meta{font-size:14px!important}
+  .page-shell--public-v3 .cup-cover__facts span{border:1px solid rgba(255,255,255,.2)!important;border-radius:999px!important;background:rgba(255,255,255,.08)!important;box-shadow:none!important}
+  .page-shell--public-v3 .collectible-stamp{display:none!important}
+  .page-shell--public-v3 .edition-nav--desktop{width:100%!important;margin:12px 0 28px!important;padding:0!important;gap:0!important;border:1px solid #d8d5cd!important;border-radius:12px!important;background:#fff!important;box-shadow:none!important;overflow:hidden}
+  .page-shell--public-v3 .edition-nav--desktop button{min-height:52px!important;padding:0 20px!important;border:0!important;border-right:1px solid #e5e2da!important;border-radius:0!important;background:#fff!important;color:#33454e!important;box-shadow:none!important;font-size:15px!important}
+  .page-shell--public-v3 .edition-nav--desktop button:last-child{border-right:0!important}
+  .page-shell--public-v3 .edition-nav--desktop button.is-active{background:#102632!important;color:#fff!important}
+  .page-shell--public-v3 .edition-nav--desktop button span{font-size:9px!important;opacity:.55}
+  .page-shell--public-v3 .section-heading{display:grid!important;grid-template-columns:auto 1fr!important;grid-template-areas:"eyebrow eyebrow" "title copy"!important;align-items:end!important;column-gap:24px!important;width:100%!important;margin:0 0 16px!important}
+  .page-shell--public-v3 .section-heading>span{grid-area:eyebrow;font-size:10px!important;letter-spacing:.16em!important;color:#56717d!important}
+  .page-shell--public-v3 .section-heading h2{grid-area:title;margin:0!important;font-size:34px!important;line-height:1.05!important}
+  .page-shell--public-v3 .section-heading p{grid-area:copy;margin:0 0 2px!important;color:#63747b!important}
+  .page-shell--public-v3 .match-view-filter{width:max-content!important;margin:0 0 18px!important;padding:3px!important;border:1px solid #d7ddd9!important;border-radius:10px!important;background:#fff!important;box-shadow:none!important}
+  .page-shell--public-v3 .match-view-filter button{min-height:38px!important;border:0!important;border-radius:7px!important;box-shadow:none!important}
+  .page-shell--public-v3 .match-view-filter button.is-active{background:#102632!important;color:#fff!important}
+  .page-shell--public-v3 .match-grid{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;width:100%!important;max-width:none!important;gap:14px!important}
+  .page-shell--public-v3 .match-card{min-height:144px!important;border:1px solid #ccd5d3!important;border-radius:12px!important;background:#fff!important;box-shadow:none!important}
+  .page-shell--public-v3 .match-card__topline{min-height:30px!important;padding:0 14px!important;border:0!important;border-bottom:1px solid #ece7d8!important;background:#fff8d8!important;color:#263941!important}
+  .page-shell--public-v3 .match-card__body{min-height:86px!important}
+  .page-shell--public-v3 .team{padding:12px 16px!important}
+  .page-shell--public-v3 .team-copy strong{font-size:19px!important;line-height:1.05!important}
+  .page-shell--public-v3 .team-copy small{font-size:8px!important;color:#718088!important}
+  .page-shell--public-v3 .team-visual{transform:scale(1.08)}
+  .page-shell--public-v3 .score-window{width:72px!important;min-width:72px!important;background:#102632!important}
+  .page-shell--public-v3 .score-window strong{font-size:24px!important}
+  .page-shell--public-v3 .score-window small{font-size:8px!important}
+  .page-shell--public-v3 .match-card__footer{min-height:27px!important;padding:0 14px!important;border-top:1px solid #e5efec!important;background:#f3faf8!important;color:#526970!important}
+  .page-shell--public-v3 .match-card__footer span:last-child{display:none!important}
+}
