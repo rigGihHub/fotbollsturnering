@@ -73,6 +73,64 @@ def ensure_team_kit_schema() -> None:
             commit()
 
 
+def ensure_club_registry_schema() -> None:
+    """Persistent, reusable club knowledge shared by future cups."""
+    with connect() as con:
+        con.execute("""CREATE TABLE IF NOT EXISTS club_registry (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            normalized_name TEXT NOT NULL UNIQUE,
+            display_name TEXT NOT NULL,
+            home_pattern TEXT,
+            home_color_1 TEXT,
+            home_color_2 TEXT,
+            away_pattern TEXT,
+            away_color_1 TEXT,
+            away_color_2 TEXT,
+            logo_url TEXT,
+            logo_source_url TEXT,
+            updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+        )""")
+        commit=getattr(con,"commit",None)
+        if callable(commit): commit()
+
+
+def club_registry_lookup(team_name: str):
+    ensure_club_registry_schema()
+    key=" ".join(str(team_name or "").casefold().split())
+    row=one("SELECT * FROM club_registry WHERE normalized_name=?",(key,))
+    if row: return row
+    # Youth suffixes commonly follow the base club name; longest known prefix wins.
+    rows=all_rows("SELECT * FROM club_registry ORDER BY LENGTH(normalized_name) DESC")
+    return next((row for row in rows if key.startswith(str(row.get("normalized_name") or "")+" ")),None)
+
+
+def club_registry_remember(team: dict) -> None:
+    ensure_club_registry_schema()
+    name=" ".join(str(team.get("name") or "").strip().split())
+    if not name: return
+    key=name.casefold()
+    with connect() as con:
+        con.execute("""INSERT INTO club_registry
+            (normalized_name,display_name,home_pattern,home_color_1,home_color_2,away_pattern,away_color_1,away_color_2,logo_url,logo_source_url,updated_at)
+            VALUES (?,?,?,?,?,?,?,?,?,?,CURRENT_TIMESTAMP)
+            ON CONFLICT(normalized_name) DO UPDATE SET
+              display_name=excluded.display_name,
+              home_pattern=COALESCE(excluded.home_pattern,club_registry.home_pattern),
+              home_color_1=COALESCE(excluded.home_color_1,club_registry.home_color_1),
+              home_color_2=COALESCE(excluded.home_color_2,club_registry.home_color_2),
+              away_pattern=COALESCE(excluded.away_pattern,club_registry.away_pattern),
+              away_color_1=COALESCE(excluded.away_color_1,club_registry.away_color_1),
+              away_color_2=COALESCE(excluded.away_color_2,club_registry.away_color_2),
+              logo_url=COALESCE(excluded.logo_url,club_registry.logo_url),
+              logo_source_url=COALESCE(excluded.logo_source_url,club_registry.logo_source_url),
+              updated_at=CURRENT_TIMESTAMP""",(
+            key,name,team.get("home_pattern"),team.get("primary_color"),team.get("home_color_2"),
+            team.get("away_pattern"),team.get("secondary_color"),team.get("away_color_2"),team.get("logo_url"),team.get("logo_source_url")
+        ))
+        commit=getattr(con,"commit",None)
+        if callable(commit): commit()
+
+
 def _table_columns(table_name: str) -> set[str]:
     """Return columns without assuming that every lifecycle migration exists yet."""
     rows = all_rows(f"PRAGMA table_info({table_name})")
