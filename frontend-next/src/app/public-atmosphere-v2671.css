@@ -117,3 +117,15 @@ body:has(.page-shell--matchday){background-image:radial-gradient(circle,rgba(16,
   .page-shell--public-v3 .match-card__footer{min-height:27px!important;padding:0 14px!important;border-top:1px solid #e5efec!important;background:#f3faf8!important;color:#526970!important}
   .page-shell--public-v3 .match-card__footer span:last-child{display:none!important}
 }
+
+
+/* Public v3 hero component — no legacy collector-card chrome. */
+.public-cup-hero{display:flex;align-items:flex-end;justify-content:space-between;gap:28px;padding:28px 32px;border-radius:16px;background:#102632;color:#fff}
+.public-cup-hero__label{margin:0 0 7px;font-size:11px;font-weight:900;letter-spacing:.14em;text-transform:uppercase;color:#7ddfe5}
+.public-cup-hero h1{margin:0;font-size:clamp(38px,4vw,58px);line-height:.98;letter-spacing:-.045em}
+.public-cup-hero__meta{display:flex;gap:18px;margin:12px 0 0;color:#cbd9dc;font-size:14px}
+.public-cup-hero__stats{display:flex;gap:10px;flex:0 0 auto}
+.public-cup-hero__stats>span{display:flex;min-width:82px;flex-direction:column;align-items:center;justify-content:center;padding:11px 13px;border:1px solid rgba(255,255,255,.16);border-radius:11px;background:rgba(255,255,255,.06)}
+.public-cup-hero__stats b{font-size:22px;line-height:1}
+.public-cup-hero__stats small{margin-top:4px;color:#cbd9dc;font-size:10px;text-transform:uppercase;letter-spacing:.08em}
+@media(max-width:700px){.public-cup-hero{align-items:flex-start;flex-direction:column;padding:22px 20px}.public-cup-hero h1{font-size:38px}.public-cup-hero__meta{flex-direction:column;gap:3px}.public-cup-hero__stats{width:100%}.public-cup-hero__stats>span{flex:1;min-width:0}}
