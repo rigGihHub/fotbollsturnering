@@ -302,7 +302,10 @@ def public_snapshot(public_key, *, include_unpublished=False):
                        ORDER BY scheduled_start,pitch_number,id""", (tid,))
         venue_points=many("SELECT id,kind,label,detail,url FROM venue_points WHERE tournament_id=? ORDER BY label,id", (tid,))
         pitches=many("SELECT pitch_number,name FROM pitches WHERE tournament_id=? ORDER BY pitch_number", (tid,))
-        brackets=many("SELECT id,name,size,bronze_match FROM brackets WHERE tournament_id=? ORDER BY id", (tid,))
+        bracket_columns={str(item.get("name")) for item in many("PRAGMA table_info(brackets)")}
+        bracket_extra=[name for name in ("qualification_rule","source_rule","group_positions","qualifying_positions") if name in bracket_columns]
+        bracket_select="id,name,size,bronze_match"+(" ,"+",".join(bracket_extra) if bracket_extra else "")
+        brackets=many(f"SELECT {bracket_select} FROM brackets WHERE tournament_id=? ORDER BY id", (tid,))
         if brackets:
             bracket_matches=many(f"""SELECT id,bracket_id,stage,round_no,match_no,home_source,away_source,scheduled_start,pitch_number,
                                           home_score,away_score,home_penalties,away_penalties,decided_winner_id,schedule_published,
