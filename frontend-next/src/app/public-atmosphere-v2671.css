@@ -277,3 +277,16 @@ body:has(.page-shell--matchday){background-image:radial-gradient(circle,rgba(16,
  .page-shell--public-v3 .texttv__scroll{overflow-x:auto!important;-webkit-overflow-scrolling:touch}
  .page-shell--public-v3 .texttv table{min-width:620px!important}
 }
+
+@media(max-width:700px){
+ .page-shell--public-v3 .public-cup-hero{gap:16px!important}
+ .page-shell--public-v3 .public-cup-hero__meta{margin-top:7px!important}
+ .page-shell--public-v3 .public-cup-hero__stats{gap:6px!important}
+ .page-shell--public-v3 .public-cup-hero__stats>span{min-height:58px!important}
+ .page-shell--public-v3 .public-info-hero{margin-bottom:12px!important;padding:18px!important}
+ .page-shell--public-v3 .public-info-hero p{margin-bottom:0!important;font-size:14px!important;line-height:1.4!important}
+ .page-shell--public-v3 .public-info-grid{gap:12px!important}
+ .page-shell--public-v3 .public-info-card{padding:17px!important}
+ .page-shell--public-v3 .public-rule-list>div{padding:12px 0!important}
+ .page-shell--public-v3 .mobile-bottom-nav button span{font-family:inherit!important;font-size:16px!important}
+}
