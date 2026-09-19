@@ -62,7 +62,7 @@ const standardKitColors=[
   {name:"Lila",value:"#713E8A"},{name:"Rosa",value:"#E56B9F"},{name:"Grå",value:"#7A8588"},
 ];
 function directImageUrl(value:string){try{const u=new URL(value);return /\.(?:png|jpe?g|webp|gif)(?:$|\?)/i.test(u.pathname+u.search)?u.toString():"";}catch{return "";}}
-function normalizedWebUrl(value:string){const text=value.trim();return text&&/^www\./i.test(text)?`https://${text}`:text;}
+function normalizedWebUrl(value:string){const text=value.trim();if(text.startsWith("/api/"))return `${API_BASE}${text}`;return text&&/^www\./i.test(text)?`https://${text}`:text;}
 function kitBackground(pattern:KitPattern,c1:string,c2:string){
   if(pattern==="Vertikala ränder")return `repeating-linear-gradient(90deg,${c1} 0 8px,${c2} 8px 16px)`;
   if(pattern==="Horisontella ränder")return `repeating-linear-gradient(0deg,${c1} 0 8px,${c2} 8px 16px)`;
