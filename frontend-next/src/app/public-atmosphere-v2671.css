@@ -157,3 +157,26 @@ body:has(.page-shell--matchday){background-image:radial-gradient(circle,rgba(16,
 .public-section-head p{margin:0 0 2px;color:#6a797f;font-size:13px}
 .page-shell--public-v3 .match-grid{align-items:start}
 @media(max-width:900px){.public-section-head{align-items:flex-start;flex-direction:column;gap:5px}.public-section-head h2{font-size:30px}}
+
+
+/* Public v3 proportion pass */
+@media(min-width:901px){
+  .page-shell--public-v3 .public-cup-hero{padding:20px 26px!important}
+  .page-shell--public-v3 .public-cup-hero h1{font-size:40px!important}
+  .page-shell--public-v3 .public-cup-hero__meta{margin-top:8px!important}
+  .page-shell--public-v3 .public-cup-hero__stats>span{min-width:72px!important;padding:9px 11px!important}
+  .page-shell--public-v3 .edition-nav--desktop{margin-bottom:20px!important}
+  .page-shell--public-v3 .public-section-head{margin-bottom:10px!important}
+  .page-shell--public-v3 .public-section-head>div>span{display:none!important}
+  .page-shell--public-v3 .public-section-head h2{font-size:30px!important}
+  .page-shell--public-v3 .match-view-filter{margin-bottom:14px!important}
+  .page-shell--public-v3 .public-match-card__teams{grid-template-columns:minmax(0,1fr) 54px minmax(0,1fr)!important;min-height:100px!important}
+  .page-shell--public-v3 .public-match-card__score{width:54px!important;min-width:54px!important}
+  .page-shell--public-v3 .public-match-card__score small{font-size:7px!important;letter-spacing:.04em!important}
+  .page-shell--public-v3 .public-match-card__score strong{font-size:21px!important}
+  .page-shell--public-v3 .public-match-team{gap:14px!important;padding:14px 18px!important}
+  .page-shell--public-v3 .public-match-team strong{font-size:20px!important}
+  .page-shell--public-v3 .public-match-team__visual{transform:scale(1.16)!important}
+  .page-shell--public-v3 .public-match-card__meta{min-height:32px!important}
+  .page-shell--public-v3 .public-match-card__pitch{min-height:27px!important;padding-top:6px!important;padding-bottom:6px!important}
+}
