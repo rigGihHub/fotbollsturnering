@@ -206,3 +206,7 @@ body:has(.page-shell--matchday){background-image:radial-gradient(circle,rgba(16,
  .page-shell--public-v3 .public-match-team{padding:11px 16px!important}
  .page-shell--public-v3 .public-match-team strong{font-size:19px!important}
 }
+
+/* Public v3 result emphasis */
+.public-match-card--done .public-match-card__score strong{width:auto!important;min-width:48px!important;height:40px!important;padding:0 10px!important;border-radius:10px!important;background:#102632!important;color:#fff!important;font-size:22px!important;font-weight:900!important;letter-spacing:-.03em!important}
+.public-match-card--done .public-match-card__meta b{font-weight:850!important;color:#52656d!important}
