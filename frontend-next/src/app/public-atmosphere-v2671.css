@@ -129,3 +129,23 @@ body:has(.page-shell--matchday){background-image:radial-gradient(circle,rgba(16,
 .public-cup-hero__stats b{font-size:22px;line-height:1}
 .public-cup-hero__stats small{margin-top:4px;color:#cbd9dc;font-size:10px;text-transform:uppercase;letter-spacing:.08em}
 @media(max-width:700px){.public-cup-hero{align-items:flex-start;flex-direction:column;padding:22px 20px}.public-cup-hero h1{font-size:38px}.public-cup-hero__meta{flex-direction:column;gap:3px}.public-cup-hero__stats{width:100%}.public-cup-hero__stats>span{flex:1;min-width:0}}
+
+
+/* Public v3 match cards — rebuilt component, independent of legacy .match-card. */
+.public-match-card{overflow:hidden;border:1px solid #d5dcda;border-radius:14px;background:#fff;color:#102632}
+.public-match-card__meta{display:flex;align-items:center;justify-content:space-between;min-height:36px;padding:0 16px;border-bottom:1px solid #ecebe6;background:#faf9f5;font-size:11px;color:#6a777c}
+.public-match-card__meta span{font-weight:750}.public-match-card__meta b{font-size:13px;color:#102632}
+.public-match-card__teams{display:grid;grid-template-columns:minmax(0,1fr) 74px minmax(0,1fr);align-items:stretch;min-height:92px}
+.public-match-team{display:flex;align-items:center;gap:12px;padding:14px 16px;min-width:0}
+.public-match-team--away{flex-direction:row-reverse;text-align:right}
+.public-match-team__visual{display:flex;align-items:center;gap:5px;flex:0 0 auto}
+.public-match-team__visual .team-crest{width:30px;height:30px;object-fit:contain}
+.public-match-team__visual .team-kit{transform:scale(1.08)}
+.public-match-team small{display:block;margin-bottom:3px;font-size:9px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:#7b888d}
+.public-match-team strong{display:block;overflow:hidden;font-size:18px;line-height:1.08;text-overflow:ellipsis;white-space:nowrap}
+.public-match-card__score{display:flex;flex-direction:column;align-items:center;justify-content:center;border-left:1px solid #e3e7e5;border-right:1px solid #e3e7e5;background:#f6faf9}
+.public-match-card__score small{font-size:8px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#6d7e83}
+.public-match-card__score strong{margin-top:3px;font-size:24px;line-height:1;color:#102632}
+.public-match-card--live .public-match-card__score{background:#fff3d0}.public-match-card--live .public-match-card__meta b{color:#b23b2c}
+.public-match-card__pitch{min-height:30px;padding:7px 16px;border-top:1px solid #e8ece9;background:#f7fbfa;font-size:10px;font-weight:750;color:#61747a}
+@media(max-width:700px){.public-match-card__teams{grid-template-columns:minmax(0,1fr) 58px minmax(0,1fr)}.public-match-team{gap:7px;padding:12px 9px}.public-match-team strong{font-size:15px}.public-match-team__visual .team-crest{width:24px;height:24px}.public-match-card__score strong{font-size:20px}}
