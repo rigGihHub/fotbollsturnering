@@ -30,7 +30,7 @@ function DisciplineTable({stats}:{stats:PublicStatistics}){
 
 export function PublicCupView({ publicKey, initialCup, initialStandings, reporterReturn=false }:{publicKey:string;initialCup:CupSnapshot;initialStandings:StandingsGroup[];reporterReturn?:boolean}){
   const [cup,setCup]=useState(()=>normalizeCup(initialCup)); const [standings,setStandings]=useState(Array.isArray(initialStandings)?initialStandings:[]);
-  const [standingsLoaded,setStandingsLoaded]=useState(initialStandings.length>0); const [standingsLoading,setStandingsLoading]=useState(false);
+  const [standingsLoaded,setStandingsLoaded]=useState(initialStandings.length>0); const [standingsLoading,setStandingsLoading]=useState(false); const standingsRequestRef=useRef(false);
   const [tab,setTab]=useState<Tab>("matches");
   const [matchView,setMatchView]=useState<MatchView>("upcoming"); const [moreOpen,setMoreOpen]=useState(false);
   const [visibleCount,setVisibleCount]=useState(18); const loadMoreRef=useRef<HTMLDivElement|null>(null);
@@ -45,7 +45,7 @@ export function PublicCupView({ publicKey, initialCup, initialStandings, reporte
   const showPublicWeather=Boolean(cup.tournament.show_public_weather);
 
   useEffect(()=>{if(tab!=="stats"||statistics||statisticsLoading)return;let cancelled=false;setStatisticsLoading(true);getStatistics(publicKey).then(data=>{if(!cancelled)setStatistics(data)}).catch(()=>{}).finally(()=>{if(!cancelled)setStatisticsLoading(false)});return()=>{cancelled=true}},[tab,statistics,statisticsLoading,publicKey]);
-  useEffect(()=>{if(tab!=="table"||!showTables||standingsLoaded||standingsLoading)return;let cancelled=false;setStandingsLoading(true);getStandings(publicKey).then(data=>{if(!cancelled){setStandings(Array.isArray(data.groups)?data.groups:[]);setStandingsLoaded(true);setStandingsLoading(false)}}).catch(()=>{if(!cancelled){setStandingsLoaded(true);setStandingsLoading(false)}});return()=>{cancelled=true}},[publicKey,showTables,standingsLoaded,standingsLoading,tab]);
+  useEffect(()=>{if(tab!=="table"||!showTables||standingsLoaded||standingsRequestRef.current)return;let cancelled=false;standingsRequestRef.current=true;setStandingsLoading(true);getStandings(publicKey).then(data=>{if(!cancelled){setStandings(Array.isArray(data.groups)?data.groups:[]);setStandingsLoaded(true)}}).catch(()=>{if(!cancelled)setStandingsLoaded(true)}).finally(()=>{standingsRequestRef.current=false;if(!cancelled)setStandingsLoading(false)});return()=>{cancelled=true}},[publicKey,showTables,standingsLoaded,tab]);
   useEffect(()=>{const timer=window.setInterval(async()=>{try{const freshCup=await getCup(publicKey);setUnavailable(false);setCup(normalizeCup(freshCup));if(tab==="table"&&showTables){try{const freshStandings=await getStandings(publicKey);setStandings(Array.isArray(freshStandings.groups)?freshStandings.groups:[]);setStandingsLoaded(true)}catch{}}if(tab==="stats"&&statsEnabled){try{setStatistics(await getStatistics(publicKey))}catch{}}}catch(error){if(error instanceof CupNaviApiError&&error.status===404)setUnavailable(true)}},30000);return()=>window.clearInterval(timer)},[publicKey,showTables,tab,statsEnabled]);
   useEffect(()=>{if((tab==="table"&&!showTables)||(tab==="playoff"&&!showPlayoffs))setTab("matches")},[tab,showTables,showPlayoffs]);
 
