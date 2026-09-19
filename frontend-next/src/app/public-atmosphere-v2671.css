@@ -33,3 +33,28 @@ body:has(.page-shell--matchday){background-image:radial-gradient(circle,rgba(16,
   .page-shell--matchday .section-heading h2{font-size:42px!important}
 }
 @media(prefers-reduced-motion:reduce){.sport-art{transform:none}}
+
+
+/* v2.7 public polish: sport broadcast first, collector-card accents second. */
+@media(min-width:901px){
+  body:has(.page-shell--matchday){background-image:none!important;background:#f5f1e7!important}
+  .page-shell--matchday{max-width:1320px!important;padding-top:10px!important}
+  .page-shell--matchday .public-sports-atmosphere{display:none!important}
+  .page-shell--matchday .cup-cover{min-height:0!important;padding:18px 24px!important;border-radius:18px!important;box-shadow:0 6px 0 rgba(16,31,42,.12)!important}
+  .page-shell--matchday .cup-cover__content{margin-top:0!important}
+  .page-shell--matchday .cup-cover .kicker,
+  .page-shell--matchday .cup-cover__burst,
+  .page-shell--matchday .cup-cover__stripe{display:none!important}
+  .page-shell--matchday .cup-cover h1{font-size:clamp(38px,3.2vw,50px)!important;line-height:.96!important;letter-spacing:-.035em!important}
+  .page-shell--matchday .cup-cover__facts{margin-top:10px!important}
+  .page-shell--matchday .collectible-stamp{opacity:.72;transform:scale(.86)}
+  .page-shell--matchday .edition-nav--desktop{margin:10px 0 18px!important;border-width:1px!important;box-shadow:none!important;background:#fff!important}
+  .page-shell--matchday .edition-nav--desktop button{min-height:44px!important;border-width:1px!important;box-shadow:none!important}
+  .page-shell--matchday .section-heading{max-width:1120px;margin:0 auto 12px!important}
+  .page-shell--matchday .section-heading h2{font-size:36px!important;letter-spacing:-.03em!important}
+  .page-shell--matchday .match-filter-row{max-width:1120px;margin-left:auto!important;margin-right:auto!important}
+  .page-shell--matchday .match-grid{max-width:1120px!important;margin-left:auto!important;margin-right:auto!important;gap:14px!important}
+  .page-shell--matchday .match-card{border-width:1px!important;border-radius:14px!important;box-shadow:0 3px 0 rgba(16,31,42,.1)!important;overflow:hidden}
+  .page-shell--matchday .match-card__top{border-bottom-width:1px!important}
+  .page-shell--matchday .match-card__versus{min-width:46px!important;width:46px!important;font-size:18px!important}
+}
