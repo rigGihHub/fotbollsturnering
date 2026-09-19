@@ -382,6 +382,30 @@ def put_admin_team(tournament_id:int,team_id:int,payload:TeamWrite,authorization
     return team
 
 
+_FREE_CLUB_ASSETS = {
+    "aik": {"club_match":"AIK Fotboll · Solna","home_pattern":"Helfärgad","home_color_1":"#111111","home_color_2":"#111111","away_pattern":"Helfärgad","away_color_1":"#FFFFFF","away_color_2":"#FFFFFF"},
+    "hammarby": {"club_match":"Hammarby IF Fotboll · Stockholm","home_pattern":"Vertikala ränder","home_color_1":"#178344","home_color_2":"#FFFFFF","away_pattern":"Vertikala ränder","away_color_1":"#F4D03F","away_color_2":"#111111"},
+    "örebro sk": {"club_match":"Örebro SK Fotboll · Örebro","home_pattern":"Helfärgad","home_color_1":"#FFFFFF","home_color_2":"#FFFFFF","away_pattern":"Helfärgad","away_color_1":"#111111","away_color_2":"#111111"},
+}
+
+def _free_club_asset_result(team_name:str, search_focus:str):
+    key=" ".join(str(team_name or "").casefold().split())
+    club=next((value for name,value in _FREE_CLUB_ASSETS.items() if key==name or key.startswith(name+" ")),None)
+    if not club:
+        return None
+    # Built-in entries are conservative fallbacks: useful known kit presentation,
+    # but never pretend that a crest or current-season evidence was web-verified.
+    return {
+        "found": search_focus != "logo", "confidence":"medium", "reason":"CupNavis kostnadsfria klubbregister.",
+        **club, "home_sources":[], "away_sources":[], "sources":[],
+        "home_evidence":"Känt klubbregister; kontrollera mot aktuellt ungdomslag vid behov.",
+        "away_evidence":"Känt klubbregister; kontrollera aktuellt bortaställ vid behov.",
+        "home_verified":False, "away_verified":False, "identity_status":"exact", "candidate_matches":[],
+        "logo_url":"", "logo_source_url":"", "logo_verified":False, "club_match":club["club_match"],
+        "cache_hit":False, "search_strategy":"Kostnadsfritt klubbregister", "search_attempts":0, "attempted_strategies":[]
+    }
+
+
 @app.post("/api/admin/cups/{tournament_id}/teams/kit-search")
 def search_admin_team_kit(tournament_id:int,payload:KitSearchRequest,authorization:str|None=Header(default=None)):
     account=_admin_identity(authorization)
@@ -389,8 +413,11 @@ def search_admin_team_kit(tournament_id:int,payload:KitSearchRequest,authorizati
     if not cupinfo:
         raise HTTPException(status_code=404,detail="Cup saknas eller åtkomst nekas")
     api_key=os.getenv("OPENAI_API_KEY","").strip()
+    free_result=_free_club_asset_result(payload.team_name,str(payload.search_focus or "kit"))
     if not api_key:
-        raise HTTPException(status_code=503,detail="Tröjsökningen är inte konfigurerad ännu")
+        if free_result is not None:
+            return free_result
+        raise HTTPException(status_code=503,detail="Ingen kostnadsfri klubbträff hittades. Ange färger manuellt eller komplettera klubbregistret.")
     try:
         result = suggest_team_kit(
             payload.team_name,api_key,
@@ -426,6 +453,10 @@ def search_admin_team_kit(tournament_id:int,payload:KitSearchRequest,authorizati
             detail=f"Tröjsökningen tog för lång tid. Teknisk detalj: {raw_detail}"
         elif "401" in raw_detail or "authentication" in raw_detail.lower():
             detail=f"Tröjsökningens anslutning är inte korrekt konfigurerad. Teknisk detalj: {raw_detail}"
+        elif "credit_balance_exhausted" in raw_detail:
+            if free_result is not None:
+                return free_result
+            detail="AI-krediterna är slut. CupNavi fortsätter utan betaltjänsten; välj färger manuellt för den här klubben tills den finns i det kostnadsfria klubbregistret."
         else:
             detail=f"Tröjsökningen kunde inte slutföras mot söktjänsten. Teknisk detalj: {raw_detail}"
         raise HTTPException(status_code=502,detail=detail) from exc
