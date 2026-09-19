@@ -1,12 +1,16 @@
+"use client";
+
+import { useState } from "react";
 import { Group, Match, Pitch, Team } from "@/lib/types";
 import { pitchLabel } from "@/lib/pitch-label";
 import { matchStatus, participantLabel, timeLabel } from "@/lib/format";
 import { TeamKit } from "./TeamKit";
 
 function Side({team,label,away=false,showKits=true,showLogos=true}:{team?:Team;label:string;away?:boolean;showKits?:boolean;showLogos?:boolean}){
+  const [logoFailed,setLogoFailed]=useState(false);
   return <div className={`public-match-team ${away?"public-match-team--away":""}`}>
     <div className="public-match-team__visual">
-      {showLogos&&team?.logo_url?<img className="team-crest" src={team.logo_url} alt="" referrerPolicy="no-referrer"/>:null}
+      {showLogos&&team?.logo_url&&!logoFailed?<img className="team-crest" src={team.logo_url} alt="" referrerPolicy="no-referrer" onError={()=>setLogoFailed(true)}/>:null}
       {showKits&&<TeamKit primary={away?team?.secondary_color:team?.primary_color} secondary={away?team?.away_color_2:team?.home_color_2} pattern={away?team?.away_pattern:team?.home_pattern}/>}
     </div>
     <div><small>{away?"Borta":"Hemma"}</small><strong>{label}</strong></div>
