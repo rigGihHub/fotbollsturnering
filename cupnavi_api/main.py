@@ -72,11 +72,23 @@ def get_cached_club_logo(digest: str):
         # persisted with the team instead of leaving a permanent broken logo.
         try:
             with connect() as con:
-                row = con.execute(
+                cursor = con.execute(
                     "SELECT logo_source_url FROM teams WHERE logo_url LIKE ? AND logo_source_url IS NOT NULL LIMIT 1",
                     (f"%/api/assets/club-logos/{digest}",),
-                ).fetchone()
-            source_url = row[0] if row else None
+                )
+                columns = [item[0] for item in (cursor.description or [])]
+                raw = cursor.fetchone()
+            # SQLite rows allow numeric indexing, but the production Turso/libsql
+            # adapter may return dict-like rows. Handle both representations.
+            if raw is None:
+                source_url = None
+            elif isinstance(raw, dict):
+                source_url = raw.get("logo_source_url")
+            else:
+                try:
+                    source_url = raw[0]
+                except (KeyError, TypeError):
+                    source_url = dict(zip(columns, raw)).get("logo_source_url") if columns else None
             if source_url:
                 restored_digest, _ = cache_verified_logo(str(source_url))
                 if restored_digest == digest:
