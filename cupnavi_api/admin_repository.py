@@ -22,6 +22,7 @@ CUPINFO_FIELDS = (
     "feedback_email",
     "public_information",
     "arrangement_type",
+    "show_public_weather", "show_public_kits", "show_public_logos",
 )
 CUPINFO_OPTIONAL_TEXT_FIELDS = (
     "organizer",
@@ -149,7 +150,11 @@ def _ensure_cupinfo_columns() -> set[str]:
     if not columns:
         return columns
     missing = [field for field in CUPINFO_OPTIONAL_TEXT_FIELDS if field not in columns]
+    boolean_defaults={"show_public_weather":0,"show_public_kits":1,"show_public_logos":1}
     with connect() as con:
+        for field,default in boolean_defaults.items():
+            if field not in columns:
+                con.execute(f"ALTER TABLE tournaments ADD COLUMN {field} INTEGER NOT NULL DEFAULT {default}")
         for field in missing:
             if field == "arrangement_type":
                 con.execute("ALTER TABLE tournaments ADD COLUMN arrangement_type TEXT NOT NULL DEFAULT 'tournament'")
@@ -338,7 +343,7 @@ def admin_cupinfo(account_id: int, tournament_id: int):
     missing_required = [field for field in required if field not in columns]
     if missing_required:
         raise RuntimeError(f"Tournament schema missing required columns: {','.join(missing_required)}")
-    fields = ",".join((*required, *CUPINFO_OPTIONAL_TEXT_FIELDS))
+    fields = ",".join((*required, *CUPINFO_OPTIONAL_TEXT_FIELDS, "show_public_weather", "show_public_kits", "show_public_logos"))
     return one(f"SELECT {fields} FROM tournaments WHERE id=?", (int(tournament_id),))
 
 
@@ -347,10 +352,14 @@ def update_cupinfo(account_id: int, tournament_id: int, values: dict):
         return None
     columns = _ensure_cupinfo_columns()
     clean = {}
+    boolean_fields={"show_public_weather","show_public_kits","show_public_logos"}
     for field in CUPINFO_FIELDS:
         if field not in values or field not in columns:
             continue
         value = values[field]
+        if field in boolean_fields:
+            clean[field]=1 if bool(value) else 0
+            continue
         if value is None:
             clean[field] = None
         else:
