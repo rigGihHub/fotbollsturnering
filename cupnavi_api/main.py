@@ -7,6 +7,7 @@ import re
 import time
 
 from fastapi import FastAPI, Header, HTTPException, Response, Request
+from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
@@ -15,6 +16,7 @@ from cupnavi_core.ai_kit_suggestion import suggest_team_kit
 from cupnavi_core.public_competition import calculate_group_table, team_competition_summary
 from cupnavi_core.rate_limit import consume_rate_limit
 from .admin_auth import issue_session, normalize_email, verify_session
+from .logo_cache import cached_logo_path
 from .admin_repository import (
     admin_cupinfo,
     admin_teams,
@@ -60,6 +62,13 @@ app.add_middleware(
     allow_headers=["Authorization","Content-Type"],
 )
 
+
+@app.get("/api/assets/club-logos/{digest}")
+def get_cached_club_logo(digest: str):
+    path = cached_logo_path(digest)
+    if path is None:
+        raise HTTPException(status_code=404, detail="Club logo not found")
+    return FileResponse(path, headers={"Cache-Control": "public, max-age=86400, immutable"})
 
 class AdminLoginRequest(BaseModel):
     email: str
