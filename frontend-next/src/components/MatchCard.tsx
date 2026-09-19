@@ -27,7 +27,7 @@ export function MatchCard({match,teams,groups=[],pitches=[],index}:{match:Match;
     <header className="public-match-card__meta"><span>Match {index+1}</span><b>{state}</b></header>
     <div className="public-match-card__teams">
       <Side team={home} label={homeLabel}/>
-      <div className="public-match-card__score"><small>{match.stage||"Match"}</small><strong>{score||"–"}</strong></div>
+      <div className="public-match-card__score"><strong>{score||"vs"}</strong></div>
       <Side team={away} label={awayLabel} away/>
     </div>
     <footer className="public-match-card__pitch">{pitchLabel(match.pitch_number==null?null:Number(match.pitch_number),pitchNames)}</footer>
