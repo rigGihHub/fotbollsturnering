@@ -447,7 +447,11 @@ export default function AdminWorkspace({verifiedSession=null,children=null}:{ver
       }else if(!result.candidate_matches?.length){
         setMessage(focus==="logo"?"Inget säkert klubbmärke hittades. Lägg till klubbens ort eller webbplats och försök igen.":"Ingen säker tröjkälla hittades. Lägg till klubbens ort eller webbplats och försök igen.");
       }
-    }catch(err){setError(err instanceof Error?err.message:(focus==="logo"?"Klubbmärket kunde inte sökas.":"Tröjorna kunde inte sökas."));}
+    }catch(err){
+      const detail=err instanceof Error?err.message:(focus==="logo"?"Klubbmärket kunde inte sökas.":"Tröjorna kunde inte sökas.");
+      setError(detail);
+      setMessage(focus==="logo"?`Klubbmärkessökningen misslyckades: ${detail}`:`Matchställssökningen misslyckades: ${detail}`);
+    }
     finally{setKitBusy(null);}
   }
 
