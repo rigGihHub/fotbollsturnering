@@ -483,7 +483,7 @@ export default function AdminWorkspace({verifiedSession=null,children=null}:{ver
           ...(suggestion.logo_verified?{logo_url:suggestion.logo_url,logo_source_url:suggestion.logo_source_url}:{}),
         };
         const result=await request<Team>(`/api/admin/cups/${cupId}/teams/${team.id}`,{method:"PUT",body:JSON.stringify(payload)},token);updated.push(result);saved++;
-      }catch(err){failed++;const detail=err instanceof Error?err.message:"Okänt fel";issues.push({teamId:team.id,teamName:team.name,reason:`Sökningen misslyckades: ${detail}`});}finally{completed++;setBulkKitProgress(`${completed} av ${teams.length} lag kontrollerade`);}}));
+      }catch(err){failed++;const detail=err instanceof Error?err.message:"Okänt fel";issues.push({teamId:team.id,teamName:team.name,reason:`Sökningen misslyckades [diag-v2]: ${detail}`});}finally{completed++;setBulkKitProgress(`${completed} av ${teams.length} lag kontrollerade`);}}));
     }
     setTeams(current=>current.map(team=>updated.find(item=>item.id===team.id)||team));
     const resultText=`${saved} uppdaterade · ${uncertain} behöver förtydligas · ${failed} misslyckade`;
