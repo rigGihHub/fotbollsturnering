@@ -71,7 +71,7 @@ export function PublicCupView({ publicKey, initialCup, initialStandings, reporte
   const matchNumberById=useMemo(()=>new Map(orderedMatches.map((match,index)=>[match.id,index])),[orderedMatches]);
   const openTab=(next:Tab)=>{setTab(next);setMoreOpen(false);window.scrollTo({top:0,behavior:"smooth"});};
   const navItems:Array<[Tab,string]>=[["matches","Matcher"],...(showTables?[["table","Tabeller"] as [Tab,string]]:[]),...(statsEnabled?[["stats","Topplistor"] as [Tab,string]]:[]),...(showPlayoffs?[["playoff","Slutspel"] as [Tab,string]]:[]),["info",isMatchcamp?"Matchcampinfo":"Cupinfo"]];
-  const mobileItems:Array<[Tab,string,string]>=[["matches","Matcher","▦"],...(showTables?[["table","Tabell","330"] as [Tab,string,string]]:[]),...(showPlayoffs?[["playoff","Slutspel","◆"] as [Tab,string,string]]:[])];
+  const mobileItems:Array<[Tab,string,string]>=[["matches","Matcher","▦"],...(showTables?[["table","Tabeller","▤"] as [Tab,string,string]]:[]),...(showPlayoffs?[["playoff","Slutspel","◆"] as [Tab,string,string]]:[])];
 
   if(unavailable)return <main className="page-shell page-shell--matchday"><article className="empty-state"><strong>Cupen är inte längre publicerad.</strong><p>Den kan ha flyttats till papperskorgen eller fått en ny publik adress.</p><a href="/">Till CupNavi</a></article></main>;
 
@@ -87,7 +87,7 @@ export function PublicCupView({ publicKey, initialCup, initialStandings, reporte
 
     {tab==="playoff"&&showPlayoffs&&<section><div className="section-heading"><span>SLUTSPEL</span><h2>Vägen till finalen</h2><p>Slutspelet match för match.</p></div>{cup.brackets.length?<div className="table-stack">{cup.brackets.map(bracket=><section key={bracket.id}><div className="subsection-label"><span>SLUTSPEL</span><strong>{bracket.name}</strong></div>{bracket.matches?.length?<div className="match-grid">{bracket.matches.map((match,index)=><MatchCard key={match.id} match={match} teams={cup.teams} groups={cup.groups} pitches={cup.pitches||[]} index={matchNumberById.get(match.id)??index}/>)}</div>:<article className="empty-state"><strong>Matcher kommer när slutspelsträdet är publicerat.</strong></article>}</section>)}</div>:<article className="empty-state"><strong>Inget slutspel är publicerat ännu.</strong></article>}</section>}
 
-    {tab==="info"&&<section className="public-info-v3"><div className="public-info-hero"><div><span>Cupinfo</span><h2>Allt inför cupdagen</h2><p>Regler, tider och praktisk information samlat på ett ställe.</p></div><div className="public-info-hero__facts"><b>{cup.teams.length}<small>lag</small></b><b>{orderedMatches.length}<small>matcher</small></b><b>{cup.groups.length}<small>grupper</small></b></div></div><div className="public-info-grid">
+    {tab==="info"&&<section className="public-info-v3"><div className="public-info-hero"><div><span>Cupinfo</span><h2>Allt inför cupdagen</h2><p>Regler, tider och praktisk information samlat på ett ställe.</p></div></div><div className="public-info-grid">
       <article className="public-info-card public-info-card--rules"><span className="public-info-card__eyebrow">Tävlingsregler</span><h3>{isMatchcamp?"Så spelas matcherna":"Så spelas cupen"}</h3><div className="public-rule-list">
         <div><span>Matchtid</span><b>{(cup.tournament.minutes_per_half??0)>0?`${cup.tournament.halves||1} × ${cup.tournament.minutes_per_half} min`:"Ej angivet"}</b></div>
         {(cup.tournament.halftime_minutes??0)>0&&<div><span>Paus</span><b>{cup.tournament.halftime_minutes} min</b></div>}
