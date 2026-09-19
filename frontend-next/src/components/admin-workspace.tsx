@@ -33,7 +33,7 @@ type CupInfo = {
   arena_address?:string|null; organizer_phone?:string|null; feedback_email?:string|null;
   public_information?:string|null;
   arrangement_type?:"matchcamp"|"tournament"|"tournament_playoffs"|"custom"|null;
-  show_public_weather?:number|boolean; show_public_kits?:number|boolean; show_public_logos?:number|boolean;
+  show_public_weather?:number|boolean; show_public_kits?:number|boolean; show_public_away_kits?:number|boolean; show_public_logos?:number|boolean;
   admin_revision:number;
 };
 type SessionPayload = { account:Account; cups:Cup[]; token?:string };
@@ -405,7 +405,7 @@ export default function AdminWorkspace({verifiedSession=null,children=null}:{ver
     try {
       const saved = await request<CupInfo>(`/api/admin/cups/${cupId}/cupinfo`,{
         method:"PUT",
-        body:JSON.stringify({name:cupinfo.name,start_date:cupinfo.start_date || null,end_date:cupinfo.end_date || null,organizer:cupinfo.organizer || null,arena_address:cupinfo.arena_address || null,organizer_phone:cupinfo.organizer_phone || null,feedback_email:cupinfo.feedback_email || null,public_information:cupinfo.public_information || null,arrangement_type:cupinfo.arrangement_type || "tournament",show_public_weather:Boolean(cupinfo.show_public_weather),show_public_kits:cupinfo.show_public_kits!==false&&cupinfo.show_public_kits!==0,show_public_logos:cupinfo.show_public_logos!==false&&cupinfo.show_public_logos!==0,expected_revision:cupinfo.admin_revision})
+        body:JSON.stringify({name:cupinfo.name,start_date:cupinfo.start_date || null,end_date:cupinfo.end_date || null,organizer:cupinfo.organizer || null,arena_address:cupinfo.arena_address || null,organizer_phone:cupinfo.organizer_phone || null,feedback_email:cupinfo.feedback_email || null,public_information:cupinfo.public_information || null,arrangement_type:cupinfo.arrangement_type || "tournament",show_public_weather:Boolean(cupinfo.show_public_weather),show_public_kits:cupinfo.show_public_kits!==false&&cupinfo.show_public_kits!==0,show_public_away_kits:cupinfo.show_public_away_kits!==false&&cupinfo.show_public_away_kits!==0,show_public_logos:cupinfo.show_public_logos!==false&&cupinfo.show_public_logos!==0,expected_revision:cupinfo.admin_revision})
       },token);
       const normalized = cleanCupInfo(saved);
       setCupinfo(normalized);
@@ -708,7 +708,7 @@ export default function AdminWorkspace({verifiedSession=null,children=null}:{ver
             <label>Anläggning / adress<input value={cupinfo.arena_address || ""} onChange={e=>setCupinfo({...cupinfo,arena_address:e.target.value})} /></label>
             <label>Telefon<input value={cupinfo.organizer_phone || ""} onChange={e=>setCupinfo({...cupinfo,organizer_phone:e.target.value})} /></label>
             <label>Kontakt-e-post<input type="email" value={cupinfo.feedback_email || ""} onChange={e=>setCupinfo({...cupinfo,feedback_email:e.target.value})} /></label>
-            <label style={{gridColumn:"1 / -1"}}>Publik information<textarea rows={5} value={cupinfo.public_information || ""} onChange={e=>setCupinfo({...cupinfo,public_information:e.target.value})} /></label><fieldset className="admin-public-options" style={{gridColumn:"1 / -1"}}><legend>Publik matchvy</legend><label><input type="checkbox" checked={Boolean(cupinfo.show_public_weather)} onChange={e=>setCupinfo({...cupinfo,show_public_weather:e.target.checked})}/> Visa väder</label><label><input type="checkbox" checked={cupinfo.show_public_kits!==false&&cupinfo.show_public_kits!==0} onChange={e=>setCupinfo({...cupinfo,show_public_kits:e.target.checked})}/> Visa matchställ</label><label><input type="checkbox" checked={cupinfo.show_public_logos!==false&&cupinfo.show_public_logos!==0} onChange={e=>setCupinfo({...cupinfo,show_public_logos:e.target.checked})}/> Visa klubbmärken</label></fieldset>
+            <label style={{gridColumn:"1 / -1"}}>Publik information<textarea rows={5} value={cupinfo.public_information || ""} onChange={e=>setCupinfo({...cupinfo,public_information:e.target.value})} /></label><fieldset className="admin-public-options" style={{gridColumn:"1 / -1"}}><legend>Publik matchvy</legend><label><input type="checkbox" checked={Boolean(cupinfo.show_public_weather)} onChange={e=>setCupinfo({...cupinfo,show_public_weather:e.target.checked})}/> Visa väder</label><label>Matchställ<select value={cupinfo.show_public_kits===false||cupinfo.show_public_kits===0?"none":cupinfo.show_public_away_kits===false||cupinfo.show_public_away_kits===0?"home":"both"} onChange={e=>{const mode=e.target.value;setCupinfo({...cupinfo,show_public_kits:mode!=="none",show_public_away_kits:mode==="both"});}}><option value="none">Inga matchställ</option><option value="home">Endast hemmaställ</option><option value="both">Hemma- och bortaställ</option></select></label><label><input type="checkbox" checked={cupinfo.show_public_logos!==false&&cupinfo.show_public_logos!==0} onChange={e=>setCupinfo({...cupinfo,show_public_logos:e.target.checked})}/> Visa klubbmärken</label></fieldset>
           </div>
           <div className="admin-form-footer"><span>{message || ""}</span><button type="submit" disabled={busy || !cupinfo.name.trim()}>{busy?"Sparar…":"Spara och fortsätt till Lag →"}</button></div>
         </> : <p>{busy?"Hämtar Cupinfo…":"Cupinfo kunde inte hämtas ännu."}</p>}
