@@ -491,8 +491,8 @@ export default function AdminWorkspace({verifiedSession=null,children=null}:{ver
       }catch(err){
         const detail=err instanceof Error?err.message:"Okänt fel";
         if(/429|AI_RATE_LIMIT|kapacitetsgräns/i.test(detail)){
-          issues.push({teamId:team.id,teamName:team.name,reason:"Söktjänsten är tillfälligt upptagen. CupNavi pausade massökningen så övriga lag inte förbrukas i onödan."});
-          failed++;completed++;setBulkKitProgress("");
+          issues.push({teamId:team.id,teamName:team.name,reason:"AI-sökningen är rate-limitad just nu. CupNavi stoppade resten för att skydda redan sparad data och undvika onödiga anrop."});
+          failed++;setBulkKitProgress("");
           break;
         }
         failed++;issues.push({teamId:team.id,teamName:team.name,reason:`Sökningen misslyckades [diag-v2]: ${detail}`});
