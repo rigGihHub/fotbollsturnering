@@ -1,7 +1,8 @@
 import { StandingRow } from "@/lib/types";
 
 export function TextTvStandings({ name, rows }: { name: string; rows: StandingRow[] }) {
-  const tone=(index:number)=>index<2?"is-leading":index===2?"is-playoff":rows.length>5&&index>=rows.length-2?"is-bottom":"";
+  const tones=["is-leading","is-neutral","is-playoff","is-sky"];
+  const tone=(index:number)=>tones[index]||"is-neutral";
   return (
     <section className="texttv texttv--standings" aria-labelledby={`table-${name}`}>
       <div className="texttv__header texttv__header--group"><strong id={`table-${name}`}>{name}</strong></div>
