@@ -3,6 +3,7 @@ import re
 import time
 from threading import Lock
 from urllib.request import Request, urlopen
+from urllib.error import HTTPError
 
 ALLOWED_PATTERNS = ["Helfärgad", "Vertikala ränder", "Horisontella ränder", "Rutigt", "Delad", "Diagonala ränder", "Grafiskt"]
 ALLOWED_CONFIDENCE = ["low", "medium", "high"]
@@ -360,6 +361,12 @@ def _request_suggestion(clean_name, api_key, *, model, timeout_seconds, strategy
     try:
         with opener(request, timeout=timeout_seconds) as response:
             response_payload = json.loads(response.read().decode("utf-8"))
+    except HTTPError as exc:
+        retry_after=str(exc.headers.get("Retry-After") or "").strip() if exc.headers else ""
+        if exc.code == 429:
+            suffix=f" Vänta {retry_after} sekunder." if retry_after.isdigit() else " Vänta en stund innan nästa försök."
+            raise RuntimeError(f"AI_RATE_LIMIT: söktjänstens kapacitetsgräns nåddes.{suffix}") from exc
+        raise RuntimeError(f"AI_HTTP_{exc.code}: söktjänsten svarade med HTTP {exc.code}.") from exc
     except Exception as exc:
         raise RuntimeError(f"AI-förslaget misslyckades: {exc}") from exc
     if response_payload.get("error"):
