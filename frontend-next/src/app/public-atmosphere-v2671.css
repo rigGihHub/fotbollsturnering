@@ -189,3 +189,20 @@ body:has(.page-shell--matchday){background-image:radial-gradient(circle,rgba(16,
 .page-shell--public-v3 .public-match-team__visual .team-kit{transform:scale(1.24)!important}
 .page-shell--public-v3 .public-match-team strong{font-size:21px!important}
 .page-shell--public-v3 .match-view-filter button{padding-left:16px!important;padding-right:16px!important;font-size:13px!important}
+
+/* Public v3 QA pass from deployed desktop */
+@media(min-width:901px){
+ .page-shell--public-v3{width:min(1460px,calc(100% - 72px))!important}
+ .page-shell--public-v3 .public-cup-hero{padding:18px 24px!important}
+ .page-shell--public-v3 .public-cup-hero h1{font-size:36px!important}
+ .page-shell--public-v3 .public-cup-hero__stats>span{min-width:68px!important}
+ .page-shell--public-v3 .edition-nav--desktop{margin-bottom:16px!important}
+ .page-shell--public-v3 .public-section-head{margin-bottom:8px!important}
+ .page-shell--public-v3 .public-section-head h2{font-size:28px!important}
+ .page-shell--public-v3 .match-view-filter{margin-bottom:12px!important}
+ .page-shell--public-v3 .public-match-card__teams{min-height:82px!important}
+ .page-shell--public-v3 .public-match-card__meta{min-height:28px!important}
+ .page-shell--public-v3 .public-match-card__pitch{min-height:24px!important;padding:5px 14px!important}
+ .page-shell--public-v3 .public-match-team{padding:11px 16px!important}
+ .page-shell--public-v3 .public-match-team strong{font-size:19px!important}
+}
