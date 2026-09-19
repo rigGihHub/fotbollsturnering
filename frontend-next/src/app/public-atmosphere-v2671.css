@@ -58,3 +58,23 @@ body:has(.page-shell--matchday){background-image:radial-gradient(circle,rgba(16,
   .page-shell--matchday .match-card__top{border-bottom-width:1px!important}
   .page-shell--matchday .match-card__versus{min-width:46px!important;width:46px!important;font-size:18px!important}
 }
+
+
+/* v2.7.1 corrective desktop layout: use the viewport and restore clear hierarchy. */
+@media(min-width:901px){
+  .page-shell--matchday{max-width:1480px!important;width:calc(100% - 64px)!important;margin-left:auto!important;margin-right:auto!important}
+  .page-shell--matchday .cup-cover{width:100%!important;max-width:none!important}
+  .page-shell--matchday .edition-nav--desktop{width:100%!important;max-width:none!important;grid-template-columns:repeat(3,1fr)!important}
+  .page-shell--matchday .edition-nav--desktop button{display:flex!important;align-items:center!important;justify-content:flex-start!important;min-height:48px!important;padding:10px 16px!important}
+  .page-shell--matchday .section-heading,
+  .page-shell--matchday .match-filter-row,
+  .page-shell--matchday .match-grid{max-width:none!important;width:100%!important}
+  .page-shell--matchday .section-heading{display:flex!important;align-items:end!important;gap:20px!important;margin-top:22px!important}
+  .page-shell--matchday .section-heading h2{font-size:40px!important}
+  .page-shell--matchday .match-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:16px!important}
+  .page-shell--matchday .match-card{min-height:132px!important}
+  .page-shell--matchday .match-card__versus{width:58px!important;min-width:58px!important}
+}
+@media(min-width:1500px){
+  .page-shell--matchday{max-width:1500px!important}
+}
