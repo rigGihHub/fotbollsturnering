@@ -313,3 +313,6 @@ body:has(.page-shell--matchday){background-image:radial-gradient(circle,rgba(16,
 .public-live-status{display:inline-flex;align-items:center;gap:7px;margin:0 0 9px;font-size:10px;font-weight:800;letter-spacing:.04em;color:#5f737a}
 .public-live-status__dot{width:7px;height:7px;border-radius:50%;background:#22a45a;box-shadow:0 0 0 3px rgba(34,164,90,.12)}
 @media(max-width:700px){.public-live-status{margin-bottom:8px}}
+
+.public-live-status.is-stale{color:#8a5a16}
+.public-live-status.is-stale .public-live-status__dot{background:#d6922e;box-shadow:0 0 0 3px rgba(214,146,46,.14)}
