@@ -6,14 +6,15 @@ export class CupNaviApiError extends Error {
   constructor(public readonly status:number, message:string){super(message);this.name="CupNaviApiError";}
 }
 
-const RETRY_DELAYS_MS=[750,1500];
+const RETRY_DELAYS_MS=[250,750];
+const REQUEST_TIMEOUT_MS=4500;
 
 async function apiGet<T>(path: string): Promise<T> {
   let lastError:unknown;
   for(let attempt=0;attempt<=RETRY_DELAYS_MS.length;attempt+=1){
     try{
       const separator=path.includes("?")?"&":"?";
-      const response = await fetch(`${API_BASE}${path}${separator}_cn_attempt=${attempt}`,{ cache: "no-store" });
+      const response = await fetch(`${API_BASE}${path}${separator}_cn_attempt=${attempt}`,{ cache: "no-store", signal:AbortSignal.timeout(REQUEST_TIMEOUT_MS) });
       if(response.ok)return response.json() as Promise<T>;
       const error=new CupNaviApiError(response.status,`CupNavi API svarade ${response.status}`);
       if(response.status<500||attempt===RETRY_DELAYS_MS.length)throw error;
