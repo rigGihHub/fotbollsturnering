@@ -311,16 +311,14 @@ def public_snapshot(public_key, *, include_unpublished=False):
         bracket_select="id,name,size,bronze_match"+(" ,"+",".join(bracket_extra) if bracket_extra else "")
         brackets=many(f"SELECT {bracket_select} FROM brackets WHERE tournament_id=? ORDER BY id", (tid,))
         if brackets:
-            bracket_matches=many(f"""SELECT id,bracket_id,stage,round_no,match_no,home_source,away_source,scheduled_start,pitch_number,
-                                          home_score,away_score,home_penalties,away_penalties,decided_winner_id,schedule_published,
-                                          match_status,status_updated_at,actual_started_at,actual_finished_at
-                                   FROM matches WHERE tournament_id=? AND bracket_id IS NOT NULL{match_publish_filter}
-                                   ORDER BY bracket_id,round_no,match_no,id""", (tid,))
+            # Reuse the already-loaded public match rows instead of querying the
+            # matches table a second time. This keeps first paint to one match query.
             by_bracket={}
-            for match in bracket_matches:
-                by_bracket.setdefault(int(match["bracket_id"]),[]).append(match)
+            for match in matches:
+                if match.get("bracket_id") is not None:
+                    by_bracket.setdefault(int(match["bracket_id"]),[]).append(dict(match))
             for bracket in brackets:
-                bracket["matches"]=by_bracket.get(int(bracket["id"]),[])
+                bracket["matches"]=sorted(by_bracket.get(int(bracket["id"]),[]),key=lambda item:(int(item.get("round_no") or 0),int(item.get("match_no") or 0),int(item.get("id") or 0)))
         return {
             "tournament":tournament,
             "teams":teams,
