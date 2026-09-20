@@ -93,7 +93,7 @@ export function PublicCupView({ publicKey, initialCup, initialStandings, reporte
         <div><span>Matchtid</span><b>{(cup.tournament.minutes_per_half??0)>0?`${cup.tournament.halves||1} × ${cup.tournament.minutes_per_half} min`:"Ej angivet"}</b></div>
         {(cup.tournament.halftime_minutes??0)>0&&<div><span>Paus</span><b>{cup.tournament.halftime_minutes} min</b></div>}
         {!isMatchcamp&&<div><span>Poäng</span><b>{cup.tournament.points_win??3} / {cup.tournament.points_draw??1} / {cup.tournament.points_loss??0}</b><small>vinst / oavgjort / förlust</small></div>}
-        {!isMatchcamp&&<div><span>Tabellskiljning</span><b>{cup.tournament.table_tiebreak||"Målskillnad först"}</b></div>{Boolean(cup.tournament.avoid_consecutive_matches)&&<div><span>Raka matcher</span><b>Undviks</b></div>}{Boolean(cup.tournament.avoid_consecutive_matches)&&(cup.tournament.consecutive_match_break_minutes??0)>0&&<div><span>Extra vila vid raka matcher</span><b>{cup.tournament.consecutive_match_break_minutes} min</b></div>}}
+        {!isMatchcamp&&<div><span>Tabellskiljning</span><b>{cup.tournament.table_tiebreak||"Målskillnad först"}</b></div>}{Boolean(cup.tournament.avoid_consecutive_matches)&&<div><span>Raka matcher</span><b>Undviks</b></div>}{Boolean(cup.tournament.avoid_consecutive_matches)&&(cup.tournament.consecutive_match_break_minutes??0)>0&&<div><span>Extra vila vid raka matcher</span><b>{cup.tournament.consecutive_match_break_minutes} min</b></div>}
         {(cup.tournament.minimum_team_rest_minutes??0)>0&&<div><span>Minsta lagvila</span><b>{cup.tournament.minimum_team_rest_minutes} min</b></div>}
         {(cup.tournament.pitch_break_minutes??0)>0&&<div><span>Planpaus</span><b>{cup.tournament.pitch_break_minutes} min</b></div>}
       </div></article>
