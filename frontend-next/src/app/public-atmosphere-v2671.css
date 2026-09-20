@@ -305,3 +305,7 @@ body:has(.page-shell--matchday){background-image:radial-gradient(circle,rgba(16,
 .public-pitch-list{display:grid;gap:0;border-top:1px solid #e3e8e6}
 .public-pitch-list>div{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:11px 0;border-bottom:1px solid #edf0ef}
 .public-pitch-list span{display:flex;flex-direction:column}.public-pitch-list b{font-size:13px}.public-pitch-list small{margin-top:2px;color:#77868b;font-size:9px}.public-pitch-list strong{font-size:12px;color:#102632}
+
+.public-info-card--overview{background:#fff}
+.public-info-card--overview .public-info-details{margin-top:4px}
+@media(min-width:801px){.public-info-card--overview{grid-column:2}.public-info-card--rules{grid-column:1;grid-row:span 2}}
