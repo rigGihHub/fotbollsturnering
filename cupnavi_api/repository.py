@@ -291,7 +291,10 @@ def public_snapshot(public_key, *, include_unpublished=False):
         kit_projection=("home_pattern,home_color_2,away_pattern,away_color_2" if
                         {"home_pattern","home_color_2","away_pattern","away_color_2"}.issubset(team_columns) else
                         "'Helfärgad' AS home_pattern,'#FFFFFF' AS home_color_2,'Helfärgad' AS away_pattern,'#111827' AS away_color_2")
-        logo_projection=("logo_url,logo_source_url" if {"logo_url","logo_source_url"}.issubset(team_columns) else "NULL AS logo_url,NULL AS logo_source_url")
+        # Only include crest fields when the public presentation actually uses
+        # them. Large external URLs are otherwise dead payload on every matchday load.
+        wants_logos=bool(tournament.get("show_public_logos"))
+        logo_projection=("logo_url,logo_source_url" if wants_logos and {"logo_url","logo_source_url"}.issubset(team_columns) else "NULL AS logo_url,NULL AS logo_source_url")
         teams=many(f"SELECT id,name,group_id,age_class,primary_color,secondary_color,{kit_projection},{logo_projection} FROM teams WHERE tournament_id=? ORDER BY name", (tid,))
         groups=many("SELECT id,name,age_class FROM groups WHERE tournament_id=? ORDER BY name", (tid,))
         match_publish_filter="" if include_unpublished else " AND schedule_published=1"
