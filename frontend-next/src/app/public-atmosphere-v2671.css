@@ -309,3 +309,7 @@ body:has(.page-shell--matchday){background-image:radial-gradient(circle,rgba(16,
 .public-info-card--overview{background:#fff}
 .public-info-card--overview .public-info-details{margin-top:4px}
 @media(min-width:801px){.public-info-card--overview{grid-column:2}.public-info-card--rules{grid-column:1;grid-row:span 2}}
+
+.public-live-status{display:inline-flex;align-items:center;gap:7px;margin:0 0 9px;font-size:10px;font-weight:800;letter-spacing:.04em;color:#5f737a}
+.public-live-status__dot{width:7px;height:7px;border-radius:50%;background:#22a45a;box-shadow:0 0 0 3px rgba(34,164,90,.12)}
+@media(max-width:700px){.public-live-status{margin-bottom:8px}}
