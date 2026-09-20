@@ -12,7 +12,7 @@ services:
     branch: main
     rootDir: frontend-next
     buildCommand: npm ci && npm run build
-    startCommand: npm start -- -H 0.0.0.0 -p $PORT
+    startCommand: HOSTNAME=0.0.0.0 PORT=$PORT node .next/standalone/server.js
     autoDeployTrigger: checksPass
     buildFilter:
       paths:
