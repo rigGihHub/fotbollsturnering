@@ -301,3 +301,7 @@ body:has(.page-shell--matchday){background-image:radial-gradient(circle,rgba(16,
 .public-playoff-list .is-leading{color:#18a84a}.public-playoff-list .is-neutral{color:#738087}.public-playoff-list .is-playoff{color:#c4a600}.public-playoff-list .is-sky{color:#2b9fbd}
 .public-playoff-list span{font-weight:850;color:#102632}.public-playoff-list small{color:#6d797d}
 .public-info-note{margin-top:12px;padding:9px 11px;border-radius:8px;background:#fff;font-size:11px;font-weight:750}
+
+.public-pitch-list{display:grid;gap:0;border-top:1px solid #e3e8e6}
+.public-pitch-list>div{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:11px 0;border-bottom:1px solid #edf0ef}
+.public-pitch-list span{display:flex;flex-direction:column}.public-pitch-list b{font-size:13px}.public-pitch-list small{margin-top:2px;color:#77868b;font-size:9px}.public-pitch-list strong{font-size:12px;color:#102632}
