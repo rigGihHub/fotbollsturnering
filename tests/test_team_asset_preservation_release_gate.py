@@ -8,10 +8,11 @@ def bulk_block():
     end=ADMIN.index("async function saveTeam",start)
     return ADMIN[start:end]
 
-def test_bulk_search_does_not_research_good_kits_just_for_missing_logo():
+def test_bulk_search_keeps_logo_and_kit_lookup_separate():
     block=bulk_block()
     assert "const missingLogo=!team.logo_url" in block
-    assert 'const searchFocus=missingLogo?"logo":"all"' in block
+    assert 'const searchFocus=missingLogo?"logo":"kit"' in block
+    assert '?"logo":"all"' not in block
 
 def test_unverified_search_never_overwrites_existing_kit_fields():
     block=bulk_block()
