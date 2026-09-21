@@ -14,10 +14,11 @@ def test_v601_version_is_synchronized():
     assert (ROOT / "VERSION.txt").read_text(encoding="utf-8").strip() == expected
 
 
-def test_v601_uses_fast_two_pass_search_and_cache():
-    assert "MAX_SEARCH_ATTEMPTS = 2" in KIT
+def test_v601_uses_bounded_search_and_cache():
+    assert "MAX_SEARCH_ATTEMPTS = 3" in KIT
     assert "Snabb multikällesökning" in KIT
     assert "Riktad lucksökning" in KIT
+    assert "Automatisk räddningssökning" in KIT
     assert "CACHE_TTL_SECONDS" in KIT
     assert 'cached["cache_hit"] = True' in KIT
 
@@ -55,6 +56,7 @@ def test_v601_requires_kit_specific_sources_for_verification():
         "away_color_1": "#FFFFFF",
         "away_color_2": "#111827",
         "home_sources": ["https://club.example/kit"],
+        "home_evidence": "Officiell produktbild visar hemmastället.",
         "away_sources": [],
         "sources": [],
     })
