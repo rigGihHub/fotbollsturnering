@@ -46,7 +46,13 @@ export function PublicCupView({ publicKey, initialCup, initialStandings, reporte
     cup.brackets.forEach((bracket,bracketIndex)=>{
       const raw=[bracket.qualifying_positions,bracket.group_positions,bracket.qualification_rule,bracket.source_rule].find(value=>typeof value==="string"&&value.trim());
       if(!raw)return;
-      const nums=String(raw).match(/\d+/g)?.map(Number).filter(value=>value>0)||[];
+      const text=String(raw);
+      const nums=new Set<number>();
+      for(const match of text.matchAll(/(\d+)\s*[-–]\s*(\d+)/g)){
+        const start=Number(match[1]),end=Number(match[2]);
+        if(start>0&&end>=start&&end-start<=16)for(let position=start;position<=end;position++)nums.add(position);
+      }
+      for(const match of text.matchAll(/\b(?:plats(?:ering)?|placering|position|plats)?\s*(\d+)\b/gi))if(Number(match[1])>0)nums.add(Number(match[1]));
       nums.forEach(position=>{if(map[position]===undefined)map[position]=bracketIndex;});
     });
     return map;
