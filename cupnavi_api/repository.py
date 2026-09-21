@@ -241,8 +241,11 @@ def standings_inputs(tournament_id):
 def public_brackets(tournament_id):
     """Load every bracket and its matches in two queries instead of one query per bracket."""
     tid=int(tournament_id)
+    bracket_columns={str(row.get("name")) for row in all_rows("PRAGMA table_info(brackets)")}
+    bracket_extra=[name for name in ("qualification_rule","source_rule","group_positions","qualifying_positions") if name in bracket_columns]
+    bracket_select="id,name,size,bronze_match"+(" ,"+",".join(bracket_extra) if bracket_extra else "")
     brackets=all_rows(
-        "SELECT id,name,size,bronze_match FROM brackets WHERE tournament_id=? ORDER BY id",
+        f"SELECT {bracket_select} FROM brackets WHERE tournament_id=? ORDER BY id",
         (tid,),
     )
     if not brackets:
