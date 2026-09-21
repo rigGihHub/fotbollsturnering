@@ -399,10 +399,14 @@ def save_result(
             raise RuntimeError(f"{impact.reason} {detail}".strip())
 
     with connect() as conn:
-        conn.execute(
+        cursor = conn.execute(
             """UPDATE matches
                SET home_score=?,away_score=?,home_penalties=?,away_penalties=?,decided_winner_id=?
-               WHERE id=? AND tournament_id=?""",
+               WHERE id=? AND tournament_id=?
+                 AND home_score IS ?
+                 AND away_score IS ?
+                 AND home_penalties IS ?
+                 AND away_penalties IS ?""",
             (
                 prepared.home_score,
                 prepared.away_score,
@@ -411,8 +415,14 @@ def save_result(
                 new_decided_winner_id,
                 int(match_id),
                 int(tournament_id),
+                expected_home,
+                expected_away,
+                expected_home_penalties,
+                expected_away_penalties,
             ),
         )
+        if getattr(cursor, "rowcount", 1) == 0:
+            raise RuntimeError("Resultatet har ändrats av någon annan. Ladda om innan du sparar igen.")
         commit = getattr(conn, "commit", None)
         if callable(commit):
             commit()
