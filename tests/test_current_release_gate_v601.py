@@ -14,7 +14,7 @@ def test_v601_version_is_synchronized():
     assert (ROOT / "VERSION.txt").read_text(encoding="utf-8").strip() == expected
 
 
-def test_v601_uses_bounded_search_and_cache():
+def test_v601_uses_fast_two_pass_search_and_cache():
     assert "MAX_SEARCH_ATTEMPTS = 3" in KIT
     assert "Snabb multikällesökning" in KIT
     assert "Riktad lucksökning" in KIT
