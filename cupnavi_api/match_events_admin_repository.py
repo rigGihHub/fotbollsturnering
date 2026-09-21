@@ -178,17 +178,41 @@ def update_player_match_events(account_id: int, tournament_id: int, match_id: in
         raise ValueError(" ".join(validation["errors"]))
 
     with connect() as con:
-        con.execute(
-            """INSERT INTO player_match_stats(match_id,player_id,goals,assists,yellow_cards,red_cards)
-               VALUES(?,?,?,?,?,?)
-               ON CONFLICT(match_id,player_id) DO UPDATE SET
-                 goals=excluded.goals,assists=excluded.assists,
-                 yellow_cards=excluded.yellow_cards,red_cards=excluded.red_cards""",
-            (
-                int(match_id), int(player_id), next_values["goals"], next_values["assists"],
-                next_values["yellow_cards"], next_values["red_cards"],
-            ),
-        )
+        if current:
+            cursor = con.execute(
+                """UPDATE player_match_stats
+                   SET goals=?,assists=?,yellow_cards=?,red_cards=?
+                   WHERE match_id=? AND player_id=?
+                     AND goals=? AND assists=? AND yellow_cards=? AND red_cards=?""",
+                (
+                    next_values["goals"], next_values["assists"],
+                    next_values["yellow_cards"], next_values["red_cards"],
+                    int(match_id), int(player_id),
+                    current_values["goals"], current_values["assists"],
+                    current_values["yellow_cards"], current_values["red_cards"],
+                ),
+            )
+            if getattr(cursor, "rowcount", 1) == 0:
+                raise RuntimeError("Matchhändelsen har ändrats av någon annan. Ladda om matchen och försök igen.")
+        else:
+            try:
+                con.execute(
+                    """INSERT INTO player_match_stats(match_id,player_id,goals,assists,yellow_cards,red_cards)
+                       VALUES(?,?,?,?,?,?)""",
+                    (
+                        int(match_id), int(player_id), next_values["goals"], next_values["assists"],
+                        next_values["yellow_cards"], next_values["red_cards"],
+                    ),
+                )
+            except Exception as exc:
+                # A concurrent first write may have created the row after our read.
+                latest = one(
+                    "SELECT * FROM player_match_stats WHERE match_id=? AND player_id=?",
+                    (int(match_id), int(player_id)),
+                )
+                if latest is not None:
+                    raise RuntimeError("Matchhändelsen har ändrats av någon annan. Ladda om matchen och försök igen.") from exc
+                raise
         commit = getattr(con, "commit", None)
         if callable(commit):
             commit()
