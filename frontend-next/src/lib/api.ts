@@ -6,8 +6,8 @@ export class CupNaviApiError extends Error {
   constructor(public readonly status:number, message:string){super(message);this.name="CupNaviApiError";}
 }
 
-const RETRY_DELAYS_MS=[250,750];
-const REQUEST_TIMEOUT_MS=4500;
+const RETRY_DELAYS_MS=[300];
+const REQUEST_TIMEOUT_MS=6500;
 
 async function apiGet<T>(path: string): Promise<T> {
   let lastError:unknown;
