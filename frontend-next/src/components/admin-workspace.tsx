@@ -476,17 +476,17 @@ export default function AdminWorkspace({verifiedSession=null,children=null}:{ver
         const missingLogo=!team.logo_url;
         // Existing kit data is valuable user state. Bulk lookup must not re-search
         // and destabilize it merely because a crest is missing.
-        const searchFocus=missingLogo?"logo":"all";
+        const searchFocus=missingLogo?"logo":"kit";
         let suggestion=await request<KitSuggestion>(`/api/admin/cups/${cupId}/teams/kit-search`,{method:"POST",body:JSON.stringify({team_name:team.name,age_class:team.age_class||null,search_focus:searchFocus})},token);
         // A combined shirt search may legitimately prioritize kit evidence and omit the crest.
         // For bulk mode, follow up with a logo-focused search before deciding that the crest is missing.
-        if(searchFocus!=="logo"&&suggestion.identity_status==="exact"&&!suggestion.logo_verified){
+        if(searchFocus==="kit"&&suggestion.identity_status==="exact"&&!suggestion.logo_verified){
           try{
             const logoSuggestion=await request<KitSuggestion>(`/api/admin/cups/${cupId}/teams/kit-search`,{method:"POST",body:JSON.stringify({team_name:team.name,age_class:team.age_class||null,resolved_club:suggestion.club_match||team.name,search_focus:"logo",force_refresh:true})},token);
             if(logoSuggestion.identity_status==="exact"&&logoSuggestion.logo_verified){suggestion={...suggestion,logo_verified:true,logo_url:logoSuggestion.logo_url,logo_source_url:logoSuggestion.logo_source_url};}
           }catch{/* A logo retry must never discard already verified kit data. */}
         }
-        const strongKit=searchFocus==="logo"?true:(suggestion.identity_status==="exact"&&suggestion.home_verified&&suggestion.away_verified);if(!strongKit||searchFocus==="logo"){if(suggestion.identity_status==="exact"&&suggestion.logo_verified){try{const logoPayload={logo_url:suggestion.logo_url,logo_source_url:suggestion.logo_source_url};const logoSaved=await request<Team>(`/api/admin/cups/${cupId}/teams/${team.id}`,{method:"PUT",body:JSON.stringify(logoPayload)},token);updated.push(logoSaved);saved++;if(searchFocus==="logo")return;}catch{/* Kit review still continues even if logo persistence fails. */}}uncertain++;const identityOk=suggestion.identity_status==="exact";const parts=[!identityOk?"Klubbidentiteten behöver förtydligas.":"Klubbidentitet: verifierad.",suggestion.home_verified?"Hemma: verifierat.":"Hemma: behöver kontrolleras.",suggestion.away_verified?"Borta: verifierat.":"Borta: behöver kontrolleras.",suggestion.logo_verified?"Klubbmärke: verifierat.":""];issues.push({teamId:team.id,teamName:team.name,reason:parts.filter(Boolean).join(" ")});return;}
+        const strongKit=searchFocus==="logo"?true:(suggestion.identity_status==="exact"&&suggestion.home_verified&&suggestion.away_verified);if(!strongKit||searchFocus==="logo"){if(suggestion.identity_status==="exact"&&suggestion.logo_verified){try{const logoPayload={logo_url:suggestion.logo_url,logo_source_url:suggestion.logo_source_url};const logoSaved=await request<Team>(`/api/admin/cups/${cupId}/teams/${team.id}`,{method:"PUT",body:JSON.stringify(logoPayload)},token);updated.push(logoSaved);saved++;}catch{/* A failed crest write must not affect any existing kit data. */}}uncertain++;const identityOk=suggestion.identity_status==="exact";const parts=[!identityOk?"Klubbidentiteten behöver förtydligas.":"Klubbidentitet: verifierad.",suggestion.home_verified?"Hemma: verifierat.":"Hemma: behöver kontrolleras.",suggestion.away_verified?"Borta: verifierat.":"Borta: behöver kontrolleras.",suggestion.logo_verified?"Klubbmärke: verifierat.":""];issues.push({teamId:team.id,teamName:team.name,reason:parts.filter(Boolean).join(" ")});return;}
         const payload={
           ...(suggestion.home_verified?{primary_color:suggestion.home_color_1,home_color_2:suggestion.home_color_2,home_pattern:suggestion.home_pattern}:{}),
           ...(suggestion.away_verified?{secondary_color:suggestion.away_color_1,away_color_2:suggestion.away_color_2,away_pattern:suggestion.away_pattern}:{}),
