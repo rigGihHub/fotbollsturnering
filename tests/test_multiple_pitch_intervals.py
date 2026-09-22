@@ -96,3 +96,14 @@ def test_schedule_confirmation_checks_entire_match_in_one_pass(db, monkeypatch, 
     else:
         with pytest.raises(ValueError, match="utanför"):
             schedules.confirm_current_schedule(7, 1)
+
+
+def test_unpadded_document_times_are_normalized_and_review_completes(db):
+    rows = [{"venue": "Plan 1", "date": DAY, "start_time": "9:00", "end_time": "10:00"}]
+    with sqlite3.connect(db) as con:
+        con.execute("UPDATE tournament_setup_imports SET payload_json=?", (json.dumps({"pitch_windows": rows}),))
+    result = imports.commit_pitch_window_import(7, 1, rows)
+    assert result["review"]["available"] is False
+    assert result["review"]["already_applied_count"] == 1
+    assert saved(db)[0]["start_time"] == "09:00"
+    assert imports.commit_pitch_window_import(7, 1, rows)["changed"] is False

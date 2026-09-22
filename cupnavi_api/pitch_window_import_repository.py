@@ -53,10 +53,18 @@ def _cup_dates(tournament: dict) -> set[str]:
 def _time_text(value, field: str) -> str:
     text = str(value or "").strip()
     try:
-        datetime.strptime(text, "%H:%M")
+        parsed = datetime.strptime(text, "%H:%M")
     except ValueError as exc:
         raise ValueError(f"{field} måste anges som HH:MM") from exc
-    return text
+    return parsed.strftime("%H:%M")
+
+
+def _review_time(value):
+    text = str(value or "").strip()
+    try:
+        return _time_text(text, "Tid")
+    except ValueError:
+        return text or None
 
 
 def _normalized_rows(payload: dict) -> list[dict]:
@@ -67,8 +75,8 @@ def _normalized_rows(payload: dict) -> list[dict]:
         rows.append({
             "venue": " ".join(str(raw.get("venue") or "").split()) or None,
             "date": str(raw.get("date") or "").strip() or None,
-            "start_time": str(raw.get("start_time") or "").strip() or None,
-            "end_time": str(raw.get("end_time") or "").strip() or None,
+            "start_time": _review_time(raw.get("start_time")),
+            "end_time": _review_time(raw.get("end_time")),
         })
     return rows
 
