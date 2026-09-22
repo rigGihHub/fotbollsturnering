@@ -20,7 +20,8 @@ def test_reporter_can_roundtrip_to_public_view():
     reporter = (ROOT / "frontend-next/src/components/reporter-client.tsx").read_text()
     public = (ROOT / "frontend-next/src/components/PublicCupView.tsx").read_text()
     page = (ROOT / "frontend-next/src/app/cup/[publicKey]/page.tsx").read_text()
-    assert "?from=reporter" in reporter
+    navigation = (ROOT / "frontend-next/src/components/reporter-navigation.tsx").read_text()
+    assert "?from=reporter" in navigation
     assert "Till matchrapportering" in public
     assert 'reporterReturn={query.from==="reporter"}' in page
 

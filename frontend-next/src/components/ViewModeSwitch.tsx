@@ -24,10 +24,12 @@ export function ViewModeSwitch() {
   const [path,setPath] = useState("");
   const [hasSession,setHasSession] = useState(false);
   const [opening,setOpening] = useState(false);
+  const [reporterLink,setReporterLink] = useState("/reporter");
 
   useEffect(() => {
     setPath(window.location.pathname);
     setHasSession(Boolean(localStorage.getItem(TOKEN_KEY)));
+    if(window.location.pathname.startsWith("/cup/"))setReporterLink(`/reporter?returnTo=${encodeURIComponent(window.location.pathname+window.location.search)}`);
   }, []);
 
   const inAdmin = path.startsWith("/admin");
@@ -59,7 +61,7 @@ export function ViewModeSwitch() {
           {opening?"Öppnar…":"Turneringsvy"}
         </button>
       ) : (
-        <><a href="/reporter" className="reporting-shortcut">Rapportering</a><a href="/admin">Admin</a></>
+        <><a href={reporterLink} className="reporting-shortcut">Rapportering</a><a href="/admin">Admin</a></>
       )}
     </div>
   );

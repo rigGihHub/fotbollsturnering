@@ -5,3 +5,7 @@
 @media(max-width:520px){.reporter-score input{height:64px;font-size:32px}.reporter-score button{min-height:62px}.reporter-network{top:5px;grid-template-columns:12px auto 1fr}.reporter-network small{grid-column:2/-1}.reporter-network button{grid-column:1/-1;width:100%}}
 .reporter-login--code-only .reporter-login__fields{grid-template-columns:1fr}
 .reporter-login.reporter-login--code-only input{max-width:280px;min-height:60px;text-align:center;font-size:28px;letter-spacing:.3em;font-variant-numeric:tabular-nums}
+.reporter-navigation{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 20px}
+.reporter-navigation a{display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:10px 16px;border:1.5px solid #101f2a;border-radius:9px;background:#fffdf7;color:#101f2a;text-decoration:none;font-size:14px;font-weight:850}
+.reporter-navigation a:last-child{background:#101f2a;color:#fff}
+.reporter-navigation a:focus-visible{outline:3px solid #1554d1;outline-offset:3px}
