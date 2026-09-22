@@ -162,3 +162,18 @@ def test_api_root_answers_render_health_probe():
     assert '@app.get("/")' in api
     assert '@app.head("/")' in api
     assert "cupnavi-api" in api
+
+
+def test_real_pdf_text_extraction_preserves_swedish_schedule_text():
+    from io import BytesIO
+    from reportlab.pdfgen.canvas import Canvas
+
+    raw = BytesIO()
+    canvas = Canvas(raw)
+    canvas.drawString(40, 760, 'Slottskampen - Sörbyvallen, Örebro')
+    canvas.drawString(40, 730, 'GULDGRUPPEN 18:40 - 1:a grupp A mot 1:a grupp B')
+    canvas.save()
+    text = ai_import._extract_pdf_text(raw.getvalue())
+    assert 'Sörbyvallen, Örebro' in text
+    assert 'GULDGRUPPEN 18:40' in text
+    assert '1:a grupp A mot 1:a grupp B' in text
