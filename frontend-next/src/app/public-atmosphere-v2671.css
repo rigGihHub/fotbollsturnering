@@ -381,3 +381,40 @@ body:has(.page-shell--matchday){background-image:radial-gradient(circle,rgba(16,
  .page-shell--public-v3 .texttv--standings .standings-team-name{display:block;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
  .page-shell--public-v3 .texttv--standings .standings-team-meta{display:block;margin-top:3px;color:#65dfe6;font-size:9px;font-weight:800;letter-spacing:0;white-space:normal}
 }
+
+
+/* v2.7.0 mobile public density: compact cup header, readable tables and dedicated playoff access. */
+@media(max-width:700px){
+ .page-shell--public-v3{padding-top:8px!important}
+ .page-shell--public-v3 .public-cup-hero{gap:10px!important;padding:14px 14px!important}
+ .page-shell--public-v3 .public-cup-hero__label{margin-bottom:4px!important;font-size:9px!important}
+ .page-shell--public-v3 .public-cup-hero h1{font-size:31px!important;line-height:1!important}
+ .page-shell--public-v3 .public-cup-hero__meta{display:flex!important;flex-direction:row!important;flex-wrap:wrap!important;gap:4px 12px!important;margin-top:6px!important;font-size:12px!important}
+ .page-shell--public-v3 .public-cup-hero__stats{gap:5px!important}
+ .page-shell--public-v3 .public-cup-hero__stats>span{min-height:46px!important;padding:6px 4px!important}
+ .page-shell--public-v3 .public-cup-hero__stats b{font-size:19px!important}
+ .page-shell--public-v3 .public-cup-hero__stats small{font-size:8px!important}
+ .page-shell--public-v3 .public-section-head{margin:14px 0 7px!important}
+ .page-shell--public-v3 .public-section-head span{display:none!important}
+ .page-shell--public-v3 .public-section-head h2{font-size:27px!important}
+ .page-shell--public-v3 .public-live-status{margin-bottom:6px!important}
+ .page-shell--public-v3 .match-view-filter{margin-bottom:10px!important}
+ .page-shell--public-v3 .match-view-filter button{min-height:42px!important;padding:8px 4px!important}
+ .page-shell--public-v3 .match-grid{gap:9px!important}
+ .page-shell--public-v3 .public-match-card__meta{min-height:30px!important;padding:0 11px!important}
+ .page-shell--public-v3 .public-match-card__teams{min-height:88px!important}
+ .page-shell--public-v3 .public-match-team{padding:8px 7px!important}
+ .page-shell--public-v3 .public-match-team strong{font-size:15px!important}
+ .page-shell--public-v3 .public-match-card__pitch{min-height:25px!important;padding:5px 11px!important}
+ .page-shell--public-v3 .section-heading{margin:12px 0 10px!important}
+ .page-shell--public-v3 .section-heading h2{font-size:30px!important}
+ .page-shell--public-v3 .section-heading p{font-size:12px!important;line-height:1.35!important}
+ .page-shell--public-v3 .texttv--standings{margin:0!important}
+ .page-shell--public-v3 .texttv--standings .texttv__header{grid-template-columns:minmax(0,1fr) auto!important;background:#001cf5!important}
+ .page-shell--public-v3 .texttv--standings .texttv__header>span:first-child{display:none!important}
+ .page-shell--public-v3 .texttv--standings table{font-size:13px!important}
+ .page-shell--public-v3 .texttv--standings th:nth-child(2),.page-shell--public-v3 .texttv--standings td:nth-child(2){padding-left:8px!important}
+ .page-shell--public-v3 .texttv--standings .standings-team-name{font-size:14px!important;text-overflow:clip!important;white-space:normal!important}
+ .page-shell--public-v3 .texttv__legend{padding:8px 10px!important;font-size:9px!important}
+ .page-shell--public-v3 .mobile-bottom-nav{grid-template-columns:repeat(4,1fr)!important}
+}
