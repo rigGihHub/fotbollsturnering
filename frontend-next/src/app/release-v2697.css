@@ -1,4 +1,4 @@
-/* v2.6.97: keep the release marker visible in every admin view, including mobile. */
+/* v2.6.98: keep the release marker visible in every admin view, including mobile. */
 .brandbar .app-version-badge,.brandbar .header-share-action+.app-version-badge{display:inline-flex!important;visibility:visible!important;opacity:1!important;position:relative;z-index:2}
 .admin-version-marker{position:sticky;top:70px;z-index:25;width:max-content;margin:0 0 -28px auto;padding:5px 8px;border:1px solid rgba(16,38,48,.35);border-radius:999px;background:#fffdf6;color:#102630;font:900 10px/1 ui-monospace,SFMono-Regular,Consolas,monospace;letter-spacing:.08em;box-shadow:2px 2px 0 rgba(16,38,48,.12)}
 .admin-public-options--prominent{display:grid;grid-template-columns:minmax(0,1fr) minmax(180px,.45fr);gap:10px 16px;margin:16px 0!important;padding:16px 18px!important;border:2px solid #168f9d!important;border-radius:14px;background:#edf8f6;box-shadow:3px 3px 0 rgba(16,38,48,.12)}

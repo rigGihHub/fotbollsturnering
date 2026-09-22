@@ -730,7 +730,7 @@ export default function AdminWorkspace({verifiedSession=null,children=null}:{ver
     </aside>
 
     <section className="admin-main" id="overview">
-      <div className="admin-version-marker" aria-label="CupNavi-version">CupNavi v2.6.97</div>
+      <div className="admin-version-marker" aria-label="CupNavi-version">CupNavi v2.6.98</div>
       <header className="admin-pagehead"><div><h1>Cupöversikt</h1></div><div className="admin-pagehead__actions"><span className="admin-draft">{activeCup?.is_published?"PUBLICERAD":"UTKAST"}</span>{publicCup&&<a href={publicCup}>Förhandsgranska <span aria-hidden="true">→</span></a>}</div></header>
       {activeStep==="overview"&&publishedTwin&&<section className="admin-cup-identity-warning" role="alert"><div><span>LIKANDE CUP FINNS REDAN LIVE</span><strong>Du arbetar i utkastet “{activeCup?.name}”</strong><p>Den publicerade cupen “{publishedTwin.name}” är en annan post. Byt cup för att undvika att bygga ett nytt schema ovanpå en dubblett.</p></div><button type="button" disabled={busy} onClick={()=>void changeCup(publishedTwin.id)}>Öppna publicerad cup →</button></section>}
       {activeStep==="overview"&&importWelcome&&<section className="admin-import-welcome" aria-labelledby="import-welcome-title">
@@ -807,7 +807,7 @@ export default function AdminWorkspace({verifiedSession=null,children=null}:{ver
           {teams.length ? teams.map(team=><article key={team.id} className={editingTeam===team.id?"is-editing":""}>
             <TeamLogo team={team}/>
             {publicKitModeFor(cupinfo)!=="none"&&<span className="admin-team-kits" aria-label={publicKitModeFor(cupinfo)==="home"?"Hemmaställ":"Hemma- och bortaställ"}><span><TeamKit primary={team.primary_color} secondary={team.home_color_2} pattern={team.home_pattern}/><small>Hemma</small></span>{publicKitModeFor(cupinfo)==="both"&&<span><TeamKit primary={team.secondary_color} secondary={team.away_color_2} pattern={team.away_pattern}/><small>Borta</small></span>}</span>}
-            <div className="admin-team-identity"><strong>{team.name}</strong><small><span>{team.age_class||"Klass saknas"}</span><span>{team.group_id?(groups.find(group=>group.id===team.group_id)?.name || `Grupp ${team.group_id}`):"Ej gruppindelat"}</span></small></div>
+            <div className="admin-team-identity"><strong>{team.name}</strong><small>{team.age_class&&<span>{team.age_class}</span>}<span>{team.group_id?(groups.find(group=>group.id===team.group_id)?.name || `Grupp ${team.group_id}`):"Ej gruppindelat"}</span></small></div>
             <div className="admin-team-actions"><button type="button" onClick={()=>beginTeamEdit(team)}>Redigera</button><button className="is-danger" type="button" onClick={()=>removeTeam(team)}>Ta bort</button></div>
           </article>) : <div className="admin-empty"><strong>Inga lag ännu</strong><span>Lägg till det första laget ovan.</span></div>}
         </div>
@@ -826,13 +826,13 @@ export default function AdminWorkspace({verifiedSession=null,children=null}:{ver
         </form>
         <div className="admin-team-list admin-group-list">
           {groups.length ? groups.map(group=><article key={group.id} className={editingGroup===group.id?"is-editing":""}>
-            <div><strong>{group.name}</strong><small>{group.age_class||"Ingen klass"} · {group.team_count} lag</small></div>
+            <div><strong>{group.name}</strong><small>{group.age_class&&<>{group.age_class} · </>}{group.team_count} lag</small></div>
             <div className="admin-team-actions"><button type="button" onClick={()=>beginGroupEdit(group)}>Redigera</button><button className="is-danger" type="button" onClick={()=>removeGroup(group)} disabled={group.team_count>0}>Ta bort</button></div>
           </article>) : <div className="admin-empty"><strong>Inga grupper ännu</strong><span>Skapa den första gruppen ovan.</span></div>}
         </div>
         <div className="admin-team-list admin-group-assignments" style={{marginTop:18}}>
           {teams.map(team=><article key={`group-team-${team.id}`}>
-            <div><strong>{team.name}</strong><small>{team.age_class||"Klass saknas"}</small></div>
+            <div><strong>{team.name}</strong>{team.age_class&&<small>{team.age_class}</small>}</div>
             <label style={{marginLeft:"auto"}}>Grupp<select value={team.group_id ?? ""} disabled={busy} onChange={e=>assignGroup(team,e.target.value?Number(e.target.value):null)}><option value="">Ej gruppindelat</option>{groups.map(group=><option key={group.id} value={group.id}>{group.name}</option>)}</select></label>
           </article>)}
         </div>
