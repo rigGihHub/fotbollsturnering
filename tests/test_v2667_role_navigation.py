@@ -9,11 +9,11 @@ def test_role_links_can_be_copied_with_cup_and_identity():
     assert "Kopiera inloggningslänk" in reporter
 
 
-def test_linked_reporter_login_hides_technical_slug():
+def test_reporter_login_needs_only_the_code():
     source = (ROOT / "frontend-next/src/components/reporter-client.tsx").read_text()
-    assert "linkedCup" in source
-    assert "Cupen är vald via inloggningslänken" in source
-    assert "Den tekniska länkkoden döljs här" in source
+    assert "Cupens länk eller ID" not in source
+    assert "JSON.stringify({code})" in source
+    assert "Koden gäller i högst 3 dygn" in source
 
 
 def test_reporter_can_roundtrip_to_public_view():

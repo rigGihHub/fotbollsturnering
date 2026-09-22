@@ -4,8 +4,8 @@ ROOT = Path(__file__).resolve().parents[1]
 ROLE = (ROOT / "cupnavi_api/role_access_routes.py").read_text(encoding="utf-8")
 
 
-def test_reporter_session_lasts_48_hours():
-    assert "MAX_REPORTER_SESSION_SECONDS = 60 * 60 * 24 * 7" in ROLE
+def test_reporter_session_defaults_to_48_hours_with_three_day_maximum():
+    assert "MAX_REPORTER_SESSION_SECONDS = 60 * 60 * 24 * 3" in ROLE
     assert "valid_hours INTEGER NOT NULL DEFAULT 48" in ROLE
     assert "min(MAX_REPORTER_SESSION_SECONDS, max(1, int(valid_hours)) * 60 * 60)" in ROLE
 
@@ -26,6 +26,6 @@ def test_reporter_match_routes_enforce_tournament_scope():
 
 def test_reporter_login_is_rate_limited_and_code_is_not_plaintext():
     assert 'scope="reporter_login"' in ROLE
-    assert "verify_access_code(payload.code" in ROLE
+    assert "_find_reporter_credential(payload.code)" in ROLE
     assert "code_hash TEXT NOT NULL" in ROLE
     assert "code_salt TEXT NOT NULL" in ROLE
