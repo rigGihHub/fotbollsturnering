@@ -418,3 +418,20 @@ body:has(.page-shell--matchday){background-image:radial-gradient(circle,rgba(16,
  .page-shell--public-v3 .texttv__legend{padding:8px 10px!important;font-size:9px!important}
  .page-shell--public-v3 .mobile-bottom-nav{grid-template-columns:repeat(4,1fr)!important}
 }
+
+
+/* v2.7.2: phone standings prioritize legibility over desktop Text-TV proportions. */
+@media(max-width:700px){
+ .page-shell--public-v3 .texttv--standings{background:#06131b!important}
+ .page-shell--public-v3 .texttv--standings .texttv__header{min-height:38px!important;padding:8px 12px!important}
+ .page-shell--public-v3 .texttv--standings .texttv__header strong{font-size:15px!important;letter-spacing:.06em!important}
+ .page-shell--public-v3 .texttv--standings table{font-size:14px!important;line-height:1.2!important}
+ .page-shell--public-v3 .texttv--standings thead th{height:32px!important;font-size:10px!important}
+ .page-shell--public-v3 .texttv--standings tbody td{height:43px!important;padding-top:6px!important;padding-bottom:6px!important}
+ .page-shell--public-v3 .texttv--standings th:nth-child(1),.page-shell--public-v3 .texttv--standings td:nth-child(1){width:36px!important;padding-right:4px!important}
+ .page-shell--public-v3 .texttv--standings th:nth-child(2),.page-shell--public-v3 .texttv--standings td:nth-child(2){padding-left:10px!important}
+ .page-shell--public-v3 .texttv--standings th:nth-child(8),.page-shell--public-v3 .texttv--standings td:nth-child(8){width:42px!important;padding-right:10px!important}
+ .page-shell--public-v3 .texttv--standings .standings-team-name{display:block!important;font-size:15px!important;font-weight:800!important;line-height:1.15!important;overflow:visible!important;white-space:normal!important}
+ .page-shell--public-v3 .texttv--standings .standings-team-meta{display:block!important;margin-top:4px!important;font-size:9px!important;line-height:1!important}
+ .page-shell--public-v3 .table-stack>section>p{margin:7px 2px 18px!important;font-size:12px!important;line-height:1.3!important}
+}
