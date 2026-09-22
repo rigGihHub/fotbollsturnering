@@ -37,7 +37,7 @@ import { ViewModeSwitch } from "@/components/ViewModeSwitch";
 import { HeaderShareAction } from "@/components/HeaderShareAction";
 import { SiteFooter } from "@/components/SiteFooter";
 
-const APP_VERSION = "2.6.99";
+import { APP_VERSION } from "@/lib/version";
 
 export const metadata: Metadata = {
   title: `CupNavi v${APP_VERSION}`,

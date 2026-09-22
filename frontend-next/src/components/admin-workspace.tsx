@@ -1,4 +1,5 @@
 "use client";
+import { APP_VERSION } from "@/lib/version";
 import { openPlayoffReview } from "../lib/open-playoff-review";
 
 import { CSSProperties, FormEvent, ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -723,7 +724,7 @@ export default function AdminWorkspace({verifiedSession=null,children=null}:{ver
     </aside>
 
     <section className="admin-main" id="overview">
-      <div className="admin-version-marker" aria-label="CupNavi-version">CupNavi v2.6.99</div>
+      <div className="admin-version-marker" aria-label="CupNavi-version">CupNavi v{APP_VERSION}</div>
       <header className="admin-pagehead"><div><h1>Cupöversikt</h1></div><div className="admin-pagehead__actions"><span className="admin-draft">{activeCup?.is_published?"PUBLICERAD":"UTKAST"}</span>{publicCup&&<a href={publicCup}>Förhandsgranska <span aria-hidden="true">→</span></a>}</div></header>
       {activeStep==="overview"&&publishedTwin&&<section className="admin-cup-identity-warning" role="alert"><div><span>LIKANDE CUP FINNS REDAN LIVE</span><strong>Du arbetar i utkastet “{activeCup?.name}”</strong><p>Den publicerade cupen “{publishedTwin.name}” är en annan post. Byt cup för att undvika att bygga ett nytt schema ovanpå en dubblett.</p></div><button type="button" disabled={busy} onClick={()=>void changeCup(publishedTwin.id)}>Öppna publicerad cup →</button></section>}
       {activeStep==="overview"&&importWelcome&&<section className="admin-import-welcome" aria-labelledby="import-welcome-title">

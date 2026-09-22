@@ -1,24 +1,14 @@
 .view-mode-switch{position:fixed;right:max(12px,env(safe-area-inset-right));bottom:max(12px,env(safe-area-inset-bottom));z-index:950;display:flex;padding:5px;border:1px solid rgba(16,38,48,.18);border-radius:13px;background:rgba(250,248,241,.94);box-shadow:0 8px 24px rgba(16,38,48,.14);backdrop-filter:blur(10px)}.view-mode-switch.is-public{bottom:max(76px,calc(env(safe-area-inset-bottom) + 68px))}.view-mode-switch button,.view-mode-switch a{min-height:42px;display:inline-flex;align-items:center;justify-content:center;padding:0 13px;border:0;border-radius:9px;background:var(--ink);color:#fff;font-size:13px;font-weight:850;text-decoration:none;white-space:nowrap}.view-mode-switch button:disabled{opacity:.65}@media(max-width:560px){.view-mode-switch{right:10px;bottom:max(10px,env(safe-area-inset-bottom));padding:4px}.view-mode-switch.is-public{bottom:max(72px,calc(env(safe-area-inset-bottom) + 66px))}.view-mode-switch button,.view-mode-switch a{min-height:40px;padding:0 11px;font-size:12px}}
 
-/* v2.7.1: public admin shortcut belongs in the header, not as a floating content block. */
+/* Public shortcuts occupy their own row so they cannot cover the cup content. */
 body:has(.page-shell--public-v3) .view-mode-switch.is-public{
- position:fixed!important;top:10px!important;right:188px!important;bottom:auto!important;z-index:960!important;
+ position:relative!important;inset:auto!important;z-index:1!important;
+ display:flex!important;flex-wrap:wrap;justify-content:flex-end;gap:6px!important;
+ width:fit-content!important;max-width:calc(100% - 24px);margin:12px 12px 0 auto!important;
  padding:0!important;border:0!important;background:transparent!important;box-shadow:none!important;backdrop-filter:none!important
 }
 body:has(.page-shell--public-v3) .view-mode-switch.is-public a{
- min-height:36px!important;padding:0 11px!important;border:1px solid rgba(255,255,255,.28)!important;
- border-radius:8px!important;background:#102632!important;color:#fff!important;font-size:11px!important;box-shadow:none!important
+ min-height:44px!important;padding:0 12px!important;border:1px solid rgba(255,255,255,.28)!important;
+ border-radius:8px!important;background:#102632!important;color:#fff!important;font-size:12px!important;box-shadow:none!important
 }
-@media(max-width:700px){
- body:has(.page-shell--public-v3) .view-mode-switch.is-public{top:12px!important;right:12px!important}
- body:has(.page-shell--public-v3) .view-mode-switch.is-public a{min-height:32px!important;padding:0 9px!important;font-size:10px!important}
-}
-
-
-/* v2.7.2: admin + reporting shortcuts share one compact header cluster. */
-body:has(.page-shell--public-v3) .view-mode-switch.is-public{display:flex!important;gap:5px!important;right:12px!important}
 body:has(.page-shell--public-v3) .view-mode-switch.is-public .reporting-shortcut{background:#1554d1!important}
-@media(max-width:700px){
- body:has(.page-shell--public-v3) .view-mode-switch.is-public{top:62px!important;right:10px!important;gap:4px!important}
- body:has(.page-shell--public-v3) .view-mode-switch.is-public a{min-height:29px!important;padding:0 8px!important;font-size:9px!important}
-}
