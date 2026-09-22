@@ -6,6 +6,8 @@ ROUTES = (ROOT / "cupnavi_api" / "playoff_import_routes.py").read_text(encoding=
 COMPETITION = (ROOT / "cupnavi_api" / "competition_admin_routes.py").read_text(encoding="utf-8")
 UI = (ROOT / "frontend-next" / "src" / "components" / "playoff-import-review.tsx").read_text(encoding="utf-8")
 PAGE = (ROOT / "frontend-next" / "src" / "app" / "admin" / "page.tsx").read_text(encoding="utf-8")
+SHELL = (ROOT / "frontend-next" / "src" / "components" / "admin-auth-shell.tsx").read_text(encoding="utf-8")
+LAZY = (ROOT / "frontend-next" / "src" / "components" / "admin-lazy-extras.tsx").read_text(encoding="utf-8")
 
 
 def test_reviewed_playoff_import_routes_are_registered():
@@ -28,7 +30,9 @@ def test_playoff_import_uses_canonical_participant_sources():
 
 
 def test_next_admin_exposes_review_first_playoff_flow():
-    assert "PlayoffImportReview" in PAGE
+    assert "AdminAuthShell" in PAGE
+    assert "AdminLazyExtras" in SHELL
+    assert "PlayoffImportReview" in LAZY
     assert "Slutspel väntar på granskning" in UI
     assert "Granska slutspel" in UI
     assert "Importera granskat slutspel" in UI

@@ -8,8 +8,9 @@ SUMMARY = (ROOT / "frontend-next/src/components/import-completion-summary.tsx").
 
 
 def test_new_import_hands_detected_playoffs_to_review():
-    assert "playoffs:(proposal.playoff_matches||[]).length" in LAUNCHER
-    assert 'goToCup(cup,(proposal.playoff_matches||[]).length?"playoffs":"overview")' in LAUNCHER
+    assert "playoffs:playoffMatches.length" in LAUNCHER
+    assert 'goToCup(cup,playoffMatches.length?"playoffs":"overview")' in LAUNCHER
+    assert "<h3>Slutspel</h3>" in LAUNCHER
     assert "Granska slutspelet →" in WORKSPACE
     assert "slutspelsmatcher</span>" in WORKSPACE
 

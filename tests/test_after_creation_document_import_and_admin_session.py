@@ -1,6 +1,7 @@
 import json
 from pathlib import Path
 
+import cupnavi_core.ai_cup_document_import as ai_import
 from cupnavi_core.ai_cup_document_import import extract_cup_setup_from_documents
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -30,6 +31,7 @@ def test_existing_cup_has_review_first_photo_pdf_import_tool():
     assert "/import/initial" in importer
     assert "Spara till aktiv cup" in importer
     assert "GRANSKA FÖRST" in importer
+    assert "Slutspel" in importer
 
 
 def test_existing_cup_document_import_preserves_existing_data():
@@ -42,6 +44,7 @@ def test_existing_cup_document_import_preserves_existing_data():
     assert "defaultPitchName" in importer
     assert "skrevs inte över" in importer
     assert "completed_count" in importer
+    assert "uniqueImportedTeams" in importer
 
 
 def test_pdf_import_error_is_actionable_instead_of_raw_http_400():
@@ -95,6 +98,50 @@ def test_multi_document_pdf_is_sent_as_data_url_file_input():
     files = [part for part in seen["body"]["input"][0]["content"] if part.get("type") == "input_file"]
     assert files
     assert files[0]["file_data"].startswith("data:application/pdf;base64,")
+
+
+def test_text_pdf_is_sent_as_text_to_reduce_import_cost(monkeypatch):
+    seen = {}
+    output = {
+        "tournament_name": "Cup",
+        "location": None,
+        "start_date": None,
+        "end_date": None,
+        "venues": [],
+        "pitch_windows": [],
+        "teams": [],
+        "matches": [],
+        "playoff_matches": [],
+        "rules": [],
+        "rule_values": {
+            "halves": None,
+            "minutes_per_half": None,
+            "halftime_minutes": None,
+            "points_win": None,
+            "points_draw": None,
+            "points_loss": None,
+        },
+        "playoff_rule_values": {
+            "halves": None,
+            "minutes_per_half": None,
+            "halftime_minutes": None,
+            "pitch_break_minutes": None,
+            "tie_rule": None,
+            "extra_time_minutes": None,
+        },
+        "warnings": [],
+    }
+    payload = {"output": [{"type": "message", "content": [{"type": "output_text", "text": json.dumps(output)}]}]}
+    monkeypatch.setattr(ai_import, "_extract_pdf_text", lambda raw: "Slottskampen\n" + ("Matchschema\n" * 80))
+
+    def opener(request, **kwargs):
+        seen["body"] = json.loads(request.data.decode("utf-8"))
+        return FakeResponse(payload)
+
+    extract_cup_setup_from_documents([(b"%PDF-test", "schema.pdf", "application/pdf")], "x", opener=opener)
+    content = seen["body"]["input"][0]["content"]
+    assert any(part.get("type") == "input_text" and "PDFTEXT schema.pdf" in part.get("text", "") for part in content)
+    assert not any(part.get("type") == "input_file" for part in content)
 
 
 def test_admin_uses_persistent_verified_session_cache_to_stop_mobile_bounce():

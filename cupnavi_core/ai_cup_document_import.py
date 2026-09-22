@@ -1,6 +1,7 @@
 import base64
 import json
 import re
+from io import BytesIO
 from datetime import date
 from urllib.error import HTTPError
 from urllib.request import Request, urlopen
@@ -20,6 +21,23 @@ def _output_text(payload):
 
 def _file_data(raw, mime_type):
     return f"data:{mime_type};base64,{base64.b64encode(raw).decode('ascii')}"
+
+
+def _extract_pdf_text(raw):
+    """Return embedded PDF text when available so text PDFs avoid file/vision parsing."""
+    try:
+        from pypdf import PdfReader
+    except Exception:
+        return ''
+    try:
+        reader = PdfReader(BytesIO(raw))
+        pages = []
+        for page in reader.pages[:30]:
+            pages.append(page.extract_text() or '')
+        text = '\n\n'.join(part.strip() for part in pages if part.strip())
+    except Exception:
+        return ''
+    return text[:80000]
 
 
 def _runtime_from_http_error(exc):
@@ -93,7 +111,11 @@ def extract_cup_setup_from_document(raw, filename, mime_type, api_key, *, model=
     image_url = None
     file_input = None
     if lower.endswith('.pdf') or mime == 'application/pdf':
-        file_input = {'type': 'input_file', 'filename': filename or 'cupprogram.pdf', 'file_data': _file_data(raw, 'application/pdf')}
+        pdf_text = _extract_pdf_text(raw)
+        if len(pdf_text) >= 250:
+            text = f"PDFTEXT {filename or 'cupprogram.pdf'}:\n{pdf_text}"
+        else:
+            file_input = {'type': 'input_file', 'filename': filename or 'cupprogram.pdf', 'file_data': _file_data(raw, 'application/pdf')}
     elif lower.endswith('.txt') or mime.startswith('text/'):
         text = raw.decode('utf-8', errors='replace')
     elif mime.startswith('image/') or lower.endswith(('.png', '.jpg', '.jpeg', '.webp')):
@@ -226,7 +248,11 @@ def extract_cup_setup_from_documents(documents, api_key, *, model='gpt-5.6-luna'
         mime = str(mime_type or '')
         content.append({'type': 'input_text', 'text': f'FIL {index}: {filename}'})
         if lower.endswith('.pdf') or mime == 'application/pdf':
-            content.append({'type': 'input_file', 'filename': filename, 'file_data': _file_data(raw, 'application/pdf')})
+            pdf_text = _extract_pdf_text(raw)
+            if len(pdf_text) >= 250:
+                content.append({'type': 'input_text', 'text': f'PDFTEXT {filename}:\n{pdf_text[:80000]}'})
+            else:
+                content.append({'type': 'input_file', 'filename': filename, 'file_data': _file_data(raw, 'application/pdf')})
         elif lower.endswith('.txt') or mime.startswith('text/'):
             content.append({'type': 'input_text', 'text': raw.decode('utf-8', errors='replace')[:60000]})
         elif mime.startswith('image/') or lower.endswith(('.png', '.jpg', '.jpeg', '.webp')):

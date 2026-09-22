@@ -40,7 +40,7 @@
   .cup-create-file-drop>input{font-size:12px!important;padding:8px!important}
   .cup-import-stats{gap:6px!important}
   .cup-import-stats>div{padding:8px 5px!important}
-  .cup-import-steps{grid-template-columns:repeat(4,minmax(0,1fr))!important;gap:2px!important}
+  .cup-import-steps{grid-template-columns:repeat(auto-fit,minmax(74px,1fr))!important;gap:2px!important}
   .cup-import-steps button{min-height:40px!important;padding:6px 2px!important;font-size:10px!important}
   .cup-create-actions{bottom:-18px;grid-template-columns:.8fr 1.4fr!important}
 }

@@ -10,9 +10,13 @@ type ImportedMatch = {
   time?:string|null; venue?:string|null; group_name?:string|null;
   home_team?:string|null; away_team?:string|null; stage?:string|null; duration?:string|null;
 };
+type ImportedPlayoffMatch = {
+  time?:string|null; venue?:string|null; label?:string|null;
+  home_source?:string|null; away_source?:string|null; duration?:string|null;
+};
 type ImportProposal = {
   tournament_name?:string|null; start_date?:string|null; end_date?:string|null; source_name?:string|null;
-  venues?:string[]; teams?:ImportedTeam[]; matches?:ImportedMatch[]; playoff_matches?:unknown[];
+  venues?:string[]; teams?:ImportedTeam[]; matches?:ImportedMatch[]; playoff_matches?:ImportedPlayoffMatch[];
   rules?:string[]; rule_values?:Record<string,number|null>; warnings?:string[];
 };
 type ExistingGroup = { id:number; name:string };
@@ -34,6 +38,25 @@ function normalize(value?:string|null) {
 
 function groupNames(teams:ImportedTeam[]) {
   return [...new Map(teams.map(team => (team.group_name || "").trim()).filter(Boolean).map(name => [normalize(name),name])).values()];
+}
+
+function uniqueImportedTeams(teams:ImportedTeam[]) {
+  const byName = new Map<string,ImportedTeam>();
+  let duplicateCount = 0;
+  for (const row of teams) {
+    const name = String(row?.name || "").split(/\s+/).filter(Boolean).join(" ");
+    if(!name)continue;
+    const key = normalize(name);
+    const groupName = String(row?.group_name || "").split(/\s+/).filter(Boolean).join(" ") || null;
+    const existing = byName.get(key);
+    if(!existing) {
+      byName.set(key,{name,group_name:groupName});
+      continue;
+    }
+    duplicateCount += 1;
+    if(!normalize(existing.group_name) && groupName) existing.group_name = groupName;
+  }
+  return {teams:[...byName.values()],duplicateCount};
 }
 
 function compactRuleValues(values?:Record<string,number|null>) {
@@ -71,9 +94,12 @@ export default function DocumentImportAdmin({token,cupId,onImported}:{token:stri
   const [importTeams,setImportTeams] = useState(true);
   const [importSchedule,setImportSchedule] = useState(true);
   const [importSetup,setImportSetup] = useState(true);
-  const teams = proposal?.teams || [];
+  const rawTeams = proposal?.teams || [];
+  const teamDedupe = useMemo(()=>uniqueImportedTeams(rawTeams),[rawTeams]);
+  const teams = teamDedupe.teams;
   const groups = useMemo(()=>groupNames(teams),[teams]);
   const matches = proposal?.matches || [];
+  const playoffMatches = proposal?.playoff_matches || [];
   const ruleValues = useMemo(()=>compactRuleValues(proposal?.rule_values),[proposal?.rule_values]);
 
   function choose(event:ChangeEvent<HTMLInputElement>) {
@@ -129,9 +155,19 @@ export default function DocumentImportAdmin({token,cupId,onImported}:{token:stri
           if(!key)continue;
           let team = existingTeams.get(key);
           if(!team) {
-            team = await api<CreatedTeam>(`/api/admin/cups/${cupId}/teams`,{method:"POST",body:JSON.stringify({name:row.name})},token);
+            let createdNow = false;
+            try {
+              team = await api<CreatedTeam>(`/api/admin/cups/${cupId}/teams`,{method:"POST",body:JSON.stringify({name:row.name})},token);
+              createdNow = true;
+            } catch (err) {
+              if(!/redan ett lag med samma namn/i.test(String(err)))throw err;
+              const refreshed = await api<{teams:ExistingTeam[]}>(`/api/admin/cups/${cupId}/teams`,{},token);
+              for (const existing of refreshed.teams || []) existingTeams.set(normalize(existing.name),existing);
+              team = existingTeams.get(key);
+              if(!team)throw err;
+            }
             existingTeams.set(key,team);
-            createdTeams += 1;
+            if(createdNow)createdTeams += 1;
           }
           const groupId = row.group_name ? groupIds.get(normalize(row.group_name)) : undefined;
           if(groupId && !team.group_id) {
@@ -192,8 +228,10 @@ export default function DocumentImportAdmin({token,cupId,onImported}:{token:stri
       const summary = [
         importTeams ? `${createdTeams} nya lag, ${createdGroups} nya grupper, ${assignedTeams} gruppkopplingar` : "lag/grupper hoppades över",
         canImportMatches ? `${matches.length} matcher importerades` : "matchprogrammet sparades för granskning",
+        playoffMatches.length ? `${playoffMatches.length} slutspelsmatcher sparades för granskning` : "",
       ];
-      setMessage(`${summary.join(" · ")}.${notes.length ? ` Kontroll: ${notes.join(" ")}` : ""}`);
+      if(teamDedupe.duplicateCount) notes.push(`${teamDedupe.duplicateCount} dubblettrad med lag slogs ihop.`);
+      setMessage(`${summary.filter(Boolean).join(" · ")}.${notes.length ? ` Kontroll: ${notes.join(" ")}` : ""}`);
       setProposal(null);
       setFiles([]);
       await onImported?.();
@@ -219,6 +257,7 @@ export default function DocumentImportAdmin({token,cupId,onImported}:{token:stri
         <div><strong>{groups.length}</strong><small>Grupper</small></div>
         <div><strong>{matches.length}</strong><small>Matcher</small></div>
         <div><strong>{(proposal.venues||[]).length}</strong><small>Planer</small></div>
+        <div><strong>{playoffMatches.length}</strong><small>Slutspel</small></div>
       </div>
       <div className="admin-team-editor" style={{marginTop:14}}>
         <label style={{display:"flex",alignItems:"center",gap:10}}><input type="checkbox" checked={importTeams} onChange={event=>setImportTeams(event.target.checked)}/> Lägg in saknade lag och grupper</label>

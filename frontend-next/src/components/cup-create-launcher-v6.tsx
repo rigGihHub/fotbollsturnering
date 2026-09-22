@@ -31,6 +31,14 @@ type ImportedMatch = {
   stage?: string | null;
   duration?: string | null;
 };
+type ImportedPlayoffMatch = {
+  time?: string | null;
+  venue?: string | null;
+  label?: string | null;
+  home_source?: string | null;
+  away_source?: string | null;
+  duration?: string | null;
+};
 type ImportProposal = {
   tournament_name?: string | null;
   start_date?: string | null;
@@ -38,9 +46,10 @@ type ImportProposal = {
   venues?: string[];
   teams?: ImportedTeam[];
   matches?: ImportedMatch[];
-  playoff_matches?: unknown[];
+  playoff_matches?: ImportedPlayoffMatch[];
   rules?: string[];
   rule_values?: Record<string, number | null>;
+  playoff_rule_values?: Record<string, number | string | null>;
   warnings?: string[];
 };
 type ImportResume = {
@@ -105,6 +114,31 @@ function groupedTeams(teams: ImportedTeam[]) {
   }
   return { groups: [...groups.values()], ungrouped };
 }
+function uniqueImportedTeams(teams: ImportedTeam[]) {
+  const byName = new Map<string, ImportedTeam>();
+  let duplicateCount = 0;
+  const conflictingGroups: string[] = [];
+  for (const row of teams) {
+    const name = String(row?.name || "").split(/\s+/).filter(Boolean).join(" ");
+    if (!name) continue;
+    const key = normalize(name);
+    const groupName =
+      String(row?.group_name || "").split(/\s+/).filter(Boolean).join(" ") ||
+      null;
+    const existing = byName.get(key);
+    if (!existing) {
+      byName.set(key, { name, group_name: groupName });
+      continue;
+    }
+    duplicateCount += 1;
+    const existingGroup = normalize(existing.group_name);
+    const nextGroup = normalize(groupName);
+    if (!existingGroup && groupName) existing.group_name = groupName;
+    else if (nextGroup && existingGroup && nextGroup !== existingGroup)
+      conflictingGroups.push(name);
+  }
+  return { teams: [...byName.values()], duplicateCount, conflictingGroups };
+}
 function visibleImportNotes(
   warnings: string[],
   startDate: string,
@@ -135,6 +169,12 @@ function matchLabel(match: ImportedMatch, index: number) {
       .join(" – ") || `Match ${index + 1}`
   );
 }
+function playoffNeedsReview(match: ImportedPlayoffMatch) {
+  return !match.label?.trim() || !match.time?.trim() || !match.venue?.trim();
+}
+function playoffLabel(match: ImportedPlayoffMatch, index: number) {
+  return match.label?.trim() || `Slutspelsmatch ${index + 1}`;
+}
 function importFingerprint(
   name: string,
   startDate: string,
@@ -155,6 +195,13 @@ function importFingerprint(
       normalize(m.away_team),
       normalize(m.venue),
       normalize(m.group_name),
+    ]),
+    playoffMatches: (proposal.playoff_matches || []).map((m) => [
+      m.time || "",
+      normalize(m.label),
+      normalize(m.home_source),
+      normalize(m.away_source),
+      normalize(m.venue),
     ]),
     venues: (proposal.venues || []).map(normalize),
   });
@@ -191,6 +238,8 @@ function friendlyImportError(error: unknown) {
     return "Kontakten med servern bröts";
   if (/aborterror|aborted|stale cup request/i.test(detail))
     return "Anropet avbröts innan servern hann svara";
+  if (/redan ett lag med samma namn/i.test(detail))
+    return "Ett lag fanns redan i utkastet. CupNavi kan fortsätta och återanvända befintligt lag";
   return detail.replace(/[.\s]+$/, "");
 }
 
@@ -207,11 +256,15 @@ export default function CupCreateLauncherV6() {
     [importSchedule, setImportSchedule] = useState(false),
     [importStep, setImportStep] = useState(0),
     [expandedMatch, setExpandedMatch] = useState<number | null>(null),
+    [expandedPlayoff, setExpandedPlayoff] = useState<number | null>(null),
     [busy, setBusy] = useState(false),
     [error, setError] = useState(""),
     [importFailure, setImportFailure] = useState<ImportFailure | null>(null);
-  const teams = proposal?.teams || [],
+  const rawTeams = proposal?.teams || [];
+  const teamDedupe = useMemo(() => uniqueImportedTeams(rawTeams), [rawTeams]);
+  const teams = teamDedupe.teams,
     matches = proposal?.matches || [],
+    playoffMatches = proposal?.playoff_matches || [],
     groups = useMemo(() => groupNames(teams), [teams]),
     teamBuckets = useMemo(() => groupedTeams(teams), [teams]);
   const notes = useMemo(
@@ -226,6 +279,14 @@ export default function CupCreateLauncherV6() {
       }, []),
     [matches],
   );
+  const playoffsToReview = useMemo(
+    () =>
+      playoffMatches.reduce<number[]>((a, m, i) => {
+        if (playoffNeedsReview(m)) a.push(i);
+        return a;
+      }, []),
+    [playoffMatches],
+  );
   const blockers = useMemo(() => {
     const rows: string[] = [];
     if (!name.trim()) rows.push("Cupnamn saknas");
@@ -239,9 +300,21 @@ export default function CupCreateLauncherV6() {
     const rows: string[] = [];
     if (teamBuckets.ungrouped.length)
       rows.push(`${teamBuckets.ungrouped.length} lag saknar grupp`);
+    if (teamDedupe.duplicateCount)
+      rows.push(`${teamDedupe.duplicateCount} dubblettrad med lag slogs ihop`);
+    if (teamDedupe.conflictingGroups.length)
+      rows.push(
+        `${teamDedupe.conflictingGroups.length} lag hade motstridiga grupper i underlaget`,
+      );
     if (!groups.length && teams.length) rows.push("Inga grupper hittades");
     return rows;
-  }, [teamBuckets.ungrouped.length, groups.length, teams.length]);
+  }, [
+    teamBuckets.ungrouped.length,
+    teamDedupe.duplicateCount,
+    teamDedupe.conflictingGroups.length,
+    groups.length,
+    teams.length,
+  ]);
   const ready = blockers.length === 0;
   const canStartImport = ready && !importFailure;
   const hasDraft = Boolean(
@@ -271,6 +344,7 @@ export default function CupCreateLauncherV6() {
     setImportSchedule(false);
     setImportStep(0);
     setExpandedMatch(null);
+    setExpandedPlayoff(null);
     setError("");
     setImportFailure(null);
   }
@@ -299,6 +373,18 @@ export default function CupCreateLauncherV6() {
       const next = [...(current.matches || [])];
       next[index] = { ...next[index], [key]: value || null };
       return { ...current, matches: next };
+    });
+  }
+  function updatePlayoffMatch(
+    index: number,
+    key: keyof ImportedPlayoffMatch,
+    value: string,
+  ) {
+    setProposal((current) => {
+      if (!current) return current;
+      const next = [...(current.playoff_matches || [])];
+      next[index] = { ...next[index], [key]: value || null };
+      return { ...current, playoff_matches: next };
     });
   }
 
@@ -351,6 +437,10 @@ export default function CupCreateLauncherV6() {
       setImportStep(0);
       const first = (result.matches || []).findIndex(matchNeedsReview);
       setExpandedMatch(first >= 0 ? first : null);
+      const firstPlayoff = (result.playoff_matches || []).findIndex(
+        playoffNeedsReview,
+      );
+      setExpandedPlayoff(firstPlayoff >= 0 ? firstPlayoff : null);
     } catch (err) {
       setError(
         err instanceof Error ? err.message : "Underlaget kunde inte läsas.",
@@ -453,13 +543,27 @@ export default function CupCreateLauncherV6() {
       stage = "spara lag";
       for (const row of teams) {
         const key = normalize(row.name);
+        if (!key) continue;
         let team = existingTeams.get(key);
         if (!team) {
-          team = await request<CreatedTeam>(
-            `/api/admin/cups/${cup.id}/teams`,
-            { method: "POST", body: JSON.stringify({ name: row.name }) },
-            token,
-          );
+          try {
+            team = await request<CreatedTeam>(
+              `/api/admin/cups/${cup.id}/teams`,
+              { method: "POST", body: JSON.stringify({ name: row.name }) },
+              token,
+            );
+          } catch (err) {
+            if (!/redan ett lag med samma namn/i.test(String(err))) throw err;
+            const refreshed = await request<{ teams: ExistingTeam[] }>(
+              `/api/admin/cups/${cup.id}/teams`,
+              {},
+              token,
+            );
+            for (const existing of refreshed.teams || [])
+              existingTeams.set(normalize(existing.name), existing);
+            team = existingTeams.get(key);
+            if (!team) throw err;
+          }
           existingTeams.set(key, team);
         }
         const groupId = row.group_name
@@ -539,9 +643,9 @@ export default function CupCreateLauncherV6() {
         groups:groups.length,
         matches:importSchedule?matches.length:0,
         venues:(proposal.venues||[]).length,
-        playoffs:(proposal.playoff_matches||[]).length,
+        playoffs:playoffMatches.length,
       }));
-      goToCup(cup,(proposal.playoff_matches||[]).length?"playoffs":"overview");
+      goToCup(cup,playoffMatches.length?"playoffs":"overview");
     } catch (err) {
       const detail = friendlyImportError(err);
       if (cup) {
@@ -729,6 +833,10 @@ export default function CupCreateLauncherV6() {
                   <div>
                     <strong>{(proposal.venues || []).length}</strong>
                     <small>Planer</small>
+                  </div>
+                  <div>
+                    <strong>{playoffMatches.length}</strong>
+                    <small>Slutspel</small>
                   </div>
                 </div>
                 <div className="cup-import-steps">
@@ -965,6 +1073,147 @@ export default function CupCreateLauncherV6() {
                     </label>
                   </div>
                 )}
+                {importStep === 3 && (
+                  <div>
+                    <h3>Slutspel</h3>
+                    {!playoffMatches.length ? (
+                      <p>Inget slutspel hittades i underlaget.</p>
+                    ) : (
+                      <>
+                        <p style={{ fontSize: 13 }}>
+                          {playoffsToReview.length
+                            ? `${playoffsToReview.length} slutspelsmatcher behöver kontrolleras.`
+                            : "Slutspelsformatet, tiderna och planerna finns i underlaget."}{" "}
+                          Deltagare kan vara placeringar eller vinnare från tidigare matcher.
+                        </p>
+                        <div className="cup-import-match-list">
+                          {playoffMatches.map((match, index) => {
+                            const needs = playoffNeedsReview(match),
+                              expanded = expandedPlayoff === index;
+                            return (
+                              <section
+                                key={index}
+                                className={`cup-import-match-card${needs ? " needs-review" : ""}`}
+                              >
+                                <button
+                                  type="button"
+                                  className="cup-import-match-summary"
+                                  onClick={() =>
+                                    setExpandedPlayoff(expanded ? null : index)
+                                  }
+                                >
+                                  <span className="cup-import-match-time">
+                                    {match.time?.trim() || "Tid?"}
+                                  </span>
+                                  <span className="cup-import-match-teams">
+                                    <strong>{playoffLabel(match, index)}</strong>
+                                    <small>
+                                      {[
+                                        match.home_source || "Hemma?",
+                                        match.away_source || "Borta?",
+                                        match.venue,
+                                      ]
+                                        .filter(Boolean)
+                                        .join(" · ")}
+                                    </small>
+                                  </span>
+                                  <span
+                                    className={`cup-import-match-status ${needs ? "warn" : "ok"}`}
+                                  >
+                                    {needs ? "Kontrollera" : "✓"}
+                                  </span>
+                                </button>
+                                {expanded && (
+                                  <div className="cup-import-match-editor">
+                                    <label>
+                                      Matchnamn
+                                      <input
+                                        value={match.label || ""}
+                                        onChange={(e) =>
+                                          updatePlayoffMatch(
+                                            index,
+                                            "label",
+                                            e.target.value,
+                                          )
+                                        }
+                                      />
+                                    </label>
+                                    <label>
+                                      Tid
+                                      <input
+                                        value={match.time || ""}
+                                        onChange={(e) =>
+                                          updatePlayoffMatch(
+                                            index,
+                                            "time",
+                                            e.target.value,
+                                          )
+                                        }
+                                      />
+                                    </label>
+                                    <label>
+                                      Hemmakälla
+                                      <input
+                                        value={match.home_source || ""}
+                                        onChange={(e) =>
+                                          updatePlayoffMatch(
+                                            index,
+                                            "home_source",
+                                            e.target.value,
+                                          )
+                                        }
+                                      />
+                                    </label>
+                                    <label>
+                                      Bortakälla
+                                      <input
+                                        value={match.away_source || ""}
+                                        onChange={(e) =>
+                                          updatePlayoffMatch(
+                                            index,
+                                            "away_source",
+                                            e.target.value,
+                                          )
+                                        }
+                                      />
+                                    </label>
+                                    <label>
+                                      Plan
+                                      <input
+                                        value={match.venue || ""}
+                                        onChange={(e) =>
+                                          updatePlayoffMatch(
+                                            index,
+                                            "venue",
+                                            e.target.value,
+                                          )
+                                        }
+                                      />
+                                    </label>
+                                    <button
+                                      type="button"
+                                      className="cup-import-match-done"
+                                      onClick={() => setExpandedPlayoff(null)}
+                                    >
+                                      Klar
+                                    </button>
+                                  </div>
+                                )}
+                              </section>
+                            );
+                          })}
+                        </div>
+                        <section className="cup-import-ungrouped">
+                          <strong>Slutspel sparas som granskningsunderlag</strong>
+                          <span>
+                            När cupen är skapad öppnas Slutspel så att format,
+                            källor och tider kan godkännas innan trädet skapas.
+                          </span>
+                        </section>
+                      </>
+                    )}
+                  </div>
+                )}
                 {importStep === 4 && (
                   <div className="cup-import-final">
                     <section
@@ -1036,6 +1285,18 @@ export default function CupCreateLauncherV6() {
                         <span>
                           {(proposal.venues || []).length} planer ·{" "}
                           {(proposal.rules || []).length} regler
+                        </span>
+                      </div>
+                      <div
+                        className={playoffsToReview.length ? "warn" : "ok"}
+                      >
+                        <strong>
+                          {playoffsToReview.length ? "!" : "✓"} Slutspel
+                        </strong>
+                        <span>
+                          {playoffMatches.length
+                            ? `${playoffMatches.length} slutspelsmatcher · sparas för separat granskning`
+                            : "inget slutspel hittat"}
                         </span>
                       </div>
                     </div>
