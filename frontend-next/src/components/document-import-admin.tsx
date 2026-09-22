@@ -15,6 +15,7 @@ type ImportedPlayoffMatch = {
   home_source?:string|null; away_source?:string|null; duration?:string|null;
 };
 type ImportProposal = {
+  location?:string|null;
   tournament_name?:string|null; start_date?:string|null; end_date?:string|null; source_name?:string|null;
   venues?:string[]; teams?:ImportedTeam[]; matches?:ImportedMatch[]; playoff_matches?:ImportedPlayoffMatch[];
   rules?:string[]; rule_values?:Record<string,number|null>; warnings?:string[];
@@ -252,6 +253,10 @@ export default function DocumentImportAdmin({token,cupId,onImported}:{token:stri
     </div>
     {(error||message)&&<div className="admin-code-placeholder" style={{marginTop:16}} role={error?"alert":undefined}><b>{error?"Fel":"Klart"}</b> · {error||message}</div>}
     {proposal&&<>
+      <label style={{display:"grid",gap:6,marginTop:16}}>Spelplats eller adress
+        <input value={proposal.location || ""} onChange={event=>setProposal(current=>current ? {...current,location:event.target.value} : current)} disabled={busy}/>
+        <small>Fylls i om Cupinfo saknar spelplats. En sparad adress skrivs inte över.</small>
+      </label>
       <div className="cup-import-stats" style={{marginTop:16}}>
         <div><strong>{teams.length}</strong><small>Lag</small></div>
         <div><strong>{groups.length}</strong><small>Grupper</small></div>

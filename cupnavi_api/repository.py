@@ -87,7 +87,32 @@ def all_rows(sql, params=()):
 def _public_tournament_projection(row):
     if not row:
         return None
+    row = with_imported_location(row)
     return {key:row.get(key) for key in PUBLIC_TOURNAMENT_FIELDS if key in row}
+
+def with_imported_location(tournament):
+    """Recover a reviewed location in older imports without overwriting manual data."""
+    if not tournament or str(tournament.get("arena_address") or "").strip():
+        return tournament
+    import json
+    try:
+        snapshot = one(
+            "SELECT payload_json FROM tournament_setup_imports WHERE tournament_id=? AND import_kind='initial_setup' ORDER BY id DESC LIMIT 1",
+            (int(tournament["id"]),),
+        )
+    except Exception as exc:
+        # Older databases can predate document import; other database errors must surface.
+        if "no such table: tournament_setup_imports" in str(exc).lower():
+            return tournament
+        raise
+    try:
+        payload = json.loads((snapshot or {}).get("payload_json") or "{}")
+    except (TypeError, ValueError):
+        return tournament
+    location = payload.get("location") if isinstance(payload, dict) else None
+    if isinstance(location, str) and location.strip():
+        return {**tournament, "arena_address": location.strip()}
+    return tournament
 
 def _merge_public_schedule_rules(tournament: dict, rules: dict | None) -> dict:
     """Expose the visitor-facing match rules even when they live in schedule_rules."""

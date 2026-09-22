@@ -73,6 +73,9 @@ jobs:
       - name: Typecheck
         run: npx tsc --noEmit
 
+      - name: Import navigation regression
+        run: npm run test:import-navigation
+
       - name: Production build
         env:
           CUPNAVI_API_BASE: https://cupnavi-api.onrender.com

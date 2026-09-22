@@ -101,9 +101,11 @@ def _bracket_publication_analysis(tournament_id: int) -> dict:
 
 
 def _publication_payload(tournament_id: int):
+    from .repository import with_imported_location
     tournament = one("SELECT * FROM tournaments WHERE id=?", (int(tournament_id),))
     if not tournament:
         return None
+    tournament = with_imported_location(tournament)
     scheduled_row = one(
         "SELECT COUNT(*) AS count FROM matches WHERE tournament_id=? AND scheduled_start IS NOT NULL",
         (int(tournament_id),),

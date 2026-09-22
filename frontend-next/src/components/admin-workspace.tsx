@@ -1,4 +1,5 @@
 "use client";
+import { openPlayoffReview } from "../lib/open-playoff-review";
 
 import { CSSProperties, FormEvent, ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import VenueAdmin from "./venue-admin";
@@ -694,7 +695,7 @@ export default function AdminWorkspace({verifiedSession=null,children=null}:{ver
         <div className="admin-import-welcome__hero"><div className="admin-import-welcome__check">✓</div><div><h2 id="import-welcome-title">{importWelcome.cupName} är skapad</h2><p>{importWelcome.playoffs?`CupNavi hittade ${importWelcome.playoffs} slutspelsmatcher. Granska och spara trädet innan publicering.`:"CupNavi har redan lagt in underlaget. Du ska granska det som finns – inte importera lagen eller schemat igen."}</p></div></div>
         <div className="admin-import-welcome__facts"><span><b>{importWelcome.teams}</b> lag</span><span><b>{importWelcome.groups}</b> grupper</span><span><b>{importWelcome.matches}</b> matcher</span><span><b>{importWelcome.venues}</b> planer</span>{Boolean(importWelcome.playoffs)&&<span><b>{importWelcome.playoffs}</b> slutspelsmatcher</span>}</div>
         <ol className="admin-import-welcome__steps"><li><b>Kontrollera cupinfo</b><span>Namn, datum, arrangör och adress.</span></li><li><b>Kontrollera planer och schema</b><span>Säkerställ tider, planer och vilopauser.</span></li><li><b>Förhandsgranska och publicera</b><span>Se publikvyn och publicera när allt stämmer.</span></li></ol>
-        <div className="admin-import-welcome__actions">{importWelcome.playoffs?<a className="is-primary" href="#playoffs">Granska slutspelet →</a>:<a className="is-primary" href="#cupinfo">Börja med Cupinfo →</a>}<a href="#schedule">Kontrollera schemat</a></div>
+        <div className="admin-import-welcome__actions">{importWelcome.playoffs?<a className="is-primary" href="#playoffs" onClick={event=>{event.preventDefault();openPlayoffReview(importWelcome.cupId);}}>Granska slutspelet →</a>:<a className="is-primary" href="#cupinfo">Börja med Cupinfo →</a>}<a href="#schedule">Kontrollera schemat</a></div>
       </section>}
       {activeStep==="overview"&&!activeCup?.is_published&&<a className="admin-next-task" href={nextTask.href}><span>NÄSTA UPPGIFT</span><strong>{nextTask.label} →</strong><small>{nextTask.detail}</small></a>}
       {(error||message) && <section className="admin-panel" style={{marginBottom:14}}><strong>{error?"Meddelande":"Klart"}</strong><p>{error||message}</p></section>}

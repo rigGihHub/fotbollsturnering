@@ -40,6 +40,7 @@ type ImportedPlayoffMatch = {
   duration?: string | null;
 };
 type ImportProposal = {
+  location?: string | null;
   tournament_name?: string | null;
   start_date?: string | null;
   end_date?: string | null;
@@ -204,6 +205,7 @@ function importFingerprint(
       normalize(m.venue),
     ]),
     venues: (proposal.venues || []).map(normalize),
+    location: normalize(proposal.location),
   });
 }
 function readResume(fingerprint: string): ImportResume | null {
@@ -854,6 +856,10 @@ export default function CupCreateLauncherV6() {
                 </div>
                 {importStep === 0 && (
                   <div>
+                    <label>
+                      Spelplats eller adress
+                      <input value={proposal.location || ""} onChange={e=>setProposal(current=>current ? {...current,location:e.target.value} : current)} placeholder="Spelplats enligt underlaget" />
+                    </label>
                     <label>
                       Cupnamn
                       <input

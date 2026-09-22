@@ -164,6 +164,14 @@ def register_venue_admin_routes(app, admin_identity):
 
         try:
             snapshot_id = save_setup_import_snapshot(connect, tournament_id, proposal)
+            location = proposal.get("location")
+            if isinstance(location, str) and location.strip():
+                with connect() as con:
+                    con.execute(
+                        "UPDATE tournaments SET arena_address=?,admin_revision=COALESCE(admin_revision,0)+1 WHERE id=? AND TRIM(COALESCE(arena_address,''))=''",
+                        (location.strip(), int(tournament_id)),
+                    )
+                    con.commit()
         except Exception as exc:
             raise HTTPException(status_code=500, detail="Importen kunde inte sparas för senare setupsteg") from exc
         return {

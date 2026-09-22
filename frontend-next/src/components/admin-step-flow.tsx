@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { includesPlayoffStep } from "../lib/open-playoff-review";
 
 const FLOW_STEPS = [
   ["overview", "Översikt"],
@@ -85,11 +86,10 @@ export default function AdminStepFlow() {
     return()=>window.removeEventListener("cupnavi:arrangement-type",sync);
   },[]);
 
-  const activeFlow=useMemo(()=>arrangementType==="matchcamp"
-    ? FLOW_STEPS.filter(([id])=>id!=="groups"&&id!=="playoffs")
-    : arrangementType==="tournament"
-      ? FLOW_STEPS.filter(([id])=>id!=="playoffs")
-      : FLOW_STEPS,[arrangementType]);
+  const activeFlow=useMemo(()=>FLOW_STEPS.filter(([id])=>{
+    if(id==="playoffs")return includesPlayoffStep(arrangementType,step);
+    return id!=="groups"||arrangementType!=="matchcamp";
+  }),[arrangementType,step]);
 
   const index = useMemo(() => activeFlow.findIndex(([id]) => id === step), [activeFlow,step]);
   const tool = TOOL_STEPS.find(([id])=>id===step);

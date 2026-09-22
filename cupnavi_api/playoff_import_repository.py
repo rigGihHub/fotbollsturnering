@@ -215,7 +215,7 @@ def commit_playoff_import(account_id: int, tournament_id: int, playoff_matches: 
 
             rules = dict(playoff_rule_values or {})
             tie_rule = str(rules.get("tie_rule") or "").strip()
-            updates = ["playoff_format=?", "bronze_match=?", "schedule_dirty=0", "is_published=0"]
+            updates = ["playoff_format=?", "bronze_match=?", "schedule_dirty=0", "is_published=0", "arrangement_type='tournament_playoffs'", "admin_revision=COALESCE(admin_revision,0)+1"]
             values: list[object] = ["Manuellt slutspel", 1 if bronze else 0]
             if tie_rule in {"Straffar direkt", "Förlängning + straffar"}:
                 updates.append("playoff_tie_rule=?")

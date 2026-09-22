@@ -1,4 +1,5 @@
 "use client";
+import { openPlayoffReview } from "../lib/open-playoff-review";
 
 import { useCallback, useEffect, useState } from "react";
 import { CLIENT_API_BASE } from "../lib/client-api";
@@ -87,7 +88,7 @@ export default function ImportCompletionSummary() {
         <Stat label="plantider" found={expected.pitch_windows} saved={actual.pitch_windows}/>
         <Stat label="slutspelsmatcher" found={expected.playoff_matches} saved={actual.playoff_matches}/>
       </div>
-      {playoffPending&&<p style={{marginTop:14}}><a href="#playoffs" style={{display:"inline-flex",minHeight:44,alignItems:"center",padding:"0 14px",borderRadius:9,background:"#101f2a",color:"#fff",fontWeight:900,textDecoration:"none"}}>Granska och spara slutspelet →</a></p>}
+      {playoffPending&&<p style={{marginTop:14}}><a href="#playoffs" onClick={event=>{event.preventDefault();openPlayoffReview(cupId);}} style={{display:"inline-flex",minHeight:44,alignItems:"center",padding:"0 14px",borderRadius:9,background:"#101f2a",color:"#fff",fontWeight:900,textDecoration:"none"}}>Granska och spara slutspelet →</a></p>}
       {!!summary.warnings?.length && <details style={{marginTop:12}}><summary><strong>Varningar från avläsningen ({summary.warnings.length})</strong></summary><ul>{summary.warnings.map((warning,index)=><li key={index}>{warning}</li>)}</ul></details>}
       <p style={{fontSize:13,marginBottom:0,marginTop:12}}>{summary.complete?"Importen publicerar aldrig cupen automatiskt. Kontrollera cupöversikten och publicera först när allt ser rätt ut.":"Cupen kan inte betraktas som färdigimporterad förrän väntande delar har granskats."}</p>
     </div>

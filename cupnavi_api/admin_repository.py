@@ -10,7 +10,7 @@ from .admin_auth import (
     owner_identity,
     password_hash,
 )
-from .repository import all_rows, connect, one
+from .repository import all_rows, connect, one, with_imported_location
 
 CUPINFO_FIELDS = (
     "name",
@@ -344,7 +344,7 @@ def admin_cupinfo(account_id: int, tournament_id: int):
     if missing_required:
         raise RuntimeError(f"Tournament schema missing required columns: {','.join(missing_required)}")
     fields = ",".join((*required, *CUPINFO_OPTIONAL_TEXT_FIELDS, "show_public_weather", "show_public_weather_configured", "show_public_kits", "show_public_away_kits", "show_public_logos"))
-    return one(f"SELECT {fields} FROM tournaments WHERE id=?", (int(tournament_id),))
+    return with_imported_location(one(f"SELECT {fields} FROM tournaments WHERE id=?", (int(tournament_id),)))
 
 
 def update_cupinfo(account_id: int, tournament_id: int, values: dict):

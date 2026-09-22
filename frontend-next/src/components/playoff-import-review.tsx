@@ -1,7 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { CLIENT_API_BASE } from "../lib/client-api";
+import { OPEN_PLAYOFF_REVIEW_EVENT, PLAYOFF_REVIEW_REQUEST_KEY } from "../lib/open-playoff-review";
 
 const API_BASE = CLIENT_API_BASE;
 const TOKEN_KEY = "cupnavi_admin_session_v629";
@@ -56,16 +57,27 @@ export default function PlayoffImportReview() {
   const [busy,setBusy] = useState(false);
   const [error,setError] = useState("");
   const [reviewTick,setReviewTick] = useState(0);
+  const [requested,setRequested] = useState(false);
+  const [loading,setLoading] = useState(true);
+  const loadGeneration = useRef(0);
 
   const load = useCallback(async (nextCupId:number) => {
+    const generation = ++loadGeneration.current;
     const token = localStorage.getItem(TOKEN_KEY);
-    if (!token) { setReview(null); return; }
+    if (!token) { setReview(null); setLoading(false); setError("Logga in för att granska slutspelet."); return; }
+    setLoading(true);
+    setError("");
     try {
       const data = await request<ReviewPayload>(`/api/admin/cups/${nextCupId}/import/playoffs`,token);
+      if (generation !== loadGeneration.current) return;
       setReview(data);
       setRows((data.playoff_matches || []).map(row=>({...row})));
-    } catch {
+    } catch (err) {
+      if (generation !== loadGeneration.current) return;
       setReview(null);
+      setError(err instanceof Error ? err.message : "Slutspelsunderlaget kunde inte hämtas.");
+    } finally {
+      if (generation === loadGeneration.current) setLoading(false);
     }
   },[]);
 
@@ -76,13 +88,32 @@ export default function PlayoffImportReview() {
     const timer = window.setInterval(()=>{
       const next = activeCupId();
       if (next !== current) {
+        ++loadGeneration.current;
         current = next;
+        setOpen(false); setReview(null); setRows([]); setError("");
         setCupId(next);
         if (next) void load(next); else setReview(null);
       }
     },1000);
-    return ()=>window.clearInterval(timer);
+    return ()=>{window.clearInterval(timer);++loadGeneration.current;};
   },[load]);
+
+  useEffect(()=>{
+    const sync = () => setRequested(sessionStorage.getItem(PLAYOFF_REVIEW_REQUEST_KEY) === String(activeCupId()));
+    sync();
+    window.addEventListener(OPEN_PLAYOFF_REVIEW_EVENT,sync);
+    return ()=>window.removeEventListener(OPEN_PLAYOFF_REVIEW_EVENT,sync);
+  },[cupId]);
+
+  useEffect(()=>{
+    if (!requested || loading || !review?.available || !cupId) return;
+    sessionStorage.removeItem(PLAYOFF_REVIEW_REQUEST_KEY);
+    setRequested(false);
+    if (review.existing_brackets || review.existing_playoff_matches) return;
+    sessionStorage.setItem(`${AUTO_REVIEW_PREFIX}${cupId}`,"1");
+    setRows(review.playoff_matches.map(row=>({...row})));
+    setError(""); setOpen(true);
+  },[requested,loading,review,cupId]);
 
   useEffect(()=>{
     const advance = () => setReviewTick(value=>value+1);
@@ -139,6 +170,9 @@ export default function PlayoffImportReview() {
     } finally { setBusy(false); }
   }
 
+  if (loading) return <section className="admin-panel" role="status">Hämtar slutspelsunderlaget…</section>;
+  if (!review && error) return <section className="admin-panel"><p role="alert">{error}</p><button type="button" onClick={()=>cupId&&void load(cupId)}>Försök igen</button></section>;
+  if (requested && !review?.available) return <section className="admin-panel" role="status">Inget importerat slutspel finns att granska för den här cupen.</section>;
   if (!review?.available || review.existing_brackets > 0 || review.existing_playoff_matches > 0) return null;
 
   return <>
