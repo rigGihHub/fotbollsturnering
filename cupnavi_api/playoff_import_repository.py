@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import re
+from collections import Counter
 from datetime import date, datetime
 
 from cupnavi_core.bracket_validation import validate_bracket_sources
@@ -142,14 +143,30 @@ def commit_playoff_import(account_id: int, tournament_id: int, playoff_matches: 
             next_pitch = max([int(row[0]) for row in pitches] or [0]) + 1
 
             normalized = []
-            seen_labels = set()
+            seen_matches = set()
             for index, row in enumerate(rows, start=1):
                 label = " ".join(str(row.get("label") or f"Slutspelsmatch {index}").split())
                 label_key = _normalize_label(label)
-                if not label_key or label_key in seen_labels:
-                    raise ValueError(f"Slutspelet har ett saknat eller dubblerat matchnamn: {label or index}")
-                seen_labels.add(label_key)
+                if not label_key:
+                    raise ValueError(f"Match {index}: ange ett matchnamn.")
+                signature = tuple(" ".join(str(row.get(field) or "").split()).casefold()
+                                  for field in ("home_source", "away_source", "time", "venue"))
+                if signature in seen_matches:
+                    raise ValueError(f"Match {index} ({label}) är en dubblett: samma deltagare, tid och plan. Ta bort dubbletten i underlaget.")
+                seen_matches.add(signature)
                 normalized.append({**row, "_index": index, "_label": label, "_label_key": label_key})
+
+            label_counts = Counter(row["_label_key"] for row in normalized)
+            # A group name may label several placement matches. A winner/loser
+            # dependency, however, must identify exactly one match.
+            for row in normalized:
+                for field in ("home_source", "away_source"):
+                    raw = str(row.get(field) or "").strip()
+                    if raw.casefold() in team_map:
+                        continue
+                    dependency = _WINNER_SOURCE.match(raw) or _LOSER_SOURCE.match(raw)
+                    if dependency and label_counts[_normalize_label(dependency.group(1))] > 1:
+                        raise ValueError(f"Match {row['_index']}: '{raw}' pekar på flera matcher. Ge dessa matcher unika namn och uppdatera hänvisningen.")
 
             bronze = any(any(word in row["_label"].casefold() for word in ("brons", "3:e", "3e plats", "third")) for row in normalized)
             bracket_cursor = con.execute(
@@ -198,7 +215,8 @@ def commit_playoff_import(account_id: int, tournament_id: int, playoff_matches: 
                         "SELECT id FROM matches WHERE tournament_id=? AND bracket_id=? AND match_no=? ORDER BY id DESC LIMIT 1",
                         (int(tournament_id), bracket_id, int(row["_index"])),
                     ).fetchone()[0])
-                    inserted_labels[row["_label_key"]] = match_id
+                    if label_counts[row["_label_key"]] == 1:
+                        inserted_labels[row["_label_key"]] = match_id
                     inserted_rounds[match_id] = round_no
                     progress = True
                 if not progress:
@@ -230,7 +248,7 @@ def commit_playoff_import(account_id: int, tournament_id: int, playoff_matches: 
             commit = getattr(con, "commit", None)
             if callable(commit):
                 commit()
-            return {"imported": len(inserted_labels), "bracket_id": bracket_id, "validation": validation}
+            return {"imported": len(inserted_rounds), "bracket_id": bracket_id, "validation": validation}
         except Exception:
             rollback = getattr(con, "rollback", None)
             if callable(rollback):

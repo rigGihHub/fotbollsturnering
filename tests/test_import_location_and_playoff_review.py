@@ -129,3 +129,38 @@ def test_bad_playoff_sources_roll_back_the_entire_import(imported_cups):
         }])
     assert repository.one("SELECT COUNT(*) AS n FROM brackets")["n"] == 0
     assert repository.one("SELECT arrangement_type FROM tournaments WHERE id=1")["arrangement_type"] == "tournament"
+
+
+def test_placement_groups_can_have_repeated_names_and_unknown_teams(imported_cups):
+    with imported_cups() as con:
+        con.executemany("INSERT INTO groups VALUES(?,1,?)", [(10,"A"),(11,"B"),(12,"C")])
+        con.commit()
+    rows = []
+    for rank, name in [(1,"GULDGRUPPEN"),(2,"SILVERGRUPPEN"),(3,"BRONSGRUPPEN")]:
+        for home, away in [("A","B"),("A","C"),("B","C")]:
+            rows.append({"label": name, "time": f"{12+len(rows)//3}:{(len(rows)%3)*20:02d}",
+                         "venue": "Sörbyvallen", "home_source": f"{rank}:a grupp {home}", "away_source": f"{rank}:a grupp {away}"})
+    result = playoff_import_repository.commit_playoff_import(7,1,rows)
+    assert result["imported"] == 9
+    matches = repository.all_rows("SELECT * FROM matches ORDER BY match_no")
+    assert [m["stage"] for m in matches] == [r["label"] for r in rows]
+    assert matches[0]["home_source"] == "group:10:1"
+    assert matches[-1]["away_source"] == "group:12:3"
+    assert all(m["scheduled_start"] and m["pitch_number"] for m in matches)
+
+
+def test_repeated_labels_cannot_make_a_winner_reference_ambiguous(imported_cups):
+    rows = [{"label":"Semifinal", "time":time, "home_source":"ÖSK", "away_source":"AIK"} for time in ["10:00","11:00"]]
+    rows.append({"label":"Final", "time":"12:00", "home_source":"Vinnare semifinal", "away_source":"AIK"})
+    response = client().post("/api/admin/cups/1/import/playoffs",json={"playoff_matches":rows})
+    assert response.status_code == 422
+    assert "pekar på flera matcher" in response.json()["detail"]
+    assert repository.one("SELECT COUNT(*) AS n FROM matches")["n"] == 0
+    assert repository.one("SELECT COUNT(*) AS n FROM brackets")["n"] == 0
+
+
+def test_duplicate_match_rows_are_still_rejected(imported_cups):
+    row = {"label":"GULDGRUPPEN", "time":"12:00", "venue":"Sörbyvallen", "home_source":"ÖSK", "away_source":"AIK"}
+    with pytest.raises(ValueError,match="dubblett"):
+        playoff_import_repository.commit_playoff_import(7,1,[row,row])
+    assert repository.one("SELECT COUNT(*) AS n FROM matches")["n"] == 0

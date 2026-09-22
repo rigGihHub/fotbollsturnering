@@ -36,3 +36,17 @@ assert.equal(context.window.location.hash, "playoffs");
 openPlayoffReview(23);
 assert.equal(stored.get(PLAYOFF_REVIEW_REQUEST_KEY), "23");
 console.log("Import navigation: PASS");
+
+const ruleSource = fs.readFileSync(path.join(__dirname, "../src/lib/playoff-import-rules.ts"), "utf8");
+const ruleContext = { exports: {} };
+vm.runInNewContext(ts.transpileModule(ruleSource, {compilerOptions:{module:ts.ModuleKind.CommonJS}}).outputText,ruleContext);
+const { playoffImportRules } = ruleContext.exports;
+const formatted = playoffImportRules({halves:2,minutes_per_half:20,halftime_minutes:null,pitch_break_minutes:0,tie_rule:"Alla matcher får sluta oavgjort.",internal_field:"hidden"});
+assert.equal(formatted[0].label,"Matchtid");
+assert.equal(formatted[0].value,"2 × 20 min");
+assert.equal(formatted[1].value,"0 min");
+assert.equal(formatted[2].label,"Vid oavgjort");
+assert.equal(formatted.length,3);
+assert.equal(playoffImportRules({halves:null,minutes_per_half:null}).length,0);
+assert.equal(playoffImportRules({halves:"<bad>",minutes_per_half:-5}).length,0);
+console.log("Import rule presentation: PASS");

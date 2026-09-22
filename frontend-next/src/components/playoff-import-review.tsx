@@ -1,6 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import styles from "./playoff-import-review.module.css";
+import { playoffImportRules } from "../lib/playoff-import-rules";
 import { CLIENT_API_BASE } from "../lib/client-api";
 import { OPEN_PLAYOFF_REVIEW_EVENT, PLAYOFF_REVIEW_REQUEST_KEY } from "../lib/open-playoff-review";
 
@@ -33,7 +35,15 @@ async function request<T>(path:string, token:string, options:RequestInit = {}):P
   const headers = new Headers(options.headers || {});
   headers.set("Authorization",`Bearer ${token}`);
   if (options.body) headers.set("Content-Type","application/json");
-  const response = await fetch(`${API_BASE}${path}`,{...options,headers,cache:"no-store"});
+  const controller = new AbortController();
+  const timeout = window.setTimeout(()=>controller.abort(),45000);
+  let response: Response;
+  try {
+    response = await fetch(`${API_BASE}${path}`,{...options,headers,cache:"no-store",signal:controller.signal});
+  } catch (err) {
+    if (controller.signal.aborted) throw new Error("Servern svarade inte i tid. Dina ändringar finns kvar här. Kontrollera anslutningen och försök igen.");
+    throw err;
+  } finally { window.clearTimeout(timeout); }
   const body = await response.json().catch(()=>null);
   if (!response.ok) {
     const detail = body && typeof body.detail === "string" ? body.detail : `API-fel ${response.status}`;
@@ -60,6 +70,8 @@ export default function PlayoffImportReview() {
   const [requested,setRequested] = useState(false);
   const [loading,setLoading] = useState(true);
   const loadGeneration = useRef(0);
+  const saving = useRef(false);
+  const readableRules = playoffImportRules(review?.playoff_rule_values);
 
   const load = useCallback(async (nextCupId:number) => {
     const generation = ++loadGeneration.current;
@@ -152,8 +164,10 @@ export default function PlayoffImportReview() {
 
   async function commit() {
     const token = localStorage.getItem(TOKEN_KEY);
-    if (!token || !cupId || !review) return;
-    if (!window.confirm(`Importera ${rows.length} granskade slutspelsmatcher?\n\nCupNavi skapar slutspelsträdet som opublicerat underlag. Befintligt slutspel skrivs aldrig över.`)) return;
+    if (saving.current) return;
+    if (!token || !cupId || !review) { setError("Inloggningen eller cupunderlaget saknas. Öppna cupen igen; inget har sparats."); return; }
+    if (activeCupId() !== cupId) { setError("Aktiv cup har ändrats. Öppna granskningen för rätt cup innan du sparar."); return; }
+    saving.current = true;
     setBusy(true); setError("");
     try {
       const result = await request<CommitPayload>(`/api/admin/cups/${cupId}/import/playoffs`,token,{
@@ -162,12 +176,12 @@ export default function PlayoffImportReview() {
       });
       if (!result.imported) throw new Error("Inga slutspelsmatcher importerades.");
       setOpen(false);
-      await load(cupId);
+      if (activeCupId() !== cupId) return;
       window.location.hash="playoffs";
       window.location.reload();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Slutspelet kunde inte importeras.");
-    } finally { setBusy(false); }
+    } finally { saving.current = false; setBusy(false); }
   }
 
   if (loading) return <section className="admin-panel" role="status">Hämtar slutspelsunderlaget…</section>;
@@ -187,31 +201,34 @@ export default function PlayoffImportReview() {
       </div>
     </section>
 
-    {open && <div className="cup-create-backdrop" role="presentation" onMouseDown={event=>{if(event.target===event.currentTarget&&!busy)setOpen(false);}}>
-      <section className="cup-create-dialog" role="dialog" aria-modal="true" aria-labelledby="playoff-import-title" style={{maxWidth:1040,width:"min(1040px,calc(100vw - 20px))"}}>
-        <div className="cup-create-dialog__head">
-          <div><span>SLUTSPELSIMPORT</span><h2 id="playoff-import-title">Kontrollera trädet innan import</h2></div>
-          <button type="button" className="cup-create-close" onClick={()=>!busy&&setOpen(false)} aria-label="Stäng">×</button>
+    {open && <div className={styles.backdrop} role="presentation" onMouseDown={event=>{if(event.target===event.currentTarget&&!busy)setOpen(false);}}>
+      <section className={styles.dialog} role="dialog" aria-modal="true" aria-labelledby="playoff-import-title" aria-busy={busy}>
+        <div className={styles.header}>
+          <div><span>SLUTSPELSIMPORT</span><h2 id="playoff-import-title">Granska slutspelet</h2></div>
+          <button type="button" className={styles.close} disabled={busy} onClick={()=>setOpen(false)} aria-label="Stäng">×</button>
         </div>
-        <p className="cup-create-lead">Deltagarkällor kan vara exakta lagnamn, exempelvis <strong>1:a Grupp A</strong> eller <strong>Vinnare semifinal 1</strong>. Om en koppling inte kan bevisas stoppas hela importen utan att ett halvt träd sparas.</p>
-        {review.source_name && <p style={{fontSize:13}}><strong>Underlag:</strong> {review.source_name}</p>}
-
-        <div style={{display:"grid",gap:10,maxHeight:"52vh",overflowY:"auto",overflowX:"hidden",paddingRight:4}}>
-          {rows.map((row,index)=><div key={index} style={{border:"1px solid currentColor",borderRadius:10,padding:10,minWidth:0}}>
-            <strong>Match {index+1}</strong>
-            <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(150px,1fr))",gap:7,marginTop:8,minWidth:0}}>
-              <label>Matchnamn<input value={row.label||""} onChange={event=>updateRow(index,"label",event.target.value)} placeholder="Semifinal 1" /></label>
-              <label>Tid<input value={row.time||""} onChange={event=>updateRow(index,"time",event.target.value)} placeholder="14:00" /></label>
-              <label>Lag/källa 1<input value={row.home_source||""} onChange={event=>updateRow(index,"home_source",event.target.value)} placeholder="1:a Grupp A" /></label>
-              <label>Lag/källa 2<input value={row.away_source||""} onChange={event=>updateRow(index,"away_source",event.target.value)} placeholder="2:a Grupp B" /></label>
-              <label>Plan<input value={row.venue||""} onChange={event=>updateRow(index,"venue",event.target.value)} /></label>
-            </div>
-          </div>)}
+        <div className={styles.body}>
+          <p>Kontrollera matcher, tider och planer. Lagen kan anges som gruppplaceringar, till exempel <strong>1:a Grupp A</strong>, eller <strong>Vinnare semifinal 1</strong>.</p>
+          {review.source_name && <p><strong>Underlag:</strong> {review.source_name}</p>}
+          <div className={styles.matches}>
+            {rows.map((row,index)=><div key={index} className={styles.match}>
+              <strong>Match {index+1}</strong>
+              <div className={styles.fields}>
+                <label>Match eller grupp<input value={row.label||""} disabled={busy} onChange={event=>updateRow(index,"label",event.target.value)} placeholder="Semifinal 1 eller Guldgruppen" /></label>
+                <label>Tid<input value={row.time||""} disabled={busy} onChange={event=>updateRow(index,"time",event.target.value)} placeholder="14:00" /></label>
+                <label>Hemmalag eller placering<input value={row.home_source||""} disabled={busy} onChange={event=>updateRow(index,"home_source",event.target.value)} placeholder="1:a Grupp A" /></label>
+                <label>Bortalag eller placering<input value={row.away_source||""} disabled={busy} onChange={event=>updateRow(index,"away_source",event.target.value)} placeholder="2:a Grupp B" /></label>
+                <label>Plan<input value={row.venue||""} disabled={busy} onChange={event=>updateRow(index,"venue",event.target.value)} /></label>
+              </div>
+            </div>)}
+          </div>
+          {readableRules.length > 0 && <section className={styles.rules} aria-label="Regler i underlaget"><h3>Regler i underlaget</h3><dl>{readableRules.map(rule=><div key={rule.label}><dt>{rule.label}</dt><dd>{rule.value}</dd></div>)}</dl></section>}
         </div>
-
-        {review.playoff_rule_values && Object.values(review.playoff_rule_values).some(value=>value!=null&&value!=="") && <details style={{marginTop:12}}><summary><strong>Särskilda slutspelsregler hittades</strong></summary><pre style={{whiteSpace:"pre-wrap",fontSize:12,overflowWrap:"anywhere"}}>{JSON.stringify(review.playoff_rule_values,null,2)}</pre></details>}
-        {error && <p className="cup-create-error" role="alert">{error}</p>}
-        <div className="cup-create-actions"><button type="button" className="is-secondary" onClick={()=>setOpen(false)} disabled={busy}>Avbryt</button><button type="button" onClick={()=>void commit()} disabled={busy||!rows.length}>{busy?"Validerar och importerar…":"✓ Importera granskat slutspel"}</button></div>
+        <div className={styles.footer}>
+          {error && <div className={styles.error} role="alert">{error}</div>}
+          <p>Sparas som utkast. Befintligt slutspel skrivs aldrig över.</p>
+          <div className={styles.actions}><button type="button" onClick={()=>setOpen(false)} disabled={busy}>Avbryt</button><button type="button" onClick={()=>void commit()} disabled={busy||!rows.length}>{busy?"Sparar…":"Importera granskat slutspel"}</button></div>
+        </div>
       </section>
     </div>}
   </>;
