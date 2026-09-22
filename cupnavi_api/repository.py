@@ -13,7 +13,7 @@ PUBLIC_TOURNAMENT_FIELDS = (
     "kiosk_available","kiosk_information","public_information","organizer_phone",
     "feedback_email","instagram_url","playoff_format","bronze_match","points_win",
     "points_draw","points_loss","table_tiebreak","show_scorer_stats","show_assist_stats",
-    "show_card_stats","show_fairness","show_public_weather","show_public_kits","show_public_away_kits","show_public_logos","enable_team_checkin","is_published",
+    "show_card_stats","show_fairness","show_public_weather","show_public_weather_configured","show_public_kits","show_public_away_kits","show_public_logos","enable_team_checkin","is_published",
     "halves","minutes_per_half","halftime_minutes","pitch_break_minutes","minimum_team_rest_minutes","avoid_consecutive_matches","consecutive_match_break_minutes",
     "organizer_phone","feedback_email","instagram_url","playoff_format","bronze_match",
 )
@@ -88,6 +88,24 @@ def _public_tournament_projection(row):
     if not row:
         return None
     return {key:row.get(key) for key in PUBLIC_TOURNAMENT_FIELDS if key in row}
+
+def _merge_public_schedule_rules(tournament: dict, rules: dict | None) -> dict:
+    """Expose the visitor-facing match rules even when they live in schedule_rules."""
+    if not rules:
+        return tournament
+    defaults = {
+        "halves": 2,
+        "minutes_per_half": 20,
+        "halftime_minutes": 5,
+        "pitch_break_minutes": 5,
+        "minimum_team_rest_minutes": 15,
+        "avoid_consecutive_matches": 0,
+        "consecutive_match_break_minutes": 0,
+    }
+    for key, fallback in defaults.items():
+        if tournament.get(key) in (None, ""):
+            tournament[key] = rules.get(key, fallback)
+    return tournament
 
 def public_tournament(public_key):
     row=one("SELECT * FROM tournaments WHERE public_slug=? AND is_published=1",(str(public_key),))
@@ -292,6 +310,15 @@ def public_snapshot(public_key, *, include_unpublished=False):
         if not tournament:
             return None
         tid=int(tournament["id"])
+        schedule_rule_columns={str(item.get("name")) for item in many("PRAGMA table_info(schedule_rules)")}
+        if schedule_rule_columns:
+            rule_fields=[name for name in (
+                "halves","minutes_per_half","halftime_minutes","pitch_break_minutes",
+                "minimum_team_rest_minutes","avoid_consecutive_matches","consecutive_match_break_minutes",
+            ) if name in schedule_rule_columns]
+            if rule_fields:
+                rules=first(f"SELECT {','.join(rule_fields)} FROM schedule_rules WHERE tournament_id=?", (tid,))
+                tournament=_merge_public_schedule_rules(tournament,rules)
         team_columns={str(item.get("name")) for item in many("PRAGMA table_info(teams)")}
         kit_projection=("home_pattern,home_color_2,away_pattern,away_color_2" if
                         {"home_pattern","home_color_2","away_pattern","away_color_2"}.issubset(team_columns) else

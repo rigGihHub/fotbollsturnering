@@ -33,7 +33,8 @@ export function WeatherShareCard({
   startDate,
   endDate,
   cupName,
-}:{address?:string|null;startDate?:string|null;endDate?:string|null;cupName:string}){
+  showShare=true,
+}:{address?:string|null;startDate?:string|null;endDate?:string|null;cupName:string;showShare?:boolean}){
   const [forecast,setForecast] = useState<Forecast[]>([]);
   const [weatherState,setWeatherState] = useState<"idle"|"loading"|"ready"|"too-early"|"missing"|"error">("idle");
   const [pageUrl,setPageUrl] = useState("");
@@ -104,11 +105,11 @@ export function WeatherShareCard({
       <p style={{fontSize:11,opacity:.7,marginTop:12}}>Prognosdata: Open-Meteo.</p>
     </article>
 
-    <article className="feature-card">
+    {showShare&&<article className="feature-card">
       <span className="feature-card__number">SHARE//QR</span>
       <h3>Skanna och följ cupen</h3>
       <p>Öppna samma livevy direkt i mobilen. QR-koden pekar alltid på den här cupens sida.</p>
       {qrSrc&&<div style={{display:"inline-flex",padding:8,background:"#fff",border:"1.5px solid #17323e",borderRadius:12}}><img src={qrSrc} width="176" height="176" alt={`QR-kod till ${cupName}`} /></div>}
-    </article>
+    </article>}
   </>;
 }

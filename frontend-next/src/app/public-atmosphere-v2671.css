@@ -316,6 +316,10 @@ body:has(.page-shell--matchday){background-image:radial-gradient(circle,rgba(16,
 
 .public-live-status.is-stale{color:#8a5a16}
 .public-live-status.is-stale .public-live-status__dot{background:#d6922e;box-shadow:0 0 0 3px rgba(214,146,46,.14)}
+.public-default-weather{margin:0 0 12px}
+.public-default-weather .feature-card{padding:16px 18px;min-height:0}
+.public-default-weather .feature-card h3{margin:10px 0 8px;font-size:20px}
+.public-default-weather .feature-card p{font-size:13px;line-height:1.4}
 
 /* Public v3.2 mobile QA — screenshots showed clipped tables and bottom nav overlap. */
 @media(max-width:700px){
@@ -344,6 +348,8 @@ body:has(.page-shell--matchday){background-image:radial-gradient(circle,rgba(16,
  body:has(.page-shell--public-v3) .site-footer{margin-top:0!important;padding-top:22px!important;padding-bottom:calc(122px + env(safe-area-inset-bottom))!important}
 }
 
+.texttv--standings .standings-team-meta{display:none}
+
 /* Public v3.3 mobile cupday table/nav fix - standings must fit one phone screen. */
 @media(max-width:700px){
  .page-shell--public-v3{overflow-x:hidden!important;padding-bottom:178px!important}
@@ -358,4 +364,20 @@ body:has(.page-shell--matchday){background-image:radial-gradient(circle,rgba(16,
  .page-shell--public-v3 .texttv--standings th:nth-child(7),.page-shell--public-v3 .texttv--standings td:nth-child(7){width:38px!important}
  .page-shell--public-v3 .texttv--standings th:nth-child(8),.page-shell--public-v3 .texttv--standings td:nth-child(8){width:28px!important}
  .page-shell--public-v3 .mobile-bottom-nav{bottom:max(14px,env(safe-area-inset-bottom))!important}
+}
+
+/* Public v3.4 mobile standings - no horizontal scroll, all matchday essentials visible. */
+@media(max-width:700px){
+ .page-shell--public-v3 .public-default-weather .feature-card{border-radius:12px!important;box-shadow:0 2px 0 rgba(16,38,48,.08)!important}
+ .page-shell--public-v3 .texttv--standings table{font-size:12px!important}
+ .page-shell--public-v3 .texttv--standings th:nth-child(3),.page-shell--public-v3 .texttv--standings td:nth-child(3),
+ .page-shell--public-v3 .texttv--standings th:nth-child(4),.page-shell--public-v3 .texttv--standings td:nth-child(4),
+ .page-shell--public-v3 .texttv--standings th:nth-child(5),.page-shell--public-v3 .texttv--standings td:nth-child(5),
+ .page-shell--public-v3 .texttv--standings th:nth-child(6),.page-shell--public-v3 .texttv--standings td:nth-child(6),
+ .page-shell--public-v3 .texttv--standings th:nth-child(7),.page-shell--public-v3 .texttv--standings td:nth-child(7){display:none!important}
+ .page-shell--public-v3 .texttv--standings th:nth-child(1),.page-shell--public-v3 .texttv--standings td:nth-child(1){width:30px!important}
+ .page-shell--public-v3 .texttv--standings th:nth-child(2),.page-shell--public-v3 .texttv--standings td:nth-child(2){white-space:normal!important;overflow:visible!important;text-overflow:clip!important;line-height:1.1!important}
+ .page-shell--public-v3 .texttv--standings th:nth-child(8),.page-shell--public-v3 .texttv--standings td:nth-child(8){width:36px!important;text-align:right!important}
+ .page-shell--public-v3 .texttv--standings .standings-team-name{display:block;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+ .page-shell--public-v3 .texttv--standings .standings-team-meta{display:block;margin-top:3px;color:#65dfe6;font-size:9px;font-weight:800;letter-spacing:0;white-space:normal}
 }

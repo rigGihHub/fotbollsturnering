@@ -2,11 +2,15 @@ from pathlib import Path
 
 ROOT=Path(__file__).resolve().parents[1]
 PUBLIC=(ROOT/"frontend-next/src/components/PublicCupView.tsx").read_text(encoding="utf-8")
+TABLE=(ROOT/"frontend-next/src/components/TextTvStandings.tsx").read_text(encoding="utf-8")
 ADMIN=(ROOT/"frontend-next/src/components/admin-workspace.tsx").read_text(encoding="utf-8")
 REPORTER=(ROOT/"frontend-next/src/components/reporter-client.tsx").read_text(encoding="utf-8")
 QUEUE=(ROOT/"frontend-next/src/lib/reporter-offline.ts").read_text(encoding="utf-8")
 SW=(ROOT/"frontend-next/public/sw.js").read_text(encoding="utf-8")
 CSS=(ROOT/"frontend-next/src/app/public-atmosphere-v2671.css").read_text(encoding="utf-8")
+AUTH=(ROOT/"frontend-next/src/components/admin-auth-shell.tsx").read_text(encoding="utf-8")
+MAIN=(ROOT/"cupnavi_api/main.py").read_text(encoding="utf-8")
+REPO=(ROOT/"cupnavi_api/repository.py").read_text(encoding="utf-8")
 
 def test_public_mobile_defers_heavy_secondary_data():
     assert 'tab!=="table"' in PUBLIC
@@ -23,16 +27,19 @@ def test_public_mobile_layout_protects_long_names_and_touch_filters():
 def test_public_mobile_tables_and_footer_do_not_hide_content():
     assert "Public v3.2 mobile QA" in CSS
     assert "Public v3.3 mobile cupday table/nav fix" in CSS
+    assert "Public v3.4 mobile standings" in CSS
+    assert "standings-team-meta" in TABLE
     assert ".page-shell--public-v3 .texttv--standings table" in CSS
     assert "min-width:0!important" in CSS
     assert "table-layout:fixed!important" in CSS
     assert "grid-template-columns:repeat(3,1fr)!important" in CSS
     assert "padding-bottom:calc(122px + env(safe-area-inset-bottom))!important" in CSS
 
-def test_public_cupinfo_hides_missing_match_duration():
-    assert "const hasMatchDuration=(cup.tournament.minutes_per_half??0)>0" in PUBLIC
-    assert "{hasMatchDuration&&<div><span>Matchtid</span>" in PUBLIC
-    assert '<div><span>Matchtid</span><b>{(cup.tournament.minutes_per_half??0)>0' not in PUBLIC
+def test_public_cupinfo_inherits_setup_rules_and_shows_match_duration():
+    assert "const matchHalves=Number(cup.tournament.halves||0)>0" in PUBLIC
+    assert "const matchMinutesPerHalf=Number(cup.tournament.minutes_per_half||0)>0" in PUBLIC
+    assert "{hasMatchDuration&&<div><span>Matchtid</span><b>{matchHalves} × {matchMinutesPerHalf} min</b></div>}" in PUBLIC
+    assert "_merge_public_schedule_rules" in REPO
 
 def test_public_cupinfo_is_visitor_oriented():
     assert "public-info-hero--visitor" in PUBLIC
@@ -45,6 +52,14 @@ def test_admin_session_survives_transient_api_failure():
     assert "Tillfälligt anslutningsproblem. Din inloggning ligger kvar" in ADMIN
     assert "retryTimer=window.setTimeout(restoreSession,2200)" in ADMIN
     assert "localStorage.removeItem(TOKEN_KEY)" in ADMIN
+    assert "readVerifiedCache(token)" in AUTH
+    assert 'setState("authenticated")' in AUTH
+
+def test_public_weather_defaults_on_and_admin_toggles_are_persisted():
+    assert "show_public_weather: bool | None = None" in MAIN
+    assert "show_public_weather_configured: bool | None = None" in MAIN
+    assert "const showPublicWeather=!weatherConfigured||Boolean(cup.tournament.show_public_weather)" in PUBLIC
+    assert "showShare={false}" in PUBLIC
 
 def test_reporter_has_persistent_offline_queue_and_conflict_states():
     assert "cupnavi_reporter_queue_v1" in QUEUE

@@ -1,22 +1,23 @@
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-LAUNCHER = (ROOT / "frontend-next" / "src" / "components" / "cup-create-launcher.tsx").read_text(encoding="utf-8")
+LAUNCHER = (ROOT / "frontend-next" / "src" / "components" / "cup-create-launcher-v6.tsx").read_text(encoding="utf-8")
 ROUTES = (ROOT / "cupnavi_api" / "venue_admin_routes.py").read_text(encoding="utf-8")
 
 
 def test_next_new_cup_offers_manual_or_photo_pdf_import():
     assert "Skapa manuellt" in LAUNCHER
-    assert "Importera bild / PDF" in LAUNCHER
-    assert 'type="file" multiple' in LAUNCHER
+    assert "Bild eller PDF" in LAUNCHER
+    assert 'type="file"' in LAUNCHER
+    assert 'multiple' in LAUNCHER
     assert ".pdf,.txt,.png,.jpg,.jpeg,.webp" in LAUNCHER
 
 
 def test_next_photo_import_is_review_first():
-    assert "sparar inget förrän du har granskat resultatet" in LAUNCHER
-    assert "Skapa cup från granskningen" in LAUNCHER
-    assert "Lag som kommer importeras" in LAUNCHER
-    assert "Kontrollera innan du fortsätter" in LAUNCHER
+    assert "sparar inget förrän du" in LAUNCHER
+    assert "Redo att skapa" in LAUNCHER
+    assert "Lag & grupper" in LAUNCHER
+    assert "Behöver åtgärdas" in LAUNCHER
 
 
 def test_next_photo_import_reuses_existing_ai_extractor():
@@ -37,4 +38,5 @@ def test_reviewed_schedule_can_be_persisted_but_playoffs_are_still_deferred():
     assert "/import/initial`" in LAUNCHER
     assert "import_matches" in LAUNCHER
     assert "fallback_date" in LAUNCHER
-    assert "Slutspelsimport kopplas in i nästa block" in LAUNCHER
+    assert "playoff_matches" in LAUNCHER
+    assert 'goToCup(cup,(proposal.playoff_matches||[]).length?"playoffs":"overview")' in LAUNCHER

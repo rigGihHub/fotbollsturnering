@@ -114,6 +114,11 @@ class CupInfoUpdate(BaseModel):
     feedback_email: str | None = None
     public_information: str | None = None
     arrangement_type: str | None = None
+    show_public_weather: bool | None = None
+    show_public_weather_configured: bool | None = None
+    show_public_kits: bool | None = None
+    show_public_away_kits: bool | None = None
+    show_public_logos: bool | None = None
     expected_revision: int | None = None
 
 

@@ -35,6 +35,16 @@ function writeVerifiedCache(token:string,payload:SessionPayload) {
   } catch {}
 }
 
+function readVerifiedCache(token:string): (SessionPayload & { token:string }) | null {
+  try {
+    const cached = JSON.parse(sessionStorage.getItem(VERIFIED_CACHE_KEY) || "null");
+    if (cached?.token !== token || !cached.account || !Array.isArray(cached.cups)) return null;
+    return { account:cached.account, cups:cached.cups, token };
+  } catch {
+    return null;
+  }
+}
+
 export default function AdminAuthShell() {
   installAdminRequestCoordinator();
   installAdminSessionFetchGate();
@@ -83,7 +93,13 @@ export default function AdminAuthShell() {
         return;
       }
 
-      setState(current => current === "authenticated" ? current : "checking");
+      const cachedSession = readVerifiedCache(token);
+      if (cachedSession) {
+        setVerifiedSession(cachedSession);
+        setState("authenticated");
+      } else {
+        setState(current => current === "authenticated" ? current : "checking");
+      }
       try {
         const controller = new AbortController();
         const timeout = window.setTimeout(() => controller.abort(), 9000);
@@ -98,7 +114,13 @@ export default function AdminAuthShell() {
           unauthorizedRef.current += 1;
           const inResumeGrace = recentlyResumed();
           if (inResumeGrace || unauthorizedRef.current < UNAUTHORIZED_CONFIRMATIONS) {
-            setState(current => current === "authenticated" ? current : "waiting");
+            const stillCached = readVerifiedCache(token);
+            if (stillCached) {
+              setVerifiedSession(stillCached);
+              setState("authenticated");
+            } else {
+              setState(current => current === "authenticated" ? current : "waiting");
+            }
             scheduleVerify(inResumeGrace ? 2500 : 900);
             return;
           }
@@ -120,7 +142,13 @@ export default function AdminAuthShell() {
       } catch {
         if (cancelled) return;
         unauthorizedRef.current = 0;
-        setState(current => current === "authenticated" ? current : "waiting");
+        const stillCached = readVerifiedCache(token);
+        if (stillCached) {
+          setVerifiedSession(stillCached);
+          setState("authenticated");
+        } else {
+          setState(current => current === "authenticated" ? current : "waiting");
+        }
         scheduleVerify(1800);
       }
     }
