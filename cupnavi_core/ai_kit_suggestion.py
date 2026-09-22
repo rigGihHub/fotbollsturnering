@@ -11,7 +11,7 @@ ALLOWED_IDENTITY_STATUS = ["exact", "likely", "ambiguous", "unknown"]
 MAX_SOURCES = 6
 MAX_SEARCH_ATTEMPTS = 3
 CACHE_TTL_SECONDS = 60 * 60 * 12
-SEARCH_VERSION = "v673-pattern-first-assets"
+SEARCH_VERSION = "v2699-independent-verified-assets"
 ALLOWED_SEARCH_FOCUS = {"kit", "logo", "all"}
 ALLOWED_KIT_MODES = {"home", "both"}
 
@@ -238,6 +238,30 @@ def _search_strategies(clean_name, *, location="", country_code="", age_class=""
     """
     club_name = likely_club_name(clean_name)
     context = _context_text(location, country_code, age_class, search_hint, resolved_club, resolved_source_url)
+    if search_focus == "logo" or kit_mode == "home":
+        scope = (
+            "Sök endast klubbens officiella logotyp. Sök inga matchställ; home_verified=false och away_verified=false."
+            if search_focus == "logo" else
+            "Sök endast hemmatröjans färger och mönster. Sök inte bortaställ eller logotyp; away_verified=false och logo_verified=false."
+        )
+        identity = (
+            f"Identifiera exakt klubb för '{clean_name}' / '{club_name}'. Kontext: {context}. "
+            "Cupens spelort är bara var turneringen hålls och får ALDRIG användas som belägg för klubbens hemort. "
+            "Vid flera möjliga klubbar: returnera candidate_matches i stället för att gissa. "
+        )
+        evidence = (
+            "Använd officiell klubbdomän, förbundsprofil eller Wikimedia med tydlig klubbkoppling. "
+            if search_focus == "logo" else
+            "Sök på hemmatröja/home kit och senaste relevanta säsongen i officiell klubbwebbshop, materialpartner, "
+            "lagbilder och matchbilder. Kontrollera själva tröjan: klubbens färger räcker inte som bevis. "
+            "Beskriv synliga ränder, riktning och färger; skilj mönster från sponsortryck. "
+            "Officiell produktbild kan räcka; annars krävs samstämmiga aktuella bildkällor. "
+        )
+        return [
+            ("Snabb multikällesökning", identity + scope + " " + evidence),
+            ("Riktad lucksökning", identity + scope + " Fyll bara kvarvarande luckor. " + evidence),
+            ("Automatisk räddningssökning", identity + scope + " Prova även officiella offentliga sociala konton och förbundets lagplattform. " + evidence),
+        ]
     focus = "klubbens officiella klubbmärke/logotyp" if search_focus == "logo" else ("aktuella hemmastället" if kit_mode == "home" else "aktuella hemma- och bortaställ")
     kit_scope = "Sök endast efter hemmastället. Lägg inte tid på bortaställ och returnera away_verified=false." if kit_mode == "home" else "Sök hemma och borta separat."
     primary = (
@@ -339,12 +363,12 @@ def _request_suggestion(clean_name, api_key, *, model, timeout_seconds, strategy
         "away_verified får bara vara true om minst en URL i away_sources faktiskt stöder bortastället. Samma källa får användas för båda bara om den tydligt visar båda. "
         "Skriv i home_evidence/away_evidence vad källan visar. Prioritera officiell klubb/webbshop, sedan förbund/cup/lagplattform, därefter färska matchbilder. Kontrollera att källan faktiskt visar tröjan eller uttryckligen beskriver stället; klubbens färger, arena, flagga eller en logotypbild räknas inte som tröjbevis. Läs bildtext, alt-text och sidans säsong/uppdateringsdatum och välj den senaste relevanta säsongen. Offentliga inlägg från klubbens officiella Instagram eller Facebook får användas som kompletterande bildbevis, men aldrig ett ensamt gammalt eller odaterat inlägg. "
         "Vikta källor efter aktualitet: aktuell säsong väger högst, föregående säsong lägre och odaterade/historiska bilder lägst. Om flera trovärdiga källor motsäger varandra, välj den nyaste relevanta säsongen och sänk confidence. "
-        f"{('Sök endast hemma och sätt away_verified=false.' if kit_mode == 'home' else 'Sök hemma och borta separat.')} För varje ställ: försök få minst två samstämmiga aktuella bildbevis när officiell produktbild saknas. En klubbfärg, logotyp, flagga eller text om föreningens färger får ALDRIG ensam bestämma tröjfärg eller mönster. "
+        f"{('Sök inga matchställ.' if search_focus == 'logo' else 'Sök endast hemma och sätt away_verified=false.' if kit_mode == 'home' else 'Sök hemma och borta separat.')} För varje efterfrågat ställ: försök få minst två samstämmiga aktuella bildbevis när officiell produktbild saknas. En klubbfärg, logotyp, flagga eller text om föreningens färger får ALDRIG ensam bestämma tröjfärg eller mönster. "
         "I home_evidence/away_evidence ska du ange hur många samstämmiga aktuella bevis som faktiskt visar stället och vilken typ av källa som är starkast. "
         "Det är bättre att returnera bara ett belagt hemmaställ än att fylla i ett osäkert bortaställ. "
         "För verifierade ställ: analysera TRÖJANS GEOMETRI separat från klubbfärgerna. Avgör först om tyget visuellt är enfärgat, vertikalrandigt, horisontalrandigt, rutigt, delat, diagonalrandigt eller grafiskt. Välj Helfärgad endast när den verifierade tröjbilden verkligen saknar ett tydligt återkommande mönster; två eller fler tydliga kontrasterande vertikala band ska ge Vertikala ränder och motsvarande horisontella band Horisontella ränder. Logotyp, sponsortryck, krage och ärmkanter är inte ett tröjmönster. Skriv i home_evidence/away_evidence vilket visuellt kännetecken som motiverar mönstret. Ange därefter praktiska HEX-färger (#RRGGBB) utifrån själva tröjan, inte färgnamn från klubbens profil. Beskriv huvudfärg först och den tydliga kontrastfärgen därefter. Välj närmast passande mönster bland Helfärgad, Vertikala ränder, Horisontella ränder, Rutigt, Delad, Diagonala ränder eller Grafiskt; välj Grafiskt när designen är chevron, camo, gradient eller annan tydlig grafik och gissa inte ränder. "
-        "Hitta även klubbens officiella logotyp. logo_url måste vara en direkt HTTPS-bildadress och logo_source_url sidan som belägger att märket tillhör rätt klubb. Sätt logo_verified=true endast när klubbidentiteten och bilden är tydliga. "
-        "Om sökfokus är logo ska logotypen prioriteras och osökta matchställ lämnas overifierade. Om sökfokus är kit ska matchställen prioriteras; logotyp får bara följa med när den hittas på samma verifierade klubbkälla. "
+        "Vid efterfrågat klubbmärke: logo_url måste vara en direkt HTTPS-bildadress och logo_source_url sidan som belägger rätt klubb. Sätt logo_verified=true endast när klubbidentiteten och bilden är tydliga. "
+        "Om sökfokus är logo: sök endast logotyp, lämna matchställ overifierade. Om sökfokus är kit: sök endast efterfrågade matchställ, inte logotyp. "
         "sources ska vara unionen av de viktigaste källorna. Inget sparas automatiskt; arrangören granskar förslaget."
     )
     body = {
@@ -549,6 +573,10 @@ def suggest_team_kit(
             kit_mode=kit_mode,
             opener=opener,
         )
+        if search_focus == "logo":
+            result.update(home_verified=False, away_verified=False, home_sources=[], away_sources=[], found=False)
+        elif kit_mode == "home":
+            result.update(away_verified=False, away_sources=[], found=bool(result.get("home_verified")))
         attempts.append(label)
         result["search_strategy"] = label
         result["search_attempts"] = len(attempts)
@@ -562,7 +590,7 @@ def suggest_team_kit(
             best["away_sources"] = []
         kit_ready = bool(best.get("home_verified")) if kit_mode == "home" else bool(best.get("home_verified") and best.get("away_verified"))
         exact_logo = bool(best.get("identity_status") == "exact" and best.get("logo_verified"))
-        if index == 0 and ((search_focus == "logo" and exact_logo) or (search_focus != "logo" and kit_ready and best.get("identity_status") == "exact")):
+        if (search_focus == "logo" and exact_logo) or (search_focus != "logo" and kit_ready and best.get("identity_status") == "exact"):
             break
 
     best = best or normalize_kit_suggestion({})

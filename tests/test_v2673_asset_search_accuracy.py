@@ -61,4 +61,5 @@ def test_search_result_requires_explicit_user_application():
     search_block = UI[UI.index("async function searchAssets"):UI.index("function applyKitSuggestion")]
     assert "setTeamDraft" not in search_block
     assert "Använd verifierade uppgifter" in UI
-    assert 'suggestion.identity_status!=="exact"' in UI
+    bulk_search = (ROOT / "frontend-next/src/lib/team-asset-search.ts").read_text(encoding="utf-8")
+    assert 'result.identity_status!=="exact"' in bulk_search
