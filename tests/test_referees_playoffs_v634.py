@@ -22,6 +22,7 @@ def _schema(path):
             playoff_tie_rule TEXT DEFAULT 'Straffar direkt',playoff_extra_time_minutes INTEGER DEFAULT 0,
             schedule_dirty INTEGER DEFAULT 0,is_published INTEGER DEFAULT 1
         );
+        CREATE TABLE teams(id INTEGER PRIMARY KEY,tournament_id INTEGER,name TEXT);
         CREATE TABLE referees(
             id INTEGER PRIMARY KEY AUTOINCREMENT,tournament_id INTEGER NOT NULL,name TEXT NOT NULL,
             email TEXT,phone TEXT,notes TEXT,active INTEGER DEFAULT 1

@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from cupnavi_core.participant_resolution import ParticipantResolver, finalized_group_standings
+from cupnavi_core.placement_playoffs import DRAW_RULE, placement_tables
 
 from .repository import all_rows
 
@@ -63,7 +64,19 @@ def resolve_public_snapshot(snapshot: dict) -> dict:
     result["participant_resolution"] = participant_resolution_payload(
         snapshot["tournament"], public_matches
     )
+    result["placement_groups"] = public_placement_tables(snapshot["tournament"], public_matches)
     return result
+
+
+def public_placement_tables(tournament, matches=None):
+    if tournament.get("playoff_tie_rule") != DRAW_RULE:
+        return []
+    if matches is None:
+        from .repository import public_matches
+        matches = public_matches(int(tournament["id"]))
+    groups = all_rows("SELECT id,name FROM groups WHERE tournament_id=?", (int(tournament["id"]),))
+    resolver = tournament_participant_resolver(tournament)
+    return placement_tables(tournament, matches, {int(g["id"]): g["name"] for g in groups}, resolver)
 
 
 def public_bracket_resolution(tournament: dict, brackets: list[dict]) -> dict[str, dict]:

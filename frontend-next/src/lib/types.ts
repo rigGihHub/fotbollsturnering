@@ -8,6 +8,7 @@ export type Tournament = {
   show_scorer_stats?: number | boolean | null; show_assist_stats?: number | boolean | null;
   show_card_stats?: number | boolean | null; show_fairness?: number | boolean | null;
   show_public_weather?: number | boolean | null; show_public_weather_configured?: number | boolean | null; show_public_kits?: number | boolean | null; show_public_away_kits?: number | boolean | null; show_public_logos?: number | boolean | null;
+  playoff_tie_rule?:string|null;
   points_win?:number|null; points_draw?:number|null; points_loss?:number|null; table_tiebreak?:string|null;
   halves?:number|null; minutes_per_half?:number|null; halftime_minutes?:number|null; pitch_break_minutes?:number|null; minimum_team_rest_minutes?:number|null; avoid_consecutive_matches?:number|boolean|null; consecutive_match_break_minutes?:number|null;
 };
@@ -20,7 +21,8 @@ export type VenuePoint = {id:number;kind?:string;label?:string;detail?:string;ur
 export type MatchParticipantResolution = { home:ResolvedParticipant; away:ResolvedParticipant };
 export type ParticipantResolutionMap = Record<string,MatchParticipantResolution>;
 export type Pitch = { pitch_number:number; name:string; opens_at?:string|null; closes_at?:string|null; start_time?:string|null; end_time?:string|null; available_from?:string|null; available_to?:string|null };
-export type CupSnapshot = { tournament:Tournament; teams:Team[]; groups:Group[]; matches:Match[]; brackets:Bracket[]; venue_points:VenuePoint[]; pitches?:Pitch[]; participant_resolution?:ParticipantResolutionMap };
+export type PlacementGroup = {name:string;bracket_id:number;placement:number|null;match_ids:number[];rows:StandingRow[];complete:boolean;winner:string|null;ranking_tied:boolean};
+export type CupSnapshot = { placement_groups?:PlacementGroup[]; tournament:Tournament; teams:Team[]; groups:Group[]; matches:Match[]; brackets:Bracket[]; venue_points:VenuePoint[]; pitches?:Pitch[]; participant_resolution?:ParticipantResolutionMap };
 export type StandingRow = { position:number; team_id:number; Lag:string; S:number; V:number; O:number; F:number; MS:string|number; P:number };
 export type TeamSummary = { team_id:number; matches:number; played:number; next_match?:Match|null; latest_result?:Match|null; group_position?:number|null; next_playoff_match?:Match|null };
 export type TeamSummaryPayload = { team:Team; summary:TeamSummary; notifications?:Array<{id:number;title?:string;message?:string}> };

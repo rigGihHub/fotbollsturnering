@@ -121,6 +121,7 @@ def test_reporting_marks_unresolved_tied_playoff_as_awaiting_decision(monkeypatc
     monkeypatch.setattr(repo, "_has_tournament_access", lambda *_: True)
     monkeypatch.setattr(repo, "all_rows", lambda sql, *_args: [dict(tied)] if "FROM matches" in sql else [{"id":1,"name":"A"},{"id":2,"name":"B"}])
     monkeypatch.setattr(repo, "_resolver_for_tournament", lambda *_: _Resolver())
+    monkeypatch.setattr(repo, "one", lambda *_: {"id": 7, "playoff_tie_rule": "Straffar direkt"})
     payload = repo.admin_reporting(1, 7)
     assert payload["matches"][0]["status"] == "awaiting_decision"
     assert payload["matches"][0]["home_team"] == "A"

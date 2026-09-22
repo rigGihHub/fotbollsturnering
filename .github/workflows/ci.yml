@@ -76,6 +76,9 @@ jobs:
       - name: Import navigation regression
         run: npm run test:import-navigation
 
+      - name: Placement playoff regression
+        run: npm run test:placement-playoffs
+
       - name: Production build
         env:
           CUPNAVI_API_BASE: https://cupnavi-api.onrender.com

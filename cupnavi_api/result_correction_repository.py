@@ -1,6 +1,7 @@
 """Read-only preflight for safely correcting playoff results in the Next admin."""
 from __future__ import annotations
 
+from cupnavi_core.placement_playoffs import draw_match_ids
 from cupnavi_core.playoff_dependency_safety import (
     build_dependency_guidance,
     dependency_impact,
@@ -42,6 +43,10 @@ def playoff_result_correction_impact(account_id:int,tournament_id:int,match_id:i
         return {'playoff':False,'outcome_changes':False,'blocked':False,'downstream':[],'guidance':[]}
 
     tournament=one("SELECT * FROM tournaments WHERE id=?",(int(tournament_id),))
+    matches=all_rows("SELECT * FROM matches WHERE tournament_id=?",(int(tournament_id),))
+    if row["id"] in draw_match_ids(tournament, matches):
+        return {'playoff':True,'outcome_changes':False,'blocked':False,'downstream':[],'guidance':[],
+                'summary':'Placeringsgruppens tabell räknas om med det korrigerade resultatet.'}
     resolver=tournament_participant_resolver(tournament) if tournament else None
     home=resolver.resolve(row.get('home_source')) if resolver else None
     away=resolver.resolve(row.get('away_source')) if resolver else None

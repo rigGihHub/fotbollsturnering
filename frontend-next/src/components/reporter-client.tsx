@@ -9,7 +9,7 @@ const API=CLIENT_API_BASE,KEY="cupnavi_reporter_session_v1",SESSION_CACHE="sessi
 // Rollgräns: Cupinställningar är inte åtkomliga här; rapportören kan bara arbeta med matchdata.
 type Cup={id:number;name:string;public_slug?:string|null};
 type MatchLifecycle="not_started"|"live"|"halftime"|"finished";
-type Match={id:number;stage?:string|null;home_team:string;away_team:string;home_score:number|null;away_score:number|null;home_penalties?:number|null;away_penalties?:number|null;status:string;match_status?:MatchLifecycle|null;scheduled_start?:string|null};
+type Match={requires_winner?:boolean;id:number;stage?:string|null;home_team:string;away_team:string;home_score:number|null;away_score:number|null;home_penalties?:number|null;away_penalties?:number|null;status:string;match_status?:MatchLifecycle|null;scheduled_start?:string|null};
 type CachedSession={cup:Cup;matches:Match[]};
 const lifecycle=(match:Match):MatchLifecycle=>match.match_status==="live"||match.match_status==="halftime"||match.match_status==="finished"?match.match_status:match.status==="played"?"finished":"not_started";
 const isAuthFailure=(error:unknown)=>/(401|session|inloggning krävs|ogiltig|gått ut|authentication)/i.test(error instanceof Error?error.message:String(error));
@@ -93,7 +93,7 @@ export default function ReporterClient(){
  function changeStatus(match:Match,next:MatchLifecycle){
   if(!cupInfo)return;const current=lifecycle(match);
   if(next==="finished"){
-   if(match.stage!=="Gruppspel"&&(match.home_score??0)===(match.away_score??0)&&match.home_penalties==null){setError("En oavgjord slutspelsmatch måste avgöras innan den avslutas.");return}
+   if((match.requires_winner??(match.stage!=="Gruppspel"))&&(match.home_score??0)===(match.away_score??0)&&match.home_penalties==null){setError("En oavgjord slutspelsmatch måste avgöras innan den avslutas.");return}
    if(!window.confirm(`Avsluta ${match.home_team} – ${match.away_team}?`))return;
    if(match.home_score==null||match.away_score==null)save(match,String(match.home_score??0),String(match.away_score??0),"","");
   }
@@ -129,6 +129,6 @@ function LiveTeam({name,score,disabled,side,onScore}:{name:string;score:number;d
 function ReporterMatch({m,busy,pending,save}:{m:Match;busy:boolean;pending:boolean;save:(m:Match,h:string,a:string,hp:string,ap:string)=>void}){
  const[h,setH]=useState(m.home_score==null?"":String(m.home_score)),[a,setA]=useState(m.away_score==null?"":String(m.away_score));const[hp,setHp]=useState(m.home_penalties==null?"":String(m.home_penalties)),[ap,setAp]=useState(m.away_penalties==null?"":String(m.away_penalties));
  useEffect(()=>{setH(m.home_score==null?"":String(m.home_score));setA(m.away_score==null?"":String(m.away_score));setHp(m.home_penalties==null?"":String(m.home_penalties));setAp(m.away_penalties==null?"":String(m.away_penalties))},[m]);
- const tied=m.stage!=="Gruppspel"&&h!==""&&a!==""&&Number(h)===Number(a),saved=m.status==="played";
+ const tied=(m.requires_winner??(m.stage!=="Gruppspel"))&&h!==""&&a!==""&&Number(h)===Number(a),saved=m.status==="played";
  return <article className={`reporter-match${saved?" is-saved":""}${pending?" is-pending":""}`}><div className="reporter-match__meta"><span>{m.scheduled_start?.replace("T"," ")||"Ej schemalagd"}</span><span>{m.stage||"Match"}</span>{pending?<span className="reporter-match__pending">Väntar på nät</span>:saved&&<span className="reporter-match__saved">Sparad</span>}</div><div className="reporter-match__body"><div className="reporter-match__teams"><strong>{m.home_team}</strong><span>mot</span><strong>{m.away_team}</strong></div><div className="reporter-score" aria-label={`${m.home_team} mot ${m.away_team}`}><label><span>{m.home_team}</span><input aria-label={`Mål för ${m.home_team}`} inputMode="numeric" type="number" min="0" value={h} onChange={event=>setH(event.target.value)}/></label><b>–</b><label><span>{m.away_team}</span><input aria-label={`Mål för ${m.away_team}`} inputMode="numeric" type="number" min="0" value={a} onChange={event=>setA(event.target.value)}/></label>{tied&&<div className="reporter-penalties"><label>Straffar hemma<input aria-label="Hemmastraffar" inputMode="numeric" type="number" min="0" value={hp} onChange={event=>setHp(event.target.value)} placeholder="0"/></label><label>Straffar borta<input aria-label="Bortastraffar" inputMode="numeric" type="number" min="0" value={ap} onChange={event=>setAp(event.target.value)} placeholder="0"/></label></div>}<button type="button" disabled={busy||h===""||a===""||(tied&&(hp===""||ap===""))} onClick={()=>save(m,h,a,hp,ap)}>{pending?"Uppdatera lokalt":saved?"Uppdatera":"Spara resultat"}</button></div></div></article>;
 }

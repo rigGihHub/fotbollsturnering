@@ -7,6 +7,7 @@ from collections import Counter
 from datetime import date, datetime
 
 from cupnavi_core.bracket_validation import validate_bracket_sources
+from cupnavi_core.placement_playoffs import DRAW_RULE, all_placement_blocks
 
 from .admin_repository import _has_tournament_access
 from .repository import connect, one
@@ -233,17 +234,29 @@ def commit_playoff_import(account_id: int, tournament_id: int, playoff_matches: 
 
             rules = dict(playoff_rule_values or {})
             tie_rule = str(rules.get("tie_rule") or "").strip()
+            explicit_draw = tie_rule == DRAW_RULE or bool(re.search(r"\balla matcher (?:får|kan) sluta oavgjort\b|\boavgjort (?:är )?tillåtet\b", tie_rule, re.I))
+            blocks = all_placement_blocks(all_matches)
+            if explicit_draw:
+                if not blocks:
+                    raise ValueError("Underlaget tillåter oavgjort, men matcherna bildar inte kompletta placeringsgrupper. Kontrollera matcher och deltagarkällor.")
+                tie_rule = DRAW_RULE
+                bronze = False
+                sources = {source for block in blocks for source in block["sources"]}
+                con.execute("UPDATE brackets SET size=?,bronze_match=0 WHERE id=? AND tournament_id=?", (len(sources), bracket_id, int(tournament_id)))
             updates = ["playoff_format=?", "bronze_match=?", "schedule_dirty=0", "is_published=0", "arrangement_type='tournament_playoffs'", "admin_revision=COALESCE(admin_revision,0)+1"]
             values: list[object] = ["Manuellt slutspel", 1 if bronze else 0]
-            if tie_rule in {"Straffar direkt", "Förlängning + straffar"}:
+            if tie_rule in {"Straffar direkt", "Förlängning + straffar", DRAW_RULE}:
                 updates.append("playoff_tie_rule=?")
                 values.append(tie_rule)
-            if tie_rule == "Förlängning + straffar" and rules.get("extra_time_minutes") is not None:
-                extra_minutes = int(rules["extra_time_minutes"])
+            if tie_rule in {DRAW_RULE, "Straffar direkt", "Förlängning + straffar"}:
+                extra_minutes = int(rules.get("extra_time_minutes") or 0) if tie_rule == "Förlängning + straffar" else 0
                 if not 0 <= extra_minutes <= 60:
                     raise ValueError("Förlängningstiden måste vara mellan 0 och 60 minuter")
-                updates.append("playoff_extra_time_minutes=?")
-                values.append(extra_minutes)
+                columns = {str(row[1]) for row in con.execute("PRAGMA table_info(tournaments)").fetchall()}
+                for field in ("extra_time_minutes", "playoff_extra_time_minutes"):
+                    if field in columns:
+                        updates.append(f"{field}=?")
+                        values.append(extra_minutes)
             con.execute(f"UPDATE tournaments SET {','.join(updates)} WHERE id=?", (*values, int(tournament_id)))
             commit = getattr(con, "commit", None)
             if callable(commit):

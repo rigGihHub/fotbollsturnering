@@ -17,7 +17,7 @@ async function req(path:string,token:string,init:RequestInit={}) {
 }
 
 type Mode="publish"|"reporting";
-type Match={id:number;stage?:string|null;home_team:string;away_team:string;home_score:number|null;away_score:number|null;home_penalties?:number|null;away_penalties?:number|null;status:string;scheduled_start?:string|null};
+type Match={requires_winner?:boolean;id:number;stage?:string|null;home_team:string;away_team:string;home_score:number|null;away_score:number|null;home_penalties?:number|null;away_penalties?:number|null;status:string;scheduled_start?:string|null};
 type ScheduleConflict={type:string;severity:"error"|"warning";message:string;match_ids?:number[]};
 type PublicationPayload={tournament?:{is_published?:boolean};ready:boolean;blockers:string[];schedule_conflict_analysis?:{error_count:number;warning_count:number;conflicts:ScheduleConflict[]}};
 type Impact={playoff:boolean;outcome_changes:boolean;blocked:boolean;downstream_count?:number;summary?:string;guidance?:string[];downstream?:Array<{id:number;stage?:string|null;match_no?:number|null;scheduled_start?:string|null;locked:boolean;recoverable:boolean;recovery_reason:string}>};
@@ -64,7 +64,7 @@ export default function PublishReportingAdmin({token,cupId,mode,publicSlug}:{tok
     try{
       setError("");
       const payload={home_score:Number(home),away_score:Number(away),home_penalties:homePenalties===""?null:Number(homePenalties),away_penalties:awayPenalties===""?null:Number(awayPenalties),expected_home_score:match.home_score,expected_away_score:match.away_score,expected_home_penalties:match.home_penalties??null,expected_away_penalties:match.away_penalties??null};
-      if(match.stage!=="Gruppspel"&&(match.home_score!=null||match.away_score!=null)){
+      if((match.requires_winner??(match.stage!=="Gruppspel"))&&(match.home_score!=null||match.away_score!=null)){
         const impact=await req(`/api/admin/cups/${cupId}/reporting/matches/${match.id}/impact`,token,{method:"POST",body:JSON.stringify(payload)}) as Impact;
         if(impact.blocked){const details=(impact.guidance||[]).join(" ");throw new Error(`${impact.summary||"Korrigeringen påverkar en senare slutspelsmatch."}${details?` ${details}`:""}`);}
         if(impact.outcome_changes&&(impact.downstream_count||0)>0){
@@ -126,7 +126,7 @@ function MatchRow({match,busy,save}:{match:Match;busy:boolean;save:(match:Match,
   const [away,setAway]=useState(match.away_score==null?"":String(match.away_score));
   const [homePenalties,setHomePenalties]=useState(match.home_penalties==null?"":String(match.home_penalties));
   const [awayPenalties,setAwayPenalties]=useState(match.away_penalties==null?"":String(match.away_penalties));
-  const knockout=match.stage!=="Gruppspel";
+  const knockout=(match.requires_winner??(match.stage!=="Gruppspel"));
   const tied=knockout&&home!==""&&away!==""&&Number(home)===Number(away);
   return <article className="reporting-match">
     <div className="reporting-match__meta"><span>{match.stage||"Match"}</span><small>{match.scheduled_start||"Ej schemalagd"}</small></div>

@@ -108,5 +108,5 @@ def test_public_match_status_comes_from_explicit_lifecycle_not_clock_guess():
     assert 'match.match_status === "live"' in formatting
     assert 'match.match_status === "halftime"' in formatting
     assert "Date.now()" not in formatting
-    assert 'status === "halftime" ? "PAUS"' in card
+    assert 'status==="halftime"?"Paus"' in card
     assert "match_status,status_updated_at" in repository

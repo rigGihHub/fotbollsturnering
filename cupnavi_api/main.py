@@ -40,7 +40,7 @@ from .group_admin_repository import (
     delete_group,
     update_group,
 )
-from .participant_resolution_repository import public_bracket_resolution, resolve_public_snapshot
+from .participant_resolution_repository import public_bracket_resolution, resolve_public_snapshot, public_placement_tables
 from .venue_admin_routes import register_venue_admin_routes
 from .access_routes import register_access_routes
 from .repository import (
@@ -594,7 +594,7 @@ def standings(public_key:str):
     tournament=public_tournament(public_key)
     if not tournament:
         raise HTTPException(status_code=404,detail="Cup not found or not published")
-    return {"groups":_standings_payload(tournament)}
+    return {"groups":_standings_payload(tournament), "placement_groups":public_placement_tables(tournament)}
 
 
 @app.get("/api/public/cups/{public_key}/playoffs")
@@ -607,6 +607,7 @@ def playoffs(public_key:str):
         "playoff_format":tournament.get("playoff_format"),
         "brackets":brackets,
         "participant_resolution":public_bracket_resolution(tournament,brackets),
+        "placement_groups":public_placement_tables(tournament, [m for b in brackets for m in b.get("matches", [])]),
     }
 
 

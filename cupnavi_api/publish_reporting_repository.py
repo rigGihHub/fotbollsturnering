@@ -4,6 +4,7 @@ from __future__ import annotations
 from datetime import datetime
 
 from cupnavi_core.admin_publication import build_publish_blockers
+from cupnavi_core.placement_playoffs import draw_match_ids, source_label
 from cupnavi_core.bracket_validation import validate_bracket_sources
 from cupnavi_core.playoff_dependency_safety import (
     build_dependency_guidance,
@@ -35,8 +36,10 @@ _REPORTER_STATUS_TRANSITIONS = {
 }
 
 
-def _match_requires_winner(match: dict) -> bool:
+def _match_requires_winner(match: dict, draw_ids=frozenset()) -> bool:
     """Only bracket matches need a decisive result; matchcamp draws are valid."""
+    if match.get("id") in draw_ids:
+        return False
     if match.get("bracket_id") is not None:
         return True
     return str(match.get("stage") or "").strip().lower() in _KNOCKOUT_STAGES
@@ -205,11 +208,15 @@ def admin_reporting(account_id: int, tournament_id: int):
     teams = all_rows("SELECT id,name FROM teams WHERE tournament_id=?", (int(tournament_id),))
     teams_by_id = {int(team["id"]): team["name"] for team in teams}
     resolver = _resolver_for_tournament(tournament_id)
+    tournament = one("SELECT * FROM tournaments WHERE id=?", (int(tournament_id),)) or {}
+    draw_ids = draw_match_ids(tournament, matches)
+    group_names = {int(g["id"]): g["name"] for g in all_rows("SELECT id,name FROM groups WHERE tournament_id=?", (int(tournament_id),))} if draw_ids else {}
     for match in matches:
+        match["requires_winner"] = _match_requires_winner(match, draw_ids)
         home = resolver.resolve(match.get("home_source")) if resolver else None
         away = resolver.resolve(match.get("away_source")) if resolver else None
-        match["home_team"] = home.team_name if home and home.resolved else _team_name(match.get("home_source"), teams_by_id)
-        match["away_team"] = away.team_name if away and away.resolved else _team_name(match.get("away_source"), teams_by_id)
+        match["home_team"] = home.team_name if home and home.resolved else (source_label(match.get("home_source"), group_names) if draw_ids else _team_name(match.get("home_source"), teams_by_id))
+        match["away_team"] = away.team_name if away and away.resolved else (source_label(match.get("away_source"), group_names) if draw_ids else _team_name(match.get("away_source"), teams_by_id))
         match["home_team_id"] = home.team_id if home and home.resolved else None
         match["away_team_id"] = away.team_id if away and away.resolved else None
         scores_present = match.get("home_score") is not None and match.get("away_score") is not None
@@ -218,7 +225,7 @@ def admin_reporting(account_id: int, tournament_id: int):
             match["status"] = lifecycle
         elif not scores_present:
             match["status"] = "scheduled"
-        elif _match_requires_winner(match) and winner_side(
+        elif match["requires_winner"] and winner_side(
             home_score=match.get("home_score"),
             away_score=match.get("away_score"),
             home_penalties=match.get("home_penalties"),
@@ -263,6 +270,15 @@ def set_reporter_match_status(
         raise ValueError("Den statusändringen är inte tillåten för matchrapportören.")
     if wanted == MATCH_FINISHED and (row.get("home_score") is None or row.get("away_score") is None):
         raise ValueError("Spara slutresultatet innan matchen avslutas.")
+
+    if wanted == MATCH_FINISHED:
+        tournament = one("SELECT * FROM tournaments WHERE id=?", (int(tournament_id),)) or {}
+        matches = all_rows("SELECT * FROM matches WHERE tournament_id=?", (int(tournament_id),))
+        if _match_requires_winner(row, draw_match_ids(tournament, matches)) and winner_side(
+            home_score=row.get("home_score"), away_score=row.get("away_score"),
+            home_penalties=row.get("home_penalties"), away_penalties=row.get("away_penalties"),
+        ) is None:
+            raise ValueError("En oavgjord utslagsmatch måste avgöras innan den avslutas.")
 
     now = datetime.now().isoformat(timespec="seconds")
     started_at = row.get("actual_started_at")
@@ -348,7 +364,12 @@ def save_result(
     old_manual_side = decided_side_from_team_id(
         row.get("decided_winner_id"), home_team_id=home_team_id, away_team_id=away_team_id
     )
-    requires_winner = _match_requires_winner(row)
+    tournament = one("SELECT * FROM tournaments WHERE id=?", (int(tournament_id),)) or {}
+    all_matches = all_rows("SELECT * FROM matches WHERE tournament_id=?", (int(tournament_id),))
+    draw_ids = draw_match_ids(tournament, all_matches)
+    requires_winner = _match_requires_winner(row, draw_ids)
+    if row["id"] in draw_ids and (home_penalties is not None or away_penalties is not None):
+        raise ValueError("Placeringsgruppspel har inga straffar. Spara matchresultatet utan straffresultat.")
     old_side = winner_side(
         home_score=row.get("home_score"),
         away_score=row.get("away_score"),
@@ -378,7 +399,6 @@ def save_result(
         new_side = old_manual_side
         new_decided_winner_id = row.get("decided_winner_id")
 
-    all_matches = all_rows("SELECT * FROM matches WHERE tournament_id=?", (int(tournament_id),))
     descendant_ids = transitive_downstream_match_ids(int(match_id), all_matches, row_value=_row_value)
     if old_side != new_side and descendant_ids:
         counts = _event_counts(descendant_ids)
@@ -400,15 +420,19 @@ def save_result(
             detail = " ".join(guidance) if guidance else impact.reason
             raise RuntimeError(f"{impact.reason} {detail}".strip())
 
+    # A rule change between reading the match and writing its score must not
+    # turn a stale penalty submission into a placement-group result.
+    rule_guard = " AND (SELECT playoff_tie_rule FROM tournaments WHERE id=?) IS ?" if "playoff_tie_rule" in tournament else ""
+    rule_params = (int(tournament_id), tournament.get("playoff_tie_rule")) if rule_guard else ()
     with connect() as conn:
         cursor = conn.execute(
-            """UPDATE matches
+            f"""UPDATE matches
                SET home_score=?,away_score=?,home_penalties=?,away_penalties=?,decided_winner_id=?
                WHERE id=? AND tournament_id=?
                  AND home_score IS ?
                  AND away_score IS ?
                  AND home_penalties IS ?
-                 AND away_penalties IS ?""",
+                 AND away_penalties IS ?{rule_guard}""",
             (
                 prepared.home_score,
                 prepared.away_score,
@@ -421,6 +445,7 @@ def save_result(
                 expected_away,
                 expected_home_penalties,
                 expected_away_penalties,
+                *rule_params,
             ),
         )
         if getattr(cursor, "rowcount", 1) == 0:

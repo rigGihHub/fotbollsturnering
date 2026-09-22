@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from cupnavi_core.bracket_validation import validate_bracket_sources
+from cupnavi_core.placement_playoffs import DRAW_RULE, all_placement_blocks, placement_tables, source_label
 from cupnavi_core.participant_resolution import (
     ParticipantResolver,
     enrich_match_participants,
@@ -18,7 +19,7 @@ PLAYOFF_FORMATS = {
     "Placeringsslutspel – ettor mot ettor osv.",
     "Manuellt slutspel",
 }
-TIE_RULES = {"Straffar direkt", "Förlängning + straffar"}
+TIE_RULES = {"Straffar direkt", "Förlängning + straffar", DRAW_RULE}
 
 
 def _table_columns(table_name: str) -> set[str]:
@@ -60,7 +61,12 @@ def _resolved_playoff_matches(tournament: dict, tournament_id: int) -> list[dict
         table_tiebreak=str(tournament.get("table_tiebreak") or "Målskillnad först"),
     )
     resolver = ParticipantResolver(teams=teams, matches=all_matches, standings_by_group=standings)
-    return enrich_match_participants(playoff_matches, resolver)
+    enriched = enrich_match_participants(playoff_matches, resolver)
+    group_names = {int(g["id"]): str(g["name"]) for g in all_rows("SELECT id,name FROM groups WHERE tournament_id=?", (int(tournament_id),))}
+    for match in enriched:
+        for side in ("home", "away"):
+            match[f"{side}_source_label"] = source_label(match.get(f"{side}_source"), group_names)
+    return enriched
 
 
 def _bracket_validation(tournament_id: int) -> dict:
@@ -100,15 +106,27 @@ def admin_playoffs(account_id: int, tournament_id: int):
     played_count = sum(1 for match in matches if match.get("home_score") is not None and match.get("away_score") is not None)
     locked_count = sum(1 for match in matches if bool(match.get("schedule_locked") or 0))
     validation = _bracket_validation(tournament_id)
+    blocks = all_placement_blocks(matches)
+    placement_mode = tournament.get("playoff_tie_rule") == DRAW_RULE and bool(blocks)
+    tables = []
+    if placement_mode:
+        from .participant_resolution_repository import tournament_participant_resolver
+        resolver = tournament_participant_resolver(tournament)
+        groups = all_rows("SELECT id,name FROM groups WHERE tournament_id=?", (int(tournament_id),))
+        tables = placement_tables(tournament, matches, {int(g["id"]): g["name"] for g in groups}, resolver)
     return {
+        "placement_mode": placement_mode,
+        "placement_eligible": bool(blocks),
+        "placement_groups": tables,
         "playoff_format": tournament.get("playoff_format") or "Inget slutspel",
         "bronze_match": bool(tournament.get("bronze_match") or 0),
         "playoff_tie_rule": tournament.get("playoff_tie_rule") or "Straffar direkt",
-        "playoff_extra_time_minutes": int(tournament.get("playoff_extra_time_minutes") or 0),
+        "playoff_extra_time_minutes": int(tournament.get("playoff_extra_time_minutes", tournament.get("extra_time_minutes", 0)) or 0),
         "brackets": brackets,
         "bracket_count": len(brackets),
         "match_count": len(matches),
         "played_count": played_count,
+        "rules_locked": bool(played_count or any(m.get("match_status") in {"live", "halftime", "finished"} for m in matches)),
         "locked_count": locked_count,
         "structure_locked": bool(brackets or matches),
         "bracket_validation": validation,
@@ -133,7 +151,7 @@ def update_playoff_settings(account_id: int, tournament_id: int, values: dict):
         raise ValueError("Förlängningstid måste vara ett heltal") from exc
     if extra_minutes < 0 or extra_minutes > 60:
         raise ValueError("Förlängningstid måste vara mellan 0 och 60 minuter")
-    if tie_rule == "Straffar direkt":
+    if tie_rule != "Förlängning + straffar":
         extra_minutes = 0
 
     structure_change = playoff_format != current["playoff_format"] or bronze_match != current["bronze_match"]
@@ -141,22 +159,55 @@ def update_playoff_settings(account_id: int, tournament_id: int, values: dict):
         raise ValueError(
             "Slutspelsstrukturen kan inte ändras när slutspelsträd eller slutspelsmatcher redan finns. Hantera det befintliga slutspelet först"
         )
-    if current["played_count"] and (
+    if current["rules_locked"] and (
         tie_rule != current["playoff_tie_rule"] or extra_minutes != current["playoff_extra_time_minutes"]
     ):
-        raise ValueError("Regler för avgörande kan inte ändras efter att slutspelsmatcher har spelats")
+        raise ValueError("Regler för avgörande kan inte ändras efter att slutspelsmatcher har startats eller spelats")
+
+    converting = tie_rule == DRAW_RULE and current["playoff_tie_rule"] != DRAW_RULE
+    if tie_rule == DRAW_RULE and not current["placement_eligible"]:
+        raise ValueError("Tabellavgörande kräver kompletta placeringsgrupper där minst tre lag möter varandra en gång. Vinnar-/förlorarkopplingar får inte finnas.")
 
     with connect() as con:
+        con.execute("BEGIN")
+        dirty_before = con.execute("SELECT schedule_dirty FROM tournaments WHERE id=?", (int(tournament_id),)).fetchone()[0]
+        cursor = con.execute("SELECT * FROM matches WHERE tournament_id=?", (int(tournament_id),))
+        columns = [d[0] for d in cursor.description]
+        fresh_matches = [dict(zip(columns, row)) for row in cursor.fetchall()]
+        if tie_rule == DRAW_RULE and not all_placement_blocks(fresh_matches):
+            raise ValueError("Matchschemat har ändrats. Ladda om och kontrollera placeringsgrupperna.")
+        if tie_rule != current["playoff_tie_rule"] and any(m.get("bracket_id") is not None and m.get("match_status") in {"live", "halftime", "finished"} for m in fresh_matches):
+            raise ValueError("Reglerna kan inte ändras när en slutspelsmatch har startats eller spelats.")
         tournament_columns = {str(row[1]) for row in con.execute("PRAGMA table_info(tournaments)").fetchall()}
         updates = {"playoff_format": playoff_format, "bronze_match": 1 if bronze_match else 0}
         if "playoff_tie_rule" in tournament_columns:
             updates["playoff_tie_rule"] = tie_rule
-        if "playoff_extra_time_minutes" in tournament_columns:
-            updates["playoff_extra_time_minutes"] = extra_minutes
-        con.execute(
-            f"UPDATE tournaments SET {','.join(f'{key}=?' for key in updates)},schedule_dirty=1,is_published=0 WHERE id=?",
-            (*[updates[key] for key in updates], int(tournament_id)),
+        for field in ("extra_time_minutes", "playoff_extra_time_minutes"):
+            if field in tournament_columns:
+                updates[field] = extra_minutes
+        if converting:
+            updates["bronze_match"] = 0
+        rule_change = tie_rule != current["playoff_tie_rule"] or extra_minutes != current["playoff_extra_time_minutes"]
+        guard = ""
+        params = []
+        if rule_change:
+            guard = " AND COALESCE(playoff_tie_rule,'Straffar direkt')=? AND NOT EXISTS (SELECT 1 FROM matches WHERE tournament_id=? AND bracket_id IS NOT NULL AND (home_score IS NOT NULL OR away_score IS NOT NULL))"
+            params = [current["playoff_tie_rule"], int(tournament_id)]
+        revision = ",admin_revision=COALESCE(admin_revision,0)+1" if "admin_revision" in tournament_columns else ""
+        cursor = con.execute(
+            f"UPDATE tournaments SET {','.join(f'{key}=?' for key in updates)},schedule_dirty=1,is_published=0{revision} WHERE id=?{guard}",
+            (*[updates[key] for key in updates], int(tournament_id), *params),
         )
+        if getattr(cursor, "rowcount", 1) == 0:
+            raise ValueError("Slutspelsreglerna eller resultaten har ändrats. Ladda om innan du sparar igen.")
+        if converting:
+            for bracket in current["brackets"]:
+                sources = {m.get(side) for m in fresh_matches if m.get("bracket_id")==bracket["id"] for side in ("home_source", "away_source")}
+                con.execute("UPDATE brackets SET size=?,bronze_match=0 WHERE id=? AND tournament_id=?", (len(sources), bracket["id"], int(tournament_id)))
+        if tie_rule == DRAW_RULE:
+            # The reviewed schedule and all match times are unchanged. Preserve
+            # any pre-existing dirty flag, including on DBs with dirty triggers.
+            con.execute("UPDATE tournaments SET schedule_dirty=? WHERE id=?", (dirty_before, int(tournament_id)))
         commit = getattr(con, "commit", None)
         if callable(commit):
             commit()
