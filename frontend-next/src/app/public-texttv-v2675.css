@@ -14,3 +14,10 @@
 .texttv--standings tbody tr:hover{background:#101010}
 .texttv--standings td strong{color:inherit!important;font-weight:900}
 @media(max-width:760px){.texttv--standings .texttv__header{font-size:13px!important}.texttv--standings table{min-width:450px!important;font-size:12px!important}.texttv--standings th,.texttv--standings td{height:24px;padding:3px 6px!important}}
+
+
+/* v2.7.5 mobile override: never inherit the legacy 450px Text-TV table width. */
+@media(max-width:760px){
+ .page-shell--public-v3 .texttv--standings table{width:100%!important;min-width:0!important;max-width:100%!important;table-layout:fixed!important}
+ .page-shell--public-v3 .texttv--standings th,.page-shell--public-v3 .texttv--standings td{display:table-cell!important}
+}
