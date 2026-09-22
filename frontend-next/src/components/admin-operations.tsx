@@ -9,6 +9,7 @@ import TeamRoleCodeAdmin from "./team-role-code-admin";
 
 const TOKEN_KEY = "cupnavi_admin_session_v629";
 const VERIFIED_CACHE_KEY = "cupnavi_admin_verified_v1";
+const VERIFIED_PERSISTENT_CACHE_KEY = "cupnavi_admin_verified_persistent_v1";
 const CUP_KEY = "cupnavi_admin_active_cup_v651";
 
 type Cup = { id:number; name:string; role:string; public_slug?:string|null };
@@ -23,14 +24,17 @@ function requestedCupId(cups:Cup[]) {
 }
 
 function readVerified():VerifiedCache|null {
-  try {
-    const raw=sessionStorage.getItem(VERIFIED_CACHE_KEY);
-    if(!raw)return null;
-    const parsed=JSON.parse(raw) as VerifiedCache;
-    const storedToken=localStorage.getItem(TOKEN_KEY);
-    if(!storedToken||parsed.token!==storedToken||!Array.isArray(parsed.cups))return null;
-    return parsed;
-  } catch { return null; }
+  const storedToken=localStorage.getItem(TOKEN_KEY);
+  if(!storedToken)return null;
+  for (const [storage,key] of [[sessionStorage,VERIFIED_CACHE_KEY],[localStorage,VERIFIED_PERSISTENT_CACHE_KEY]] as const) {
+    try {
+      const raw=storage.getItem(key);
+      if(!raw)continue;
+      const parsed=JSON.parse(raw) as VerifiedCache;
+      if(parsed.token===storedToken&&Array.isArray(parsed.cups))return parsed;
+    } catch {}
+  }
+  return null;
 }
 
 function activeHeavyStep():HeavyStep {

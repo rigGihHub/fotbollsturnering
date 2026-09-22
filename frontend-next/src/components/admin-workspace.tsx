@@ -314,7 +314,8 @@ export default function AdminWorkspace({verifiedSession=null,children=null}:{ver
       data = await request<SessionPayload>("/api/admin/session",{method:"POST",body:JSON.stringify({email,password})});
       if (!data.token) throw new Error("API:t returnerade ingen session.");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Inloggningen misslyckades.");
+      if (err instanceof ApiError && err.status === 401) setError("Fel e-postadress eller lösenord.");
+      else setError(err instanceof Error ? err.message : "Inloggningen misslyckades.");
       setBusy(false);
       return;
     }
@@ -605,7 +606,7 @@ export default function AdminWorkspace({verifiedSession=null,children=null}:{ver
           <label>Lösenord<input type="password" autoComplete="current-password" value={password} onChange={e=>setPassword(e.target.value)} required /></label>
         </div>
         <div className="admin-form-footer"><span role={error?"alert":undefined}>{error || (apiStatus==="offline" ? "Servern vaknar eller anslutningen är tillfälligt bruten." : "")}</span><button type="submit" disabled={busy||apiStatus==="offline"}>{busy?"Loggar in…":"Logga in"}</button></div>
-        <details className="admin-login-help"><summary>Glömt lösenordet?</summary><p>En behörig ägare behöver ange ett nytt lösenord. CupNavi visar aldrig befintliga lösenord.</p></details>
+        <details className="admin-login-help"><summary>Glömt lösenordet?</summary><p>Lösenord kan inte visas eller hämtas ur CupNavi. En behörig ägare behöver ange ett nytt lösenord.</p></details>
       </form>
     </main>;
   }

@@ -16,6 +16,7 @@ import {
 
 const TOKEN_KEY = "cupnavi_admin_session_v629";
 const VERIFIED_CACHE_KEY = "cupnavi_admin_verified_v1";
+const VERIFIED_PERSISTENT_CACHE_KEY = "cupnavi_admin_verified_persistent_v1";
 const BACKGROUND_KEY = "cupnavi_admin_last_background_v1";
 const MOBILE_RESUME_GRACE_MS = 30_000;
 const UNAUTHORIZED_CONFIRMATIONS = 2;
@@ -27,22 +28,29 @@ type SessionPayload = { account:Account; cups:Cup[] };
 
 function clearVerifiedCache() {
   try { sessionStorage.removeItem(VERIFIED_CACHE_KEY); } catch {}
+  try { localStorage.removeItem(VERIFIED_PERSISTENT_CACHE_KEY); } catch {}
 }
 
 function writeVerifiedCache(token:string,payload:SessionPayload) {
+  const cache = JSON.stringify({token,account:payload.account,cups:payload.cups || [],verifiedAt:Date.now()});
   try {
-    sessionStorage.setItem(VERIFIED_CACHE_KEY,JSON.stringify({token,account:payload.account,cups:payload.cups || [],verifiedAt:Date.now()}));
+    sessionStorage.setItem(VERIFIED_CACHE_KEY,cache);
+  } catch {}
+  try {
+    localStorage.setItem(VERIFIED_PERSISTENT_CACHE_KEY,cache);
   } catch {}
 }
 
 function readVerifiedCache(token:string): (SessionPayload & { token:string }) | null {
-  try {
-    const cached = JSON.parse(sessionStorage.getItem(VERIFIED_CACHE_KEY) || "null");
-    if (cached?.token !== token || !cached.account || !Array.isArray(cached.cups)) return null;
-    return { account:cached.account, cups:cached.cups, token };
-  } catch {
-    return null;
+  for (const storage of [sessionStorage, localStorage]) {
+    try {
+      const key = storage === sessionStorage ? VERIFIED_CACHE_KEY : VERIFIED_PERSISTENT_CACHE_KEY;
+      const cached = JSON.parse(storage.getItem(key) || "null");
+      if (cached?.token !== token || !cached.account || !Array.isArray(cached.cups)) continue;
+      return { account:cached.account, cups:cached.cups, token };
+    } catch {}
   }
+  return null;
 }
 
 export default function AdminAuthShell() {

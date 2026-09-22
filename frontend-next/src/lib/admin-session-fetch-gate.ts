@@ -2,6 +2,7 @@ import { CLIENT_API_BASE } from "./client-api";
 
 const TOKEN_KEY = "cupnavi_admin_session_v629";
 const VERIFIED_CACHE_KEY = "cupnavi_admin_verified_v1";
+const VERIFIED_PERSISTENT_CACHE_KEY = "cupnavi_admin_verified_persistent_v1";
 
 type VerifiedCache = {
   token?: string;
@@ -16,15 +17,16 @@ type WindowWithGate = Window & {
 };
 
 function cachedSessionFor(token:string):VerifiedCache|null {
-  try {
-    const raw = sessionStorage.getItem(VERIFIED_CACHE_KEY);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw) as VerifiedCache;
-    if (parsed.token !== token || !parsed.account || !Array.isArray(parsed.cups)) return null;
-    return parsed;
-  } catch {
-    return null;
+  for (const [storage,key] of [[sessionStorage,VERIFIED_CACHE_KEY],[localStorage,VERIFIED_PERSISTENT_CACHE_KEY]] as const) {
+    try {
+      const raw = storage.getItem(key);
+      if (!raw) continue;
+      const parsed = JSON.parse(raw) as VerifiedCache;
+      if (parsed.token !== token || !parsed.account || !Array.isArray(parsed.cups)) continue;
+      return parsed;
+    } catch {}
   }
+  return null;
 }
 
 function sessionResponse(cache:VerifiedCache):Response {

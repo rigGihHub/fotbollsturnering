@@ -2,6 +2,7 @@ import base64
 import json
 import re
 from datetime import date
+from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 
 
@@ -15,6 +16,38 @@ def _output_text(payload):
     if payload.get('output_text'):
         return str(payload['output_text'])
     raise ValueError('AI-tjänsten returnerade inget läsbart svar.')
+
+
+def _file_data(raw, mime_type):
+    return f"data:{mime_type};base64,{base64.b64encode(raw).decode('ascii')}"
+
+
+def _runtime_from_http_error(exc):
+    body = ''
+    try:
+        body = exc.read().decode('utf-8', errors='replace')
+    except Exception:
+        body = ''
+    detail = ''
+    if body:
+        try:
+            payload = json.loads(body)
+            error = payload.get('error') if isinstance(payload, dict) else None
+            if isinstance(error, dict):
+                detail = str(error.get('message') or '').strip()
+            elif error:
+                detail = str(error).strip()
+        except Exception:
+            detail = body[:500].strip()
+    if exc.code == 400:
+        message = 'AI-avläsningen misslyckades: PDF- eller bildfilen kunde inte läsas av AI-tjänsten. Prova att exportera PDF:en på nytt, ladda upp färre sidor eller fotografera schemat som bild.'
+        if detail:
+            message += f' Teknisk detalj: {detail}'
+        return RuntimeError(message)
+    message = f'AI-avläsningen misslyckades: AI-tjänsten svarade med HTTP {exc.code}'
+    if detail:
+        message += f': {detail}'
+    return RuntimeError(message)
 
 
 def _normalize(result):
@@ -60,7 +93,7 @@ def extract_cup_setup_from_document(raw, filename, mime_type, api_key, *, model=
     image_url = None
     file_input = None
     if lower.endswith('.pdf') or mime == 'application/pdf':
-        file_input = {'type': 'input_file', 'filename': filename or 'cupprogram.pdf', 'file_data': base64.b64encode(raw).decode('ascii')}
+        file_input = {'type': 'input_file', 'filename': filename or 'cupprogram.pdf', 'file_data': _file_data(raw, 'application/pdf')}
     elif lower.endswith('.txt') or mime.startswith('text/'):
         text = raw.decode('utf-8', errors='replace')
     elif mime.startswith('image/') or lower.endswith(('.png', '.jpg', '.jpeg', '.webp')):
@@ -137,6 +170,8 @@ def extract_cup_setup_from_document(raw, filename, mime_type, api_key, *, model=
     try:
         with opener(request, timeout=timeout_seconds) as response:
             payload = json.loads(response.read().decode('utf-8'))
+    except HTTPError as exc:
+        raise _runtime_from_http_error(exc) from exc
     except Exception as exc:
         raise RuntimeError(f'AI-avläsningen misslyckades: {exc}') from exc
     if payload.get('error'):
@@ -191,7 +226,7 @@ def extract_cup_setup_from_documents(documents, api_key, *, model='gpt-5.6-luna'
         mime = str(mime_type or '')
         content.append({'type': 'input_text', 'text': f'FIL {index}: {filename}'})
         if lower.endswith('.pdf') or mime == 'application/pdf':
-            content.append({'type': 'input_file', 'filename': filename, 'file_data': base64.b64encode(raw).decode('ascii')})
+            content.append({'type': 'input_file', 'filename': filename, 'file_data': _file_data(raw, 'application/pdf')})
         elif lower.endswith('.txt') or mime.startswith('text/'):
             content.append({'type': 'input_text', 'text': raw.decode('utf-8', errors='replace')[:60000]})
         elif mime.startswith('image/') or lower.endswith(('.png', '.jpg', '.jpeg', '.webp')):
@@ -261,6 +296,8 @@ def extract_cup_setup_from_documents(documents, api_key, *, model='gpt-5.6-luna'
     try:
         with opener(request, timeout=timeout_seconds) as response:
             payload = json.loads(response.read().decode('utf-8'))
+    except HTTPError as exc:
+        raise _runtime_from_http_error(exc) from exc
     except Exception as exc:
         raise RuntimeError(f'AI-avläsningen misslyckades: {exc}') from exc
     if payload.get('error'):
