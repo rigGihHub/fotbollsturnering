@@ -3,15 +3,19 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def test_referee_route_preserves_cup_and_redirects_to_reporter():
+def test_referee_route_uses_dedicated_referee_client():
     page = (ROOT / "frontend-next/src/app/referee/page.tsx").read_text()
-    assert 'redirect(cup?`/reporter?cup=${encodeURIComponent(cup)}`:"/reporter")' in page
+    client = (ROOT / "frontend-next/src/components/referee-client.tsx").read_text()
+    assert "RefereeClient" in page
+    assert "/api/referee/session" in client
+    assert "/api/referee/assignments" in client
 
 
-def test_admin_exposes_one_reporting_login_model():
-    operations = (ROOT / "frontend-next/src/components/admin-operations.tsx").read_text()
-    assert "RefereeRoleCodeAdmin" not in operations
-    assert "En gemensam rapportörskod för resultat" in operations
+def test_admin_exposes_referee_codes_next_to_referee_assignments():
+    referee_admin = (ROOT / "frontend-next/src/components/referee-admin.tsx").read_text()
+    assert "role-codes/referees" in referee_admin
+    assert "NY DOMARKOD" in referee_admin
+    assert "Öppna domarvy" in referee_admin
 
 
 def test_referee_registry_and_assignments_remain_available():

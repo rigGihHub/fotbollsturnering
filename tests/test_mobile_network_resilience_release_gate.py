@@ -16,11 +16,13 @@ def test_public_mobile_defers_heavy_secondary_data():
 def test_public_mobile_layout_protects_long_names_and_touch_filters():
     assert "white-space:normal!important" in CSS
     assert "grid-template-columns:repeat(3,1fr)!important" in CSS
-    assert "overflow-x:auto!important" in CSS
-    assert "-webkit-overflow-scrolling:touch" in CSS
+    assert "Public v3.3 mobile cupday table/nav fix" in CSS
+    assert ".page-shell--public-v3 .texttv--standings .texttv__scroll{max-width:100%!important;overflow:hidden!important}" in CSS
+    assert "section:has(.table-stack){padding-bottom:118px!important}" in CSS
 
 def test_public_mobile_tables_and_footer_do_not_hide_content():
     assert "Public v3.2 mobile QA" in CSS
+    assert "Public v3.3 mobile cupday table/nav fix" in CSS
     assert ".page-shell--public-v3 .texttv--standings table" in CSS
     assert "min-width:0!important" in CSS
     assert "table-layout:fixed!important" in CSS
@@ -31,6 +33,13 @@ def test_public_cupinfo_hides_missing_match_duration():
     assert "const hasMatchDuration=(cup.tournament.minutes_per_half??0)>0" in PUBLIC
     assert "{hasMatchDuration&&<div><span>Matchtid</span>" in PUBLIC
     assert '<div><span>Matchtid</span><b>{(cup.tournament.minutes_per_half??0)>0' not in PUBLIC
+
+def test_public_cupinfo_is_visitor_oriented():
+    assert "public-info-hero--visitor" in PUBLIC
+    assert "Hitta rätt från start" in PUBLIC
+    assert "Behöver du fråga något?" in PUBLIC
+    assert "Vägen vidare" in PUBLIC
+    assert "visitorInfoText" in PUBLIC
 
 def test_admin_session_survives_transient_api_failure():
     assert "Tillfälligt anslutningsproblem. Din inloggning ligger kvar" in ADMIN

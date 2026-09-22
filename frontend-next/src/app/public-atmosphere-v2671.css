@@ -343,3 +343,19 @@ body:has(.page-shell--matchday){background-image:radial-gradient(circle,rgba(16,
  .page-shell--public-v3 .mobile-bottom-nav button span{margin-bottom:3px!important;font-size:15px!important}
  body:has(.page-shell--public-v3) .site-footer{margin-top:0!important;padding-top:22px!important;padding-bottom:calc(122px + env(safe-area-inset-bottom))!important}
 }
+
+/* Public v3.3 mobile cupday table/nav fix - standings must fit one phone screen. */
+@media(max-width:700px){
+ .page-shell--public-v3{overflow-x:hidden!important;padding-bottom:178px!important}
+ .page-shell--public-v3 section:has(.table-stack){padding-bottom:118px!important}
+ .page-shell--public-v3 .texttv--standings{max-width:100%!important;overflow:hidden!important}
+ .page-shell--public-v3 .texttv--standings .texttv__scroll{max-width:100%!important;overflow:hidden!important}
+ .page-shell--public-v3 .texttv--standings table{width:100%!important;min-width:0!important;max-width:100%!important;table-layout:fixed!important;font-size:12px!important}
+ .page-shell--public-v3 .texttv--standings th,.page-shell--public-v3 .texttv--standings td{padding:4px 4px!important;white-space:nowrap!important}
+ .page-shell--public-v3 .texttv--standings th:nth-child(1),.page-shell--public-v3 .texttv--standings td:nth-child(1){width:28px!important}
+ .page-shell--public-v3 .texttv--standings th:nth-child(2),.page-shell--public-v3 .texttv--standings td:nth-child(2){width:auto!important;overflow:hidden!important;text-overflow:ellipsis!important}
+ .page-shell--public-v3 .texttv--standings th:nth-child(3),.page-shell--public-v3 .texttv--standings td:nth-child(3){width:25px!important}
+ .page-shell--public-v3 .texttv--standings th:nth-child(7),.page-shell--public-v3 .texttv--standings td:nth-child(7){width:38px!important}
+ .page-shell--public-v3 .texttv--standings th:nth-child(8),.page-shell--public-v3 .texttv--standings td:nth-child(8){width:28px!important}
+ .page-shell--public-v3 .mobile-bottom-nav{bottom:max(14px,env(safe-area-inset-bottom))!important}
+}

@@ -2,8 +2,8 @@
 
 Each referee gets an individual four-digit code. Sessions are bound to both the
 cup and referee and are invalidated immediately when that referee's code is
-rotated. The portal is intentionally read-only: it exposes only the referee's
-own assigned matches.
+rotated. The portal exposes only the referee's own assigned matches and uses
+the shared result writer for optimistic concurrency when saving scores.
 """
 from __future__ import annotations
 
@@ -20,8 +20,10 @@ from pydantic import BaseModel
 
 from cupnavi_core.rate_limit import consume_rate_limit
 from cupnavi_core.team_portal import generate_short_numeric_code, new_code_hash, verify_access_code
+from .admin_auth import OWNER_ACCOUNT_ID
 from .admin_repository import _has_tournament_access
 from .participant_resolution_repository import tournament_participant_resolver
+from .publish_reporting_repository import save_result
 from .repository import all_rows, connect, one
 
 SESSION_TTL_SECONDS = 60 * 60 * 8
@@ -31,6 +33,17 @@ class RefereeLogin(BaseModel):
     cup: str
     referee_id: int
     code: str
+
+
+class RefereeResultWrite(BaseModel):
+    home_score: int
+    away_score: int
+    home_penalties: int | None = None
+    away_penalties: int | None = None
+    expected_home_score: int | None = None
+    expected_away_score: int | None = None
+    expected_home_penalties: int | None = None
+    expected_away_penalties: int | None = None
 
 
 def _table_columns(table: str) -> set[str]:
@@ -225,8 +238,14 @@ def _assignments(tournament_id: int, referee_id: int):
     if not match_column:
         return {"referee": {"id": int(referee["id"]), "name": referee.get("name")}, "matches": []}
     resolver = tournament_participant_resolver(tournament)
+    score_columns = ["home_score", "away_score"]
+    if "home_penalties" in match_columns:
+        score_columns.append("home_penalties")
+    if "away_penalties" in match_columns:
+        score_columns.append("away_penalties")
+    score_sql = ",".join(score_columns)
     rows = all_rows(
-        f"""SELECT id,stage,match_no,scheduled_start,pitch_number,home_source,away_source,home_score,away_score
+        f"""SELECT id,stage,match_no,scheduled_start,pitch_number,home_source,away_source,{score_sql}
             FROM matches WHERE tournament_id=? AND {match_column}=?
             ORDER BY CASE WHEN scheduled_start IS NULL THEN 1 ELSE 0 END,scheduled_start,id""",
         (int(tournament_id), int(referee_id)),
@@ -241,6 +260,19 @@ def _assignments(tournament_id: int, referee_id: int):
         item["played"] = row.get("home_score") is not None and row.get("away_score") is not None
         result.append(item)
     return {"referee": {"id": int(referee["id"]), "name": referee.get("name")}, "matches": result}
+
+
+def _require_referee_match(tournament_id: int, referee_id: int, match_id: int):
+    match_columns = _table_columns("matches")
+    match_column = "referee_id" if "referee_id" in match_columns else "assigned_referee_id" if "assigned_referee_id" in match_columns else None
+    if not match_column:
+        raise HTTPException(404, "Domaren har ingen matchtilldelning")
+    row = one(
+        f"SELECT id FROM matches WHERE id=? AND tournament_id=? AND {match_column}=?",
+        (int(match_id), int(tournament_id), int(referee_id)),
+    )
+    if not row:
+        raise HTTPException(404, "Matchen saknas eller är inte tilldelad domaren")
 
 
 def register_referee_access_routes(app, admin_identity):
@@ -296,3 +328,26 @@ def register_referee_access_routes(app, admin_identity):
         if result is None:
             raise HTTPException(404, "Domare eller cup saknas")
         return result
+
+    @app.put("/api/referee/assignments/matches/{match_id}")
+    def referee_put_result(match_id: int, payload: RefereeResultWrite, authorization: str | None = Header(default=None)):
+        identity = _identity(authorization)
+        _require_referee_match(int(identity["tid"]), int(identity["rid"]), match_id)
+        try:
+            return save_result(
+                OWNER_ACCOUNT_ID,
+                int(identity["tid"]),
+                match_id,
+                payload.home_score,
+                payload.away_score,
+                payload.expected_home_score,
+                payload.expected_away_score,
+                home_penalties=payload.home_penalties,
+                away_penalties=payload.away_penalties,
+                expected_home_penalties=payload.expected_home_penalties,
+                expected_away_penalties=payload.expected_away_penalties,
+            )
+        except ValueError as exc:
+            raise HTTPException(422, str(exc)) from exc
+        except RuntimeError as exc:
+            raise HTTPException(409, str(exc)) from exc
