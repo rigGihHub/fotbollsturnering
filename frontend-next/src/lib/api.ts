@@ -6,7 +6,7 @@ export class CupNaviApiError extends Error {
   constructor(public readonly status:number, message:string, public readonly retryAfterMs?:number){super(message);this.name="CupNaviApiError";}
 }
 
-const RETRY_DELAYS_MS=[300];
+const RETRY_DELAYS_MS=[300,900,1600];
 const REQUEST_TIMEOUT_MS=6500;
 
 function retryAfterMs(response:Response):number|undefined {
@@ -27,14 +27,17 @@ async function apiGet<T>(path: string): Promise<T> {
       const response = await fetch(`${API_BASE}${path}${separator}_cn_attempt=${attempt}`,{ cache: "no-store", signal:AbortSignal.timeout(REQUEST_TIMEOUT_MS) });
       if(response.ok)return response.json() as Promise<T>;
       const error=new CupNaviApiError(response.status,`CupNavi API svarade ${response.status}`,retryAfterMs(response));
-      if(response.status<500||attempt===RETRY_DELAYS_MS.length)throw error;
+      const retryable=response.status===429||response.status>=500;
+      if(!retryable||attempt===RETRY_DELAYS_MS.length)throw error;
       lastError=error;
     }catch(error){
-      if(error instanceof CupNaviApiError&&error.status<500)throw error;
+      if(error instanceof CupNaviApiError&&error.status!==429&&error.status<500)throw error;
       lastError=error;
       if(attempt===RETRY_DELAYS_MS.length)throw error;
     }
-    await new Promise(resolve=>setTimeout(resolve,RETRY_DELAYS_MS[attempt]));
+    const retryAfter=lastError instanceof CupNaviApiError?lastError.retryAfterMs:undefined;
+    const delay=Math.min(Math.max(retryAfter||0,RETRY_DELAYS_MS[attempt]),2500);
+    await new Promise(resolve=>setTimeout(resolve,delay));
   }
   throw lastError;
 }

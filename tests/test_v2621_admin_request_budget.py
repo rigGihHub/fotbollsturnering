@@ -30,9 +30,11 @@ def test_authenticated_workspace_reuses_authoritative_session():
 
 def test_public_api_retries_only_transient_failures():
     api = (ROOT / "frontend-next" / "src" / "lib" / "api.ts").read_text(encoding="utf-8")
-    assert "RETRY_DELAYS_MS=[750,1500]" in api
-    assert "response.status<500" in api
-    assert "error.status<500" in api
+    assert "RETRY_DELAYS_MS=[300,900,1600]" in api
+    assert "const retryable=response.status===429||response.status>=500" in api
+    assert "if(!retryable||attempt===RETRY_DELAYS_MS.length)throw error" in api
+    assert "error.status!==429&&error.status<500" in api
+    assert "retryAfter||0" in api
     assert '`${API_BASE}${path}${separator}_cn_attempt=${attempt}`' in api
     page = (ROOT / "frontend-next" / "src" / "app" / "cup" / "[publicKey]" / "page.tsx").read_text(encoding="utf-8")
     assert 'dynamic="force-dynamic"' in page

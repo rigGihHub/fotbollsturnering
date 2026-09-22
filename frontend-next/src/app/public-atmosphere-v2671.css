@@ -69,7 +69,7 @@ body:has(.page-shell--matchday){background-image:radial-gradient(circle,rgba(16,
   .page-shell--matchday .section-heading,
   .page-shell--matchday .match-filter-row,
   .page-shell--matchday .match-grid{max-width:none!important;width:100%!important}
-  .page-shell--matchday .section-heading{display:flex!important;align-items:end!important;gap:20px!important;margin-top:22px!important}
+  .page-shell--matchday .section-heading{display:flex!important;align-items:flex-end!important;gap:20px!important;margin-top:22px!important}
   .page-shell--matchday .section-heading h2{font-size:40px!important}
   .page-shell--matchday .match-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:16px!important}
   .page-shell--matchday .match-card{min-height:132px!important}
@@ -96,7 +96,7 @@ body:has(.page-shell--matchday){background-image:radial-gradient(circle,rgba(16,
   .page-shell--public-v3 .edition-nav--desktop button:last-child{border-right:0!important}
   .page-shell--public-v3 .edition-nav--desktop button.is-active{background:#102632!important;color:#fff!important}
   .page-shell--public-v3 .edition-nav--desktop button span{font-size:9px!important;opacity:.55}
-  .page-shell--public-v3 .section-heading{display:grid!important;grid-template-columns:auto 1fr!important;grid-template-areas:"eyebrow eyebrow" "title copy"!important;align-items:end!important;column-gap:24px!important;width:100%!important;margin:0 0 16px!important}
+  .page-shell--public-v3 .section-heading{display:grid!important;grid-template-columns:auto 1fr!important;grid-template-areas:"eyebrow eyebrow" "title copy"!important;align-items:flex-end!important;column-gap:24px!important;width:100%!important;margin:0 0 16px!important}
   .page-shell--public-v3 .section-heading>span{grid-area:eyebrow;font-size:10px!important;letter-spacing:.16em!important;color:#56717d!important}
   .page-shell--public-v3 .section-heading h2{grid-area:title;margin:0!important;font-size:34px!important;line-height:1.05!important}
   .page-shell--public-v3 .section-heading p{grid-area:copy;margin:0 0 2px!important;color:#63747b!important}
