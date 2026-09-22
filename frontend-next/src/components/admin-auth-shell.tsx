@@ -7,6 +7,7 @@ import AdminStepFlow from "./admin-step-flow";
 import AdminLazyExtras from "./admin-lazy-extras";
 import CupCreateLauncher from "./cup-create-launcher-resilient";
 import ApiWakeGuard from "./api-wake-guard";
+import AppOpening from "./app-opening";
 import { CLIENT_API_BASE } from "../lib/client-api";
 import { installAdminRequestCoordinator } from "../lib/admin-request-coordinator";
 import {
@@ -106,7 +107,7 @@ export default function AdminAuthShell() {
         setVerifiedSession(cachedSession);
         setState("authenticated");
       } else {
-        setState(current => current === "authenticated" ? current : "checking");
+        setState(current => current === "authenticated" || current === "waiting" ? current : "checking");
       }
       try {
         const controller = new AbortController();
@@ -195,15 +196,7 @@ export default function AdminAuthShell() {
   }, [authKey]);
 
   if (state === "checking" || state === "waiting") {
-    return (
-      <main className="admin-main admin-starting" aria-live="polite">
-        <section className="admin-panel">
-          <div className="admin-panel__top"><span>CUPNAVI</span><strong>{state === "waiting" ? "ÅTERANSLUTER" : "KONTROLLERAR SESSION"}</strong></div>
-          <h2>{state === "waiting" ? "Återansluter utan att logga ut dig" : "Öppnar administrationen"}</h2>
-          <p>{state === "waiting" ? "Din sparade inloggning ligger kvar medan CupNavi kontrollerar anslutningen igen." : "CupNavi verifierar din session innan admin visas."}</p>
-        </section>
-      </main>
-    );
+    return <AppOpening waiting={state === "waiting"} />;
   }
 
   if (state === "unauthenticated") {
