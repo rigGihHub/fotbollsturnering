@@ -1,0 +1,6 @@
+.forecast,.status{min-width:0;padding:10px 14px;border-top:1px solid #ccd8da;background:#edf5f5;color:#18343c;font-family:Arial,sans-serif;letter-spacing:normal;text-transform:none;overflow-wrap:anywhere}
+.label,.source,.status{font-size:12px;line-height:1.5}
+.label{display:block}
+.values{display:flex;flex-wrap:wrap;gap:5px 12px;align-items:center;font-size:13px;line-height:1.5}
+.values strong{font-size:21px;font-variant-numeric:tabular-nums}
+.source{display:inline-block;color:#365660;text-decoration:underline;text-underline-offset:2px}

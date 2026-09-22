@@ -59,7 +59,10 @@ def test_public_weather_defaults_on_and_admin_toggles_are_persisted():
     assert "show_public_weather: bool | None = None" in MAIN
     assert "show_public_weather_configured: bool | None = None" in MAIN
     assert "const showPublicWeather=!weatherConfigured||Boolean(cup.tournament.show_public_weather)" in PUBLIC
-    assert "showShare={false}" in PUBLIC
+    # Weather now belongs to each match. The rendered on/off behavior and
+    # shared hourly requests are exercised by test:match-weather in CI.
+    assert "public-default-weather" not in PUBLIC
+    assert "weather={matchWeather(match)}" in PUBLIC
 
 def test_reporter_has_persistent_offline_queue_and_conflict_states():
     assert "cupnavi_reporter_queue_v1" in QUEUE

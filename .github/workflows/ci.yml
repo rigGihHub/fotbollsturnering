@@ -79,6 +79,9 @@ jobs:
       - name: Placement playoff regression
         run: npm run test:placement-playoffs
 
+      - name: Match weather regression
+        run: npm run test:match-weather
+
       - name: Production build
         env:
           CUPNAVI_API_BASE: https://cupnavi-api.onrender.com

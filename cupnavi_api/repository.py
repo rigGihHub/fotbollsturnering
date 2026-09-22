@@ -363,7 +363,7 @@ def public_snapshot(public_key, *, include_unpublished=False):
                        ORDER BY scheduled_start,pitch_number,id""", (tid,))
         venue_points=many("SELECT id,kind,label,detail,url FROM venue_points WHERE tournament_id=? ORDER BY label,id", (tid,))
         pitch_columns={str(item.get("name")) for item in many("PRAGMA table_info(pitches)")}
-        pitch_optional=[name for name in ("opens_at","closes_at","start_time","end_time","available_from","available_to") if name in pitch_columns]
+        pitch_optional=[name for name in ("address","opens_at","closes_at","start_time","end_time","available_from","available_to") if name in pitch_columns]
         pitch_select="pitch_number,name"+(" ,"+",".join(pitch_optional) if pitch_optional else "")
         pitches=many(f"SELECT {pitch_select} FROM pitches WHERE tournament_id=? ORDER BY pitch_number", (tid,))
         bracket_columns={str(item.get("name")) for item in many("PRAGMA table_info(brackets)")}

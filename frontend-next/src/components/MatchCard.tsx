@@ -1,5 +1,7 @@
 "use client";
 
+import { MatchWeather } from "./MatchWeather";
+import type { MatchWeather as Forecast } from "@/lib/match-weather";
 import { useState } from "react";
 import { Group, Match, Pitch, Team } from "@/lib/types";
 import { pitchLabel } from "@/lib/pitch-label";
@@ -19,7 +21,7 @@ function Side({team,label,away=false,showKits=true,showAwayKits=true,showLogos=t
   </div>;
 }
 
-export function MatchCard({match,teams,groups=[],pitches=[],index,showKits=true,showAwayKits=true,showLogos=true}:{match:Match;teams:Team[];groups?:Group[];pitches?:Pitch[];index:number;showKits?:boolean;showAwayKits?:boolean;showLogos?:boolean}){
+export function MatchCard({match,teams,groups=[],pitches=[],index,weather,showKits=true,showAwayKits=true,showLogos=true}:{match:Match;teams:Team[];groups?:Group[];pitches?:Pitch[];index:number;weather?:Forecast;showKits?:boolean;showAwayKits?:boolean;showLogos?:boolean}){
   const homeId=match.home_participant?.resolved?match.home_participant.team_id??null:match.home_source?.startsWith("team:")?Number(match.home_source.split(":")[1]):null;
   const awayId=match.away_participant?.resolved?match.away_participant.team_id??null:match.away_source?.startsWith("team:")?Number(match.away_source.split(":")[1]):null;
   const home=teams.find(team=>team.id===homeId); const away=teams.find(team=>team.id===awayId);
@@ -37,5 +39,6 @@ export function MatchCard({match,teams,groups=[],pitches=[],index,showKits=true,
       <Side team={away} label={awayLabel} away showKits={showKits} showLogos={showLogos}/>
     </div>
     <footer className="public-match-card__pitch">{pitchLabel(match.pitch_number==null?null:Number(match.pitch_number),pitchNames)}</footer>
+    <MatchWeather forecast={weather}/>
   </article>;
 }

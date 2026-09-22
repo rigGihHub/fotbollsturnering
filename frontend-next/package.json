@@ -3,6 +3,7 @@
   "version": "2.6.96",
   "private": true,
   "scripts": {
+    "test:match-weather": "node scripts/test-match-weather.cjs",
     "test:placement-playoffs": "node scripts/test-placement-playoffs.cjs",
     "test:import-navigation": "node scripts/test-import-navigation.cjs",
     "dev": "next dev",
