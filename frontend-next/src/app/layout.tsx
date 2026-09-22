@@ -31,12 +31,13 @@ import "./public-atmosphere-v2671.css";
 import "./public-texttv-v2675.css";
 import "./ios-safe-area-v2684.css";
 import "./admin-cup-identity-v2685.css";
+import "./release-v2697.css";
 import { PwaBoot } from "@/components/PwaBoot";
 import { ViewModeSwitch } from "@/components/ViewModeSwitch";
 import { HeaderShareAction } from "@/components/HeaderShareAction";
 import { SiteFooter } from "@/components/SiteFooter";
 
-const APP_VERSION = "2.6.96";
+const APP_VERSION = "2.6.97";
 
 export const metadata: Metadata = {
   title: `CupNavi v${APP_VERSION}`,

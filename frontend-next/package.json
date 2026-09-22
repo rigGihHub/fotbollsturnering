@@ -1,6 +1,6 @@
 {
   "name": "cupnavi-web",
-  "version": "2.6.96",
+  "version": "2.6.97",
   "private": true,
   "scripts": {
     "test:match-weather": "node scripts/test-match-weather.cjs",
