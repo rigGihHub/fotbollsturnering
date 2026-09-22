@@ -19,6 +19,19 @@ def test_public_mobile_layout_protects_long_names_and_touch_filters():
     assert "overflow-x:auto!important" in CSS
     assert "-webkit-overflow-scrolling:touch" in CSS
 
+def test_public_mobile_tables_and_footer_do_not_hide_content():
+    assert "Public v3.2 mobile QA" in CSS
+    assert ".page-shell--public-v3 .texttv--standings table" in CSS
+    assert "min-width:0!important" in CSS
+    assert "table-layout:fixed!important" in CSS
+    assert "grid-template-columns:repeat(3,1fr)!important" in CSS
+    assert "padding-bottom:calc(122px + env(safe-area-inset-bottom))!important" in CSS
+
+def test_public_cupinfo_hides_missing_match_duration():
+    assert "const hasMatchDuration=(cup.tournament.minutes_per_half??0)>0" in PUBLIC
+    assert "{hasMatchDuration&&<div><span>Matchtid</span>" in PUBLIC
+    assert '<div><span>Matchtid</span><b>{(cup.tournament.minutes_per_half??0)>0' not in PUBLIC
+
 def test_admin_session_survives_transient_api_failure():
     assert "Tillfälligt anslutningsproblem. Din inloggning ligger kvar" in ADMIN
     assert "retryTimer=window.setTimeout(restoreSession,2200)" in ADMIN

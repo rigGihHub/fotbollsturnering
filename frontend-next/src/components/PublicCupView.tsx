@@ -64,6 +64,7 @@ export function PublicCupView({ publicKey, initialCup, initialStandings, reporte
   const showPublicAwayKits=cup.tournament.show_public_away_kits!==false&&cup.tournament.show_public_away_kits!==0;
   const showPublicLogos=cup.tournament.show_public_logos!==false&&cup.tournament.show_public_logos!==0;
   const showPublicWeather=Boolean(cup.tournament.show_public_weather);
+  const hasMatchDuration=(cup.tournament.minutes_per_half??0)>0;
 
   useEffect(()=>{cupRef.current=cup},[cup]);
   useEffect(()=>{if(tab!=="stats"||statistics||statisticsLoading)return;let cancelled=false;setStatisticsLoading(true);getStatistics(publicKey).then(data=>{if(!cancelled)setStatistics(data)}).catch(()=>{}).finally(()=>{if(!cancelled)setStatisticsLoading(false)});return()=>{cancelled=true}},[tab,statistics,statisticsLoading,publicKey]);
@@ -100,7 +101,7 @@ export function PublicCupView({ publicKey, initialCup, initialStandings, reporte
     {tab==="info"&&<section className="public-info-v3"><div className="public-info-hero"><div><span>Cupinfo</span><h2>Allt inför cupdagen</h2><p>Regler, tider och praktisk information samlat på ett ställe.</p></div></div><div className="public-info-grid">
       <article className="public-info-card public-info-card--overview"><span className="public-info-card__eyebrow">Cupupplägg</span><h3>Översikt</h3><div className="public-info-details"><div><span>Typ</span><b>{isMatchcamp?"Matchcamp":showPlayoffs?"Turnering med slutspel":"Turnering"}</b></div><div><span>Datum</span><b>{cup.tournament.start_date||"Ej angivet"}{cup.tournament.end_date&&cup.tournament.end_date!==cup.tournament.start_date?` – ${cup.tournament.end_date}`:""}</b></div><div><span>Lag</span><b>{cup.teams.length}</b></div><div><span>Grupper</span><b>{cup.groups.length}</b></div><div><span>Matcher</span><b>{orderedMatches.length}</b></div><div><span>Planer</span><b>{(cup.pitches||[]).length}</b></div>{showPlayoffs&&<div><span>Slutspel</span><b>{cup.brackets.length}</b></div>}</div></article>
       <article className="public-info-card public-info-card--rules"><span className="public-info-card__eyebrow">Tävlingsregler</span><h3>{isMatchcamp?"Så spelas matcherna":"Så spelas cupen"}</h3><div className="public-rule-list">
-        <div><span>Matchtid</span><b>{(cup.tournament.minutes_per_half??0)>0?`${cup.tournament.halves||1} × ${cup.tournament.minutes_per_half} min`:"Ej angivet"}</b></div>
+        {hasMatchDuration&&<div><span>Matchtid</span><b>{cup.tournament.halves||1} × {cup.tournament.minutes_per_half} min</b></div>}
         {(cup.tournament.halftime_minutes??0)>0&&<div><span>Paus</span><b>{cup.tournament.halftime_minutes} min</b></div>}
         {!isMatchcamp&&<div><span>Poäng</span><b>{cup.tournament.points_win??3} / {cup.tournament.points_draw??1} / {cup.tournament.points_loss??0}</b><small>vinst / oavgjort / förlust</small></div>}
         {!isMatchcamp&&<div><span>Tabellskiljning</span><b>{cup.tournament.table_tiebreak||"Målskillnad först"}</b></div>}{Boolean(cup.tournament.avoid_consecutive_matches)&&<div><span>Raka matcher</span><b>Undviks</b></div>}{Boolean(cup.tournament.avoid_consecutive_matches)&&(cup.tournament.consecutive_match_break_minutes??0)>0&&<div><span>Extra vila vid raka matcher</span><b>{cup.tournament.consecutive_match_break_minutes} min</b></div>}
@@ -115,6 +116,6 @@ export function PublicCupView({ publicKey, initialCup, initialStandings, reporte
     </div></section>}
 
     {moreOpen&&<div className="mobile-more-menu" role="dialog" aria-label="Fler cupvyer"><strong>Fler val</strong>{statsEnabled&&<button onClick={()=>openTab("stats")}>★ Topplistor</button>}<button onClick={()=>openTab("info")}>ⓘ Cupinfo & karta</button></div>}
-    <nav className="mobile-bottom-nav" aria-label="Snabbnavigation">{mobileItems.map(([key,label,icon])=><button key={key} className={tab===key?"is-active":""} onClick={()=>openTab(key)}><span>{icon}</span>{label}</button>)}<button className={moreOpen||tab==="stats"||tab==="info"?"is-active":""} aria-expanded={moreOpen} onClick={()=>setMoreOpen(value=>!value)}><span>•••</span>Mer</button></nav>
+    <nav className="mobile-bottom-nav" aria-label="Snabbnavigation">{mobileItems.map(([key,label,icon])=><button key={key} className={tab===key?"is-active":""} onClick={()=>openTab(key)}><span>{icon}</span>{label}</button>)}<button className={moreOpen||tab==="stats"||tab==="info"?"is-active":""} aria-expanded={moreOpen} onClick={()=>setMoreOpen(value=>!value)}><span>{tab==="info"?"ⓘ":tab==="stats"?"★":"•••"}</span>{tab==="info"?"Cupinfo":tab==="stats"?"Topplistor":"Mer"}</button></nav>
   </main>;
 }

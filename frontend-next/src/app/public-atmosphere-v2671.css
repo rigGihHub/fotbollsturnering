@@ -316,3 +316,30 @@ body:has(.page-shell--matchday){background-image:radial-gradient(circle,rgba(16,
 
 .public-live-status.is-stale{color:#8a5a16}
 .public-live-status.is-stale .public-live-status__dot{background:#d6922e;box-shadow:0 0 0 3px rgba(214,146,46,.14)}
+
+/* Public v3.2 mobile QA — screenshots showed clipped tables and bottom nav overlap. */
+@media(max-width:700px){
+ .page-shell--public-v3{padding-top:18px!important;padding-bottom:138px!important}
+ .page-shell--public-v3 .public-cup-hero{margin-top:0!important}
+ .page-shell--public-v3 .table-stack{gap:14px!important}
+ .page-shell--public-v3 .texttv--standings{border-radius:10px!important;box-shadow:0 3px 0 rgba(21,84,209,.45)!important}
+ .page-shell--public-v3 .texttv--standings .texttv__header{min-height:28px!important;padding:5px 10px!important;font-size:13px!important;letter-spacing:.04em!important}
+ .page-shell--public-v3 .texttv--standings .texttv__scroll{overflow-x:visible!important}
+ .page-shell--public-v3 .texttv--standings table{width:100%!important;min-width:0!important;table-layout:fixed!important;font-size:13px!important;letter-spacing:0!important}
+ .page-shell--public-v3 .texttv--standings th,.page-shell--public-v3 .texttv--standings td{height:30px!important;padding:4px 5px!important}
+ .page-shell--public-v3 .texttv--standings th:nth-child(1),.page-shell--public-v3 .texttv--standings td:nth-child(1){width:34px!important;text-align:right!important}
+ .page-shell--public-v3 .texttv--standings th:nth-child(2),.page-shell--public-v3 .texttv--standings td:nth-child(2){width:auto!important;min-width:0!important;overflow:hidden!important;text-overflow:ellipsis!important;white-space:nowrap!important}
+ .page-shell--public-v3 .texttv--standings th:nth-child(4),.page-shell--public-v3 .texttv--standings td:nth-child(4),
+ .page-shell--public-v3 .texttv--standings th:nth-child(5),.page-shell--public-v3 .texttv--standings td:nth-child(5),
+ .page-shell--public-v3 .texttv--standings th:nth-child(6),.page-shell--public-v3 .texttv--standings td:nth-child(6){display:none!important}
+ .page-shell--public-v3 .texttv--standings th:nth-child(3),.page-shell--public-v3 .texttv--standings td:nth-child(3){width:30px!important}
+ .page-shell--public-v3 .texttv--standings th:nth-child(7),.page-shell--public-v3 .texttv--standings td:nth-child(7){width:54px!important}
+ .page-shell--public-v3 .texttv--standings th:nth-child(8),.page-shell--public-v3 .texttv--standings td:nth-child(8){width:34px!important}
+ .page-shell--public-v3 .public-info-v3{padding-bottom:20px!important}
+ .page-shell--public-v3 .public-info-card{border-radius:14px!important}
+ .page-shell--public-v3 .public-rule-list b{font-size:18px!important}
+ .page-shell--public-v3 .mobile-bottom-nav{left:12px!important;right:12px!important;bottom:max(10px,env(safe-area-inset-bottom))!important;grid-template-columns:repeat(3,1fr)!important;border-radius:18px!important;box-shadow:0 8px 26px rgba(3,7,8,.26)!important}
+ .page-shell--public-v3 .mobile-bottom-nav button{min-height:58px!important;padding:6px 4px!important;font-size:11px!important}
+ .page-shell--public-v3 .mobile-bottom-nav button span{margin-bottom:3px!important;font-size:15px!important}
+ body:has(.page-shell--public-v3) .site-footer{margin-top:0!important;padding-top:22px!important;padding-bottom:calc(122px + env(safe-area-inset-bottom))!important}
+}
