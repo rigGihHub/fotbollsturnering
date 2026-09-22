@@ -115,7 +115,7 @@ export default function ReporterClient(){
    if(match.home_score==null||match.away_score==null)save(match,String(match.home_score??0),String(match.away_score??0),"","");
   }
   const mutation={id:`status-${cupInfo.id}-${match.id}-${Date.now()}-${next}`,kind:"status" as const,cupId:cupInfo.id,matchId:match.id,createdAt:Date.now()+1,state:"queued" as const,payload:{status:next,expected_status:current}};
-  appendReporterMutation(mutation);setMatches(rows=>{const updated=rows.map(item=>item.id===match.id?{...item,match_status:next,status:next==="finished"?"played":next}:item);remember(cupInfo,updated);return updated});setError("");setMessage(navigator.onLine?"Matchstatus uppdaterad – synkroniserar.":"Matchstatus sparad lokalt och skickas när nätet är tillbaka.");
+  appendReporterMutation(mutation);setMatches(rows=>{const updated=rows.map(item=>item.id===match.id?{...item,match_status:next,status:next==="finished"?"played":next,actual_started_at:next==="live"?new Date().toISOString():null}:item);remember(cupInfo,updated);return updated});setError("");setMessage(navigator.onLine?"Matchstatus uppdaterad – synkroniserar.":"Matchstatus sparad lokalt och skickas när nätet är tillbaka.");
  }
  const pendingResults=useMemo(()=>new Set(readReporterQueue().filter(isResultMutation).filter(item=>item.cupId===cupInfo?.id&&item.state!=="conflict").map(item=>item.matchId)),[cupInfo?.id,pending,matches]);
  const pendingStatuses=useMemo(()=>new Set(readReporterQueue().filter(isStatusMutation).filter(item=>item.cupId===cupInfo?.id&&item.state!=="conflict").map(item=>item.matchId)),[cupInfo?.id,pending,matches]);
