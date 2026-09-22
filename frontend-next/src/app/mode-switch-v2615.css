@@ -13,3 +13,12 @@ body:has(.page-shell--public-v3) .view-mode-switch.is-public a{
  body:has(.page-shell--public-v3) .view-mode-switch.is-public{top:12px!important;right:12px!important}
  body:has(.page-shell--public-v3) .view-mode-switch.is-public a{min-height:32px!important;padding:0 9px!important;font-size:10px!important}
 }
+
+
+/* v2.7.2: admin + reporting shortcuts share one compact header cluster. */
+body:has(.page-shell--public-v3) .view-mode-switch.is-public{display:flex!important;gap:5px!important;right:12px!important}
+body:has(.page-shell--public-v3) .view-mode-switch.is-public .reporting-shortcut{background:#1554d1!important}
+@media(max-width:700px){
+ body:has(.page-shell--public-v3) .view-mode-switch.is-public{top:62px!important;right:10px!important;gap:4px!important}
+ body:has(.page-shell--public-v3) .view-mode-switch.is-public a{min-height:29px!important;padding:0 8px!important;font-size:9px!important}
+}
