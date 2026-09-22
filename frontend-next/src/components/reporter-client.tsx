@@ -12,6 +12,7 @@ type MatchLifecycle="not_started"|"live"|"halftime"|"finished";
 type Match={id:number;stage?:string|null;home_team:string;away_team:string;home_score:number|null;away_score:number|null;home_penalties?:number|null;away_penalties?:number|null;status:string;match_status?:MatchLifecycle|null;scheduled_start?:string|null};
 type CachedSession={cup:Cup;matches:Match[]};
 const lifecycle=(match:Match):MatchLifecycle=>match.match_status==="live"||match.match_status==="halftime"||match.match_status==="finished"?match.match_status:match.status==="played"?"finished":"not_started";
+const isAuthFailure=(error:unknown)=>/(401|session|inloggning krävs|ogiltig|gått ut|authentication)/i.test(error instanceof Error?error.message:String(error));
 
 async function call<T>(path:string,token?:string|null,init:RequestInit={}):Promise<T>{
  const headers=new Headers(init.headers);if(token)headers.set("Authorization",`Bearer ${token}`);if(init.body)headers.set("Content-Type","application/json");
@@ -41,7 +42,9 @@ export default function ReporterClient(){
  useEffect(()=>{
   const queryCup=new URLSearchParams(window.location.search).get("cup");if(queryCup){setCup(queryCup);setLinkedCup(true)}
   const stored=localStorage.getItem(KEY);if(!stored)return;setToken(stored);
-  void load(stored).catch(()=>{const cached=readReporterCache<CachedSession>(SESSION_CACHE);const cacheMatchesLink=!queryCup||queryCup===cached?.cup.public_slug||queryCup===String(cached?.cup.id);if(!navigator.onLine&&cached&&cacheMatchesLink){setCupInfo(cached.cup);setMatches(cached.matches);setMessage("Offline: senast hämtade matcher visas.")}else logout()});
+  const cached=readReporterCache<CachedSession>(SESSION_CACHE),cacheMatchesLink=!queryCup||queryCup===cached?.cup.public_slug||queryCup===String(cached?.cup.id);
+  if(cached&&cacheMatchesLink){setCupInfo(cached.cup);setMatches(cached.matches)}
+  void load(stored).catch(reason=>{if(isAuthFailure(reason)){logout();return}if(cached&&cacheMatchesLink){setMessage(navigator.onLine?"Sparad vy visas medan CupNavi återansluter.":"Offline: senast hämtade matcher visas.");return}logout()});
  },[load,logout]);
 
  const flushResults=useCallback(async()=>{
@@ -97,8 +100,8 @@ export default function ReporterClient(){
   const mutation={id:`status-${cupInfo.id}-${match.id}-${Date.now()}-${next}`,kind:"status" as const,cupId:cupInfo.id,matchId:match.id,createdAt:Date.now()+1,state:"queued" as const,payload:{status:next,expected_status:current}};
   appendReporterMutation(mutation);setMatches(rows=>{const updated=rows.map(item=>item.id===match.id?{...item,match_status:next,status:next==="finished"?"played":next}:item);remember(cupInfo,updated);return updated});setError("");setMessage(navigator.onLine?"Matchstatus uppdaterad – synkroniserar.":"Matchstatus sparad lokalt och skickas när nätet är tillbaka.");
  }
- const pendingResults=useMemo(()=>new Set(readReporterQueue().filter(isResultMutation).filter(item=>item.cupId===cupInfo?.id).map(item=>item.matchId)),[cupInfo?.id,pending,matches]);
- const pendingStatuses=useMemo(()=>new Set(readReporterQueue().filter(isStatusMutation).filter(item=>item.cupId===cupInfo?.id).map(item=>item.matchId)),[cupInfo?.id,pending,matches]);
+ const pendingResults=useMemo(()=>new Set(readReporterQueue().filter(isResultMutation).filter(item=>item.cupId===cupInfo?.id&&item.state!=="conflict").map(item=>item.matchId)),[cupInfo?.id,pending,matches]);
+ const pendingStatuses=useMemo(()=>new Set(readReporterQueue().filter(isStatusMutation).filter(item=>item.cupId===cupInfo?.id&&item.state!=="conflict").map(item=>item.matchId)),[cupInfo?.id,pending,matches]);
  const focusedMatch=matches.find(match=>match.id===focusMatchId)||null;
 
  if(!token)return <main className="reporter-page reporter-page--login"><header className="reporter-hero"><p className="kicker">CN//REPORTER</p><h1>Matchrapportör</h1><p>Logga in med den fyrsiffriga kod du fått av arrangören.</p></header><form className="admin-panel reporter-login" onSubmit={login}><div className="reporter-login__fields"><label><span>Cup</span>{linkedCup?<div className="reporter-linked-cup"><strong>Cupen är vald via inloggningslänken</strong><small>Den tekniska länkkoden döljs här.</small></div>:<input value={cup} onChange={event=>setCup(event.target.value)} required placeholder="Cupens länk eller ID"/>}</label><label><span>4-siffrig kod</span><input inputMode="numeric" pattern="[0-9]{4}" maxLength={4} value={code} onChange={event=>setCode(event.target.value.replace(/\D/g,"").slice(0,4))} required placeholder="0000" autoComplete="one-time-code"/></label></div>{error&&<p className="reporter-alert reporter-alert--error" role="alert">{error}</p>}<div className="reporter-login__footer"><span>Koden skapas av cupadministratören.</span><button className="is-primary" disabled={busy||code.length!==4}>{busy?"Kontrollerar…":"Öppna matchrapportering"}</button></div></form></main>;

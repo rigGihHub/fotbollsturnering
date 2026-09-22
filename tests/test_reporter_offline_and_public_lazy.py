@@ -19,7 +19,22 @@ def test_reporter_has_persistent_safe_offline_queue():
     assert "const unchanged=" in reporter
     assert "stäms av mot servern" in reporter
     assert "sameEventValues(current,mutation.payload.expected)" in events
+    assert 'item.state!=="conflict"' in queue
+    assert 'item.state!=="conflict"' in events
     assert '"/reporter"' in worker
+
+
+def test_referee_has_persistent_safe_offline_queue():
+    queue = read("frontend-next/src/lib/referee-offline.ts")
+    referee = read("frontend-next/src/components/referee-client.tsx")
+    assert "cupnavi_referee_queue_v1" in queue
+    assert "localStorage.setItem(QUEUE_KEY" in queue
+    assert 'state:"queued"|"uncertain"|"conflict"' in queue
+    assert "const unchanged=" in referee
+    assert "stäms av mot servern" in referee
+    assert "Ett offline-resultat krockar med ett nyare serverresultat" in referee
+    assert "Sparad domarvy visas medan CupNavi återansluter" in referee
+    assert 'item.state!=="conflict"' in referee
 
 
 def test_reporter_controls_are_large_and_network_state_is_visible():

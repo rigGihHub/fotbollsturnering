@@ -35,7 +35,7 @@ export default function ReporterMatchEvents({token,cupId,online,queueSignal,onAu
   if(!current)return current;const updated={...current,teams:current.teams.map(team=>({...team,players:team.players.map(player=>player.id===playerId?{...player,...next}:player)}))};writeReporterCache(detailCache(cupId,current.match.id),updated);return updated;
  }),[cupId]);
  const flushEvents=useCallback(async()=>{
-  if(!online)return;const queued=readReporterQueue().filter(isEventMutation).filter(item=>item.cupId===cupId);if(!queued.length)return;
+  if(!online)return;const queued=readReporterQueue().filter(isEventMutation).filter(item=>item.cupId===cupId&&item.state!=="conflict");if(!queued.length)return;
   for(const mutation of queued){
    try{
     const server=await req<Detail>(`/api/reporter/reporting/matches/${mutation.matchId}/events`,token);const player=server.teams.flatMap(team=>team.players).find(item=>item.id===mutation.playerId);if(!player){updateReporterMutation(mutation.id,{state:"conflict"});continue}

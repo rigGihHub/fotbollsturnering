@@ -66,7 +66,7 @@ export function completeReporterResultMutation(processed:ResultMutation){
 
 export function removeReporterMutation(id:string){writeReporterQueue(readReporterQueue().filter(item=>item.id!==id));}
 export function updateReporterMutation(id:string,patch:Partial<ReporterMutation>){writeReporterQueue(readReporterQueue().map(item=>item.id===id?({...item,...patch} as ReporterMutation):item));}
-export function pendingReporterCount(cupId?:number){return readReporterQueue().filter(item=>cupId==null||item.cupId===cupId).length;}
+export function pendingReporterCount(cupId?:number){return readReporterQueue().filter(item=>(cupId==null||item.cupId===cupId)&&item.state!=="conflict").length;}
 
 export function writeReporterCache<T>(key:string,value:T){
  if(typeof window==="undefined")return;
