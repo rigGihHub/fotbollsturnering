@@ -15,6 +15,7 @@ from pydantic import BaseModel
 
 from cupnavi_core.rate_limit import consume_rate_limit
 from cupnavi_core.team_portal import generate_short_numeric_code, new_code_hash, verify_access_code
+from cupnavi_core.match_status import MATCH_FINISHED, normalize_match_status
 from .admin_auth import OWNER_ACCOUNT_ID
 from .admin_repository import _has_tournament_access
 from .match_events_admin_repository import admin_event_matches, admin_match_events, update_player_match_events
@@ -261,8 +262,16 @@ def _reporter_match_in_cup(tournament_id: int, match_id: int) -> bool:
 
 
 def _require_reporter_match(tournament_id: int, match_id: int):
-    if not _reporter_match_in_cup(tournament_id, match_id):
+    row = one("SELECT * FROM matches WHERE id=? AND tournament_id=?", (int(match_id), int(tournament_id)))
+    if not row:
         raise HTTPException(404, "Match saknas eller tillhör en annan cup")
+    return row
+
+def _require_reporter_editable_match(tournament_id: int, match_id: int):
+    row = _require_reporter_match(tournament_id, match_id)
+    if normalize_match_status(row.get("match_status"), has_result=False) == MATCH_FINISHED:
+        raise HTTPException(409, "Matchen är slutmarkerad. Endast administratören kan korrigera den.")
+    return row
 
 
 def register_role_access_routes(app, admin_identity):
@@ -318,6 +327,7 @@ def register_role_access_routes(app, admin_identity):
     def reporter_put_result(match_id: int, payload: ReporterResultWrite, authorization: str | None = Header(default=None)):
         identity = _reporter_identity(authorization)
         _require_reporter_match(int(identity["tid"]), match_id)
+        _require_reporter_editable_match(int(identity["tid"]), match_id)
         try:
             return save_result(
                 OWNER_ACCOUNT_ID, int(identity["tid"]), match_id,
@@ -367,6 +377,7 @@ def register_role_access_routes(app, admin_identity):
     def reporter_put_event(match_id: int, player_id: int, payload: ReporterEventWrite, authorization: str | None = Header(default=None)):
         identity = _reporter_identity(authorization)
         _require_reporter_match(int(identity["tid"]), match_id)
+        _require_reporter_editable_match(int(identity["tid"]), match_id)
         try:
             return update_player_match_events(OWNER_ACCOUNT_ID, int(identity["tid"]), match_id, player_id, _model_values(payload))
         except ValueError as exc:

@@ -719,6 +719,7 @@ export default function AdminWorkspace({verifiedSession=null,children=null}:{ver
         <strong className="admin-nav-phase">VERKTYG & CUPDRIFT</strong>
         {toolNav.map(([item,href])=><a key={item} className={`admin-nav-tool ${href===`#${activeStep}`?"is-active":""}`} href={href}><span>↗</span>{item}</a>)}
       </nav>
+      {activeCup && <a className="admin-public-link admin-reporter-link" href={`/reporter?cup=${encodeURIComponent(activeCup.public_slug || String(activeCup.id))}`} target="_blank" rel="noreferrer">Öppna rapportering ↗</a>}
       {publicCup && <a className="admin-public-link" href={publicCup}>Visa publik cup ↗</a>}
       <button className="admin-public-link" type="button" onClick={logout}>Logga ut</button>
     </aside>

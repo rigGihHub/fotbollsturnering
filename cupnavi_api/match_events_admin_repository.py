@@ -131,6 +131,7 @@ def admin_match_events(account_id: int, tournament_id: int, match_id: int):
             "scheduled_start": match.get("scheduled_start"),
             "home_team_name": match["home_team_name"],
             "away_team_name": match["away_team_name"],
+            "match_status": match.get("match_status"),
             "home_score": int(match["home_score"] or 0),
             "away_score": int(match["away_score"] or 0),
         },
