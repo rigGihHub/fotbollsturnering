@@ -180,6 +180,12 @@ def update_playoff_settings(account_id: int, tournament_id: int, values: dict):
             raise ValueError("Reglerna kan inte ändras när en slutspelsmatch har startats eller spelats.")
         tournament_columns = {str(row[1]) for row in con.execute("PRAGMA table_info(tournaments)").fetchall()}
         updates = {"playoff_format": playoff_format, "bronze_match": 1 if bronze_match else 0}
+        # Saving the reviewed playoff settings is also the explicit confirmation
+        # consumed by the publication gate.  Older code displayed a successful
+        # save but left this flag at 0, so publication kept reporting the same
+        # blocker forever.
+        if "playoff_model_confirmed" in tournament_columns:
+            updates["playoff_model_confirmed"] = 1
         if "playoff_tie_rule" in tournament_columns:
             updates["playoff_tie_rule"] = tie_rule
         for field in ("extra_time_minutes", "playoff_extra_time_minutes"):

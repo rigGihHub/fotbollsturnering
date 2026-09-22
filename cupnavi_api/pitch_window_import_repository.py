@@ -67,14 +67,29 @@ def _review_time(value):
         return text or None
 
 
-def _normalized_rows(payload: dict) -> list[dict]:
+def _single_cup_date(tournament: dict) -> str | None:
+    start_raw = tournament.get("start_date") or tournament.get("tournament_date")
+    end_raw = tournament.get("end_date") or start_raw
+    if not start_raw:
+        return None
+    try:
+        start = date.fromisoformat(str(start_raw))
+        end = date.fromisoformat(str(end_raw))
+    except ValueError:
+        return None
+    return start.isoformat() if start == end else None
+
+
+def _normalized_rows(payload: dict, default_date: str | None = None) -> list[dict]:
     rows = []
     for raw in payload.get("pitch_windows") or []:
         if not isinstance(raw, dict):
             continue
         rows.append({
             "venue": " ".join(str(raw.get("venue") or "").split()) or None,
-            "date": str(raw.get("date") or "").strip() or None,
+            # A one-day cup has only one possible date. Persisting it here
+            # prevents the review dialog from asking for the same date again.
+            "date": str(raw.get("date") or "").strip() or default_date,
             "start_time": _review_time(raw.get("start_time")),
             "end_time": _review_time(raw.get("end_time")),
         })
@@ -85,7 +100,11 @@ def pitch_window_import_review(account_id: int, tournament_id: int):
     if not _has_tournament_access(account_id, tournament_id):
         return None
     payload = _snapshot(tournament_id)
-    rows = _normalized_rows(payload)
+    tournament = one(
+        "SELECT start_date,end_date,tournament_date FROM tournaments WHERE id=?",
+        (int(tournament_id),),
+    ) or {}
+    rows = _normalized_rows(payload, _single_cup_date(tournament))
     pitches = all_rows(
         "SELECT pitch_number,name FROM pitches WHERE tournament_id=? ORDER BY pitch_number",
         (int(tournament_id),),
@@ -206,6 +225,8 @@ def commit_pitch_window_import(account_id: int, tournament_id: int, pitch_window
                     interval = {"start_time": old["start_time"], "end_time": old["end_time"]}
                     if interval not in reviewed:
                         reviewed.append(interval)
+                # write_pitch_intervals persists this through the
+                # ON CONFLICT(tournament_id,pitch_number,play_date) upsert.
                 changed = write_pitch_intervals(con, tournament_id, pitch_number, play_date, reviewed) or changed
             scheduled = con.execute(
                 "SELECT COUNT(*) FROM matches WHERE tournament_id=? AND scheduled_start IS NOT NULL",

@@ -138,7 +138,7 @@ export default function PitchWindowImportReview() {
           <div><span>PLANIMPORT</span><h2 id="pitch-window-import-title">Kontrollera planernas tillgänglighet</h2></div>
           <button type="button" className="cup-create-close" onClick={()=>!busy&&setOpen(false)} aria-label="Stäng">×</button>
         </div>
-        <p className="cup-create-lead">Varje rad måste matcha ett befintligt plannamn och ett datum inom cupen. Om något inte stämmer stoppas hela importen i stället för att CupNavi chansar.</p>
+        <p className="cup-create-lead">Varje rad måste matcha ett befintligt plannamn och ett datum inom cupen. Vid en endagarscup fylls datumet i automatiskt. Om något annat inte stämmer stoppas hela importen i stället för att CupNavi chansar.</p>
         {review.source_name && <p style={{fontSize:13}}><strong>Underlag:</strong> {review.source_name}</p>}
 
         <div style={{display:"grid",gap:10,maxHeight:"52vh",overflow:"auto",paddingRight:4}}>

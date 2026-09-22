@@ -85,7 +85,7 @@ def build_publication_quality_summary(
 def publication_problem_destination(message: str | None) -> tuple[str, str]:
     text = (message or "").lower()
     if "slutspelsmodell" in text or "cupregler" in text:
-        return "Cupinställningar", "Öppna Cupinfo"
+        return "Slutspel", "Öppna Slutspel"
     if "slutspelsträdet" in text:
         return "Slutspel", "Öppna Slutspel"
     if "spelschema saknas" in text:
