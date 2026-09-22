@@ -346,7 +346,7 @@ def analyze_match_revision_impacts(
         if not bool(row.get("confirmed")):
             continue
         key = (int(row.get("pitch_number") or 0), str(row.get("play_date") or ""))
-        window_map[key] = (str(row.get("start_time") or ""), str(row.get("end_time") or ""))
+        window_map.setdefault(key, []).append((str(row.get("start_time") or ""), str(row.get("end_time") or "")))
     for match in hypothetical:
         pitch = int(match.get("pitch_number") or 0)
         date = match["_start"].date().isoformat()
@@ -355,8 +355,8 @@ def analyze_match_revision_impacts(
             continue
         start_clock = match["_start"].strftime("%H:%M")
         end_clock = match["_end"].strftime("%H:%M")
-        if start_clock < window[0] or end_clock > window[1]:
-            add(blockers, "pitch_window", f"{match.get('home')} – {match.get('away')} hamnar utanför Plan {pitch}s bekräftade tid {window[0]}–{window[1]}.", [match.get("id")])
+        if match["_start"].date() != match["_end"].date() or not any(start_clock >= opens and end_clock <= closes for opens, closes in window):
+            add(blockers, "pitch_window", f"{match.get('home')} – {match.get('away')} hamnar utanför Plan {pitch}s bekräftade tidsfönster.", [match.get("id")])
 
     # Rest is a warning: organizer may deliberately approve a short turnaround.
     wanted_rest = max(0, int(minimum_rest_minutes or 0))

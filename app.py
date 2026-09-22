@@ -508,11 +508,12 @@ def ensure_tournament_day_windows(tournament_id, tournament, default_start="09:0
 
 def pitch_day_windows(tournament_id, pitch_count=None):
     params=[int(tournament_id)]
-    sql="SELECT tournament_id,pitch_number,play_date,start_time,end_time,confirmed FROM pitch_day_windows WHERE tournament_id=?"
+    sql="SELECT * FROM pitch_day_windows WHERE tournament_id=?"
     if pitch_count is not None:
         sql += " AND pitch_number<=?"; params.append(int(pitch_count))
     sql += " ORDER BY play_date,pitch_number"
-    return all_rows(sql, tuple(params))
+    from cupnavi_core.pitch_availability import expand_pitch_windows
+    return expand_pitch_windows(all_rows(sql, tuple(params)))
 
 def ensure_pitch_day_windows(tournament_id, tournament, pitch_count, default_start="09:00", default_end="18:00"):
     pitch_count=max(1,int(pitch_count or 1))
@@ -531,6 +532,9 @@ def ensure_pitch_day_windows(tournament_id, tournament, pitch_count, default_sta
     return pitch_day_windows(tournament_id,pitch_count)
 
 def save_pitch_day_window(tournament_id,pitch_number,play_date,start_time,end_time,confirmed=True):
+    existing = [r for r in pitch_day_windows(tournament_id) if int(r["pitch_number"]) == int(pitch_number) and str(r["play_date"]) == str(play_date)]
+    if len(existing) > 1:
+        raise ValueError("Planen har flera tidsfönster. Redigera dagens samtliga tider i nya administrationen.")
     if start_time >= end_time:
         raise ValueError("Sluttiden måste vara senare än starttiden.")
     run("""INSERT INTO pitch_day_windows(tournament_id,pitch_number,play_date,start_time,end_time,confirmed) VALUES(?,?,?,?,?,?)
@@ -5930,40 +5934,42 @@ def generate_schedule(tournament_id, tournament, rules, preserve_existing=False,
     end_date = schedule_window.end_date
     latest_kickoff = schedule_window.latest_pitch_time
     duration = schedule_window.group_match_duration
-    pitch_windows = {(str(r["play_date"]), int(r["pitch_number"])): (datetime.strptime(r["start_time"], "%H:%M").time(), datetime.strptime(r["end_time"], "%H:%M").time()) for r in ensure_pitch_day_windows(tournament_id, tournament, rules["pitch_count"], rules["first_match_time"], rules["latest_kickoff_time"])}
+    pitch_windows = {}
+    for r in ensure_pitch_day_windows(tournament_id, tournament, rules["pitch_count"], rules["first_match_time"], rules["latest_kickoff_time"]):
+        pitch_windows.setdefault((str(r["play_date"]), int(r["pitch_number"])), []).append((datetime.strptime(r["start_time"], "%H:%M").time(), datetime.strptime(r["end_time"], "%H:%M").time()))
     synchronized_pitch_times = bool(_row_value(rules, "synchronized_pitch_times", 0))
     synchronized_slot_minutes = max(1, int(schedule_window.group_match_duration.total_seconds() // 60) + int(rules["pitch_break_minutes"] or 0))
 
     def pitch_bounds(day,pitch):
-        return pitch_windows.get((day.isoformat(),int(pitch)),(start.time(),latest_kickoff))
+        return sorted(pitch_windows.get((day.isoformat(),int(pitch)),[(start.time(),latest_kickoff)]))
 
     def duration_for_match(match_row):
         return schedule_window.duration_for_stage(match_row["stage"])
 
     def valid_pitch_start_for(candidate, match_duration, pitch):
         while candidate.date() <= end_date:
-            day_start_time, day_end_time = pitch_bounds(candidate.date(),pitch)
-            day_start = datetime.combine(candidate.date(), day_start_time)
-            day_limit = datetime.combine(candidate.date(), day_end_time)
-            if candidate < day_start:
-                candidate = day_start
-            if synchronized_pitch_times:
-                common_day_start = datetime.combine(candidate.date(), start.time())
-                if candidate <= common_day_start:
-                    candidate = common_day_start
-                else:
-                    elapsed = max(0, int((candidate-common_day_start).total_seconds() // 60))
-                    wave = (elapsed + synchronized_slot_minutes - 1) // synchronized_slot_minutes
-                    candidate = common_day_start + timedelta(minutes=wave * synchronized_slot_minutes)
+            for day_start_time, day_end_time in pitch_bounds(candidate.date(),pitch):
+                day_start = datetime.combine(candidate.date(), day_start_time)
+                day_limit = datetime.combine(candidate.date(), day_end_time)
                 if candidate < day_start:
-                    elapsed = max(0, int((day_start-common_day_start).total_seconds() // 60))
-                    wave = (elapsed + synchronized_slot_minutes - 1) // synchronized_slot_minutes
-                    candidate = common_day_start + timedelta(minutes=wave * synchronized_slot_minutes)
-            if candidate + match_duration <= day_limit:
-                return candidate
+                    candidate = day_start
+                if synchronized_pitch_times:
+                    common_day_start = datetime.combine(candidate.date(), start.time())
+                    if candidate <= common_day_start:
+                        candidate = common_day_start
+                    else:
+                        elapsed = max(0, int((candidate-common_day_start).total_seconds() // 60))
+                        wave = (elapsed + synchronized_slot_minutes - 1) // synchronized_slot_minutes
+                        candidate = common_day_start + timedelta(minutes=wave * synchronized_slot_minutes)
+                    if candidate < day_start:
+                        elapsed = max(0, int((day_start-common_day_start).total_seconds() // 60))
+                        wave = (elapsed + synchronized_slot_minutes - 1) // synchronized_slot_minutes
+                        candidate = common_day_start + timedelta(minutes=wave * synchronized_slot_minutes)
+                if candidate + match_duration <= day_limit:
+                    return candidate
             next_day=candidate.date()+timedelta(days=1)
             if next_day>end_date: return None
-            candidate=datetime.combine(next_day,pitch_bounds(next_day,pitch)[0])
+            candidate=datetime.combine(next_day,pitch_bounds(next_day,pitch)[0][0])
         return None
     # Databasen ändras först när hela schemaläggningspasset är färdigberäknat.
     # Det minskar risken för ett halvuppdaterat schema om ett oväntat fel inträffar.
@@ -6095,7 +6101,8 @@ def generate_schedule(tournament_id, tournament, rules, preserve_existing=False,
         )
         if not requests:
             return 0
-        p_start,p_end=pitch_bounds(candidate_start.date(),pitch)
+        intervals = pitch_bounds(candidate_start.date(),pitch)
+        p_start, p_end = intervals[0][0], intervals[-1][1]
         day_start=datetime.combine(candidate_start.date(),p_start)
         day_end=datetime.combine(candidate_start.date(),p_end)
         span_seconds = max(1, (day_end - day_start).total_seconds())
@@ -6337,7 +6344,9 @@ def validate_schedule(tournament_id, tournament, rules):
     cup_end = datetime.fromisoformat(tournament["end_date"] or tournament["start_date"] or tournament["tournament_date"]).date()
     first_time = datetime.strptime(rules["first_match_time"], "%H:%M").time()
     latest_time = datetime.strptime(rules["latest_kickoff_time"], "%H:%M").time()
-    validation_windows = {(str(r["play_date"]),int(r["pitch_number"])): (datetime.strptime(r["start_time"], "%H:%M").time(), datetime.strptime(r["end_time"], "%H:%M").time()) for r in ensure_pitch_day_windows(tournament_id, tournament, rules["pitch_count"], rules["first_match_time"], rules["latest_kickoff_time"])}
+    validation_windows = {}
+    for r in ensure_pitch_day_windows(tournament_id, tournament, rules["pitch_count"], rules["first_match_time"], rules["latest_kickoff_time"]):
+        validation_windows.setdefault((str(r["play_date"]), int(r["pitch_number"])), []).append((datetime.strptime(r["start_time"], "%H:%M").time(), datetime.strptime(r["end_time"], "%H:%M").time()))
     # v1.260: validering läser lag i en batch. team() per unikt lag var särskilt
     # dyrt mot Turso även om render-cachen förhindrade exakt dubbla queries.
     validation_teams = {int(r["id"]): r for r in all_rows("SELECT * FROM teams WHERE tournament_id=?", (tournament_id,))}
@@ -6354,11 +6363,9 @@ def validate_schedule(tournament_id, tournament, rules):
         if not cup_start <= start_at.date() <= cup_end:
             errors.append(f"Match {number} ligger utanför cupens datumintervall.")
         pitch_no=int(match_row["pitch_number"] or 0)
-        day_first, day_last = validation_windows.get((start_at.date().isoformat(),pitch_no), (first_time, latest_time))
-        if start_at.time() < day_first:
-            errors.append(f"Match {number} har avspark {start_at.strftime('%H:%M')} före planens tillåtna starttid {day_first.strftime('%H:%M')}.")
-        if (start_at + match_duration) > datetime.combine(start_at.date(), day_last):
-            errors.append(f"Match {number} slutar {(start_at + match_duration).strftime('%H:%M')}, efter planens sluttid {day_last.strftime('%H:%M')}.")
+        day_windows = validation_windows.get((start_at.date().isoformat(),pitch_no), [(first_time, latest_time)])
+        if not any(start_at >= datetime.combine(start_at.date(), first) and start_at + match_duration <= datetime.combine(start_at.date(), last) for first, last in day_windows):
+            errors.append(f"Match {number} ligger utanför planens öppettider eller i en paus mellan tidsfönster.")
         if not match_row["pitch_number"] or not 1 <= match_row["pitch_number"] <= rules["pitch_count"]:
             errors.append(f"Match {number} har en ogiltig plan.")
         if kit_color_conflict(home_team, away_team):
@@ -18306,10 +18313,18 @@ if admin_page == "Import":
                         con.execute(f"UPDATE schedule_rules SET {','.join(_ssets)} WHERE tournament_id=?", tuple(_svals+[tid]))
                     if _tsets:
                         con.execute(f"UPDATE tournaments SET {','.join(_tsets)} WHERE id=?", tuple(_tvals+[tid]))
+                    from cupnavi_core.pitch_availability import write_pitch_intervals
+                    _selected_windows = {}
                     for _pick, _pitch_no, _date, _start, _end, _venue in _rev_windows:
                         if _pick:
-                            con.execute("""INSERT INTO pitch_day_windows(tournament_id,pitch_number,play_date,start_time,end_time,confirmed) VALUES(?,?,?,?,?,1)
-                                ON CONFLICT(tournament_id,pitch_number,play_date) DO UPDATE SET start_time=excluded.start_time,end_time=excluded.end_time,confirmed=1""", (tid, int(_pitch_no), _date, _start, _end))
+                            _selected_windows.setdefault((int(_pitch_no), _date), []).append({"start_time": _start, "end_time": _end})
+                    for (_pitch_no, _date), _intervals in _selected_windows.items():
+                        _existing = [r for r in pitch_day_windows(tid) if int(r["pitch_number"]) == _pitch_no and str(r["play_date"]) == _date and r["confirmed"]]
+                        for _old in _existing:
+                            _interval = {"start_time": _old["start_time"], "end_time": _old["end_time"]}
+                            if _interval not in _intervals:
+                                _intervals.append(_interval)
+                        write_pitch_intervals(con, tid, _pitch_no, _date, _intervals)
                     if _ssets or _tsets or any(bool(row[0]) for row in _rev_windows):
                         con.execute("UPDATE matches SET schedule_published=0 WHERE tournament_id=? AND home_score IS NULL AND away_score IS NULL", (tid,))
                         con.execute("UPDATE tournaments SET schedule_dirty=CASE WHEN EXISTS(SELECT 1 FROM matches WHERE tournament_id=?) THEN 1 ELSE schedule_dirty END,is_published=0 WHERE id=?", (tid, tid))

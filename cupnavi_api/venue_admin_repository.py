@@ -1,6 +1,8 @@
 """Organizer-scoped pitch and availability administration for CupNavi."""
 from __future__ import annotations
 
+from cupnavi_core.pitch_availability import expand_pitch_windows, validate_intervals, write_pitch_intervals
+
 from datetime import date, datetime, timedelta
 
 from .admin_repository import _has_tournament_access
@@ -112,11 +114,12 @@ def admin_venues(account_id: int, tournament_id: int):
         (int(tournament_id), pitch_count),
     )
     windows = all_rows(
-        """SELECT tournament_id,pitch_number,play_date,start_time,end_time,confirmed
+        """SELECT *
            FROM pitch_day_windows WHERE tournament_id=? AND pitch_number<=?
            ORDER BY play_date,pitch_number""",
         (int(tournament_id), pitch_count),
     )
+    windows = expand_pitch_windows(windows)
     schedule_state = one(
         """SELECT COUNT(*) AS scheduled_count,COALESCE(MAX(pitch_number),0) AS max_used_pitch
            FROM matches WHERE tournament_id=? AND scheduled_start IS NOT NULL""",
@@ -229,21 +232,18 @@ def update_pitch_window(account_id: int, tournament_id: int, pitch_number: int, 
     play_date = str(play_date).strip()
     if play_date not in _cup_dates(tournament):
         raise ValueError("Datumet ligger utanför cupens datumintervall")
-    start_time = _time_text(values.get("start_time"), "Starttid")
-    end_time = _time_text(values.get("end_time"), "Sluttid")
-    if start_time >= end_time:
-        raise ValueError("Sluttiden måste vara senare än starttiden")
-    confirmed = 1 if bool(values.get("confirmed", True)) else 0
+    intervals = values.get("intervals")
+    if intervals is None:
+        current = one("SELECT * FROM pitch_day_windows WHERE tournament_id=? AND pitch_number=? AND play_date=?", (int(tournament_id), pitch_number, play_date))
+        if current and len(expand_pitch_windows([current])) > 1:
+            raise ValueError("Planen har flera tidsfönster. Ladda om sidan och spara dagens samtliga tider tillsammans")
+        intervals = [values]
+    intervals = validate_intervals(intervals)
+    confirmed = bool(values.get("confirmed", True))
     with connect() as con:
-        con.execute(
-            """INSERT INTO pitch_day_windows(tournament_id,pitch_number,play_date,start_time,end_time,confirmed)
-               VALUES(?,?,?,?,?,?)
-               ON CONFLICT(tournament_id,pitch_number,play_date) DO UPDATE SET
-                 start_time=excluded.start_time,end_time=excluded.end_time,confirmed=excluded.confirmed""",
-            (int(tournament_id), pitch_number, play_date, start_time, end_time, confirmed),
-        )
-        _mark_schedule_dirty(con, tournament_id)
-        commit = getattr(con, "commit", None)
-        if callable(commit):
-            commit()
+        con.execute("BEGIN IMMEDIATE")
+        changed = write_pitch_intervals(con, tournament_id, pitch_number, play_date, intervals, confirmed)
+        if changed:
+            _mark_schedule_dirty(con, tournament_id)
+        con.commit()
     return admin_venues(account_id, tournament_id)

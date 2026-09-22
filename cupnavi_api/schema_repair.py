@@ -58,6 +58,11 @@ def ensure_runtime_schema() -> set[str]:
                 raise
         columns = _table_columns("tournaments")
 
+    from cupnavi_core.pitch_availability import ensure_pitch_intervals_schema
+    with connect() as con:
+        ensure_pitch_intervals_schema(con)
+        con.commit()
+
     account_columns = _table_columns("organizer_accounts")
     if account_columns and "session_version" not in account_columns:
         try:

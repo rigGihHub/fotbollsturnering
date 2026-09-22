@@ -9,7 +9,7 @@ Regel:
 from dataclasses import dataclass
 from datetime import datetime, timezone
 
-LATEST_SCHEMA_VERSION = 37
+LATEST_SCHEMA_VERSION = 38
 # Historical QA anchor: LATEST_SCHEMA_VERSION = 27
 
 
@@ -564,6 +564,7 @@ MIGRATIONS = (
         (),
     ),
 
+    Migration(38, "multiple_pitch_day_intervals", ()),
 )
 
 def _execute(con, sql, params=()):
@@ -1095,6 +1096,9 @@ def apply_migrations(con):
             ensure_v36_schema_compat(con)
         if migration.version == 37:
             ensure_v37_schema_compat(con)
+        if migration.version == 38:
+            from .pitch_availability import ensure_pitch_intervals_schema
+            ensure_pitch_intervals_schema(con)
         for statement in migration.statements:
             _execute(con, statement)
         _execute(

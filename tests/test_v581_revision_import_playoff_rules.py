@@ -49,7 +49,15 @@ def test_v36_persists_playoff_timing_overrides():
     # Migration 36 must remain immutable, but later migrations may raise the
     # current schema version. Pinning the latest version made the maintained
     # release gate fail as soon as schema v37 was added.
-    assert 'LATEST_SCHEMA_VERSION = 37' in MIGRATIONS
+    import sqlite3
+    from cupnavi_core.migrations import ensure_v36_schema_compat
+    con = sqlite3.connect(":memory:")
+    con.execute("CREATE TABLE schedule_rules(tournament_id INTEGER PRIMARY KEY)")
+    ensure_v36_schema_compat(con)
+    ensure_v36_schema_compat(con)
+    columns = {row[1] for row in con.execute("PRAGMA table_info(schedule_rules)")}
+    assert {"playoff_halves", "playoff_minutes_per_half", "playoff_halftime_minutes", "playoff_pitch_break_minutes"} <= columns
+    con.close()
     assert 'Migration(\n        36,' in MIGRATIONS
     for field in ('playoff_halves', 'playoff_minutes_per_half', 'playoff_halftime_minutes', 'playoff_pitch_break_minutes'):
         assert field in MIGRATIONS

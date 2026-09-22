@@ -1,12 +1,14 @@
 """Review-first import of pitch opening windows extracted from cup documents."""
 from __future__ import annotations
 
+from cupnavi_core.pitch_availability import expand_pitch_windows, validate_intervals, write_pitch_intervals
+
 import json
 from collections import Counter
 from datetime import date, datetime, timedelta
 
 from .admin_repository import _has_tournament_access
-from .repository import all_rows, connect, one
+from .repository import all_rows, connect, one, _dict_rows
 
 
 def _snapshot(tournament_id: int) -> dict:
@@ -82,12 +84,13 @@ def pitch_window_import_review(account_id: int, tournament_id: int):
     )
     pitch_map = {str(row.get("name") or "").strip().casefold(): int(row["pitch_number"]) for row in pitches}
     persisted = all_rows(
-        """SELECT pitch_number,play_date,start_time,end_time,confirmed
+        """SELECT *
            FROM pitch_day_windows WHERE tournament_id=?""",
         (int(tournament_id),),
     )
+    persisted = expand_pitch_windows(persisted)
     current = {
-        (int(row["pitch_number"]), str(row["play_date"])): row
+        (int(row["pitch_number"]), str(row["play_date"]), str(row["start_time"]), str(row["end_time"])): row
         for row in persisted
     }
     # A reviewed import may map a source venue name (for example an arena) to a
@@ -106,7 +109,7 @@ def pitch_window_import_review(account_id: int, tournament_id: int):
     already_applied = 0
     for row in rows:
         pitch_number = pitch_map.get(str(row.get("venue") or "").casefold())
-        existing = current.get((pitch_number, str(row.get("date")))) if pitch_number is not None else None
+        existing = current.get((pitch_number, str(row.get("date")), str(row.get("start_time")), str(row.get("end_time")))) if pitch_number is not None else None
         exact_match = (
             existing
             and bool(existing.get("confirmed") or 0)
@@ -162,7 +165,7 @@ def commit_pitch_window_import(account_id: int, tournament_id: int, pitch_window
     )
     pitch_map = {str(row.get("name") or "").strip().casefold(): int(row["pitch_number"]) for row in pitches}
     clean: list[tuple[int, int, str, str, str, int]] = []
-    seen: set[tuple[int, str]] = set()
+    grouped = {}
     for index, row in enumerate(rows, start=1):
         venue = " ".join(str(row.get("venue") or "").split())
         if not venue:
@@ -180,29 +183,22 @@ def commit_pitch_window_import(account_id: int, tournament_id: int, pitch_window
         if start_time >= end_time:
             raise ValueError(f"Rad {index}: sluttiden måste vara senare än starttiden")
         key = (pitch_number, play_date)
-        if key in seen:
-            raise ValueError(f"Rad {index}: samma plan och datum förekommer flera gånger")
-        seen.add(key)
+        grouped.setdefault(key, []).append({"start_time": start_time, "end_time": end_time})
         clean.append((int(tournament_id), pitch_number, play_date, start_time, end_time, 1))
 
     with connect() as con:
         try:
             changed = False
-            for values in clean:
-                current = con.execute(
-                    """SELECT start_time,end_time,confirmed FROM pitch_day_windows
-                       WHERE tournament_id=? AND pitch_number=? AND play_date=?""",
-                    values[:3],
-                ).fetchone()
-                if not current or str(current[0] or "") != values[3] or str(current[1] or "") != values[4] or not bool(current[2]):
-                    changed = True
-                con.execute(
-                    """INSERT INTO pitch_day_windows(tournament_id,pitch_number,play_date,start_time,end_time,confirmed)
-                       VALUES(?,?,?,?,?,?)
-                       ON CONFLICT(tournament_id,pitch_number,play_date) DO UPDATE SET
-                         start_time=excluded.start_time,end_time=excluded.end_time,confirmed=1""",
-                    values,
-                )
+            con.execute("BEGIN IMMEDIATE")
+            for (pitch_number, play_date), intervals in grouped.items():
+                existing = expand_pitch_windows(_dict_rows(con.execute("SELECT * FROM pitch_day_windows WHERE tournament_id=? AND pitch_number=? AND play_date=? AND confirmed=1", (int(tournament_id), pitch_number, play_date))))
+                # A resumed/partial review must retain already confirmed passes.
+                reviewed = validate_intervals(intervals)
+                for old in existing:
+                    interval = {"start_time": old["start_time"], "end_time": old["end_time"]}
+                    if interval not in reviewed:
+                        reviewed.append(interval)
+                changed = write_pitch_intervals(con, tournament_id, pitch_number, play_date, reviewed) or changed
             scheduled = con.execute(
                 "SELECT COUNT(*) FROM matches WHERE tournament_id=? AND scheduled_start IS NOT NULL",
                 (int(tournament_id),),

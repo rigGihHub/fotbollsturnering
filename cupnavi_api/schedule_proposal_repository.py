@@ -1,6 +1,8 @@
 """Organizer-scoped adapter for deterministic schedule proposals."""
 from __future__ import annotations
 
+from cupnavi_core.pitch_availability import expand_pitch_windows
+
 from .admin_repository import _has_tournament_access
 from .repository import _dict_rows, connect
 from .schedule_admin_repository import admin_schedule
@@ -50,14 +52,14 @@ def _load_source(con, tournament_id: int):
         row["played"] = row.get("home_score") is not None and row.get("away_score") is not None
     windows = _dict_rows(
         con.execute(
-            """SELECT pitch_number,play_date,start_time,end_time,confirmed
+            """SELECT *
                FROM pitch_day_windows
                WHERE tournament_id=? AND pitch_number<=?
                ORDER BY play_date,pitch_number""",
             (tournament_id, pitch_count),
         )
     )
-    return matches, rules, windows
+    return matches, rules, expand_pitch_windows(windows)
 
 
 def _proposal_source(account_id: int, tournament_id: int):

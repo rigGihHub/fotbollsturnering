@@ -50,9 +50,15 @@ class PitchWrite(BaseModel):
     address: str | None = None
 
 
-class PitchWindowWrite(BaseModel):
+class PitchIntervalWrite(BaseModel):
     start_time: str
     end_time: str
+
+
+class PitchWindowWrite(BaseModel):
+    start_time: str | None = None
+    end_time: str | None = None
+    intervals: list[PitchIntervalWrite] | None = None
     confirmed: bool = True
 
 

@@ -1,6 +1,8 @@
 """Organizer-scoped schedule administration for the new CupNavi admin."""
 from __future__ import annotations
 
+from cupnavi_core.pitch_availability import expand_pitch_windows
+
 from datetime import datetime, timedelta
 
 from .admin_repository import _has_tournament_access
@@ -124,10 +126,12 @@ def confirm_current_schedule(account_id: int, tournament_id: int):
     halves = max(1, int(rules.get("halves") or 2))
     duration = halves * max(1, int(rules.get("minutes_per_half") or 20)) + max(0, halves - 1) * max(0, int(rules.get("halftime_minutes") or 0))
     windows = all_rows(
-        "SELECT pitch_number,play_date,start_time,end_time FROM pitch_day_windows WHERE tournament_id=? AND confirmed=1",
+        "SELECT * FROM pitch_day_windows WHERE tournament_id=? AND confirmed=1",
         (int(tournament_id),),
     )
-    available = {(int(row["pitch_number"]), str(row["play_date"])): (str(row["start_time"]), str(row["end_time"])) for row in windows}
+    available = {}
+    for row in expand_pitch_windows(windows):
+        available.setdefault((int(row["pitch_number"]), str(row["play_date"])), []).append((str(row["start_time"]), str(row["end_time"])))
     if not available:
         raise ValueError("Bekräfta planernas öppettider innan schemat godkänns")
     for match in payload["matches"]:
@@ -137,9 +141,11 @@ def confirm_current_schedule(account_id: int, tournament_id: int):
         match_ref = match.get("match_no") or match["id"]
         if not window:
             raise ValueError(f"Match {match_ref} ligger på en plan eller dag utan bekräftad öppettid")
-        opens = datetime.fromisoformat(f"{start.date().isoformat()}T{window[0]}")
-        closes = datetime.fromisoformat(f"{start.date().isoformat()}T{window[1]}")
-        if start < opens or start + timedelta(minutes=duration) > closes:
+        if not any(
+            start >= datetime.fromisoformat(f"{start.date().isoformat()}T{opens}")
+            and start + timedelta(minutes=duration) <= datetime.fromisoformat(f"{start.date().isoformat()}T{closes}")
+            for opens, closes in window
+        ):
             raise ValueError(f"Match {match_ref} ligger utanför planens bekräftade öppettid")
     with connect() as con:
         con.execute("UPDATE tournaments SET schedule_dirty=0 WHERE id=?", (int(tournament_id),))

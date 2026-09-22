@@ -76,7 +76,7 @@ export default function VenueAdmin({token,cupId}:{token:string;cupId:number}) {
     setBusy(true); setError(""); setMessage("");
     try {
       const saved=await api<VenuePayload>(`/api/admin/cups/${cupId}/venues/pitches/${windowRow.pitch_number}/windows/${windowRow.play_date}`,{
-        method:"PUT",body:JSON.stringify({start_time:windowRow.start_time,end_time:windowRow.end_time,confirmed:true})
+        method:"PUT",body:JSON.stringify({intervals:data!.windows.filter(w=>w.pitch_number===windowRow.pitch_number&&w.play_date===windowRow.play_date).map(({start_time,end_time})=>({start_time,end_time})),confirmed:true})
       },token);
       setData(saved); setMessage(`Plantiden ${windowRow.play_date} har sparats.`);
     } catch(err) { setError(err instanceof Error?err.message:"Plantiden kunde inte sparas."); }
@@ -92,8 +92,9 @@ export default function VenueAdmin({token,cupId}:{token:string;cupId:number}) {
       for (const pitch of snapshot.pitches) {
         await api<VenuePayload>(`/api/admin/cups/${cupId}/venues/pitches/${pitch.pitch_number}`,{method:"PUT",body:JSON.stringify({name:pitch.name,address:pitch.address || null})},token);
       }
-      for (const row of snapshot.windows) {
-        await api<VenuePayload>(`/api/admin/cups/${cupId}/venues/pitches/${row.pitch_number}/windows/${row.play_date}`,{method:"PUT",body:JSON.stringify({start_time:row.start_time,end_time:row.end_time,confirmed:true})},token);
+      const days=snapshot.windows.filter((row,index,rows)=>rows.findIndex(w=>w.pitch_number===row.pitch_number&&w.play_date===row.play_date)===index);
+      for (const row of days) {
+        await api<VenuePayload>(`/api/admin/cups/${cupId}/venues/pitches/${row.pitch_number}/windows/${row.play_date}`,{method:"PUT",body:JSON.stringify({intervals:snapshot.windows.filter(w=>w.pitch_number===row.pitch_number&&w.play_date===row.play_date).map(({start_time,end_time})=>({start_time,end_time})),confirmed:true})},token);
       }
       const verified=await api<VenuePayload>(`/api/admin/cups/${cupId}/venues`,{},token);
       const missing=snapshot.windows.some(expected=>!verified.windows.some(actual=>actual.pitch_number===expected.pitch_number&&actual.play_date===expected.play_date&&actual.start_time===expected.start_time&&actual.end_time===expected.end_time&&Boolean(actual.confirmed)));
@@ -107,9 +108,9 @@ export default function VenueAdmin({token,cupId}:{token:string;cupId:number}) {
     if (!data) return;
     setData({...data,pitches:data.pitches.map(p=>p.pitch_number===number?{...p,...patch}:p)});
   }
-  function patchWindow(number:number, playDate:string, patch:Partial<PitchWindow>) {
+  function patchWindow(row:PitchWindow, patch:Partial<PitchWindow>) {
     if (!data) return;
-    setData({...data,windows:data.windows.map(w=>w.pitch_number===number&&w.play_date===playDate?{...w,...patch}:w)});
+    setData({...data,windows:data.windows.map(w=>w===row?{...w,...patch,confirmed:false}:w)});
   }
 
   if (!data) return <section className="admin-panel admin-teams" id="venues"><div className="admin-panel__top"><span>04 / PLANER & TIDER</span><strong>{busy?"HÄMTAR":"SAKNAS"}</strong></div><h2>Planer & tider</h2><p>{error || "Hämtar cupens plankapacitet…"}</p></section>;
@@ -144,17 +145,19 @@ export default function VenueAdmin({token,cupId}:{token:string;cupId:number}) {
       </article>)}
     </div>
 
-    <div className="admin-section-heading"><span>STEG 3 AV 3</span><h3>Öppettider per plan och cupdag</h3><p>{data.rules.synchronized_pitch_times?"Kontrollera att samma tider gäller för alla planer.":"Ange när varje enskild plan kan användas. Dessa tider ersätter en gemensam sluttid."}</p></div>
+    <div className="admin-section-heading"><span>STEG 3 AV 3</span><h3>Öppettider per plan och cupdag</h3><p>Samma plan kan ha flera pass samma dag. Luckor mellan passen är stängda för matcher. Spara dagens tider efter ändring.</p><p>{data.rules.synchronized_pitch_times?"Kontrollera att samma tider gäller för alla planer.":"Ange när varje enskild plan kan användas. Dessa tider ersätter en gemensam sluttid."}</p></div>
     <div className="admin-team-list admin-window-list">
       {data.dates.map(playDate=><div key={playDate} style={{display:"grid",gap:8}}>
         <strong>{playDate}</strong>
-        {data.windows.filter(w=>w.play_date===playDate).map(row=>{
+        {data.windows.filter(w=>w.play_date===playDate).map((row,index)=>{
           const pitch=data.pitches.find(p=>p.pitch_number===row.pitch_number);
-          return <article key={`${row.pitch_number}-${playDate}`}>
+          return <article key={`${playDate}-${index}`}>
             <div style={{minWidth:160}}><strong>{pitch?.name || `Plan ${row.pitch_number}`}</strong><small>{row.confirmed?"Bekräftad tid":"Standardtid – bekräfta vid sparning"}</small></div>
-            <label>Start<input type="time" value={row.start_time} onChange={e=>patchWindow(row.pitch_number,row.play_date,{start_time:e.target.value})} /></label>
-            <label>Slut<input type="time" value={row.end_time} onChange={e=>patchWindow(row.pitch_number,row.play_date,{end_time:e.target.value})} /></label>
-            <button type="button" disabled={busy||row.start_time>=row.end_time} onClick={()=>saveWindow(row)}>Spara tid</button>
+            <label>Start<input type="time" value={row.start_time} onChange={e=>patchWindow(row,{start_time:e.target.value})} /></label>
+            <label>Slut<input type="time" value={row.end_time} onChange={e=>patchWindow(row,{end_time:e.target.value})} /></label>
+            <button type="button" disabled={busy||row.start_time>=row.end_time} onClick={()=>saveWindow(row)}>Spara dagens tider</button>
+            <button type="button" disabled={busy} onClick={()=>setData({...data,windows:[...data.windows,{...row,start_time:row.end_time,end_time:"",confirmed:false}]})}>Lägg till tidsfönster</button>
+            {data.windows.filter(w=>w.pitch_number===row.pitch_number&&w.play_date===playDate).length>1&&<button type="button" disabled={busy} onClick={()=>setData({...data,windows:data.windows.filter(w=>w!==row)})}>Ta bort tidsfönster</button>}
           </article>;
         })}
       </div>)}
