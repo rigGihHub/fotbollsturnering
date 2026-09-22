@@ -59,7 +59,7 @@ export function ViewModeSwitch() {
           {opening?"Öppnar…":"Turneringsvy"}
         </button>
       ) : (
-        <a href="/admin">Admin</a>
+        <><a href="/reporter" className="reporting-shortcut">Rapportering</a><a href="/admin">Admin</a></>
       )}
     </div>
   );
