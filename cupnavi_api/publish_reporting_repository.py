@@ -26,6 +26,27 @@ from cupnavi_core.match_status import (
 from .admin_repository import _has_tournament_access
 from .participant_resolution_repository import tournament_participant_resolver
 from .repository import all_rows, connect, one
+
+
+def _ensure_match_clock_columns():
+    """Add clock state lazily for existing SQLite/Turso databases."""
+    try:
+        with connect() as con:
+            cursor = con.execute("PRAGMA table_info(matches)")
+            fetchall = getattr(cursor, "fetchall", None)
+            if not callable(fetchall):
+                return
+            columns={str(row[1] if not hasattr(row,"keys") else row["name"]) for row in fetchall()}
+            if "actual_elapsed_seconds" not in columns:
+                con.execute("ALTER TABLE matches ADD COLUMN actual_elapsed_seconds INTEGER NOT NULL DEFAULT 0")
+            if "actual_paused_at" not in columns:
+                con.execute("ALTER TABLE matches ADD COLUMN actual_paused_at TEXT")
+            commit=getattr(con,"commit",None)
+            if callable(commit):commit()
+    except Exception:
+        # Minimal test doubles and older read-only connections may not expose schema introspection.
+        return
+
 from .schedule_conflicts import analyze_schedule_conflicts
 
 _KNOCKOUT_STAGES = {"slutspel", "åttondelsfinal", "kvartsfinal", "semifinal", "bronsmatch", "final"}
@@ -224,6 +245,7 @@ def _resolver_for_tournament(tournament_id: int):
 def admin_reporting(account_id: int, tournament_id: int):
     if not _has_tournament_access(account_id, tournament_id):
         return None
+    _ensure_match_clock_columns()
     matches = all_rows(
         "SELECT * FROM matches WHERE tournament_id=? ORDER BY COALESCE(scheduled_start,''),id",
         (int(tournament_id),),
@@ -236,6 +258,7 @@ def admin_reporting(account_id: int, tournament_id: int):
     group_names = {int(g["id"]): g["name"] for g in all_rows("SELECT id,name FROM groups WHERE tournament_id=?", (int(tournament_id),))} if draw_ids else {}
     for match in matches:
         match["requires_winner"] = _match_requires_winner(match, draw_ids)
+        match["clock_elapsed_seconds"] = _clock_elapsed_seconds(match)
         home = resolver.resolve(match.get("home_source")) if resolver else None
         away = resolver.resolve(match.get("away_source")) if resolver else None
         match["home_team"] = home.team_name if home and home.resolved else (source_label(match.get("home_source"), group_names) if draw_ids else _team_name(match.get("home_source"), teams_by_id))
@@ -262,7 +285,30 @@ def admin_reporting(account_id: int, tournament_id: int):
             match["status"] = "awaiting_decision"
         else:
             match["status"] = "played"
-    return {"matches": matches}
+    return {"matches": matches, "settings": {
+        "scorers": bool(tournament.get("show_scorer_stats")),
+        "assists": bool(tournament.get("show_assist_stats")),
+        "cards": bool(tournament.get("show_card_stats")),
+        "fairness": bool(tournament.get("show_fairness")),
+        "minutes_per_half": int(tournament.get("minutes_per_half") or 20),
+        "halves": int(tournament.get("halves") or 2),
+    }}
+
+
+def _clock_elapsed_seconds(match):
+    """Return accumulated playing seconds plus the current live segment."""
+    base=int(match.get("actual_elapsed_seconds") or 0)
+    if str(match.get("match_status") or "") != MATCH_LIVE:
+        return base
+    started=match.get("actual_started_at")
+    if not started:
+        return base
+    try:
+        start=datetime.fromisoformat(str(started).replace("Z","+00:00"))
+        now=datetime.now(start.tzinfo) if start.tzinfo else datetime.now()
+        return max(base, base+max(0,int((now-start).total_seconds())))
+    except (TypeError,ValueError):
+        return base
 
 
 def set_reporter_match_status(
@@ -303,22 +349,36 @@ def set_reporter_match_status(
         ) is None:
             raise ValueError("En oavgjord utslagsmatch måste avgöras innan den avslutas.")
 
+    _ensure_match_clock_columns()
     now = datetime.now().isoformat(timespec="seconds")
     started_at = row.get("actual_started_at")
     finished_at = row.get("actual_finished_at")
+    paused_at = row.get("actual_paused_at")
+    elapsed_seconds = int(row.get("actual_elapsed_seconds") or 0)
+    if current == MATCH_LIVE and wanted in {MATCH_HALFTIME, MATCH_FINISHED} and started_at:
+        try:
+            elapsed_seconds += max(0, int((datetime.fromisoformat(now)-datetime.fromisoformat(str(started_at))).total_seconds()))
+        except (TypeError,ValueError):
+            pass
     if wanted in {MATCH_LIVE, MATCH_HALFTIME}:
-        started_at = started_at or now
+        if wanted == MATCH_LIVE:
+            started_at = now
+            paused_at = None
+        else:
+            started_at = None
+            paused_at = now
         finished_at = None
     elif wanted == MATCH_FINISHED:
-        started_at = started_at or now
+        started_at = None
+        paused_at = None
         finished_at = now
 
     with connect() as conn:
         cursor = conn.execute(
             """UPDATE matches
-               SET match_status=?,status_updated_at=?,actual_started_at=?,actual_finished_at=?
+               SET match_status=?,status_updated_at=?,actual_started_at=?,actual_finished_at=?,actual_elapsed_seconds=?,actual_paused_at=?
                WHERE id=? AND tournament_id=? AND COALESCE(match_status,'not_started')=?""",
-            (wanted, now, started_at, finished_at, int(match_id), int(tournament_id), expected),
+            (wanted, now, started_at, finished_at, elapsed_seconds, paused_at, int(match_id), int(tournament_id), expected),
         )
         if getattr(cursor, "rowcount", 1) == 0:
             raise RuntimeError("Matchstatusen har ändrats av någon annan. Den senaste statusen måste hämtas först.")
@@ -327,7 +387,7 @@ def set_reporter_match_status(
             commit()
     return one(
         """SELECT id,match_status,status_updated_at,actual_started_at,actual_finished_at,
-                  home_score,away_score
+                  actual_elapsed_seconds,actual_paused_at,home_score,away_score
            FROM matches WHERE id=? AND tournament_id=?""",
         (int(match_id), int(tournament_id)),
     )
