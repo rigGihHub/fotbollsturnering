@@ -2,6 +2,7 @@ from pathlib import Path
 
 ROOT=Path(__file__).resolve().parents[1]
 ADMIN=(ROOT/"frontend-next/src/components/admin-workspace.tsx").read_text(encoding="utf-8")
+API=(ROOT/"cupnavi_api/main.py").read_text(encoding="utf-8")
 
 def bulk_block():
     start=ADMIN.index("async function searchAllTeamAssets")
@@ -30,6 +31,15 @@ def test_rate_limit_stops_bulk_run_instead_of_churning_saved_data():
     assert "/429|AI_RATE_LIMIT|kapacitetsgräns/" in block
     assert "stoppade resten för att skydda redan sparad data" in block
     assert "break;" in block
+    assert 'response.status === 429 ? serverDetail || "För många försök' in ADMIN
+
+def test_kit_search_rate_limit_is_not_logged_as_bad_gateway():
+    endpoint=API.index("def search_admin_team_kit")
+    block=API[API.index("except RuntimeError as exc:", endpoint):API.index("@app.delete", endpoint)]
+    assert '"AI_RATE_LIMIT" in raw_detail' in block
+    assert "status_code=429" in block
+    assert '"Retry-After"' in block
+    assert "status_code=502" in block
 
 def test_manual_suggestion_only_applies_verified_parts():
     start=ADMIN.index("function applyKitSuggestion")

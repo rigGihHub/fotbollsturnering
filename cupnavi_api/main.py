@@ -458,6 +458,11 @@ def search_admin_team_kit(tournament_id:int,payload:KitSearchRequest,authorizati
         raw_detail=" ".join(str(exc).split())[:500]
         print(f"[kit-search] upstream failure focus={payload.search_focus} team={payload.team_name!r}: {raw_detail}", flush=True)
         detail=raw_detail
+        if "AI_RATE_LIMIT" in raw_detail or "rate_limit" in raw_detail.lower():
+            retry_match=re.search(r"Vänta\s+(\d+)\s+sekunder", raw_detail, flags=re.I)
+            headers={"Retry-After":retry_match.group(1)} if retry_match else None
+            detail="AI_RATE_LIMIT: Söktjänsten är rate-limitad just nu. CupNavi stoppade sökningen för att skydda redan sparad data och undvika onödiga anrop."
+            raise HTTPException(status_code=429,detail=detail,headers=headers) from exc
         if "timed out" in raw_detail.lower() or "timeout" in raw_detail.lower():
             detail=f"Tröjsökningen tog för lång tid. Teknisk detalj: {raw_detail}"
         elif "401" in raw_detail or "authentication" in raw_detail.lower():

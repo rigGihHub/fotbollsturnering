@@ -99,7 +99,7 @@ async function request<T>(path:string, options:RequestInit = {}, token?:string|n
   if (!response.ok) {
     const serverDetail = payload && typeof payload.detail === "string" ? payload.detail : "";
     const detail = response.status === 401 ? "Sessionen är inte längre giltig. Logga in igen."
-      : response.status === 429 ? "För många försök. Vänta en stund innan du provar igen."
+      : response.status === 429 ? serverDetail || "För många försök. Vänta en stund innan du provar igen."
       : response.status === 503 ? "CupNavi-servern är tillfälligt inte redo. Försök igen om en stund."
       : serverDetail || `API-fel ${response.status}`;
     throw new ApiError(response.status,detail);
