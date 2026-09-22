@@ -107,3 +107,11 @@ def test_admin_uses_persistent_verified_session_cache_to_stop_mobile_bounce():
     assert "localStorage.setItem(VERIFIED_PERSISTENT_CACHE_KEY" in shell
     assert "localStorage.removeItem(VERIFIED_PERSISTENT_CACHE_KEY" in shell
     assert "VERIFIED_PERSISTENT_CACHE_KEY" in gate
+
+
+def test_api_root_answers_render_health_probe():
+    api = (ROOT / "cupnavi_api/main.py").read_text(encoding="utf-8")
+
+    assert '@app.get("/")' in api
+    assert '@app.head("/")' in api
+    assert "cupnavi-api" in api

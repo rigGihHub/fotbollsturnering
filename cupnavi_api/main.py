@@ -223,6 +223,12 @@ register_venue_admin_routes(app, _admin_identity)
 register_access_routes(app, _admin_identity)
 
 
+@app.get("/")
+@app.head("/")
+def root_health():
+    return {"ok": True, "service": "cupnavi-api", "version": APP_VERSION}
+
+
 @app.get("/health")
 def health(response:Response):
     probe=database_probe()
