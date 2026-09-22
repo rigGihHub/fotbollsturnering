@@ -44,6 +44,18 @@ def test_public_first_paint_defers_nonessential_work_and_long_lists():
     assert "Visa fler" in public_view
 
 
+def test_public_live_polling_backs_off_after_rate_limits_and_server_errors():
+    api = read("frontend-next/src/lib/api.ts")
+    public_view = read("frontend-next/src/components/PublicCupView.tsx")
+    assert "retryAfterMs(response)" in api
+    assert "public readonly retryAfterMs?:number" in api
+    assert "MIN_REFRESH_BACKOFF_MS=30000" in public_view
+    assert "MAX_REFRESH_BACKOFF_MS=120000" in public_view
+    assert "nextAllowedRefreshRef.current" in public_view
+    assert "publicRefreshBackoffMs.current?publicRefreshBackoffMs.current*2:MIN_REFRESH_BACKOFF_MS" in public_view
+    assert "return cooldownMs?Math.max(cooldownMs,baseDelay):baseDelay" in public_view
+
+
 def test_release_2693_is_synchronized_and_ci_uses_maintained_gate():
     assert '"version": "2.6.96"' in read("frontend-next/package.json")
     assert '"version": "2.6.96"' in read("frontend-next/package-lock.json")
