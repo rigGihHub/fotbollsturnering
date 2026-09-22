@@ -1,12 +1,12 @@
 /* v2.6.97: keep the release marker visible in every admin view, including mobile. */
 .brandbar .app-version-badge,.brandbar .header-share-action+.app-version-badge{display:inline-flex!important;visibility:visible!important;opacity:1!important;position:relative;z-index:2}
 .admin-version-marker{position:sticky;top:70px;z-index:25;width:max-content;margin:0 0 -28px auto;padding:5px 8px;border:1px solid rgba(16,38,48,.35);border-radius:999px;background:#fffdf6;color:#102630;font:900 10px/1 ui-monospace,SFMono-Regular,Consolas,monospace;letter-spacing:.08em;box-shadow:2px 2px 0 rgba(16,38,48,.12)}
-.admin-public-options--prominent{display:grid;gap:10px;margin:16px 0!important;padding:16px 18px!important;border:2px solid #168f9d!important;border-radius:14px;background:#edf8f6;box-shadow:3px 3px 0 rgba(16,38,48,.12)}
+.admin-public-options--prominent{display:grid;grid-template-columns:minmax(0,1fr) minmax(180px,.45fr);gap:10px 16px;margin:16px 0!important;padding:16px 18px!important;border:2px solid #168f9d!important;border-radius:14px;background:#edf8f6;box-shadow:3px 3px 0 rgba(16,38,48,.12)}
 .admin-public-options--prominent legend{padding:0 7px;font-size:14px;font-weight:950;color:#1554d1}
-.admin-public-options__intro{margin:0;color:#52636c;font-size:13px}
+.admin-public-options__intro{grid-column:1/-1;margin:0;color:#52636c;font-size:13px}
 .admin-public-options--prominent label{display:grid;gap:6px;font-weight:900;font-size:13px}
 .admin-public-options--prominent select{min-height:44px;padding:9px 11px;border:1.5px solid rgba(16,38,48,.35);border-radius:9px;background:#fffdf6;color:#102630;font:inherit}
 .admin-public-options__checkbox{display:flex!important;grid-template-columns:none!important;align-items:center;gap:9px!important}
-.admin-public-options__checkbox input{width:20px;height:20px;accent-color:#1554d1}
+.admin-public-options__checkbox input{width:20px!important;height:20px!important;margin:0;accent-color:#1554d1}
 .admin-public-options--prominent small{color:#52636c}
-@media(max-width:560px){.admin-version-marker{top:66px;margin-bottom:-24px;font-size:9px}.admin-public-options--prominent{padding:14px!important}}
+@media(max-width:560px){.admin-version-marker{top:66px;margin-bottom:-24px;font-size:9px}.admin-public-options--prominent{grid-template-columns:1fr;padding:14px!important}.admin-public-options--prominent legend{font-size:12px}.admin-public-options--prominent label{font-size:12px}.admin-public-options--prominent select{min-height:42px}.admin-public-options__checkbox{display:flex!important;min-height:38px;padding:6px 0}}

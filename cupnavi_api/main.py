@@ -142,6 +142,7 @@ class KitSearchRequest(BaseModel):
     resolved_club: str | None = None
     resolved_source_url: str | None = None
     search_focus: str = "kit"
+    kit_mode: str = "both"
     force_refresh: bool = False
 
 
@@ -399,14 +400,22 @@ _FREE_CLUB_ASSETS = {
     "örebro sk": {"club_match":"Örebro SK Fotboll · Örebro","home_pattern":"Helfärgad","home_color_1":"#FFFFFF","home_color_2":"#FFFFFF","away_pattern":"Helfärgad","away_color_1":"#111111","away_color_2":"#111111"},
 }
 
-def _free_club_asset_result(team_name:str, search_focus:str):
+def _restrict_kit_mode(result:dict, kit_mode:str):
+    if str(kit_mode or "both").strip().lower() == "home":
+        result = dict(result)
+        result["away_verified"] = False
+        result["away_sources"] = []
+        result["away_evidence"] = "Bortaställ ej sökt – publik visning är inställd på endast hemma."
+    return result
+
+def _free_club_asset_result(team_name:str, search_focus:str, kit_mode:str="both"):
     key=" ".join(str(team_name or "").casefold().split())
     club=next((value for name,value in _FREE_CLUB_ASSETS.items() if key==name or key.startswith(name+" ")),None)
     if not club:
         return None
     # Built-in entries are conservative fallbacks: useful known kit presentation,
     # but never pretend that a crest or current-season evidence was web-verified.
-    return {
+    return _restrict_kit_mode({
         "found": search_focus != "logo", "confidence":"medium", "reason":"CupNavis kostnadsfria klubbregister.",
         **club, "home_sources":[], "away_sources":[], "sources":[],
         "home_evidence":"Känt klubbregister; kontrollera mot aktuellt ungdomslag vid behov.",
@@ -414,7 +423,7 @@ def _free_club_asset_result(team_name:str, search_focus:str):
         "home_verified":False, "away_verified":False, "identity_status":"exact", "candidate_matches":[],
         "logo_url":"", "logo_source_url":"", "logo_verified":False, "club_match":club["club_match"],
         "cache_hit":False, "search_strategy":"Kostnadsfritt klubbregister", "search_attempts":0, "attempted_strategies":[]
-    }
+    }, kit_mode)
 
 
 @app.post("/api/admin/cups/{tournament_id}/teams/kit-search")
@@ -424,7 +433,7 @@ def search_admin_team_kit(tournament_id:int,payload:KitSearchRequest,authorizati
     if not cupinfo:
         raise HTTPException(status_code=404,detail="Cup saknas eller åtkomst nekas")
     api_key=os.getenv("OPENAI_API_KEY","").strip()
-    free_result=_free_club_asset_result(payload.team_name,str(payload.search_focus or "kit"))
+    free_result=_free_club_asset_result(payload.team_name,str(payload.search_focus or "kit"),str(payload.kit_mode or "both"))
     # Prefer CupNavi's own free knowledge for known clubs. This avoids spending
     # paid AI credits on facts we already know and makes repeated cup setup stable.
     if free_result is not None and not payload.force_refresh:
@@ -443,6 +452,7 @@ def search_admin_team_kit(tournament_id:int,payload:KitSearchRequest,authorizati
             resolved_club=str(payload.resolved_club or ""),
             resolved_source_url=str(payload.resolved_source_url or ""),
             search_focus=str(payload.search_focus or "kit"),
+            kit_mode=str(payload.kit_mode or "both"),
             use_cache=not payload.force_refresh,
         )
         if result.get("logo_verified") and result.get("logo_url"):
@@ -457,7 +467,7 @@ def search_admin_team_kit(tournament_id:int,payload:KitSearchRequest,authorizati
                 # external image URL that may fail or block hotlinking.
                 result["logo_url"] = ""
                 result["logo_verified"] = False
-        return result
+        return _restrict_kit_mode(result,str(payload.kit_mode or "both"))
     except ValueError as exc:
         raise HTTPException(status_code=422,detail=str(exc)) from exc
     except RuntimeError as exc:

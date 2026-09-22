@@ -58,6 +58,7 @@ type KitSuggestion = {found:boolean;confidence:"low"|"medium"|"high";reason:stri
 const emptyTeam = {name:"",age_class:"",primary_color:"#111827",secondary_color:"#FFFFFF",home_pattern:"Helfärgad" as KitPattern,home_color_2:"#FFFFFF",away_pattern:"Helfärgad" as KitPattern,away_color_2:"#111827",logo_url:"",logo_source_url:""};
 const emptyGroup = {name:"",age_class:""};
 const kitPatterns:KitPattern[]=["Helfärgad","Vertikala ränder","Horisontella ränder","Rutigt","Delad","Diagonala ränder","Grafiskt"];
+const publicKitModeFor=(info?:CupInfo|null):PublicKitMode=>info?.show_public_kits===false||info?.show_public_kits===0?"none":info?.show_public_away_kits===false||info?.show_public_away_kits===0?"home":"both";
 const standardKitColors=[
   {name:"Vit",value:"#FFFFFF"},{name:"Svart",value:"#111827"},{name:"Röd",value:"#D72638"},
   {name:"Mörkblå",value:"#12355B"},{name:"Blå",value:"#246BCE"},{name:"Ljusblå",value:"#68B7E8"},
@@ -484,10 +485,12 @@ export default function AdminWorkspace({verifiedSession=null,children=null}:{ver
 
   async function searchAssets(focus:"kit"|"logo",candidate?:KitCandidate) {
     if(!token||!cupId||!teamDraft.name.trim())return;
+    const kitMode=publicKitModeFor(cupinfo);
+    if(focus==="kit"&&kitMode==="none"){setMessage("Matchställ är avstängda i publik visning. Välj hemmatröja eller hemma- och bortatröja för att söka.");return;}
     setAssetFocus(focus);
     setKitBusy(focus);setError("");setMessage("");setKitSuggestion(null);
     try{
-      const result=await request<KitSuggestion>(`/api/admin/cups/${cupId}/teams/kit-search`,{method:"POST",body:JSON.stringify({team_name:teamDraft.name,age_class:teamDraft.age_class||null,search_hint:kitHint||null,resolved_club:candidate?[candidate.name,candidate.location,candidate.country].filter(Boolean).join(" · "):null,resolved_source_url:candidate?.source_url||null,search_focus:focus,force_refresh:true})},token);
+      const result=await request<KitSuggestion>(`/api/admin/cups/${cupId}/teams/kit-search`,{method:"POST",body:JSON.stringify({team_name:teamDraft.name,age_class:teamDraft.age_class||null,search_hint:kitHint||null,resolved_club:candidate?[candidate.name,candidate.location,candidate.country].filter(Boolean).join(" · "):null,resolved_source_url:candidate?.source_url||null,search_focus:focus,kit_mode:kitMode,force_refresh:true})},token);
       setKitSuggestion(result);
       if(result.identity_status!=="ambiguous"&&(focus==="logo"?result.logo_verified:(result.home_verified||result.away_verified))){
         setMessage(focus==="logo"?"Ett verifierat klubbmärke hittades. Granska och välj Använd verifierade uppgifter.":"Verifierade matchställ hittades. Granska källorna innan du använder uppgifterna.");
@@ -506,7 +509,7 @@ export default function AdminWorkspace({verifiedSession=null,children=null}:{ver
     if(!kitSuggestion)return;
     setTeamDraft(current=>({...current,
       ...(kitSuggestion.home_verified?{primary_color:kitSuggestion.home_color_1,home_color_2:kitSuggestion.home_color_2,home_pattern:kitSuggestion.home_pattern}:{}),
-      ...(kitSuggestion.away_verified?{secondary_color:kitSuggestion.away_color_1,away_color_2:kitSuggestion.away_color_2,away_pattern:kitSuggestion.away_pattern}:{}),
+      ...(publicKitModeFor(cupinfo)==="both"&&kitSuggestion.away_verified?{secondary_color:kitSuggestion.away_color_1,away_color_2:kitSuggestion.away_color_2,away_pattern:kitSuggestion.away_pattern}:{}),
       ...(kitSuggestion.logo_verified?{logo_url:kitSuggestion.logo_url,logo_source_url:kitSuggestion.logo_source_url}:{}),
     }));
     setMessage("De verifierade uppgifterna är införda i formuläret. Spara laget för att bekräfta ändringen.");
@@ -515,27 +518,29 @@ export default function AdminWorkspace({verifiedSession=null,children=null}:{ver
   async function searchAllTeamAssets(){
     if(!token||!cupId||!teams.length||bulkKitBusy)return;
     setBulkKitBusy(true);setBulkKitResult("");setBulkKitIssues([]);setError("");setMessage("");let completed=0,saved=0,failed=0,uncertain=0;const updated:Team[]=[];const issues:Array<{teamId:number;teamName:string;reason:string}>=[];
+    const kitMode=publicKitModeFor(cupinfo);
     // Run one club at a time. Parallel web-search calls can exhaust the
     // upstream search quota and turn one transient 429 into a full-cup failure.
     for(const team of teams){
       try{
         const missingLogo=!team.logo_url;
+        if(kitMode==="none"&&!missingLogo){completed++;setBulkKitProgress(`${completed} av ${teams.length} lag kontrollerade`);continue;}
         // Existing kit data is valuable user state. Bulk lookup must not re-search
         // and destabilize it merely because a crest is missing.
         const searchFocus=missingLogo?"logo":"kit";
-        let suggestion=await request<KitSuggestion>(`/api/admin/cups/${cupId}/teams/kit-search`,{method:"POST",body:JSON.stringify({team_name:team.name,age_class:team.age_class||null,search_focus:searchFocus})},token);
+        let suggestion=await request<KitSuggestion>(`/api/admin/cups/${cupId}/teams/kit-search`,{method:"POST",body:JSON.stringify({team_name:team.name,age_class:team.age_class||null,search_focus:searchFocus,kit_mode:kitMode})},token);
         // A combined shirt search may legitimately prioritize kit evidence and omit the crest.
         // For bulk mode, follow up with a logo-focused search before deciding that the crest is missing.
         if(searchFocus==="kit"&&suggestion.identity_status==="exact"&&!suggestion.logo_verified){
           try{
-            const logoSuggestion=await request<KitSuggestion>(`/api/admin/cups/${cupId}/teams/kit-search`,{method:"POST",body:JSON.stringify({team_name:team.name,age_class:team.age_class||null,resolved_club:suggestion.club_match||team.name,search_focus:"logo",force_refresh:true})},token);
+            const logoSuggestion=await request<KitSuggestion>(`/api/admin/cups/${cupId}/teams/kit-search`,{method:"POST",body:JSON.stringify({team_name:team.name,age_class:team.age_class||null,resolved_club:suggestion.club_match||team.name,search_focus:"logo",kit_mode:kitMode,force_refresh:true})},token);
             if(logoSuggestion.identity_status==="exact"&&logoSuggestion.logo_verified){suggestion={...suggestion,logo_verified:true,logo_url:logoSuggestion.logo_url,logo_source_url:logoSuggestion.logo_source_url};}
           }catch{/* A logo retry must never discard already verified kit data. */}
         }
-        const strongKit=searchFocus==="logo"?true:(suggestion.identity_status==="exact"&&suggestion.home_verified&&suggestion.away_verified);if(!strongKit||searchFocus==="logo"){if(suggestion.identity_status==="exact"&&suggestion.logo_verified){try{const logoPayload={logo_url:suggestion.logo_url,logo_source_url:suggestion.logo_source_url};const logoSaved=await request<Team>(`/api/admin/cups/${cupId}/teams/${team.id}`,{method:"PUT",body:JSON.stringify(logoPayload)},token);updated.push(logoSaved);saved++;}catch{/* A failed crest write must not affect any existing kit data. */}}uncertain++;const identityOk=suggestion.identity_status==="exact";const parts=[!identityOk?"Klubbidentiteten behöver förtydligas.":"Klubbidentitet: verifierad.",suggestion.home_verified?"Hemma: verifierat.":"Hemma: behöver kontrolleras.",suggestion.away_verified?"Borta: verifierat.":"Borta: behöver kontrolleras.",suggestion.logo_verified?"Klubbmärke: verifierat.":""];issues.push({teamId:team.id,teamName:team.name,reason:parts.filter(Boolean).join(" ")});continue;}
+        const strongKit=searchFocus==="logo"?true:(suggestion.identity_status==="exact"&&suggestion.home_verified&&(kitMode==="home"||suggestion.away_verified));if(!strongKit||searchFocus==="logo"){if(suggestion.identity_status==="exact"&&suggestion.logo_verified){try{const logoPayload={logo_url:suggestion.logo_url,logo_source_url:suggestion.logo_source_url};const logoSaved=await request<Team>(`/api/admin/cups/${cupId}/teams/${team.id}`,{method:"PUT",body:JSON.stringify(logoPayload)},token);updated.push(logoSaved);saved++;}catch{/* A failed crest write must not affect any existing kit data. */}}uncertain++;const identityOk=suggestion.identity_status==="exact";const parts=[!identityOk?"Klubbidentiteten behöver förtydligas.":"Klubbidentitet: verifierad.",suggestion.home_verified?"Hemma: verifierat.":"Hemma: behöver kontrolleras.",kitMode==="home"?"":"Borta: "+(suggestion.away_verified?"verifierat.":"behöver kontrolleras."),suggestion.logo_verified?"Klubbmärke: verifierat.":""];issues.push({teamId:team.id,teamName:team.name,reason:parts.filter(Boolean).join(" ")});continue;}
         const payload={
           ...(suggestion.home_verified?{primary_color:suggestion.home_color_1,home_color_2:suggestion.home_color_2,home_pattern:suggestion.home_pattern}:{}),
-          ...(suggestion.away_verified?{secondary_color:suggestion.away_color_1,away_color_2:suggestion.away_color_2,away_pattern:suggestion.away_pattern}:{}),
+          ...(kitMode==="both"&&suggestion.away_verified?{secondary_color:suggestion.away_color_1,away_color_2:suggestion.away_color_2,away_pattern:suggestion.away_pattern}:{}),
           ...(suggestion.logo_verified?{logo_url:suggestion.logo_url,logo_source_url:suggestion.logo_source_url}:{}),
         };
         const result=await request<Team>(`/api/admin/cups/${cupId}/teams/${team.id}`,{method:"PUT",body:JSON.stringify(payload)},token);updated.push(result);saved++;
@@ -801,7 +806,7 @@ export default function AdminWorkspace({verifiedSession=null,children=null}:{ver
         <div className="admin-team-list admin-team-roster">
           {teams.length ? teams.map(team=><article key={team.id} className={editingTeam===team.id?"is-editing":""}>
             <TeamLogo team={team}/>
-            <span className="admin-team-kits" aria-label="Hemma- och bortaställ"><span><TeamKit primary={team.primary_color} secondary={team.home_color_2} pattern={team.home_pattern}/><small>Hemma</small></span><span><TeamKit primary={team.secondary_color} secondary={team.away_color_2} pattern={team.away_pattern}/><small>Borta</small></span></span>
+            {publicKitModeFor(cupinfo)!=="none"&&<span className="admin-team-kits" aria-label={publicKitModeFor(cupinfo)==="home"?"Hemmaställ":"Hemma- och bortaställ"}><span><TeamKit primary={team.primary_color} secondary={team.home_color_2} pattern={team.home_pattern}/><small>Hemma</small></span>{publicKitModeFor(cupinfo)==="both"&&<span><TeamKit primary={team.secondary_color} secondary={team.away_color_2} pattern={team.away_pattern}/><small>Borta</small></span>}</span>}
             <div className="admin-team-identity"><strong>{team.name}</strong><small><span>{team.age_class||"Klass saknas"}</span><span>{team.group_id?(groups.find(group=>group.id===team.group_id)?.name || `Grupp ${team.group_id}`):"Ej gruppindelat"}</span></small></div>
             <div className="admin-team-actions"><button type="button" onClick={()=>beginTeamEdit(team)}>Redigera</button><button className="is-danger" type="button" onClick={()=>removeTeam(team)}>Ta bort</button></div>
           </article>) : <div className="admin-empty"><strong>Inga lag ännu</strong><span>Lägg till det första laget ovan.</span></div>}

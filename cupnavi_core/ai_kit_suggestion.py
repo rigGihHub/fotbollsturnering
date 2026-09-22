@@ -13,6 +13,7 @@ MAX_SEARCH_ATTEMPTS = 3
 CACHE_TTL_SECONDS = 60 * 60 * 12
 SEARCH_VERSION = "v673-pattern-first-assets"
 ALLOWED_SEARCH_FOCUS = {"kit", "logo", "all"}
+ALLOWED_KIT_MODES = {"home", "both"}
 
 # Process-local cache: Streamlit reruns keep the Python process alive. A repeated
 # search for the same club therefore returns immediately without a new web call.
@@ -228,7 +229,7 @@ def _context_text(location="", country_code="", age_class="", search_hint="", re
     return "; ".join(bits) or "ingen extra kontext"
 
 
-def _search_strategies(clean_name, *, location="", country_code="", age_class="", search_hint="", resolved_club="", resolved_source_url="", search_focus="kit"):
+def _search_strategies(clean_name, *, location="", country_code="", age_class="", search_hint="", resolved_club="", resolved_source_url="", search_focus="kit", kit_mode="both"):
     """Two strong passes instead of three narrow sequential passes.
 
     The Responses web-search tool can perform several searches inside one call,
@@ -237,9 +238,10 @@ def _search_strategies(clean_name, *, location="", country_code="", age_class=""
     """
     club_name = likely_club_name(clean_name)
     context = _context_text(location, country_code, age_class, search_hint, resolved_club, resolved_source_url)
-    focus = "klubbens officiella klubbmärke/logotyp" if search_focus == "logo" else "aktuella hemma- och bortaställ"
+    focus = "klubbens officiella klubbmärke/logotyp" if search_focus == "logo" else ("aktuella hemmastället" if kit_mode == "home" else "aktuella hemma- och bortaställ")
+    kit_scope = "Sök endast efter hemmastället. Lägg inte tid på bortaställ och returnera away_verified=false." if kit_mode == "home" else "Sök hemma och borta separat."
     primary = (
-        "Identifiera klubben först och sök därefter brett efter rätt tillgång. Kör separata sökspår för hemma- och bortaställ och jämför bevisen, inte bara klubbfärgerna. "
+        f"Identifiera klubben först och sök därefter brett efter rätt tillgång. {kit_scope} Jämför bevisen, inte bara klubbfärgerna. "
         "Gör flera sökfrågor i samma omgång mot: officiell klubbwebb/webbshop; materialleverantörens klubb-/produktssida; förbund eller officiell lagplattform; "
         "färska matchbilder och lagbilder; offentliga inlägg från klubbens/lagets officiella Instagram eller Facebook; samt motståndares matchreferat eller bildgalleri när klubbens egna källor saknas. "
         f"Sök både på exakt lag '{clean_name}' och sannolikt klubbnamn '{club_name}', och kombinera med aktuell säsong, home/away, hemma/borta, matchtröja/matchställ. "
@@ -247,7 +249,7 @@ def _search_strategies(clean_name, *, location="", country_code="", age_class=""
         f"Kontext: {context}. Cupens spelort är bara var turneringen hålls och får ALDRIG användas som belägg för klubbens hemort. "
         "Jämför klubbnamn, ort, webbdomän och emblem innan identiteten godkänns. Prioritera officiella källor och senaste relevanta säsongen. "
         "Källan måste visa själva tröjan eller uttryckligen beskriva stället; klubbens färger utan tröjbild är inte bevis. "
-        "För hemma- respektive bortaställ ska separata källor anges; en allmän klubbsida räcker inte som tröjbevis."
+        f"{kit_scope} För hemma- respektive bortaställ ska separata källor anges; en allmän klubbsida räcker inte som tröjbevis."
     )
     fallback = (
         f"Första sökningen för '{clean_name}' var ofullständig. Fyll endast luckorna för {focus}. "
@@ -324,7 +326,7 @@ def _schema():
     }
 
 
-def _request_suggestion(clean_name, api_key, *, model, timeout_seconds, strategy_instruction, search_focus, opener):
+def _request_suggestion(clean_name, api_key, *, model, timeout_seconds, strategy_instruction, search_focus, kit_mode="both", opener):
     instructions = (
         f"Du hjälper en svensk cuparrangör att hitta klubbuppgifter för laget '{clean_name}'. Sökfokus: {search_focus}. {strategy_instruction} "
         "Ungdomslag kan heta P2014, F2013, U13, Svart, Blå, 1 eller 2 efter klubbnamnet; det är ofta lagetiketter och inte en annan klubb. "
@@ -337,7 +339,7 @@ def _request_suggestion(clean_name, api_key, *, model, timeout_seconds, strategy
         "away_verified får bara vara true om minst en URL i away_sources faktiskt stöder bortastället. Samma källa får användas för båda bara om den tydligt visar båda. "
         "Skriv i home_evidence/away_evidence vad källan visar. Prioritera officiell klubb/webbshop, sedan förbund/cup/lagplattform, därefter färska matchbilder. Kontrollera att källan faktiskt visar tröjan eller uttryckligen beskriver stället; klubbens färger, arena, flagga eller en logotypbild räknas inte som tröjbevis. Läs bildtext, alt-text och sidans säsong/uppdateringsdatum och välj den senaste relevanta säsongen. Offentliga inlägg från klubbens officiella Instagram eller Facebook får användas som kompletterande bildbevis, men aldrig ett ensamt gammalt eller odaterat inlägg. "
         "Vikta källor efter aktualitet: aktuell säsong väger högst, föregående säsong lägre och odaterade/historiska bilder lägst. Om flera trovärdiga källor motsäger varandra, välj den nyaste relevanta säsongen och sänk confidence. "
-        "Sök hemma och borta separat. För varje ställ: försök få minst två samstämmiga aktuella bildbevis när officiell produktbild saknas. En klubbfärg, logotyp, flagga eller text om föreningens färger får ALDRIG ensam bestämma tröjfärg eller mönster. "
+        f"{('Sök endast hemma och sätt away_verified=false.' if kit_mode == 'home' else 'Sök hemma och borta separat.')} För varje ställ: försök få minst två samstämmiga aktuella bildbevis när officiell produktbild saknas. En klubbfärg, logotyp, flagga eller text om föreningens färger får ALDRIG ensam bestämma tröjfärg eller mönster. "
         "I home_evidence/away_evidence ska du ange hur många samstämmiga aktuella bevis som faktiskt visar stället och vilken typ av källa som är starkast. "
         "Det är bättre att returnera bara ett belagt hemmaställ än att fylla i ett osäkert bortaställ. "
         "För verifierade ställ: analysera TRÖJANS GEOMETRI separat från klubbfärgerna. Avgör först om tyget visuellt är enfärgat, vertikalrandigt, horisontalrandigt, rutigt, delat, diagonalrandigt eller grafiskt. Välj Helfärgad endast när den verifierade tröjbilden verkligen saknar ett tydligt återkommande mönster; två eller fler tydliga kontrasterande vertikala band ska ge Vertikala ränder och motsvarande horisontella band Horisontella ränder. Logotyp, sponsortryck, krage och ärmkanter är inte ett tröjmönster. Skriv i home_evidence/away_evidence vilket visuellt kännetecken som motiverar mönstret. Ange därefter praktiska HEX-färger (#RRGGBB) utifrån själva tröjan, inte färgnamn från klubbens profil. Beskriv huvudfärg först och den tydliga kontrastfärgen därefter. Välj närmast passande mönster bland Helfärgad, Vertikala ränder, Horisontella ränder, Rutigt, Delad, Diagonala ränder eller Grafiskt; välj Grafiskt när designen är chevron, camo, gradient eller annan tydlig grafik och gissa inte ränder. "
@@ -451,10 +453,10 @@ def _merge_compatible_results(first, second):
     return preferred
 
 
-def _cache_key(clean_name, location, country_code, age_class, search_hint, model, resolved_club="", resolved_source_url="", search_focus="kit"):
+def _cache_key(clean_name, location, country_code, age_class, search_hint, model, resolved_club="", resolved_source_url="", search_focus="kit", kit_mode="both"):
     return "|".join(
         " ".join(str(value or "").casefold().split())
-        for value in (SEARCH_VERSION, likely_club_name(clean_name), clean_name, location, country_code, age_class, search_hint, model, resolved_club, resolved_source_url, search_focus)
+        for value in (SEARCH_VERSION, likely_club_name(clean_name), clean_name, location, country_code, age_class, search_hint, model, resolved_club, resolved_source_url, search_focus, kit_mode)
     )
 
 
@@ -489,6 +491,7 @@ def suggest_team_kit(
     resolved_club="",
     resolved_source_url="",
     search_focus="kit",
+    kit_mode="both",
     opener=urlopen,
     use_cache=True,
 ):
@@ -505,11 +508,17 @@ def suggest_team_kit(
     search_focus = str(search_focus or "kit").strip().lower()
     if search_focus not in ALLOWED_SEARCH_FOCUS:
         raise ValueError("Okänt sökfokus.")
+    kit_mode = str(kit_mode or "both").strip().lower()
+    if kit_mode not in ALLOWED_KIT_MODES:
+        raise ValueError("Okänt visningsläge för matchställ.")
 
-    cache_key = _cache_key(clean_name, location, country_code, age_class, search_hint, model, resolved_club, resolved_source_url, search_focus)
+    cache_key = _cache_key(clean_name, location, country_code, age_class, search_hint, model, resolved_club, resolved_source_url, search_focus, kit_mode)
     if use_cache and opener is urlopen:
         cached = _cache_get(cache_key)
         if cached:
+            if kit_mode == "home":
+                cached["away_verified"] = False
+                cached["away_sources"] = []
             cached["cache_hit"] = True
             cached["search_strategy"] = "Snabbcache"
             cached["search_attempts"] = 0
@@ -525,6 +534,7 @@ def suggest_team_kit(
         resolved_club=resolved_club,
         resolved_source_url=resolved_source_url,
         search_focus=search_focus,
+        kit_mode=kit_mode,
     )[:MAX_SEARCH_ATTEMPTS]
     attempts = []
     best = None
@@ -536,6 +546,7 @@ def suggest_team_kit(
             timeout_seconds=timeout_seconds,
             strategy_instruction=strategy_instruction,
             search_focus=search_focus,
+            kit_mode=kit_mode,
             opener=opener,
         )
         attempts.append(label)
@@ -546,9 +557,12 @@ def suggest_team_kit(
         best = _merge_compatible_results(best, result)
 
         # Stop after the fast first pass when the evidence is already useful.
-        both_verified = bool(best.get("home_verified") and best.get("away_verified"))
+        if kit_mode == "home":
+            best["away_verified"] = False
+            best["away_sources"] = []
+        kit_ready = bool(best.get("home_verified")) if kit_mode == "home" else bool(best.get("home_verified") and best.get("away_verified"))
         exact_logo = bool(best.get("identity_status") == "exact" and best.get("logo_verified"))
-        if index == 0 and ((search_focus == "logo" and exact_logo) or (search_focus != "logo" and both_verified and best.get("identity_status") == "exact")):
+        if index == 0 and ((search_focus == "logo" and exact_logo) or (search_focus != "logo" and kit_ready and best.get("identity_status") == "exact")):
             break
 
     best = best or normalize_kit_suggestion({})
