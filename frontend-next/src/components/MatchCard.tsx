@@ -36,7 +36,7 @@ export function MatchCard({match,teams,groups=[],pitches=[],index,weather,showKi
     <div className="public-match-card__teams">
       <Side team={home} label={homeLabel} showKits={showKits} showAwayKits={showAwayKits} showLogos={showLogos}/>
       <div className="public-match-card__score"><strong>{score||"vs"}</strong></div>
-      <Side team={away} label={awayLabel} away showKits={showKits} showLogos={showLogos}/>
+      <Side team={away} label={awayLabel} away showKits={showKits} showAwayKits={showAwayKits} showLogos={showLogos}/>
     </div>
     <footer className="public-match-card__pitch">{pitchLabel(match.pitch_number==null?null:Number(match.pitch_number),pitchNames)}</footer>
     <MatchWeather forecast={weather}/>
