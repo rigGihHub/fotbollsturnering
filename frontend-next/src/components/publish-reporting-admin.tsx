@@ -19,13 +19,27 @@ async function req(path:string,token:string,init:RequestInit={}) {
 type Mode="publish"|"reporting";
 type Match={requires_winner?:boolean;id:number;stage?:string|null;home_team:string;away_team:string;home_score:number|null;away_score:number|null;home_penalties?:number|null;away_penalties?:number|null;status:string;scheduled_start?:string|null};
 type ScheduleConflict={type:string;severity:"error"|"warning";message:string;match_ids?:number[]};
-type PublicationPayload={tournament?:{is_published?:boolean};ready:boolean;blockers:string[];schedule_conflict_analysis?:{error_count:number;warning_count:number;conflicts:ScheduleConflict[]}};
+type PublicationPayload={tournament?:{is_published?:boolean};ready:boolean;blockers:string[];import_context?:{playoff_imported?:boolean;rules_imported?:boolean;schedule_imported?:boolean;pitch_windows_imported?:boolean;source_name?:string|null};schedule_conflict_analysis?:{error_count:number;warning_count:number;conflicts:ScheduleConflict[]}};
 type Impact={playoff:boolean;outcome_changes:boolean;blocked:boolean;downstream_count?:number;summary?:string;guidance?:string[];downstream?:Array<{id:number;stage?:string|null;match_no?:number|null;scheduled_start?:string|null;locked:boolean;recoverable:boolean;recovery_reason:string}>};
 
 function compactRows(rows:string[]) {
   const counts=new Map<string,number>();
   for(const row of rows){const text=String(row||"").trim();if(text)counts.set(text,(counts.get(text)||0)+1);}
   return [...counts].map(([text,count])=>({text,count}));
+}
+
+function blockerGuide(text:string, imported?:PublicationPayload["import_context"]){
+  const lower=text.toLocaleLowerCase("sv-SE");
+  if(lower.includes("slutspelsmodell")||lower.includes("cupregler")){
+    return imported?.playoff_imported
+      ? {where:"Slutspel",target:"#playoffs",action:"Kontrollera den importerade modellen och tryck ”Spara slutspelsregler”. Uppgifterna finns redan i cupen; sparningen bekräftar att upplägget är rätt."}
+      : {where:"Slutspel",target:"#playoffs",action:"Öppna Slutspel, välj modell och regel vid oavgjort och tryck ”Spara slutspelsregler”."};
+  }
+  if(lower.includes("schemat behöver kontrolleras"))return {where:"Schema",target:"#schedule",action:"Öppna Schema, kontrollera tider och planer och tryck ”Godkänn schemat”. Importerade matcher behöver ändå godkännas efter en ändring av regler eller plantider."};
+  if(lower.includes("schema saknas"))return {where:"Schema",target:"#schedule",action:"Öppna Schema och skapa eller importera matchprogrammet."};
+  if(lower.includes("spelplats")||lower.includes("adress"))return {where:"Cupinfo",target:"#cupinfo",action:"Öppna Cupinfo och fyll i spelplats eller adress. Om importen redan hittade platsen ska den bara kontrolleras och sparas."};
+  if(lower.includes("slutspelsträdet"))return {where:"Slutspel",target:"#playoffs",action:"Öppna Slutspel och rätta den markerade källan eller matchen."};
+  return {where:"Kontroll & publicering",action:"Öppna det angivna steget och åtgärda felet där."};
 }
 
 function compactConflicts(rows:ScheduleConflict[]) {
@@ -99,13 +113,13 @@ export default function PublishReportingAdmin({token,cupId,mode,publicSlug}:{tok
       {error&&<div className="publication-console__error" role="alert"><strong>Något gick fel</strong><span>{error}</span></div>}
       {!isReady&&<div className="publication-checklist">
         <div className="publication-checklist__head"><div><span>CHECKLISTA</span><strong>Gör detta före publicering</strong></div><b>{issueCount}</b></div>
-        {otherBlockers.map(({text,count})=><div className="publication-checklist__item" key={text}><span className="publication-checklist__icon">!</span><div><strong>{text}</strong><small>Behöver åtgärdas innan publicering.</small></div>{count>1&&<b>×{count}</b>}</div>)}
-        {conflictGroups.map(({item,count})=><div className="publication-checklist__item is-blocking" key={`${item.type}:${item.message}`}><span className="publication-checklist__icon">!</span><div><strong>{item.message}</strong><small>{item.type==="round_order"?"Rätta rondordningen i Schema.":"Öppna Schema och rätta konflikten."}</small></div>{count>1&&<b>×{count}</b>}</div>)}
+        {otherBlockers.map(({text,count})=>{const guide=blockerGuide(text,publication?.import_context);return <div className="publication-checklist__item" key={text}><span className="publication-checklist__icon">!</span><div><strong>{text}</strong><small><b>Var:</b> {guide.where}. {guide.action}{guide.target&&<> <a href={guide.target}>Öppna steget →</a></>}</small></div>{count>1&&<b>×{count}</b>}</div>})}
+        {conflictGroups.map(({item,count})=><div className="publication-checklist__item is-blocking" key={`${item.type}:${item.message}`}><span className="publication-checklist__icon">!</span><div><strong>{item.message}</strong><small><b>Var:</b> Schema. {item.type==="round_order"?"Rätta rondordningen och godkänn sedan schemat.":"Öppna Schema, rätta konflikten och godkänn sedan schemat."}</small></div>{count>1&&<b>×{count}</b>}</div>)}
       </div>}
       {isReady&&<div className="publication-ready-steps"><div><b>1</b><span><strong>Kontrollera sammanfattningen</strong><small>CupNavi har inte hittat några blockerande fel.</small></span></div><div><b>2</b><span><strong>Förhandsgranska cupvyn</strong><small>Kontrollera hur tider, planer och lag visas för besökare.</small></span></div><div><b>3</b><span><strong>Publicera cupen</strong><small>Den publika länken blir tillgänglig för deltagarna.</small></span></div></div>}
       <div className="publication-console__actions">
         <span>{isLive?"Ändringar visas direkt i turneringsvyn.":isReady?"En sista kontroll görs när du publicerar.":"Publiceringsknappen aktiveras när checklistan är klar."}</span>
-        <div>{scheduleErrors.length>0&&<a className="admin-action-secondary" href="#schedule">Öppna Schema</a>}{publicSlug&&<a className="admin-action-secondary" href={`/cup/${publicSlug}?preview=1&cup=${cupId}`} target="_blank" rel="noreferrer">Förhandsgranska</a>}<button className="admin-action-primary" disabled={busy||(!isLive&&!isReady)} onClick={togglePublication}>{busy?"Arbetar…":isLive?"Avpublicera":"Publicera cup"}</button></div>
+        <div>{otherBlockers.some(({text})=>/slutspelsmodell|cupregler/i.test(text))&&<a className="admin-action-secondary" href="#playoffs">Öppna Slutspel</a>}{otherBlockers.some(({text})=>/schema behöver|schema saknas|schemat behöver/i.test(text))||scheduleErrors.length>0?<a className="admin-action-secondary" href="#schedule">Öppna Schema</a>:null}{otherBlockers.some(({text})=>/spelplats|adress/i.test(text))&&<a className="admin-action-secondary" href="#cupinfo">Öppna Cupinfo</a>}{publicSlug&&<a className="admin-action-secondary" href={`/cup/${publicSlug}?preview=1&cup=${cupId}`} target="_blank" rel="noreferrer">Förhandsgranska</a>}<button className="admin-action-primary" disabled={busy||(!isLive&&!isReady)} onClick={togglePublication}>{busy?"Arbetar…":isLive?"Avpublicera":"Publicera cup"}</button></div>
       </div>
     </section>;
   }

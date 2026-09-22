@@ -243,8 +243,11 @@ def commit_playoff_import(account_id: int, tournament_id: int, playoff_matches: 
                 bronze = False
                 sources = {source for block in blocks for source in block["sources"]}
                 con.execute("UPDATE brackets SET size=?,bronze_match=0 WHERE id=? AND tournament_id=?", (len(sources), bracket_id, int(tournament_id)))
+            tournament_columns = {str(row[1]) for row in con.execute("PRAGMA table_info(tournaments)").fetchall()}
             updates = ["playoff_format=?", "bronze_match=?", "schedule_dirty=0", "is_published=0", "arrangement_type='tournament_playoffs'", "admin_revision=COALESCE(admin_revision,0)+1"]
             values: list[object] = ["Manuellt slutspel", 1 if bronze else 0]
+            if "playoff_model_confirmed" in tournament_columns:
+                updates.insert(2, "playoff_model_confirmed=1")
             if tie_rule in {"Straffar direkt", "Förlängning + straffar", DRAW_RULE}:
                 updates.append("playoff_tie_rule=?")
                 values.append(tie_rule)
@@ -252,9 +255,8 @@ def commit_playoff_import(account_id: int, tournament_id: int, playoff_matches: 
                 extra_minutes = int(rules.get("extra_time_minutes") or 0) if tie_rule == "Förlängning + straffar" else 0
                 if not 0 <= extra_minutes <= 60:
                     raise ValueError("Förlängningstiden måste vara mellan 0 och 60 minuter")
-                columns = {str(row[1]) for row in con.execute("PRAGMA table_info(tournaments)").fetchall()}
                 for field in ("extra_time_minutes", "playoff_extra_time_minutes"):
-                    if field in columns:
+                    if field in tournament_columns:
                         updates.append(f"{field}=?")
                         values.append(extra_minutes)
             con.execute(f"UPDATE tournaments SET {','.join(updates)} WHERE id=?", (*values, int(tournament_id)))

@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+import json
 
 from cupnavi_core.admin_publication import build_publish_blockers
 from cupnavi_core.placement_playoffs import draw_match_ids, source_label
@@ -103,6 +104,27 @@ def _bracket_publication_analysis(tournament_id: int) -> dict:
     return result
 
 
+def _import_context(tournament_id: int) -> dict:
+    """Explain which setup facts came from the reviewed document import."""
+    try:
+        row = one("""SELECT payload_json FROM tournament_setup_imports
+                    WHERE tournament_id=? AND import_kind='initial_setup'
+                    ORDER BY id DESC LIMIT 1""", (int(tournament_id),))
+        payload = json.loads(str((row or {}).get("payload_json") or "{}"))
+    except Exception:
+        return {"available": False}
+    if not isinstance(payload, dict):
+        return {"available": False}
+    return {
+        "available": True,
+        "playoff_imported": bool(payload.get("playoff_matches")),
+        "rules_imported": bool(payload.get("rules") or payload.get("rule_values") or payload.get("playoff_rule_values")),
+        "schedule_imported": bool(payload.get("matches")),
+        "pitch_windows_imported": bool(payload.get("pitch_windows")),
+        "source_name": payload.get("source_name"),
+    }
+
+
 def _publication_payload(tournament_id: int):
     from .repository import with_imported_location
     tournament = one("SELECT * FROM tournaments WHERE id=?", (int(tournament_id),))
@@ -139,6 +161,7 @@ def _publication_payload(tournament_id: int):
     )
     return {
         "tournament": tournament,
+        "import_context": _import_context(tournament_id),
         "scheduled_matches": scheduled,
         "schedule_conflict_analysis": conflict_analysis,
         "bracket_validation": bracket_analysis,
