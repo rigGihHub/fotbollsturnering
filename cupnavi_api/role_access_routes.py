@@ -48,6 +48,8 @@ class ReporterResultWrite(BaseModel):
     expected_away_score: int | None = None
     expected_home_penalties: int | None = None
     expected_away_penalties: int | None = None
+    goal_minutes_home: list[int] | None = None
+    goal_minutes_away: list[int] | None = None
 
 
 class EventCounters(BaseModel):
@@ -384,6 +386,8 @@ def register_role_access_routes(app, admin_identity):
                 home_penalties=payload.home_penalties, away_penalties=payload.away_penalties,
                 expected_home_penalties=payload.expected_home_penalties,
                 expected_away_penalties=payload.expected_away_penalties,
+                goal_minutes_home=payload.goal_minutes_home,
+                goal_minutes_away=payload.goal_minutes_away,
             )
         except ValueError as exc:
             raise HTTPException(422, str(exc)) from exc

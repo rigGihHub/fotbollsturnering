@@ -1,7 +1,7 @@
 export type EventValues={goals:number;assists:number;yellow_cards:number;red_cards:number};
 
 export type ReporterMutation=
- | {id:string;kind:"result";cupId:number;matchId:number;createdAt:number;state:"queued"|"uncertain"|"conflict";payload:{home_score:number;away_score:number;home_penalties:number|null;away_penalties:number|null;expected_home_score:number|null;expected_away_score:number|null;expected_home_penalties:number|null;expected_away_penalties:number|null}}
+ | {id:string;kind:"result";cupId:number;matchId:number;createdAt:number;state:"queued"|"uncertain"|"conflict";payload:{home_score:number;away_score:number;home_penalties:number|null;away_penalties:number|null;expected_home_score:number|null;expected_away_score:number|null;expected_home_penalties:number|null;expected_away_penalties:number|null;goal_minutes_home?:number[];goal_minutes_away?:number[]}}
  | {id:string;kind:"status";cupId:number;matchId:number;createdAt:number;state:"queued"|"uncertain"|"conflict";payload:{status:"not_started"|"live"|"halftime"|"finished";expected_status:"not_started"|"live"|"halftime"|"finished"}}
  | {id:string;kind:"event";cupId:number;matchId:number;playerId:number;createdAt:number;state:"queued"|"uncertain"|"conflict";payload:EventValues&{expected:EventValues}};
 export type ResultMutation=Extract<ReporterMutation,{kind:"result"}>;
@@ -40,7 +40,13 @@ export function upsertReporterMutation(mutation:ReporterMutation){
     mutation.payload.expected_home_score=current.payload.expected_home_score;
     mutation.payload.expected_away_score=current.payload.expected_away_score;
     mutation.payload.expected_home_penalties=current.payload.expected_home_penalties;
-    mutation.payload.expected_away_penalties=current.payload.expected_away_penalties;
+   mutation.payload.expected_away_penalties=current.payload.expected_away_penalties;
+   for(const side of ["home","away"] as const){
+    const key=side==="home"?"goal_minutes_home":"goal_minutes_away";
+    const minutes=[...(current.payload[key]||[]),...(mutation.payload[key]||[])];
+    const increase=mutation.payload[`${side}_score`]-Number(current.payload[`expected_${side}_score`]??0);
+    mutation.payload[key]=minutes.slice(0,Math.max(0,increase));
+   }
    }
   }
   queue[index]=mutation;
@@ -61,6 +67,8 @@ export function completeReporterResultMutation(processed:ResultMutation){
  current.payload.expected_away_score=processed.payload.away_score;
  current.payload.expected_home_penalties=processed.payload.home_penalties;
  current.payload.expected_away_penalties=processed.payload.away_penalties;
+ current.payload.goal_minutes_home=(current.payload.goal_minutes_home||[]).slice((processed.payload.goal_minutes_home||[]).length);
+ current.payload.goal_minutes_away=(current.payload.goal_minutes_away||[]).slice((processed.payload.goal_minutes_away||[]).length);
  if(current.payload.home_score===processed.payload.home_score&&current.payload.away_score===processed.payload.away_score&&current.payload.home_penalties===processed.payload.home_penalties&&current.payload.away_penalties===processed.payload.away_penalties)queue.splice(index,1);
  writeReporterQueue(queue);
 }

@@ -424,6 +424,8 @@ def save_result(
     away_penalties=None,
     expected_home_penalties=None,
     expected_away_penalties=None,
+    goal_minutes_home=None,
+    goal_minutes_away=None,
 ):
     if not _has_tournament_access(account_id, tournament_id):
         return None
@@ -470,6 +472,10 @@ def save_result(
         home_team_id=home_team_id,
         away_team_id=away_team_id,
     )
+    incoming_minutes={"home":goal_minutes_home or [],"away":goal_minutes_away or []}
+    for minutes in incoming_minutes.values():
+        if not isinstance(minutes,list) or len(minutes)>100 or any(type(minute) is not int or not 1<=minute<=300 for minute in minutes):
+            raise ValueError("Målminuter måste vara heltal mellan 1 och 300.")
 
     new_decided_winner_id = None
     new_side = prepared.winner_side
@@ -508,6 +514,11 @@ def save_result(
     rule_guard = " AND (SELECT playoff_tie_rule FROM tournaments WHERE id=?) IS ?" if "playoff_tie_rule" in tournament else ""
     rule_params = (int(tournament_id), tournament.get("playoff_tie_rule")) if rule_guard else ()
     with connect() as conn:
+        if any(incoming_minutes.values()) or any(
+            new<old for old,new in ((int(row.get("home_score") or 0),prepared.home_score),(int(row.get("away_score") or 0),prepared.away_score))
+        ):
+            from .schema_repair import ensure_goal_minutes_table
+            ensure_goal_minutes_table(conn)
         cursor = conn.execute(
             f"""UPDATE matches
                SET home_score=?,away_score=?,home_penalties=?,away_penalties=?,decided_winner_id=?
@@ -533,6 +544,17 @@ def save_result(
         )
         if getattr(cursor, "rowcount", 1) == 0:
             raise RuntimeError("Resultatet har ändrats av någon annan. Ladda om innan du sparar igen.")
+        for side,old_score,new_score in (
+            ("home",int(row.get("home_score") or 0),prepared.home_score),
+            ("away",int(row.get("away_score") or 0),prepared.away_score),
+        ):
+            if new_score<old_score:
+                conn.execute("""DELETE FROM match_goal_minutes WHERE id IN (
+                    SELECT id FROM match_goal_minutes WHERE match_id=? AND side=? ORDER BY id DESC LIMIT ?
+                )""",(int(match_id),side,old_score-new_score))
+            elif new_score>old_score:
+                for minute in incoming_minutes[side][:new_score-old_score]:
+                    conn.execute("INSERT INTO match_goal_minutes(match_id,side,minute) VALUES(?,?,?)",(int(match_id),side,minute))
         commit = getattr(conn, "commit", None)
         if callable(commit):
             commit()

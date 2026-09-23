@@ -13,7 +13,7 @@ PUBLIC_TOURNAMENT_FIELDS = (
     "kiosk_available","kiosk_information","public_information","organizer_phone",
     "feedback_email","instagram_url","playoff_format","bronze_match","playoff_tie_rule","points_win",
     "points_draw","points_loss","table_tiebreak","show_scorer_stats","show_assist_stats",
-    "show_card_stats","show_fairness","show_public_weather","show_public_weather_configured","show_public_kits","show_public_away_kits","show_public_logos","enable_team_checkin","is_published",
+    "show_card_stats","show_fairness","show_public_weather","show_public_weather_configured","show_public_kits","show_public_away_kits","show_public_logos","show_public_goal_minutes","enable_team_checkin","is_published",
     "halves","minutes_per_half","halftime_minutes","pitch_break_minutes","minimum_team_rest_minutes","avoid_consecutive_matches","consecutive_match_break_minutes",
     "organizer_phone","feedback_email","instagram_url","playoff_format","bronze_match",
 )
@@ -361,6 +361,16 @@ def public_snapshot(public_key, *, include_unpublished=False):
                               actual_started_at,actual_finished_at
                        FROM matches WHERE tournament_id=?{match_publish_filter} AND scheduled_start IS NOT NULL
                        ORDER BY scheduled_start,pitch_number,id""", (tid,))
+        if tournament.get("show_public_goal_minutes") and matches and many("PRAGMA table_info(match_goal_minutes)"):
+            goal_rows=many("""SELECT g.match_id,g.side,g.minute FROM match_goal_minutes g
+                              JOIN matches m ON m.id=g.match_id
+                              WHERE m.tournament_id=? AND m.schedule_published=1
+                              ORDER BY g.minute,g.id""", (tid,))
+            by_match={}
+            for goal in goal_rows:
+                by_match.setdefault(int(goal["match_id"]),[]).append({"side":goal["side"],"minute":int(goal["minute"])})
+            for match in matches:
+                match["goal_minutes"]=by_match.get(int(match["id"]),[])
         venue_points=many("SELECT id,kind,label,detail,url FROM venue_points WHERE tournament_id=? ORDER BY label,id", (tid,))
         pitch_columns={str(item.get("name")) for item in many("PRAGMA table_info(pitches)")}
         pitch_optional=[name for name in ("address","opens_at","closes_at","start_time","end_time","available_from","available_to") if name in pitch_columns]

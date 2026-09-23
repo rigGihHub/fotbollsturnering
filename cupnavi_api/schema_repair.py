@@ -17,6 +17,7 @@ TOURNAMENT_RUNTIME_COLUMNS = {
     "lifecycle_status": "TEXT DEFAULT 'draft'",
     "trashed_at": "TEXT",
     "admin_revision": "INTEGER NOT NULL DEFAULT 1",
+    "show_public_goal_minutes": "INTEGER NOT NULL DEFAULT 0",
 }
 
 
@@ -28,6 +29,16 @@ def _table_columns(table_name: str) -> set[str]:
 def _duplicate_column_error(exc: Exception) -> bool:
     message = str(exc).casefold()
     return "duplicate column" in message or "already exists" in message
+
+
+def ensure_goal_minutes_table(con) -> None:
+    con.execute("""CREATE TABLE IF NOT EXISTS match_goal_minutes (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        match_id INTEGER NOT NULL REFERENCES matches(id) ON DELETE CASCADE,
+        side TEXT NOT NULL CHECK(side IN ('home','away')),
+        minute INTEGER NOT NULL CHECK(minute BETWEEN 1 AND 300)
+    )""")
+    con.execute("CREATE INDEX IF NOT EXISTS idx_match_goal_minutes_match ON match_goal_minutes(match_id,id)")
 
 
 def ensure_runtime_schema() -> set[str]:
@@ -77,6 +88,7 @@ def ensure_runtime_schema() -> set[str]:
                 raise
 
     with connect() as con:
+        ensure_goal_minutes_table(con)
         con.execute("""CREATE TABLE IF NOT EXISTS admin_activity (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             tournament_id INTEGER NOT NULL REFERENCES tournaments(id) ON DELETE CASCADE,

@@ -21,7 +21,7 @@ function Side({team,label,away=false,showKits=true,showAwayKits=true,showLogos=t
   </div>;
 }
 
-export function MatchCard({match,teams,groups=[],pitches=[],index,weather,showKits=true,showAwayKits=true,showLogos=true}:{match:Match;teams:Team[];groups?:Group[];pitches?:Pitch[];index:number;weather?:Forecast;showKits?:boolean;showAwayKits?:boolean;showLogos?:boolean}){
+export function MatchCard({match,teams,groups=[],pitches=[],index,weather,showKits=true,showAwayKits=true,showLogos=true,showGoalMinutes=false}:{match:Match;teams:Team[];groups?:Group[];pitches?:Pitch[];index:number;weather?:Forecast;showKits?:boolean;showAwayKits?:boolean;showLogos?:boolean;showGoalMinutes?:boolean}){
   const homeId=match.home_participant?.resolved?match.home_participant.team_id??null:match.home_source?.startsWith("team:")?Number(match.home_source.split(":")[1]):null;
   const awayId=match.away_participant?.resolved?match.away_participant.team_id??null:match.away_source?.startsWith("team:")?Number(match.away_source.split(":")[1]):null;
   const home=teams.find(team=>team.id===homeId); const away=teams.find(team=>team.id===awayId);
@@ -39,6 +39,7 @@ export function MatchCard({match,teams,groups=[],pitches=[],index,weather,showKi
       <Side team={away} label={awayLabel} away showKits={showKits} showAwayKits={showAwayKits} showLogos={showLogos}/>
     </div>
     <footer className="cn-match-card__pitch"><span>Match {index+1} · </span>{pitchLabel(match.pitch_number==null?null:Number(match.pitch_number),pitchNames)}</footer>
+    {showGoalMinutes&&!!match.goal_minutes?.length&&<div className="cn-match-card__goals" aria-label="Målminuter">{(["home","away"] as const).map(side=>{const minutes=match.goal_minutes?.filter(goal=>goal.side===side).map(goal=>`${goal.minute}′`)||[];return minutes.length?<span key={side}><b>{side==="home"?homeLabel:awayLabel}:</b> {minutes.join(", ")}</span>:null})}</div>}
     <MatchWeather forecast={weather}/>
   </article>;
 }

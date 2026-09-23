@@ -141,6 +141,26 @@ def test_group_winner_and_corrected_draw_recalculate_without_alphabetical_champi
     assert admin_playoffs(7,1)['placement_groups'][0]['winner'] is None
 
 
+def test_goal_minutes_are_real_optional_and_removed_when_score_is_corrected(cup):
+    from cupnavi_api.repository import public_snapshot
+    with sqlite3.connect(cup) as con:
+        con.execute('ALTER TABLE tournaments ADD COLUMN show_public_goal_minutes INTEGER DEFAULT 0')
+        con.execute('ALTER TABLE teams ADD COLUMN age_class TEXT')
+        con.execute('ALTER TABLE teams ADD COLUMN primary_color TEXT')
+        con.execute('ALTER TABLE teams ADD COLUMN secondary_color TEXT')
+        con.execute('CREATE TABLE venue_points(id INTEGER, tournament_id INTEGER, kind TEXT, label TEXT, detail TEXT, url TEXT)')
+    match=db.one('SELECT id FROM matches WHERE tournament_id=1 ORDER BY id LIMIT 1')
+    mid=match['id']
+    save_result(7,1,mid,3,0,2,0,goal_minutes_home=[12])
+    assert db.all_rows('SELECT side,minute FROM match_goal_minutes WHERE match_id=?',(mid,))==[{'side':'home','minute':12}]
+    assert 'goal_minutes' not in public_snapshot('cup-1')['matches'][0]
+    with sqlite3.connect(cup) as con:
+        con.execute('UPDATE tournaments SET show_public_goal_minutes=1 WHERE id=1')
+    assert public_snapshot('cup-1')['matches'][0]['goal_minutes']==[{'side':'home','minute':12}]
+    save_result(7,1,mid,2,0,3,0)
+    assert public_snapshot('cup-1')['matches'][0]['goal_minutes']==[]
+
+
 def test_knockout_cannot_choose_draw_rule_or_finish_tied(cup):
     commit_playoff_import(7,1,[{'label':'Final','home_source':'A1','away_source':'B1','time':'16:00'}])
     with pytest.raises(ValueError,match='kompletta placeringsgrupper'):

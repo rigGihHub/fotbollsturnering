@@ -119,6 +119,7 @@ class CupInfoUpdate(BaseModel):
     show_public_kits: bool | None = None
     show_public_away_kits: bool | None = None
     show_public_logos: bool | None = None
+    show_public_goal_minutes: bool | None = None
     expected_revision: int | None = None
 
 
