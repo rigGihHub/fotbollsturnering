@@ -1,6 +1,6 @@
 "use client";
 
-import {FormEvent,useCallback,useEffect,useMemo,useState} from "react";
+import {FormEvent,useCallback,useEffect,useMemo,useRef,useState} from "react";
 import {CLIENT_API_BASE} from "../lib/client-api";
 import {reporterSessionDeadline} from "../lib/reporter-session";
 import {QUEUE_EVENT,SYNC_REQUEST_EVENT,appendReporterMutation,completeReporterResultMutation,isNetworkError,isResultMutation,isResultOrStatusMutation,isStatusMutation,pendingReporterCount,readReporterCache,readReporterQueue,removeReporterMutation,updateReporterMutation,upsertReporterMutation,writeReporterCache} from "../lib/reporter-offline";
@@ -32,12 +32,15 @@ export default function ReporterClient(){
  const[busy,setBusy]=useState(false),[syncing,setSyncing]=useState(false),[online,setOnline]=useState(true),[pending,setPending]=useState(0);
  const[focusMatchId,setFocusMatchId]=useState<number|null>(null);
  const[error,setError]=useState(""),[message,setMessage]=useState("");
+ const settingsRef=useRef<ReporterSettings>(DEFAULT_SETTINGS);
  const logout=useCallback(()=>{localStorage.removeItem(KEY);setToken(null);setCupInfo(null);setMatches([]);setMessage("");setError("")},[]);
- const remember=useCallback((nextCup:Cup,nextMatches:Match[],nextSettings=settings)=>writeReporterCache<CachedSession>(SESSION_CACHE,{cup:nextCup,matches:nextMatches,settings:nextSettings}),[settings]);
- const load=useCallback(async(sessionToken:string)=>{
-  const[session,reporting]=await Promise.all([call<{cup:Cup}>("/api/reporter/session",sessionToken),call<{matches:Match[];settings?:ReporterSettings}>("/api/reporter/reporting",sessionToken)]);
-  const next=reporting.matches||[], nextSettings={...DEFAULT_SETTINGS,...(reporting.settings||{})};setCupInfo(session.cup);setMatches(next);setSettings(nextSettings);remember(session.cup,next,nextSettings);
+ const remember=useCallback((nextCup:Cup,nextMatches:Match[],nextSettings=settingsRef.current)=>writeReporterCache<CachedSession>(SESSION_CACHE,{cup:nextCup,matches:nextMatches,settings:nextSettings}),[]);
+ const applyReporting=useCallback((nextCup:Cup,reporting:{matches:Match[];settings?:ReporterSettings})=>{
+  const next=reporting.matches||[],nextSettings={...DEFAULT_SETTINGS,...(reporting.settings||{})};settingsRef.current=nextSettings;setCupInfo(nextCup);setMatches(next);setSettings(nextSettings);remember(nextCup,next,nextSettings);
  },[remember]);
+ const load=useCallback(async(sessionToken:string)=>{
+  const reporting=await call<{cup:Cup;matches:Match[];settings?:ReporterSettings}>("/api/reporter/reporting",sessionToken);applyReporting(reporting.cup,reporting);
+ },[applyReporting]);
  useEffect(()=>{if(!matches.length){setFocusMatchId(null);return}setFocusMatchId(current=>current&&matches.some(match=>match.id===current)?current:(matches.find(match=>["live","halftime"].includes(lifecycle(match)))||matches.find(match=>lifecycle(match)!=="finished")||matches[0]).id)},[matches]);
 
  useEffect(()=>{
@@ -49,7 +52,7 @@ export default function ReporterClient(){
   const queryCup=new URLSearchParams(window.location.search).get("cup");
   const stored=localStorage.getItem(KEY);if(!stored)return;setToken(stored);
   const cached=readReporterCache<CachedSession>(SESSION_CACHE),cacheMatchesLink=!queryCup||queryCup===cached?.cup.public_slug||queryCup===String(cached?.cup.id);
-  if(cached&&cacheMatchesLink){setCupInfo(cached.cup);setMatches(cached.matches);setSettings({...DEFAULT_SETTINGS,...(cached.settings||{})})}
+  if(cached&&cacheMatchesLink){const cachedSettings={...DEFAULT_SETTINGS,...(cached.settings||{})};settingsRef.current=cachedSettings;setCupInfo(cached.cup);setMatches(cached.matches);setSettings(cachedSettings)}
   void load(stored).catch(reason=>{if(isAuthFailure(reason)){logout();return}if(cached&&cacheMatchesLink){setMessage(navigator.onLine?"Sparad vy visas medan CupNavi återansluter.":"Offline: senast hämtade matcher visas.");return}logout()});
  },[load,logout]);
 
@@ -94,7 +97,7 @@ export default function ReporterClient(){
  },[cupInfo,load,syncing,token]);
  useEffect(()=>{if(!online||pending===0)return;const retry=window.setTimeout(()=>void flushResults(),500);return()=>window.clearTimeout(retry)},[online,pending,flushResults]);
 
- async function login(event:FormEvent){event.preventDefault();setBusy(true);setError("");try{const result=await call<{token:string;cup:Cup}>("/api/reporter/session",null,{method:"POST",body:JSON.stringify({code})});localStorage.setItem(KEY,result.token);setToken(result.token);setCupInfo(result.cup);setCode("");await load(result.token)}catch(reason){setError(reason instanceof Error?reason.message:"Inloggningen misslyckades.")}finally{setBusy(false)}}
+ async function login(event:FormEvent){event.preventDefault();setBusy(true);setError("");try{const result=await call<{token:string;cup:Cup;matches:Match[];settings?:ReporterSettings}>("/api/reporter/session",null,{method:"POST",body:JSON.stringify({code,include_reporting:true})});localStorage.setItem(KEY,result.token);setToken(result.token);setCode("");applyReporting(result.cup,result)}catch(reason){setError(reason instanceof Error?reason.message:"Inloggningen misslyckades.")}finally{setBusy(false)}}
  function optimisticResult(match:Match,payload:{home_score:number;away_score:number;home_penalties:number|null;away_penalties:number|null}){
   setMatches(current=>{const next=current.map(item=>item.id===match.id?{...item,...payload,status:"played"}:item);if(cupInfo)remember(cupInfo,next);return next});
  }

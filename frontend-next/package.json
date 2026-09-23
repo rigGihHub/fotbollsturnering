@@ -1,6 +1,6 @@
 {
   "name": "cupnavi-web",
-  "version": "2.8.6",
+  "version": "2.8.7",
   "private": true,
   "scripts": {
     "test:team-assets": "node scripts/test-team-assets.cjs",

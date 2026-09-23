@@ -29,6 +29,7 @@ _REPORTER_SCHEMA_READY = False
 class ReporterLogin(BaseModel):
     code: str
     cup: str | None = None  # Older clients may still supply a cup hint.
+    include_reporting: bool = False
 
 
 class ReporterCodeRotate(BaseModel):
@@ -360,7 +361,10 @@ def register_role_access_routes(app, admin_identity):
         if not credential or not cup or not hinted_cup or hinted_cup["id"] != cup["id"]:
             raise HTTPException(401, "Felaktig eller utgången kod. Be arrangören om en aktuell kod.")
         revision = str(credential.get("rotated_at") or credential.get("created_at") or "")
-        return {"token": _issue_reporter_session(int(cup["id"]), revision, int(credential.get("valid_hours") or 48), expires_at=_credential_expiry(credential)), "cup": cup, "role": "reporter"}
+        result = {"token": _issue_reporter_session(int(cup["id"]), revision, int(credential.get("valid_hours") or 48), expires_at=_credential_expiry(credential)), "cup": cup, "role": "reporter"}
+        if payload.include_reporting:
+            result.update(admin_reporting(OWNER_ACCOUNT_ID, int(cup["id"])) or {"matches": [], "settings": {}})
+        return result
 
     @app.get("/api/reporter/session")
     def reporter_session(authorization: str | None = Header(default=None)):
@@ -371,7 +375,8 @@ def register_role_access_routes(app, admin_identity):
     @app.get("/api/reporter/reporting")
     def reporter_reporting(authorization: str | None = Header(default=None)):
         identity = _reporter_identity(authorization)
-        return admin_reporting(OWNER_ACCOUNT_ID, int(identity["tid"]))
+        cup = one("SELECT id,name,public_slug FROM tournaments WHERE id=?", (int(identity["tid"]),))
+        return {"cup": cup, **(admin_reporting(OWNER_ACCOUNT_ID, int(identity["tid"])) or {"matches": [], "settings": {}})}
 
     @app.put("/api/reporter/reporting/matches/{match_id}")
     def reporter_put_result(match_id: int, payload: ReporterResultWrite, authorization: str | None = Header(default=None)):

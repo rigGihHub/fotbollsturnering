@@ -18,6 +18,7 @@ def client(tmp_path, monkeypatch):
     monkeypatch.setenv("CUPNAVI_API_SQLITE_PATH", str(tmp_path / "reporter.db"))
     monkeypatch.setenv("CUPNAVI_SESSION_SECRET", "isolated-reporter-tests")
     monkeypatch.setattr(roles, "_has_tournament_access", lambda account, cup: account == 1)
+    monkeypatch.setattr(roles, "_REPORTER_SCHEMA_READY", False)
     with connect() as con:
         con.executescript("""
             CREATE TABLE tournaments(id INTEGER PRIMARY KEY,name TEXT,public_slug TEXT,lifecycle_status TEXT);
@@ -59,6 +60,19 @@ def test_code_only_login_finds_cup_and_preserves_leading_zeroes(client, monkeypa
     assert login(client, "0042", cup="cup-a").status_code == 401
     stored = roles._credential(2)
     assert stored["code_lookup"] != "0042" and stored["code_hash"] != "0042"
+
+
+def test_login_can_return_reporting_payload_without_followup_requests(client, monkeypatch):
+    monkeypatch.setattr(roles, "admin_reporting", lambda account, cup: {
+        "matches": [{"id": 20, "home_team": "A", "away_team": "B"}],
+        "settings": {"scorers": False},
+    })
+    code = roles.rotate_reporter_code(1, 2)["code"]
+    response = login(client, code, include_reporting=True)
+    assert response.status_code == 200
+    assert response.json()["cup"]["id"] == 2
+    assert response.json()["matches"][0]["id"] == 20
+    assert response.json()["settings"]["scorers"] is False
 
 
 def test_late_login_does_not_restart_72_hour_deadline(client, monkeypatch):
@@ -113,8 +127,9 @@ def test_expired_code_reservation_can_be_reused(client, monkeypatch):
     monkeypatch.setattr(roles, "generate_short_numeric_code", lambda _: "1234")
     roles.rotate_reporter_code(1, 1)
     with connect() as con:
-        con.execute("UPDATE match_reporter_credentials SET rotated_at=? WHERE tournament_id=1",
-                    ((datetime.now(timezone.utc) - timedelta(days=4)).isoformat(),))
+        expired = (datetime.now(timezone.utc) - timedelta(days=4)).isoformat()
+        con.execute("UPDATE match_reporter_credentials SET rotated_at=?,expires_at=? WHERE tournament_id=1",
+                    (expired, expired))
         con.commit()
     assert roles.rotate_reporter_code(1, 2)["code"] == "1234"
     assert login(client, "1234").json()["cup"]["id"] == 2
