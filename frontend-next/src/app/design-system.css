@@ -82,6 +82,12 @@ html:has(.cn-public) body {background:var(--cn-canvas)!important;background-imag
 .cn-public .public-info-hero h2 {font-size:28px!important}
 .cn-public .public-info-card h3 {font-size:20px!important;margin:8px 0 16px!important}
 .cn-public .public-info-card p {font-size:15px!important;line-height:1.55!important}
+.cn-public .public-info-card--rules {color:var(--cn-ink)!important}
+.cn-public .public-info-card--rules p {color:var(--cn-muted)!important}
+.cn-public .public-info-card__eyebrow {color:var(--cn-primary)}
+.cn-public .public-rule-list>div {border-top:1px solid var(--cn-line)}
+.cn-public .public-rule-list span,.cn-public .public-rule-list small {color:var(--cn-muted)}
+.cn-public .public-rule-list b {color:var(--cn-ink);overflow-wrap:anywhere}
 @media(max-width:760px) {
  .cn-public.page-shell {padding:0 12px 32px!important}
  .cn-cup-cover {padding:20px 0 16px;gap:12px;display:block}
