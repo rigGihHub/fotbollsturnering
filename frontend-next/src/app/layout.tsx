@@ -32,6 +32,7 @@ import "./public-texttv-v2675.css";
 import "./ios-safe-area-v2684.css";
 import "./admin-cup-identity-v2685.css";
 import "./release-v2697.css";
+import "./admin-mobile-polish-v2712.css";
 import { PwaBoot } from "@/components/PwaBoot";
 import { ViewModeSwitch } from "@/components/ViewModeSwitch";
 import { HeaderShareAction } from "@/components/HeaderShareAction";
