@@ -24,7 +24,7 @@ const setupNav = [
   ["Planer & tider", "#venues"], ["Regler", "#rules"], ["Schema", "#schedule"],
   ["Slutspel", "#playoffs"], ["Kontroll & publicering", "#publish"]
 ];
-const toolNav = [["Användare", "#access"], ["Domare", "#referees"], ["Matchrapportering", "#reporting"], ["Uppdatera från fil", "#import"], ["PDF & export", "#export"]];
+const toolNav = [["Lokal admin", "#access"], ["Domare", "#referees"], ["Matchrapportering", "#reporting"], ["Uppdatera från fil", "#import"], ["PDF & export", "#export"]];
 const nav=[...setupNav,...toolNav];
 
 type Account = { id:number; email:string; display_name?:string|null; role?:string|null; is_owner?:boolean };
