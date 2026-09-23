@@ -3,7 +3,7 @@
 import {FormEvent,useCallback,useEffect,useMemo,useState} from "react";
 import {CLIENT_API_BASE} from "../lib/client-api";
 import {reporterSessionDeadline} from "../lib/reporter-session";
-import {QUEUE_EVENT,appendReporterMutation,completeReporterResultMutation,isNetworkError,isResultMutation,isResultOrStatusMutation,isStatusMutation,pendingReporterCount,readReporterCache,readReporterQueue,removeReporterMutation,updateReporterMutation,upsertReporterMutation,writeReporterCache} from "../lib/reporter-offline";
+import {QUEUE_EVENT,SYNC_REQUEST_EVENT,appendReporterMutation,completeReporterResultMutation,isNetworkError,isResultMutation,isResultOrStatusMutation,isStatusMutation,pendingReporterCount,readReporterCache,readReporterQueue,removeReporterMutation,updateReporterMutation,upsertReporterMutation,writeReporterCache} from "../lib/reporter-offline";
 import ReporterMatchEvents from "./reporter-match-events";
 import ReporterNavigation from "./reporter-navigation";
 
@@ -125,7 +125,7 @@ export default function ReporterClient(){
  if(!cupInfo)return <main className="reporter-page"><ReporterNavigation cup={null}/><div className="reporter-network is-syncing" role="status"><span/><strong>Öppnar rapportering…</strong></div></main>;
  return <main className="reporter-page">
   <ReporterNavigation cup={cupInfo}/>
-  <div className={`reporter-network is-${online?syncing?"syncing":"online":"offline"}`} role="status" aria-live="polite"><span aria-hidden="true"/><strong>{online?syncing?"Synkroniserar":"Online":"Offline"}</strong><small>{pending?`${pending} ändring${pending===1?"":"ar"} väntar`:online?"Alla ändringar är synkroniserade":"Inmatningar sparas på mobilen"}</small>{online&&pending>0&&<button type="button" onClick={()=>void flushResults()} disabled={syncing}>Synka nu</button>}</div>
+  <div className={`reporter-network is-${online?syncing?"syncing":"online":"offline"}`} role="status" aria-live="polite"><span aria-hidden="true"/><strong>{online?syncing?"Synkroniserar":"Online":"Offline"}</strong><small>{pending?`${pending} ändring${pending===1?"":"ar"} väntar`:online?"Alla ändringar är synkroniserade":"Inmatningar sparas på mobilen"}</small>{online&&pending>0&&<button type="button" onClick={()=>{window.dispatchEvent(new CustomEvent(SYNC_REQUEST_EVENT));void flushResults()}} disabled={syncing}>Synka nu</button>}</div>
   <header className="reporter-hero reporter-hero--session"><div><p className="kicker">CN//REPORTER</p><h1>{cupInfo?.name||"Matchrapportering"}</h1><p>Rapportera slutresultat först. Lägg sedan till målskyttar, assist och kort.</p></div><div className="reporter-hero__actions"><button type="button" onClick={logout}>Logga ut</button></div></header>
   {(error||message)&&<section className={`reporter-alert ${error?"reporter-alert--error":"reporter-alert--success"}`} role={error?"alert":"status"}><strong>{error?"Något gick fel":online?"Status":"Offline"}</strong><span>{error||message}</span></section>}
   {focusedMatch&&<ReporterLiveControl match={focusedMatch} matches={matches} settings={settings} pending={pendingResults.has(focusedMatch.id)||pendingStatuses.has(focusedMatch.id)} onSelect={setFocusMatchId} onScore={changeScore} onStatus={changeStatus}/>} 

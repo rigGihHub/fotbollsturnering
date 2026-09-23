@@ -15,6 +15,7 @@ export const isEventMutation=(item:ReporterMutation):item is EventMutation=>item
 const QUEUE_KEY="cupnavi_reporter_queue_v1";
 const CACHE_KEY="cupnavi_reporter_cache_v1";
 export const QUEUE_EVENT="cupnavi:reporter-queue";
+export const SYNC_REQUEST_EVENT="cupnavi:reporter-sync-request";
 
 export function readReporterQueue():ReporterMutation[]{
  if(typeof window==="undefined")return [];

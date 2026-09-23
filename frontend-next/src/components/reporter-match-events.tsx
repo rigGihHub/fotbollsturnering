@@ -2,7 +2,7 @@
 
 import {useCallback,useEffect,useMemo,useState} from "react";
 import {CLIENT_API_BASE} from "../lib/client-api";
-import {EventValues,isEventMutation,isNetworkError,readReporterCache,readReporterQueue,removeReporterMutation,sameEventValues,updateReporterMutation,upsertReporterMutation,writeReporterCache} from "../lib/reporter-offline";
+import {EventValues,SYNC_REQUEST_EVENT,isEventMutation,isNetworkError,readReporterCache,readReporterQueue,removeReporterMutation,sameEventValues,updateReporterMutation,upsertReporterMutation,writeReporterCache} from "../lib/reporter-offline";
 
 const API=CLIENT_API_BASE;
 // Legacy full label retained for accessibility and migration checks: Målskyttar, assist & kort
@@ -46,10 +46,17 @@ export default function ReporterMatchEvents({token,cupId,online,queueSignal,enab
     if(sameEventValues(current,desired)){removeReporterMutation(mutation.id);if(detail?.match.id===mutation.matchId)applyPlayer(mutation.playerId,desired);continue}
     if(!sameEventValues(current,mutation.payload.expected)){updateReporterMutation(mutation.id,{state:"conflict"});setError("En offlinehändelse krockar med nyare serverdata och har inte skrivits över.");continue}
     const saved=await req<Detail>(`/api/reporter/reporting/matches/${mutation.matchId}/events/${mutation.playerId}`,token,{method:"PUT",body:JSON.stringify({...desired,expected:mutation.payload.expected})});removeReporterMutation(mutation.id);writeReporterCache(detailCache(cupId,mutation.matchId),saved);if(detail?.match.id===mutation.matchId)setDetail(saved);
-   }catch(err){if(!isNetworkError(err))handleError(err,"Offlinehändelsen kunde inte synkroniseras.");break}
+   }catch(err){
+    if(isNetworkError(err))break;
+    // A finished match or a server-side validation/conflict must not remain
+    // queued forever. Keep it visible as a conflict, but stop retrying it.
+    updateReporterMutation(mutation.id,{state:"conflict"});
+    handleError(err,"Offlinehändelsen kunde inte synkroniseras och behöver kontrolleras.");
+   }
   }
  },[applyPlayer,cupId,detail?.match.id,handleError,online,token]);
  useEffect(()=>{if(!online||queueSignal===0)return;const retry=window.setTimeout(()=>void flushEvents(),1800);return()=>window.clearTimeout(retry)},[online,queueSignal,flushEvents]);
+ useEffect(()=>{const request=()=>void flushEvents();window.addEventListener(SYNC_REQUEST_EVENT,request);return()=>window.removeEventListener(SYNC_REQUEST_EVENT,request)},[flushEvents]);
 
  const selected=useMemo(()=>matches.find(match=>match.id===matchId)||null,[matches,matchId]);
  const locked=detail?.match.match_status==="finished";
