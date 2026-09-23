@@ -5,6 +5,8 @@ from fastapi import Header, HTTPException
 from pydantic import BaseModel
 from .admin_auth import issue_session
 from .admin_repository import organizer_account
+from .repository import one
+from cupnavi_core.email_service import send_notification_email, smtp_configured
 
 from .access_repository import (
     add_tournament_member,
@@ -32,6 +34,33 @@ class PasswordWrite(BaseModel):
     new_password: str
 
 
+def _send_member_invitation(tournament_id: int, member: dict, temporary_password: str | None) -> tuple[str, str | None]:
+    if not smtp_configured():
+        return "not_configured", "E-postutskick är inte konfigurerat"
+    cup = one("SELECT name FROM tournaments WHERE id=?", (int(tournament_id),)) or {}
+    cup_name = str(cup.get("name") or "CupNavi-cupen")
+    role_label = "cupägare" if member.get("role") == "owner" else "lokal admin"
+    lines = [
+        f"Du har fått åtkomst till {cup_name} som {role_label}.",
+        "",
+        f"E-post: {member['email']}",
+    ]
+    if temporary_password:
+        lines.extend([
+            f"Tillfälligt lösenord: {temporary_password}",
+            "Byt lösenord direkt efter den första inloggningen.",
+        ])
+    else:
+        lines.append("Logga in med ditt befintliga CupNavi-lösenord.")
+    lines.extend(["", "Logga in: https://cupnavi-web.onrender.com/admin"])
+    sent, error = send_notification_email(
+        str(member["email"]),
+        f"CupNavi · lokal admin för {cup_name}",
+        "\n".join(lines),
+    )
+    return ("sent", None) if sent else ("failed", error or "Utskicket misslyckades")
+
+
 def register_access_routes(app, admin_identity):
     @app.get("/api/admin/cups/{tournament_id}/members")
     def get_members(tournament_id: int, authorization: str | None = Header(default=None)):
@@ -56,7 +85,12 @@ def register_access_routes(app, admin_identity):
             raise HTTPException(status_code=403, detail=str(exc)) from exc
         except ValueError as exc:
             raise HTTPException(status_code=422, detail=str(exc)) from exc
-        return result
+        email_status, email_error = _send_member_invitation(
+            tournament_id,
+            result["member"],
+            result.get("temporary_password"),
+        )
+        return {**result, "email_status": email_status, "email_error": email_error}
 
     @app.put("/api/admin/cups/{tournament_id}/members/{member_id}")
     def put_member_role(tournament_id: int, member_id: int, payload: MemberRoleWrite, authorization: str | None = Header(default=None)):

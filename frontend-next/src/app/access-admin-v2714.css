@@ -47,6 +47,27 @@
   font-size: 11px;
   font-weight: 900;
 }
+.admin-access-activity > article {
+  display: block !important;
+  width: 100%;
+}
+.admin-access-activity > article > div {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 4px 14px;
+  width: 100%;
+}
+.admin-access-activity strong,
+.admin-access-activity small { overflow-wrap: anywhere; }
+.admin-access-activity small { grid-column: 1; }
+.admin-access-activity time {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  align-self: center;
+  color: #52636c;
+  font-size: 12px;
+  white-space: nowrap;
+}
 @media (max-width: 760px) {
   .admin-access-members > article { grid-template-columns: minmax(0, 1fr) !important; }
   .admin-access-members .admin-team-actions {
@@ -55,4 +76,6 @@
   }
   .admin-access-members .admin-team-actions select,
   .admin-access-members .admin-team-actions button { width: 100% !important; }
+  .admin-access-activity > article > div { grid-template-columns: minmax(0, 1fr) !important; }
+  .admin-access-activity time { grid-column: 1; grid-row: auto; }
 }

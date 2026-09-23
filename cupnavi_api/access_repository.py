@@ -96,7 +96,8 @@ def add_tournament_member(actor: dict, tournament_id: int, values: dict):
                  role=CASE WHEN tournament_members.role='owner' THEN 'owner' ELSE excluded.role END""",
             (int(tournament_id), account_id, role),
         )
-        _record_activity(con, tournament_id, actor, "member_added", "organizer", account_id, f"{email} lades till som {role}")
+        role_label = "cupägare" if role == "owner" else "lokal admin"
+        _record_activity(con, tournament_id, actor, "member_added", "organizer", account_id, f"{email} lades till som {role_label}")
         commit = getattr(con, "commit", None)
         if callable(commit):
             commit()
