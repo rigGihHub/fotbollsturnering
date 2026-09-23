@@ -1,0 +1,58 @@
+/* v2.7.14 — local-admin credentials and member cards. */
+.admin-access-credentials {
+  display: grid;
+  gap: 10px;
+  margin-top: 14px;
+  padding: 16px;
+  border: 1.5px solid #b58c13;
+  border-radius: 12px;
+  background: #fff1a8;
+}
+.admin-access-credentials > strong { font-size: 18px; }
+.admin-access-credentials p { margin: 0; color: #394b54; line-height: 1.45; }
+.admin-access-credentials code {
+  display: block;
+  min-width: 0;
+  padding: 12px;
+  overflow-wrap: anywhere;
+  white-space: normal;
+  line-height: 1.6;
+}
+.admin-access-credentials button {
+  min-height: 44px;
+  border: 1.5px solid #102630;
+  border-radius: 9px;
+  background: #102630;
+  color: #fff;
+  font-weight: 900;
+  cursor: pointer;
+}
+.admin-access-members > article {
+  grid-template-columns: minmax(0, 1fr) auto !important;
+  gap: 14px !important;
+}
+.admin-access-member__identity {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+.admin-access-member__identity strong { font-size: 17px; }
+.admin-access-member__identity small { overflow-wrap: anywhere; }
+.admin-access-member__identity span {
+  width: fit-content;
+  padding: 4px 7px;
+  border-radius: 999px;
+  background: #eaf8f6;
+  color: #087d88;
+  font-size: 11px;
+  font-weight: 900;
+}
+@media (max-width: 760px) {
+  .admin-access-members > article { grid-template-columns: minmax(0, 1fr) !important; }
+  .admin-access-members .admin-team-actions {
+    grid-column: 1 !important;
+    grid-template-columns: minmax(0, 1fr) minmax(110px, .7fr) !important;
+  }
+  .admin-access-members .admin-team-actions select,
+  .admin-access-members .admin-team-actions button { width: 100% !important; }
+}
