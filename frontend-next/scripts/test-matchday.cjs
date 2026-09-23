@@ -10,7 +10,7 @@ function load(file){
  if(file.endsWith('.css'))return {default:new Proxy({}, {get:(_,key)=>String(key)})};
  if(!path.extname(file))file+=fs.existsSync(file+'.tsx')?'.tsx':'.ts';
  const module={exports:{}};
- const requireModule=name=>name.startsWith('.')?load(path.resolve(path.dirname(file),name)):name.startsWith('@/')?load(path.join(root,name.slice(2))):require(name);
+ const requireModule=name=>name==='react'&&file.endsWith('admin-workspace.tsx')?{...React,useState:value=>React.useState(value==='checking'?'offline':value)}:name.startsWith('.')?load(path.resolve(path.dirname(file),name)):name.startsWith('@/')?load(path.join(root,name.slice(2))):require(name);
  vm.runInNewContext(ts.transpileModule(fs.readFileSync(file,'utf8'),{compilerOptions:{target:ts.ScriptTarget.ES2020,module:ts.ModuleKind.CommonJS,jsx:ts.JsxEmit.ReactJSX}}).outputText,{exports:module.exports,module,require:requireModule,process,console});
  return module.exports;
 }
@@ -46,3 +46,20 @@ const guide=renderToStaticMarkup(React.createElement(AdminStepFlow));
 assert(guide.includes('Arbetsfaser'));assert(guide.includes('Vad behöver vara klart?'));
 assert(!guide.includes('Flödet klart'),'Navigation position must not claim the cup is ready');
 console.log('PASS four workflow phases and progressive guidance');
+const unresolved=renderToStaticMarkup(React.createElement(MatchCard,{...props,match:{id:2,home_source:'group:1:1',away_source:'group:2:1'},showKits:true}));
+assert(!unresolved.includes('<svg'),'Unresolved qualifiers have no invented shirt colours');
+const {PlacementTables}=load(path.join(root,'components/PlacementTables.tsx'));
+const grouped=renderToStaticMarkup(React.createElement(PlacementTables,{groups:[{bracket_id:1,name:'Guldgruppen',placement:1,rows:[],match_ids:[10],complete:false}],renderMatches:group=>React.createElement('details',{},React.createElement('summary',{},'Matcher i '+group.name))}));
+assert(grouped.includes('Vinnaren av denna grupp vinner cupen.'));
+assert(grouped.includes('<summary>Matcher i Guldgruppen</summary>'));
+const {PublicCupView}=load(path.join(root,'components/PublicCupView.tsx'));
+const publicMarkup=renderToStaticMarkup(React.createElement(PublicCupView,{publicKey:'fixture-cup',initialStandings:[],initialCup:{...cup,tournament:{id:42,name:'Testcup',show_public_weather_configured:true,show_public_weather:false},teams:[team],groups:[],pitches:[],venue_points:[]}}));
+assert(publicMarkup.includes('href="/reporter?cup=fixture-cup"'),'Visitors need a cup-scoped reporter login link');
+assert(publicMarkup.includes('href="/admin?cup=42"'),'Admin handoff keeps current cup');
+console.log('PASS public staff links, unknown kits and grouped playoff matches');
+
+const {default:AdminWorkspace}=load(path.join(root,'components/admin-workspace.tsx'));
+const offlineLogin=renderToStaticMarkup(React.createElement(AdminWorkspace));
+assert(offlineLogin.includes('ANSLUTNING OSÄKER'));
+assert.match(offlineLogin,/<button type="submit">Logga in<\/button>/,'A failed health probe must not permanently disable login');
+console.log('PASS login remains available after health timeout');

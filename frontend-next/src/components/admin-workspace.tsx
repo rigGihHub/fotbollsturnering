@@ -636,13 +636,13 @@ export default function AdminWorkspace({verifiedSession=null,children=null}:{ver
     return <main className="admin-main" style={{maxWidth:720,margin:"0 auto"}}>
       <header className="admin-pagehead"><div><p className="kicker">ADMIN</p><h1>Logga in</h1><p>Logga in för att administrera dina cuper.</p></div></header>
       <form className="admin-panel admin-cupinfo" onSubmit={login}>
-        <div className="admin-panel__top"><span>INLOGGNING</span><strong className={`admin-api-status is-${apiStatus}`}>{apiStatus==="online"?"SERVER ONLINE":apiStatus==="offline"?"ÅTERANSLUTER":"KONTROLLERAR"}</strong></div>
+        <div className="admin-panel__top"><span>INLOGGNING</span><strong className={`admin-api-status is-${apiStatus}`}>{apiStatus==="online"?"SERVER ONLINE":apiStatus==="offline"?"ANSLUTNING OSÄKER":"KONTROLLERAR"}</strong></div>
         <h2>Cupadministration</h2>
         <div className="admin-form-grid">
           <label>E-post<input type="email" autoComplete="email" value={email} onChange={e=>setEmail(e.target.value)} required /></label>
           <label>Lösenord<input type="password" autoComplete="current-password" value={password} onChange={e=>setPassword(e.target.value)} required /></label>
         </div>
-        <div className="admin-form-footer"><span role={error?"alert":undefined}>{error || (apiStatus==="offline" ? "Servern vaknar eller anslutningen är tillfälligt bruten." : "")}</span><button type="submit" disabled={busy||apiStatus==="offline"}>{busy?"Loggar in…":"Logga in"}</button></div>
+        <div className="admin-form-footer"><span role={error?"alert":undefined}>{error || (apiStatus==="offline" ? "Anslutningen kunde inte kontrolleras. Du kan försöka logga in igen." : "")}</span><button type="submit" disabled={busy}>{busy?"Loggar in…":"Logga in"}</button></div>
         <details className="admin-login-help"><summary>Glömt lösenordet?</summary><p>Lösenord kan inte visas eller hämtas ur CupNavi. En behörig ägare behöver ange ett nytt lösenord.</p></details>
       </form>
     </main>;

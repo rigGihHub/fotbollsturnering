@@ -95,6 +95,9 @@ export function PublicCupView({ publicKey, initialCup, initialStandings, reporte
   const openTab=(next:Tab)=>{setTab(next);window.scrollTo({top:0,behavior:window.matchMedia("(prefers-reduced-motion: reduce)").matches?"instant":"smooth"});};
   const placementGroups=cup.placement_groups||[];
   const hasPlacementGroups=placementGroups.length>0;
+  const placementMatchIds=new Set(placementGroups.flatMap(group=>group.match_ids||[]));
+  const remainingBrackets=cup.brackets.map(bracket=>({...bracket,matches:(bracket.matches||[]).filter(match=>!placementMatchIds.has(match.id))})).filter(bracket=>bracket.matches.length||!hasPlacementGroups);
+  const renderMatch=(match:CupSnapshot["matches"][number],index:number)=><MatchCard key={match.id} weather={matchWeather(match)} match={match} teams={cup.teams} groups={cup.groups} pitches={cup.pitches||[]} index={matchNumberById.get(match.id)??index} showKits={showPublicKits} showAwayKits={showPublicAwayKits} showLogos={showPublicLogos}/>;
   const navItems:Array<[Tab,string]>=[["matches","Matcher"],...(showTables?[["table","Tabeller"] as [Tab,string]]:[]),...(statsEnabled?[["stats","Topplistor"] as [Tab,string]]:[]),...(showPlayoffs?[["playoff","Slutspel"] as [Tab,string]]:[]),["teams","Lag"],["info","Info & planer"]];
 
 
@@ -103,6 +106,7 @@ export function PublicCupView({ publicKey, initialCup, initialStandings, reporte
   return <main className="page-shell page-shell--matchday page-shell--public-v3 cn-public">
     {reporterReturn&&<div className="public-role-return"><span>Du granskar den publika turneringsvyn</span><a href={`/reporter?cup=${encodeURIComponent(publicKey)}`}>← Till matchrapportering</a></div>}
     <CupCover tournament={cup.tournament} teamCount={cup.teams.length} matchCount={orderedMatches.length} groupCount={cup.groups.length}/>
+    <nav className="cn-staff-nav" aria-label="Funktionärer"><a href={`/reporter?cup=${encodeURIComponent(publicKey)}`}>Rapportering</a><a href={`/admin?cup=${cup.tournament.id}`}>Admin</a></nav>
     <nav className="cn-cup-nav" aria-label="Cupens innehåll">{navItems.map(([key,label])=><button key={key} className={tab===key?"is-active":""} aria-current={tab===key?"page":undefined} onClick={()=>openTab(key)}>{label}</button>)}</nav>
 
 
@@ -111,7 +115,14 @@ export function PublicCupView({ publicKey, initialCup, initialStandings, reporte
     {tab==="table"&&showTables&&<section><div className="section-heading"><h2>Tabeller</h2><p>Ställningen i cupens grupper, uppdaterad med publicerade resultat.</p></div>{standingsLoading?<article className="empty-state"><strong>Hämtar tabeller…</strong></article>:standings.length?<div className="table-stack">{standings.map(item=><TextTvStandings key={item.group.id} name={item.group.name} rows={item.rows}/>)}</div>:<article className="empty-state"><strong>Inga tabeller ännu</strong><p>Tabeller visas när grupper och matcher har skapats.</p></article>}</section>}
     {tab==="stats"&&statsEnabled&&<section><div className="section-heading"><span>STATISTIK</span><h2>Topplistor</h2><p>Registrerade matchhändelser direkt från CupNavi.</p></div>{statisticsLoading&&!statistics?<article className="empty-state"><strong>Hämtar topplistor…</strong></article>:statistics?<div className="table-stack">{statistics.enabled.scorers&&<StatisticsTable title="Målskyttar" metric="Mål" rows={statistics.scorers}/>} {statistics.enabled.assists&&<StatisticsTable title="Assistliga" metric="Assist" rows={statistics.assists}/>} {statistics.enabled.cards&&<StatisticsTable title="Spelarkort" metric="Gula/Röda" rows={statistics.cards}/>} {statistics.enabled.fairness&&<DisciplineTable stats={statistics}/>}</div>:<article className="empty-state"><strong>Topplistor kunde inte hämtas just nu.</strong></article>}</section>}
 
-    {tab==="playoff"&&showPlayoffs&&<section><div className="section-heading"><span>SLUTSPEL</span><h2>{hasPlacementGroups?"Placeringsgruppspel":"Vägen till finalen"}</h2><p>{hasPlacementGroups?"Alla möter alla inom sin grupp. Oavgjort är tillåtet och tabellen avgör placeringarna.":"Slutspelet match för match."}</p></div><PlacementTables groups={placementGroups}/>{cup.brackets.length?<div className="table-stack">{cup.brackets.map(bracket=><section key={bracket.id}><div className="subsection-label"><span>SLUTSPEL</span><strong>{bracket.name}</strong></div>{bracket.matches?.length?<div className="cn-match-list">{bracket.matches.map((match,index)=><MatchCard key={match.id} weather={matchWeather(match)} match={match} teams={cup.teams} groups={cup.groups} pitches={cup.pitches||[]} index={matchNumberById.get(match.id)??index} showKits={showPublicKits} showAwayKits={showPublicAwayKits} showLogos={showPublicLogos}/>)}</div>:<article className="empty-state"><strong>Matcher kommer när slutspelsträdet är publicerat.</strong></article>}</section>)}</div>:!hasPlacementGroups&&<article className="empty-state"><strong>Inget slutspel är publicerat ännu.</strong></article>}</section>}
+    {tab==="playoff"&&showPlayoffs&&<section>
+      <div className="section-heading"><span>SLUTSPEL</span><h2>{hasPlacementGroups?"Placeringsgruppspel":"Slutspel"}</h2><p>{hasPlacementGroups?"Alla möter alla inom sin grupp. Oavgjort är tillåtet och tabellen avgör placeringarna.":"Slutspelet match för match."}</p></div>
+      <PlacementTables groups={placementGroups} renderMatches={group=>{
+        const groupMatches=orderedMatches.filter(match=>(group.match_ids||[]).includes(match.id));
+        return groupMatches.length?<details className="cn-placement-matches"><summary>Matcher i {group.name} ({groupMatches.length})</summary><div className="cn-match-list">{groupMatches.map(renderMatch)}</div></details>:null;
+      }}/>
+      {remainingBrackets.length>0&&<div className="table-stack">{remainingBrackets.map(bracket=><section key={bracket.id}><div className="subsection-label"><span>SLUTSPEL</span><strong>{bracket.name}</strong></div>{bracket.matches.length?<div className="cn-match-list">{bracket.matches.map(renderMatch)}</div>:<article className="empty-state"><strong>Inga matcher publicerade i detta slutspel ännu.</strong></article>}</section>)}</div>}
+    </section>}
 
     {tab==="teams"&&<section><div className="section-heading"><h2>Lag</h2><p>Välj ett lag för att se dess matcher och resultat.</p></div><div className="cn-team-list">{cup.teams.map(team=><button key={team.id} type="button" onClick={()=>{setTeamFilter(String(team.id));setMatchView("all");openTab("matches")}}><span><strong>{team.name}</strong>{team.age_class&&<small>{team.age_class}</small>}</span><span aria-hidden="true">→</span></button>)}</div>{!cup.teams.length&&<p className="empty-state">Inga lag publicerade ännu.</p>}</section>}
 

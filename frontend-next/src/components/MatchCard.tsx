@@ -15,7 +15,7 @@ function Side({team,label,away=false,showKits=true,showAwayKits=true,showLogos=t
   return <div className={`cn-match-team ${away?"cn-match-team--away":""}`}>
     <div className="cn-match-team__visual">
       {showLogos&&usableLogo&&!logoFailed?<img className="team-crest cn-team-crest" src={logoSrc} alt="" referrerPolicy="no-referrer" onError={()=>setLogoFailed(true)}/>:null}
-      {showKits&&<TeamKit primary={away&&showAwayKits?team?.secondary_color:team?.primary_color} secondary={away&&showAwayKits?team?.away_color_2:team?.home_color_2} pattern={away&&showAwayKits?team?.away_pattern:team?.home_pattern}/>}
+      {showKits&&team&&<TeamKit primary={away&&showAwayKits?team?.secondary_color:team?.primary_color} secondary={away&&showAwayKits?team?.away_color_2:team?.home_color_2} pattern={away&&showAwayKits?team?.away_pattern:team?.home_pattern}/>}
     </div>
     <div><strong>{label}</strong></div>
   </div>;

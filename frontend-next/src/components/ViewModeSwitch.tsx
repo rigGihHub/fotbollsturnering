@@ -35,7 +35,7 @@ export function ViewModeSwitch() {
   const inAdmin = path.startsWith("/admin");
   const inCup = path.startsWith("/cup/");
   if (!inAdmin && !inCup) return null;
-  if (inCup && !hasSession) return null;
+  if (inCup || !hasSession) return null;
 
   function openTournament() {
     const token = localStorage.getItem(TOKEN_KEY);
