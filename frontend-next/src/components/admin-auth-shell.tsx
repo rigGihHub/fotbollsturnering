@@ -6,7 +6,6 @@ import AdminOperations from "./admin-operations";
 import AdminStepFlow from "./admin-step-flow";
 import AdminLazyExtras from "./admin-lazy-extras";
 import CupCreateLauncher from "./cup-create-launcher-resilient";
-import ApiWakeGuard from "./api-wake-guard";
 import AppOpening from "./app-opening";
 import { CLIENT_API_BASE } from "../lib/client-api";
 import { installAdminRequestCoordinator } from "../lib/admin-request-coordinator";
@@ -200,12 +199,11 @@ export default function AdminAuthShell() {
   }
 
   if (state === "unauthenticated") {
-    return <><ApiWakeGuard/><AdminWorkspace key={`login-${authKey}`} /></>;
+    return <AdminWorkspace key={`login-${authKey}`} />;
   }
 
   return (
     <>
-      <ApiWakeGuard/>
       <CupCreateLauncher/>
       <AdminStepFlow/>
       <AdminLazyExtras/>

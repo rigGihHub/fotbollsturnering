@@ -23,6 +23,7 @@ from .publish_reporting_repository import admin_reporting, save_result, set_repo
 from .repository import connect, one, all_rows, _dict_rows
 
 MAX_REPORTER_SESSION_SECONDS = 60 * 60 * 24 * 3
+_REPORTER_SCHEMA_READY = False
 
 
 class ReporterLogin(BaseModel):
@@ -32,6 +33,10 @@ class ReporterLogin(BaseModel):
 
 class ReporterCodeRotate(BaseModel):
     valid_hours: int = 48
+
+
+class ReporterCodeExtend(BaseModel):
+    additional_hours: int = 24
 
 
 class ReporterResultWrite(BaseModel):
@@ -71,6 +76,9 @@ def _model_values(model):
 
 
 def _ensure_reporter_table():
+    global _REPORTER_SCHEMA_READY
+    if _REPORTER_SCHEMA_READY:
+        return
     with connect() as con:
         con.execute("BEGIN IMMEDIATE")
         con.execute(
@@ -80,7 +88,8 @@ def _ensure_reporter_table():
                 code_hash TEXT NOT NULL,
                 created_at TEXT NOT NULL,
                 rotated_at TEXT,
-                valid_hours INTEGER NOT NULL DEFAULT 48
+                valid_hours INTEGER NOT NULL DEFAULT 48,
+                expires_at TEXT
             )"""
         )
         columns = {str(row[1]) for row in con.execute("PRAGMA table_info(match_reporter_credentials)").fetchall()}
@@ -88,16 +97,19 @@ def _ensure_reporter_table():
             con.execute("ALTER TABLE match_reporter_credentials ADD COLUMN valid_hours INTEGER NOT NULL DEFAULT 48")
         if "code_lookup" not in columns:
             con.execute("ALTER TABLE match_reporter_credentials ADD COLUMN code_lookup TEXT")
+        if "expires_at" not in columns:
+            con.execute("ALTER TABLE match_reporter_credentials ADD COLUMN expires_at TEXT")
         con.execute("CREATE UNIQUE INDEX IF NOT EXISTS reporter_code_lookup_unique ON match_reporter_credentials(code_lookup)")
         commit = getattr(con, "commit", None)
         if callable(commit):
             commit()
+    _REPORTER_SCHEMA_READY = True
 
 
 def _credential(tournament_id: int):
     _ensure_reporter_table()
     return one(
-        "SELECT tournament_id,code_salt,code_hash,created_at,rotated_at,valid_hours,code_lookup FROM match_reporter_credentials WHERE tournament_id=?",
+        "SELECT tournament_id,code_salt,code_hash,created_at,rotated_at,valid_hours,code_lookup,expires_at FROM match_reporter_credentials WHERE tournament_id=?",
         (int(tournament_id),),
     )
 
@@ -107,6 +119,12 @@ def _credential_expiry(row) -> int:
     if not row:
         return 0
     try:
+        explicit_expiry = row.get("expires_at")
+        if explicit_expiry:
+            expiry = datetime.fromisoformat(str(explicit_expiry))
+            if expiry.tzinfo is None:
+                expiry = expiry.replace(tzinfo=timezone.utc)
+            return int(expiry.timestamp())
         issued = datetime.fromisoformat(str(row.get("rotated_at") or row.get("created_at") or ""))
         if issued.tzinfo is None:
             issued = issued.replace(tzinfo=timezone.utc)
@@ -173,11 +191,11 @@ def rotate_reporter_code(account_id: int, tournament_id: int, valid_hours: int =
         # An expired reservation can be reused; active reservations cannot.
         con.execute("UPDATE match_reporter_credentials SET code_lookup=NULL WHERE code_lookup=?", (lookup,))
         con.execute(
-            "INSERT INTO match_reporter_credentials(tournament_id,code_salt,code_hash,created_at,rotated_at,valid_hours,code_lookup) "
-            "VALUES(?,?,?,?,?,?,?) ON CONFLICT(tournament_id) DO UPDATE SET "
+            "INSERT INTO match_reporter_credentials(tournament_id,code_salt,code_hash,created_at,rotated_at,valid_hours,code_lookup,expires_at) "
+            "VALUES(?,?,?,?,?,?,?,?) ON CONFLICT(tournament_id) DO UPDATE SET "
             "code_salt=excluded.code_salt,code_hash=excluded.code_hash,rotated_at=excluded.rotated_at,"
-            "valid_hours=excluded.valid_hours,code_lookup=excluded.code_lookup",
-            (int(tournament_id), salt, digest, now, now, valid_hours, lookup),
+            "valid_hours=excluded.valid_hours,code_lookup=excluded.code_lookup,expires_at=excluded.expires_at",
+            (int(tournament_id), salt, digest, now, now, valid_hours, lookup, (datetime.fromtimestamp(time.time()+valid_hours*3600, timezone.utc).isoformat())),
         )
         commit = getattr(con, "commit", None)
         if callable(commit):
@@ -290,6 +308,36 @@ def register_role_access_routes(app, admin_identity):
         if result is None:
             raise HTTPException(404, "Cup not found or access denied")
         return result
+
+    @app.post("/api/admin/cups/{tournament_id}/role-codes/reporter/extend")
+    def post_extend_reporter_code(tournament_id: int, payload: ReporterCodeExtend, authorization: str | None = Header(default=None)):
+        account = admin_identity(authorization)
+        if not _has_tournament_access(int(account["id"]), tournament_id):
+            raise HTTPException(404, "Cup not found or access denied")
+        additional_hours = max(1, min(72, int(payload.additional_hours)))
+        row = _credential(tournament_id)
+        if not row:
+            raise HTTPException(404, "Ingen rapportörskod finns")
+        current = _credential_expiry(row)
+        base = max(int(time.time()), current)
+        expires = datetime.fromtimestamp(base + additional_hours * 3600, timezone.utc).isoformat()
+        with connect() as con:
+            con.execute("UPDATE match_reporter_credentials SET expires_at=? WHERE tournament_id=?", (expires, int(tournament_id)))
+            commit = getattr(con, "commit", None)
+            if callable(commit): commit()
+        return reporter_code_status(int(account["id"]), tournament_id)
+
+    @app.delete("/api/admin/cups/{tournament_id}/role-codes/reporter")
+    def delete_reporter_code(tournament_id: int, authorization: str | None = Header(default=None)):
+        account = admin_identity(authorization)
+        if not _has_tournament_access(int(account["id"]), tournament_id):
+            raise HTTPException(404, "Cup not found or access denied")
+        _ensure_reporter_table()
+        with connect() as con:
+            con.execute("DELETE FROM match_reporter_credentials WHERE tournament_id=?", (int(tournament_id),))
+            commit = getattr(con, "commit", None)
+            if callable(commit): commit()
+        return {"deleted": True, **reporter_code_status(int(account["id"]), tournament_id)}
 
     @app.post("/api/reporter/session")
     def reporter_login(payload: ReporterLogin, request: Request):
