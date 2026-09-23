@@ -12,12 +12,12 @@ function Side({team,label,away=false,showKits=true,showAwayKits=true,showLogos=t
   const [logoFailed,setLogoFailed]=useState(false);
   const logoSrc=String(team?.logo_url||"").trim();
   const usableLogo=/^https:\/\//i.test(logoSrc)&&!logoSrc.includes("/api/assets/club-logos/");
-  return <div className={`public-match-team ${away?"public-match-team--away":""}`}>
-    <div className="public-match-team__visual">
-      {showLogos&&usableLogo&&!logoFailed?<img className="team-crest public-team-crest" src={logoSrc} alt="" referrerPolicy="no-referrer" onError={()=>setLogoFailed(true)}/>:null}
+  return <div className={`cn-match-team ${away?"cn-match-team--away":""}`}>
+    <div className="cn-match-team__visual">
+      {showLogos&&usableLogo&&!logoFailed?<img className="team-crest cn-team-crest" src={logoSrc} alt="" referrerPolicy="no-referrer" onError={()=>setLogoFailed(true)}/>:null}
       {showKits&&<TeamKit primary={away&&showAwayKits?team?.secondary_color:team?.primary_color} secondary={away&&showAwayKits?team?.away_color_2:team?.home_color_2} pattern={away&&showAwayKits?team?.away_pattern:team?.home_pattern}/>}
     </div>
-    <div><small>{away?"Borta":"Hemma"}</small><strong>{label}</strong></div>
+    <div><strong>{label}</strong></div>
   </div>;
 }
 
@@ -30,15 +30,15 @@ export function MatchCard({match,teams,groups=[],pitches=[],index,weather,showKi
   const homeLabel=participantLabel(match.home_source,match.home_participant,teams,groups);
   const awayLabel=participantLabel(match.away_source,match.away_participant,teams,groups);
   const pitchNames=Object.fromEntries(pitches.map(pitch=>[String(pitch.pitch_number),pitch.name]));
-  const state=status==="live"?"Live":status==="halftime"?"Paus":status==="done"?"Slut":timeLabel(match.scheduled_start);
-  return <article className={`public-match-card public-match-card--${status}`}>
-    <header className="public-match-card__meta"><span>Match {index+1}</span><b>{state}</b></header>
-    <div className="public-match-card__teams">
+  const state=status==="live"?"Live":status==="halftime"?"Paus":status==="done"?"Slut":"Kommande";
+  return <article className={`cn-match-card cn-match-card--${status}`}>
+    <header className="cn-match-card__meta"><span>{match.scheduled_start?.slice(0,10) || "Datum kommer"} · {timeLabel(match.scheduled_start)}</span><b>{state}</b></header>
+    <div className="cn-match-card__teams">
       <Side team={home} label={homeLabel} showKits={showKits} showAwayKits={showAwayKits} showLogos={showLogos}/>
-      <div className="public-match-card__score"><strong>{score||"vs"}</strong></div>
+      <div className="cn-match-card__score"><strong>{score||"vs"}</strong></div>
       <Side team={away} label={awayLabel} away showKits={showKits} showAwayKits={showAwayKits} showLogos={showLogos}/>
     </div>
-    <footer className="public-match-card__pitch">{pitchLabel(match.pitch_number==null?null:Number(match.pitch_number),pitchNames)}</footer>
+    <footer className="cn-match-card__pitch"><span>Match {index+1} · </span>{pitchLabel(match.pitch_number==null?null:Number(match.pitch_number),pitchNames)}</footer>
     <MatchWeather forecast={weather}/>
   </article>;
 }

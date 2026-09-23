@@ -44,7 +44,7 @@ process.stdout.write(renderToStaticMarkup(React.createElement(exports.TextTvStan
 
 document = html.document_fromstring(
     '<div class="view-mode-switch is-public"><a>Rapportering</a><a>Admin</a></div>'
-    '<main class="page-shell page-shell--matchday page-shell--public-v3">'
+    '<main class="page-shell page-shell--matchday page-shell--public-v3 cn-public">'
     f'<div class="table-stack">{markup}</div></main>'
 )
 root = cssselect2.ElementWrapper.from_html_root(document)
@@ -87,15 +87,16 @@ def cascade(width):
     return style
 
 
-for width in [320, 360, 390, 700, 760, 1024]:
+for width in [320, 360, 390, 430, 700, 760, 1024, 1440]:
     computed = cascade(width)
-    for cell in root.query_all(".texttv--standings th, .texttv--standings td"):
+    assert len(list(root.query_all(".cn-standings th"))) == 8
+    for cell in root.query_all(".cn-standings th, .cn-standings td"):
         assert computed(cell).get("display", "table-cell") == "table-cell", (width, cell.etree_element.text, "hidden column")
     assert computed(root.query(".view-mode-switch")).get("position") == "relative", (width, "floating shortcuts")
     if width <= 760:
-        table = computed(root.query(".texttv--standings table"))
-        assert table["min-width"] == "0", (width, table)
+        table = computed(root.query(".cn-standings table"))
+        assert table.get("min-width", "0") == "0", (width, table)
         assert table["width"] == "100%", (width, table)
     if width <= 700:
-        assert computed(root.query(".standings-team-name"))["white-space"] == "normal"
+        assert computed(root.query(".cn-standings__team")).get("white-space", "normal") == "normal"
     print(f"PASS {width}px: all eight columns, values and shortcut positioning")

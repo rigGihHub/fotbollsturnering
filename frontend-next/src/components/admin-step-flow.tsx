@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { adminPhase, adminPhases } from "../lib/admin-navigation";
 import { includesPlayoffStep } from "../lib/open-playoff-review";
 
 const FLOW_STEPS = [
@@ -61,8 +62,8 @@ export default function AdminStepFlow() {
     announceStep(next);
     const url = new URL(window.location.href);
     url.hash = next;
-    window.history.replaceState({}, "", `${url.pathname}${url.search}${url.hash}`);
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    window.history.pushState({}, "", `${url.pathname}${url.search}${url.hash}`);
+    window.scrollTo({ top: 0, behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "instant" : "smooth" });
   }, []);
 
   useEffect(() => {
@@ -73,8 +74,10 @@ export default function AdminStepFlow() {
     };
     sync();
     window.addEventListener("hashchange", sync);
+    window.addEventListener("popstate", sync);
     return () => {
       window.removeEventListener("hashchange", sync);
+      window.removeEventListener("popstate", sync);
       delete document.documentElement.dataset.adminStep;
     };
   }, []);
@@ -101,28 +104,10 @@ export default function AdminStepFlow() {
     if(index<0&&!tool)select("overview");
   },[index,select,tool]);
 
-  if(tool) return <section className="admin-step-flow admin-step-flow--tool" aria-label="Cupverktyg">
-    <div className="admin-step-flow__meta"><span>VERKTYG & CUPDRIFT</span><strong>{tool[1]}</strong></div>
-    <p>{guide.goal} {guide.action}</p>
-    <button type="button" onClick={()=>select("overview")}>← Till cupöversikten</button>
+  return <section className="cn-step-guide" aria-label="Cupens arbetsflöde">
+    <nav className="cn-phases" aria-label="Arbetsfaser">{adminPhases.map(phase=><button key={phase.id} type="button" aria-current={adminPhase(step)===phase.id?"step":undefined} onClick={()=>select(phase.step)}>{phase.label}</button>)}</nav>
+    <div className="cn-step-guide__body"><div><strong>{tool?.[1] || activeFlow[index]?.[1] || "Översikt"}</strong><p>{guide.action}</p></div>
+    <div className="cn-step-guide__actions">{tool?<button type="button" onClick={()=>select("overview")}>Till översikten</button>:<>{previous&&<button type="button" onClick={()=>select(previous[0])}>Föregående</button>}{next&&<button className="cn-primary" type="button" onClick={()=>select(next[0])}>Nästa: {next[1]} →</button>}</>}</div></div>
+    <details><summary>Vad behöver vara klart?</summary><p>{guide.done}</p></details>
   </section>;
-
-  return (
-    <section className="admin-step-flow" aria-label="Cupens arbetsflöde">
-      <div className="admin-step-flow__meta">
-        <span>{index===0?(arrangementType==="matchcamp"?"DIN MATCHCAMPGUIDE":"DIN CUPGUIDE"):`STEG ${index} AV ${activeFlow.length-1}`}</span>
-        <strong>{activeFlow[index]?.[1] || "Översikt"}</strong>
-      </div>
-      <div className="admin-step-flow__track" aria-hidden="true"><span style={{width:`${index===0?0:(index / (activeFlow.length-1)) * 100}%`}} /></div>
-      <div className="admin-step-flow__guide">
-        <div><span>VARFÖR</span><strong>{guide.goal}</strong></div>
-        <div><span>NÄSTA UPPGIFT</span><strong>{guide.action}</strong></div>
-        <div><span>KLART NÄR</span><strong>{guide.done}</strong></div>
-      </div>
-      <div className="admin-step-flow__actions">
-        <button type="button" disabled={!previous} onClick={() => previous && select(previous[0])}>← Föregående</button>
-        <button type="button" className="is-primary" disabled={!next} onClick={() => next && select(next[0])}>{next ? `Nästa: ${next[1]} →` : "Flödet klart"}</button>
-      </div>
-    </section>
-  );
 }

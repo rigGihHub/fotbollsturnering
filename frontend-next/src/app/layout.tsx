@@ -28,12 +28,13 @@ import "./reporting-admin-v2664.css";
 import "./reporter-v2665.css";
 import "./reporter-flow-v2667.css";
 import "./public-atmosphere-v2671.css";
-import "./public-texttv-v2675.css";
+
 import "./ios-safe-area-v2684.css";
 import "./admin-cup-identity-v2685.css";
 import "./release-v2697.css";
 import "./admin-mobile-polish-v2712.css";
 import "./access-admin-v2714.css";
+import "./design-system.css";
 import { PwaBoot } from "@/components/PwaBoot";
 import { ViewModeSwitch } from "@/components/ViewModeSwitch";
 import { HeaderShareAction } from "@/components/HeaderShareAction";
@@ -59,19 +60,18 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
   return (
     <html lang="sv">
       <body>
-        <header className="brandbar">
-          <a href="/" className="brand" aria-label="CupNavi startsida">
-            <span className="brand-lockup">
-              <img className="brand-emblem" src="/cupnavi-emblem-v2642.png" alt="" aria-hidden="true" />
-              <span className="brand-title"><strong>CUP</strong><strong>NAVI</strong><small>TURNERINGEN I FICKAN</small></span>
-            </span>
+        <a className="cn-skip" href="#main-content">Till innehållet</a>
+        <header className="cn-brandbar">
+          <a href="/" className="cn-brand" aria-label="CupNavi startsida">
+            <img src="/cupnavi-emblem-v2642.png" alt="" width="36" height="36"/>
+            <span>CUP<strong>NAVI</strong></span>
           </a>
           <HeaderShareAction />
-          <span className="app-version-badge" aria-label={`CupNavi version ${APP_VERSION}`}>v{APP_VERSION}</span>
+          <span className="cn-version" aria-label={`CupNavi version ${APP_VERSION}`}>v{APP_VERSION}</span>
         </header>
         <PwaBoot />
         <ViewModeSwitch />
-        {children}
+        <div id="main-content" tabIndex={-1}>{children}</div>
         <SiteFooter />
       </body>
     </html>

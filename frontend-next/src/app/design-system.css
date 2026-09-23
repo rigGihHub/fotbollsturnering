@@ -1,0 +1,198 @@
+/* CupNavi UI foundation. cn-* components own their styles; legacy bridges below
+   are temporary and limited to shells being migrated, never to domain logic. */
+:root {
+  --cn-ink:#102b35; --cn-muted:#50616a; --cn-surface:#fff; --cn-canvas:#f3f5f4;
+  --cn-line:#d5dddf; --cn-primary:#086c70; --cn-primary-soft:#e7f3f1;
+  --cn-success:#216541; --cn-warning:#785715; --cn-error:#a02b26;
+  --cn-space-1:4px; --cn-space-2:8px; --cn-space-3:12px; --cn-space-4:16px;
+  --cn-space-6:24px; --cn-space-8:32px; --cn-radius:12px;
+  --paper:var(--cn-canvas); --paper-2:var(--cn-surface); --ink:var(--cn-ink); --ink-2:var(--cn-muted);
+}
+.cn-sr-only {position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+:focus-visible {outline:3px solid #086c70;outline-offset:3px}
+.cn-skip {position:fixed;top:8px;left:8px;transform:translateY(-150%);z-index:9999;background:#fff;padding:12px;color:var(--cn-ink)}
+.cn-skip:focus {transform:none}
+.cn-cup-cover {display:flex;align-items:center;justify-content:space-between;gap:24px;padding:24px 0;border-bottom:1px solid var(--cn-line)}
+.cn-cup-cover h1 {font-size:clamp(28px,4vw,46px);letter-spacing:-.035em;line-height:1.12;margin:4px 0 12px;overflow-wrap:anywhere}
+.cn-cup-cover__label {font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:var(--cn-primary);margin:0}
+.cn-cup-cover__meta {display:flex;gap:8px 20px;flex-wrap:wrap;color:var(--cn-muted);font-size:14px;margin:0}
+.cn-cup-cover__stats {display:flex;gap:20px;flex-shrink:0}
+.cn-cup-cover__stats span {display:grid;gap:4px;text-align:center}
+.cn-cup-cover__stats b {font-size:22px;font-variant-numeric:tabular-nums}
+.cn-cup-cover__stats small {color:var(--cn-muted);font-size:12px}
+.cn-cup-nav {display:flex;flex-wrap:wrap;gap:4px;padding:8px 0;margin:0 0 20px;border-bottom:1px solid var(--cn-line);background:var(--cn-canvas)}
+.cn-cup-nav button {min-height:44px;border:0;border-radius:8px;background:transparent;padding:10px 16px;color:var(--cn-muted);font-weight:750;cursor:pointer}
+.cn-cup-nav button.is-active {background:var(--cn-ink);color:#fff}
+.cn-cup-nav button:hover:not(.is-active) {background:var(--cn-primary-soft);color:var(--cn-ink)}
+.cn-team-filter {display:grid;gap:6px;max-width:420px;margin:16px 0;font-size:14px;font-weight:750}
+.cn-team-filter select {width:100%;min-height:48px;border:1px solid #87999f;border-radius:8px;background:white;padding:10px 12px;color:var(--cn-ink);font:inherit;font-size:16px}
+.cn-team-list {display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,280px),1fr));gap:12px}
+.cn-team-list button {display:flex;justify-content:space-between;align-items:center;gap:16px;padding:16px;border:1px solid var(--cn-line);border-radius:var(--cn-radius);background:#fff;text-align:left;min-height:64px;color:var(--cn-ink);cursor:pointer}
+.cn-team-list button>span:first-child {display:grid;gap:4px}
+.cn-team-list small {color:var(--cn-muted)}
+.cn-match-list {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.cn-match-card {border:1px solid var(--cn-line);border-radius:var(--cn-radius);background:#fff;overflow:hidden;min-width:0;color:var(--cn-ink)}
+.cn-match-card__meta {display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 14px;background:#f8faf9;font-size:12px;color:var(--cn-muted)}
+.cn-match-card__meta b {border-radius:4px;padding:3px 7px;font-size:11px;background:#e8eeed;color:var(--cn-ink)}
+.cn-match-card--live,.cn-match-card--halftime {border-color:var(--cn-primary)}
+.cn-match-card--live .cn-match-card__meta b {background:var(--cn-primary);color:#fff}
+.cn-match-card--done .cn-match-card__meta b {color:var(--cn-success);background:#e8f3ec}
+.cn-match-card__teams {display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);gap:12px;align-items:center;padding:16px 14px}
+.cn-match-team {display:flex;align-items:center;gap:8px;min-width:0}
+.cn-match-team--away {flex-direction:row-reverse;text-align:right}
+.cn-match-team strong {font-size:15px;line-height:1.35;overflow-wrap:anywhere}
+.cn-match-team__visual {display:flex;align-items:center;gap:4px;flex-shrink:0}
+.cn-match-team__visual:empty {display:none}
+.cn-match-team__visual svg,.cn-match-team__visual .team-kit {width:25px;height:30px;max-width:25px}
+.cn-team-crest {width:24px;height:24px;object-fit:contain}
+.cn-match-card__score {font-size:24px;font-weight:850;font-variant-numeric:tabular-nums;white-space:nowrap}
+.cn-match-card__pitch {padding:0 14px 12px;font-size:12px;color:var(--cn-muted)}
+.cn-standings {border:1px solid var(--cn-line);border-radius:var(--cn-radius);overflow:hidden;background:#fff;color:var(--cn-ink)}
+.cn-standings__header {padding:14px 16px;background:var(--cn-ink);color:white;font-size:16px}
+.cn-standings table {border-collapse:collapse;table-layout:fixed;width:100%;font-size:14px;font-variant-numeric:tabular-nums}
+.cn-standings th,.cn-standings td {padding:12px 4px;text-align:center;border-bottom:1px solid #e6ebec;width:8%;vertical-align:middle}
+.cn-standings th {font-size:12px;background:#f5f8f7;color:var(--cn-muted)}
+.cn-standings th:first-child,.cn-standings td:first-child {width:6%;font-weight:750}
+.cn-standings th:nth-child(2),.cn-standings td:nth-child(2) {text-align:left;width:44%;padding-left:8px}
+.cn-standings th:nth-child(7),.cn-standings td:nth-child(7) {width:10%}
+.cn-standings th:last-child,.cn-standings td:last-child {background:#edf5f3;font-weight:850}
+.cn-standings tbody tr:last-child td {border-bottom:0}
+.cn-standings__team {display:block;font-weight:700;line-height:1.3;overflow-wrap:anywhere}
+.cn-standings__destination {display:block;font-size:11px;color:var(--cn-primary)}
+.cn-standings__key {font-size:11px;line-height:1.5;color:var(--cn-muted);padding:10px 12px;margin:0;border-top:1px solid var(--cn-line)}
+.cn-standings__legend {display:flex;gap:12px;flex-wrap:wrap;padding:10px 12px;font-size:12px}
+.cn-notice {display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 16px;border-radius:8px;background:var(--cn-primary-soft);color:var(--cn-ink);margin:12px 0}
+.cn-notice--error {background:#fff0ed;color:var(--cn-error);border:1px solid #e3aca8}
+.cn-notice button {min-height:44px;border:1px solid currentColor;background:#fff;border-radius:6px;padding:8px 12px;color:inherit;cursor:pointer}
+/* Migration bridges: contain historic public selectors until their consumers move. */
+html:has(.cn-public) body {background:var(--cn-canvas)!important;background-image:none!important}
+.cn-public.page-shell {max-width:1120px!important;padding:0 24px 48px!important;color:var(--cn-ink)}
+.cn-public .section-heading,.cn-public .public-section-head {display:block!important;margin:24px 0 16px!important}
+.cn-public .section-heading h2,.cn-public .public-section-head h2 {font-size:26px!important;line-height:1.2!important;letter-spacing:-.025em!important;margin:0 0 6px!important}
+.cn-public .section-heading p,.cn-public .public-section-head p {font-size:14px!important;line-height:1.5!important;color:var(--cn-muted)!important;margin:0!important}
+.cn-public .public-section-head>div>span {display:none}
+.cn-public .match-view-filter {display:flex!important;gap:4px!important;background:#e7edeb!important;padding:4px!important;border:0!important;border-radius:10px!important;margin:12px 0 16px!important}
+.cn-public .match-view-filter button {flex:1;min-height:44px!important;border:0!important;box-shadow:none!important;border-radius:7px!important;font-size:13px!important;padding:8px!important;color:var(--cn-muted)!important;background:transparent!important}
+.cn-public .match-view-filter button.is-active {background:#fff!important;color:var(--cn-ink)!important}
+.cn-public .public-live-status {position:static!important;background:transparent!important;padding:0!important;font-size:12px!important;color:var(--cn-muted)!important;margin:8px 0!important}
+.cn-public .empty-state {padding:24px!important;border:1px dashed var(--cn-line)!important;box-shadow:none!important;border-radius:12px!important;background:#fff!important}
+.cn-public .table-stack {gap:20px}
+.cn-public .public-info-hero,.cn-public .public-info-card {background:#fff!important;box-shadow:none!important;border:1px solid var(--cn-line)!important;border-radius:12px!important;padding:20px!important}
+.cn-public .public-info-hero:after,.cn-public .public-info-card:after {display:none!important}
+.cn-public .public-info-hero h2 {font-size:28px!important}
+.cn-public .public-info-card h3 {font-size:20px!important;margin:8px 0 16px!important}
+.cn-public .public-info-card p {font-size:15px!important;line-height:1.55!important}
+@media(max-width:760px) {
+ .cn-public.page-shell {padding:0 12px 32px!important}
+ .cn-cup-cover {padding:20px 0 16px;gap:12px;display:block}
+ .cn-cup-cover__stats {margin-top:12px;gap:16px}
+ .cn-cup-cover__stats span {display:flex;align-items:baseline;gap:4px}
+ .cn-cup-cover__stats b {font-size:14px}
+ .cn-cup-nav {display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:4px;margin-bottom:16px}
+ .cn-cup-nav button {padding:8px 4px;font-size:13px}
+ .cn-match-list {grid-template-columns:1fr}
+ .cn-match-card__teams {gap:8px;padding:14px 12px}
+ .cn-match-team {gap:5px}
+ .cn-match-team strong {font-size:14px}
+ .cn-match-team__visual {flex-direction:column;gap:2px}
+ .cn-match-card__score {font-size:22px}
+ .cn-standings th,.cn-standings td {padding:11px 2px;font-size:12px}
+ .cn-standings th:nth-child(2),.cn-standings td:nth-child(2) {width:40%;padding-left:4px}
+ .cn-standings th:nth-child(7),.cn-standings td:nth-child(7) {width:12%}
+ .cn-standings__team {font-size:13px}
+ .cn-notice {align-items:stretch;flex-direction:column}
+}
+@media(prefers-reduced-motion:reduce) {
+ *,*::before,*::after {scroll-behavior:auto!important;animation:none!important;transition:none!important}
+}
+/* Workflow navigation: phase describes location, never claims unsaved work is complete. */
+.cn-step-guide {max-width:1240px;margin:16px auto;padding:16px 20px;background:#fff;border:1px solid var(--cn-line);border-radius:12px;color:var(--cn-ink)}
+.cn-phases {display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:4px;border-bottom:1px solid var(--cn-line);padding-bottom:12px;margin-bottom:12px}
+.cn-phases button {border:0;border-radius:6px;background:transparent;color:var(--cn-muted);font-size:14px;font-weight:750;min-height:44px;padding:8px;cursor:pointer}
+.cn-phases button[aria-current] {color:white;background:var(--cn-ink)}
+.cn-step-guide__body {display:flex;align-items:center;justify-content:space-between;gap:20px}
+.cn-step-guide__body strong {font-size:18px}
+.cn-step-guide p {font-size:14px;line-height:1.5;color:var(--cn-muted);margin:6px 0 0}
+.cn-step-guide__actions {display:flex;gap:8px;flex-shrink:0}
+.cn-step-guide__actions button {min-height:44px;border:1px solid var(--cn-line);border-radius:8px;padding:10px 14px;background:white;color:var(--cn-ink);font-size:14px;cursor:pointer}
+.cn-step-guide__actions .cn-primary {background:var(--cn-primary);border-color:var(--cn-primary);color:white;font-weight:750}
+.cn-step-guide details {margin-top:8px;font-size:13px}
+.cn-step-guide summary,.cn-cup-management summary {cursor:pointer;min-height:44px;align-content:center;color:var(--cn-muted)}
+.cn-admin-mobile-nav {display:none}
+.cn-admin-nav {display:grid;gap:4px;margin:16px 0}
+.cn-admin-nav>strong {font-size:12px;color:var(--cn-muted);padding:8px}
+.cn-admin-nav a {display:block;min-height:44px;padding:12px!important;border:0!important;border-radius:8px!important;box-shadow:none!important;color:var(--cn-ink)!important;background:transparent!important;font-size:14px!important;text-decoration:none}
+.cn-admin-nav a[aria-current] {background:var(--cn-ink)!important;color:#fff!important}
+.cn-admin-nav summary {font-size:13px;font-weight:750;min-height:44px;align-content:center;cursor:pointer}
+.cn-admin .admin-team-list:not(.admin-team-roster)>article {display:grid;grid-template-columns:minmax(0,1fr);gap:12px;padding:16px}
+.cn-admin .admin-team-list:not(.admin-team-roster)>article>div {min-width:0;overflow-wrap:anywhere}
+.cn-admin .admin-active-cup-card {box-shadow:none!important;border:1px solid var(--cn-line)!important;border-radius:12px!important;padding:16px!important;background:#fff!important}
+.cn-admin .admin-sidebar__cup {padding:0!important;border:0!important;background:none!important;box-shadow:none!important}
+.cn-admin .admin-sidebar__cup strong {font-size:22px!important;line-height:1.2!important;margin:6px 0!important}
+.cn-admin .admin-sidebar__cup small {font-size:13px!important}
+.cn-admin .admin-sidebar {background:transparent!important;border:0!important;box-shadow:none!important}
+.cn-admin .admin-panel {border:1px solid var(--cn-line)!important;border-radius:12px!important;box-shadow:none!important;background:#fff!important;padding:20px!important}
+.cn-admin .admin-panel:after {display:none!important}
+.cn-admin .admin-panel h2 {font-size:26px!important;line-height:1.2!important;letter-spacing:-.025em!important;margin:16px 0 8px!important}
+.cn-admin .admin-panel h3 {font-size:20px!important;line-height:1.3!important}
+.cn-admin .admin-panel p {font-size:15px!important;line-height:1.5!important}
+.cn-admin .admin-panel button {box-shadow:none!important;font-size:14px!important;border-radius:8px!important;min-height:44px!important}
+.cn-admin .admin-panel :is(input,select,textarea) {font-size:16px!important;border-radius:8px!important;min-width:0}
+.cn-admin .admin-panel input:not([type=checkbox]):not([type=radio]):not([type=color]),.cn-admin .admin-panel select {min-height:46px!important}
+.cn-admin .admin-panel input:is([type=checkbox],[type=radio]) {width:22px!important;height:22px!important;min-height:22px!important;flex:none!important}
+.cn-admin .admin-panel button:disabled {cursor:not-allowed;opacity:.6}
+body:has(.cn-admin) {background:var(--cn-canvas)!important;background-image:none!important}
+body:has(.cn-admin) .cup-create-toolbar {position:static!important;box-shadow:none!important;background:transparent!important;border:0!important;padding:8px 16px!important}
+body:has(.cn-admin) .cup-create-toolbar>button {width:auto!important;min-height:44px!important;box-shadow:none!important;font-size:14px!important;border-radius:8px!important;padding:10px 16px!important}
+body:has(.cn-admin) .view-mode-switch.is-admin {position:static!important;justify-content:flex-end;background:transparent!important;border:0!important;box-shadow:none!important;padding:8px 16px!important}
+@media(max-width:760px) {
+ .cn-step-guide {margin:8px 12px;padding:12px}
+ .cn-phases {gap:2px}
+ .cn-phases button {font-size:12px;padding:6px 2px}
+ .cn-step-guide__body {display:block}
+ .cn-step-guide__actions {margin-top:12px;flex-wrap:wrap}
+ .cn-step-guide__actions button {flex:1}
+ .cn-admin .admin-sidebar {position:static!important;top:auto!important;padding:0 12px!important;display:block!important}
+ .cn-admin .cn-admin-nav {display:none!important}
+ .cn-admin-mobile-nav {display:grid;gap:6px;font-size:13px;font-weight:750;margin:12px 0}
+ .cn-admin-mobile-nav select {min-height:48px;padding:10px;width:100%;background:#fff;border:1px solid #87999f;border-radius:8px;font-size:16px;color:var(--cn-ink)}
+ .cn-admin .admin-main {padding:12px!important}
+ .cn-admin .admin-panel {padding:16px!important}
+ .cn-admin .admin-sidebar>.admin-public-link {display:inline-flex!important;align-items:center;min-height:44px!important;width:auto!important;padding:8px!important;font-size:13px!important;margin:0 6px 8px 0!important;border-radius:8px!important;box-shadow:none!important}
+}
+body:has(.reporter-page) {background:var(--cn-canvas)!important;background-image:none!important}
+.reporter-page {margin:20px auto 48px!important}
+.reporter-page .reporter-network {position:static!important;box-shadow:none!important;border-width:1px!important;padding:10px 12px!important;font-size:13px!important}
+.reporter-page .reporter-hero h1 {font-size:clamp(28px,4vw,40px)!important;line-height:1.15!important;letter-spacing:-.025em!important;text-transform:none!important}
+.reporter-page .reporter-hero {margin:16px 0!important}
+.reporter-page .admin-panel,.reporter-page .reporter-match {box-shadow:none!important;border:1px solid var(--cn-line)!important;border-radius:12px!important;background:#fff!important}
+.reporter-page .admin-panel {padding:16px!important}
+.reporter-page .admin-panel:after {display:none!important}
+.reporter-page .admin-panel h2 {font-size:24px!important;line-height:1.2!important;margin:12px 0 6px!important}
+.reporter-page .reporter-results__head {margin:12px 0!important;gap:8px!important}
+.reporter-page .reporter-results__head p {font-size:14px!important}
+.reporter-page .reporter-live {border:1px solid var(--cn-ink)!important;box-shadow:none!important;scroll-margin-top:16px}
+.reporter-page .reporter-live__team button {min-height:56px!important;border-width:1px!important;border-radius:8px!important;font-size:32px!important}
+.reporter-page .reporter-live__team>b {font-size:52px!important;line-height:1.1!important}
+.reporter-page .reporter-live__team {padding:12px!important;gap:8px!important}
+.reporter-page .reporter-live__status-actions button {min-height:48px!important;border-width:1px!important;border-radius:8px!important}
+.reporter-page .reporter-score input {height:48px!important;font-size:24px!important;border-width:1px!important}
+.reporter-page .reporter-score button {min-height:44px!important;font-size:14px!important;border-width:1px!important;padding:10px!important}
+.cn-report-filters {display:flex;align-items:center;gap:20px;flex-wrap:wrap;margin:16px 0}
+.cn-report-filters>label {display:grid;gap:6px;font-size:14px}
+.cn-report-filters input[type=search] {padding:10px 12px;min-height:44px;border:1px solid #87999f;border-radius:8px;font-size:16px;width:100%;background:#fff;color:var(--cn-ink)}
+.cn-report-filters .cn-check {display:flex;align-items:center;min-height:44px;gap:8px}
+.cn-check input {width:22px;height:22px;min-height:22px}
+.cn-brandbar {position:sticky;top:0;z-index:40;display:flex;align-items:center;gap:16px;min-height:64px;padding:10px max(16px,calc((100vw - 1200px)/2));background:var(--cn-ink);color:#fff;border-bottom:3px solid var(--cn-primary)}
+.cn-brand {display:flex;align-items:center;gap:8px;margin-right:auto;text-decoration:none;color:#fff;font-size:24px;font-weight:900;font-style:italic;letter-spacing:-.05em}
+.cn-brand img {width:36px;height:36px;object-fit:contain}
+.cn-brand strong {color:#65d3d3}
+.cn-version {font:600 11px/1.2 ui-monospace,monospace;padding:6px 8px;white-space:nowrap;background:#23434d;border-radius:6px;color:#eaf4f4}
+.cn-brandbar button {min-height:44px!important;padding:8px 12px!important;box-shadow:none!important;border:1px solid #779399!important;border-radius:8px!important;background:transparent!important;color:#fff!important;font-size:13px!important}
+@media(max-width:430px) {
+ .cn-brandbar {gap:8px;padding:8px 12px;min-height:60px}
+ .cn-brand {font-size:20px;gap:4px}
+ .cn-brand img {width:30px;height:30px}
+ .cn-brandbar button {font-size:12px!important;padding:6px 8px!important}
+ .cn-version {padding:5px;font-size:10px}
+}

@@ -694,15 +694,15 @@ export default function AdminWorkspace({verifiedSession=null,children=null}:{ver
     {name:"Publicering",status:isPublished?"Publicerad":scheduleReady?"Redo för slutkontroll":"Väntar på schema",href:"#publish",state:isPublished?"done":scheduleReady?"next":"todo"},
   ];
 
-  return <main className="admin-workspace">
+  return <main className="admin-workspace cn-admin">
     <aside className="admin-sidebar">
       <section className="admin-active-cup-card" aria-label="Aktiv cup">
-        <div className="admin-sidebar__cup"><span>AKTIV CUP</span><strong>{activeCup?.name || "Ingen cup"}</strong><small>{activeCup?`${activeCup.is_published?"Publicerad":"Utkast"} · ${createdLabel(activeCup.created_at)}`:"Datum saknas"}</small></div>
+        <div className="admin-sidebar__cup"><span>{isOwner ? "HUVUDADMIN" : "LOKAL ADMIN"} · AKTIV CUP</span><strong>{activeCup?.name || "Ingen cup"}</strong><small>{activeCup?`${activeCup.is_published?"Publicerad":"Utkast"}${activeCup.created_at?` · ${createdLabel(activeCup.created_at)}`:""}`:"Datum saknas"}</small></div>
         {cups.length > 1 && <label className="admin-cup-switcher"><span>Byt cup</span><select value={cupId || ""} onChange={e=>changeCup(Number(e.target.value))}>{cups.map(cup=><option key={cup.id} value={cup.id}>{cup.name} — {createdLabel(cup.created_at)} — {cup.is_published?"PUBLICERAD":"UTKAST"}</option>)}</select></label>}
-        {(canManageCup||trashedCups.length>0) && <div className="admin-owner-actions">
+        {(canManageCup||trashedCups.length>0) && <details className="cn-cup-management"><summary>Hantera cup</summary><div className="admin-owner-actions">
           <button className={`admin-trash-button${trashOpen?" is-open":""}`} type="button" onClick={()=>setTrashOpen(value=>!value)}>Papperskorg <span>{trashedCups.length}</span></button>
           {activeCup&&canManageCup && <button className="admin-remove-cup" type="button" disabled={deletingCup} onClick={()=>void removeCup()}>{deletingCup?"Tar bort…":"Ta bort cup"}</button>}
-        </div>}
+        </div></details>}
       </section>
       {(canManageCup||trashedCups.length>0) && <>
         {trashOpen && <section className="admin-trash-panel" aria-label="Papperskorg">
@@ -713,11 +713,11 @@ export default function AdminWorkspace({verifiedSession=null,children=null}:{ver
           </> : <p className="admin-trash-empty">Papperskorgen är tom.</p>}
         </section>}
       </>}
-      <nav aria-label="Cupadministration">
-        <strong className="admin-nav-phase">SKAPA CUPEN</strong>
-        {visibleSetupNav.map(([item,href],index)=><a key={item} className={href===`#${activeStep}`?"is-active":""} href={href}><span>{index===0?"00":String(index).padStart(2,"0")}</span>{item}</a>)}
-        <strong className="admin-nav-phase">VERKTYG & CUPDRIFT</strong>
-        {toolNav.map(([item,href])=><a key={item} className={`admin-nav-tool ${href===`#${activeStep}`?"is-active":""}`} href={href}><span>↗</span>{item}</a>)}
+      <label className="cn-admin-mobile-nav">Gå till steg<select value={`#${activeStep}`} onChange={event=>{window.location.hash=event.target.value}}>{[...visibleSetupNav,...toolNav].map(([label,href])=><option key={href} value={href}>{label}</option>)}</select></label>
+      <nav className="cn-admin-nav" aria-label="Cupadministration">
+        <strong>Förbered cupen</strong>
+        {visibleSetupNav.map(([item,href])=><a key={item} aria-current={href===`#${activeStep}`?"page":undefined} href={href}>{item}</a>)}
+        <details open={toolNav.some(([,href])=>href===`#${activeStep}`)}><summary>Verktyg & cupdag</summary>{toolNav.map(([item,href])=><a key={item} aria-current={href===`#${activeStep}`?"page":undefined} href={href}>{item}</a>)}</details>
       </nav>
       {activeCup && <a className="admin-public-link admin-reporter-link" href={`/reporter?cup=${encodeURIComponent(activeCup.public_slug || String(activeCup.id))}`} target="_blank" rel="noreferrer">Öppna rapportering ↗</a>}
       {publicCup && <a className="admin-public-link" href={publicCup} target="_blank" rel="noreferrer">Visa publik cup ↗</a>}
@@ -725,7 +725,6 @@ export default function AdminWorkspace({verifiedSession=null,children=null}:{ver
     </aside>
 
     <section className="admin-main" id="overview">
-      <div className="admin-version-marker" aria-label="CupNavi-version">CupNavi v{APP_VERSION}</div>
       <header className="admin-pagehead"><div><h1>Cupöversikt</h1></div><div className="admin-pagehead__actions"><span className="admin-draft">{activeCup?.is_published?"PUBLICERAD":"UTKAST"}</span>{publicCup&&<a href={publicCup} target="_blank" rel="noreferrer">Turneringsvy <span aria-hidden="true">↗</span></a>}{activeCup&&<a href={`/reporter?cup=${encodeURIComponent(activeCup.public_slug || String(activeCup.id))}`} target="_blank" rel="noreferrer">Rapportering <span aria-hidden="true">↗</span></a>}</div></header>
       {activeStep==="overview"&&publishedTwin&&<section className="admin-cup-identity-warning" role="alert"><div><span>LIKANDE CUP FINNS REDAN LIVE</span><strong>Du arbetar i utkastet “{activeCup?.name}”</strong><p>Den publicerade cupen “{publishedTwin.name}” är en annan post. Byt cup för att undvika att bygga ett nytt schema ovanpå en dubblett.</p></div><button type="button" disabled={busy} onClick={()=>void changeCup(publishedTwin.id)}>Öppna publicerad cup →</button></section>}
       {activeStep==="overview"&&importWelcome&&<section className="admin-import-welcome" aria-labelledby="import-welcome-title">
@@ -736,10 +735,10 @@ export default function AdminWorkspace({verifiedSession=null,children=null}:{ver
         <div className="admin-import-welcome__actions">{importWelcome.playoffs?<a className="is-primary" href="#playoffs" onClick={event=>{event.preventDefault();openPlayoffReview(importWelcome.cupId);}}>Granska slutspelet →</a>:<a className="is-primary" href="#cupinfo">Börja med Cupinfo →</a>}<a href="#schedule">Kontrollera schemat</a></div>
       </section>}
       {activeStep==="overview"&&!activeCup?.is_published&&<a className="admin-next-task" href={nextTask.href}><span>NÄSTA UPPGIFT</span><strong>{nextTask.label} →</strong><small>{nextTask.detail}</small></a>}
-      {(error||message) && <section className="admin-panel" style={{marginBottom:14}}><strong>{error?"Meddelande":"Klart"}</strong><p>{error||message}</p></section>}
+      {(error||message) && <section className={`cn-notice${error?" cn-notice--error":""}`} role={error?"alert":"status"}><strong>{error?"Kunde inte slutföra":"Sparat"}</strong><p>{error||message}</p></section>}
       <section className="admin-dashboard-grid">
         <article className="admin-panel admin-panel--status"><div className="admin-panel__top"><span>STATUS</span><strong>{activeCup?.is_published?"LIVE":"ARBETE PÅGÅR"}</strong></div><h2>{activeCup?.is_published?"Cupen är publicerad":"Vägen till publicering"}</h2><div className="admin-checks">{checks.map(check=><a href={check.href} className={`is-${check.state}`} key={check.name}><span>{check.state==="done"?"✓":check.state==="next"?"→":"○"}</span><strong>{check.name}</strong><small>{check.status}</small></a>)}</div></article>
-        <article className="admin-panel admin-panel--codes"><div className="admin-panel__top"><span>KONTO</span><strong>VERIFIERAT</strong></div><h2>Åtkomst</h2><p>{isOwner ? "Ägarkonto med åtkomst till alla cuper." : "Arrangörskonto med åtkomst till tilldelade cuper."}</p><div className="admin-code-placeholder">Konto <b>{account.email}</b></div><div className="admin-code-placeholder">Roll <b>{isOwner ? "ägare" : activeCup?.role || "—"}</b></div></article>
+        <article className="admin-panel admin-panel--codes"><div className="admin-panel__top"><span>KONTO</span><strong>VERIFIERAT</strong></div><h2>Åtkomst</h2><p>{isOwner ? "Ägarkonto med åtkomst till alla cuper." : "Arrangörskonto med åtkomst till tilldelade cuper."}</p><div className="admin-code-placeholder">Konto <b>{account.email}</b></div><div className="admin-code-placeholder">Roll <b>{isOwner ? "Huvudadmin" : "Lokal admin"}</b></div></article>
       </section>
 
       {activeStep==="cupinfo" && <form className="admin-panel admin-cupinfo" id="cupinfo" onSubmit={saveCupInfo}>
