@@ -39,7 +39,7 @@ assert.match(html,/Vid avspark · Örebro/);
 assert.match(html,/17°/);assert.match(html,/Regnrisk 5%/);assert.match(html,/Vind 2 m\/s/);
 assert.ok(html.indexOf('Ekäng')<html.indexOf('Vid avspark'));
 assert.ok(!render(undefined).includes('Prognos:'));
-assert.match(render({status:'too-early'}),/Prognos kommer närmare matchdagen/);
+assert.ok(!render({status:'too-early'}).includes('Prognos kommer närmare matchdagen'),'Unavailable forecasts must not lengthen every match card');
 const incomplete=weather.parseHourlyForecast({hourly:{time:['2026-10-24T15:00'],temperature_2m:[0]}},'Örebro');
 const sparse=render(weather.weatherForKickoff(incomplete,match.scheduled_start,now));
 assert.match(sparse,/0°/);assert.ok(!sparse.includes('Regnrisk'));assert.ok(!sparse.includes('Vind '));
@@ -48,7 +48,7 @@ const {PublicCupView}=load(path.join(root,'components/PublicCupView.tsx'));
 function renderCup(enabled){return renderToStaticMarkup(React.createElement(PublicCupView,{publicKey:'weather-test',initialStandings:[],initialCup:{tournament:{id:1,name:'Weather Cup',arena_address:'Örebro',start_date:'2026-10-24',show_public_weather_configured:1,show_public_weather:enabled},teams:props.teams,matches:[match],groups:[],pitches:props.pitches,brackets:[],offers:[],venue_points:[]}}));}
 const enabledCup=renderCup(true);
 assert.ok(!enabledCup.includes('public-default-weather'),'No weather panel above schedule');
-assert.ok(enabledCup.includes('Hämtar matchprognos'),'Forecast belongs to each public match');
+assert.ok(!enabledCup.includes('Hämtar matchprognos'),'Loading placeholders must not lengthen every public match');
 assert.ok(!renderCup(false).includes('Hämtar matchprognos'),'Organizer can disable all match forecasts');
 
 (async()=>{

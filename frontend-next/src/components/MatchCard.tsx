@@ -31,14 +31,16 @@ export function MatchCard({match,teams,groups=[],pitches=[],index,weather,showKi
   const awayLabel=participantLabel(match.away_source,match.away_participant,teams,groups);
   const pitchNames=Object.fromEntries(pitches.map(pitch=>[String(pitch.pitch_number),pitch.name]));
   const state=status==="live"?"Live":status==="halftime"?"Paus":status==="done"?"Slut":"Kommande";
+  const date=match.scheduled_start?.slice(0,10)||"Datum kommer";
+  const time=timeLabel(match.scheduled_start);
   return <article className={`cn-match-card cn-match-card--${status}`}>
-    <header className="cn-match-card__meta"><span>{match.scheduled_start?.slice(0,10) || "Datum kommer"} · {timeLabel(match.scheduled_start)}</span><b>{state}</b></header>
+    <header className="cn-match-card__meta"><span className="cn-match-card__kickoff"><span>{date}</span><strong>{time}</strong></span><b>{state}</b></header>
     <div className="cn-match-card__teams">
       <Side team={home} label={homeLabel} showKits={showKits} showAwayKits={showAwayKits} showLogos={showLogos}/>
       <div className="cn-match-card__score"><strong>{score||"vs"}</strong></div>
       <Side team={away} label={awayLabel} away showKits={showKits} showAwayKits={showAwayKits} showLogos={showLogos}/>
     </div>
-    <footer className="cn-match-card__pitch"><span>Match {index+1} · </span>{pitchLabel(match.pitch_number==null?null:Number(match.pitch_number),pitchNames)}</footer>
+    <footer className="cn-match-card__pitch"><span>Match {index+1}</span><strong>{pitchLabel(match.pitch_number==null?null:Number(match.pitch_number),pitchNames)}</strong></footer>
     {showGoalMinutes&&!!match.goal_minutes?.length&&<div className="cn-match-card__goals" aria-label="Målminuter">{(["home","away"] as const).map(side=>{const minutes=match.goal_minutes?.filter(goal=>goal.side===side).map(goal=>`${goal.minute}′`)||[];return minutes.length?<span key={side}><b>{side==="home"?homeLabel:awayLabel}:</b> {minutes.join(", ")}</span>:null})}</div>}
     <MatchWeather forecast={weather}/>
   </article>;

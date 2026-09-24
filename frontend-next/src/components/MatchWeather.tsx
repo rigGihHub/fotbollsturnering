@@ -3,10 +3,9 @@ import styles from "./match-weather.module.css";
 
 export function MatchWeather({forecast}:{forecast?:Forecast}){
   if(!forecast||forecast.status==="past")return null;
-  if(forecast.status!=="ready"){
-    const text={loading:"Hämtar matchprognos…","too-early":"Prognos kommer närmare matchdagen",missing:"Matchprognos saknas",error:"Matchprognosen är tillfälligt otillgänglig"}[forecast.status];
-    return <div className={styles.status}>{text}</div>;
-  }
+  // A repeated placeholder on every future match makes the schedule much longer
+  // without helping the visitor. Reserve the row for an actual forecast.
+  if(forecast.status!=="ready")return null;
   const {hour,location}=forecast;
   return <div className={styles.forecast} aria-label={`Väderprognos vid avspark, ${location}`}>
     <span className={styles.label}>Vid avspark · {location}</span>
