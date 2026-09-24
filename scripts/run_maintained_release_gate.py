@@ -24,6 +24,9 @@ RELEASE_SUFFIX = re.compile(r"_v\d+(?:_|\.py$)")
 SUPERSEDED_RECENT_FILES = {
     "tests/test_admin_login_diagnostics_v653.py",
     "tests/test_owner_cup_trash_v655.py",
+    # Exact source formatting/layout contracts replaced by the retrying API
+    # client and the newer wrapping mobile team-row implementation.
+    "tests/test_v613_next_frontend_foundation.py::test_public_api_is_used",
     "tests/test_v615_next_visual_runtime_hardening.py::test_matchday_hero_search_is_not_limited_to_first_18",
 }
 SUPERSEDED_EVERGREEN_FILES = {

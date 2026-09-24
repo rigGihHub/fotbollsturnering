@@ -102,6 +102,18 @@ def test_shorter_code_lifetime_and_rotation_revoke_existing_sessions(client, mon
     assert login(client, second["code"]).status_code == 200
 
 
+def test_extension_never_pushes_code_beyond_three_days_from_now(client):
+    result = roles.rotate_reporter_code(1, 1, 72)
+    response = client.post(
+        "/api/admin/cups/1/role-codes/reporter/extend",
+        json={"additional_hours": 72},
+    )
+    assert response.status_code == 200
+    deadline = datetime.fromisoformat(response.json()["expires_at"]).timestamp()
+    assert deadline <= datetime.now(timezone.utc).timestamp() + roles.MAX_REPORTER_SESSION_SECONDS + 2
+    assert login(client, result["code"]).status_code == 200
+
+
 def test_duplicate_legacy_codes_never_choose_first_cup(client):
     legacy(1, "1234")
     assert login(client, "1234").json()["cup"]["id"] == 1

@@ -42,7 +42,8 @@ def test_reporter_controls_are_large_and_network_state_is_visible():
     result_css = read("frontend-next/src/app/reporter-v2665.css")
     event_css = read("frontend-next/src/app/reporter-flow-v2667.css")
     assert "reporter-network" in reporter
-    assert '"Online":"Offline"' in reporter
+    assert '"Alla ändringar är synkroniserade":"Inmatningar sparas på mobilen"' in reporter
+    assert 'conflicts>0?"Åtgärd krävs"' in reporter
     assert ".reporter-score input{height:64px" in result_css
     assert ".reporter-score button{min-height:62px" in result_css
     assert ".reporter-counter button{width:60px;height:60px" in event_css
@@ -71,11 +72,15 @@ def test_public_live_polling_backs_off_after_rate_limits_and_server_errors():
     assert "return cooldownMs?Math.max(cooldownMs,baseDelay):baseDelay" in public_view
 
 
-def test_release_2693_is_synchronized_and_ci_uses_maintained_gate():
-    assert '"version": "2.6.96"' in read("frontend-next/package.json")
-    assert '"version": "2.6.96"' in read("frontend-next/package-lock.json")
-    assert 'APP_VERSION = "2.6.96"' in read("frontend-next/src/app/layout.tsx")
-    assert 'cupnavi-next-v2696' in read("frontend-next/public/sw.js")
+def test_release_version_is_synchronized_and_ci_uses_maintained_gate():
+    import json
+    package=json.loads(read("frontend-next/package.json"))
+    lock=json.loads(read("frontend-next/package-lock.json"))
+    version=package["version"]
+    assert lock["version"] == version
+    assert lock["packages"][""]["version"] == version
+    assert f'APP_VERSION = "{version}"' in read("frontend-next/src/lib/version.ts")
+    assert 'import { APP_VERSION } from "@/lib/version"' in read("frontend-next/src/app/layout.tsx")
     workflow = read(".github/workflows/v139-quality.yml")
     assert "python scripts/run_maintained_release_gate.py" in workflow
     assert "python scripts/run_current_release_gate.py" not in workflow

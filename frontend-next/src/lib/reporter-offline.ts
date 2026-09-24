@@ -75,7 +75,23 @@ export function completeReporterResultMutation(processed:ResultMutation){
 
 export function removeReporterMutation(id:string){writeReporterQueue(readReporterQueue().filter(item=>item.id!==id));}
 export function updateReporterMutation(id:string,patch:Partial<ReporterMutation>){writeReporterQueue(readReporterQueue().map(item=>item.id===id?({...item,...patch} as ReporterMutation):item));}
-export function pendingReporterCount(cupId?:number){return readReporterQueue().filter(item=>(cupId==null||item.cupId===cupId)&&item.state!=="conflict").length;}
+export function reporterQueueSummary(cupId?:number){
+ const relevant=readReporterQueue().filter(item=>cupId==null||item.cupId===cupId);
+ return {
+  pending:relevant.filter(item=>item.state!=="conflict").length,
+  conflicts:relevant.filter(item=>item.state==="conflict").length,
+ };
+}
+export function pendingReporterCount(cupId?:number){return reporterQueueSummary(cupId).pending;}
+export function retryReporterConflicts(cupId:number){
+ const queue=readReporterQueue();let changed=false;
+ const next=queue.map(item=>{if(item.cupId!==cupId||item.state!=="conflict")return item;changed=true;return {...item,state:"queued"} as ReporterMutation});
+ if(changed)writeReporterQueue(next);
+}
+export function discardReporterConflicts(cupId:number){
+ const queue=readReporterQueue(),next=queue.filter(item=>item.cupId!==cupId||item.state!=="conflict");
+ if(next.length!==queue.length)writeReporterQueue(next);
+}
 
 export function writeReporterCache<T>(key:string,value:T){
  if(typeof window==="undefined")return;

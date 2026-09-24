@@ -7,8 +7,8 @@ ADMIN_CSS = (ROOT / "frontend-next/src/app/v618-admin.css").read_text(encoding="
 
 def test_mobile_admin_rows_stack_without_horizontal_overflow():
     assert "@media(max-width:900px)" in ADMIN_CSS
-    assert ".admin-team-list article{grid-template-columns:minmax(0,1fr)" in ADMIN_CSS
-    assert ".admin-team-list article label{min-width:0!important" in ADMIN_CSS
+    assert ".admin-team-roster article{grid-template-columns:minmax(0,1fr)" in ADMIN_CSS
+    assert ".admin-team-roster article>*,.admin-team-roster article>div,.admin-team-roster article label{min-width:0!important" in ADMIN_CSS
 
 
 def test_mobile_admin_controls_stay_inside_cards():

@@ -28,7 +28,8 @@ def test_public_mobile_tables_and_footer_do_not_hide_content():
     assert "Public v3.2 mobile QA" in CSS
     assert "Public v3.3 mobile cupday table/nav fix" in CSS
     assert "Public v3.4 mobile standings" in CSS
-    assert "standings-team-meta" in TABLE
+    assert "cn-standings__team" in TABLE
+    assert 'aria-label="Spelade"' in TABLE and 'aria-label="Poäng"' in TABLE
     assert ".page-shell--public-v3 .texttv--standings table" in CSS
     assert "min-width:0!important" in CSS
     assert "table-layout:fixed!important" in CSS
@@ -43,10 +44,9 @@ def test_public_cupinfo_inherits_setup_rules_and_shows_match_duration():
 
 def test_public_cupinfo_is_visitor_oriented():
     assert "public-info-hero--visitor" in PUBLIC
-    assert "Hitta rätt från start" in PUBLIC
-    assert "Behöver du fråga något?" in PUBLIC
-    assert "Vägen vidare" in PUBLIC
     assert "visitorInfoText" in PUBLIC
+    assert "Här finns det viktigaste för publik, spelare och ledare under cupdagen." in PUBLIC
+    assert "public-info-hero__facts" in PUBLIC
 
 def test_admin_session_survives_transient_api_failure():
     assert "Tillfälligt anslutningsproblem. Din inloggning ligger kvar" in ADMIN

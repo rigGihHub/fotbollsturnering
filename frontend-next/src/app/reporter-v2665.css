@@ -9,3 +9,5 @@
 .reporter-navigation a{display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:10px 16px;border:1.5px solid #101f2a;border-radius:9px;background:#fffdf7;color:#101f2a;text-decoration:none;font-size:14px;font-weight:850}
 .reporter-navigation a:last-child{background:#101f2a;color:#fff}
 .reporter-navigation a:focus-visible{outline:3px solid #1554d1;outline-offset:3px}
+.reporter-network.is-conflict{border-color:#a83f35;background:#ffe1d8;color:#711c16}.reporter-network.is-conflict>span{background:#d34b3f}.reporter-network__actions{display:flex;gap:7px}.reporter-network__actions button:last-child{background:#711c16;color:#fff}
+@media(max-width:520px){.reporter-network__actions{grid-column:1/-1;display:grid;grid-template-columns:1fr 1fr}}

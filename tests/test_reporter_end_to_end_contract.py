@@ -25,7 +25,8 @@ def test_reporter_code_rotation_invalidates_old_sessions():
 
 def test_reporter_login_is_rate_limited_and_codes_are_hashed():
     assert 'scope="reporter_login"' in ROLE
-    assert "verify_access_code(payload.code" in ROLE
+    assert "_find_reporter_credential(payload.code)" in ROLE
+    assert "verify_access_code(code" in ROLE
     assert "code_hash TEXT NOT NULL" in ROLE and "code_salt TEXT NOT NULL" in ROLE
 
 def test_reporter_frontend_uses_narrow_reporter_api_not_admin_result_api():

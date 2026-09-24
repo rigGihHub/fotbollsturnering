@@ -4,10 +4,10 @@ const vm = require('node:vm');
 const ts = require('typescript');
 const React = require('react');
 const {renderToStaticMarkup} = require('react-dom/server');
-function load(path, mocks={}) {
+function load(path, mocks={}, globals={}) {
   const code=ts.transpileModule(fs.readFileSync(path,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,jsx:ts.JsxEmit.ReactJSX,esModuleInterop:true}}).outputText;
   const module={exports:{}};
-  vm.runInNewContext(code,{module,exports:module.exports,atob,require:name=>mocks[name]??require(name)});
+  vm.runInNewContext(code,{module,exports:module.exports,atob,require:name=>mocks[name]??require(name),...globals});
   return module.exports;
 }
 const {reporterSessionDeadline}=load('src/lib/reporter-session.ts');
@@ -42,4 +42,20 @@ const admin=renderToStaticMarkup(React.createElement(Admin,{token:'test',cupId:1
 assert.ok(admin.includes('value="72"')&&!admin.includes('value="168"'));
 assert.ok(admin.includes('Kodens giltighet från skapandet'));
 assert.ok(admin.includes('href="/reporter?cup=1"'));
+const storage=new Map();
+const localStorage={getItem:key=>storage.get(key)??null,setItem:(key,value)=>storage.set(key,value)};
+const window={dispatchEvent:()=>{}};
+const Offline=load('src/lib/reporter-offline.ts',{}, {localStorage,window,CustomEvent:class {}});
+Offline.writeReporterQueue([
+  {id:'waiting',kind:'status',cupId:1,matchId:1,createdAt:1,state:'queued',payload:{status:'live',expected_status:'not_started'}},
+  {id:'conflict',kind:'status',cupId:1,matchId:2,createdAt:2,state:'conflict',payload:{status:'live',expected_status:'not_started'}},
+  {id:'other-cup',kind:'status',cupId:2,matchId:3,createdAt:3,state:'conflict',payload:{status:'live',expected_status:'not_started'}},
+]);
+assert.equal(JSON.stringify(Offline.reporterQueueSummary(1)),JSON.stringify({pending:1,conflicts:1}));
+Offline.retryReporterConflicts(1);
+assert.equal(JSON.stringify(Offline.reporterQueueSummary(1)),JSON.stringify({pending:2,conflicts:0}));
+Offline.updateReporterMutation('conflict',{state:'conflict'});
+Offline.discardReporterConflicts(1);
+assert.equal(JSON.stringify(Offline.reporterQueueSummary(1)),JSON.stringify({pending:1,conflicts:0}));
+assert.equal(JSON.stringify(Offline.reporterQueueSummary(2)),JSON.stringify({pending:0,conflicts:1}));
 console.log('Reporter login: single code field, deadlines and admin options PASS');

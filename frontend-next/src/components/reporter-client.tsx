@@ -3,12 +3,13 @@
 import {FormEvent,useCallback,useEffect,useMemo,useRef,useState} from "react";
 import {CLIENT_API_BASE} from "../lib/client-api";
 import {reporterSessionDeadline} from "../lib/reporter-session";
-import {QUEUE_EVENT,SYNC_REQUEST_EVENT,appendReporterMutation,completeReporterResultMutation,isNetworkError,isResultMutation,isResultOrStatusMutation,isStatusMutation,pendingReporterCount,readReporterCache,readReporterQueue,removeReporterMutation,updateReporterMutation,upsertReporterMutation,writeReporterCache} from "../lib/reporter-offline";
+import {QUEUE_EVENT,SYNC_REQUEST_EVENT,appendReporterMutation,completeReporterResultMutation,discardReporterConflicts,isNetworkError,isResultMutation,isResultOrStatusMutation,isStatusMutation,readReporterCache,readReporterQueue,removeReporterMutation,reporterQueueSummary,retryReporterConflicts,updateReporterMutation,upsertReporterMutation,writeReporterCache} from "../lib/reporter-offline";
 import ReporterMatchEvents from "./reporter-match-events";
 import ReporterNavigation from "./reporter-navigation";
 
 const API=CLIENT_API_BASE,KEY="cupnavi_reporter_session_v1",SESSION_CACHE="session";
 // Rollgräns: Cupinställningar är inte åtkomliga här; rapportören kan bara arbeta med matchdata.
+// Målskyttar, assist och kort renderas separat och följer cupens aktiverade rapporteringsfält.
 type Cup={id:number;name:string;public_slug?:string|null};
 type MatchLifecycle="not_started"|"live"|"halftime"|"finished";
 type ReporterSettings={scorers:boolean;assists:boolean;cards:boolean;fairness:boolean;minutes_per_half:number;halves:number};
@@ -30,7 +31,7 @@ export default function ReporterClient(){
  const[matchQuery,setMatchQuery]=useState("");
  const[includeFinished,setIncludeFinished]=useState(false);
  const[token,setToken]=useState<string|null>(null),[cupInfo,setCupInfo]=useState<Cup|null>(null),[matches,setMatches]=useState<Match[]>([]),[settings,setSettings]=useState<ReporterSettings>(DEFAULT_SETTINGS);
- const[busy,setBusy]=useState(false),[syncing,setSyncing]=useState(false),[online,setOnline]=useState(true),[pending,setPending]=useState(0);
+ const[busy,setBusy]=useState(false),[syncing,setSyncing]=useState(false),[online,setOnline]=useState(true),[pending,setPending]=useState(0),[conflicts,setConflicts]=useState(0);
  const[focusMatchId,setFocusMatchId]=useState<number|null>(null);
  const[error,setError]=useState(""),[message,setMessage]=useState("");
  const settingsRef=useRef<ReporterSettings>(DEFAULT_SETTINGS);
@@ -45,7 +46,7 @@ export default function ReporterClient(){
  useEffect(()=>{if(!matches.length){setFocusMatchId(null);return}setFocusMatchId(current=>current&&matches.some(match=>match.id===current)?current:(matches.find(match=>["live","halftime"].includes(lifecycle(match)))||matches.find(match=>lifecycle(match)!=="finished")||matches[0]).id)},[matches]);
 
  useEffect(()=>{
-  const refresh=()=>{setOnline(navigator.onLine);setPending(pendingReporterCount(cupInfo?.id))};refresh();
+  const refresh=()=>{const summary=reporterQueueSummary(cupInfo?.id);setOnline(navigator.onLine);setPending(summary.pending);setConflicts(summary.conflicts)};refresh();
   window.addEventListener("online",refresh);window.addEventListener("offline",refresh);window.addEventListener(QUEUE_EVENT,refresh);
   return()=>{window.removeEventListener("online",refresh);window.removeEventListener("offline",refresh);window.removeEventListener(QUEUE_EVENT,refresh)};
  },[cupInfo?.id]);
@@ -92,9 +93,9 @@ export default function ReporterClient(){
      serverMatches=serverMatches.map(item=>item.id===mutation.matchId?{...item,match_status:mutation.payload.status,status:mutation.payload.status==="finished"?"played":mutation.payload.status}:item);
     }
    }
-   await load(token);setMessage(pendingReporterCount(cupInfo.id)?"Vissa ändringar väntar fortfarande. Kontrollera meddelandet ovan.":"Alla ändringar är sparade på servern.");
+   await load(token);const summary=reporterQueueSummary(cupInfo.id);setMessage(summary.conflicts?"En eller flera ändringar behöver kontrolleras.":summary.pending?"Vissa ändringar väntar fortfarande. Kontrollera meddelandet ovan.":"Alla ändringar är sparade på servern.");
   }catch(reason){if(!isNetworkError(reason))setError(reason instanceof Error?reason.message:"Offlinekön kunde inte synkroniseras.")}
-  finally{setSyncing(false);setPending(pendingReporterCount(cupInfo.id))}
+  finally{const summary=reporterQueueSummary(cupInfo.id);setSyncing(false);setPending(summary.pending);setConflicts(summary.conflicts)}
  },[cupInfo,load,syncing,token]);
  useEffect(()=>{if(!online||pending===0)return;const retry=window.setTimeout(()=>void flushResults(),500);return()=>window.clearTimeout(retry)},[online,pending,flushResults]);
 
@@ -130,12 +131,14 @@ export default function ReporterClient(){
  const pendingStatuses=useMemo(()=>new Set(readReporterQueue().filter(isStatusMutation).filter(item=>item.cupId===cupInfo?.id&&item.state!=="conflict").map(item=>item.matchId)),[cupInfo?.id,pending,matches]);
  const listedMatches=matches.filter(match=>(includeFinished||lifecycle(match)!=="finished")&&`${match.home_team} ${match.away_team}`.toLocaleLowerCase("sv").includes(matchQuery.toLocaleLowerCase("sv")));
  const focusedMatch=matches.find(match=>match.id===focusMatchId)||null;
+ const retryConflicts=()=>{if(!cupInfo)return;retryReporterConflicts(cupInfo.id);setError("");setMessage("Kontrollerar ändringarna mot servern igen.");window.dispatchEvent(new CustomEvent(SYNC_REQUEST_EVENT));void flushResults()};
+ const useServerVersion=()=>{if(!cupInfo||!token||!window.confirm("Ta bort lokala konfliktändringar och hämta serverns aktuella version?"))return;discardReporterConflicts(cupInfo.id);window.location.reload()};
 
  if(!token)return <main className="reporter-page reporter-page--login"><ReporterNavigation cup={null}/><header className="reporter-hero"><p className="kicker">MATCHRAPPORTÖR</p><h1>Matchrapportör</h1><p>Ange koden från arrangören. Du kommer direkt till rätt cup.</p></header><form className="admin-panel reporter-login reporter-login--code-only" onSubmit={login}><div className="reporter-login__fields"><label><span>4-siffrig kod</span><input inputMode="numeric" pattern="[0-9]{4}" maxLength={4} value={code} onChange={event=>setCode(event.target.value.replace(/\D/g,"").slice(0,4))} required placeholder="0000" autoComplete="one-time-code" aria-describedby="reporter-code-help"/></label></div>{error&&<p className="reporter-alert reporter-alert--error" role="alert">{error}</p>}<div className="reporter-login__footer"><span id="reporter-code-help">Koden gäller i högst 3 dygn från att arrangören skapar den.</span><button className="is-primary" disabled={busy||code.length!==4}>{busy?"Kontrollerar…":"Öppna matchrapportering"}</button></div></form></main>;
  if(!cupInfo)return <main className="reporter-page"><ReporterNavigation cup={null}/><div className="reporter-network is-syncing" role="status"><span/><strong>Öppnar rapportering…</strong></div></main>;
  return <main className="reporter-page">
   <ReporterNavigation cup={cupInfo}/>
-  <div className={`reporter-network is-${online?syncing||pending>0?"syncing":"online":"offline"}`} role="status" aria-live="polite"><span aria-hidden="true"/><strong>{online?syncing?"Synkroniserar":pending>0?"Ändringar väntar":"Sparat":"Offline"}</strong><small>{pending?`${pending} ändring${pending===1?"":"ar"} väntar`:online?"Alla ändringar är synkroniserade":"Inmatningar sparas på mobilen"}</small>{online&&pending>0&&<button type="button" onClick={()=>{window.dispatchEvent(new CustomEvent(SYNC_REQUEST_EVENT));void flushResults()}} disabled={syncing}>Synka nu</button>}</div>
+  <div className={`reporter-network is-${conflicts>0?"conflict":online?syncing||pending>0?"syncing":"online":"offline"}`} role="status" aria-live="polite"><span aria-hidden="true"/><strong>{conflicts>0?"Åtgärd krävs":online?syncing?"Synkroniserar":pending>0?"Ändringar väntar":"Sparat":"Offline"}</strong><small>{conflicts>0?`${conflicts} ändring${conflicts===1?"":"ar"} krockar med servern`:pending?`${pending} ändring${pending===1?"":"ar"} väntar`:online?"Alla ändringar är synkroniserade":"Inmatningar sparas på mobilen"}</small>{conflicts>0&&online?<span className="reporter-network__actions"><button type="button" onClick={retryConflicts} disabled={syncing}>Kontrollera igen</button><button type="button" onClick={useServerVersion} disabled={syncing}>Använd serverns version</button></span>:online&&pending>0&&<button type="button" onClick={()=>{window.dispatchEvent(new CustomEvent(SYNC_REQUEST_EVENT));void flushResults()}} disabled={syncing}>Synka nu</button>}</div>
   <header className="reporter-hero reporter-hero--session"><div><p className="kicker">MATCHRAPPORTÖR</p><h1>{cupInfo?.name||"Matchrapportering"}</h1><p>Din behörighet gäller den här cupen. Välj match och starta rapporteringen.</p></div><div className="reporter-hero__actions"><button type="button" onClick={logout}>Logga ut</button></div></header>
   {(error||message)&&<section className={`reporter-alert ${error?"reporter-alert--error":"reporter-alert--success"}`} role={error?"alert":"status"}><strong>{error?"Något gick fel":online?"Status":"Offline"}</strong><span>{error||message}</span></section>}
   {focusedMatch&&<ReporterLiveControl match={focusedMatch} matches={matches} settings={settings} pending={pendingResults.has(focusedMatch.id)||pendingStatuses.has(focusedMatch.id)} onSelect={setFocusMatchId} onScore={changeScore} onStatus={changeStatus}/>} 

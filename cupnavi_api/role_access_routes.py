@@ -323,7 +323,10 @@ def register_role_access_routes(app, admin_identity):
             raise HTTPException(404, "Ingen rapportörskod finns")
         current = _credential_expiry(row)
         base = max(int(time.time()), current)
-        expires = datetime.fromtimestamp(base + additional_hours * 3600, timezone.utc).isoformat()
+        # Extensions may refresh a code, but never keep it valid for more than
+        # three days from the moment the extension is made.
+        max_expiry = int(time.time()) + MAX_REPORTER_SESSION_SECONDS
+        expires = datetime.fromtimestamp(min(base + additional_hours * 3600, max_expiry), timezone.utc).isoformat()
         with connect() as con:
             con.execute("UPDATE match_reporter_credentials SET expires_at=? WHERE tournament_id=?", (expires, int(tournament_id)))
             commit = getattr(con, "commit", None)
