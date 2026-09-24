@@ -79,6 +79,7 @@
 /* Migration bridges: contain historic public selectors until their consumers move. */
 html:has(.cn-public) body {background:var(--cn-canvas)!important;background-image:none!important}
 .cn-public.page-shell {max-width:1120px!important;padding:0 24px 48px!important;color:var(--cn-ink)}
+.cn-public-overview {position:relative}
 .cn-public .cn-cup-cover {position:relative;isolation:isolate;margin:16px 4px 0 0;padding:22px 24px;overflow:hidden;background:#fff9eb;border:2px solid var(--cn-ink);border-radius:12px;box-shadow:4px 5px 0 #1554d1}
 .cn-public .cn-cup-cover::after {content:"";position:absolute;z-index:-1;top:0;right:0;width:110px;height:90px;background:radial-gradient(circle,#086c70 1.4px,transparent 1.5px) 0 0/9px 9px;opacity:.22;mask-image:linear-gradient(to left,#000,transparent);pointer-events:none}
 .cn-public .cn-cup-cover__label {display:inline-block;padding:5px 9px;background:#1554d1;border-radius:3px;color:#fff;font:800 11px/1.2 ui-monospace,monospace;letter-spacing:.1em}
@@ -121,16 +122,25 @@ html:has(.cn-public) body {background:var(--cn-canvas)!important;background-imag
 @media(max-width:760px) {
  .cn-public.page-shell {padding:0 12px 32px!important}
  .cn-cup-cover {padding:20px 0 16px;gap:12px;display:block}
- .cn-public .cn-cup-cover {padding:16px;margin-top:10px}
- .cn-cup-cover__stats {margin-top:12px;gap:16px}
+ .cn-public .cn-cup-cover {padding:13px 14px 12px;margin-top:8px;box-shadow:3px 4px 0 #1554d1}
+ .cn-public .cn-cup-cover::after {width:78px;height:64px}
+ .cn-public .cn-cup-cover__label {padding:4px 7px;font-size:9px}
+ .cn-public .cn-cup-cover h1 {max-width:100%;margin:8px 0 5px;font-size:clamp(25px,8vw,34px);line-height:1.02}
+ .cn-public .cn-cup-cover__meta {gap:4px 12px;font-size:12px;line-height:1.35}
+ .cn-cup-cover__stats {margin-top:9px;gap:5px}
  .cn-cup-cover__stats span {display:flex;align-items:baseline;gap:4px}
- .cn-cup-cover__stats b {font-size:14px}
- .cn-cup-nav {display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:4px;margin-bottom:16px}
- .cn-public .cn-cup-nav {margin-bottom:16px}
+ .cn-public .cn-cup-cover__stats span {min-width:0;padding:4px 7px;border-width:1px;box-shadow:1px 2px 0 #f4cd55}
+ .cn-cup-cover__stats b {font-size:13px}
+ .cn-public .cn-cup-cover__stats small {font-size:10px}
+ .cn-public .cn-staff-nav {position:absolute;z-index:3;top:13px;right:14px;gap:4px;padding:0}
+ .cn-public .cn-staff-nav a {min-height:32px;padding:5px 8px;font-size:11px}
+ .cn-cup-nav {display:flex;flex-wrap:nowrap;gap:5px;overflow-x:auto;overscroll-behavior-inline:contain;scrollbar-width:none}
+ .cn-cup-nav::-webkit-scrollbar {display:none}
+ .cn-public .cn-cup-nav {margin:9px 0 12px;padding:3px 3px 5px}
  .cn-public .public-matches-v3 .public-section-head {margin:12px 0 6px!important}
  .cn-public .public-matches-v3 .cn-team-filter {margin:5px 0 7px}
  .cn-public .public-matches-v3 .match-view-filter {margin:6px 0 8px!important}
- .cn-cup-nav button {padding:8px 4px;font-size:13px}
+ .cn-cup-nav button {flex:0 0 auto;min-height:40px;padding:7px 12px;font-size:12px;white-space:nowrap}
  .cn-match-list {grid-template-columns:1fr}
  .cn-match-card__teams {gap:5px;min-height:58px;padding:7px 8px 7px 13px}
  .cn-match-team {gap:5px}

@@ -59,6 +59,7 @@ const {PublicCupView}=load(path.join(root,'components/PublicCupView.tsx'));
 const publicMarkup=renderToStaticMarkup(React.createElement(PublicCupView,{publicKey:'fixture-cup',initialStandings:[],initialCup:{...cup,tournament:{id:42,name:'Testcup',show_public_weather_configured:true,show_public_weather:false},teams:[team],groups:[],pitches:[],venue_points:[]}}));
 assert(publicMarkup.includes('href="/reporter?cup=fixture-cup"'),'Visitors need a cup-scoped reporter login link');
 assert(publicMarkup.includes('href="/admin?cup=42"'),'Admin handoff keeps current cup');
+assert(publicMarkup.includes('class="cn-public-overview"'),'Cup identity and navigation need one compact responsive shell');
 console.log('PASS public staff links, unknown kits and grouped playoff matches');
 
 const {default:AdminWorkspace}=load(path.join(root,'components/admin-workspace.tsx'));
