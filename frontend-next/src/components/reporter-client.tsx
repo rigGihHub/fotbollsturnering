@@ -15,7 +15,8 @@ type ReporterSettings={scorers:boolean;assists:boolean;cards:boolean;fairness:bo
 type Match={requires_winner?:boolean;id:number;stage?:string|null;home_team:string;away_team:string;home_score:number|null;away_score:number|null;home_penalties?:number|null;away_penalties?:number|null;status:string;match_status?:MatchLifecycle|null;scheduled_start?:string|null;clock_elapsed_seconds?:number;actual_started_at?:string|null};
 type CachedSession={cup:Cup;matches:Match[];settings?:ReporterSettings};
 const DEFAULT_SETTINGS:ReporterSettings={scorers:true,assists:true,cards:true,fairness:false,minutes_per_half:20,halves:2};
-const lifecycle=(match:Match):MatchLifecycle=>match.match_status==="live"||match.match_status==="halftime"||match.match_status==="finished"?match.match_status:match.status==="played"?"finished":"not_started";
+export const reporterMatchLifecycle=(match:Match):MatchLifecycle=>match.match_status==="not_started"||match.match_status==="live"||match.match_status==="halftime"||match.match_status==="finished"?match.match_status:match.status==="played"?"finished":"not_started";
+const lifecycle=reporterMatchLifecycle;
 const isAuthFailure=(error:unknown)=>/(401|session|inloggning krävs|ogiltig|gått ut|authentication)/i.test(error instanceof Error?error.message:String(error));
 
 async function call<T>(path:string,token?:string|null,init:RequestInit={}):Promise<T>{

@@ -17,13 +17,19 @@ assert.equal(reporterSessionDeadline(token('2026-09-22T12:00:00',issued+7*864000
 assert.equal(reporterSessionDeadline(token('2026-09-22T14:00:00+02:00',issued+8*3600000)),issued+8*3600000);
 assert.equal(reporterSessionDeadline('bad-token'),0);
 const Navigation=load('src/components/reporter-navigation.tsx',{'../lib/reporter-offline':{readReporterCache:()=>null}}).default;
-const Reporter=load('src/components/reporter-client.tsx',{
+const ReporterModule=load('src/components/reporter-client.tsx',{
   '../lib/client-api':{CLIENT_API_BASE:''},
   '../lib/reporter-session':{reporterSessionDeadline},
   '../lib/reporter-offline':{readReporterQueue:()=>[],isResultMutation:()=>false,isStatusMutation:()=>false},
   './reporter-match-events':{default:()=>null},
   './reporter-navigation':Navigation
-}).default;
+});
+const Reporter=ReporterModule.default;
+const {reporterMatchLifecycle}=ReporterModule;
+assert.equal(reporterMatchLifecycle({match_status:'not_started',status:'played'}),'not_started','A saved score must stay editable until the reporter explicitly finishes the match');
+assert.equal(reporterMatchLifecycle({match_status:'live',status:'played'}),'live');
+assert.equal(reporterMatchLifecycle({match_status:'finished',status:'played'}),'finished');
+assert.equal(reporterMatchLifecycle({match_status:null,status:'played'}),'finished','Legacy played matches remain locked');
 const html=renderToStaticMarkup(React.createElement(Reporter));
 assert.equal((html.match(/<input\b/g)||[]).length,1);
 assert.ok(html.includes('inputMode="numeric"')&&html.includes('maxLength="4"'));
