@@ -48,6 +48,8 @@ const {PublicCupView}=load(path.join(root,'components/PublicCupView.tsx'));
 function renderCup(enabled){return renderToStaticMarkup(React.createElement(PublicCupView,{publicKey:'weather-test',initialStandings:[],initialCup:{tournament:{id:1,name:'Weather Cup',arena_address:'Örebro',start_date:'2026-10-24',show_public_weather_configured:1,show_public_weather:enabled},teams:props.teams,matches:[match],groups:[],pitches:props.pitches,brackets:[],offers:[],venue_points:[]}}));}
 const enabledCup=renderCup(true);
 assert.ok(!enabledCup.includes('public-default-weather'),'No weather panel above schedule');
+assert.ok(!enabledCup.includes('Uppdateras automatiskt'),'Do not spend mobile space on the routine refresh status');
+assert.ok(!enabledCup.includes('public-live-status'),'Do not render an empty refresh-status row');
 assert.ok(!enabledCup.includes('Hämtar matchprognos'),'Loading placeholders must not lengthen every public match');
 assert.ok(!renderCup(false).includes('Hämtar matchprognos'),'Organizer can disable all match forecasts');
 

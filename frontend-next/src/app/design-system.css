@@ -102,6 +102,10 @@ html:has(.cn-public) body {background:var(--cn-canvas)!important;background-imag
 .cn-public .match-view-filter button:nth-child(2).is-active {background:#1c9297!important;color:#fff!important;box-shadow:inset 0 -2px 0 #116267!important}
 .cn-public .match-view-filter button:nth-child(3).is-active {background:#2d9c61!important;color:#fff!important;box-shadow:inset 0 -2px 0 #1d6d42!important}
 .cn-public .public-live-status {position:static!important;background:transparent!important;padding:0!important;font-size:12px!important;color:var(--cn-muted)!important;margin:8px 0!important}
+.cn-public .public-matches-v3 .public-section-head {margin-bottom:8px!important}
+.cn-public .public-matches-v3 .cn-team-filter {gap:4px;margin:7px 0 9px}
+.cn-public .public-matches-v3 .cn-team-filter select {min-height:44px}
+.cn-public .public-matches-v3 .match-view-filter {margin:8px 0 10px!important}
 .cn-public .empty-state {padding:24px!important;border:1px dashed var(--cn-line)!important;box-shadow:none!important;border-radius:12px!important;background:#fff!important}
 .cn-public .table-stack {gap:20px}
 .cn-public .public-info-hero,.cn-public .public-info-card {background:#fff!important;box-shadow:none!important;border:1px solid var(--cn-line)!important;border-radius:12px!important;padding:20px!important}
@@ -124,6 +128,9 @@ html:has(.cn-public) body {background:var(--cn-canvas)!important;background-imag
  .cn-cup-cover__stats b {font-size:14px}
  .cn-cup-nav {display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:4px;margin-bottom:16px}
  .cn-public .cn-cup-nav {margin-bottom:16px}
+ .cn-public .public-matches-v3 .public-section-head {margin:12px 0 6px!important}
+ .cn-public .public-matches-v3 .cn-team-filter {margin:5px 0 7px}
+ .cn-public .public-matches-v3 .match-view-filter {margin:6px 0 8px!important}
  .cn-cup-nav button {padding:8px 4px;font-size:13px}
  .cn-match-list {grid-template-columns:1fr}
  .cn-match-card__teams {gap:5px;min-height:58px;padding:7px 8px 7px 13px}
