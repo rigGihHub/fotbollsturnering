@@ -36,9 +36,9 @@ export default function PublicCupRecovery({publicKey,reporterReturn=false}:{publ
 
   if(cup)return <PublicCupView publicKey={publicKey} initialCup={cup} initialStandings={[]} reporterReturn={reporterReturn}/>;
   return <main className="page-shell"><section className="status-page public-cup-recovery" aria-live="polite">
-    <span>{missing?"CUPEN HITTADES INTE":"HÄMTAR TURNERINGEN"}</span>
-    <h1>{missing?"Kontrollera cupens länk.":"CupNavi ansluter igen."}</h1>
-    <p>{missing?"Cupen kan vara avpublicerad eller länken kan vara fel.":waiting?"Cupsidan öppnas automatiskt så snart anslutningen är klar.":"Anslutningen tog längre tid än väntat. CupNavi försöker igen automatiskt."}</p>
+    <span>{missing?"CUPEN HITTADES INTE":"ÖPPNAR CUPEN"}</span>
+    <h1>{missing?"Kontrollera cupens länk.":"Cupen är snart klar."}</h1>
+    <p>{missing?"Cupen kan vara avpublicerad eller länken kan vara fel.":waiting?"Matcher, tabeller och resultat hämtas.":"Det tar längre tid än vanligt. CupNavi försöker igen automatiskt."}</p>
     {!missing&&<div><button type="button" disabled={waiting} onClick={()=>{if(timer.current)window.clearTimeout(timer.current);void load()}}>{waiting?"Hämtar…":"Försök nu"}</button></div>}
   </section></main>;
 }

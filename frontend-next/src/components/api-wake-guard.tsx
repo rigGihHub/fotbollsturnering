@@ -27,14 +27,12 @@ async function healthCheck() {
 
 export default function ApiWakeGuard() {
   const [state, setState] = useState<WakeState>("checking");
-  const [seconds, setSeconds] = useState(0);
   const startedAt = useRef(0);
   const running = useRef(false);
 
   useEffect(() => {
     let cancelled = false;
     let pollTimer: number | undefined;
-    let secondTimer: number | undefined;
 
     async function poll() {
       if (cancelled || running.current) return;
@@ -58,21 +56,19 @@ export default function ApiWakeGuard() {
     }
 
     startedAt.current = Date.now();
-    setSeconds(0);
     void poll();
-    secondTimer = window.setInterval(() => {
-      setSeconds(Math.floor((Date.now() - startedAt.current) / 1000));
-    }, 1000);
 
     return () => {
       cancelled = true;
       running.current = false;
       if (pollTimer) window.clearTimeout(pollTimer);
-      if (secondTimer) window.clearInterval(secondTimer);
     };
   }, []);
 
-  if (state === "online" || state === "checking") return null;
+  // A routine cold start is infrastructure detail, not useful visitor
+  // information. Individual pages own their loading state and can keep their
+  // normal CupNavi shell visible while the API becomes available.
+  if (state === "online" || state === "checking" || state === "waking") return null;
 
   const failed = state === "failed";
   return (
@@ -97,11 +93,9 @@ export default function ApiWakeGuard() {
     >
       <div style={{display:"flex",gap:12,alignItems:"center",justifyContent:"space-between",flexWrap:"wrap"}}>
         <div>
-          <strong style={{display:"block",marginBottom:2}}>{failed ? "Servern svarar fortfarande inte" : "CupNavi startar servern …"}</strong>
+          <strong style={{display:"block",marginBottom:2}}>CupNavi kunde inte ansluta</strong>
           <span style={{fontSize:13,fontWeight:600}}>
-            {failed
-              ? "Automatisk uppstart tog för lång tid. Försök igen – du behöver inte logga ut."
-              : `Det kan ta en liten stund på gratisservern. CupNavi försöker igen automatiskt${seconds ? ` · ${seconds} s` : ""}.`}
+            Försök igen. Du behöver inte logga ut och inga sparade uppgifter påverkas.
           </span>
         </div>
         {failed && (

@@ -66,4 +66,7 @@ const {default:AdminWorkspace}=load(path.join(root,'components/admin-workspace.t
 const offlineLogin=renderToStaticMarkup(React.createElement(AdminWorkspace));
 assert(offlineLogin.includes('ANSLUTNING OSÄKER'));
 assert.match(offlineLogin,/<button type="submit">Logga in<\/button>/,'A failed health probe must not permanently disable login');
+const wakeSource=fs.readFileSync(path.join(root,'components/api-wake-guard.tsx'),'utf8');
+const recoverySource=fs.readFileSync(path.join(root,'components/public-cup-recovery.tsx'),'utf8');
+assert(!/Render|gratisserver|startar servern/i.test(wakeSource+recoverySource),'Visitors must not see hosting or cold-start details');
 console.log('PASS login remains available after health timeout');
