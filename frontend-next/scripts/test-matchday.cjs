@@ -32,6 +32,9 @@ assert(home.includes('#112233'));assert(!home.includes('#aabbcc'),'Home-only mod
 const none=renderToStaticMarkup(React.createElement(MatchCard,{...props,showKits:false}));
 assert(!none.includes('<svg'),'No shirts means no shirt SVGs');
 assert(none.includes(team.name));
+const compactCard=renderToStaticMarkup(React.createElement(MatchCard,{...props,match:{...props.match,scheduled_start:'2026-10-24T09:15',pitch_number:1},pitches:[{pitch_number:1,name:'Sörbyvallen'}]}));
+assert(compactCard.includes('24 okt'));assert(compactCard.includes('Match 1 · Sörbyvallen'));
+assert(!compactCard.includes('cn-match-card__pitch'),'Match context must not consume a separate footer row');
 const {TextTvStandings}=load(path.join(root,'components/TextTvStandings.tsx'));
 const html=renderToStaticMarkup(React.createElement(TextTvStandings,{name:'Grupp A',rows:[{position:1,team_id:9,Lag:team.name,S:9,V:4,O:3,F:2,MS:'+12',P:15}]}));
 assert.equal((html.match(/scope="col"/g)||[]).length,8);

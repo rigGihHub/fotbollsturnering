@@ -8,6 +8,13 @@ import { pitchLabel } from "@/lib/pitch-label";
 import { matchStatus, participantLabel, timeLabel } from "@/lib/format";
 import { TeamKit } from "./TeamKit";
 
+function compactDateLabel(value?:string|null):string {
+  if(!value)return "Datum kommer";
+  const date=new Date(value);
+  if(Number.isNaN(date.getTime()))return value.slice(0,10);
+  return new Intl.DateTimeFormat("sv-SE",{day:"numeric",month:"short"}).format(date).replace(".","");
+}
+
 function Side({team,label,away=false,showKits=true,showAwayKits=true,showLogos=true}:{team?:Team;label:string;away?:boolean;showKits?:boolean;showAwayKits?:boolean;showLogos?:boolean}){
   const [logoFailed,setLogoFailed]=useState(false);
   const logoSrc=String(team?.logo_url||"").trim();
@@ -31,16 +38,16 @@ export function MatchCard({match,teams,groups=[],pitches=[],index,weather,showKi
   const awayLabel=participantLabel(match.away_source,match.away_participant,teams,groups);
   const pitchNames=Object.fromEntries(pitches.map(pitch=>[String(pitch.pitch_number),pitch.name]));
   const state=status==="live"?"Live":status==="halftime"?"Paus":status==="done"?"Slut":"Kommande";
-  const date=match.scheduled_start?.slice(0,10)||"Datum kommer";
+  const date=compactDateLabel(match.scheduled_start);
   const time=timeLabel(match.scheduled_start);
+  const context=`Match ${index+1} · ${pitchLabel(match.pitch_number==null?null:Number(match.pitch_number),pitchNames)}`;
   return <article className={`cn-match-card cn-match-card--${status}`}>
-    <header className="cn-match-card__meta"><span className="cn-match-card__kickoff"><span>{date}</span><strong>{time}</strong></span><b>{state}</b></header>
+    <header className="cn-match-card__meta"><span className="cn-match-card__kickoff"><span>{date}</span><strong>{time}</strong></span><span className="cn-match-card__context">{context}</span><b>{state}</b></header>
     <div className="cn-match-card__teams">
       <Side team={home} label={homeLabel} showKits={showKits} showAwayKits={showAwayKits} showLogos={showLogos}/>
       <div className="cn-match-card__score"><strong>{score||"vs"}</strong></div>
       <Side team={away} label={awayLabel} away showKits={showKits} showAwayKits={showAwayKits} showLogos={showLogos}/>
     </div>
-    <footer className="cn-match-card__pitch"><span>Match {index+1}</span><strong>{pitchLabel(match.pitch_number==null?null:Number(match.pitch_number),pitchNames)}</strong></footer>
     {showGoalMinutes&&!!match.goal_minutes?.length&&<div className="cn-match-card__goals" aria-label="Målminuter">{(["home","away"] as const).map(side=>{const minutes=match.goal_minutes?.filter(goal=>goal.side===side).map(goal=>`${goal.minute}′`)||[];return minutes.length?<span key={side}><b>{side==="home"?homeLabel:awayLabel}:</b> {minutes.join(", ")}</span>:null})}</div>}
     <MatchWeather forecast={weather}/>
   </article>;
