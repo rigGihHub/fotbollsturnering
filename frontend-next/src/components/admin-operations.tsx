@@ -12,7 +12,7 @@ const VERIFIED_CACHE_KEY = "cupnavi_admin_verified_v1";
 const VERIFIED_PERSISTENT_CACHE_KEY = "cupnavi_admin_verified_persistent_v1";
 const CUP_KEY = "cupnavi_admin_active_cup_v651";
 
-type Cup = { id:number; name:string; role:string; public_slug?:string|null };
+type Cup = { id:number; name:string; role:string; public_slug?:string|null; is_published?:boolean };
 type VerifiedCache = { token:string; cups:Cup[]; verifiedAt:number };
 type HeavyStep = "publish"|"reporting"|"import"|"other";
 
@@ -95,7 +95,7 @@ export default function AdminOperations() {
   return <section className="admin-main admin-operations-flow" aria-label={step==="publish"?"Publicering":"Matchrapportering"}>
     <section className="admin-panel admin-flow-context" style={{marginBottom:14}}>
       <div className="admin-panel__top"><span>{step==="publish"?"STEG 8 · KONTROLL & PUBLICERING":"VERKTYG · MATCHRAPPORTERING"}</span><strong>AKTIV CUP · {activeCup?.role?.toUpperCase()}</strong></div>
-      <div className="admin-flow-context__title"><div><h2>{activeCup?.name || "Cup"}</h2><p>{step==="publish"?"Kontrollera blockerare, förhandsgranska och publicera när allt stämmer.":"Förbered behörigheter och resultatrapportering inför cupdagen."}</p></div><span className="admin-lock">{step==="publish"?"SLUTKONTROLL":"CUPDRIFT"}</span></div>
+      <div className="admin-flow-context__title"><div><h2>{activeCup?.name || "Cup"}</h2><p>{step==="publish"?(activeCup?.is_published?"Cupen är live. Kontrollera publikvyn och hantera eventuella nya blockerare.":"Kontrollera blockerare, förhandsgranska och publicera när allt stämmer."):"Förbered behörigheter och resultatrapportering inför cupdagen."}</p></div><span className="admin-lock">{step==="publish"?"SLUTKONTROLL":"CUPDRIFT"}</span></div>
     </section>
     {step==="reporting" && <>
       <div id="access-flow" className="admin-flow-group">

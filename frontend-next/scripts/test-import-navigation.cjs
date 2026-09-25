@@ -53,11 +53,17 @@ console.log("Import rule presentation: PASS");
 
 const workspaceSource = fs.readFileSync(path.join(__dirname, "../src/components/admin-workspace.tsx"), "utf8");
 const stepFlowSource = fs.readFileSync(path.join(__dirname, "../src/components/admin-step-flow.tsx"), "utf8");
+const operationsSource = fs.readFileSync(path.join(__dirname, "../src/components/admin-operations.tsx"), "utf8");
+const publicationSource = fs.readFileSync(path.join(__dirname, "../src/components/publish-reporting-admin.tsx"), "utf8");
 const adminStyle = fs.readFileSync(path.join(__dirname, "../src/app/admin-home-v2637.css"), "utf8");
 const pitchReviewSource = fs.readFileSync(path.join(__dirname, "../src/components/pitch-window-import-review.tsx"), "utf8");
 assert.match(workspaceSource, /importWelcome&&!isPublished&&<section className="admin-import-welcome"/);
 assert.match(workspaceSource, /cupnavi:admin-cup-publication/);
 assert.match(stepFlowSource, /cupPublished&&step==="overview"\?<button className="cn-primary"[^>]*onClick=\{\(\)=>select\("reporting"\)\}/);
+assert.match(stepFlowSource, /cupPublished&&step==="publish"/);
+assert.match(operationsSource, /activeCup\?\.is_published\?"Cupen är live\./);
+assert.match(publicationSource, /isLive\?"Genomför cupen":"Publicera cupen"/);
+assert.doesNotMatch(publicationSource, /Kontrollerna är godkända\. Du kan publicera cupen när du vill\./);
 assert.match(adminStyle, /\.cn-admin \.admin-cup-switcher select\{[^}]*width:100%!important;max-width:100%!important/);
 assert.doesNotMatch(workspaceSource, /return "skapad tid saknas"/);
 assert.doesNotMatch(pitchReviewSource, /AUTO_REVIEW_PREFIX|sessionStorage\.setItem/);

@@ -106,6 +106,11 @@ export default function AdminStepFlow() {
   const previous = index > 0 ? activeFlow[index - 1] : null;
   const next = index >= 0 && index < activeFlow.length - 1 ? activeFlow[index + 1] : null;
   const guide = STEP_GUIDE[step] || STEP_GUIDE.overview;
+  const guideAction=cupPublished&&step==="overview"
+    ? "Cupen är publicerad. Följ matcherna och rapportera resultat under cupdagen."
+    : cupPublished&&step==="publish"
+      ? "Kontrollera den publicerade turneringsvyn och avpublicera bara om cupen måste tas bort för besökarna."
+      : guide.action;
 
   useEffect(()=>{
     if(index<0&&!tool)select("overview");
@@ -113,7 +118,7 @@ export default function AdminStepFlow() {
 
   return <section className="cn-step-guide" aria-label="Cupens arbetsflöde">
     <nav className="cn-phases" aria-label="Arbetsfaser">{adminPhases.map(phase=><button key={phase.id} type="button" aria-current={adminPhase(step)===phase.id?"step":undefined} onClick={()=>select(phase.step)}>{phase.label}</button>)}</nav>
-    <div className="cn-step-guide__body"><div><strong>{tool?.[1] || activeFlow[index]?.[1] || "Översikt"}</strong><p>{cupPublished&&step==="overview"?"Cupen är publicerad. Följ matcherna och rapportera resultat under cupdagen.":guide.action}</p></div>
+    <div className="cn-step-guide__body"><div><strong>{tool?.[1] || activeFlow[index]?.[1] || "Översikt"}</strong><p>{guideAction}</p></div>
     <div className="cn-step-guide__actions">{tool?<button type="button" onClick={()=>select("overview")}>Till översikten</button>:cupPublished&&step==="overview"?<button className="cn-primary" type="button" onClick={()=>select("reporting")}>Öppna rapportering →</button>:<>{previous&&<button type="button" onClick={()=>select(previous[0])}>Föregående</button>}{next&&<button className="cn-primary" type="button" onClick={()=>select(next[0])}>Nästa: {next[1]} →</button>}</>}</div></div>
     {!(cupPublished&&step==="overview")&&<details><summary>Vad behöver vara klart?</summary><p>{guide.done}</p></details>}
   </section>;

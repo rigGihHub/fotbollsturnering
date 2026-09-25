@@ -116,11 +116,15 @@ export default function PublishReportingAdmin({token,cupId,mode,publicSlug}:{tok
     const isLive=Boolean(publication?.tournament?.is_published);
     const isReady=Boolean(publication?.ready);
     const issueCount=otherBlockers.reduce((sum,item)=>sum+item.count,0)+scheduleErrors.length;
+    const kicker=isLive?(isReady?"Publicerad och kontrollerad":"Publicerad · åtgärder krävs"):(isReady?"Redo för publik":"Åtgärder krävs");
+    const description=isLive
+      ? (isReady?"Cupen är live och kontrollerna är godkända. Ändringar visas direkt i turneringsvyn.":`${issueCount} ${issueCount===1?"sak behöver":"saker behöver"} rättas i den publicerade cupen.`)
+      : (isReady?"Kontrollerna är godkända. Cupen kan publiceras när du är klar.":`${issueCount} ${issueCount===1?"sak behöver":"saker behöver"} rättas innan cupen kan bli publik.`);
     return <section className={`admin-panel publication-console ${isReady?"is-ready":"needs-action"}`} id="publish">
       <div className="publication-console__eyebrow"><span>07 · KONTROLL & PUBLICERING</span><strong>{isLive?"LIVE":"UTKAST"}</strong></div>
       <div className="publication-console__hero">
         <span className="publication-console__signal" aria-hidden="true">{isReady?"✓":"!"}</span>
-        <div><p className="publication-console__kicker">{isReady?"Redo för publik":"Åtgärder krävs"}</p><h2>{isLive?"Cupen är publicerad":isReady?"Allt är klart":"Inte redo att publicera"}</h2><p>{isReady?"Kontrollerna är godkända. Du kan publicera cupen när du vill.":`${issueCount} ${issueCount===1?"sak behöver":"saker behöver"} rättas innan cupen kan bli publik.`}</p></div>
+        <div><p className="publication-console__kicker">{kicker}</p><h2>{isLive?"Cupen är publicerad":isReady?"Allt är klart":"Inte redo att publicera"}</h2><p>{description}</p></div>
       </div>
       {error&&<div className="publication-console__error" role="alert"><strong>Något gick fel</strong><span>{error}</span></div>}
       {!isReady&&<div className="publication-checklist">
@@ -128,7 +132,7 @@ export default function PublishReportingAdmin({token,cupId,mode,publicSlug}:{tok
         {otherBlockers.map(({text,count})=>{const guide=blockerGuide(text,publication?.import_context);return <div className="publication-checklist__item" key={text}><span className="publication-checklist__icon">!</span><div><strong>{text}</strong><small><b>Var:</b> {guide.where}. {guide.action}{guide.target&&<> <a href={guide.target}>Öppna steget →</a></>}</small></div>{count>1&&<b>×{count}</b>}</div>})}
         {conflictGroups.map(({item,count})=><div className="publication-checklist__item is-blocking" key={`${item.type}:${item.message}`}><span className="publication-checklist__icon">!</span><div><strong>{item.message}</strong><small><b>Var:</b> Schema. {item.type==="round_order"?"Rätta rondordningen och godkänn sedan schemat.":"Öppna Schema, rätta konflikten och godkänn sedan schemat."}</small></div>{count>1&&<b>×{count}</b>}</div>)}
       </div>}
-      {isReady&&<div className="publication-ready-steps"><div><b>1</b><span><strong>Kontrollera sammanfattningen</strong><small>CupNavi har inte hittat några blockerande fel.</small></span></div><div><b>2</b><span><strong>Förhandsgranska cupvyn</strong><small>Kontrollera hur tider, planer och lag visas för besökare.</small></span></div><div><b>3</b><span><strong>Publicera cupen</strong><small>Den publika länken blir tillgänglig för deltagarna.</small></span></div></div>}
+      {isReady&&<div className="publication-ready-steps"><div><b>1</b><span><strong>{isLive?"Kontrollerna är godkända":"Kontrollera sammanfattningen"}</strong><small>CupNavi har inte hittat några blockerande fel.</small></span></div><div><b>2</b><span><strong>{isLive?"Kontrollera turneringsvyn":"Förhandsgranska cupvyn"}</strong><small>Kontrollera hur tider, planer och lag visas för besökare.</small></span></div><div><b>3</b><span><strong>{isLive?"Genomför cupen":"Publicera cupen"}</strong><small>{isLive?"Rapportera resultat och följ uppdateringarna under cupdagen.":"Den publika länken blir tillgänglig för deltagarna."}</small></span></div></div>}
       <div className="publication-console__actions">
         <span>{isLive?"Ändringar visas direkt i turneringsvyn.":isReady?"En sista kontroll görs när du publicerar.":"Publiceringsknappen aktiveras när checklistan är klar."}</span>
         <div>{otherBlockers.some(({text})=>/slutspelsmodell|cupregler/i.test(text))&&<a className="admin-action-secondary" href="#playoffs">Öppna Slutspel</a>}{otherBlockers.some(({text})=>/schema behöver|schema saknas|schemat behöver/i.test(text))||scheduleErrors.length>0?<a className="admin-action-secondary" href="#schedule">Öppna Schema</a>:null}{otherBlockers.some(({text})=>/spelplats|adress/i.test(text))&&<a className="admin-action-secondary" href="#cupinfo">Öppna Cupinfo</a>}{publicSlug&&<a className="admin-action-secondary" href={`/cup/${publicSlug}?preview=1&cup=${cupId}`} target="_blank" rel="noreferrer">Förhandsgranska</a>}<button className="admin-action-primary" disabled={busy||(!isLive&&!isReady)} onClick={togglePublication}>{busy?"Arbetar…":isLive?"Avpublicera":"Publicera cup"}</button></div>
