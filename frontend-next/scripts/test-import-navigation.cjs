@@ -50,3 +50,13 @@ assert.equal(formatted.length,3);
 assert.equal(playoffImportRules({halves:null,minutes_per_half:null}).length,0);
 assert.equal(playoffImportRules({halves:"<bad>",minutes_per_half:-5}).length,0);
 console.log("Import rule presentation: PASS");
+
+const workspaceSource = fs.readFileSync(path.join(__dirname, "../src/components/admin-workspace.tsx"), "utf8");
+const stepFlowSource = fs.readFileSync(path.join(__dirname, "../src/components/admin-step-flow.tsx"), "utf8");
+const adminStyle = fs.readFileSync(path.join(__dirname, "../src/app/admin-home-v2637.css"), "utf8");
+assert.match(workspaceSource, /importWelcome&&!isPublished&&<section className="admin-import-welcome"/);
+assert.match(workspaceSource, /cupnavi:admin-cup-publication/);
+assert.match(stepFlowSource, /cupPublished&&step==="overview"\?<button className="cn-primary"[^>]*onClick=\{\(\)=>select\("reporting"\)\}/);
+assert.match(adminStyle, /\.cn-admin \.admin-cup-switcher select\{[^}]*width:100%!important;max-width:100%!important/);
+assert.doesNotMatch(workspaceSource, /return "skapad tid saknas"/);
+console.log("Published overview and mobile cup selection: PASS");

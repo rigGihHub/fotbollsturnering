@@ -38,7 +38,7 @@ assert(!compactCard.includes('cn-match-card__pitch'),'Match context must not con
 const {TextTvStandings}=load(path.join(root,'components/TextTvStandings.tsx'));
 const html=renderToStaticMarkup(React.createElement(TextTvStandings,{name:'Grupp A',rows:[{position:1,team_id:9,Lag:team.name,S:9,V:4,O:3,F:2,MS:'+12',P:15}]}));
 assert.equal((html.match(/scope="col"/g)||[]).length,8);
-assert(html.includes('MS målskillnad'));assert(html.includes(team.name));
+assert(html.includes('aria-label="Målskillnad">MS'));assert(!html.includes('MS målskillnad'));assert(html.includes(team.name));
 console.log('PASS matchday ordering, team filter, playoff formats, kit preferences and table semantics');
 const {adminPhase,adminPhases}=load(path.join(root,'lib/admin-navigation.ts'));
 assert.equal(adminPhases.map(p=>p.label).join(','),'Skapa,Planera,Publicera,Genomföra');

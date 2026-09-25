@@ -8,6 +8,8 @@
 .admin-pagehead__actions .admin-draft{align-self:stretch;display:inline-flex;align-items:center;margin:0!important;border:0!important;border-radius:5px!important;box-shadow:none!important}
 .admin-pagehead__actions a{border:0!important;background:#101f2a!important;color:#fff!important;border-radius:5px!important;box-shadow:none!important}
 .admin-pagehead__actions a span{color:#ffd83d}
+.cn-admin .admin-active-cup-card,.cn-admin .admin-cup-switcher{min-width:0;max-width:100%}
+.cn-admin .admin-cup-switcher select{display:block;width:100%!important;max-width:100%!important;min-width:0!important;box-sizing:border-box;text-overflow:ellipsis}
 @media(max-width:760px){
   .brandbar{min-height:84px!important;padding:12px 20px!important}
   .brand-logo-original{width:min(260px,65vw)!important}

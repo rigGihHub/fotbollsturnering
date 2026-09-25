@@ -47,7 +47,7 @@ type RestoreCupPayload = { restored:boolean; cup:Cup; cups:Cup[]; trash:TrashedC
 type ApiStatus = "checking" | "online" | "offline";
 type PublicKitMode = "none" | "home" | "both";
 const comparableCupName=(value:string)=>value.normalize("NFKD").replace(/[\u0300-\u036f]/g,"").replace(/[^a-zA-Z0-9]/g,"").toLocaleLowerCase("sv");
-const createdLabel=(value?:string|null)=>{if(!value)return "skapad tid saknas";const normalized=/[zZ]|[+-]\d\d:?\d\d$/.test(value)?value:`${value.replace(" ","T")}Z`;const date=new Date(normalized);return Number.isNaN(date.getTime())?"skapad tid saknas":`skapad ${new Intl.DateTimeFormat("sv-SE",{dateStyle:"medium",timeStyle:"short"}).format(date)}`;};
+const createdLabel=(value?:string|null)=>{if(!value)return "";const normalized=/[zZ]|[+-]\d\d:?\d\d$/.test(value)?value:`${value.replace(" ","T")}Z`;const date=new Date(normalized);return Number.isNaN(date.getTime())?"":`skapad ${new Intl.DateTimeFormat("sv-SE",{dateStyle:"medium",timeStyle:"short"}).format(date)}`;};
 type KitPattern = "Helfärgad"|"Vertikala ränder"|"Horisontella ränder"|"Rutigt"|"Delad"|"Diagonala ränder"|"Grafiskt";
 type Team = { id:number; tournament_id:number; name:string; group_id?:number|null; age_class?:string|null; primary_color?:string|null; secondary_color?:string|null; home_pattern?:KitPattern|null; home_color_2?:string|null; away_pattern?:KitPattern|null; away_color_2?:string|null; logo_url?:string|null; logo_source_url?:string|null };
 type Group = { id:number; tournament_id:number; name:string; age_class?:string|null; team_count:number };
@@ -199,6 +199,9 @@ export default function AdminWorkspace({verifiedSession=null,children=null}:{ver
   const [bulkKitIssues,setBulkKitIssues] = useState<Array<{teamId:number;teamName:string;reason:string}>>([]);
 
   const activeCup = useMemo(() => cups.find(cup => cup.id === cupId) || null,[cups,cupId]);
+  useEffect(()=>{
+    window.dispatchEvent(new CustomEvent("cupnavi:admin-cup-publication",{detail:Boolean(activeCup?.is_published)}));
+  },[activeCup?.is_published,cupId]);
   const publishedTwin = useMemo(() => {
     if(!activeCup||activeCup.is_published)return null;
     const key=comparableCupName(activeCup.name);
@@ -698,8 +701,8 @@ export default function AdminWorkspace({verifiedSession=null,children=null}:{ver
   return <main className="admin-workspace cn-admin">
     <aside className="admin-sidebar">
       <section className="admin-active-cup-card" aria-label="Aktiv cup">
-        <div className="admin-sidebar__cup"><span>{isOwner ? "HUVUDADMIN" : "LOKAL ADMIN"} · AKTIV CUP</span><strong>{activeCup?.name || "Ingen cup"}</strong><small>{activeCup?`${activeCup.is_published?"Publicerad":"Utkast"}${activeCup.created_at?` · ${createdLabel(activeCup.created_at)}`:""}`:"Datum saknas"}</small></div>
-        {cups.length > 1 && <label className="admin-cup-switcher"><span>Byt cup</span><select value={cupId || ""} onChange={e=>changeCup(Number(e.target.value))}>{cups.map(cup=><option key={cup.id} value={cup.id}>{cup.name} — {createdLabel(cup.created_at)} — {cup.is_published?"PUBLICERAD":"UTKAST"}</option>)}</select></label>}
+        <div className="admin-sidebar__cup"><span>{isOwner ? "HUVUDADMIN" : "LOKAL ADMIN"} · AKTIV CUP</span><strong>{activeCup?.name || "Ingen cup"}</strong><small>{activeCup?`${activeCup.is_published?"Publicerad":"Utkast"}${createdLabel(activeCup.created_at)?` · ${createdLabel(activeCup.created_at)}`:""}`:"Ingen cup vald"}</small></div>
+        {cups.length > 1 && <label className="admin-cup-switcher"><span>Byt cup</span><select value={cupId || ""} onChange={e=>changeCup(Number(e.target.value))}>{cups.map(cup=><option key={cup.id} value={cup.id}>{cup.name}{cup.start_date?` · ${cup.start_date}`:""} · {cup.is_published?"PUBLICERAD":"UTKAST"}</option>)}</select></label>}
         {(canManageCup||trashedCups.length>0) && <details className="cn-cup-management"><summary>Hantera cup</summary><div className="admin-owner-actions">
           <button className={`admin-trash-button${trashOpen?" is-open":""}`} type="button" onClick={()=>setTrashOpen(value=>!value)}>Papperskorg <span>{trashedCups.length}</span></button>
           {activeCup&&canManageCup && <button className="admin-remove-cup" type="button" disabled={deletingCup} onClick={()=>void removeCup()}>{deletingCup?"Tar bort…":"Ta bort cup"}</button>}
@@ -728,7 +731,7 @@ export default function AdminWorkspace({verifiedSession=null,children=null}:{ver
     <section className="admin-main" id="overview">
       <header className="admin-pagehead"><div><h1>Cupöversikt</h1></div><div className="admin-pagehead__actions"><span className="admin-draft">{activeCup?.is_published?"PUBLICERAD":"UTKAST"}</span>{publicCup&&<a href={publicCup} target="_blank" rel="noreferrer">Turneringsvy <span aria-hidden="true">↗</span></a>}{activeCup&&<a href={`/reporter?cup=${encodeURIComponent(activeCup.public_slug || String(activeCup.id))}`} target="_blank" rel="noreferrer">Rapportering <span aria-hidden="true">↗</span></a>}</div></header>
       {activeStep==="overview"&&publishedTwin&&<section className="admin-cup-identity-warning" role="alert"><div><span>LIKANDE CUP FINNS REDAN LIVE</span><strong>Du arbetar i utkastet “{activeCup?.name}”</strong><p>Den publicerade cupen “{publishedTwin.name}” är en annan post. Byt cup för att undvika att bygga ett nytt schema ovanpå en dubblett.</p></div><button type="button" disabled={busy} onClick={()=>void changeCup(publishedTwin.id)}>Öppna publicerad cup →</button></section>}
-      {activeStep==="overview"&&importWelcome&&<section className="admin-import-welcome" aria-labelledby="import-welcome-title">
+      {activeStep==="overview"&&importWelcome&&!isPublished&&<section className="admin-import-welcome" aria-labelledby="import-welcome-title">
         <div className="admin-import-welcome__top"><span>IMPORTEN ÄR KLAR</span><button type="button" onClick={dismissImportWelcome} aria-label="Dölj introduktionen">×</button></div>
         <div className="admin-import-welcome__hero"><div className="admin-import-welcome__check">✓</div><div><h2 id="import-welcome-title">{importWelcome.cupName} är skapad</h2><p>{importWelcome.playoffs?`CupNavi hittade ${importWelcome.playoffs} slutspelsmatcher. Granska och spara trädet innan publicering.`:"CupNavi har redan lagt in underlaget. Du ska granska det som finns – inte importera lagen eller schemat igen."}</p></div></div>
         <div className="admin-import-welcome__facts"><span><b>{importWelcome.teams}</b> lag</span><span><b>{importWelcome.groups}</b> grupper</span><span><b>{importWelcome.matches}</b> matcher</span><span><b>{importWelcome.venues}</b> planer</span>{Boolean(importWelcome.playoffs)&&<span><b>{importWelcome.playoffs}</b> slutspelsmatcher</span>}</div>

@@ -56,6 +56,7 @@ function announceStep(step:StepId) {
 export default function AdminStepFlow() {
   const [step, setStep] = useState<StepId>("overview");
   const [arrangementType,setArrangementType]=useState("tournament");
+  const [cupPublished,setCupPublished]=useState(false);
 
   const select = useCallback((next: StepId) => {
     setStep(next);
@@ -89,6 +90,12 @@ export default function AdminStepFlow() {
     return()=>window.removeEventListener("cupnavi:arrangement-type",sync);
   },[]);
 
+  useEffect(()=>{
+    const sync=(event:Event)=>setCupPublished(Boolean((event as CustomEvent<boolean>).detail));
+    window.addEventListener("cupnavi:admin-cup-publication",sync);
+    return()=>window.removeEventListener("cupnavi:admin-cup-publication",sync);
+  },[]);
+
   const activeFlow=useMemo(()=>FLOW_STEPS.filter(([id])=>{
     if(id==="playoffs")return includesPlayoffStep(arrangementType,step);
     return id!=="groups"||arrangementType!=="matchcamp";
@@ -106,8 +113,8 @@ export default function AdminStepFlow() {
 
   return <section className="cn-step-guide" aria-label="Cupens arbetsflöde">
     <nav className="cn-phases" aria-label="Arbetsfaser">{adminPhases.map(phase=><button key={phase.id} type="button" aria-current={adminPhase(step)===phase.id?"step":undefined} onClick={()=>select(phase.step)}>{phase.label}</button>)}</nav>
-    <div className="cn-step-guide__body"><div><strong>{tool?.[1] || activeFlow[index]?.[1] || "Översikt"}</strong><p>{guide.action}</p></div>
-    <div className="cn-step-guide__actions">{tool?<button type="button" onClick={()=>select("overview")}>Till översikten</button>:<>{previous&&<button type="button" onClick={()=>select(previous[0])}>Föregående</button>}{next&&<button className="cn-primary" type="button" onClick={()=>select(next[0])}>Nästa: {next[1]} →</button>}</>}</div></div>
-    <details><summary>Vad behöver vara klart?</summary><p>{guide.done}</p></details>
+    <div className="cn-step-guide__body"><div><strong>{tool?.[1] || activeFlow[index]?.[1] || "Översikt"}</strong><p>{cupPublished&&step==="overview"?"Cupen är publicerad. Följ matcherna och rapportera resultat under cupdagen.":guide.action}</p></div>
+    <div className="cn-step-guide__actions">{tool?<button type="button" onClick={()=>select("overview")}>Till översikten</button>:cupPublished&&step==="overview"?<button className="cn-primary" type="button" onClick={()=>select("reporting")}>Öppna rapportering →</button>:<>{previous&&<button type="button" onClick={()=>select(previous[0])}>Föregående</button>}{next&&<button className="cn-primary" type="button" onClick={()=>select(next[0])}>Nästa: {next[1]} →</button>}</>}</div></div>
+    {!(cupPublished&&step==="overview")&&<details><summary>Vad behöver vara klart?</summary><p>{guide.done}</p></details>}
   </section>;
 }
