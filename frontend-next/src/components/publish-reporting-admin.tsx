@@ -17,7 +17,7 @@ async function req(path:string,token:string,init:RequestInit={}) {
 }
 
 type Mode="publish"|"reporting";
-type Match={requires_winner?:boolean;id:number;stage?:string|null;home_team:string;away_team:string;home_score:number|null;away_score:number|null;home_penalties?:number|null;away_penalties?:number|null;status:string;scheduled_start?:string|null};
+type Match={requires_winner?:boolean;id:number;stage?:string|null;home_team:string;away_team:string;home_score:number|null;away_score:number|null;home_penalties?:number|null;away_penalties?:number|null;status:string;match_status?:string|null;scheduled_start?:string|null};
 type ScheduleConflict={type:string;severity:"error"|"warning";message:string;match_ids?:number[]};
 type PublicationPayload={tournament?:{is_published?:boolean};ready:boolean;blockers:string[];import_context?:{playoff_imported?:boolean;rules_imported?:boolean;schedule_imported?:boolean;pitch_windows_imported?:boolean;source_name?:string|null};schedule_conflict_analysis?:{error_count:number;warning_count:number;conflicts:ScheduleConflict[]}};
 type Impact={playoff:boolean;outcome_changes:boolean;blocked:boolean;downstream_count?:number;summary?:string;guidance?:string[];downstream?:Array<{id:number;stage?:string|null;match_no?:number|null;scheduled_start?:string|null;locked:boolean;recoverable:boolean;recovery_reason:string}>};
@@ -92,6 +92,18 @@ export default function PublishReportingAdmin({token,cupId,mode,publicSlug}:{tok
     finally{setBusy(false);}
   }
 
+  async function reset(match:Match){
+    if(match.home_score==null||match.away_score==null)return;
+    if(!window.confirm(`Återställ ${match.home_team} – ${match.away_team} som ospelad?\n\nResultatet, matchstatusen, matchklockan och registrerade matchhändelser tas bort.`))return;
+    setBusy(true);
+    try{
+      setError("");
+      await req(`/api/admin/cups/${cupId}/reporting/matches/${match.id}/reset`,token,{method:"POST",body:JSON.stringify({expected_home_score:match.home_score,expected_away_score:match.away_score,expected_home_penalties:match.home_penalties??null,expected_away_penalties:match.away_penalties??null,expected_status:match.match_status||"not_started"})});
+      await load();
+    }catch(reason){setError(reason instanceof Error?reason.message:"Matchen kunde inte återställas");}
+    finally{setBusy(false);}
+  }
+
   const blockers=publication?.blockers??[];
   const scheduleErrors=publication?.schedule_conflict_analysis?.conflicts?.filter(item=>item.severity==="error")||[];
   const otherBlockers=useMemo(()=>compactRows(blockers).filter(({text})=>!(scheduleErrors.length&&/schemafel/i.test(text))),[blockers,scheduleErrors.length]);
@@ -129,23 +141,24 @@ export default function PublishReportingAdmin({token,cupId,mode,publicSlug}:{tok
       <div className="publication-console__eyebrow"><span>VERKTYG · MATCHRAPPORTERING</span><strong>{played}/{matches.length} KLARA</strong></div>
       <div className="reporting-console__head"><div><p className="publication-console__kicker">MATCHCENTRAL</p><h2>Rapportera resultat</h2><p>Välj en match, fyll i resultatet och spara. Admin kan korrigera även slutmarkerade matcher; rapportörsvyn låses efter slutmarkering.</p></div>{awaiting>0&&<span className="reporting-console__waiting">{awaiting} väntar på avgörande</span>}</div>
       {error&&<div className="publication-console__error" role="alert"><strong>Kunde inte spara</strong><span>{error}</span></div>}
-      <div className="reporting-match-list">{matches.length?matches.map(match=><MatchRow key={match.id} match={match} busy={busy} save={save}/>):<div className="reporting-empty"><strong>Inga matcher att rapportera</strong><span>Matcher visas här när schemat är skapat.</span></div>}</div>
+      <div className="reporting-match-list">{matches.length?matches.map(match=><MatchRow key={match.id} match={match} busy={busy} save={save} reset={reset}/>):<div className="reporting-empty"><strong>Inga matcher att rapportera</strong><span>Matcher visas här när schemat är skapat.</span></div>}</div>
     </section>
     <MatchEventsAdmin token={token} cupId={cupId}/>
   </>;
 }
 
-function MatchRow({match,busy,save}:{match:Match;busy:boolean;save:(match:Match,home:string,away:string,homePenalties:string,awayPenalties:string)=>void}){
+function MatchRow({match,busy,save,reset}:{match:Match;busy:boolean;save:(match:Match,home:string,away:string,homePenalties:string,awayPenalties:string)=>void;reset:(match:Match)=>void}){
   const [home,setHome]=useState(match.home_score==null?"":String(match.home_score));
   const [away,setAway]=useState(match.away_score==null?"":String(match.away_score));
   const [homePenalties,setHomePenalties]=useState(match.home_penalties==null?"":String(match.home_penalties));
   const [awayPenalties,setAwayPenalties]=useState(match.away_penalties==null?"":String(match.away_penalties));
+  useEffect(()=>{setHome(match.home_score==null?"":String(match.home_score));setAway(match.away_score==null?"":String(match.away_score));setHomePenalties(match.home_penalties==null?"":String(match.home_penalties));setAwayPenalties(match.away_penalties==null?"":String(match.away_penalties));},[match.home_score,match.away_score,match.home_penalties,match.away_penalties]);
   const knockout=(match.requires_winner??(match.stage!=="Gruppspel"));
   const tied=knockout&&home!==""&&away!==""&&Number(home)===Number(away);
   return <article className="reporting-match">
     <div className="reporting-match__meta"><span>{match.stage||"Match"}</span><small>{match.scheduled_start||"Ej schemalagd"}</small></div>
     <div className="reporting-match__teams"><strong>{match.home_team}</strong><span>–</span><strong>{match.away_team}</strong></div>
-    <div className="reporting-match__score"><input aria-label="Hemmamål" type="number" min="0" value={home} onChange={event=>setHome(event.target.value)}/><span>–</span><input aria-label="Bortamål" type="number" min="0" value={away} onChange={event=>setAway(event.target.value)}/><button disabled={busy||home===""||away===""||(tied&&(homePenalties===""||awayPenalties===""))} onClick={()=>save(match,home,away,homePenalties,awayPenalties)}>{knockout&&match.home_score!=null?"Kontrollera & spara":"Spara"}</button></div>
+    <div className="reporting-match__score"><input aria-label="Hemmamål" type="number" min="0" value={home} onChange={event=>setHome(event.target.value)}/><span>–</span><input aria-label="Bortamål" type="number" min="0" value={away} onChange={event=>setAway(event.target.value)}/><button disabled={busy||home===""||away===""||(tied&&(homePenalties===""||awayPenalties===""))} onClick={()=>save(match,home,away,homePenalties,awayPenalties)}>{knockout&&match.home_score!=null?"Kontrollera & spara":"Spara"}</button>{match.home_score!=null&&match.away_score!=null&&<button className="reporting-match__reset" type="button" disabled={busy} onClick={()=>reset(match)}>Återställ som ospelad</button>}</div>
     {tied&&<div className="reporting-match__penalties"><span>Avgörande på straffar</span><label>{match.home_team}<input aria-label="Hemmastraffar" type="number" min="0" value={homePenalties} onChange={event=>setHomePenalties(event.target.value)}/></label><label>{match.away_team}<input aria-label="Bortastraffar" type="number" min="0" value={awayPenalties} onChange={event=>setAwayPenalties(event.target.value)}/></label></div>}
   </article>;
 }

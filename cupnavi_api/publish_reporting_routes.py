@@ -1,6 +1,6 @@
 from fastapi import Header,HTTPException
 from pydantic import BaseModel
-from .publish_reporting_repository import admin_publication,set_publication,admin_reporting,save_result
+from .publish_reporting_repository import admin_publication,set_publication,admin_reporting,reset_result,save_result
 from .match_events_admin_repository import admin_event_matches,admin_match_events,update_player_match_events
 from .result_correction_repository import playoff_result_correction_impact
 
@@ -14,6 +14,12 @@ class ResultWrite(BaseModel):
     expected_away_score:int|None=None
     expected_home_penalties:int|None=None
     expected_away_penalties:int|None=None
+class ResultReset(BaseModel):
+    expected_home_score:int
+    expected_away_score:int
+    expected_home_penalties:int|None=None
+    expected_away_penalties:int|None=None
+    expected_status:str
 class EventCounters(BaseModel):
     goals:int=0
     assists:int=0
@@ -66,6 +72,22 @@ def register_publish_reporting_routes(app,admin_identity):
                 away_penalties=payload.away_penalties,
                 expected_home_penalties=payload.expected_home_penalties,
                 expected_away_penalties=payload.expected_away_penalties,
+            )
+        except ValueError as e:raise HTTPException(422,str(e)) from e
+        except RuntimeError as e:raise HTTPException(409,str(e)) from e
+        if r is None:raise HTTPException(404,'Match saknas eller åtkomst nekas')
+        return r
+
+    @app.post('/api/admin/cups/{tournament_id}/reporting/matches/{match_id}/reset')
+    def post_result_reset(tournament_id:int,match_id:int,payload:ResultReset,authorization:str|None=Header(default=None)):
+        a=admin_identity(authorization)
+        try:
+            r=reset_result(
+                int(a['id']),tournament_id,match_id,
+                payload.expected_home_score,payload.expected_away_score,
+                expected_home_penalties=payload.expected_home_penalties,
+                expected_away_penalties=payload.expected_away_penalties,
+                expected_status=payload.expected_status,
             )
         except ValueError as e:raise HTTPException(422,str(e)) from e
         except RuntimeError as e:raise HTTPException(409,str(e)) from e

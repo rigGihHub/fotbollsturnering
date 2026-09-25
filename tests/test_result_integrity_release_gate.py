@@ -37,3 +37,12 @@ def test_playoff_dependency_change_is_blocked_when_downstream_is_locked():
     assert "transitive_downstream_match_ids" in REPORTING
     assert "dependency_impact(" in REPORTING
     assert "if impact.blocked:" in REPORTING
+
+def test_admin_reset_clears_result_lifecycle_and_events_with_concurrency_guard():
+    assert "def reset_result(" in REPORTING
+    assert "new_winner_side=None" in REPORTING
+    assert "SET home_score=NULL,away_score=NULL" in REPORTING
+    assert "match_status=?" in REPORTING
+    assert 'DELETE FROM player_match_stats WHERE match_id=?' in REPORTING
+    assert 'DELETE FROM match_goal_minutes WHERE match_id=?' in REPORTING
+    assert "Resultatet eller matchstatusen har ändrats av någon annan" in REPORTING

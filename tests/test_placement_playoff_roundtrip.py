@@ -10,7 +10,7 @@ from cupnavi_api import repository as db
 from cupnavi_api.competition_admin_routes import register_competition_admin_routes
 from cupnavi_api.playoff_import_repository import commit_playoff_import
 from cupnavi_api.playoff_admin_repository import admin_playoffs, update_playoff_settings
-from cupnavi_api.publish_reporting_repository import admin_reporting, save_result, set_reporter_match_status
+from cupnavi_api.publish_reporting_repository import admin_reporting, reset_result, save_result, set_reporter_match_status
 from cupnavi_api.participant_resolution_repository import resolve_public_snapshot
 from cupnavi_api.main import playoffs, standings
 from cupnavi_core.placement_playoffs import DRAW_RULE, all_placement_blocks
@@ -135,6 +135,32 @@ def test_local_admin_can_correct_finished_result_only_inside_assigned_cup(cup):
     stored=db.one("SELECT home_score,away_score,match_status FROM matches WHERE id=?",(match['id'],))
     assert stored=={'home_score':1,'away_score':1,'match_status':'finished'}
     assert save_result(7,2,match['id'],3,0,1,1) is None
+
+
+def test_local_admin_can_reset_saved_result_to_unplayed_and_clear_match_events(cup):
+    match=db.one("SELECT * FROM matches WHERE tournament_id=1 AND match_status='finished' ORDER BY id LIMIT 1")
+    with sqlite3.connect(cup) as con:
+        con.execute('CREATE TABLE player_match_stats(id INTEGER PRIMARY KEY,match_id INTEGER,player_id INTEGER,goals INTEGER,assists INTEGER,yellow_cards INTEGER,red_cards INTEGER)')
+        con.execute('CREATE TABLE match_goal_minutes(id INTEGER PRIMARY KEY,match_id INTEGER,side TEXT,minute INTEGER)')
+        con.execute('INSERT INTO player_match_stats(match_id,player_id,goals,assists,yellow_cards,red_cards) VALUES(?,?,?,?,?,?)',(match['id'],1,2,0,0,0))
+        con.execute('INSERT INTO match_goal_minutes(match_id,side,minute) VALUES(?,?,?)',(match['id'],'home',12))
+
+    reset=reset_result(
+        7,1,match['id'],match['home_score'],match['away_score'],
+        expected_home_penalties=match['home_penalties'],
+        expected_away_penalties=match['away_penalties'],
+        expected_status='finished',
+    )
+
+    assert reset['home_score'] is None and reset['away_score'] is None
+    assert reset['home_penalties'] is None and reset['away_penalties'] is None
+    assert reset['match_status']=='not_started'
+    assert reset['actual_elapsed_seconds']==0
+    assert db.one('SELECT COUNT(*) AS n FROM player_match_stats WHERE match_id=?',(match['id'],))['n']==0
+    assert db.one('SELECT COUNT(*) AS n FROM match_goal_minutes WHERE match_id=?',(match['id'],))['n']==0
+    restored=next(item for item in admin_reporting(7,1)['matches'] if item['id']==match['id'])
+    assert restored['status']=='scheduled'
+    assert reset_result(7,2,match['id'],None,None,expected_status='not_started') is None
 
 
 def test_group_winner_and_corrected_draw_recalculate_without_alphabetical_champion(cup):

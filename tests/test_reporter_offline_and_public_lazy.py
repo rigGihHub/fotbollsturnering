@@ -87,6 +87,17 @@ def test_public_tables_and_placement_groups_avoid_redundant_explanations():
     assert 'aria-label="Poäng"' in standings
 
 
+def test_admin_can_reset_a_saved_result_without_expanding_reporter_permissions():
+    admin = read("frontend-next/src/components/publish-reporting-admin.tsx")
+    routes = read("cupnavi_api/publish_reporting_routes.py")
+    reporter = read("frontend-next/src/components/reporter-client.tsx")
+    assert "Återställ som ospelad" in admin
+    assert "registrerade matchhändelser tas bort" in admin
+    assert "reporting/matches/${match.id}/reset" in admin
+    assert "reporting/matches/{match_id}/reset" in routes
+    assert "/reset" not in reporter
+
+
 def test_public_live_polling_backs_off_after_rate_limits_and_server_errors():
     api = read("frontend-next/src/lib/api.ts")
     public_view = read("frontend-next/src/components/PublicCupView.tsx")

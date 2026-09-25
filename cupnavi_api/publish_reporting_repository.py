@@ -76,7 +76,7 @@ def _uses_playoffs(tournament: dict) -> bool:
 
 
 def _table_columns(table_name: str) -> set[str]:
-    if table_name not in {"teams", "groups", "matches"}:
+    if table_name not in {"teams", "groups", "matches", "player_match_stats", "match_goal_minutes"}:
         raise ValueError("Unsupported schema inspection target")
     with connect() as con:
         rows = con.execute(f"PRAGMA table_info({table_name})").fetchall()
@@ -571,3 +571,112 @@ def save_result(
         updated["winner_side"] = new_side
         updated["winner_team_id"] = home_team_id if new_side == "home" else away_team_id if new_side == "away" else None
     return updated
+
+
+def reset_result(
+    account_id: int,
+    tournament_id: int,
+    match_id: int,
+    expected_home,
+    expected_away,
+    *,
+    expected_home_penalties=None,
+    expected_away_penalties=None,
+    expected_status: str = MATCH_NOT_STARTED,
+):
+    """Return an admin-reported match to a genuinely unplayed state."""
+    if not _has_tournament_access(account_id, tournament_id):
+        return None
+    _ensure_match_clock_columns()
+    row = one("SELECT * FROM matches WHERE id=? AND tournament_id=?", (int(match_id), int(tournament_id)))
+    if not row:
+        return None
+    expected_status_raw = str(expected_status or "").strip().lower()
+    if expected_status_raw not in MATCH_STATUSES:
+        raise ValueError("Ogiltig matchstatus.")
+    current_status = normalize_match_status(row.get("match_status"), has_result=False)
+    wanted_expected_status = normalize_match_status(expected_status_raw, has_result=False)
+    if (
+        row.get("home_score") != expected_home
+        or row.get("away_score") != expected_away
+        or row.get("home_penalties") != expected_home_penalties
+        or row.get("away_penalties") != expected_away_penalties
+        or current_status != wanted_expected_status
+    ):
+        raise RuntimeError("Resultatet eller matchstatusen har ändrats av någon annan. Ladda om innan du återställer matchen.")
+    if row.get("home_score") is None and row.get("away_score") is None:
+        raise ValueError("Matchen är redan ospelad.")
+
+    tournament = one("SELECT * FROM tournaments WHERE id=?", (int(tournament_id),)) or {}
+    all_matches = all_rows("SELECT * FROM matches WHERE tournament_id=?", (int(tournament_id),))
+    resolver = _resolver_for_tournament(tournament_id)
+    home = resolver.resolve(row.get("home_source")) if resolver else None
+    away = resolver.resolve(row.get("away_source")) if resolver else None
+    old_manual_side = decided_side_from_team_id(
+        row.get("decided_winner_id"),
+        home_team_id=home.team_id if home and home.resolved else None,
+        away_team_id=away.team_id if away and away.resolved else None,
+    )
+    old_side = winner_side(
+        home_score=row.get("home_score"),
+        away_score=row.get("away_score"),
+        home_penalties=row.get("home_penalties"),
+        away_penalties=row.get("away_penalties"),
+        decided_winner_side=old_manual_side,
+    ) if _match_requires_winner(row, draw_match_ids(tournament, all_matches)) else None
+    descendant_ids = transitive_downstream_match_ids(int(match_id), all_matches, row_value=_row_value)
+    if old_side is not None and descendant_ids:
+        counts = _event_counts(descendant_ids)
+        wanted = set(descendant_ids)
+        downstream = []
+        for item in all_matches:
+            if int(item.get("id") or 0) in wanted:
+                item = dict(item)
+                item["event_count"] = counts.get(int(item["id"]), 0)
+                downstream.append(item)
+        impact = dependency_impact(
+            old_winner_side=old_side,
+            new_winner_side=None,
+            downstream_rows=downstream,
+            row_value=_row_value,
+        )
+        if impact.blocked:
+            locked = [item for item in downstream if int(item.get("id") or 0) in set(impact.downstream_match_ids)]
+            guidance = build_dependency_guidance(locked, row_value=_row_value)
+            detail = " ".join(guidance) if guidance else impact.reason
+            raise RuntimeError(f"{impact.reason} {detail}".strip())
+
+    has_player_events = bool(_table_columns("player_match_stats"))
+    has_goal_minutes = bool(_table_columns("match_goal_minutes"))
+    now = datetime.now().isoformat(timespec="seconds")
+    with connect() as conn:
+        cursor = conn.execute(
+            """UPDATE matches
+               SET home_score=NULL,away_score=NULL,home_penalties=NULL,away_penalties=NULL,
+                   decided_winner_id=NULL,match_status=?,status_updated_at=?,
+                   actual_started_at=NULL,actual_finished_at=NULL,actual_elapsed_seconds=0,actual_paused_at=NULL
+               WHERE id=? AND tournament_id=?
+                 AND home_score IS ? AND away_score IS ?
+                 AND home_penalties IS ? AND away_penalties IS ?
+                 AND COALESCE(match_status,'not_started')=?""",
+            (
+                MATCH_NOT_STARTED, now, int(match_id), int(tournament_id),
+                expected_home, expected_away, expected_home_penalties, expected_away_penalties,
+                wanted_expected_status,
+            ),
+        )
+        if getattr(cursor, "rowcount", 1) == 0:
+            raise RuntimeError("Resultatet eller matchstatusen har ändrats av någon annan. Ladda om innan du återställer matchen.")
+        if has_player_events:
+            conn.execute("DELETE FROM player_match_stats WHERE match_id=?", (int(match_id),))
+        if has_goal_minutes:
+            conn.execute("DELETE FROM match_goal_minutes WHERE match_id=?", (int(match_id),))
+        commit = getattr(conn, "commit", None)
+        if callable(commit):
+            commit()
+    return one(
+        """SELECT id,home_score,away_score,home_penalties,away_penalties,decided_winner_id,
+                  match_status,status_updated_at,actual_started_at,actual_finished_at,actual_elapsed_seconds,actual_paused_at
+           FROM matches WHERE id=? AND tournament_id=?""",
+        (int(match_id), int(tournament_id)),
+    )
