@@ -35,6 +35,7 @@ import "./release-v2697.css";
 import "./admin-mobile-polish-v2712.css";
 import "./access-admin-v2714.css";
 import "./design-system.css";
+import "./admin-mobile-focus-v2822.css";
 import { PwaBoot } from "@/components/PwaBoot";
 import { ViewModeSwitch } from "@/components/ViewModeSwitch";
 import { HeaderShareAction } from "@/components/HeaderShareAction";

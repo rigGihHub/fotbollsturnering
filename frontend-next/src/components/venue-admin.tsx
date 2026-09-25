@@ -4,6 +4,7 @@ import { FormEvent, useCallback, useEffect, useState } from "react";
 import { CLIENT_API_BASE } from "../lib/client-api";
 
 const API_BASE = CLIENT_API_BASE;
+const PITCH_WINDOWS_UPDATED_EVENT = "cupnavi:pitch-windows-updated";
 
 type VenueRules = {
   pitch_count:number;
@@ -67,7 +68,7 @@ export default function VenueAdmin({token,cupId}:{token:string;cupId:number}) {
       const saved=await api<VenuePayload>(`/api/admin/cups/${cupId}/venues/pitches/${pitch.pitch_number}`,{
         method:"PUT",body:JSON.stringify({name:pitch.name,address:pitch.address || null})
       },token);
-      setData(saved); setMessage(`${pitch.name} har sparats.`);
+      setData(saved); setMessage(`${pitch.name} har sparats.`); window.dispatchEvent(new Event(PITCH_WINDOWS_UPDATED_EVENT));
     } catch(err) { setError(err instanceof Error?err.message:"Planen kunde inte sparas."); }
     finally { setBusy(false); }
   }
@@ -78,7 +79,7 @@ export default function VenueAdmin({token,cupId}:{token:string;cupId:number}) {
       const saved=await api<VenuePayload>(`/api/admin/cups/${cupId}/venues/pitches/${windowRow.pitch_number}/windows/${windowRow.play_date}`,{
         method:"PUT",body:JSON.stringify({intervals:data!.windows.filter(w=>w.pitch_number===windowRow.pitch_number&&w.play_date===windowRow.play_date).map(({start_time,end_time})=>({start_time,end_time})),confirmed:true})
       },token);
-      setData(saved); setMessage(`Plantiden ${windowRow.play_date} har sparats.`);
+      setData(saved); setMessage(`Plantiden ${windowRow.play_date} har sparats.`); window.dispatchEvent(new Event(PITCH_WINDOWS_UPDATED_EVENT));
     } catch(err) { setError(err instanceof Error?err.message:"Plantiden kunde inte sparas."); }
     finally { setBusy(false); }
   }
@@ -99,7 +100,7 @@ export default function VenueAdmin({token,cupId}:{token:string;cupId:number}) {
       const verified=await api<VenuePayload>(`/api/admin/cups/${cupId}/venues`,{},token);
       const missing=snapshot.windows.some(expected=>!verified.windows.some(actual=>actual.pitch_number===expected.pitch_number&&actual.play_date===expected.play_date&&actual.start_time===expected.start_time&&actual.end_time===expected.end_time&&Boolean(actual.confirmed)));
       if(missing)throw new Error("Servern kunde inte verifiera alla plantider efter sparningen.");
-      setData(verified); setMessage(`Alla ${verified.pitches.length} planer och ${verified.windows.length} plantider är sparade och verifierade.`);
+      setData(verified); setMessage(`Alla ${verified.pitches.length} planer och ${verified.windows.length} plantider är sparade och verifierade.`); window.dispatchEvent(new Event(PITCH_WINDOWS_UPDATED_EVENT));
     } catch(err) { setError(err instanceof Error?err.message:"Planer och tider kunde inte sparas komplett."); }
     finally { setBusy(false); }
   }
@@ -151,13 +152,17 @@ export default function VenueAdmin({token,cupId}:{token:string;cupId:number}) {
         <strong>{playDate}</strong>
         {data.windows.filter(w=>w.play_date===playDate).map((row,index)=>{
           const pitch=data.pitches.find(p=>p.pitch_number===row.pitch_number);
+          const pitchWindows=data.windows.filter(w=>w.pitch_number===row.pitch_number&&w.play_date===playDate);
+          const isLastPitchWindow=pitchWindows[pitchWindows.length-1]===row;
           return <article key={`${playDate}-${index}`}>
             <div style={{minWidth:160}}><strong>{pitch?.name || `Plan ${row.pitch_number}`}</strong><small>{row.confirmed?"Bekräftad tid":"Standardtid – bekräfta vid sparning"}</small></div>
             <label>Start<input type="time" value={row.start_time} onChange={e=>patchWindow(row,{start_time:e.target.value})} /></label>
             <label>Slut<input type="time" value={row.end_time} onChange={e=>patchWindow(row,{end_time:e.target.value})} /></label>
-            <button type="button" disabled={busy||row.start_time>=row.end_time} onClick={()=>saveWindow(row)}>Spara dagens tider</button>
-            <button type="button" disabled={busy} onClick={()=>setData({...data,windows:[...data.windows,{...row,start_time:row.end_time,end_time:"",confirmed:false}]})}>Lägg till tidsfönster</button>
-            {data.windows.filter(w=>w.pitch_number===row.pitch_number&&w.play_date===playDate).length>1&&<button type="button" disabled={busy} onClick={()=>setData({...data,windows:data.windows.filter(w=>w!==row)})}>Ta bort tidsfönster</button>}
+            <div className="admin-window-actions">
+              <button className="admin-window-save" type="button" disabled={busy||row.start_time>=row.end_time} onClick={()=>saveWindow(row)}>Spara tid</button>
+              {isLastPitchWindow&&<button type="button" disabled={busy} onClick={()=>setData({...data,windows:[...data.windows,{...row,start_time:row.end_time,end_time:"",confirmed:false}]})}>Lägg till tidsfönster</button>}
+              {pitchWindows.length>1&&<button type="button" disabled={busy} onClick={()=>setData({...data,windows:data.windows.filter(w=>w!==row)})}>Ta bort</button>}
+            </div>
           </article>;
         })}
       </div>)}

@@ -8,6 +8,7 @@ const TOKEN_KEY = "cupnavi_admin_session_v629";
 const CUP_KEY = "cupnavi_admin_active_cup_v651";
 const AUTO_REVIEW_PREFIX = "cupnavi_pitch_window_review_seen_";
 const IMPORT_REVIEW_NEXT_EVENT = "cupnavi:import-review-next";
+const PITCH_WINDOWS_UPDATED_EVENT = "cupnavi:pitch-windows-updated";
 
 type PitchWindowRow = {
   venue?:string|null;
@@ -80,6 +81,12 @@ export default function PitchWindowImportReview() {
     },1000);
     return ()=>window.clearInterval(timer);
   },[load]);
+
+  useEffect(()=>{
+    const refresh=()=>{if(cupId)void load(cupId);};
+    window.addEventListener(PITCH_WINDOWS_UPDATED_EVENT,refresh);
+    return()=>window.removeEventListener(PITCH_WINDOWS_UPDATED_EVENT,refresh);
+  },[cupId,load]);
 
   useEffect(()=>{
     if (!cupId || !review?.available || !rows.length || open || busy) return;

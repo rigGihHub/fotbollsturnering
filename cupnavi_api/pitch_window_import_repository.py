@@ -132,6 +132,11 @@ def pitch_window_import_review(account_id: int, tournament_id: int):
         for row in persisted
         if bool(row.get("confirmed") or 0)
     )
+    confirmed_days = {
+        (int(row["pitch_number"]), str(row.get("play_date") or ""))
+        for row in persisted
+        if bool(row.get("confirmed") or 0)
+    }
     pending = []
     already_applied = 0
     for row in rows:
@@ -148,7 +153,11 @@ def pitch_window_import_review(account_id: int, tournament_id: int):
             str(row.get("start_time") or ""),
             str(row.get("end_time") or ""),
         )
-        if exact_match:
+        day_reviewed = pitch_number is not None and (pitch_number, str(row.get("date") or "")) in confirmed_days
+        if day_reviewed or exact_match:
+            # Confirmation is stored for the complete pitch day. The admin may
+            # deliberately adjust an imported time before confirming it; the
+            # old source value must not then return as unfinished work.
             already_applied += 1
             if confirmed_values[value_key] > 0:
                 confirmed_values[value_key] -= 1

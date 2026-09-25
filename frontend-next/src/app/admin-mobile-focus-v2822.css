@@ -1,0 +1,48 @@
+/* v2.8.22 — show the selected admin task before navigation on phones. */
+.admin-window-actions {
+  display: grid !important;
+  grid-column: 1 / -1 !important;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 8px;
+}
+
+#venues .admin-window-list article .admin-window-actions > button {
+  grid-column: auto !important;
+  width: 100% !important;
+}
+
+@media (max-width: 760px) {
+  html[data-admin-step]:not([data-admin-step="overview"]) .admin-workspace.cn-admin {
+    display: flex !important;
+    flex-direction: column !important;
+  }
+
+  html[data-admin-step]:not([data-admin-step="overview"]) .admin-workspace.cn-admin > .admin-main {
+    order: 1;
+  }
+
+  html[data-admin-step]:not([data-admin-step="overview"]) .admin-workspace.cn-admin > .admin-sidebar {
+    order: 2;
+    margin-top: 12px;
+  }
+
+  #venues .admin-section-heading {
+    margin-top: 24px !important;
+    padding-top: 18px !important;
+  }
+
+  #venues .admin-window-list article {
+    gap: 8px !important;
+    padding: 10px !important;
+  }
+
+  #venues .admin-window-actions {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  #venues .admin-window-actions > button {
+    min-height: 42px !important;
+    padding: 8px !important;
+    font-size: 12px !important;
+  }
+}

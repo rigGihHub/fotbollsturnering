@@ -30,6 +30,19 @@ def test_confirmed_values_remain_applied_after_pitch_was_renamed(monkeypatch, tm
     assert review["already_applied_count"] == 1
 
 
+def test_confirmed_pitch_day_remains_reviewed_after_admin_adjusts_imported_time(monkeypatch, tmp_path):
+    db = tmp_path / "cup.db"; _database(db)
+    monkeypatch.setenv("CUPNAVI_API_SQLITE_PATH", str(db))
+    monkeypatch.setattr(repository, "_has_tournament_access", lambda *_: True)
+    with sqlite3.connect(db) as con:
+        con.execute("UPDATE pitches SET name='Sörbyvallen' WHERE tournament_id=1 AND pitch_number=1")
+        con.execute("UPDATE pitch_day_windows SET start_time='08:30',end_time='19:25',confirmed=1")
+        con.execute("UPDATE tournament_setup_imports SET payload_json=?", (json.dumps({"pitch_windows":[{"venue":"Sörbyvallen","date":"2026-10-24","start_time":"08:30","end_time":"19:30"}]}),))
+    review = repository.pitch_window_import_review(7, 1)
+    assert review["available"] is False
+    assert review["already_applied_count"] == 1
+
+
 def test_resaving_identical_window_does_not_dirty_or_unpublish(monkeypatch, tmp_path):
     db = tmp_path / "cup.db"; _database(db)
     monkeypatch.setenv("CUPNAVI_API_SQLITE_PATH", str(db))
