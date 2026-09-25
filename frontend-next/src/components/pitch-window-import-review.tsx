@@ -6,7 +6,6 @@ import { CLIENT_API_BASE } from "../lib/client-api";
 const API_BASE = CLIENT_API_BASE;
 const TOKEN_KEY = "cupnavi_admin_session_v629";
 const CUP_KEY = "cupnavi_admin_active_cup_v651";
-const AUTO_REVIEW_PREFIX = "cupnavi_pitch_window_review_seen_";
 const IMPORT_REVIEW_NEXT_EVENT = "cupnavi:import-review-next";
 const PITCH_WINDOWS_UPDATED_EVENT = "cupnavi:pitch-windows-updated";
 
@@ -87,16 +86,6 @@ export default function PitchWindowImportReview() {
     window.addEventListener(PITCH_WINDOWS_UPDATED_EVENT,refresh);
     return()=>window.removeEventListener(PITCH_WINDOWS_UPDATED_EVENT,refresh);
   },[cupId,load]);
-
-  useEffect(()=>{
-    if (!cupId || !review?.available || !rows.length || open || busy) return;
-    const key = `${AUTO_REVIEW_PREFIX}${cupId}`;
-    if (sessionStorage.getItem(key)) return;
-    sessionStorage.setItem(key,"1");
-    setRows(review.pitch_windows.map(row=>({...row})));
-    setError("");
-    setOpen(true);
-  },[cupId,review,rows.length,open,busy]);
 
   function updateRow(index:number,key:keyof PitchWindowRow,value:string) {
     setRows(current=>current.map((row,rowIndex)=>rowIndex===index?{...row,[key]:value||null}:row));
