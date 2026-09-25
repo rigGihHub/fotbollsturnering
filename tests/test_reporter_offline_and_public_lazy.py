@@ -70,6 +70,13 @@ def test_public_first_paint_defers_nonessential_work_and_long_lists():
     assert "Visa fler" in public_view
 
 
+def test_public_mobile_staff_links_cannot_cover_cup_name():
+    css = read("frontend-next/src/app/design-system.css")
+    mobile = css.split("@media(max-width:760px)", 1)[1]
+    assert ".cn-public .cn-staff-nav {position:static" in mobile
+    assert "position:absolute;z-index:3;top:13px;right:14px" not in mobile
+
+
 def test_public_live_polling_backs_off_after_rate_limits_and_server_errors():
     api = read("frontend-next/src/lib/api.ts")
     public_view = read("frontend-next/src/components/PublicCupView.tsx")

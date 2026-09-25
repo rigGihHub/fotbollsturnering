@@ -132,8 +132,8 @@ html:has(.cn-public) body {background:var(--cn-canvas)!important;background-imag
  .cn-public .cn-cup-cover__stats span {min-width:0;padding:4px 7px;border-width:1px;box-shadow:1px 2px 0 #f4cd55}
  .cn-cup-cover__stats b {font-size:13px}
  .cn-public .cn-cup-cover__stats small {font-size:10px}
- .cn-public .cn-staff-nav {position:absolute;z-index:3;top:13px;right:14px;gap:4px;padding:0}
- .cn-public .cn-staff-nav a {min-height:32px;padding:5px 8px;font-size:11px}
+ .cn-public .cn-staff-nav {position:static;justify-content:flex-end;gap:4px;margin:0 4px;padding:8px 0 0}
+ .cn-public .cn-staff-nav a {min-height:40px;padding:6px 10px;font-size:11px}
  .cn-cup-nav {display:flex;flex-wrap:nowrap;gap:5px;overflow-x:auto;overscroll-behavior-inline:contain;scrollbar-width:none}
  .cn-cup-nav::-webkit-scrollbar {display:none}
  .cn-public .cn-cup-nav {margin:9px 0 12px;padding:3px 3px 5px}
