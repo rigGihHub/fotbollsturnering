@@ -80,6 +80,20 @@ def _single_cup_date(tournament: dict) -> str | None:
     return start.isoformat() if start == end else None
 
 
+def _review_date(value, default_date: str | None = None) -> str | None:
+    text = str(value or "").strip()
+    if not text:
+        return default_date
+    try:
+        date.fromisoformat(text)
+    except ValueError:
+        # Some document imports have persisted the date input placeholder
+        # (for example "åååå-mm-dd") instead of a date. A one-day cup has
+        # only one possible date, so it is safe to repair that value here.
+        return default_date or text
+    return text
+
+
 def _normalized_rows(payload: dict, default_date: str | None = None) -> list[dict]:
     rows = []
     for raw in payload.get("pitch_windows") or []:
@@ -89,7 +103,7 @@ def _normalized_rows(payload: dict, default_date: str | None = None) -> list[dic
             "venue": " ".join(str(raw.get("venue") or "").split()) or None,
             # A one-day cup has only one possible date. Persisting it here
             # prevents the review dialog from asking for the same date again.
-            "date": str(raw.get("date") or "").strip() or default_date,
+            "date": _review_date(raw.get("date"), default_date),
             "start_time": _review_time(raw.get("start_time")),
             "end_time": _review_time(raw.get("end_time")),
         })
