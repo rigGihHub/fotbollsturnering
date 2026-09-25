@@ -24,7 +24,7 @@ def cup(tmp_path, monkeypatch):
     monkeypatch.setenv('CUPNAVI_API_SQLITE_PATH', str(path))
     with sqlite3.connect(path) as con:
         con.executescript('''
-        CREATE TABLE tournament_members(organizer_account_id INTEGER,tournament_id INTEGER);
+        CREATE TABLE tournament_members(organizer_account_id INTEGER,tournament_id INTEGER,role TEXT DEFAULT 'admin');
         CREATE TABLE tournaments(id INTEGER PRIMARY KEY,name TEXT,public_slug TEXT,start_date TEXT,
             playoff_format TEXT DEFAULT 'Manuellt slutspel',bronze_match INTEGER DEFAULT 0,
             playoff_tie_rule TEXT DEFAULT 'Straffar direkt',extra_time_minutes INTEGER DEFAULT 10,
@@ -40,7 +40,7 @@ def cup(tmp_path, monkeypatch):
             pitch_number INTEGER,home_score INTEGER,away_score INTEGER,home_penalties INTEGER,away_penalties INTEGER,
             decided_winner_id INTEGER,schedule_locked INTEGER DEFAULT 0,schedule_published INTEGER DEFAULT 1,
             match_status TEXT DEFAULT 'not_started',status_updated_at TEXT,actual_started_at TEXT,actual_finished_at TEXT);
-        INSERT INTO tournament_members VALUES(7,1);
+        INSERT INTO tournament_members VALUES(7,1,'admin');
         INSERT INTO tournaments(id,name,public_slug,start_date) VALUES(1,'Cup 1','cup-1','2026-10-24'),(2,'Annan cup','cup-2','2026-10-24');
         ''')
         for index, name in enumerate(('A','B','C')):
@@ -124,6 +124,17 @@ def test_draw_result_finishes_without_penalties_and_public_endpoints_agree(cup):
         update_playoff_settings(7,1,{'playoff_tie_rule':'Straffar direkt'})
     with pytest.raises(ValueError,match='inga straffar'):
         save_result(7,1,match['id'],1,1,1,1,home_penalties=4,away_penalties=3)
+
+
+def test_local_admin_can_correct_finished_result_only_inside_assigned_cup(cup):
+    match=db.one("SELECT * FROM matches WHERE tournament_id=1 AND match_status='finished' ORDER BY id LIMIT 1")
+
+    corrected=save_result(7,1,match['id'],1,1,2,0)
+
+    assert corrected['home_score']==1 and corrected['away_score']==1
+    stored=db.one("SELECT home_score,away_score,match_status FROM matches WHERE id=?",(match['id'],))
+    assert stored=={'home_score':1,'away_score':1,'match_status':'finished'}
+    assert save_result(7,2,match['id'],3,0,1,1) is None
 
 
 def test_group_winner_and_corrected_draw_recalculate_without_alphabetical_champion(cup):

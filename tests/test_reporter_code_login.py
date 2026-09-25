@@ -1,9 +1,10 @@
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 from types import SimpleNamespace
 import threading
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.testclient import TestClient
 import pytest
 
@@ -112,6 +113,17 @@ def test_extension_never_pushes_code_beyond_three_days_from_now(client):
     deadline = datetime.fromisoformat(response.json()["expires_at"]).timestamp()
     assert deadline <= datetime.now(timezone.utc).timestamp() + roles.MAX_REPORTER_SESSION_SECONDS + 2
     assert login(client, result["code"]).status_code == 200
+
+
+def test_finished_match_is_locked_for_reporter_but_not_admin_result_api(monkeypatch):
+    monkeypatch.setattr(roles, "_require_reporter_match", lambda *_: {"match_status": "finished"})
+    with pytest.raises(HTTPException, match="Endast administratören") as error:
+        roles._require_reporter_editable_match(1, 20)
+    assert error.value.status_code == 409
+
+    routes = Path("cupnavi_api/publish_reporting_routes.py").read_text(encoding="utf-8")
+    assert "_require_reporter_editable_match" not in routes
+    assert "r=save_result(" in routes
 
 
 def test_duplicate_legacy_codes_never_choose_first_cup(client):
