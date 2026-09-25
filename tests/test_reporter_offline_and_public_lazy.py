@@ -77,6 +77,16 @@ def test_public_mobile_staff_links_cannot_cover_cup_name():
     assert "position:absolute;z-index:3;top:13px;right:14px" not in mobile
 
 
+def test_public_tables_and_placement_groups_avoid_redundant_explanations():
+    public_view = read("frontend-next/src/components/PublicCupView.tsx")
+    standings = read("frontend-next/src/components/TextTvStandings.tsx")
+    assert "Ställningen i cupens grupper, uppdaterad med publicerade resultat." not in public_view
+    assert "Alla möter alla inom sin grupp. Oavgjort är tillåtet och tabellen avgör placeringarna." not in public_view
+    assert "S spelade · V vinster · O oavgjorda · F förluster · MS målskillnad · P poäng" not in standings
+    assert 'aria-label="Spelade"' in standings
+    assert 'aria-label="Poäng"' in standings
+
+
 def test_public_live_polling_backs_off_after_rate_limits_and_server_errors():
     api = read("frontend-next/src/lib/api.ts")
     public_view = read("frontend-next/src/components/PublicCupView.tsx")
