@@ -1,11 +1,13 @@
 "use client";
 
 import {FormEvent,useCallback,useEffect,useMemo,useRef,useState} from "react";
+import dynamic from "next/dynamic";
 import {CLIENT_API_BASE} from "../lib/client-api";
 import {reporterSessionDeadline} from "../lib/reporter-session";
 import {QUEUE_EVENT,SYNC_REQUEST_EVENT,appendReporterMutation,completeReporterResultMutation,discardReporterConflicts,isNetworkError,isResultMutation,isResultOrStatusMutation,isStatusMutation,readReporterCache,readReporterQueue,removeReporterMutation,reporterQueueSummary,retryReporterConflicts,updateReporterMutation,upsertReporterMutation,writeReporterCache} from "../lib/reporter-offline";
-import ReporterMatchEvents from "./reporter-match-events";
 import ReporterNavigation from "./reporter-navigation";
+
+const ReporterMatchEvents=dynamic(()=>import("./reporter-match-events"));
 
 const API=CLIENT_API_BASE,KEY="cupnavi_reporter_session_v1",SESSION_CACHE="session";
 // Rollgräns: Cupinställningar är inte åtkomliga här; rapportören kan bara arbeta med matchdata.

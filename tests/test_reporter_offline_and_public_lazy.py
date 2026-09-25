@@ -50,6 +50,16 @@ def test_reporter_controls_are_large_and_network_state_is_visible():
     assert "touch-action:manipulation" in event_css
 
 
+def test_reporter_warms_api_on_visit_and_defers_authenticated_event_ui():
+    page = read("frontend-next/src/app/reporter/page.tsx")
+    reporter = read("frontend-next/src/components/reporter-client.tsx")
+    wake_guard = read("frontend-next/src/components/api-wake-guard.tsx")
+    assert "<ApiWakeGuard/>" in page
+    assert 'dynamic(()=>import("./reporter-match-events"))' in reporter
+    assert 'fetch(`${CLIENT_API_BASE}/health`' in wake_guard
+    assert "MAX_WAIT_MS = 75000" in wake_guard
+
+
 def test_public_first_paint_defers_nonessential_work_and_long_lists():
     page = read("frontend-next/src/app/cup/[publicKey]/page.tsx")
     public_view = read("frontend-next/src/components/PublicCupView.tsx")
