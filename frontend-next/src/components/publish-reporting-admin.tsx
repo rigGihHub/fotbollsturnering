@@ -51,6 +51,7 @@ function compactConflicts(rows:ScheduleConflict[]) {
 export default function PublishReportingAdmin({token,cupId,mode,publicSlug}:{token:string;cupId:number;mode:Mode;publicSlug?:string|null}) {
   const [publication,setPublication]=useState<PublicationPayload|null>(null);
   const [matches,setMatches]=useState<Match[]>([]);
+  const [selectedMatchId,setSelectedMatchId]=useState<number|null>(null);
   const [error,setError]=useState("");
   const [busy,setBusy]=useState(false);
 
@@ -110,6 +111,7 @@ export default function PublishReportingAdmin({token,cupId,mode,publicSlug}:{tok
   const conflictGroups=useMemo(()=>compactConflicts(scheduleErrors),[scheduleErrors]);
   const played=matches.filter(match=>match.status==="played").length;
   const awaiting=matches.filter(match=>match.status==="awaiting_decision").length;
+  const selectedMatch=matches.find(match=>match.id===selectedMatchId)||matches[0];
 
   if(mode==="publish"){
     if(!publication&&!error)return <section className="admin-panel publication-console publication-console--loading" id="publish" aria-live="polite"><div className="publication-console__eyebrow"><span>07 · KONTROLL & PUBLICERING</span><strong>KONTROLLERAR</strong></div><div className="publication-console__hero"><span className="publication-console__signal" aria-hidden="true">…</span><div><p className="publication-console__kicker">Slutkontroll</p><h2>Kontrollerar cupen</h2><p>CupNavi hämtar aktuell cupdata och letar efter sådant som måste rättas före publicering.</p></div></div></section>;
@@ -145,7 +147,8 @@ export default function PublishReportingAdmin({token,cupId,mode,publicSlug}:{tok
       <div className="publication-console__eyebrow"><span>VERKTYG · MATCHRAPPORTERING</span><strong>{played}/{matches.length} KLARA</strong></div>
       <div className="reporting-console__head"><div><p className="publication-console__kicker">MATCHCENTRAL</p><h2>Rapportera resultat</h2><p>Välj en match, fyll i resultatet och spara. Admin kan korrigera även slutmarkerade matcher; rapportörsvyn låses efter slutmarkering.</p></div>{awaiting>0&&<span className="reporting-console__waiting">{awaiting} väntar på avgörande</span>}</div>
       {error&&<div className="publication-console__error" role="alert"><strong>Kunde inte spara</strong><span>{error}</span></div>}
-      <div className="reporting-match-list">{matches.length?matches.map(match=><MatchRow key={match.id} match={match} busy={busy} save={save} reset={reset}/>):<div className="reporting-empty"><strong>Inga matcher att rapportera</strong><span>Matcher visas här när schemat är skapat.</span></div>}</div>
+      {matches.length>0&&<label className="reporting-match-picker">Välj match<select value={selectedMatch?.id??""} onChange={event=>setSelectedMatchId(Number(event.target.value))}>{matches.map(match=><option key={match.id} value={match.id}>{match.scheduled_start?String(match.scheduled_start).replace("T"," ").slice(0,16)+" · ":""}{match.home_team} – {match.away_team}{match.home_score!=null&&match.away_score!=null?` · ${match.home_score}–${match.away_score}`:""}</option>)}</select><small>{matches.length} matcher tillgängliga</small></label>}
+      <div className="reporting-match-list">{selectedMatch?<MatchRow key={selectedMatch.id} match={selectedMatch} busy={busy} save={save} reset={reset}/>:<div className="reporting-empty"><strong>Inga matcher att rapportera</strong><span>Matcher visas här när schemat är skapat.</span></div>}</div>
     </section>
     <MatchEventsAdmin token={token} cupId={cupId}/>
   </>;
@@ -160,7 +163,7 @@ function MatchRow({match,busy,save,reset}:{match:Match;busy:boolean;save:(match:
   const knockout=(match.requires_winner??(match.stage!=="Gruppspel"));
   const tied=knockout&&home!==""&&away!==""&&Number(home)===Number(away);
   return <article className="reporting-match">
-    <div className="reporting-match__meta"><span>{match.stage||"Match"}</span><small>{match.scheduled_start||"Ej schemalagd"}</small></div>
+    <div className="reporting-match__meta"><span>{match.stage||"Match"}</span><small>{match.scheduled_start?String(match.scheduled_start).replace("T"," ").slice(0,16):"Ej schemalagd"}</small></div>
     <div className="reporting-match__teams"><strong>{match.home_team}</strong><span>–</span><strong>{match.away_team}</strong></div>
     <div className="reporting-match__score"><input aria-label="Hemmamål" type="number" min="0" value={home} onChange={event=>setHome(event.target.value)}/><span>–</span><input aria-label="Bortamål" type="number" min="0" value={away} onChange={event=>setAway(event.target.value)}/><button disabled={busy||home===""||away===""||(tied&&(homePenalties===""||awayPenalties===""))} onClick={()=>save(match,home,away,homePenalties,awayPenalties)}>{knockout&&match.home_score!=null?"Kontrollera & spara":"Spara"}</button>{match.home_score!=null&&match.away_score!=null&&<button className="reporting-match__reset" type="button" disabled={busy} onClick={()=>reset(match)}>Återställ som ospelad</button>}</div>
     {tied&&<div className="reporting-match__penalties"><span>Avgörande på straffar</span><label>{match.home_team}<input aria-label="Hemmastraffar" type="number" min="0" value={homePenalties} onChange={event=>setHomePenalties(event.target.value)}/></label><label>{match.away_team}<input aria-label="Bortastraffar" type="number" min="0" value={awayPenalties} onChange={event=>setAwayPenalties(event.target.value)}/></label></div>}

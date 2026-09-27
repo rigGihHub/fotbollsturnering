@@ -240,3 +240,39 @@ html[data-admin-step="reporting"] #team-codes .admin-empty {
     grid-template-columns: 1fr;
   }
 }
+
+html[data-admin-step="reporting"] #role-codes .admin-team-actions {
+  flex-wrap: wrap;
+  min-width: 0;
+}
+html[data-admin-step="reporting"] #role-codes .admin-team-actions .role-code-primary:not(:disabled) {
+  background: #102630 !important;
+  border-color: #102630 !important;
+  color: #fff !important;
+}
+.admin-reporting-extra > summary {
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+  padding: 10px 15px;
+  border: 1.5px solid #102630;
+  border-radius: 9px;
+  background: #fffdf7;
+  color: #102630;
+  cursor: pointer;
+  font-weight: 900;
+}
+.admin-reporting-extra[open] > summary { margin-bottom: 10px; }
+.reporting-match-picker {
+  display: grid;
+  gap: 7px;
+  margin: 0 24px 12px;
+  font-size: 13px;
+  font-weight: 900;
+}
+.reporting-match-picker select { width: 100%; min-width: 0; }
+.reporting-match-picker small { color: #52636c; font-size: 11px; font-weight: 600; }
+@media (max-width: 760px) {
+  .reporting-match-picker { margin: 0 14px 12px; }
+  html[data-admin-step="reporting"] #role-codes .admin-team-actions .role-code-primary { grid-column: 1 / -1; }
+}

@@ -42,6 +42,15 @@ const admin=renderToStaticMarkup(React.createElement(Admin,{token:'test',cupId:1
 assert.ok(admin.includes('value="72"')&&!admin.includes('value="168"'));
 assert.ok(admin.includes('Kodens giltighet från skapandet'));
 assert.ok(admin.includes('href="/reporter?cup=1"'));
+assert.ok(admin.includes('Hämtar kodstatus…')&&admin.includes('disabled=""'));
+assert.ok(admin.indexOf('role-code-primary')<admin.indexOf('Kopiera inloggningslänk'));
+const publicationSource=fs.readFileSync('src/components/publish-reporting-admin.tsx','utf8');
+assert.match(publicationSource,/className="reporting-match-picker"/);
+assert.match(publicationSource,/matches\.find\(match=>match\.id===selectedMatchId\)\|\|matches\[0\]/);
+assert.doesNotMatch(publicationSource,/matches\.map\(match=><MatchRow/);
+const operationsSource=fs.readFileSync('src/components/admin-operations.tsx','utf8');
+assert.match(operationsSource,/<details className="admin-reporting-extra"><summary>Lagportal/);
+assert.match(operationsSource,/<details className="admin-reporting-extra"><summary>Hantera trupper/);
 const storage=new Map();
 const localStorage={getItem:key=>storage.get(key)??null,setItem:(key,value)=>storage.set(key,value)};
 const window={dispatchEvent:()=>{}};
