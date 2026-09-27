@@ -39,6 +39,8 @@ const {TextTvStandings}=load(path.join(root,'components/TextTvStandings.tsx'));
 const html=renderToStaticMarkup(React.createElement(TextTvStandings,{name:'Grupp A',rows:[{position:1,team_id:9,Lag:team.name,S:9,V:4,O:3,F:2,MS:'+12',P:15}]}));
 assert.equal((html.match(/scope="col"/g)||[]).length,8);
 assert(html.includes('aria-label="Målskillnad">MS'));assert(!html.includes('MS målskillnad'));assert(html.includes(team.name));
+const groupHtml=renderToStaticMarkup(React.createElement(TextTvStandings,{name:'A',rows:[]}));
+assert(groupHtml.includes('GRUPP A'),'Single-letter groups should have a clear heading');
 console.log('PASS matchday ordering, team filter, playoff formats, kit preferences and table semantics');
 const {adminPhase,adminPhases}=load(path.join(root,'lib/admin-navigation.ts'));
 assert.equal(adminPhases.map(p=>p.label).join(','),'Skapa,Planera,Publicera,Genomföra');
@@ -60,6 +62,7 @@ const publicMarkup=renderToStaticMarkup(React.createElement(PublicCupView,{publi
 assert(publicMarkup.includes('href="/reporter?cup=fixture-cup"'),'Visitors need a cup-scoped reporter login link');
 assert(publicMarkup.includes('href="/admin?cup=42"'),'Admin handoff keeps current cup');
 assert(publicMarkup.includes('class="cn-public-overview"'),'Cup identity and navigation need one compact responsive shell');
+assert(!publicMarkup.includes('>Lag</button>'),'Team selection already exists in the match filter');
 console.log('PASS public staff links, unknown kits and grouped playoff matches');
 
 const {default:AdminWorkspace}=load(path.join(root,'components/admin-workspace.tsx'));

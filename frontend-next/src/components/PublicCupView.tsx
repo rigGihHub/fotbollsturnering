@@ -14,7 +14,7 @@ import { WeatherShareCard } from "./WeatherShareCard";
 import { matchStatus } from "@/lib/format";
 
 type StandingsGroup={group:{id:number;name:string};rows:StandingRow[]};
-type Tab="matches"|"table"|"stats"|"playoff"|"teams"|"info";
+type Tab="matches"|"table"|"stats"|"playoff"|"info";
 type MatchView="upcoming"|"results"|"all";
 const MIN_REFRESH_BACKOFF_MS=30000;
 const MAX_REFRESH_BACKOFF_MS=120000;
@@ -96,7 +96,7 @@ export function PublicCupView({ publicKey, initialCup, initialStandings, reporte
   const placementMatchIds=new Set(placementGroups.flatMap(group=>group.match_ids||[]));
   const remainingBrackets=cup.brackets.map(bracket=>({...bracket,matches:(bracket.matches||[]).filter(match=>!placementMatchIds.has(match.id))})).filter(bracket=>bracket.matches.length||!hasPlacementGroups);
   const renderMatch=(match:CupSnapshot["matches"][number],index:number)=><MatchCard key={match.id} weather={matchWeather(match)} match={match} teams={cup.teams} groups={cup.groups} pitches={cup.pitches||[]} index={matchNumberById.get(match.id)??index} showKits={showPublicKits} showAwayKits={showPublicAwayKits} showLogos={showPublicLogos} showGoalMinutes={showGoalMinutes}/>;
-  const navItems:Array<[Tab,string]>=[["matches","Matcher"],...(showTables?[["table","Tabeller"] as [Tab,string]]:[]),...(statsEnabled?[["stats","Topplistor"] as [Tab,string]]:[]),...(showPlayoffs?[["playoff","Slutspel"] as [Tab,string]]:[]),["teams","Lag"],["info","Info & planer"]];
+  const navItems:Array<[Tab,string]>=[["matches","Matcher"],...(showTables?[["table","Tabeller"] as [Tab,string]]:[]),...(statsEnabled?[["stats","Topplistor"] as [Tab,string]]:[]),...(showPlayoffs?[["playoff","Slutspel"] as [Tab,string]]:[]),["info","Info & planer"]];
 
 
   if(unavailable)return <main className="page-shell page-shell--matchday"><article className="empty-state"><strong>Cupen är inte längre publicerad.</strong><p>Den kan ha flyttats till papperskorgen eller fått en ny publik adress.</p><a href="/">Till CupNavi</a></article></main>;
@@ -123,8 +123,6 @@ export function PublicCupView({ publicKey, initialCup, initialStandings, reporte
       }}/>
       {remainingBrackets.length>0&&<div className="table-stack">{remainingBrackets.map(bracket=><section key={bracket.id}><div className="subsection-label"><span>SLUTSPEL</span><strong>{bracket.name}</strong></div>{bracket.matches.length?<div className="cn-match-list">{bracket.matches.map(renderMatch)}</div>:<article className="empty-state"><strong>Inga matcher publicerade i detta slutspel ännu.</strong></article>}</section>)}</div>}
     </section>}
-
-    {tab==="teams"&&<section><div className="section-heading"><h2>Lag</h2><p>Välj ett lag för att se dess matcher och resultat.</p></div><div className="cn-team-list">{cup.teams.map(team=><button key={team.id} type="button" onClick={()=>{setTeamFilter(String(team.id));setMatchView("all");openTab("matches")}}><span><strong>{team.name}</strong>{team.age_class&&<small>{team.age_class}</small>}</span><span aria-hidden="true">→</span></button>)}</div>{!cup.teams.length&&<p className="empty-state">Inga lag publicerade ännu.</p>}</section>}
 
     {tab==="info"&&<section className="public-info-v3"><div className="public-info-hero public-info-hero--visitor"><div><span>Cupinfo</span><h2>{cup.tournament.name}</h2><p>{visitorInfoText||"Här finns det viktigaste för publik, spelare och ledare under cupdagen."}</p></div><div className="public-info-hero__facts"><b>{cup.teams.length}<small>Lag</small></b><b>{orderedMatches.length}<small>Matcher</small></b><b>{scheduledPitchCount}<small>Planer</small></b></div></div><div className="public-info-grid public-info-grid--visitor">
       <article className="public-info-card public-info-card--rules"><span className="public-info-card__eyebrow">Regler</span><h3>{isMatchcamp?"Så spelas matcherna":"Så avgörs cupen"}</h3><div className="public-rule-list">

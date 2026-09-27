@@ -8,7 +8,7 @@ export function TextTvStandings({ name, rows, destinations=[], positionDestinati
   const rowTone=(row:StandingRow)=>positionDestinations[row.position]!==undefined?tone(positionDestinations[row.position]):"";
   return (
     <section className="cn-standings" aria-labelledby={id}>
-      <div className="cn-standings__header"><strong id={id}>{name}</strong></div>
+      <div className="cn-standings__header"><strong id={id}>{/^[A-ZÅÄÖ]$/.test(name)?`GRUPP ${name}`:name}</strong></div>
       <div className="cn-standings__body">
         <table><caption className="cn-sr-only">{name}: placering, lag, spelade, vunna, oavgjorda, förlorade, målskillnad och poäng</caption>
           <thead><tr><th scope="col" aria-label="Placering">#</th><th scope="col">Lag</th><th scope="col" aria-label="Spelade">S</th><th scope="col" aria-label="Vunna">V</th><th scope="col" aria-label="Oavgjorda">O</th><th scope="col" aria-label="Förlorade">F</th><th scope="col" aria-label="Målskillnad">MS</th><th scope="col" aria-label="Poäng">P</th></tr></thead>

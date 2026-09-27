@@ -1,0 +1,33 @@
+/* The current standings component uses cn-standings; older texttv rules target a removed class. */
+.cn-public .cn-standings{border:2px solid #102632;border-radius:3px;background:#050c12;color:#f5fbff;box-shadow:4px 5px 0 #1554d1;overflow:hidden}
+.cn-public .cn-standings__header{padding:8px 12px;background:#123ee2;color:#fff;font:900 15px/1.15 "Courier New",ui-monospace,monospace;letter-spacing:.08em}
+.cn-public .cn-standings__body{overflow-x:auto}
+.cn-public .cn-standings table{width:100%;min-width:0;table-layout:fixed;border-collapse:collapse;color:inherit;font:700 13px/1.15 "Courier New",ui-monospace,monospace;font-variant-numeric:tabular-nums}
+.cn-public .cn-standings th,.cn-public .cn-standings td{height:32px;padding:5px 3px;border:0;border-bottom:1px solid #20333c;text-align:center;vertical-align:middle;width:6%;background:transparent;color:inherit}
+.cn-public .cn-standings th{height:28px;color:#6ce7f5;font-size:11px;font-weight:900}
+.cn-public .cn-standings th:first-child,.cn-public .cn-standings td:first-child{width:5%;color:#6ce7f5}
+.cn-public .cn-standings th:nth-child(2),.cn-public .cn-standings td:nth-child(2){width:47%;text-align:left;padding-left:8px}
+.cn-public .cn-standings th:nth-child(7),.cn-public .cn-standings td:nth-child(7){width:10%}
+.cn-public .cn-standings th:last-child,.cn-public .cn-standings td:last-child{width:8%;background:#132a38;color:#fff200;font-weight:900}
+.cn-public .cn-standings__team{font:inherit;line-height:1.15;overflow-wrap:anywhere}
+.cn-public .cn-standings__destination{color:inherit;font-size:10px}
+.cn-public .cn-standings tr.is-leading{color:#00f467}
+.cn-public .cn-standings tr.is-playoff{color:#fff200}
+.cn-public .cn-standings tr.is-sky{color:#6ce7f5}
+.cn-public .cn-standings tr.is-neutral{color:#fff}
+.cn-public .cn-standings__legend{display:flex;flex-wrap:wrap;gap:5px 14px;padding:8px 10px;border-top:1px solid #20333c;font:700 11px/1.2 "Courier New",ui-monospace,monospace}
+.cn-public .cn-standings__legend span{display:inline-flex;align-items:center;gap:5px}
+.cn-public .cn-standings__legend i{width:9px;height:9px;background:currentColor}
+.cn-public .cn-standings__legend .is-leading{color:#00f467}
+.cn-public .cn-standings__legend .is-playoff{color:#fff200}
+.cn-public .cn-standings__legend .is-sky{color:#6ce7f5}
+@media(max-width:600px){
+ .cn-public .cn-standings__header{padding:7px 9px;font-size:13px}
+ .cn-public .cn-standings table{font-size:11px}
+ .cn-public .cn-standings th,.cn-public .cn-standings td{height:31px;padding:4px 1px;width:6%}
+ .cn-public .cn-standings th{height:25px;font-size:9px}
+ .cn-public .cn-standings th:first-child,.cn-public .cn-standings td:first-child{width:6%}
+ .cn-public .cn-standings th:nth-child(2),.cn-public .cn-standings td:nth-child(2){width:43%;padding-left:4px}
+ .cn-public .cn-standings th:nth-child(7),.cn-public .cn-standings td:nth-child(7){width:11%}
+ .cn-public .cn-standings th:last-child,.cn-public .cn-standings td:last-child{width:10%}
+}
