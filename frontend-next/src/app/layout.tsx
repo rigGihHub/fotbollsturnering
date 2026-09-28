@@ -49,13 +49,14 @@ export const metadata: Metadata = {
   title: `CupNavi v${APP_VERSION}`,
   description: "Cuper, matcher och liveinfo – utan krångel.",
   manifest: "/manifest.webmanifest",
+  icons: { icon: "/cupnavi-emblem-v2642.png", apple: "/cupnavi-emblem-v2642.png" },
 };
 
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover",
-  themeColor: "#101f2a",
+  themeColor: "#102630",
   colorScheme: "light",
 };
 
