@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import re
+from datetime import datetime
 from io import BytesIO
 from xml.sax.saxutils import escape
 
@@ -11,6 +12,7 @@ from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.lib.units import mm
 from reportlab.platypus import PageBreak, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
+from cupnavi_core.placement_playoffs import source_label
 
 from .admin_repository import _has_tournament_access
 from .repository import all_rows, one
@@ -24,14 +26,21 @@ def _safe(value) -> str:
     return escape(_text(value))
 
 
-def _team_name(source, teams_by_id: dict[int, str]) -> str:
+def _team_name(source, teams_by_id: dict[int, str], groups_by_id: dict[int, str]) -> str:
     value = _text(source).strip()
     if value.startswith("team:"):
         try:
             return teams_by_id.get(int(value.split(":", 1)[1]), value)
         except ValueError:
             pass
-    return value or "TBD"
+    return source_label(value, groups_by_id) if value else "Ej satt"
+
+
+def _match_time(value) -> str:
+    try:
+        return datetime.fromisoformat(_text(value)).strftime("%d/%m %H:%M")
+    except ValueError:
+        return _text(value)
 
 
 def export_snapshot(account_id: int, tournament_id: int):
@@ -105,7 +114,7 @@ def _render_cup_pdf(data: dict):
     story = [Paragraph(_safe(tournament.get("name")) or "CupNavi", title)]
 
     meta = []
-    dates = " – ".join(x for x in (_text(tournament.get("start_date")), _text(tournament.get("end_date"))) if x)
+    dates = " – ".join(dict.fromkeys(x for x in (_text(tournament.get("start_date")), _text(tournament.get("end_date"))) if x))
     if dates: meta.append(["Datum", dates])
     if tournament.get("organizer"): meta.append(["Arrangör", _text(tournament.get("organizer"))])
     if tournament.get("arena_address"): meta.append(["Plats", _text(tournament.get("arena_address"))])
@@ -139,10 +148,11 @@ def _render_cup_pdf(data: dict):
         story.append(table)
 
     story += [PageBreak(), Paragraph("Spelschema och resultat", h2)]
+    small = ParagraphStyle("CupNaviMatchCell", parent=body, fontSize=8.5, leading=11)
     rows = [["Tid", "Plan", "Fas", "Match", "Resultat"]]
     for match in matches:
-        home = _team_name(match.get("home_source"), teams_by_id)
-        away = _team_name(match.get("away_source"), teams_by_id)
+        home = _team_name(match.get("home_source"), teams_by_id, groups_by_id)
+        away = _team_name(match.get("away_source"), teams_by_id, groups_by_id)
         score = ""
         if match.get("home_score") is not None and match.get("away_score") is not None:
             score = f"{match['home_score']}–{match['away_score']}"
@@ -152,11 +162,17 @@ def _render_cup_pdf(data: dict):
         group_id = match.get("group_id")
         if group_id is not None and int(group_id) in groups_by_id:
             stage = f"{stage} · {groups_by_id[int(group_id)]}"
-        rows.append([_text(match.get("scheduled_start")), _text(match.get("pitch_number")), stage, f"{home} – {away}", score])
+        rows.append([
+            _match_time(match.get("scheduled_start")),
+            _text(match.get("pitch_number")),
+            Paragraph(_safe(stage), small),
+            Paragraph(_safe(f"{home} – {away}"), small),
+            score,
+        ])
     if len(rows) == 1:
         rows.append(["", "", "", "Inga matcher skapade", ""])
-    table = Table(rows, repeatRows=1, colWidths=[35*mm, 14*mm, 38*mm, 62*mm, 24*mm])
-    table.setStyle(TableStyle([("BACKGROUND",(0,0),(-1,0),colors.HexColor("#111827")),("TEXTCOLOR",(0,0),(-1,0),colors.white),("FONTNAME",(0,0),(-1,0),"Helvetica-Bold"),("GRID",(0,0),(-1,-1),0.25,colors.HexColor("#D1D5DB")),("VALIGN",(0,0),(-1,-1),"TOP"),("FONTSIZE",(0,0),(-1,-1),7),("ROWBACKGROUNDS",(0,1),(-1,-1),[colors.white,colors.HexColor("#F9FAFB")])]))
+    table = Table(rows, repeatRows=1, colWidths=[27*mm, 15*mm, 36*mm, 79*mm, 25*mm])
+    table.setStyle(TableStyle([("BACKGROUND",(0,0),(-1,0),colors.HexColor("#111827")),("TEXTCOLOR",(0,0),(-1,0),colors.white),("FONTNAME",(0,0),(-1,0),"Helvetica-Bold"),("GRID",(0,0),(-1,-1),0.25,colors.HexColor("#D1D5DB")),("VALIGN",(0,0),(-1,-1),"MIDDLE"),("FONTSIZE",(0,0),(-1,-1),8.5),("LEFTPADDING",(0,0),(-1,-1),5),("RIGHTPADDING",(0,0),(-1,-1),5),("TOPPADDING",(0,0),(-1,-1),5),("BOTTOMPADDING",(0,0),(-1,-1),5),("ROWBACKGROUNDS",(0,1),(-1,-1),[colors.white,colors.HexColor("#F9FAFB")])]))
     story.append(table)
 
     doc.build(story)

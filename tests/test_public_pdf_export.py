@@ -15,10 +15,12 @@ def test_public_pdf_contains_current_cup_and_requires_published_slug(monkeypatch
 
     def rows(sql, params):
         assert params == (42,)
+        if "FROM groups" in sql:
+            return [{"id": 54, "name": "C", "age_class": None}]
         if "FROM teams" in sql:
             return [{"id": 1, "name": "Örebro SK", "group_id": None}]
         if "FROM matches" in sql:
-            return [{"home_source": "team:1", "away_source": "team:1", "scheduled_start": "2026-10-24T08:30", "pitch_number": 1}]
+            return [{"home_source": "team:1", "away_source": "group:54:2", "scheduled_start": "2026-10-24T08:30", "pitch_number": 1}]
         return []
 
     monkeypatch.setattr(export_repository, "one", tournament)
@@ -31,7 +33,9 @@ def test_public_pdf_contains_current_cup_and_requires_published_slug(monkeypatch
     pages = PdfReader(BytesIO(pdf["content"])).pages
     text = "\n".join(page.extract_text() or "" for page in pages)
     assert "Slottskampen" in text
-    assert "2026-10-24T08:30" in text
+    assert "24/10 08:30" in text
+    assert "team:1" not in text
+    assert "group:54:2" not in text
 
 
 def test_public_pdf_route_rejects_unpublished_cup(monkeypatch):
