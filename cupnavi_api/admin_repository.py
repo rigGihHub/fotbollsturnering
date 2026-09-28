@@ -2,6 +2,8 @@
 from __future__ import annotations
 
 import hmac
+import json
+from urllib.parse import urlparse
 
 from .admin_auth import (
     OWNER_ACCOUNT_ID,
@@ -343,8 +345,27 @@ def admin_cupinfo(account_id: int, tournament_id: int):
     missing_required = [field for field in required if field not in columns]
     if missing_required:
         raise RuntimeError(f"Tournament schema missing required columns: {','.join(missing_required)}")
-    fields = ",".join((*required, *CUPINFO_OPTIONAL_TEXT_FIELDS, "show_public_weather", "show_public_weather_configured", "show_public_kits", "show_public_away_kits", "show_public_logos", "show_public_goal_minutes"))
-    return with_imported_location(one(f"SELECT {fields} FROM tournaments WHERE id=?", (int(tournament_id),)))
+    fields = ",".join((*required, *CUPINFO_OPTIONAL_TEXT_FIELDS, "organizer_logos_json", "show_public_weather", "show_public_weather_configured", "show_public_kits", "show_public_away_kits", "show_public_logos", "show_public_goal_minutes"))
+    row = with_imported_location(one(f"SELECT {fields} FROM tournaments WHERE id=?", (int(tournament_id),)))
+    if row:
+        row["organizer_logos"] = json.loads(row.pop("organizer_logos_json") or "[]")
+    return row
+
+
+def _organizer_logos_json(logos):
+    if not isinstance(logos, list) or len(logos) > 3:
+        raise ValueError("Välj högst tre arrangörslogotyper")
+    clean = []
+    for logo in logos:
+        if not isinstance(logo, dict):
+            raise ValueError("Ogiltig arrangörslogotyp")
+        name = str(logo.get("name") or "").strip()
+        url = str(logo.get("url") or "").strip()
+        parsed = urlparse(url)
+        if not name or len(name) > 80 or len(url) > 1000 or parsed.scheme != "https" or not parsed.netloc or parsed.username or parsed.password:
+            raise ValueError("Varje logotyp behöver ett namn och en HTTPS-bildadress")
+        clean.append({"name": name, "url": url})
+    return json.dumps(clean, ensure_ascii=False, separators=(",", ":"))
 
 
 def update_cupinfo(account_id: int, tournament_id: int, values: dict):
@@ -365,6 +386,8 @@ def update_cupinfo(account_id: int, tournament_id: int, values: dict):
         else:
             text = str(value).strip()
             clean[field] = text or None
+    if "organizer_logos" in values:
+        clean["organizer_logos_json"] = _organizer_logos_json(values["organizer_logos"])
     if "name" in clean and not clean["name"]:
         raise ValueError("Cupnamn krävs")
     if "arrangement_type" in clean and clean["arrangement_type"] not in {"matchcamp", "tournament", "tournament_playoffs", "custom"}:

@@ -4,12 +4,12 @@ Uses the same Turso environment names as the Streamlit application:
 TURSO_DATABASE_URL and TURSO_AUTH_TOKEN. If they are absent, local SQLite is used.
 """
 from __future__ import annotations
-import os, sqlite3
+import json, os, sqlite3
 from contextlib import contextmanager
 
 PUBLIC_TOURNAMENT_FIELDS = (
     "id","name","public_slug","sport","start_date","end_date","organizer","arena_address",
-    "arrangement_type","results_counted",
+    "arrangement_type","results_counted","organizer_logos_json",
     "kiosk_available","kiosk_information","public_information","organizer_phone",
     "feedback_email","instagram_url","playoff_format","bronze_match","playoff_tie_rule","points_win",
     "points_draw","points_loss","table_tiebreak","show_scorer_stats","show_assist_stats",
@@ -88,7 +88,9 @@ def _public_tournament_projection(row):
     if not row:
         return None
     row = with_imported_location(row)
-    return {key:row.get(key) for key in PUBLIC_TOURNAMENT_FIELDS if key in row}
+    projected = {key:row.get(key) for key in PUBLIC_TOURNAMENT_FIELDS if key in row}
+    projected["organizer_logos"] = json.loads(projected.pop("organizer_logos_json", None) or "[]")
+    return projected
 
 def with_imported_location(tournament):
     """Recover a reviewed location in older imports without overwriting manual data."""

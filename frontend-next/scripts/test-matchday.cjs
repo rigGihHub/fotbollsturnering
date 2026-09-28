@@ -58,6 +58,9 @@ const grouped=renderToStaticMarkup(React.createElement(PlacementTables,{groups:[
 assert(grouped.includes('Vinnaren av denna grupp vinner cupen.'));
 assert(grouped.includes('<summary>Matcher i Guldgruppen</summary>'));
 const {PublicCupView}=load(path.join(root,'components/PublicCupView.tsx'));
+const {CupCover}=load(path.join(root,'components/CupCover.tsx'));
+const cover=renderToStaticMarkup(React.createElement(CupCover,{tournament:{id:1,name:'Cup',organizer_logos:[{name:'Arrangör',url:'https://example.org/logo.png'}]},teamCount:3,matchCount:2,groupCount:1}));
+assert(cover.includes('aria-label="Arrangerande klubbar"')&&cover.includes('https://example.org/logo.png'));
 const publicMarkup=renderToStaticMarkup(React.createElement(PublicCupView,{publicKey:'fixture-cup',initialStandings:[],initialCup:{...cup,tournament:{id:42,name:'Testcup',show_public_weather_configured:true,show_public_weather:false},teams:[team],groups:[],pitches:[],venue_points:[]}}));
 assert(publicMarkup.includes('href="/reporter?cup=fixture-cup"'),'Visitors need a cup-scoped reporter login link');
 assert(publicMarkup.includes('href="/admin?cup=42"'),'Admin handoff keeps current cup');

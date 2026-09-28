@@ -33,6 +33,7 @@ type TrashedCup = Cup & { trashed_at?:string|null };
 type CupInfo = {
   id:number; public_slug?:string|null; is_published?:number|boolean;
   name:string; start_date?:string|null; end_date?:string|null; organizer?:string|null;
+  organizer_logos?:Array<{name:string;url:string}>;
   arena_address?:string|null; organizer_phone?:string|null; feedback_email?:string|null;
   public_information?:string|null;
   arrangement_type?:"matchcamp"|"tournament"|"tournament_playoffs"|"custom"|null;
@@ -422,7 +423,7 @@ export default function AdminWorkspace({verifiedSession=null,children=null}:{ver
     try {
       const saved = await request<CupInfo>(`/api/admin/cups/${cupId}/cupinfo`,{
         method:"PUT",
-        body:JSON.stringify({name:cupinfo.name,start_date:cupinfo.start_date || null,end_date:cupinfo.end_date || null,organizer:cupinfo.organizer || null,arena_address:cupinfo.arena_address || null,organizer_phone:cupinfo.organizer_phone || null,feedback_email:cupinfo.feedback_email || null,public_information:cupinfo.public_information || null,arrangement_type:cupinfo.arrangement_type || "tournament",show_public_weather:publicWeatherEnabled(cupinfo),show_public_weather_configured:true,show_public_kits:cupinfo.show_public_kits!==false&&cupinfo.show_public_kits!==0,show_public_away_kits:cupinfo.show_public_away_kits!==false&&cupinfo.show_public_away_kits!==0,show_public_logos:cupinfo.show_public_logos!==false&&cupinfo.show_public_logos!==0,show_public_goal_minutes:cupinfo.show_public_goal_minutes===true||cupinfo.show_public_goal_minutes===1,expected_revision:cupinfo.admin_revision})
+        body:JSON.stringify({name:cupinfo.name,start_date:cupinfo.start_date || null,end_date:cupinfo.end_date || null,organizer:cupinfo.organizer || null,organizer_logos:cupinfo.organizer_logos||[],arena_address:cupinfo.arena_address || null,organizer_phone:cupinfo.organizer_phone || null,feedback_email:cupinfo.feedback_email || null,public_information:cupinfo.public_information || null,arrangement_type:cupinfo.arrangement_type || "tournament",show_public_weather:publicWeatherEnabled(cupinfo),show_public_weather_configured:true,show_public_kits:cupinfo.show_public_kits!==false&&cupinfo.show_public_kits!==0,show_public_away_kits:cupinfo.show_public_away_kits!==false&&cupinfo.show_public_away_kits!==0,show_public_logos:cupinfo.show_public_logos!==false&&cupinfo.show_public_logos!==0,show_public_goal_minutes:cupinfo.show_public_goal_minutes===true||cupinfo.show_public_goal_minutes===1,expected_revision:cupinfo.admin_revision})
       },token);
       const normalized = cleanCupInfo(saved);
       setCupinfo(normalized);
@@ -436,6 +437,22 @@ export default function AdminWorkspace({verifiedSession=null,children=null}:{ver
       else setError(err instanceof Error ? err.message : "Cupinfo kunde inte sparas.");
     }
     finally { setBusy(false); }
+  }
+
+  async function uploadOrganizerLogo(file:File,index:number) {
+    if(!token||!cupId)return;
+    if(file.size>500_000){setError("Bilden får vara högst 500 kB.");return;}
+    if(!["image/png","image/jpeg","image/webp"].includes(file.type)){setError("Välj en PNG-, JPG- eller WebP-bild.");return;}
+    setBusy(true);setError("");setMessage("");
+    try{
+      const bytes=new Uint8Array(await file.arrayBuffer());
+      let binary="";
+      for(let offset=0;offset<bytes.length;offset+=8192)binary+=String.fromCharCode(...bytes.subarray(offset,offset+8192));
+      const result=await request<{url:string}>(`/api/admin/cups/${cupId}/organizer-logo`,{method:"POST",body:JSON.stringify({image_base64:btoa(binary)})},token);
+      setCupinfo(current=>current?{...current,organizer_logos:(current.organizer_logos||[]).map((logo,i)=>i===index?{...logo,url:result.url}:logo)}:current);
+      setMessage("Bilden är uppladdad. Spara Cupinfo för att visa den i bannern.");
+    }catch(err){setError(err instanceof Error?err.message:"Bilden kunde inte laddas upp.");}
+    finally{setBusy(false);}
   }
 
   async function savePublicKitMode(mode:PublicKitMode) {
@@ -760,6 +777,19 @@ export default function AdminWorkspace({verifiedSession=null,children=null}:{ver
             <label>Kontakt-e-post<input type="email" value={cupinfo.feedback_email || ""} onChange={e=>setCupinfo({...cupinfo,feedback_email:e.target.value})} /></label>
             <label style={{gridColumn:"1 / -1"}}>Publik information<textarea rows={5} value={cupinfo.public_information || ""} onChange={e=>setCupinfo({...cupinfo,public_information:e.target.value})} /></label><fieldset className="admin-public-options" style={{gridColumn:"1 / -1"}}><legend>Publik matchvy</legend><label><input type="checkbox" checked={publicWeatherEnabled(cupinfo)} onChange={e=>setCupinfo({...cupinfo,show_public_weather:e.target.checked,show_public_weather_configured:true})}/> Visa väder</label><label>Matchställ<select value={cupinfo.show_public_kits===false||cupinfo.show_public_kits===0?"none":cupinfo.show_public_away_kits===false||cupinfo.show_public_away_kits===0?"home":"both"} onChange={e=>{const mode=e.target.value;setCupinfo({...cupinfo,show_public_kits:mode!=="none",show_public_away_kits:mode==="both"});}}><option value="none">Inga matchställ</option><option value="home">Endast hemmaställ</option><option value="both">Hemma- och bortaställ</option></select></label><label><input type="checkbox" checked={cupinfo.show_public_logos!==false&&cupinfo.show_public_logos!==0} onChange={e=>setCupinfo({...cupinfo,show_public_logos:e.target.checked})}/> Visa klubbmärken</label><label><input type="checkbox" checked={cupinfo.show_public_goal_minutes===true||cupinfo.show_public_goal_minutes===1} onChange={e=>setCupinfo({...cupinfo,show_public_goal_minutes:e.target.checked})}/> Visa målminuter i turneringsvyn</label><small>Målminuter visas bara för mål som rapporteras med matchklockan. Tidigare resultat saknar minuter.</small></fieldset>
           </div>
+          <fieldset className="admin-organizer-logos"><legend>Arrangörslogotyper i bannern</legend>
+            <p>Visa upp till tre klubbmärken överst på den publika cupsidan. Välj ett lag, ladda upp en bild eller ange en bildadress.</p>
+            {teams.some(team=>normalizedWebUrl(team.logo_url||"").startsWith("https://"))&&<label>Välj från cupens lag<select value="" disabled={(cupinfo.organizer_logos||[]).length>=3} onChange={event=>{const team=teams.find(item=>item.id===Number(event.target.value));if(team?.logo_url)setCupinfo({...cupinfo,organizer_logos:[...(cupinfo.organizer_logos||[]),{name:team.name,url:normalizedWebUrl(team.logo_url)}]});}}><option value="">Välj lag…</option>{teams.filter(team=>normalizedWebUrl(team.logo_url||"").startsWith("https://")).map(team=><option key={team.id} value={team.id}>{team.name}</option>)}</select></label>}
+            {(cupinfo.organizer_logos||[]).map((logo,index)=><div className="admin-organizer-logos__row" key={index}>
+              <div className="admin-organizer-logos__preview">{/^https:\/\//.test(logo.url)&&<img src={logo.url} alt="" width="48" height="48" referrerPolicy="no-referrer"/>}</div>
+              <label>Klubbnamn<input value={logo.name} maxLength={80} onChange={event=>setCupinfo({...cupinfo,organizer_logos:(cupinfo.organizer_logos||[]).map((item,i)=>i===index?{...item,name:event.target.value}:item)})} required/></label>
+              <label>Bildadress (HTTPS)<input type="url" pattern="https://.*" value={logo.url} onChange={event=>setCupinfo({...cupinfo,organizer_logos:(cupinfo.organizer_logos||[]).map((item,i)=>i===index?{...item,url:event.target.value}:item)})} placeholder="https://klubb.se/märke.png" required/></label>
+              <label className="admin-organizer-logos__upload">Eller välj bild från enheten<input type="file" accept="image/png,image/jpeg,image/webp" disabled={busy} onChange={event=>{const file=event.target.files?.[0];if(file)void uploadOrganizerLogo(file,index);event.target.value="";}}/></label>
+              <button type="button" onClick={()=>setCupinfo({...cupinfo,organizer_logos:(cupinfo.organizer_logos||[]).filter((_,i)=>i!==index)})}>Ta bort</button>
+            </div>)}
+            <button type="button" disabled={(cupinfo.organizer_logos||[]).length>=3} onClick={()=>setCupinfo({...cupinfo,organizer_logos:[...(cupinfo.organizer_logos||[]),{name:"",url:""}]})}>Lägg till logotyp</button>
+            <small>Spara Cupinfo för att visa logotyperna publikt.</small>
+          </fieldset>
           <div className="admin-form-footer"><span>{message || ""}</span><button type="submit" disabled={busy || !cupinfo.name.trim()}>{busy?"Sparar…":"Spara och fortsätt till Lag →"}</button></div>
         </> : <p>{busy?"Hämtar Cupinfo…":"Cupinfo kunde inte hämtas ännu."}</p>}
       </form>}

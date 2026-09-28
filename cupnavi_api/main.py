@@ -17,6 +17,7 @@ from cupnavi_core.public_competition import calculate_group_table, team_competit
 from cupnavi_core.rate_limit import consume_rate_limit
 from .admin_auth import issue_session, normalize_email, verify_session
 from .logo_cache import cached_logo_path, cache_verified_logo
+from .organizer_logo_repository import get_organizer_logo, save_organizer_logo
 from .admin_repository import (
     admin_cupinfo,
     admin_teams,
@@ -99,6 +100,15 @@ def get_cached_club_logo(digest: str):
         raise HTTPException(status_code=404, detail="Club logo not found")
     return FileResponse(path, headers={"Cache-Control": "public, max-age=86400, immutable"})
 
+
+@app.get("/api/assets/organizer-logos/{digest}")
+def organizer_logo_asset(digest: str):
+    asset = get_organizer_logo(digest)
+    if asset is None:
+        raise HTTPException(status_code=404,detail="Logo not found")
+    content_type,data = asset
+    return Response(content=data,media_type=content_type,headers={"Cache-Control":"public, max-age=86400, immutable"})
+
 class AdminLoginRequest(BaseModel):
     email: str
     password: str
@@ -113,6 +123,7 @@ class CupInfoUpdate(BaseModel):
     organizer_phone: str | None = None
     feedback_email: str | None = None
     public_information: str | None = None
+    organizer_logos: list[dict[str, str]] | None = None
     arrangement_type: str | None = None
     show_public_weather: bool | None = None
     show_public_weather_configured: bool | None = None
@@ -121,6 +132,10 @@ class CupInfoUpdate(BaseModel):
     show_public_logos: bool | None = None
     show_public_goal_minutes: bool | None = None
     expected_revision: int | None = None
+
+
+class OrganizerLogoUpload(BaseModel):
+    image_base64: str
 
 
 class TeamWrite(BaseModel):
@@ -327,6 +342,19 @@ def get_admin_cupinfo(tournament_id:int,authorization:str|None=Header(default=No
     if not cupinfo:
         raise HTTPException(status_code=404,detail="Cup not found or access denied")
     return cupinfo
+
+
+@app.post("/api/admin/cups/{tournament_id}/organizer-logo")
+def upload_organizer_logo(tournament_id:int,payload:OrganizerLogoUpload,authorization:str|None=Header(default=None)):
+    account=_admin_identity(authorization)
+    if not admin_cupinfo(int(account["id"]),tournament_id):
+        raise HTTPException(status_code=404,detail="Cup not found or access denied")
+    try:
+        digest=save_organizer_logo(tournament_id,payload.image_base64)
+    except ValueError as exc:
+        raise HTTPException(status_code=422,detail=str(exc)) from exc
+    api_public_base=os.getenv("CUPNAVI_API_PUBLIC_BASE","https://cupnavi-api.onrender.com").rstrip("/")
+    return {"url":f"{api_public_base}/api/assets/organizer-logos/{digest}"}
 
 
 @app.put("/api/admin/cups/{tournament_id}/cupinfo")
