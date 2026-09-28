@@ -15,10 +15,14 @@
 .cn-public .cn-standings tr.is-playoff{color:#fff200}
 .cn-public .cn-standings tr.is-sky{color:#6ce7f5}
 .cn-public .cn-standings tr.is-neutral{color:#fff}
+.cn-public .cn-standings tbody tr:is(.is-leading,.is-neutral,.is-playoff,.is-sky) td:first-child,
+.cn-public .cn-standings tbody tr:is(.is-leading,.is-neutral,.is-playoff,.is-sky) td:last-child,
+.cn-public .cn-standings tbody tr:is(.is-leading,.is-neutral,.is-playoff,.is-sky) td:last-child strong{color:inherit}
 .cn-public .cn-standings__legend{display:flex;flex-wrap:wrap;gap:5px 14px;padding:8px 10px;border-top:1px solid #20333c;font:700 11px/1.2 "Courier New",ui-monospace,monospace}
 .cn-public .cn-standings__legend span{display:inline-flex;align-items:center;gap:5px}
 .cn-public .cn-standings__legend i{width:9px;height:9px;background:currentColor}
 .cn-public .cn-standings__legend .is-leading{color:#00f467}
+.cn-public .cn-standings__legend .is-neutral{color:#fff}
 .cn-public .cn-standings__legend .is-playoff{color:#fff200}
 .cn-public .cn-standings__legend .is-sky{color:#6ce7f5}
 @media(max-width:600px){
