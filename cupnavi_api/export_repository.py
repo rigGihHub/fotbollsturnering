@@ -40,6 +40,22 @@ def export_snapshot(account_id: int, tournament_id: int):
     tournament = one("SELECT * FROM tournaments WHERE id=?", (int(tournament_id),))
     if not tournament:
         return None
+    return _snapshot_for_tournament(tournament)
+
+
+def public_export_snapshot(public_key: str):
+    tournament = one(
+        """SELECT * FROM tournaments WHERE public_slug=? AND is_published=1
+           AND COALESCE(lifecycle_status,'draft') NOT IN ('trashed','purged')""",
+        (public_key,),
+    )
+    if not tournament:
+        return None
+    return _snapshot_for_tournament(tournament)
+
+
+def _snapshot_for_tournament(tournament: dict):
+    tournament_id = int(tournament["id"])
     groups = all_rows("SELECT id,name,age_class FROM groups WHERE tournament_id=? ORDER BY name,id", (int(tournament_id),))
     teams = all_rows("SELECT id,name,group_id,age_class FROM teams WHERE tournament_id=? ORDER BY name,id", (int(tournament_id),))
     # Optional export fields differ between older CupNavi databases. Reading the
@@ -59,8 +75,20 @@ def build_cup_pdf(account_id: int, tournament_id: int):
     data = export_snapshot(account_id, tournament_id)
     if data is None:
         return None
+    return _render_cup_pdf(data)
+
+
+def build_public_cup_pdf(public_key: str):
+    data = public_export_snapshot(public_key)
+    if data is None:
+        return None
+    return _render_cup_pdf(data)
+
+
+def _render_cup_pdf(data: dict):
 
     tournament = data["tournament"]
+    tournament_id = int(tournament["id"])
     groups = data["groups"]
     teams = data["teams"]
     matches = data["matches"]
