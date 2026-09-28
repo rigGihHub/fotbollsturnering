@@ -716,6 +716,7 @@ export default function AdminWorkspace({verifiedSession=null,children=null}:{ver
   ];
 
   return <main className="admin-workspace cn-admin">
+    {isPublished && publicCup && <a className="admin-tournament-shortcut" href={publicCup} target="_blank" rel="noopener noreferrer" aria-label={`Öppna turneringsvyn för ${activeCup?.name} i en ny flik`}>Turneringsvy <span aria-hidden="true">↗</span></a>}
     <aside className="admin-sidebar">
       <section className="admin-active-cup-card" aria-label="Aktiv cup">
         <div className="admin-sidebar__cup"><span>{isOwner ? "HUVUDADMIN" : "LOKAL ADMIN"} · AKTIV CUP</span><strong>{activeCup?.name || "Ingen cup"}</strong><small>{activeCup?`${activeCup.is_published?"Publicerad":"Utkast"}${createdLabel(activeCup.created_at)?` · ${createdLabel(activeCup.created_at)}`:""}`:"Ingen cup vald"}</small></div>
