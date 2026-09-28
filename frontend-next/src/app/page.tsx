@@ -2,98 +2,70 @@ import styles from "./home.module.css";
 
 export default function Home() {
   return (
-    <main className="page-shell">
-      <div className={styles.home}>
-        <section className={styles.hero}>
-          <div className={styles.topline}>
-            <span>CUPNAVI</span>
-            <span>FÖR ARRANGÖR, LAG OCH PUBLIK</span>
-          </div>
-
-          <div className={styles.heroGrid}>
-            <div>
-              <p className={styles.eyebrow}>Cupadministration + matchdag</p>
-              <h1>Hela cupen. Ett ställe.</h1>
-              <p className={styles.lead}>
-                Skapa cupen steg för steg, bygg spelschemat och publicera en mobilvy
-                där lag och publik hittar rätt match, tid och plan direkt.
-              </p>
-              <div className={styles.actions}>
-                <a className={styles.primary} href="/admin">Skapa eller administrera cup →</a>
-                <a className={styles.secondary} href="/cup/slottskampen-6">Se publik cup →</a>
-              </div>
-            </div>
-
-            <aside className={styles.scoreCard} aria-label="Förhandsvisning av publik CupNavi-vy">
-              <div className={styles.scoreHead}><span>330 // LIVE</span><span>CUPNAVI</span></div>
-              <div className={styles.scoreBody}>
-                <strong>09:42  PLAN 2</strong>
-                <p>NÄSTA MATCH<br/>ÖSK P2014 — MOTSTÅNDARLAG<br/>TABELLER • RESULTAT • INFO</p>
-              </div>
-            </aside>
-          </div>
-        </section>
-
-        <section className={styles.section}>
-          <div className={styles.sectionHead}>
-            <span className={styles.sectionNo}>01 // SÅ FUNGERAR DET</span>
-            <h2>Från första laget till sista finalen.</h2>
-          </div>
-          <div className={styles.featureGrid}>
-            <article className={styles.feature}><span>01</span><h3>Bygg cupen</h3><p>Lag, klasser, grupper, planer, tider, domare, regler och slutspel samlas i ett tydligt flöde.</p></article>
-            <article className={styles.feature}><span>02</span><h3>Skapa schemat</h3><p>Bygg ett spelbart schema med rätt pauser, planer, matchtider och slutspel.</p></article>
-            <article className={styles.feature}><span>03</span><h3>Publicera</h3><p>Dela en mobilvänlig cuplänk med matcher, tabeller, resultat och praktisk information.</p></article>
-            <article className={styles.feature}><span>04</span><h3>Följ favoritlag</h3><p>Besökaren väljer sina lag och får nästa match, plan och relevant information först.</p></article>
-            <article className={styles.feature}><span>05</span><h3>Rapportera live</h3><p>Resultat, mål, assist och kort kan registreras under cupen och visas direkt.</p></article>
-            <article className={styles.feature}><span>330</span><h3>Se läget direkt</h3><p>Tabeller och topplistor presenteras snabbt med CupNavis tydliga Text-TV-lager.</p></article>
-          </div>
-        </section>
-
-        <section className={styles.section}>
-          <div className={styles.sectionHead}>
-            <span className={styles.sectionNo}>02 // TVÅ LÄGEN</span>
-            <h2>En arbetsvy för arrangören. En snabbvy för matchdagen.</h2>
-          </div>
-          <div className={styles.split}>
-            <article className={styles.panel}>
-              <p className={styles.eyebrow}>Arrangör</p>
-              <h3>Stega igenom cupen utan att tappa överblicken.</h3>
-              <p>Arbeta i en naturlig ordning och hoppa direkt till ett steg när du behöver ändra något.</p>
-              <ul className={styles.list}>
-                <li>Lag, grupper och klasser</li>
-                <li>Schema, planer och domare</li>
-                <li>Slutspel och regler</li>
-                <li>Behörigheter och publicering</li>
-                <li>Import, export och cupinformation</li>
-              </ul>
-            </article>
-            <article className={`${styles.panel} ${styles.panelDark}`}>
-              <p className={styles.eyebrow}>Spelare • Ledare • Publik</p>
-              <h3>Rätt information först.</h3>
-              <p>Den publika vyn är byggd för mobilen och matchdagen: kort väg till nästa match och minimalt letande.</p>
-              <ul className={styles.list}>
-                <li>Nästa match och rätt plan</li>
-                <li>Favoritlag och laginformation</li>
-                <li>Tabeller, resultat och slutspel</li>
-                <li>Topplistor och liveinformation</li>
-                <li>Karta, cupinfo och delning</li>
-              </ul>
-            </article>
-          </div>
-        </section>
-
-        <section className={styles.finalCta}>
-          <div>
-            <p className={styles.eyebrow}>CupNavi</p>
-            <h2>Bygg cupen. Publicera när den är klar.</h2>
-            <p>Ett sammanhållet flöde från planering till matchdag.</p>
-          </div>
+    <main className={styles.home}>
+      <section className={styles.hero} aria-labelledby="home-title">
+        <div className={styles.heroCopy}>
+          <p className={styles.kicker}><span className={styles.kickerDot} /> CUPNAVI · FÖR HELA CUPDAGEN</p>
+          <h1 id="home-title">Från första planen till sista matchen.</h1>
+          <p className={styles.lead}>Skapa cupen, lägg schemat och ge alla en tydlig plats för matcher, tabeller och resultat.</p>
           <div className={styles.actions}>
-            <a className={styles.primary} href="/admin">Öppna admin →</a>
-            <a className={styles.secondary} href="/cup/slottskampen-6">Se publik vy →</a>
+            <a className={styles.primary} href="/admin">Skapa en cup <span aria-hidden="true">↗</span></a>
+            <a className={styles.secondary} href="/cup/slottskampen-6">Se en exempelcup <span aria-hidden="true">→</span></a>
           </div>
-        </section>
-      </div>
+          <p className={styles.actionHint}>Arrangören planerar. Lag och publik följer samma cup i mobilen.</p>
+        </div>
+        <div className={styles.heroVisual} aria-hidden="true">
+          <div className={styles.visualOrbit} />
+          <img src="/cupnavi-emblem-v2642.png" width="160" height="160" alt="" />
+          <div className={styles.visualBoard}>
+            <div className={styles.boardTop}><span>CUPDAG</span><span>01 / 03</span></div>
+            <div className={styles.boardRows}>
+              <span><b>01</b> Matcher <i>→</i></span>
+              <span><b>02</b> Tabeller <i>→</i></span>
+              <span><b>03</b> Resultat <i>→</i></span>
+            </div>
+            <div className={styles.boardBottom}>Rätt tid. Rätt plan. Rätt match.</div>
+          </div>
+        </div>
+      </section>
+
+      <section className={styles.how} aria-labelledby="how-title">
+        <div className={styles.sectionTitle}>
+          <p>EN CUP I TRE STEG</p>
+          <h2 id="how-title">Enklare att ordna. Enklare att följa.</h2>
+        </div>
+        <div className={styles.steps}>
+          <article><span>01 / SKAPA</span><h3>Samla allt</h3><p>Lägg in lag, grupper, planer och regler i samma arbetsflöde.</p></article>
+          <article><span>02 / PLANERA</span><h3>Bygg schemat</h3><p>Få ordning på tider, matcher och slutspel innan cupen börjar.</p></article>
+          <article><span>03 / GENOMFÖRA</span><h3>Dela och rapportera</h3><p>Publicera cuplänken och uppdatera resultaten under matchdagen.</p></article>
+        </div>
+      </section>
+
+      <section className={styles.modes} aria-labelledby="modes-title">
+        <div className={styles.sectionTitle}>
+          <p>TVÅ VYER · SAMMA CUP</p>
+          <h2 id="modes-title">Bygg bakom kulisserna. Visa det viktiga på läktaren.</h2>
+        </div>
+        <div className={styles.modeGrid}>
+          <article className={styles.organizer}>
+            <div className={styles.modeHead}><span>FÖR ARRANGÖREN</span><strong>01</strong></div>
+            <h3>Full koll på cupen.</h3>
+            <p>Skapa, planera och justera i en arbetsvy som visar vad som återstår.</p>
+            <div className={styles.tags}><span>Lag & grupper</span><span>Schema & planer</span><span>Slutspel</span></div>
+          </article>
+          <article className={styles.visitor}>
+            <div className={styles.modeHead}><span>FÖR LAG & PUBLIK</span><strong>02</strong></div>
+            <h3>Hitta rätt direkt.</h3>
+            <p>En mobilvy med matcher, tabeller, resultat och information om cupdagen.</p>
+            <div className={styles.tags}><span>Hitta ditt lag</span><span>Nästa match</span><span>Resultat</span></div>
+          </article>
+        </div>
+      </section>
+
+      <section className={styles.finish} aria-label="Kom igång">
+        <div><span>REDO ATT BÖRJA?</span><h2>Gör plats för matchdagen.</h2></div>
+        <a href="/admin">Öppna CupNavi <span aria-hidden="true">↗</span></a>
+      </section>
     </main>
   );
 }
