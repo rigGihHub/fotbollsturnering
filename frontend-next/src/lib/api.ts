@@ -1,6 +1,9 @@
 import { CupSnapshot, Match, PublicStatistics, StandingRow } from "./types";
+import { CLIENT_API_BASE } from "./client-api";
 
-const API_BASE = (process.env.CUPNAVI_API_BASE || process.env.NEXT_PUBLIC_CUPNAVI_API_BASE || "http://localhost:8000").replace(/\/$/, "");
+const API_BASE = typeof window === "undefined"
+  ? (process.env.CUPNAVI_API_BASE || CLIENT_API_BASE).replace(/\/$/, "")
+  : CLIENT_API_BASE;
 
 export class CupNaviApiError extends Error {
   constructor(public readonly status:number, message:string, public readonly retryAfterMs?:number){super(message);this.name="CupNaviApiError";}
