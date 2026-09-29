@@ -8,6 +8,6 @@ import CupCreateLauncherV6 from "./cup-create-launcher-v6";
  * source of race conditions on mobile/Render cold starts and could make the
  * + Ny cup control disappear even while the parent session was valid.
  */
-export default function CupCreateLauncherResilient() {
-  return <CupCreateLauncherV6 />;
+export default function CupCreateLauncherResilient({cups}:{cups:Array<{id:number;name:string;public_slug?:string|null;is_published?:boolean|number}>}) {
+  return <CupCreateLauncherV6 cups={cups} />;
 }

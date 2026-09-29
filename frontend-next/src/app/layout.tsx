@@ -38,8 +38,8 @@ import "./design-system.css";
 import "./public-standings-texttv.css";
 import "./organizer-banner.css";
 import "./admin-mobile-focus-v2822.css";
+import "./admin-top-actions.css";
 import { PwaBoot } from "@/components/PwaBoot";
-import { ViewModeSwitch } from "@/components/ViewModeSwitch";
 import { HeaderShareAction } from "@/components/HeaderShareAction";
 import { SiteFooter } from "@/components/SiteFooter";
 
@@ -74,7 +74,6 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
           <span className="cn-version" aria-label={`CupNavi version ${APP_VERSION}`}>v{APP_VERSION}</span>
         </header>
         <PwaBoot />
-        <ViewModeSwitch />
         <div id="main-content" tabIndex={-1}>{children}</div>
         <SiteFooter />
       </body>

@@ -23,7 +23,7 @@ const UNAUTHORIZED_CONFIRMATIONS = 2;
 
 type AuthState = "checking" | "authenticated" | "unauthenticated" | "waiting";
 type Account = { id:number; email:string; role?:string|null; is_owner?:boolean };
-type Cup = { id:number; name:string; role:string; public_slug?:string|null };
+type Cup = { id:number; name:string; role:string; public_slug?:string|null; is_published?:boolean|number };
 type SessionPayload = { account:Account; cups:Cup[] };
 
 function clearVerifiedCache() {
@@ -204,7 +204,7 @@ export default function AdminAuthShell() {
 
   return (
     <>
-      <CupCreateLauncher/>
+      <CupCreateLauncher cups={verifiedSession?.cups || []}/>
       <AdminStepFlow/>
       <AdminLazyExtras/>
       <AdminWorkspace key={`admin-${authKey}`} verifiedSession={verifiedSession}>

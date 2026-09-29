@@ -1,0 +1,52 @@
+/* Keep the two admin destinations together below the site header. */
+body:has(.admin-workspace.cn-admin) .cup-create-toolbar {
+  position: sticky !important;
+  top: 64px !important;
+  z-index: 39 !important;
+  width: 100% !important;
+  max-width: none !important;
+  margin: 0 !important;
+  padding: 9px max(16px, calc((100vw - 1200px)/2)) !important;
+  border: 0 !important;
+  border-bottom: 1px solid rgba(16,38,48,.16) !important;
+  border-radius: 0 !important;
+  background: rgba(247,246,241,.97) !important;
+  box-shadow: 0 2px 9px rgba(16,38,48,.07) !important;
+}
+body:has(.admin-workspace.cn-admin) .cup-create-toolbar > .cup-create-toolbar__actions {
+  display: flex !important;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: nowrap;
+  gap: 9px !important;
+  min-width: 0;
+  margin-left: auto;
+}
+.cup-create-toolbar__actions :is(a,button) {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 44px;
+  padding: 9px 15px;
+  border: 1.5px solid #102630;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 850;
+  white-space: nowrap;
+  text-decoration: none;
+  cursor: pointer;
+}
+.cup-create-toolbar__actions a { background: #fffdf7; color: #102630; }
+.cup-create-toolbar__actions button { background: #102630; color: #fff; }
+.cup-create-toolbar__actions a:focus-visible,.cup-create-toolbar__actions button:focus-visible { outline: 3px solid #1ca6b4; outline-offset: 2px; }
+@media (max-width: 760px) {
+  body:has(.admin-workspace.cn-admin) .cup-create-toolbar {
+    top: 60px !important;
+    min-height: 0 !important;
+    padding: 8px 12px !important;
+  }
+  body:has(.admin-workspace.cn-admin) .cup-create-toolbar > div:not(.cup-create-toolbar__actions) { display: none !important; }
+  body:has(.admin-workspace.cn-admin) .cup-create-toolbar > .cup-create-toolbar__actions { width: 100%; }
+  .cup-create-toolbar__actions :is(a,button) { flex: 1 1 0; min-width: 0; padding: 9px 7px; font-size: 13px; }
+}

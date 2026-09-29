@@ -146,6 +146,7 @@ function initialCup(cups:Cup[]):Cup|undefined {
 
 function rememberCup(cupId:number) {
   localStorage.setItem(CUP_KEY,String(cupId));
+  window.dispatchEvent(new CustomEvent("cupnavi:active-cup-change",{detail:cupId}));
   const url = new URL(window.location.href);
   url.searchParams.set("cup",String(cupId));
   window.history.replaceState({},"",`${url.pathname}${url.search}${url.hash}`);
@@ -153,6 +154,7 @@ function rememberCup(cupId:number) {
 
 function forgetCup() {
   localStorage.removeItem(CUP_KEY);
+  window.dispatchEvent(new CustomEvent("cupnavi:active-cup-change",{detail:null}));
   const url = new URL(window.location.href);
   url.searchParams.delete("cup");
   window.history.replaceState({},"",`${url.pathname}${url.search}${url.hash}`);
@@ -669,7 +671,6 @@ export default function AdminWorkspace({verifiedSession=null,children=null}:{ver
     </main>;
   }
 
-  const publicCup = activeCup?.public_slug ? `/cup/${activeCup.public_slug}` : null;
   const isOwner = account.role === "owner" || account.is_owner === true;
   const canManageCup = isOwner || activeCup?.role === "owner";
   const groupedTeams = teams.filter(team=>team.group_id != null).length;
@@ -716,7 +717,6 @@ export default function AdminWorkspace({verifiedSession=null,children=null}:{ver
   ];
 
   return <main className="admin-workspace cn-admin">
-    {isPublished && publicCup && <a className="admin-tournament-shortcut" href={publicCup} target="_blank" rel="noopener noreferrer" aria-label={`Öppna turneringsvyn för ${activeCup?.name} i en ny flik`}>Turneringsvy <span aria-hidden="true">↗</span></a>}
     <aside className="admin-sidebar">
       <section className="admin-active-cup-card" aria-label="Aktiv cup">
         <div className="admin-sidebar__cup"><span>{isOwner ? "HUVUDADMIN" : "LOKAL ADMIN"} · AKTIV CUP</span><strong>{activeCup?.name || "Ingen cup"}</strong><small>{activeCup?`${activeCup.is_published?"Publicerad":"Utkast"}${createdLabel(activeCup.created_at)?` · ${createdLabel(activeCup.created_at)}`:""}`:"Ingen cup vald"}</small></div>
@@ -742,12 +742,11 @@ export default function AdminWorkspace({verifiedSession=null,children=null}:{ver
         <details open={toolNav.some(([,href])=>href===`#${activeStep}`)}><summary>Verktyg & cupdag</summary>{toolNav.map(([item,href])=><a key={item} aria-current={href===`#${activeStep}`?"page":undefined} href={href}>{item}</a>)}</details>
       </nav>
       {activeCup && <a className="admin-public-link admin-reporter-link" href={`/reporter?cup=${encodeURIComponent(activeCup.public_slug || String(activeCup.id))}`} target="_blank" rel="noreferrer">Öppna rapportering ↗</a>}
-      {publicCup && <a className="admin-public-link" href={publicCup} target="_blank" rel="noreferrer">Visa publik cup ↗</a>}
       <button className="admin-public-link" type="button" onClick={logout}>Logga ut</button>
     </aside>
 
     <section className="admin-main" id="overview">
-      <header className="admin-pagehead"><div><h1>Cupöversikt</h1></div><div className="admin-pagehead__actions"><span className="admin-draft">{activeCup?.is_published?"PUBLICERAD":"UTKAST"}</span>{publicCup&&<a href={publicCup} target="_blank" rel="noreferrer">Turneringsvy <span aria-hidden="true">↗</span></a>}{activeCup&&<a href={`/reporter?cup=${encodeURIComponent(activeCup.public_slug || String(activeCup.id))}`} target="_blank" rel="noreferrer">Rapportering <span aria-hidden="true">↗</span></a>}</div></header>
+      <header className="admin-pagehead"><div><h1>Cupöversikt</h1></div><div className="admin-pagehead__actions"><span className="admin-draft">{activeCup?.is_published?"PUBLICERAD":"UTKAST"}</span>{activeCup&&<a href={`/reporter?cup=${encodeURIComponent(activeCup.public_slug || String(activeCup.id))}`} target="_blank" rel="noreferrer">Rapportering <span aria-hidden="true">↗</span></a>}</div></header>
       {activeStep==="overview"&&publishedTwin&&<section className="admin-cup-identity-warning" role="alert"><div><span>LIKANDE CUP FINNS REDAN LIVE</span><strong>Du arbetar i utkastet “{activeCup?.name}”</strong><p>Den publicerade cupen “{publishedTwin.name}” är en annan post. Byt cup för att undvika att bygga ett nytt schema ovanpå en dubblett.</p></div><button type="button" disabled={busy} onClick={()=>void changeCup(publishedTwin.id)}>Öppna publicerad cup →</button></section>}
       {activeStep==="overview"&&importWelcome&&!isPublished&&<section className="admin-import-welcome" aria-labelledby="import-welcome-title">
         <div className="admin-import-welcome__top"><span>IMPORTEN ÄR KLAR</span><button type="button" onClick={dismissImportWelcome} aria-label="Dölj introduktionen">×</button></div>

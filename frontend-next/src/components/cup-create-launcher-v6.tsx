@@ -245,7 +245,8 @@ function friendlyImportError(error: unknown) {
   return detail.replace(/[.\s]+$/, "");
 }
 
-export default function CupCreateLauncherV6() {
+export default function CupCreateLauncherV6({cups}:{cups:Array<{id:number;name:string;public_slug?:string|null;is_published?:boolean|number}>}) {
+  const [selectedCupId,setSelectedCupId]=useState<number|null>(null);
   const [token, setToken] = useState<string | null>(null),
     [canCreate, setCanCreate] = useState(false),
     [open, setOpen] = useState(false),
@@ -335,6 +336,14 @@ export default function CupCreateLauncherV6() {
       })
       .catch(() => undefined);
   }, []);
+
+  useEffect(() => {
+    const update=() => setSelectedCupId(Number(localStorage.getItem(CUP_KEY)) || null);
+    update();
+    window.addEventListener("cupnavi:active-cup-change",update);
+    return () => window.removeEventListener("cupnavi:active-cup-change",update);
+  }, []);
+  const selectedCup=cups.find(cup=>cup.id===selectedCupId) || cups[0];
 
   function reset() {
     setMode("manual");
@@ -674,6 +683,8 @@ export default function CupCreateLauncherV6() {
           <span>MINA CUPER</span>
           <strong>Hantera eller skapa cup</strong>
         </div>
+        <div className="cup-create-toolbar__actions">
+        {selectedCup?.public_slug && <a className="cup-create-toolbar__tournament" href={`/cup/${encodeURIComponent(selectedCup.public_slug)}${selectedCup.is_published?"":`?preview=1&cup=${selectedCup.id}`}`} target="_blank" rel="noopener noreferrer" aria-label={`Öppna turneringsvyn för ${selectedCup.name} i en ny flik`}>Turneringsvy <span aria-hidden="true">↗</span></a>}
         <button
           type="button"
           onClick={() => {
@@ -683,6 +694,7 @@ export default function CupCreateLauncherV6() {
         >
           Ny cup <span aria-hidden="true">+</span>
         </button>
+        </div>
       </section>
       {open && (
         <div className="cup-create-backdrop">
