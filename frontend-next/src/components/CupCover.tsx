@@ -42,9 +42,9 @@ export function CupCover({ tournament, teamCount, matchCount, groupCount, public
         <div className="cn-cup-cover__stats" aria-label="Cupöversikt">
           <span><b>{teamCount}</b><small>lag</small></span>
           <span><b>{matchCount}</b><small>matcher</small></span>
+          {groupCount>0&&<span className="cn-cup-cover__group"><b>{groupCount}</b><small>grupper</small></span>}
         </div>
         <div className="cn-cup-cover__extras">
-          {groupCount>0&&<span className="cn-cup-cover__group"><b>{groupCount}</b><small>grupper</small></span>}
           <button className="cn-cup-cover__pdf" type="button" onClick={()=>void downloadPdf()} disabled={pdfBusy} aria-label={`Skapa och ladda ner PDF för ${tournament.name}`}>{pdfBusy?"Skapar PDF…":"PDF ↓"}</button>
           <nav className="cn-staff-nav" aria-label="Funktionärer"><a href={`/reporter?cup=${encodeURIComponent(publicKey)}`}>Rapportering</a><a href={`/admin?cup=${tournament.id}`}>Admin</a></nav>
         </div>
