@@ -1,4 +1,4 @@
-/* Keep the two admin destinations together below the site header. */
+/* Keep the admin shortcuts together below the site header. */
 body:has(.admin-workspace.cn-admin) .cup-create-toolbar {
   position: sticky !important;
   top: 64px !important;
@@ -40,6 +40,7 @@ body:has(.admin-workspace.cn-admin) .cup-create-toolbar > .cup-create-toolbar__a
 .cup-create-toolbar__actions a { background: #fffdf7; color: #102630; }
 .cup-create-toolbar__actions button { background: #102630; color: #fff; }
 .cup-create-toolbar__actions a:focus-visible,.cup-create-toolbar__actions button:focus-visible { outline: 3px solid #1ca6b4; outline-offset: 2px; }
+#role-codes { scroll-margin-top: 140px; }
 @media (max-width: 760px) {
   body:has(.admin-workspace.cn-admin) .cup-create-toolbar {
     top: 60px !important;
@@ -49,4 +50,8 @@ body:has(.admin-workspace.cn-admin) .cup-create-toolbar > .cup-create-toolbar__a
   body:has(.admin-workspace.cn-admin) .cup-create-toolbar > div:not(.cup-create-toolbar__actions) { display: none !important; }
   body:has(.admin-workspace.cn-admin) .cup-create-toolbar > .cup-create-toolbar__actions { width: 100%; }
   .cup-create-toolbar__actions :is(a,button) { flex: 1 1 0; min-width: 0; padding: 9px 7px; font-size: 13px; }
+}
+@media (max-width: 390px) {
+  body:has(.admin-workspace.cn-admin) .cup-create-toolbar > .cup-create-toolbar__actions { gap: 5px !important; }
+  .cup-create-toolbar__actions :is(a,button) { padding: 8px 3px; font-size: 11px; }
 }

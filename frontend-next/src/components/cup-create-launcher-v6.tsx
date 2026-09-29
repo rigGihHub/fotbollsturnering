@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, MouseEvent, useEffect, useMemo, useState } from "react";
 import { CLIENT_API_BASE } from "../lib/client-api";
 import {
   CUP_IMPORT_STEPS,
@@ -345,6 +345,18 @@ export default function CupCreateLauncherV6({cups}:{cups:Array<{id:number;name:s
   }, []);
   const selectedCup=cups.find(cup=>cup.id===selectedCupId) || cups[0];
 
+  function openReporterCodes(event:MouseEvent<HTMLAnchorElement>) {
+    event.preventDefault();
+    if(window.location.hash!=="#reporting")window.location.hash="reporting";
+    let attempts=0;
+    const scrollToCodes=()=>{
+      const section=document.getElementById("role-codes");
+      if(section)section.scrollIntoView({behavior:"smooth",block:"start"});
+      else if(attempts++<15)window.setTimeout(scrollToCodes,100);
+    };
+    window.requestAnimationFrame(scrollToCodes);
+  }
+
   function reset() {
     setMode("manual");
     setName("");
@@ -685,6 +697,7 @@ export default function CupCreateLauncherV6({cups}:{cups:Array<{id:number;name:s
         </div>
         <div className="cup-create-toolbar__actions">
         {selectedCup?.public_slug && <a className="cup-create-toolbar__tournament" href={`/cup/${encodeURIComponent(selectedCup.public_slug)}${selectedCup.is_published?"":`?preview=1&cup=${selectedCup.id}`}`} target="_blank" rel="noopener noreferrer" aria-label={`Öppna turneringsvyn för ${selectedCup.name} i en ny flik`}>Turneringsvy <span aria-hidden="true">↗</span></a>}
+        {selectedCup && <a className="cup-create-toolbar__codes" href="#reporting" onClick={openReporterCodes} aria-label={`Gå till matchrapportörskod för ${selectedCup.name}`}>Rapportörskod</a>}
         <button
           type="button"
           onClick={() => {
