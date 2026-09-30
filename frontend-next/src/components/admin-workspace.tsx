@@ -25,8 +25,9 @@ const setupNav = [
   ["Planer & tider", "#venues"], ["Regler", "#rules"], ["Schema", "#schedule"],
   ["Slutspel", "#playoffs"], ["Kontroll & publicering", "#publish"]
 ];
-const toolNav = [["Lokal admin", "#access"], ["Domare", "#referees"], ["Matchrapportering", "#reporting"], ["Sponsorer & erbjudanden", "#partners"], ["Uppdatera från fil", "#import"], ["PDF & export", "#export"]];
-const nav=[...setupNav,...toolNav];
+const partnerNav = ["Sponsorer & erbjudanden", "#partners"];
+const toolNav = [["Lokal admin", "#access"], ["Domare", "#referees"], ["Matchrapportering", "#reporting"], ["Uppdatera från fil", "#import"], ["PDF & export", "#export"]];
+const nav=[...setupNav,partnerNav,...toolNav];
 
 type Account = { id:number; email:string; display_name?:string|null; role?:string|null; is_owner?:boolean };
 type Cup = { id:number; name:string; public_slug?:string|null; start_date?:string|null; end_date?:string|null; created_at?:string|null; is_published?:number|boolean; role:string };
@@ -736,10 +737,11 @@ export default function AdminWorkspace({verifiedSession=null,children=null}:{ver
           </> : <p className="admin-trash-empty">Papperskorgen är tom.</p>}
         </section>}
       </>}
-      <label className="cn-admin-mobile-nav">Gå till steg<select value={`#${activeStep}`} onChange={event=>{window.location.hash=event.target.value}}>{[...visibleSetupNav,...toolNav].map(([label,href])=><option key={href} value={href}>{label}</option>)}</select></label>
+      <label className="cn-admin-mobile-nav">Gå till steg<select value={`#${activeStep}`} onChange={event=>{window.location.hash=event.target.value}}>{[...visibleSetupNav,partnerNav,...toolNav].map(([label,href])=><option key={href} value={href}>{label}</option>)}</select></label>
       <nav className="cn-admin-nav" aria-label="Cupadministration">
         <strong>Förbered cupen</strong>
         {visibleSetupNav.map(([item,href])=><a key={item} aria-current={href===`#${activeStep}`?"page":undefined} href={href}>{item}</a>)}
+        <a aria-current={activeStep==="partners"?"page":undefined} href="#partners">Sponsorer & erbjudanden</a>
         <details open={toolNav.some(([,href])=>href===`#${activeStep}`)}><summary>Verktyg & cupdag</summary>{toolNav.map(([item,href])=><a key={item} aria-current={href===`#${activeStep}`?"page":undefined} href={href}>{item}</a>)}</details>
       </nav>
       {activeCup && <a className="admin-public-link admin-reporter-link" href={`/reporter?cup=${encodeURIComponent(activeCup.public_slug || String(activeCup.id))}`} target="_blank" rel="noreferrer">Öppna rapportering ↗</a>}
