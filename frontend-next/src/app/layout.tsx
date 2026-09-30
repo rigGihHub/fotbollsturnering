@@ -39,6 +39,7 @@ import "./public-standings-texttv.css";
 import "./organizer-banner.css";
 import "./admin-mobile-focus-v2822.css";
 import "./admin-top-actions.css";
+import "./partners.css";
 import { PwaBoot } from "@/components/PwaBoot";
 import { HeaderShareAction } from "@/components/HeaderShareAction";
 import { SiteFooter } from "@/components/SiteFooter";

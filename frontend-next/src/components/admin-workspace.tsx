@@ -9,6 +9,7 @@ import ScheduleAdmin from "./schedule-admin";
 import RefereeAdmin from "./referee-admin";
 import PlayoffAdmin from "./playoff-admin";
 import ExportAdmin from "./export-admin";
+import PartnersAdmin from "./partners-admin";
 import { TeamKit } from "./TeamKit";
 import { CLIENT_API_BASE } from "../lib/client-api";
 import AccessAdmin from "./access-admin";
@@ -24,7 +25,7 @@ const setupNav = [
   ["Planer & tider", "#venues"], ["Regler", "#rules"], ["Schema", "#schedule"],
   ["Slutspel", "#playoffs"], ["Kontroll & publicering", "#publish"]
 ];
-const toolNav = [["Lokal admin", "#access"], ["Domare", "#referees"], ["Matchrapportering", "#reporting"], ["Uppdatera från fil", "#import"], ["PDF & export", "#export"]];
+const toolNav = [["Lokal admin", "#access"], ["Domare", "#referees"], ["Matchrapportering", "#reporting"], ["Sponsorer & erbjudanden", "#partners"], ["Uppdatera från fil", "#import"], ["PDF & export", "#export"]];
 const nav=[...setupNav,...toolNav];
 
 type Account = { id:number; email:string; display_name?:string|null; role?:string|null; is_owner?:boolean };
@@ -42,7 +43,7 @@ type CupInfo = {
   admin_revision:number;
 };
 type SessionPayload = { account:Account; cups:Cup[]; token?:string };
-type AdminStep = "overview"|"cupinfo"|"teams"|"groups"|"venues"|"rules"|"schedule"|"referees"|"playoffs"|"publish"|"reporting"|"import"|"export"|"access";
+type AdminStep = "overview"|"cupinfo"|"teams"|"groups"|"venues"|"rules"|"schedule"|"referees"|"playoffs"|"publish"|"reporting"|"partners"|"import"|"export"|"access";
 type DeleteCupPayload = { deleted:boolean; recoverable:boolean; cup:Cup; cups:Cup[] };
 type RestoreCupPayload = { restored:boolean; cup:Cup; cups:Cup[]; trash:TrashedCup[] };
 type ApiStatus = "checking" | "online" | "offline";
@@ -873,6 +874,7 @@ export default function AdminWorkspace({verifiedSession=null,children=null}:{ver
       {activeStep==="referees" && token && cupId && <RefereeAdmin token={token} cupId={cupId} publicSlug={activeCup?.public_slug} />}
       {activeStep==="playoffs" && token && cupId && <PlayoffAdmin token={token} cupId={cupId} />}
       {activeStep==="access" && token && cupId && account && <AccessAdmin token={token} cupId={cupId} accountId={account.id} isPlatformOwner={isOwner}/>}
+      {activeStep==="partners" && token && cupId && <PartnersAdmin token={token} cupId={cupId}/>}
 
       {activeStep==="export" && token && cupId && <ExportAdmin token={token} cupId={cupId}/>}
     </section>

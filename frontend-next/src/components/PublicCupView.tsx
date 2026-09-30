@@ -6,7 +6,7 @@ import { PlacementTables } from "./PlacementTables";
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { CupSnapshot, PublicStatistics, StandingRow } from "@/lib/types";
-import { CupNaviApiError, getCup, getStandings, getStatistics } from "@/lib/api";
+import { CupNaviApiError, getCup, getStandings, getStatistics, getPartners, PublicPartners } from "@/lib/api";
 import { CupCover } from "./CupCover";
 import { MatchCard } from "./MatchCard";
 import { TextTvStandings } from "./TextTvStandings";
@@ -47,6 +47,7 @@ export function PublicCupView({ publicKey, initialCup, initialStandings, reporte
   const [visibleCount,setVisibleCount]=useState(18); const loadMoreRef=useRef<HTMLDivElement|null>(null);
   const [unavailable,setUnavailable]=useState(false); const [refreshProblem,setRefreshProblem]=useState(false);
   const [statistics,setStatistics]=useState<PublicStatistics|null>(null); const [statisticsLoading,setStatisticsLoading]=useState(false);
+  const [partners,setPartners]=useState<PublicPartners|null>(null); const [partnersError,setPartnersError]=useState(false);
   const statsEnabled=Boolean(cup.tournament.show_scorer_stats||cup.tournament.show_assist_stats||cup.tournament.show_card_stats||cup.tournament.show_fairness);
   const isMatchcamp=cup.tournament.arrangement_type==="matchcamp";
   const showTables=!isMatchcamp&&Boolean(cup.tournament.results_counted??true)&&cup.groups.length>0;
@@ -70,6 +71,13 @@ export function PublicCupView({ publicKey, initialCup, initialStandings, reporte
     getStatistics(publicKey).then(data=>{if(!cancelled)setStatistics(data)}).catch(()=>{if(!cancelled)setDataError("Topplistorna kunde inte hämtas. Försök igen.")}).finally(()=>{if(!cancelled)setStatisticsLoading(false)});
     return()=>{cancelled=true};
   },[tab,publicKey,statsEnabled,dataRetry]);
+  useEffect(()=>{
+    if(tab!=="info")return;
+    let cancelled=false;
+    setPartnersError(false);
+    getPartners(publicKey).then(data=>{if(!cancelled)setPartners(data)}).catch(()=>{if(!cancelled)setPartnersError(true)});
+    return()=>{cancelled=true};
+  },[tab,publicKey,dataRetry]);
   useEffect(()=>{
     if(tab!=="table" || !showTables)return;
     let cancelled=false;setStandingsLoading(true);setDataError("");
@@ -135,6 +143,9 @@ export function PublicCupView({ publicKey, initialCup, initialStandings, reporte
       {(cup.pitches||[]).length>0&&<article className="public-info-card"><span className="public-info-card__eyebrow">Planer</span><h3>Spelområdet</h3><div className="public-pitch-list">{(cup.pitches||[]).map(pitch=>{const start=pitch.opens_at||pitch.start_time||pitch.available_from;const end=pitch.closes_at||pitch.end_time||pitch.available_to;return <div key={pitch.pitch_number}><span><b>{pitch.name||`Plan ${pitch.pitch_number}`}</b><small>Plan {pitch.pitch_number}</small></span>{(start||end)&&<strong>{start||"-"}{end?`-${end}`:""}</strong>}</div>})}</div></article>}
       {showPlayoffs&&<article className="public-info-card public-info-card--playoff"><span className="public-info-card__eyebrow">Slutspel</span><h3>{hasPlacementGroups?"Så avgörs cupen":"Vägen vidare"}</h3>{hasPlacementGroups&&<p>Oavgjort är tillåtet. Ingen förlängning eller straffläggning. Vinnaren i ettornas grupp vinner cupen; övriga grupper avgör sina placeringar.</p>}{!hasPlacementGroups&&cup.tournament.playoff_format&&<p>{cup.tournament.playoff_format}</p>}<div className="public-playoff-list">{cup.brackets.map((bracket,index)=><div key={bracket.id}><i className={["is-leading","is-neutral","is-playoff","is-sky"][index]||"is-neutral"}/><span><b>{bracket.name}</b>{(bracket.qualification_rule||bracket.source_rule)&&<small>{bracket.qualification_rule||bracket.source_rule}</small>}</span>{bracket.size&&<small>{bracket.size} lag</small>}</div>)}</div>{!hasPlacementGroups&&cup.tournament.bronze_match&&<div className="public-info-note">Bronsmatch spelas.</div>}</article>}
       {practicalPoints.map(point=><article className="public-info-card" key={point.id}><span className="public-info-card__eyebrow">{(point.kind||"Praktiskt").toUpperCase()}</span><h3>{point.label||"Bra att veta"}</h3>{point.detail&&<p>{point.detail}</p>}{point.url&&<a href={point.url} target="_blank" rel="noreferrer">Öppna karta / länk →</a>}</article>)}
+      {partners?.offers?.length? <article className="public-info-card cn-public-partners"><span className="public-info-card__eyebrow">PARTNERS</span><h3>Erbjudanden</h3><div className="cn-public-partners__list">{partners.offers.map(item=><div key={item.id}><strong>{item.title}</strong>{item.business_name&&<small>{item.business_name}</small>}{item.description&&<p>{item.description}</p>}{item.discount_code&&<code>Rabattkod: {item.discount_code}</code>}{item.valid_until&&<small>Gäller till {item.valid_until}</small>}{item.url&&<a href={item.url} target="_blank" rel="noopener noreferrer">Visa erbjudandet ↗</a>}</div>)}</div></article>:null}
+      {partners?.sponsors?.length? <article className="public-info-card cn-public-partners"><span className="public-info-card__eyebrow">CUPENS PARTNERS</span><h3>Sponsorer</h3><div className="cn-public-partners__list">{partners.sponsors.map(item=><div key={item.id}>{item.logo_data_uri&&<img src={item.logo_data_uri} alt={`${item.name} logotyp`} loading="lazy"/>}{item.level&&<small>{item.level}</small>}<strong>{item.name}</strong>{item.description&&<p>{item.description}</p>}{item.website_url&&<a href={item.website_url} target="_blank" rel="noopener noreferrer">Besök webbplats ↗</a>}</div>)}</div></article>:null}
+      {partnersError&&<article className="public-info-card"><p>Partners och erbjudanden kunde inte hämtas just nu.</p><button type="button" onClick={()=>setDataRetry(value=>value+1)}>Försök igen</button></article>}
       {showPublicWeather&&<WeatherShareCard address={cup.tournament.arena_address} startDate={cup.tournament.start_date} endDate={cup.tournament.end_date} cupName={cup.tournament.name}/>}
     </div></section>}
 

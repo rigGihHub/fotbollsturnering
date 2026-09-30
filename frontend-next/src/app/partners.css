@@ -1,0 +1,29 @@
+.cn-partners-admin{max-width:100%}
+.cn-partners-admin h3{margin:28px 0 12px}
+.cn-partner-editor{border:1px solid #c7d3d1;border-radius:14px;background:#fffdf7;margin:10px 0;overflow:hidden}
+.cn-partner-editor>summary{padding:16px 18px;font-weight:800;cursor:pointer}
+.cn-partner-editor[open]>summary{border-bottom:1px solid #dce4e2}
+.cn-partner-form{padding:18px}
+.cn-partner-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:15px}
+.cn-partner-fields label{display:grid;gap:6px;font-weight:700}
+.cn-partner-fields input:not([type=checkbox]),.cn-partner-fields select,.cn-partner-fields textarea{width:100%;min-width:0;padding:12px;border:1px solid #9daaaa;border-radius:9px;background:#fff;font:inherit}
+.cn-partner-fields textarea{min-height:86px;resize:vertical}
+.cn-partner-fields .cn-partner-wide{grid-column:1/-1}
+.cn-partner-fields .cn-partner-check{display:flex;align-items:center;gap:10px;align-self:center}
+.cn-partner-check input{width:20px;height:20px}
+.cn-partner-logo-preview{display:flex;align-items:center;gap:12px}
+.cn-partner-logo-preview img{max-width:110px;max-height:60px;object-fit:contain}
+.cn-partner-actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:18px}
+.cn-partner-actions button,.cn-partner-logo-preview button,.cn-partner-error button{border:1px solid #102630;border-radius:9px;padding:10px 15px;background:#fff;color:#102630;font:inherit;font-weight:750;cursor:pointer}
+.cn-partner-actions button[type=submit]{background:#102630;color:#fff}
+.cn-partner-actions button:disabled{opacity:.5;cursor:wait}
+.cn-partner-error{padding:12px;border:1px solid #cc8175;border-radius:9px;background:#fff0ed;color:#7b2c24}
+.cn-public-partners__list{display:grid;gap:14px;margin-top:16px}
+.cn-public-partners__list>div{display:grid;gap:5px;padding:15px;border:1px solid #d6e0de;border-radius:12px;background:#fbfaf5}
+.cn-public-partners__list img{max-width:150px;max-height:75px;object-fit:contain;object-position:left;margin-bottom:5px}
+.cn-public-partners__list strong{font-size:1.12em}
+.cn-public-partners__list small{color:#566568}
+.cn-public-partners__list p{margin:3px 0 6px;white-space:pre-line}
+.cn-public-partners__list code{width:max-content;max-width:100%;overflow-wrap:anywhere;padding:5px 8px;background:#fff1b5;border:1px solid #d6b848;border-radius:6px;color:#102630}
+.cn-public-partners__list a{font-weight:750;text-decoration:underline;color:#075f68}
+@media(max-width:640px){.cn-partner-fields{grid-template-columns:1fr}.cn-partner-fields .cn-partner-wide{grid-column:auto}}

@@ -78,6 +78,15 @@ export function getStatistics(publicKey: string) {
   return apiGet<PublicStatistics>(`/api/public/cups/${encodeURIComponent(publicKey)}/statistics`);
 }
 
+export type PublicPartners = {
+  sponsors:Array<{id:number;name:string;level?:string|null;description?:string|null;website_url?:string|null;logo_data_uri?:string|null}>;
+  offers:Array<{id:number;title:string;business_name?:string|null;description?:string|null;discount_code?:string|null;valid_until?:string|null;url?:string|null}>;
+};
+
+export function getPartners(publicKey:string) {
+  return apiGet<PublicPartners>(`/api/public/cups/${encodeURIComponent(publicKey)}/partners`);
+}
+
 export function getTeamSummary(publicKey: string, teamId: number) {
   return apiGet<import("./types").TeamSummaryPayload>(`/api/public/cups/${encodeURIComponent(publicKey)}/teams/${teamId}/summary`);
 }
