@@ -741,7 +741,8 @@ export default function AdminWorkspace({verifiedSession=null,children=null}:{ver
       <nav className="cn-admin-nav" aria-label="Cupadministration">
         <strong>Förbered cupen</strong>
         {visibleSetupNav.map(([item,href])=><a key={item} aria-current={href===`#${activeStep}`?"page":undefined} href={href}>{item}</a>)}
-        <a aria-current={activeStep==="partners"?"page":undefined} href="#partners">Sponsorer & erbjudanden</a>
+        <strong className="cn-partners-nav-heading">Samarbeten</strong>
+        <a className="cn-partners-nav-link" aria-current={activeStep==="partners"?"page":undefined} href="#partners"><span><b>Sponsorer & erbjudanden</b><small>Logotyper och erbjudanden i turneringsvyn</small></span><span aria-hidden="true">→</span></a>
         <details open={toolNav.some(([,href])=>href===`#${activeStep}`)}><summary>Verktyg & cupdag</summary>{toolNav.map(([item,href])=><a key={item} aria-current={href===`#${activeStep}`?"page":undefined} href={href}>{item}</a>)}</details>
       </nav>
       {activeCup && <a className="admin-public-link admin-reporter-link" href={`/reporter?cup=${encodeURIComponent(activeCup.public_slug || String(activeCup.id))}`} target="_blank" rel="noreferrer">Öppna rapportering ↗</a>}

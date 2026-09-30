@@ -1,4 +1,13 @@
 .cn-partners-admin{max-width:100%}
+.cn-admin .cn-admin-nav>.cn-partners-nav-heading{grid-column:1/-1;margin-top:12px;padding-top:15px;border-top:1px solid #cbd5d3}
+.cn-admin .cn-admin-nav>.cn-partners-nav-link{grid-column:1/-1;display:flex!important;align-items:center;justify-content:space-between;gap:12px;min-height:72px!important;padding:14px 17px!important;border:1.5px solid #a8c8c4!important;border-radius:11px!important;background:#ecf6f4!important;white-space:normal!important}
+.cn-admin .cn-admin-nav>.cn-partners-nav-link span:first-child{display:grid;gap:3px}
+.cn-admin .cn-admin-nav>.cn-partners-nav-link b{font-size:15px}
+.cn-admin .cn-admin-nav>.cn-partners-nav-link small{font-size:12px;font-weight:500;line-height:1.35;color:#4c6267}
+.cn-admin .cn-admin-nav>.cn-partners-nav-link span:last-child{font-size:22px;line-height:1}
+.cn-admin .cn-admin-nav>.cn-partners-nav-link[aria-current]{background:#102630!important;border-color:#102630!important;color:#fff!important}
+.cn-admin .cn-admin-nav>.cn-partners-nav-link[aria-current] small{color:#d3e9e6}
+.cn-admin .cn-admin-nav>details{grid-column:1/-1;margin-top:10px}
 .cn-partners-admin h3{margin:28px 0 12px}
 .cn-partner-editor{border:1px solid #c7d3d1;border-radius:14px;background:#fffdf7;margin:10px 0;overflow:hidden}
 .cn-partner-editor>summary{padding:16px 18px;font-weight:800;cursor:pointer}
