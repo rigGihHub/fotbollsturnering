@@ -14,11 +14,12 @@ def _source(account_id: int, tournament_id: int):
     tournament = one("SELECT arrangement_type FROM tournaments WHERE id=?", (int(tournament_id),))
     if not tournament:
         return None
-    if str(tournament.get("arrangement_type") or "tournament") != "matchcamp":
-        raise ValueError("Matchbyggaren kan bara användas för arrangemangstypen Matchcamp")
+    arrangement_type = str(tournament.get("arrangement_type") or "tournament")
+    if arrangement_type not in {"matchcamp", "single_match"}:
+        raise ValueError("Matchbyggaren kan bara användas för Matchcamp och Enskild match")
     teams = all_rows("SELECT id,name FROM teams WHERE tournament_id=? ORDER BY name,id", (int(tournament_id),))
     existing = one("SELECT COUNT(*) AS n FROM matches WHERE tournament_id=?", (int(tournament_id),)) or {}
-    return teams, int(existing.get("n") or 0)
+    return teams, int(existing.get("n") or 0), arrangement_type
 
 
 def _fingerprint(teams: list[dict], matches_per_team: int) -> str:
@@ -45,11 +46,13 @@ def _round_robin(teams: list[dict]) -> list[list[tuple[dict,dict]]]:
 def matchcamp_pairing_proposal(account_id: int, tournament_id: int, matches_per_team: int):
     source=_source(account_id,tournament_id)
     if source is None:return None
-    teams,existing_count=source
+    teams,existing_count,arrangement_type=source
     if existing_count:
         raise ValueError("Cupen innehåller redan matcher. Matchbyggaren skriver aldrig över ett befintligt matchprogram")
     if len(teams)<2:raise ValueError("Minst två lag krävs för att skapa matcher")
     target=int(matches_per_team)
+    if arrangement_type=="single_match" and (len(teams)!=2 or target!=1):
+        raise ValueError("Enskild match kräver exakt två lag och en match")
     if target<1 or target>min(12,len(teams)-1):
         raise ValueError(f"Matcher per lag måste vara mellan 1 och {min(12,len(teams)-1)}")
     rounds=_round_robin(teams)
@@ -72,8 +75,9 @@ def apply_matchcamp_pairing(account_id: int, tournament_id: int, matches_per_tea
         existing=con.execute("SELECT COUNT(*) FROM matches WHERE tournament_id=?",(int(tournament_id),)).fetchone()[0]
         if int(existing):
             con.rollback();raise ValueError("Matcher har lagts till sedan förslaget skapades. Ingenting sparades")
+        stage = "Enskild match" if con.execute("SELECT arrangement_type FROM tournaments WHERE id=?",(int(tournament_id),)).fetchone()[0]=="single_match" else "Matchcamp"
         con.executemany("""INSERT INTO matches(tournament_id,stage,round_no,match_no,home_source,away_source,schedule_published,schedule_locked)
-                           VALUES(?,'Matchcamp',1,?,?,?,0,0)""",[(int(tournament_id),p["match_no"],f"team:{p['home_team_id']}",f"team:{p['away_team_id']}") for p in proposal["pairs"]])
+                           VALUES(?,?,1,?,?,?,0,0)""",[(int(tournament_id),stage,p["match_no"],f"team:{p['home_team_id']}",f"team:{p['away_team_id']}") for p in proposal["pairs"]])
         con.execute("UPDATE tournaments SET schedule_dirty=1,is_published=0 WHERE id=?",(int(tournament_id),))
         con.commit()
     return {"created":True,"created_count":proposal["match_count"]}

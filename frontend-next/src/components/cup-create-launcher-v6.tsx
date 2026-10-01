@@ -252,6 +252,7 @@ export default function CupCreateLauncherV6({cups}:{cups:Array<{id:number;name:s
     [open, setOpen] = useState(false),
     [mode, setMode] = useState<"manual" | "import">("manual");
   const [name, setName] = useState(""),
+    [arrangementType, setArrangementType] = useState("tournament"),
     [startDate, setStartDate] = useState(""),
     [endDate, setEndDate] = useState(""),
     [files, setFiles] = useState<File[]>([]),
@@ -429,6 +430,7 @@ export default function CupCreateLauncherV6({cups}:{cups:Array<{id:number;name:s
             name: name.trim(),
             start_date: startDate || null,
             end_date: endDate || null,
+            arrangement_type: arrangementType,
           }),
         },
         token,
@@ -766,7 +768,15 @@ export default function CupCreateLauncherV6({cups}:{cups:Array<{id:number;name:s
             {mode === "manual" ? (
               <form onSubmit={createCup}>
                 <label>
-                  Cupnamn
+                  Typ av arrangemang
+                  <select value={arrangementType} onChange={(e) => setArrangementType(e.target.value)}>
+                    <option value="tournament">Turnering</option>
+                    <option value="single_match">Enskild match – två lag, en match</option>
+                    <option value="matchcamp">Matchcamp</option>
+                  </select>
+                </label>
+                <label>
+                  {arrangementType === "single_match" ? "Matchnamn" : "Cupnamn"}
                   <input
                     autoFocus
                     value={name}
@@ -806,7 +816,7 @@ export default function CupCreateLauncherV6({cups}:{cups:Array<{id:number;name:s
                     Avbryt
                   </button>
                   <button type="submit" disabled={busy || !name.trim()}>
-                    {busy ? "Skapar…" : "Skapa cup"}
+                    {busy ? "Skapar…" : arrangementType === "single_match" ? "Skapa match" : "Skapa cup"}
                   </button>
                 </div>
               </form>

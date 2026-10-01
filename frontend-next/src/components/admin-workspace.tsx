@@ -38,7 +38,7 @@ type CupInfo = {
   organizer_logos?:Array<{name:string;url:string}>;
   arena_address?:string|null; organizer_phone?:string|null; feedback_email?:string|null;
   public_information?:string|null;
-  arrangement_type?:"matchcamp"|"tournament"|"tournament_playoffs"|"custom"|null;
+  arrangement_type?:"single_match"|"matchcamp"|"tournament"|"tournament_playoffs"|"custom"|null;
   show_public_weather?:number|boolean; show_public_weather_configured?:number|boolean; show_public_kits?:number|boolean; show_public_away_kits?:number|boolean; show_public_logos?:number|boolean;
   show_public_goal_minutes?:number|boolean;
   admin_revision:number;
@@ -679,7 +679,7 @@ export default function AdminWorkspace({verifiedSession=null,children=null}:{ver
   const cupinfoReady=Boolean(cupinfo?.name&&cupinfo?.start_date);
   const teamsReady=teams.length>0;
   const groupsReady=teamsReady&&groups.length>0&&groupedTeams===teams.length;
-  const isMatchcamp=cupinfo?.arrangement_type==="matchcamp";
+  const isMatchcamp=["single_match","matchcamp"].includes(cupinfo?.arrangement_type||"");
   const isPublished=Boolean(activeCup?.is_published);
   const visibleSetupNav=setupNav.filter(([,href])=>{
     if(isMatchcamp)return href!=="#groups"&&href!=="#playoffs";
@@ -770,7 +770,7 @@ export default function AdminWorkspace({verifiedSession=null,children=null}:{ver
         <div className="admin-cupinfo__head"><div><h2>Grunduppgifter</h2><p>Uppgifterna för den valda cupen.</p></div><span className="admin-lock">BEHÖRIG</span></div>
         {cupinfo ? <>
           <div className="admin-form-grid">
-            <label style={{gridColumn:"1 / -1"}}>Typ av arrangemang<select value={cupinfo.arrangement_type || "tournament"} onChange={e=>{const arrangement_type=e.target.value as CupInfo["arrangement_type"];setCupinfo({...cupinfo,arrangement_type});document.documentElement.dataset.arrangementType=arrangement_type || "tournament";window.dispatchEvent(new CustomEvent("cupnavi:arrangement-type",{detail:arrangement_type}));}}><option value="matchcamp">Matchcamp – matcher utan tabell eller slutspel</option><option value="tournament">Turnering – gruppspel utan slutspel</option><option value="tournament_playoffs">Turnering – gruppspel och slutspel</option><option value="custom">Eget upplägg</option></select><small>Valet anpassar guiden och tar inte bort redan sparad information.</small></label>
+            <label style={{gridColumn:"1 / -1"}}>Typ av arrangemang<select value={cupinfo.arrangement_type || "tournament"} onChange={e=>{const arrangement_type=e.target.value as CupInfo["arrangement_type"];setCupinfo({...cupinfo,arrangement_type});document.documentElement.dataset.arrangementType=arrangement_type || "tournament";window.dispatchEvent(new CustomEvent("cupnavi:arrangement-type",{detail:arrangement_type}));}}><option value="single_match">Enskild match – två lag, en match</option><option value="matchcamp">Matchcamp – matcher utan tabell eller slutspel</option><option value="tournament">Turnering – gruppspel utan slutspel</option><option value="tournament_playoffs">Turnering – gruppspel och slutspel</option><option value="custom">Eget upplägg</option></select><small>Valet anpassar guiden och tar inte bort redan sparad information.</small></label>
             <label>Cupnamn<input value={cupinfo.name} onChange={e=>setCupinfo({...cupinfo,name:e.target.value})} required /></label>
             <label>Startdatum<input type="date" value={cupinfo.start_date || ""} onChange={e=>setCupinfo({...cupinfo,start_date:e.target.value})} /></label>
             <label>Slutdatum<input type="date" value={cupinfo.end_date || ""} onChange={e=>setCupinfo({...cupinfo,end_date:e.target.value})} /></label>

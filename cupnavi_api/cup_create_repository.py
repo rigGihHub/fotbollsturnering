@@ -37,6 +37,9 @@ def create_owner_tournament(account_id: int, values: dict):
     end_date = str(values.get("end_date") or "").strip() or None
     if start_date and end_date and end_date < start_date:
         raise ValueError("Slutdatum kan inte vara före startdatum")
+    arrangement_type = str(values.get("arrangement_type") or "tournament")
+    if arrangement_type not in {"single_match", "matchcamp", "tournament", "tournament_playoffs", "custom"}:
+        raise ValueError("Ogiltig arrangemangstyp")
 
     slug = _unique_slug(name)
     with connect() as con:
@@ -47,9 +50,9 @@ def create_owner_tournament(account_id: int, values: dict):
                 raise PermissionError("Arrangörskontot finns inte")
             actor_email = str(actor_row[0])
         cursor = con.execute(
-            """INSERT INTO tournaments(name,public_slug,start_date,end_date,is_published,lifecycle_status)
-               VALUES(?,?,?,?,0,'draft')""",
-            (name, slug, start_date, end_date),
+            """INSERT INTO tournaments(name,public_slug,start_date,end_date,arrangement_type,is_published,lifecycle_status)
+               VALUES(?,?,?,?,?,0,'draft')""",
+            (name, slug, start_date, end_date, arrangement_type),
         )
         cup_id = int(cursor.lastrowid)
         if account_id != OWNER_ACCOUNT_ID:

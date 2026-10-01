@@ -28,6 +28,7 @@ def test_matchcamp_never_uses_stale_playoff_configuration():
     }) is False
     assert reporting._uses_playoffs({"arrangement_type": "tournament"}) is False
     assert reporting._uses_playoffs({"arrangement_type": "tournament_playoffs"}) is True
+    assert reporting._uses_playoffs({"arrangement_type": "single_match", "playoff_format": "Final"}) is False
 
 
 def test_reporting_accepts_drawn_matchcamp_match(monkeypatch):

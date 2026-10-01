@@ -69,7 +69,7 @@ def _match_requires_winner(match: dict, draw_ids=frozenset()) -> bool:
 
 def _uses_playoffs(tournament: dict) -> bool:
     arrangement_type = str(tournament.get("arrangement_type") or "tournament")
-    if arrangement_type in {"matchcamp", "tournament"}:
+    if arrangement_type in {"single_match", "matchcamp", "tournament"}:
         return False
     playoff_format = str(tournament.get("playoff_format") or "").strip()
     return arrangement_type == "tournament_playoffs" or playoff_format not in {"", "Inget slutspel"}
@@ -180,6 +180,11 @@ def _publication_payload(tournament_id: int):
         bracket_errors=bracket_errors,
         cupinfo_errors=(() if str(tournament.get("arena_address") or "").strip() else ("Spelplats eller adress måste anges under Cupinfo.",)),
     )
+    if tournament.get("arrangement_type") == "single_match":
+        match_count = int((one("SELECT COUNT(*) AS count FROM matches WHERE tournament_id=?", (int(tournament_id),)) or {}).get("count") or 0)
+        team_count = int((one("SELECT COUNT(*) AS count FROM teams WHERE tournament_id=?", (int(tournament_id),)) or {}).get("count") or 0)
+        if match_count != 1 or team_count != 2:
+            blockers.append("Enskild match kräver exakt två lag och en match.")
     return {
         "tournament": tournament,
         "import_context": _import_context(tournament_id),

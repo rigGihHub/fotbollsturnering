@@ -29,6 +29,7 @@ class CupCreateWrite(BaseModel):
     name: str
     start_date: str | None = None
     end_date: str | None = None
+    arrangement_type: str = "tournament"
 
 
 class InitialImportCommit(BaseModel):

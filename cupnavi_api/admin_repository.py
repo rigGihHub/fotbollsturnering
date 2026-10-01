@@ -390,7 +390,7 @@ def update_cupinfo(account_id: int, tournament_id: int, values: dict):
         clean["organizer_logos_json"] = _organizer_logos_json(values["organizer_logos"])
     if "name" in clean and not clean["name"]:
         raise ValueError("Cupnamn krävs")
-    if "arrangement_type" in clean and clean["arrangement_type"] not in {"matchcamp", "tournament", "tournament_playoffs", "custom"}:
+    if "arrangement_type" in clean and clean["arrangement_type"] not in {"single_match", "matchcamp", "tournament", "tournament_playoffs", "custom"}:
         raise ValueError("Ogiltig arrangemangstyp")
     if "show_public_weather" in clean and "show_public_weather_configured" in columns:
         clean["show_public_weather_configured"] = 1

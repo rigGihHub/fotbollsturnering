@@ -2,7 +2,7 @@ export const OPEN_PLAYOFF_REVIEW_EVENT = "cupnavi:open-playoff-review";
 export const PLAYOFF_REVIEW_REQUEST_KEY = "cupnavi_playoff_review_requested";
 
 export function includesPlayoffStep(arrangementType: string, currentStep: string) {
-  return currentStep === "playoffs" || !["matchcamp", "tournament"].includes(arrangementType);
+  return currentStep === "playoffs" || !["single_match", "matchcamp", "tournament"].includes(arrangementType);
 }
 
 export function openPlayoffReview(cupId: number) {

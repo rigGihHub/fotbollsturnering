@@ -4,7 +4,7 @@ export type Tournament = {
   organizer_logos?: Array<{name:string;url:string}>;
   arena_address?: string | null; public_information?: string | null; organizer_phone?:string|null; feedback_email?:string|null; instagram_url?:string|null; playoff_format?:string|null; bronze_match?:number|boolean|null;
   is_published?: number | boolean | null;
-  arrangement_type?: "matchcamp"|"tournament"|"tournament_playoffs"|"custom"|null;
+  arrangement_type?: "single_match"|"matchcamp"|"tournament"|"tournament_playoffs"|"custom"|null;
   results_counted?: number | boolean | null;
   show_scorer_stats?: number | boolean | null; show_assist_stats?: number | boolean | null;
   show_card_stats?: number | boolean | null; show_fairness?: number | boolean | null;

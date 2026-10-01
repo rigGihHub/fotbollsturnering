@@ -98,7 +98,7 @@ export default function AdminStepFlow() {
 
   const activeFlow=useMemo(()=>FLOW_STEPS.filter(([id])=>{
     if(id==="playoffs")return includesPlayoffStep(arrangementType,step);
-    return id!=="groups"||arrangementType!=="matchcamp";
+    return id!=="groups"||!["single_match","matchcamp"].includes(arrangementType);
   }),[arrangementType,step]);
 
   const index = useMemo(() => activeFlow.findIndex(([id]) => id === step), [activeFlow,step]);

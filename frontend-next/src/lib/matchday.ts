@@ -16,5 +16,5 @@ export function matchdayOrder(matches:Match[]):Match[] {
   return [...live,...upcoming,...finished];
 }
 export function hasPlayoffs(cup:CupSnapshot):boolean {
-  return cup.tournament.arrangement_type!=='matchcamp' && (cup.brackets.length>0 || Boolean(cup.placement_groups?.length));
+  return !['single_match','matchcamp'].includes(cup.tournament.arrangement_type||'') && (cup.brackets.length>0 || Boolean(cup.placement_groups?.length));
 }
