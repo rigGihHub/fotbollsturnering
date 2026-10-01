@@ -92,7 +92,7 @@ export default function PartnersAdmin({token,cupId}:{token:string;cupId:number})
   }
   return <section className="admin-panel cn-partners-admin" id="partners">
     <div className="admin-panel__top"><span>VERKTYG / PARTNERS</span><strong>VALFRITT</strong></div>
-    <h2>Sponsorer & erbjudanden</h2><p>Lägg till samarbeten som ska synas under Info i den publika turneringsvyn. Dolda poster visas bara här.</p>
+    <h2>Sponsorer & erbjudanden</h2><p>Lägg till samarbeten som ska synas under Erbjudanden i den publika turneringsvyn. Dolda poster visas bara här.</p>
     {error&&<p className="cn-partner-error" role="alert">{error} <button type="button" onClick={()=>void load().catch(()=>{})}>Ladda om</button></p>}
     {message&&<p role="status">{message}</p>}
     {!data?<p>Hämtar partners…</p>:<>
