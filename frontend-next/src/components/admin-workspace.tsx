@@ -677,9 +677,9 @@ export default function AdminWorkspace({verifiedSession=null,children=null}:{ver
   const canManageCup = isOwner || activeCup?.role === "owner";
   const groupedTeams = teams.filter(team=>team.group_id != null).length;
   const cupinfoReady=Boolean(cupinfo?.name&&cupinfo?.start_date);
-  const teamsReady=teams.length>0;
-  const groupsReady=teamsReady&&groups.length>0&&groupedTeams===teams.length;
   const isMatchcamp=["single_match","matchcamp"].includes(cupinfo?.arrangement_type||"");
+  const teamsReady=cupinfo?.arrangement_type==="single_match"?teams.length===2:teams.length>0;
+  const groupsReady=teamsReady&&groups.length>0&&groupedTeams===teams.length;
   const isPublished=Boolean(activeCup?.is_published);
   const visibleSetupNav=setupNav.filter(([,href])=>{
     if(isMatchcamp)return href!=="#groups"&&href!=="#playoffs";
@@ -701,7 +701,7 @@ export default function AdminWorkspace({verifiedSession=null,children=null}:{ver
       : !isMatchcamp&&!groupsReady
         ? {href:"#groups",label:"Gör gruppindelningen",detail:`${teams.length-groupedTeams} lag saknar fortfarande grupp.`}
         : scheduleStatus==="missing"
-          ? {href:"#schedule",label:"Skapa matchschemat",detail:"Det finns ännu inga matcher att publicera."}
+          ? {href:"#venues",label:"Kontrollera planer och tider",detail:"Gå sedan vidare till Regler och skapa matchschemat."}
           : scheduleStatus==="incomplete"
             ? {href:"#schedule",label:"Schemalägg alla matcher",detail:`${scheduleOverview?.unscheduled_count||0} matcher saknar tid eller plan.`}
             : scheduleStatus==="conflicts"
@@ -711,10 +711,11 @@ export default function AdminWorkspace({verifiedSession=null,children=null}:{ver
                 : {href:"#publish",label:"Kontrollera och publicera",detail:"Grunddata och schema är klara för slutkontroll."};
   const checks=[
     {name:"Cupinfo",status:cupinfoReady?"Klar":"Komplettera",href:"#cupinfo",state:cupinfoReady?"done":"next"},
-    {name:"Lag",status:teamsReady?`${teams.length} registrerade`:"Saknas",href:"#teams",state:teamsReady?"done":cupinfoReady?"next":"todo"},
+    {name:"Lag",status:cupinfo?.arrangement_type==="single_match"?`${teams.length}/2 lag`:teamsReady?`${teams.length} registrerade`:"Saknas",href:"#teams",state:teamsReady?"done":cupinfoReady?"next":"todo"},
     ...(!isMatchcamp?[{name:"Grupper",status:groups.length?`${groupedTeams}/${teams.length} lag placerade`:"Saknas",href:"#groups",state:groupsReady?"done":teamsReady?"next":"todo"}]:[]),
-    {name:"Planer & tider",status:scheduleOverview?`${scheduleOverview.pitch_count} ${scheduleOverview.pitch_count===1?"plan":"planer"}`:"Kontrolleras",href:"#venues",state:(isMatchcamp?teamsReady:groupsReady)?"done":"todo"},
-    {name:"Schema",status:scheduleStatusLabel,href:"#schedule",state:scheduleReady?"done":(isMatchcamp?teamsReady:groupsReady)?"next":"todo"},
+    {name:"Planer & tider",status:scheduleOverview?`${scheduleOverview.pitch_count} ${scheduleOverview.pitch_count===1?"plan":"planer"} · ${scheduleReady||isPublished?"schema godkänt":"granska tider"}`:"Granska tider",href:"#venues",state:scheduleReady||isPublished?"done":scheduleStatus==="missing"&&(isMatchcamp?teamsReady:groupsReady)?"next":"todo"},
+    {name:"Regler",status:scheduleReady||isPublished?"Schema godkänt":"Granska före schema",href:"#rules",state:scheduleReady||isPublished?"done":"todo"},
+    {name:"Schema",status:scheduleStatusLabel,href:"#schedule",state:scheduleReady?"done":scheduleStatus!=="missing"&&(isMatchcamp?teamsReady:groupsReady)?"next":"todo"},
     {name:"Publicering",status:isPublished?"Publicerad":scheduleReady?"Redo för slutkontroll":"Väntar på schema",href:"#publish",state:isPublished?"done":scheduleReady?"next":"todo"},
   ];
 
@@ -727,6 +728,7 @@ export default function AdminWorkspace({verifiedSession=null,children=null}:{ver
           <button className={`admin-trash-button${trashOpen?" is-open":""}`} type="button" onClick={()=>setTrashOpen(value=>!value)}>Papperskorg <span>{trashedCups.length}</span></button>
           {activeCup&&canManageCup && <button className="admin-remove-cup" type="button" disabled={deletingCup} onClick={()=>void removeCup()}>{deletingCup?"Tar bort…":"Ta bort cup"}</button>}
         </div></details>}
+        <details className="admin-account-details"><summary>Inloggat konto</summary><p>{account.email}<br/>{isOwner?"Huvudadmin":"Lokal admin"}</p></details>
       </section>
       {(canManageCup||trashedCups.length>0) && <>
         {trashOpen && <section className="admin-trash-panel" aria-label="Papperskorg">
@@ -744,7 +746,6 @@ export default function AdminWorkspace({verifiedSession=null,children=null}:{ver
         <a aria-current={activeStep==="partners"?"page":undefined} href="#partners">Sponsorer & erbjudanden</a>
         <details open={toolNav.some(([,href])=>href===`#${activeStep}`)}><summary>Verktyg & cupdag</summary>{toolNav.map(([item,href])=><a key={item} aria-current={href===`#${activeStep}`?"page":undefined} href={href}>{item}</a>)}</details>
       </nav>
-      {activeCup && <a className="admin-public-link admin-reporter-link" href={`/reporter?cup=${encodeURIComponent(activeCup.public_slug || String(activeCup.id))}`} target="_blank" rel="noreferrer">Öppna rapportering ↗</a>}
       <button className="admin-public-link" type="button" onClick={logout}>Logga ut</button>
     </aside>
 
@@ -762,7 +763,6 @@ export default function AdminWorkspace({verifiedSession=null,children=null}:{ver
       {(error||message) && <section className={`cn-notice${error?" cn-notice--error":""}`} role={error?"alert":"status"}><strong>{error?"Kunde inte slutföra":"Sparat"}</strong><p>{error||message}</p></section>}
       <section className="admin-dashboard-grid">
         <article className="admin-panel admin-panel--status"><div className="admin-panel__top"><span>STATUS</span><strong>{activeCup?.is_published?"LIVE":"ARBETE PÅGÅR"}</strong></div><h2>{activeCup?.is_published?"Cupen är publicerad":"Vägen till publicering"}</h2><div className="admin-checks">{checks.map(check=><a href={check.href} className={`is-${check.state}`} key={check.name}><span>{check.state==="done"?"✓":check.state==="next"?"→":"○"}</span><strong>{check.name}</strong><small>{check.status}</small></a>)}</div></article>
-        <article className="admin-panel admin-panel--codes"><div className="admin-panel__top"><span>KONTO</span><strong>VERIFIERAT</strong></div><h2>Åtkomst</h2><p>{isOwner ? "Ägarkonto med åtkomst till alla cuper." : "Arrangörskonto med åtkomst till tilldelade cuper."}</p><div className="admin-code-placeholder">Konto <b>{account.email}</b></div><div className="admin-code-placeholder">Roll <b>{isOwner ? "Huvudadmin" : "Lokal admin"}</b></div></article>
       </section>
 
       {activeStep==="cupinfo" && <form className="admin-panel admin-cupinfo" id="cupinfo" onSubmit={saveCupInfo}>

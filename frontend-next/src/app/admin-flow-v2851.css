@@ -1,0 +1,32 @@
+/* Keep the admin overview focused on the next task and the preparation checklist. */
+.cn-admin .admin-dashboard-grid {
+  grid-template-columns: minmax(0, 1fr) !important;
+  max-width: 100%;
+}
+.cn-admin .admin-panel--status {
+  text-align: left !important;
+}
+.cn-admin .admin-panel--status .admin-checks {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.cn-admin .admin-account-details {
+  margin-top: 10px;
+  border-top: 1px solid rgba(16, 38, 48, .14);
+  color: #52636c;
+  font-size: 13px;
+}
+.cn-admin .admin-account-details summary {
+  min-height: 42px;
+  align-content: center;
+  cursor: pointer;
+}
+.cn-admin .admin-account-details p {
+  margin: 0 0 6px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+@media (max-width: 760px) {
+  .cn-admin .admin-panel--status .admin-checks {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

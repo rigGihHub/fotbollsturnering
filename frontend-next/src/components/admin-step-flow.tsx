@@ -24,7 +24,7 @@ const TOOL_STEPS = [
 ] as const;
 
 const STEP_GUIDE:Record<string,{goal:string;action:string;done:string}> = {
-  overview:{goal:"Se vad som redan är klart och var du bör börja.",action:"Öppna det rekommenderade nästa steget på översikten.",done:"Du vet vilken uppgift som står på tur."},
+  overview:{goal:"Se vad som redan är klart och var du bör börja.",action:"Fortsätt med nästa uppgift på översikten. Den anpassas efter cupens innehåll.",done:"Du vet vilken uppgift som står på tur."},
   cupinfo:{goal:"Säkerställ att besökare får rätt grundinformation.",action:"Kontrollera namn, datum, arrangör, plats och kontaktuppgifter. Spara sedan.",done:"Uppgifterna är korrekta och sparade."},
   teams:{goal:"Få in rätt lag och tydliga matchställ.",action:"Kontrollera lagnamn och klass. Sök sedan matchställ eller klubbmärke.",done:"Alla deltagande lag finns med och deras ställ är granskade."},
   groups:{goal:"Placera varje lag i rätt grupp.",action:"Skapa grupper och välj grupp för alla lag som ska spela gruppspel.",done:"Inget lag som ska gruppspela är ogrupperat."},
@@ -119,7 +119,7 @@ export default function AdminStepFlow() {
   return <section className="cn-step-guide" aria-label="Cupens arbetsflöde">
     <nav className="cn-phases" aria-label="Arbetsfaser">{adminPhases.map(phase=><button key={phase.id} type="button" aria-current={adminPhase(step)===phase.id?"step":undefined} onClick={()=>select(phase.step)}>{phase.label}</button>)}</nav>
     <div className="cn-step-guide__body"><div><strong>{tool?.[1] || activeFlow[index]?.[1] || "Översikt"}</strong><p>{guideAction}</p></div>
-    <div className="cn-step-guide__actions">{tool?<button type="button" onClick={()=>select("overview")}>Till översikten</button>:cupPublished&&step==="overview"?<button className="cn-primary" type="button" onClick={()=>select("reporting")}>Öppna rapportering →</button>:<>{previous&&<button type="button" onClick={()=>select(previous[0])}>Föregående</button>}{next&&<button className="cn-primary" type="button" onClick={()=>select(next[0])}>Nästa: {next[1]} →</button>}</>}</div></div>
+    <div className="cn-step-guide__actions">{tool?<button type="button" onClick={()=>select("overview")}>Till översikten</button>:step==="overview"?null:<>{previous&&<button type="button" onClick={()=>select(previous[0])}>Föregående</button>}{next&&<button className="cn-primary" type="button" onClick={()=>select(next[0])}>Nästa: {next[1]} →</button>}</>}</div></div>
     {!(cupPublished&&step==="overview")&&<details><summary>Vad behöver vara klart?</summary><p>{guide.done}</p></details>}
   </section>;
 }

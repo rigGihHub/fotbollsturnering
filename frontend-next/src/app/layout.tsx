@@ -40,6 +40,7 @@ import "./organizer-banner.css";
 import "./admin-mobile-focus-v2822.css";
 import "./admin-top-actions.css";
 import "./partners.css";
+import "./admin-flow-v2851.css";
 import { PwaBoot } from "@/components/PwaBoot";
 import { HeaderShareAction } from "@/components/HeaderShareAction";
 import { SiteFooter } from "@/components/SiteFooter";
