@@ -113,7 +113,7 @@ def test_android_and_iphone_keep_reporter_result_offline(next_server):
             page.get_by_role("spinbutton", name="Mål för Test United", exact=True).fill("1")
             page.get_by_role("button", name="Spara resultat").click()
             assert page.locator(".reporter-network").get_by_text("Offline", exact=True).is_visible()
-            assert page.get_by_text("Väntar på nät", exact=True).is_visible()
+            page.get_by_text("Väntar på nät", exact=True).wait_for()
             queued = page.evaluate(
                 "() => JSON.parse(localStorage.getItem('cupnavi_reporter_queue_v1') || '[]')"
             )
@@ -122,7 +122,7 @@ def test_android_and_iphone_keep_reporter_result_offline(next_server):
 
             page.reload(wait_until="domcontentloaded")
             page.get_by_text("Parity FC", exact=True).first.wait_for(timeout=10_000)
-            assert page.get_by_text("Väntar på nät", exact=True).is_visible()
+            page.get_by_text("Väntar på nät", exact=True).wait_for()
             context.close()
         browser.close()
 

@@ -35,6 +35,8 @@ jobs:
         run: python scripts/check_pwa_installability.py
       - name: Check API health contract
         run: python scripts/check_health_contract.py
+        env:
+          CUPNAVI_API_SQLITE_PATH: /tmp/cupnavi-parity.db
       - name: Verify canonical version sync
         run: |
           python - <<'PY'
