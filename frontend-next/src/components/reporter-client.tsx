@@ -132,7 +132,7 @@ export default function ReporterClient(){
  }
  const pendingResults=useMemo(()=>new Set(readReporterQueue().filter(isResultMutation).filter(item=>item.cupId===cupInfo?.id&&item.state!=="conflict").map(item=>item.matchId)),[cupInfo?.id,pending,matches]);
  const pendingStatuses=useMemo(()=>new Set(readReporterQueue().filter(isStatusMutation).filter(item=>item.cupId===cupInfo?.id&&item.state!=="conflict").map(item=>item.matchId)),[cupInfo?.id,pending,matches]);
- const listedMatches=matches.filter(match=>(includeFinished||lifecycle(match)!=="finished")&&`${match.home_team} ${match.away_team}`.toLocaleLowerCase("sv").includes(matchQuery.toLocaleLowerCase("sv")));
+ const listedMatches=matches.filter(match=>(includeFinished||lifecycle(match)!=="finished"||pendingResults.has(match.id))&&`${match.home_team} ${match.away_team}`.toLocaleLowerCase("sv").includes(matchQuery.toLocaleLowerCase("sv")));
  const focusedMatch=matches.find(match=>match.id===focusMatchId)||null;
  const retryConflicts=()=>{if(!cupInfo)return;retryReporterConflicts(cupInfo.id);setError("");setMessage("Kontrollerar ändringarna mot servern igen.");window.dispatchEvent(new CustomEvent(SYNC_REQUEST_EVENT));void flushResults()};
  const useServerVersion=()=>{if(!cupInfo||!token||!window.confirm("Ta bort lokala konfliktändringar och hämta serverns aktuella version?"))return;discardReporterConflicts(cupInfo.id);window.location.reload()};
