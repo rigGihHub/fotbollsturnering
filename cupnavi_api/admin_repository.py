@@ -145,7 +145,7 @@ def _ensure_cupinfo_columns() -> set[str]:
 
     Older CupNavi databases can predate the descriptive Cupinfo fields. The API
     must not crash merely because the database was created before those columns
-    existed. Add only the known optional TEXT columns and leave core identity,
+    existed. Add only the known optional columns and leave core identity,
     dates and publishing columns to the normal schema migrations.
     """
     columns = _table_columns("tournaments")
@@ -162,6 +162,8 @@ def _ensure_cupinfo_columns() -> set[str]:
                 con.execute("ALTER TABLE tournaments ADD COLUMN arrangement_type TEXT NOT NULL DEFAULT 'tournament'")
             else:
                 con.execute(f"ALTER TABLE tournaments ADD COLUMN {field} TEXT")
+        if "organizer_logos_json" not in columns:
+            con.execute("ALTER TABLE tournaments ADD COLUMN organizer_logos_json TEXT NOT NULL DEFAULT '[]'")
         if "admin_revision" not in columns:
             con.execute("ALTER TABLE tournaments ADD COLUMN admin_revision INTEGER NOT NULL DEFAULT 1")
         if "created_at" not in columns:

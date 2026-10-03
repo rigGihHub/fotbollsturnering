@@ -102,7 +102,7 @@ def test_android_and_iphone_keep_reporter_result_offline(next_server):
             page.route("https://cupnavi-api.onrender.com/api/reporter/**", mock_reporter_api)
             page.goto(f"{BASE}/reporter?cup=parity-cup", wait_until="networkidle")
             page.get_by_text("Parity FC", exact=True).first.wait_for()
-            assert page.locator(".reporter-network").get_by_text("Online", exact=True).is_visible()
+            assert page.locator(".reporter-network.is-online").get_by_text("Alla ändringar är synkroniserade").is_visible()
 
             page.evaluate("() => navigator.serviceWorker.ready.then(() => true)")
             page.reload(wait_until="networkidle")
