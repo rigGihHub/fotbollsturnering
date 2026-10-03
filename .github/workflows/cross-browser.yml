@@ -27,4 +27,4 @@ jobs:
           npm ci --prefix frontend-next
           npm run build --prefix frontend-next
       - name: Run Next.js browser matrix
-        run: pytest -q e2e/test_cross_browser_matrix.py
+        run: pytest -q e2e/test_cross_browser_matrix.py e2e/test_mobile_pwa.py

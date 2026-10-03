@@ -132,3 +132,4 @@ def test_browser_workflows_target_next_not_legacy_streamlit_or_public_pwa():
     assert "public_pwa" not in mobile
     assert "test_streamlit_browser_smoke.py" not in matrix
     assert "npm run build --prefix frontend-next" in matrix
+    assert "e2e/test_mobile_pwa.py" in matrix
