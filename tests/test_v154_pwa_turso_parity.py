@@ -17,6 +17,22 @@ def test_backend_name_falls_back_to_sqlite(monkeypatch):
     monkeypatch.delenv("TURSO_AUTH_TOKEN",raising=False)
     assert repository.backend_name()=="sqlite"
 
+def test_partial_turso_configuration_fails_closed(monkeypatch):
+    import pytest
+    monkeypatch.setenv("TURSO_DATABASE_URL","libsql://example.invalid")
+    monkeypatch.delenv("TURSO_AUTH_TOKEN",raising=False)
+    with pytest.raises(RuntimeError,match="Incomplete Turso configuration"):
+        repository.backend_name()
+
+def test_database_probe_rejects_empty_sqlite_file(monkeypatch,tmp_path):
+    monkeypatch.delenv("TURSO_DATABASE_URL",raising=False)
+    monkeypatch.delenv("TURSO_AUTH_TOKEN",raising=False)
+    monkeypatch.setenv("CUPNAVI_API_SQLITE_PATH",str(tmp_path/"empty.db"))
+    assert repository.database_probe()["ok"] is False
+    with repository.connect() as connection:
+        connection.execute("CREATE TABLE tournaments(id INTEGER PRIMARY KEY)")
+    assert repository.database_probe()["ok"] is True
+
 def test_public_tournament_is_allowlisted_not_select_star_payload():
     row={"id":1,"name":"Cup","is_published":1,"admin_code":"SECRET","feedback_email":"public@example.com"}
     projected=repository._public_tournament_projection(row)
@@ -39,5 +55,5 @@ def test_pwa_uses_existing_brand_asset_when_available():
 
 def test_api_health_reports_backend_without_secrets():
     main=(ROOT/"cupnavi_api/main.py").read_text()
-    assert '"database_backend":backend_name()' in main
+    assert '"database_backend":backend' in main
     assert "TURSO_AUTH_TOKEN" not in main

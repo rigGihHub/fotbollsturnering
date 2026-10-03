@@ -676,7 +676,7 @@ export default function AdminWorkspace({verifiedSession=null,children=null}:{ver
   const isOwner = account.role === "owner" || account.is_owner === true;
   const canManageCup = isOwner || activeCup?.role === "owner";
   const groupedTeams = teams.filter(team=>team.group_id != null).length;
-  const cupinfoReady=Boolean(cupinfo?.name&&cupinfo?.start_date);
+  const cupinfoReady=Boolean(cupinfo?.name?.trim()&&cupinfo?.start_date&&cupinfo?.organizer?.trim()&&(cupinfo?.arena_address?.trim()||(scheduleOverview?.pitch_count||0)>0)&&(cupinfo?.organizer_phone?.trim()||cupinfo?.feedback_email?.trim()));
   const isMatchcamp=["single_match","matchcamp"].includes(cupinfo?.arrangement_type||"");
   const teamsReady=cupinfo?.arrangement_type==="single_match"?teams.length===2:teams.length>0;
   const groupsReady=teamsReady&&groups.length>0&&groupedTeams===teams.length;
@@ -695,7 +695,7 @@ export default function AdminWorkspace({verifiedSession=null,children=null}:{ver
       : scheduleStatus==="conflicts"?`${scheduleOverview?.conflict_analysis.error_count||0} blockerande fel`
         : scheduleStatus==="stale"?"Behöver godkännas":"Aktuellt och godkänt";
   const nextTask=!cupinfoReady
-    ? {href:"#cupinfo",label:"Komplettera Cupinfo",detail:"Kontrollera cupnamn och datum."}
+    ? {href:"#cupinfo",label:"Komplettera Cupinfo",detail:"Kontrollera namn, datum, arrangör, spelplats och kontaktuppgift."}
     : !teamsReady
       ? {href:"#teams",label:"Lägg till lagen",detail:"Registrera lagen och deras matchställ."}
       : !isMatchcamp&&!groupsReady
@@ -713,8 +713,8 @@ export default function AdminWorkspace({verifiedSession=null,children=null}:{ver
     {name:"Cupinfo",status:cupinfoReady?"Klar":"Komplettera",href:"#cupinfo",state:cupinfoReady?"done":"next"},
     {name:"Lag",status:cupinfo?.arrangement_type==="single_match"?`${teams.length}/2 lag`:teamsReady?`${teams.length} registrerade`:"Saknas",href:"#teams",state:teamsReady?"done":cupinfoReady?"next":"todo"},
     ...(!isMatchcamp?[{name:"Grupper",status:groups.length?`${groupedTeams}/${teams.length} lag placerade`:"Saknas",href:"#groups",state:groupsReady?"done":teamsReady?"next":"todo"}]:[]),
-    {name:"Planer & tider",status:scheduleOverview?`${scheduleOverview.pitch_count} ${scheduleOverview.pitch_count===1?"plan":"planer"} · ${scheduleReady||isPublished?"schema godkänt":"granska tider"}`:"Granska tider",href:"#venues",state:scheduleReady||isPublished?"done":scheduleStatus==="missing"&&(isMatchcamp?teamsReady:groupsReady)?"next":"todo"},
-    {name:"Regler",status:scheduleReady||isPublished?"Schema godkänt":"Granska före schema",href:"#rules",state:scheduleReady||isPublished?"done":"todo"},
+    {name:"Planer & tider",status:scheduleOverview?`${scheduleOverview.pitch_count} ${scheduleOverview.pitch_count===1?"plan":"planer"} · ${scheduleReady?"tider schemalagda":"granska tider"}`:"Granska tider",href:"#venues",state:scheduleOverview?.pitch_count&&scheduleReady?"done":scheduleStatus==="missing"&&(isMatchcamp?teamsReady:groupsReady)?"next":"todo"},
+    {name:"Regler",status:"Granska reglerna",href:"#rules",state:"todo"},
     {name:"Schema",status:scheduleStatusLabel,href:"#schedule",state:scheduleReady?"done":scheduleStatus!=="missing"&&(isMatchcamp?teamsReady:groupsReady)?"next":"todo"},
     {name:"Publicering",status:isPublished?"Publicerad":scheduleReady?"Redo för slutkontroll":"Väntar på schema",href:"#publish",state:isPublished?"done":scheduleReady?"next":"todo"},
   ];
@@ -778,7 +778,7 @@ export default function AdminWorkspace({verifiedSession=null,children=null}:{ver
             <label>Anläggning / adress<input value={cupinfo.arena_address || ""} onChange={e=>setCupinfo({...cupinfo,arena_address:e.target.value})} /></label>
             <label>Telefon<input value={cupinfo.organizer_phone || ""} onChange={e=>setCupinfo({...cupinfo,organizer_phone:e.target.value})} /></label>
             <label>Kontakt-e-post<input type="email" value={cupinfo.feedback_email || ""} onChange={e=>setCupinfo({...cupinfo,feedback_email:e.target.value})} /></label>
-            <label style={{gridColumn:"1 / -1"}}>Publik information<textarea rows={5} value={cupinfo.public_information || ""} onChange={e=>setCupinfo({...cupinfo,public_information:e.target.value})} /></label><fieldset className="admin-public-options" style={{gridColumn:"1 / -1"}}><legend>Publik matchvy</legend><label><input type="checkbox" checked={publicWeatherEnabled(cupinfo)} onChange={e=>setCupinfo({...cupinfo,show_public_weather:e.target.checked,show_public_weather_configured:true})}/> Visa väder</label><label>Matchställ<select value={cupinfo.show_public_kits===false||cupinfo.show_public_kits===0?"none":cupinfo.show_public_away_kits===false||cupinfo.show_public_away_kits===0?"home":"both"} onChange={e=>{const mode=e.target.value;setCupinfo({...cupinfo,show_public_kits:mode!=="none",show_public_away_kits:mode==="both"});}}><option value="none">Inga matchställ</option><option value="home">Endast hemmaställ</option><option value="both">Hemma- och bortaställ</option></select></label><label><input type="checkbox" checked={cupinfo.show_public_logos!==false&&cupinfo.show_public_logos!==0} onChange={e=>setCupinfo({...cupinfo,show_public_logos:e.target.checked})}/> Visa klubbmärken</label><label><input type="checkbox" checked={cupinfo.show_public_goal_minutes===true||cupinfo.show_public_goal_minutes===1} onChange={e=>setCupinfo({...cupinfo,show_public_goal_minutes:e.target.checked})}/> Visa målminuter i turneringsvyn</label><small>Målminuter visas bara för mål som rapporteras med matchklockan. Tidigare resultat saknar minuter.</small></fieldset>
+            <label style={{gridColumn:"1 / -1"}}>Publik information<textarea rows={5} value={cupinfo.public_information || ""} onChange={e=>setCupinfo({...cupinfo,public_information:e.target.value})} /></label><fieldset className="admin-public-options" style={{gridColumn:"1 / -1"}}><legend>Publik matchvy</legend><label><input type="checkbox" checked={publicWeatherEnabled(cupinfo)} onChange={e=>setCupinfo({...cupinfo,show_public_weather:e.target.checked,show_public_weather_configured:true})}/> Visa väder</label><a href="#teams">Matchställ och klubbmärken ställs in under Lag →</a><label><input type="checkbox" checked={cupinfo.show_public_goal_minutes===true||cupinfo.show_public_goal_minutes===1} onChange={e=>setCupinfo({...cupinfo,show_public_goal_minutes:e.target.checked})}/> Visa målminuter i turneringsvyn</label><small>Målminuter visas bara för mål som rapporteras med matchklockan. Tidigare resultat saknar minuter.</small></fieldset>
           </div>
           <fieldset className="admin-organizer-logos"><legend>Arrangörslogotyper i bannern</legend>
             <p>Visa upp till tre klubbmärken överst på den publika cupsidan. Välj ett lag, ladda upp en bild eller ange en bildadress.</p>

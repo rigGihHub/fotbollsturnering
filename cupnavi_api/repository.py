@@ -19,15 +19,21 @@ PUBLIC_TOURNAMENT_FIELDS = (
 )
 
 def backend_name() -> str:
-    return "turso" if os.getenv("TURSO_DATABASE_URL") and os.getenv("TURSO_AUTH_TOKEN") else "sqlite"
+    url = bool(os.getenv("TURSO_DATABASE_URL"))
+    token = bool(os.getenv("TURSO_AUTH_TOKEN"))
+    if url != token:
+        raise RuntimeError("Incomplete Turso configuration: both URL and auth token are required.")
+    return "turso" if url else "sqlite"
 
 def database_probe():
     """Small read-only probe used by /health; does not expose secrets or schema content."""
     import time
     started=time.perf_counter()
     try:
-        row=one("SELECT 1 AS ok")
-        ok=bool(row and int(row.get("ok",0))==1)
+        # Probe the application schema as well as connectivity. A new empty
+        # SQLite file must never look like a healthy production database.
+        row=one("SELECT name FROM sqlite_master WHERE type='table' AND name='tournaments'")
+        ok=bool(row and row.get("name")=="tournaments")
         error=None
     except Exception as exc:
         ok=False

@@ -42,7 +42,8 @@ def test_reporter_controls_are_large_and_network_state_is_visible():
     result_css = read("frontend-next/src/app/reporter-v2665.css")
     event_css = read("frontend-next/src/app/reporter-flow-v2667.css")
     assert "reporter-network" in reporter
-    assert '"Alla ändringar är synkroniserade":"Inmatningar sparas på mobilen"' in reporter
+    assert '"Alla ändringar är synkroniserade":"Inmatningar sparas på den här enheten"' in reporter
+    assert "Osynkade ändringar finns bara här." in reporter
     assert 'conflicts>0?"Åtgärd krävs"' in reporter
     assert ".reporter-score input{height:64px" in result_css
     assert ".reporter-score button{min-height:62px" in result_css
@@ -72,9 +73,8 @@ def test_public_first_paint_defers_nonessential_work_and_long_lists():
 
 def test_public_mobile_staff_links_cannot_cover_cup_name():
     css = read("frontend-next/src/app/design-system.css")
-    mobile = css.split("@media(max-width:760px)", 1)[1]
-    assert ".cn-public .cn-staff-nav {position:static" in mobile
-    assert "position:absolute;z-index:3;top:13px;right:14px" not in mobile
+    assert ".cn-public .cn-cup-cover__footer .cn-staff-nav {justify-content:flex-start" in css
+    assert "position:absolute;z-index:3;top:13px;right:14px" not in css
 
 
 def test_public_tables_and_placement_groups_avoid_redundant_explanations():

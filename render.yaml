@@ -7,12 +7,13 @@ services:
     name: cupnavi-web
     runtime: node
     region: frankfurt
-    plan: free
+    plan: starter
     repo: https://github.com/rigGihHub/fotbollsturnering
     branch: main
     rootDir: frontend-next
     buildCommand: npm ci && npm run build
     startCommand: HOSTNAME=0.0.0.0 PORT=$PORT node .next/standalone/server.js
+    healthCheckPath: /
     autoDeployTrigger: checksPass
     buildFilter:
       paths:
@@ -25,11 +26,12 @@ services:
     name: cupnavi-api
     runtime: python
     region: frankfurt
-    plan: free
+    plan: starter
     repo: https://github.com/rigGihHub/fotbollsturnering
     branch: main
     buildCommand: pip install -r requirements.txt
     startCommand: uvicorn cupnavi_api.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
     autoDeployTrigger: checksPass
     buildFilter:
       paths:

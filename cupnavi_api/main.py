@@ -244,19 +244,27 @@ register_partner_routes(app, _admin_identity)
 
 @app.get("/")
 @app.head("/")
-def root_health():
-    return {"ok": True, "service": "cupnavi-api", "version": APP_VERSION}
+def root_health(response:Response):
+    probe=database_probe()
+    if not probe["ok"]:
+        response.status_code=503
+    return {"ok":bool(probe["ok"]), "service":"cupnavi-api", "version":APP_VERSION}
 
 
 @app.get("/health")
 def health(response:Response):
     probe=database_probe()
+    try:
+        backend=backend_name()
+    except RuntimeError:
+        backend="misconfigured"
+        response.status_code=503
     if not probe["ok"]:
         response.status_code=503
     return {
         "ok":bool(probe["ok"]),
         "version":APP_VERSION,
-        "database_backend":backend_name(),
+        "database_backend":backend,
         "database_ok":bool(probe["ok"]),
         "database_latency_ms":probe["latency_ms"],
         "database_error":probe["error"],
