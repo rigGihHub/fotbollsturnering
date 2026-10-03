@@ -5,10 +5,10 @@ PITCH = (ROOT / "frontend-next" / "src" / "components" / "pitch-window-import-re
 PLAYOFF = (ROOT / "frontend-next" / "src" / "components" / "playoff-import-review.tsx").read_text(encoding="utf-8")
 
 
-def test_pitch_window_review_auto_opens_once_per_session():
-    assert "cupnavi_pitch_window_review_seen_" in PITCH
-    assert 'sessionStorage.setItem(key,"1")' in PITCH
+def test_pitch_window_review_requires_explicit_confirmation():
+    assert "pitch-review-callout" in PITCH
     assert "setOpen(true)" in PITCH
+    assert "cupnavi_pitch_window_review_seen_" not in PITCH
 
 
 def test_pitch_review_advances_import_chain_after_commit():

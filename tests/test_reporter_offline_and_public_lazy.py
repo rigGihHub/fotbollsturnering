@@ -101,13 +101,15 @@ def test_admin_can_reset_a_saved_result_without_expanding_reporter_permissions()
 def test_public_live_polling_backs_off_after_rate_limits_and_server_errors():
     api = read("frontend-next/src/lib/api.ts")
     public_view = read("frontend-next/src/components/PublicCupView.tsx")
+    policy = read("frontend-next/src/lib/public-refresh.ts")
     assert "retryAfterMs(response)" in api
     assert "public readonly retryAfterMs?:number" in api
-    assert "MIN_REFRESH_BACKOFF_MS=30000" in public_view
-    assert "MAX_REFRESH_BACKOFF_MS=120000" in public_view
+    assert "MIN_REFRESH_BACKOFF_MS = 30_000" in policy
+    assert "MAX_REFRESH_BACKOFF_MS = 120_000" in policy
     assert "nextAllowedRefreshRef.current" in public_view
-    assert "publicRefreshBackoffMs.current?publicRefreshBackoffMs.current*2:MIN_REFRESH_BACKOFF_MS" in public_view
-    assert "return cooldownMs?Math.max(cooldownMs,baseDelay):baseDelay" in public_view
+    assert "nextPublicRefreshBackoff(publicRefreshBackoffMs.current,retryAfter)" in public_view
+    assert "nextPublicRefreshDelay(cupRef.current.matches,nextAllowedRefreshRef.current" in public_view
+    assert "npm run test:public-refresh --prefix frontend-next" in read(".github/workflows/cross-browser.yml")
 
 
 def test_release_version_is_synchronized_and_ci_uses_maintained_gate():

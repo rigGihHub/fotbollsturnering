@@ -1,11 +1,14 @@
 from __future__ import annotations
 
 from pathlib import Path
+import base64
+import json
 import os
 import shutil
 import subprocess
 import time
 import urllib.request
+from datetime import datetime, timezone
 
 import pytest
 
@@ -17,6 +20,13 @@ ROOT = Path(__file__).resolve().parents[1]
 FRONTEND = ROOT / "frontend-next"
 PORT = int(os.getenv("CUPNAVI_E2E_WEB_PORT", "8872"))
 BASE = f"http://127.0.0.1:{PORT}"
+
+
+def reporter_test_token() -> str:
+    now = datetime.now(timezone.utc)
+    payload = {"exp": int(now.timestamp()) + 3600, "rev": now.isoformat()}
+    encoded = base64.urlsafe_b64encode(json.dumps(payload).encode()).decode().rstrip("=")
+    return f"{encoded}.test-signature"
 
 
 def wait_url(url: str, timeout: int = 30) -> None:
@@ -77,7 +87,7 @@ def mock_reporter_api(route: Route) -> None:
     elif url.endswith("/api/reporter/reporting/events"):
         route.fulfill(json={"matches": []})
     elif url.endswith("/api/reporter/reporting"):
-        route.fulfill(json={"matches": [MATCH]})
+        route.fulfill(json={"cup": {"id": 1, "name": "Parity Cup", "public_slug": "parity-cup"}, "matches": [MATCH]})
     else:
         route.fulfill(status=404, json={"detail": "not mocked"})
 
@@ -87,9 +97,7 @@ def test_android_and_iphone_keep_reporter_result_offline(next_server):
         browser = playwright.chromium.launch(headless=True)
         for device_name in ("Pixel 7", "iPhone 14"):
             context = browser.new_context(**playwright.devices[device_name], service_workers="allow")
-            context.add_init_script(
-                "localStorage.setItem('cupnavi_reporter_session_v1','e2e-token')"
-            )
+            context.add_init_script(f"localStorage.setItem('cupnavi_reporter_session_v1',{json.dumps(reporter_test_token())})")
             page = context.new_page()
             page.route("https://cupnavi-api.onrender.com/api/reporter/**", mock_reporter_api)
             page.goto(f"{BASE}/reporter?cup=parity-cup", wait_until="networkidle")
@@ -123,7 +131,7 @@ def test_reporter_does_not_claim_result_saved_when_device_storage_fails(next_ser
     with sync_playwright() as playwright:
         browser = playwright.chromium.launch(headless=True)
         context = browser.new_context(**playwright.devices["Pixel 7"])
-        context.add_init_script("localStorage.setItem('cupnavi_reporter_session_v1','e2e-token')")
+        context.add_init_script(f"localStorage.setItem('cupnavi_reporter_session_v1',{json.dumps(reporter_test_token())})")
         page = context.new_page()
         page.route("https://cupnavi-api.onrender.com/api/reporter/**", mock_reporter_api)
         page.goto(f"{BASE}/reporter?cup=parity-cup", wait_until="networkidle")

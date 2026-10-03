@@ -59,7 +59,8 @@ const adminStyle = fs.readFileSync(path.join(__dirname, "../src/app/admin-home-v
 const pitchReviewSource = fs.readFileSync(path.join(__dirname, "../src/components/pitch-window-import-review.tsx"), "utf8");
 assert.match(workspaceSource, /importWelcome&&!isPublished&&<section className="admin-import-welcome"/);
 assert.match(workspaceSource, /cupnavi:admin-cup-publication/);
-assert.match(stepFlowSource, /cupPublished&&step==="overview"\?<button className="cn-primary"[^>]*onClick=\{\(\)=>select\("reporting"\)\}/);
+assert.match(stepFlowSource, /Cupen är publicerad\. Följ matcherna och rapportera resultat under cupdagen\./);
+assert.match(stepFlowSource, /step==="overview"\?null:/);
 assert.match(stepFlowSource, /cupPublished&&step==="publish"/);
 assert.match(operationsSource, /activeCup\?\.is_published\?"Cupen är live\./);
 assert.match(publicationSource, /isLive\?"Genomför cupen":"Publicera cupen"/);

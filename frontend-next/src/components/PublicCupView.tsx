@@ -14,12 +14,11 @@ import { TextTvStandings } from "./TextTvStandings";
 import { WeatherShareCard } from "./WeatherShareCard";
 import { matchStatus } from "@/lib/format";
 import { placementStandingsPresentation } from "@/lib/placement-standings";
+import { MIN_REFRESH_BACKOFF_MS, nextPublicRefreshBackoff, nextPublicRefreshDelay } from "@/lib/public-refresh";
 
 type StandingsGroup={group:{id:number;name:string};rows:StandingRow[]};
 type Tab="matches"|"table"|"stats"|"playoff"|"info"|"offers";
 type MatchView="upcoming"|"results"|"all";
-const MIN_REFRESH_BACKOFF_MS=30000;
-const MAX_REFRESH_BACKOFF_MS=120000;
 const normalizeCup=(snapshot:CupSnapshot):CupSnapshot=>({
   tournament:{...(snapshot?.tournament||{}),id:Number(snapshot?.tournament?.id)||0,name:snapshot?.tournament?.name?.trim()||"Ny cup"},
   placement_groups:Array.isArray(snapshot?.placement_groups)?snapshot.placement_groups:[],
@@ -96,7 +95,56 @@ export function PublicCupView({ publicKey, initialCup, initialStandings, reporte
     getStandings(publicKey).then(data=>{if(!cancelled){setStandings(Array.isArray(data.groups)?data.groups:[]);setStandingsLoaded(true)}}).catch(()=>{if(!cancelled)setDataError("Tabellerna kunde inte uppdateras. Försök igen.")}).finally(()=>{if(!cancelled)setStandingsLoading(false)});
     return()=>{cancelled=true};
   },[publicKey,showTables,tab,dataRetry]);
-  useEffect(()=>{let busy=false;const refresh=async()=>{if(busy||document.visibilityState!=="visible"||Date.now()<nextAllowedRefreshRef.current)return;busy=true;try{const freshCup=await getCup(publicKey);publicRefreshBackoffMs.current=0;nextAllowedRefreshRef.current=0;missingRefreshesRef.current=0;setUnavailable(false);setRefreshProblem(false);setCup(normalizeCup(freshCup));if(tab==="table"&&showTables){try{const freshStandings=await getStandings(publicKey);setStandings(Array.isArray(freshStandings.groups)?freshStandings.groups:[]);setStandingsLoaded(true)}catch{}}if(tab==="stats"&&statsEnabled){try{setStatistics(await getStatistics(publicKey))}catch{}}}catch(error){if(error instanceof CupNaviApiError&&error.status===404){missingRefreshesRef.current+=1;setUnavailable(missingRefreshesRef.current>=3);setRefreshProblem(true);publicRefreshBackoffMs.current=MIN_REFRESH_BACKOFF_MS;nextAllowedRefreshRef.current=Date.now()+MIN_REFRESH_BACKOFF_MS}else{missingRefreshesRef.current=0;const retryAfter=error instanceof CupNaviApiError?error.retryAfterMs:undefined;publicRefreshBackoffMs.current=Math.min(MAX_REFRESH_BACKOFF_MS,Math.max(retryAfter||0,publicRefreshBackoffMs.current?publicRefreshBackoffMs.current*2:MIN_REFRESH_BACKOFF_MS));nextAllowedRefreshRef.current=Date.now()+publicRefreshBackoffMs.current;setRefreshProblem(true)}}finally{busy=false}};const nextDelay=()=>{const baseDelay=cupRef.current.matches.some(match=>["live","halftime"].includes(match.match_status||""))?15000:60000;const cooldownMs=Math.max(0,nextAllowedRefreshRef.current-Date.now());return cooldownMs?Math.max(cooldownMs,baseDelay):baseDelay};let timer=window.setTimeout(function tick(){void refresh().finally(()=>{timer=window.setTimeout(tick,nextDelay())})},nextDelay());const onVisibility=()=>{if(document.visibilityState==="visible")void refresh()};document.addEventListener("visibilitychange",onVisibility);return()=>{window.clearTimeout(timer);document.removeEventListener("visibilitychange",onVisibility)}},[publicKey,showTables,tab,statsEnabled]);
+  useEffect(()=>{
+    let busy=false;
+    let cancelled=false;
+    const refresh=async()=>{
+      if(busy||document.visibilityState!=="visible"||Date.now()<nextAllowedRefreshRef.current)return;
+      busy=true;
+      try{
+        const freshCup=await getCup(publicKey);
+        if(cancelled)return;
+        publicRefreshBackoffMs.current=0;
+        nextAllowedRefreshRef.current=0;
+        missingRefreshesRef.current=0;
+        setUnavailable(false);
+        setRefreshProblem(false);
+        const normalized=normalizeCup(freshCup);
+        cupRef.current=normalized;
+        setCup(normalized);
+        if(tab==="table"&&showTables){
+          try{
+            const freshStandings=await getStandings(publicKey);
+            if(!cancelled){setStandings(Array.isArray(freshStandings.groups)?freshStandings.groups:[]);setStandingsLoaded(true)}
+          }catch{}
+        }
+        if(tab==="stats"&&statsEnabled){
+          try{const freshStatistics=await getStatistics(publicKey);if(!cancelled)setStatistics(freshStatistics)}catch{}
+        }
+      }catch(error){
+        if(cancelled)return;
+        if(error instanceof CupNaviApiError&&error.status===404){
+          missingRefreshesRef.current+=1;
+          setUnavailable(missingRefreshesRef.current>=3);
+          setRefreshProblem(true);
+          publicRefreshBackoffMs.current=MIN_REFRESH_BACKOFF_MS;
+        }else{
+          missingRefreshesRef.current=0;
+          const retryAfter=error instanceof CupNaviApiError?error.retryAfterMs:undefined;
+          publicRefreshBackoffMs.current=nextPublicRefreshBackoff(publicRefreshBackoffMs.current,retryAfter);
+          setRefreshProblem(true);
+        }
+        nextAllowedRefreshRef.current=Date.now()+publicRefreshBackoffMs.current;
+      }finally{busy=false}
+    };
+    const nextDelay=()=>nextPublicRefreshDelay(cupRef.current.matches,nextAllowedRefreshRef.current,Date.now(),publicRefreshBackoffMs.current>0);
+    let timer=window.setTimeout(function tick(){
+      void refresh().finally(()=>{if(!cancelled)timer=window.setTimeout(tick,nextDelay())});
+    },nextDelay());
+    const onVisibility=()=>{if(document.visibilityState==="visible")void refresh()};
+    document.addEventListener("visibilitychange",onVisibility);
+    return()=>{cancelled=true;window.clearTimeout(timer);document.removeEventListener("visibilitychange",onVisibility)};
+  },[publicKey,showTables,tab,statsEnabled]);
   useEffect(()=>{if((tab==="table"&&!showTables)||(tab==="playoff"&&!showPlayoffs))setTab("matches")},[tab,showTables,showPlayoffs]);
 
   const orderedMatches=useMemo(()=>cupMatches(cup),[cup]);
