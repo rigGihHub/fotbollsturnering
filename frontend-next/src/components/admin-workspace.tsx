@@ -175,6 +175,7 @@ export default function AdminWorkspace({verifiedSession=null,children=null}:{ver
   const [trashOpen,setTrashOpen] = useState(false);
   const [cupId,setCupId] = useState<number|null>(null);
   const [cupinfo,setCupinfo] = useState<CupInfo|null>(null);
+  const [savedCupinfo,setSavedCupinfo] = useState<CupInfo|null>(null);
   const [teams,setTeams] = useState<Team[]>([]);
   const [groups,setGroups] = useState<Group[]>([]);
   const [scheduleOverview,setScheduleOverview] = useState<ScheduleOverview|null>(null);
@@ -216,7 +217,7 @@ export default function AdminWorkspace({verifiedSession=null,children=null}:{ver
 
   const logout = useCallback(() => {
     localStorage.removeItem(TOKEN_KEY);
-    setToken(null); setAccount(null); setCups([]); setTrashedCups([]); setTrashOpen(false); setCupId(null); setCupinfo(null); setTeams([]); setGroups([]);
+    setToken(null); setAccount(null); setCups([]); setTrashedCups([]); setTrashOpen(false); setCupId(null); setCupinfo(null); setSavedCupinfo(null); setTeams([]); setGroups([]);
     setPassword(""); setMessage(""); setError(""); setRestoringSession(false);
   },[]);
 
@@ -227,7 +228,7 @@ export default function AdminWorkspace({verifiedSession=null,children=null}:{ver
       request<{groups:Group[]}>(`/api/admin/cups/${nextCupId}/groups`,{},nextToken),
       request<ScheduleOverview>(`/api/admin/cups/${nextCupId}/schedule`,{},nextToken),
     ]);
-    const normalized=cleanCupInfo(data); setCupinfo(normalized); setTeams(teamData.teams || []); setGroups(groupData.groups || []); setScheduleOverview(scheduleData);
+    const normalized=cleanCupInfo(data); setCupinfo(normalized); setSavedCupinfo(normalized); setTeams(teamData.teams || []); setGroups(groupData.groups || []); setScheduleOverview(scheduleData);
     document.documentElement.dataset.arrangementType=normalized.arrangement_type || "tournament";
     window.dispatchEvent(new CustomEvent("cupnavi:arrangement-type",{detail:normalized.arrangement_type || "tournament"}));
     setEditingTeam(null); setTeamFormOpen(false); setTeamDraft(emptyTeam); setEditingGroup(null); setGroupDraft(emptyGroup);
@@ -352,7 +353,7 @@ export default function AdminWorkspace({verifiedSession=null,children=null}:{ver
   async function changeCup(nextId:number) {
     if (!token) return;
     if (!cups.some(cup => cup.id === nextId)) { setError("Cupen finns inte i din behöriga lista."); return; }
-    setCupId(nextId); rememberCup(nextId); setBusy(true); setError(""); setMessage("");
+    setCupId(nextId); setSavedCupinfo(null); rememberCup(nextId); setBusy(true); setError(""); setMessage("");
     try { await loadCupInfo(token,nextId); }
     catch (err) { setError(err instanceof Error ? err.message : "Cupen kunde inte hämtas."); }
     finally { setBusy(false); }
@@ -363,10 +364,10 @@ export default function AdminWorkspace({verifiedSession=null,children=null}:{ver
     if (!window.confirm(`Flytta ${activeCup.name} till papperskorgen?\n\nCupen avpubliceras direkt men kan återställas från papperskorgen.`)) return;
     setDeletingCup(true); setError(""); setMessage("");
     const removedCup=activeCup;
-    const previous={cups,cupId,cupinfo,teams,groups};
+    const previous={cups,cupId,cupinfo,savedCupinfo,teams,groups};
     const optimisticRemaining=cups.filter(cup=>cup.id!==removedCup.id);
     const optimisticNext=optimisticRemaining[0] || null;
-    setCups(optimisticRemaining); setCupinfo(null); setTeams([]); setGroups([]);
+    setCups(optimisticRemaining); setCupinfo(null); setSavedCupinfo(null); setTeams([]); setGroups([]);
     if(optimisticNext){setCupId(optimisticNext.id);rememberCup(optimisticNext.id);}
     else{setCupId(null);forgetCup();}
     setMessage(`${removedCup.name} flyttas till papperskorgen…`);
@@ -387,7 +388,7 @@ export default function AdminWorkspace({verifiedSession=null,children=null}:{ver
         setMessage(`${removedCup.name} har flyttats till papperskorgen. Det finns ingen aktiv cup kvar.`);
       }
     } catch (err) {
-      setCups(previous.cups); setCupId(previous.cupId); setCupinfo(previous.cupinfo); setTeams(previous.teams); setGroups(previous.groups);
+      setCups(previous.cups); setCupId(previous.cupId); setCupinfo(previous.cupinfo); setSavedCupinfo(previous.savedCupinfo); setTeams(previous.teams); setGroups(previous.groups);
       if(previous.cupId)rememberCup(previous.cupId);else forgetCup();
       setMessage(""); setError(err instanceof Error ? `Cupen kunde inte tas bort och har återställts: ${err.message}` : "Cupen kunde inte tas bort och har återställts.");
     }
@@ -430,7 +431,7 @@ export default function AdminWorkspace({verifiedSession=null,children=null}:{ver
         body:JSON.stringify({name:cupinfo.name,start_date:cupinfo.start_date || null,end_date:cupinfo.end_date || null,organizer:cupinfo.organizer || null,organizer_logos:cupinfo.organizer_logos||[],arena_address:cupinfo.arena_address || null,organizer_phone:cupinfo.organizer_phone || null,feedback_email:cupinfo.feedback_email || null,public_information:cupinfo.public_information || null,arrangement_type:cupinfo.arrangement_type || "tournament",show_public_weather:publicWeatherEnabled(cupinfo),show_public_weather_configured:true,show_public_kits:cupinfo.show_public_kits!==false&&cupinfo.show_public_kits!==0,show_public_away_kits:cupinfo.show_public_away_kits!==false&&cupinfo.show_public_away_kits!==0,show_public_logos:cupinfo.show_public_logos!==false&&cupinfo.show_public_logos!==0,show_public_goal_minutes:cupinfo.show_public_goal_minutes===true||cupinfo.show_public_goal_minutes===1,expected_revision:cupinfo.admin_revision})
       },token);
       const normalized = cleanCupInfo(saved);
-      setCupinfo(normalized);
+      setCupinfo(normalized); setSavedCupinfo(normalized);
       document.documentElement.dataset.arrangementType=normalized.arrangement_type || "tournament";
       window.dispatchEvent(new CustomEvent("cupnavi:arrangement-type",{detail:normalized.arrangement_type || "tournament"}));
       setCups(current => current.map(cup => cup.id === cupId ? {...cup,name:normalized.name,start_date:normalized.start_date,end_date:normalized.end_date,public_slug:normalized.public_slug,is_published:normalized.is_published} : cup));
@@ -471,7 +472,7 @@ export default function AdminWorkspace({verifiedSession=null,children=null}:{ver
           expected_revision:cupinfo.admin_revision,
         }),
       },token);
-      setCupinfo(cleanCupInfo(saved));
+      setCupinfo(cleanCupInfo(saved)); setSavedCupinfo(cleanCupInfo(saved));
       setMessage(mode==="none"?"Matchställ döljs i publikvyn.":mode==="home"?"Endast hemmaställ visas i publikvyn.":"Hemma- och bortaställ visas i publikvyn.");
     } catch (err) {
       if(err instanceof ApiError&&err.status===409){await loadCupInfo(token,cupId).catch(()=>undefined);setError("Cupinfo ändrades samtidigt. Den senaste versionen har hämtats; välj visning igen.");}
@@ -487,7 +488,7 @@ export default function AdminWorkspace({verifiedSession=null,children=null}:{ver
         method:"PUT",
         body:JSON.stringify({show_public_logos:enabled,expected_revision:cupinfo.admin_revision}),
       },token);
-      setCupinfo(cleanCupInfo(saved));
+      setCupinfo(cleanCupInfo(saved)); setSavedCupinfo(cleanCupInfo(saved));
       setMessage(enabled?"Klubbmärken visas i publikvyn.":"Klubbmärken döljs i publikvyn.");
     } catch (err) {
       if(err instanceof ApiError&&err.status===409){await loadCupInfo(token,cupId).catch(()=>undefined);setError("Cupinfo ändrades samtidigt. Den senaste versionen har hämtats; välj visning igen.");}
@@ -676,7 +677,8 @@ export default function AdminWorkspace({verifiedSession=null,children=null}:{ver
   const isOwner = account.role === "owner" || account.is_owner === true;
   const canManageCup = isOwner || activeCup?.role === "owner";
   const groupedTeams = teams.filter(team=>team.group_id != null).length;
-  const cupinfoReady=Boolean(cupinfo?.name?.trim()&&cupinfo?.start_date&&cupinfo?.organizer?.trim()&&(cupinfo?.arena_address?.trim()||(scheduleOverview?.pitch_count||0)>0)&&(cupinfo?.organizer_phone?.trim()||cupinfo?.feedback_email?.trim()));
+  const cupinfoUnsaved=Boolean(cupinfo&&savedCupinfo&&JSON.stringify(cupinfo)!==JSON.stringify(savedCupinfo));
+  const cupinfoReady=Boolean(!cupinfoUnsaved&&savedCupinfo?.name?.trim()&&savedCupinfo?.start_date&&savedCupinfo?.organizer?.trim()&&(savedCupinfo?.arena_address?.trim()||(scheduleOverview?.pitch_count||0)>0)&&(savedCupinfo?.organizer_phone?.trim()||savedCupinfo?.feedback_email?.trim()));
   const isMatchcamp=["single_match","matchcamp"].includes(cupinfo?.arrangement_type||"");
   const teamsReady=cupinfo?.arrangement_type==="single_match"?teams.length===2:teams.length>0;
   const groupsReady=teamsReady&&groups.length>0&&groupedTeams===teams.length;
@@ -710,7 +712,7 @@ export default function AdminWorkspace({verifiedSession=null,children=null}:{ver
                 ? {href:"#schedule",label:"Godkänn det ändrade schemat",detail:"Schemat har ändrats sedan senaste kontrollen."}
                 : {href:"#publish",label:"Kontrollera och publicera",detail:"Grunddata och schema är klara för slutkontroll."};
   const checks=[
-    {name:"Cupinfo",status:cupinfoReady?"Klar":"Komplettera",href:"#cupinfo",state:cupinfoReady?"done":"next"},
+    {name:"Cupinfo",status:cupinfoUnsaved?"Spara ändringar":cupinfoReady?"Klar":"Komplettera",href:"#cupinfo",state:cupinfoReady?"done":"next"},
     {name:"Lag",status:cupinfo?.arrangement_type==="single_match"?`${teams.length}/2 lag`:teamsReady?`${teams.length} registrerade`:"Saknas",href:"#teams",state:teamsReady?"done":cupinfoReady?"next":"todo"},
     ...(!isMatchcamp?[{name:"Grupper",status:groups.length?`${groupedTeams}/${teams.length} lag placerade`:"Saknas",href:"#groups",state:groupsReady?"done":teamsReady?"next":"todo"}]:[]),
     {name:"Planer & tider",status:scheduleOverview?`${scheduleOverview.pitch_count} ${scheduleOverview.pitch_count===1?"plan":"planer"} · ${scheduleReady?"tider schemalagda":"granska tider"}`:"Granska tider",href:"#venues",state:scheduleOverview?.pitch_count&&scheduleReady?"done":scheduleStatus==="missing"&&(isMatchcamp?teamsReady:groupsReady)?"next":"todo"},

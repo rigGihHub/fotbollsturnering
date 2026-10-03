@@ -117,3 +117,29 @@ def test_android_and_iphone_keep_reporter_result_offline(next_server):
             assert page.get_by_text("Väntar på nät", exact=True).is_visible()
             context.close()
         browser.close()
+
+
+def test_reporter_does_not_claim_result_saved_when_device_storage_fails(next_server):
+    with sync_playwright() as playwright:
+        browser = playwright.chromium.launch(headless=True)
+        context = browser.new_context(**playwright.devices["Pixel 7"])
+        context.add_init_script("localStorage.setItem('cupnavi_reporter_session_v1','e2e-token')")
+        page = context.new_page()
+        page.route("https://cupnavi-api.onrender.com/api/reporter/**", mock_reporter_api)
+        page.goto(f"{BASE}/reporter?cup=parity-cup", wait_until="networkidle")
+        page.get_by_text("Parity FC", exact=True).first.wait_for()
+        page.evaluate("""() => {
+          const original = Storage.prototype.setItem;
+          Storage.prototype.setItem = function(key, value) {
+            if (key === 'cupnavi_reporter_queue_v1') throw new DOMException('Quota exceeded', 'QuotaExceededError');
+            return original.call(this, key, value);
+          };
+        }""")
+        page.get_by_role("spinbutton", name="Mål för Parity FC", exact=True).fill("2")
+        page.get_by_role("spinbutton", name="Mål för Test United", exact=True).fill("1")
+        page.get_by_role("button", name="Spara resultat").click()
+        assert page.get_by_role("alert").get_by_text("Ändringen kunde inte sparas på den här enheten", exact=False).is_visible()
+        assert page.evaluate("() => localStorage.getItem('cupnavi_reporter_queue_v1')") is None
+        assert page.get_by_role("button", name="Spara resultat").is_visible()
+        context.close()
+        browser.close()

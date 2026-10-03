@@ -23,8 +23,9 @@ export function readReporterQueue():ReporterMutation[]{
 }
 
 export function writeReporterQueue(queue:ReporterMutation[]){
- if(typeof window==="undefined")return;
- localStorage.setItem(QUEUE_KEY,JSON.stringify(queue));
+ if(typeof window==="undefined")throw new Error("Offlinekön är inte tillgänglig.");
+ try{localStorage.setItem(QUEUE_KEY,JSON.stringify(queue))}
+ catch{throw new Error("Ändringen kunde inte sparas på den här enheten. Frigör lagringsutrymme eller tillåt webbplatsens lagring och försök igen.")}
  window.dispatchEvent(new CustomEvent(QUEUE_EVENT));
 }
 

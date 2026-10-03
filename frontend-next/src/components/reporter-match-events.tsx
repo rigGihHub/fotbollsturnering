@@ -63,10 +63,10 @@ export default function ReporterMatchEvents({token,cupId,online,queueSignal,enab
  async function change(player:Player,field:keyof EventValues,delta:number){
   if(!detail)return;const previous=values(player);const next={...previous,[field]:Math.max(0,previous[field]+delta)};if(next[field]===previous[field])return;
   const id=`event-${cupId}-${detail.match.id}-${player.id}`,mutation={id,kind:"event" as const,cupId,matchId:detail.match.id,playerId:player.id,createdAt:Date.now(),state:"queued" as const,payload:{...next,expected:previous}};setError("");setMessage("");
-  if(!navigator.onLine){upsertReporterMutation(mutation);applyPlayer(player.id,next);setMessage(`${player.name}: ${eventLabel(field)} sparat lokalt.`);return}
+  if(!navigator.onLine){try{upsertReporterMutation(mutation)}catch(err){handleError(err,"Händelsen kunde inte sparas lokalt.");return}applyPlayer(player.id,next);setMessage(`${player.name}: ${eventLabel(field)} sparat lokalt.`);return}
   const key=`${player.id}-${field}`;setBusyKey(key);
   try{const payload=await req<Detail>(`/api/reporter/reporting/matches/${detail.match.id}/events/${player.id}`,token,{method:"PUT",body:JSON.stringify({...next,expected:previous})});setDetail(payload);writeReporterCache(detailCache(cupId,detail.match.id),payload);removeReporterMutation(id);setMessage(`${player.name}: ${eventLabel(field)} uppdaterat.`)}
-  catch(err){if(isNetworkError(err)){upsertReporterMutation({...mutation,state:"uncertain"});applyPlayer(player.id,next);setMessage("Sparstatus osäker. Händelsen är bevarad lokalt och stäms av när nätet återkommer.")}else{handleError(err,"Händelsen kunde inte sparas.");if(matchId)try{setDetail(await req<Detail>(`/api/reporter/reporting/matches/${matchId}/events`,token))}catch{}}}
+  catch(err){if(isNetworkError(err)){try{upsertReporterMutation({...mutation,state:"uncertain"})}catch(storageError){handleError(storageError,"Händelsen kunde inte sparas lokalt.");return}applyPlayer(player.id,next);setMessage("Sparstatus osäker. Händelsen är bevarad lokalt och stäms av när nätet återkommer.")}else{handleError(err,"Händelsen kunde inte sparas.");if(matchId)try{setDetail(await req<Detail>(`/api/reporter/reporting/matches/${matchId}/events`,token))}catch{}}}
   finally{setBusyKey("")}
  }
 

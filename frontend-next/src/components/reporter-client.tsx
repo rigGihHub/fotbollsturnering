@@ -105,10 +105,11 @@ export default function ReporterClient(){
  function optimisticResult(match:Match,payload:{home_score:number;away_score:number;home_penalties:number|null;away_penalties:number|null}){
   setMatches(current=>{const next=current.map(item=>item.id===match.id?{...item,...payload,status:"played"}:item);if(cupInfo)remember(cupInfo,next);return next});
  }
- function save(match:Match,home:string,away:string,homePenalties:string,awayPenalties:string,goal?:{side:"home"|"away";minute:number}){
-  if(!token||!cupInfo)return;const payload={home_score:Number(home),away_score:Number(away),home_penalties:homePenalties===""?null:Number(homePenalties),away_penalties:awayPenalties===""?null:Number(awayPenalties),expected_home_score:match.home_score,expected_away_score:match.away_score,expected_home_penalties:match.home_penalties??null,expected_away_penalties:match.away_penalties??null,goal_minutes_home:goal?.side==="home"?[goal.minute]:[],goal_minutes_away:goal?.side==="away"?[goal.minute]:[]};
+ function save(match:Match,home:string,away:string,homePenalties:string,awayPenalties:string,goal?:{side:"home"|"away";minute:number}):boolean{
+  if(!token||!cupInfo)return false;const payload={home_score:Number(home),away_score:Number(away),home_penalties:homePenalties===""?null:Number(homePenalties),away_penalties:awayPenalties===""?null:Number(awayPenalties),expected_home_score:match.home_score,expected_away_score:match.away_score,expected_home_penalties:match.home_penalties??null,expected_away_penalties:match.away_penalties??null,goal_minutes_home:goal?.side==="home"?[goal.minute]:[],goal_minutes_away:goal?.side==="away"?[goal.minute]:[]};
   const mutation={id:`result-${cupInfo.id}-${match.id}`,kind:"result" as const,cupId:cupInfo.id,matchId:match.id,createdAt:Date.now(),state:"queued" as const,payload};setError("");setMessage("");
-  upsertReporterMutation(mutation);optimisticResult(match,payload);setMessage(navigator.onLine?"Registrerat – synkroniserar med servern.":"Sparat lokalt. Resultatet skickas när nätet är tillbaka och stäms av mot servern.");
+  try{upsertReporterMutation(mutation)}catch(reason){setError(reason instanceof Error?reason.message:"Ändringen kunde inte sparas lokalt.");return false}
+  optimisticResult(match,payload);setMessage(navigator.onLine?"Registrerat – synkroniserar med servern.":"Sparat lokalt. Resultatet skickas när nätet är tillbaka och stäms av mot servern.");return true;
  }
  function changeScore(match:Match,side:"home"|"away",delta:number,chosenMinute?:number){
   if(delta>0&&chosenMinute!==undefined&&(!Number.isInteger(chosenMinute)||chosenMinute<1||chosenMinute>300)){setError("Ange en målminut mellan 1 och 300.");return}
@@ -116,18 +117,18 @@ export default function ReporterClient(){
   if(home===(match.home_score??0)&&away===(match.away_score??0))return;
   const seconds=(match.clock_elapsed_seconds||0)+(lifecycle(match)==="live"&&match.actual_started_at?Math.max(0,Math.floor((Date.now()-Date.parse(match.actual_started_at))/1000)):0);
   const goal=delta>0&&Number.isFinite(seconds)&&["live","halftime"].includes(lifecycle(match))?{side,minute:chosenMinute??Math.max(1,Math.min(300,Math.ceil(seconds/60)))}:undefined;
-  save(match,String(home),String(away),match.home_penalties==null?"":String(match.home_penalties),match.away_penalties==null?"":String(match.away_penalties),goal);
-  if(delta>0&&typeof navigator.vibrate==="function")navigator.vibrate(25);
+  if(save(match,String(home),String(away),match.home_penalties==null?"":String(match.home_penalties),match.away_penalties==null?"":String(match.away_penalties),goal)&&delta>0&&typeof navigator.vibrate==="function")navigator.vibrate(25);
  }
  function changeStatus(match:Match,next:MatchLifecycle){
   if(!cupInfo)return;const current=lifecycle(match);
   if(next==="finished"){
    if((match.requires_winner??(match.stage!=="Gruppspel"))&&(match.home_score??0)===(match.away_score??0)&&match.home_penalties==null){setError("En oavgjord slutspelsmatch måste avgöras innan den avslutas.");return}
    if(!window.confirm(`Avsluta ${match.home_team} – ${match.away_team}?`))return;
-   if(match.home_score==null||match.away_score==null)save(match,String(match.home_score??0),String(match.away_score??0),"","");
+   if((match.home_score==null||match.away_score==null)&&!save(match,String(match.home_score??0),String(match.away_score??0),"",""))return;
   }
   const mutation={id:`status-${cupInfo.id}-${match.id}-${Date.now()}-${next}`,kind:"status" as const,cupId:cupInfo.id,matchId:match.id,createdAt:Date.now()+1,state:"queued" as const,payload:{status:next,expected_status:current}};
-  appendReporterMutation(mutation);setMatches(rows=>{const updated=rows.map(item=>item.id===match.id?{...item,match_status:next,status:next==="finished"?"played":next,actual_started_at:next==="live"?new Date().toISOString():null}:item);remember(cupInfo,updated);return updated});setError("");setMessage(navigator.onLine?"Matchstatus uppdaterad – synkroniserar.":"Matchstatus sparad lokalt och skickas när nätet är tillbaka.");
+  try{appendReporterMutation(mutation)}catch(reason){setError(reason instanceof Error?reason.message:"Ändringen kunde inte sparas lokalt.");return}
+  setMatches(rows=>{const updated=rows.map(item=>item.id===match.id?{...item,match_status:next,status:next==="finished"?"played":next,actual_started_at:next==="live"?new Date().toISOString():null}:item);remember(cupInfo,updated);return updated});setError("");setMessage(navigator.onLine?"Matchstatus uppdaterad – synkroniserar.":"Matchstatus sparad lokalt och skickas när nätet är tillbaka.");
  }
  const pendingResults=useMemo(()=>new Set(readReporterQueue().filter(isResultMutation).filter(item=>item.cupId===cupInfo?.id&&item.state!=="conflict").map(item=>item.matchId)),[cupInfo?.id,pending,matches]);
  const pendingStatuses=useMemo(()=>new Set(readReporterQueue().filter(isStatusMutation).filter(item=>item.cupId===cupInfo?.id&&item.state!=="conflict").map(item=>item.matchId)),[cupInfo?.id,pending,matches]);
