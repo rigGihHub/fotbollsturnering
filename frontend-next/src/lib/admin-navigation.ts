@@ -10,3 +10,17 @@ export function adminPhase(step:string):string {
  if(step==='publish')return 'publish';
  return 'run';
 }
+export const adminFlowSteps = [
+ ['overview','Översikt'], ['cupinfo','Cupinfo'], ['teams','Lag'], ['groups','Grupper'],
+ ['venues','Planer & tider'], ['rules','Regler'], ['schedule','Schema'],
+ ['playoffs','Slutspel'], ['publish','Kontroll & publicering'],
+] as const;
+export const adminToolSteps = [
+ ['partners','Sponsorer & erbjudanden'], ['access','Lokal admin'], ['referees','Domare'],
+ ['reporting','Matchrapportering'], ['import','Uppdatera från fil'], ['export','PDF & export'],
+] as const;
+export type AdminStep = (typeof adminFlowSteps)[number][0] | (typeof adminToolSteps)[number][0];
+export function parseAdminStep(hash:string):AdminStep {
+ const value=hash.replace(/^#/, '');
+ return [...adminFlowSteps,...adminToolSteps].some(([id])=>id===value)?value as AdminStep:'overview';
+}

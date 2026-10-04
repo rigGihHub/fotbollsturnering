@@ -63,6 +63,40 @@ def test_code_only_login_finds_cup_and_preserves_leading_zeroes(client, monkeypa
     assert stored["code_lookup"] != "0042" and stored["code_hash"] != "0042"
 
 
+def test_admin_can_reopen_code_without_rotating_or_revoking_reporters(client, monkeypatch):
+    monkeypatch.setattr(roles, "generate_short_numeric_code", lambda _: "0042")
+    result = roles.rotate_reporter_code(1, 2)
+    token = login(client, result["code"]).json()["token"]
+    before = roles._credential(2)
+    for _ in range(2):
+        response = client.get("/api/admin/cups/2/role-codes/reporter")
+        assert response.status_code == 200
+        assert response.json()["code"] == "0042"
+        assert response.headers["Cache-Control"] == "no-store"
+    assert roles._credential(2) == before
+    assert roles._verify_reporter_session(token) is not None
+
+
+def test_code_reveal_requires_cup_access_and_active_credential(client, monkeypatch):
+    result = roles.rotate_reporter_code(1, 1)
+    monkeypatch.setattr(roles, "_has_tournament_access", lambda account, cup: False)
+    assert client.get("/api/admin/cups/1/role-codes/reporter").status_code == 404
+    monkeypatch.setattr(roles, "_has_tournament_access", lambda account, cup: True)
+    deadline = roles._credential_expiry(roles._credential(1))
+    monkeypatch.setattr(roles, "time", SimpleNamespace(time=lambda: deadline + 1))
+    assert roles.reporter_code_status(1, 1)["code"] is None
+    assert result["code"]
+
+
+def test_legacy_code_stays_usable_and_is_not_silently_rotated_for_display(client):
+    legacy(1, "0042")
+    before = roles._credential(1)
+    status = roles.reporter_code_status(1, 1)
+    assert status["active"] and status["code"] is None
+    assert roles._credential(1) == before
+    assert login(client, "0042").status_code == 200
+
+
 def test_login_can_return_reporting_payload_without_followup_requests(client, monkeypatch):
     monkeypatch.setattr(roles, "admin_reporting", lambda account, cup: {
         "matches": [{"id": 20, "home_team": "A", "away_team": "B"}],

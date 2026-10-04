@@ -1,0 +1,122 @@
+/* v2.8.58 — consistent save feedback and a clear next action. */
+.admin-main .admin-edit-fields {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.admin-main .admin-save-status {
+  margin: 16px 0 8px;
+  padding: 11px 13px;
+  border: 1px solid #cbd5d5;
+  border-radius: 8px;
+  background: #f2f6f5;
+  color: #334b55;
+  font-size: 14px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.admin-main .admin-save-status.is-unsaved {
+  border-color: #b99849;
+  background: #fff7e4;
+  color: #664b0d;
+}
+
+.admin-main .admin-timing-preview {
+  display: grid;
+  gap: 6px;
+  margin-top: 18px;
+  padding: 14px 16px;
+  border-left: 3px solid #167f8b;
+  border-radius: 0 8px 8px 0;
+  background: #edf5f4;
+  color: #102630;
+  line-height: 1.5;
+}
+
+.admin-main .admin-timing-preview strong { font-size: 17px; }
+.admin-main .admin-timing-preview span { font-size: 14px; color: #425c64; }
+
+.admin-main #venues .admin-form-footer button:not(:disabled) {
+  background: #fffdf8;
+  color: #102630;
+  border-color: #a7b5b2;
+}
+
+.admin-main #venues .admin-next-step {
+  margin-top: 10px;
+  padding: 16px;
+  border: 1px solid #cbd5d5;
+  border-radius: 10px;
+  background: #fffdf8;
+  box-shadow: none;
+}
+
+.admin-main [data-admin-save-next]:not(:disabled),
+.admin-main #role-codes .admin-team-actions .role-code-primary:not(:disabled) {
+  min-height: 46px;
+  padding: 11px 16px;
+  border: 1px solid #102630;
+  border-radius: 8px;
+  background: #102630;
+  color: #fff;
+  font-weight: 800;
+  line-height: 1.35;
+}
+
+.admin-main #role-codes .admin-team-actions .admin-action-secondary:not(:disabled) {
+  background: #fffdf8;
+  color: #102630;
+  border-color: #a7b5b2;
+}
+
+.admin-main #role-codes .reporter-admin-code {
+  display: grid;
+  gap: 9px;
+  padding: 18px !important;
+  border: 1px solid #9ebdbf;
+  border-radius: 10px;
+  background: #eef7f6;
+}
+
+.admin-main #role-codes .reporter-admin-code > div {
+  font-variant-numeric: tabular-nums;
+  user-select: all;
+}
+
+.admin-main #role-codes .reporter-admin-code small {
+  color: #36525d;
+  line-height: 1.5;
+}
+
+.admin-main #teams .admin-public-options--prominent {
+  border: 1px solid #cbd5d5 !important;
+  background: #f8faf8;
+  box-shadow: none;
+}
+.admin-main #teams .admin-public-options--prominent legend { color: #425c64; }
+
+.cn-step-guide__actions button:disabled {
+  background: #e5e5df;
+  color: #647277;
+  cursor: not-allowed;
+  border-color: #b9c0bd;
+}
+
+@media (max-width: 760px) {
+  .admin-main .admin-timing-preview { padding: 12px; }
+  .admin-main .admin-timing-preview strong { font-size: 16px; }
+  .admin-main #venues .admin-next-step {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 12px;
+    padding: 12px;
+  }
+  .admin-main [data-admin-save-next] {
+    width: 100%;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+}

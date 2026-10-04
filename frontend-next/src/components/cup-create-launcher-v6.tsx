@@ -770,10 +770,12 @@ export default function CupCreateLauncherV6({cups}:{cups:Array<{id:number;name:s
                 <label>
                   Typ av arrangemang
                   <select value={arrangementType} onChange={(e) => setArrangementType(e.target.value)}>
-                    <option value="tournament">Turnering</option>
+                    <option value="tournament">Turnering utan slutspel</option>
+                    <option value="tournament_playoffs">Turnering med slutspel</option>
                     <option value="single_match">Enskild match – två lag, en match</option>
                     <option value="matchcamp">Matchcamp</option>
                   </select>
+                  <small>{arrangementType==="tournament"?"Gruppspel där tabellen avgör placeringarna.":arrangementType==="tournament_playoffs"?"Gruppspel följt av slutspel. Du väljer slutspelsmodell senare.":arrangementType==="single_match"?"Två lag möts i en match, utan grupper eller tabell.":"Flera lag spelar matcher utan tabell eller slutspel."}</small>
                 </label>
                 <label>
                   {arrangementType === "single_match" ? "Matchnamn" : "Cupnamn"}

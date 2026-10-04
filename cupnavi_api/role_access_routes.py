@@ -9,8 +9,9 @@ import os
 import re
 import time
 from datetime import datetime, timezone
+from functools import lru_cache
 
-from fastapi import Header, HTTPException, Request
+from fastapi import Header, HTTPException, Request, Response
 from pydantic import BaseModel
 
 from cupnavi_core.rate_limit import consume_rate_limit
@@ -141,6 +142,21 @@ def _code_lookup(code: str) -> str:
     return hmac.new(_session_secret(), ("reporter-code\0" + code).encode(), hashlib.sha256).hexdigest()
 
 
+@lru_cache(maxsize=128)
+def _admin_code_for_lookup(lookup: str, secret: bytes) -> str | None:
+    """Recover the existing four-digit code without persisting a plaintext copy.
+
+    Called only after cup access and expiry checks. Legacy credentials without
+    the keyed lookup remain unchanged and require an explicit rotation.
+    """
+    for number in range(10000):
+        code = f"{number:04d}"
+        candidate = hmac.new(secret, ("reporter-code\0" + code).encode(), hashlib.sha256).hexdigest()
+        if hmac.compare_digest(candidate, lookup):
+            return code
+    return None
+
+
 def _find_reporter_credential(code: str):
     _ensure_reporter_table()
     # Legacy salted codes stay usable for their remaining lifetime. They are
@@ -160,8 +176,10 @@ def reporter_code_status(account_id: int, tournament_id: int):
     if not _has_tournament_access(account_id, tournament_id):
         return None
     row = _credential(tournament_id)
+    active = _credential_expiry(row) > time.time()
     return {
-        "active": _credential_expiry(row) > time.time(),
+        "active": active,
+        "code": _admin_code_for_lookup(row["code_lookup"], _session_secret()) if active and row and row.get("code_lookup") else None,
         "created_at": row.get("created_at") if row else None,
         "rotated_at": row.get("rotated_at") if row else None,
         "valid_hours": max(1, min(72, int(row.get("valid_hours") or 48))) if row else 48,
@@ -297,8 +315,9 @@ def _require_reporter_editable_match(tournament_id: int, match_id: int):
 
 def register_role_access_routes(app, admin_identity):
     @app.get("/api/admin/cups/{tournament_id}/role-codes/reporter")
-    def get_reporter_code_status(tournament_id: int, authorization: str | None = Header(default=None)):
+    def get_reporter_code_status(tournament_id: int, response: Response, authorization: str | None = Header(default=None)):
         account = admin_identity(authorization)
+        response.headers["Cache-Control"] = "no-store"
         result = reporter_code_status(int(account["id"]), tournament_id)
         if result is None:
             raise HTTPException(404, "Cup not found or access denied")

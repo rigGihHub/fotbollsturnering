@@ -23,6 +23,7 @@ import "../schedule-clarity-v2652.css";
 import "../publication-flow-v2653.css";
 import "../admin-tools-v2666.css";
 import "../admin-teams-v2674.css";
+import "../admin-beginner-v2858.css";
 
 export default function AdminLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return children;

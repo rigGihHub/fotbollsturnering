@@ -76,6 +76,9 @@ jobs:
       - name: Import navigation regression
         run: npm run test:import-navigation
 
+      - name: Admin draft and navigation regression
+        run: npm run test:admin-drafts
+
       - name: Placement playoff regression
         run: npm run test:placement-playoffs
 

@@ -1,6 +1,9 @@
 "use client";
 
 import { FormEvent, useCallback, useEffect, useState } from "react";
+import { matchTiming } from "../lib/admin-draft";
+import { useAdminDraft } from "../lib/use-admin-draft";
+import AdminDraftStatus from "./admin-draft-status";
 import { CLIENT_API_BASE } from "../lib/client-api";
 
 const API_BASE=CLIENT_API_BASE;
@@ -22,18 +25,19 @@ async function api<T>(path:string,options:RequestInit,token:string):Promise<T>{
 }
 
 export default function RulesAdmin({token,cupId}:{token:string;cupId:number}){
-  const[data,setData]=useState<RulesPayload|null>(null); const[busy,setBusy]=useState(false);
+  const{data,setData,accept,dirty}=useAdminDraft<RulesPayload>(`${cupId}:rules`); const[busy,setBusy]=useState(false);
   const[message,setMessage]=useState(""); const[error,setError]=useState("");
-  const load=useCallback(async()=>{setBusy(true);setError("");try{setData(await api<RulesPayload>(`/api/admin/cups/${cupId}/rules`,{},token));}catch(err){setError(err instanceof Error?err.message:"Reglerna kunde inte hämtas.");}finally{setBusy(false);}},[cupId,token]);
+  const load=useCallback(async()=>{setBusy(true);setError("");try{accept(await api<RulesPayload>(`/api/admin/cups/${cupId}/rules`,{},token),true);}catch(err){setError(err instanceof Error?err.message:"Reglerna kunde inte hämtas.");}finally{setBusy(false);}},[cupId,token,accept]);
   useEffect(()=>{void load();},[load]);
-  async function save(event:FormEvent){event.preventDefault();if(!data)return;setBusy(true);setError("");setMessage("");try{const saved=await api<RulesPayload>(`/api/admin/cups/${cupId}/rules`,{method:"PUT",body:JSON.stringify(data)},token);setData(saved);setMessage(saved.scheduled_count?"Reglerna är sparade. Schemat har markerats för kontroll där tidsregler påverkas.":"Reglerna är sparade.");window.location.hash="schedule";}catch(err){setError(err instanceof Error?err.message:"Reglerna kunde inte sparas.");}finally{setBusy(false);}}
+  async function save(event:FormEvent){event.preventDefault();if(!data)return;setBusy(true);setError("");setMessage("");try{const saved=await api<RulesPayload>(`/api/admin/cups/${cupId}/rules`,{method:"PUT",body:JSON.stringify(data)},token);accept(saved);setMessage(saved.scheduled_count?"Reglerna är sparade. Schemat har markerats för kontroll där tidsregler påverkas.":"Reglerna är sparade.");if(window.location.hash==="#rules")window.location.hash="schedule";}catch(err){setError(err instanceof Error?err.message:"Reglerna kunde inte sparas.");}finally{setBusy(false);}}
   if(!data)return <section className="admin-panel admin-teams" id="rules"><div className="admin-panel__top"><span>05 / REGLER</span><strong>{busy?"HÄMTAR":"SAKNAS"}</strong></div><h2>Regler</h2><p>{error||"Hämtar cupens regler…"}</p></section>;
+  const timing=matchTiming(data);
   return <section className="admin-panel admin-teams" id="rules">
-    <div className="admin-panel__top"><span>05 / REGLER</span><strong>{data.sport.toUpperCase()} · {data.match_duration_minutes} MIN/MATCH</strong></div>
+    <div className="admin-panel__top"><span>05 / REGLER</span><strong>{data.sport.toUpperCase()} · {timing.duration} MIN/MATCH</strong></div>
     <div className="admin-cupinfo__head"><div><h2>{["single_match","matchcamp"].includes(data.arrangement_type||"")?"Match- och viloregler":"Tävlings- och schemaregler"}</h2><p>{["single_match","matchcamp"].includes(data.arrangement_type||"")?"Ställ in matchlängd och pauser. Tabellpoäng och slutspelsregler används inte här.":"Poäng, tabellskiljning, matchstruktur, pauser och lagvila. Planer och öppettider ligger separat under Planer & tider."}</p></div><span className="admin-lock">RIKTIGA REGLER</span></div>
     {(error||message)&&<div className="admin-code-placeholder" style={{marginBottom:16}}><b>{error?"Fel":"Sparat"}</b> · {error||message}</div>}
     {data.completed_count>0&&<div className="admin-code-placeholder" style={{marginBottom:16}}><b>{data.completed_count} färdigspelade matcher</b> · matchstrukturen är därför låst mot ändringar som skulle göra historiken inkonsekvent.</div>}
-    <form onSubmit={save} className="admin-team-editor">
+    <form onSubmit={save} className="admin-team-editor"><fieldset disabled={busy} className="admin-edit-fields">
       {!["single_match","matchcamp"].includes(data.arrangement_type||"")&&<><h3>Poäng och tabell</h3>
       <div className="admin-form-grid">
         <label>Poäng för vinst<input type="number" min={0} max={10} value={data.points_win} onChange={e=>setData({...data,points_win:Number(e.target.value)})}/></label>
@@ -51,7 +55,10 @@ export default function RulesAdmin({token,cupId}:{token:string;cupId:number}){
         <label>Extra paus vid raka matcher<input type="number" min={0} max={180} disabled={!data.avoid_consecutive_matches} value={data.consecutive_match_break_minutes} onChange={e=>setData({...data,consecutive_match_break_minutes:Number(e.target.value)})}/></label>
         <label style={{display:"flex",alignItems:"center",gap:10}}><input type="checkbox" checked={data.avoid_consecutive_matches} onChange={e=>setData({...data,avoid_consecutive_matches:e.target.checked})}/> Undvik raka matcher för samma lag</label>
       </div>
-      <div className="admin-form-footer"><span>Beräknad matchtid: <b>{data.match_duration_minutes} minuter</b>. {data.scheduled_count?`${data.scheduled_count} matcher är redan schemalagda.`:"Inga matcher är schemalagda ännu."}</span><button type="submit" disabled={busy}>{busy?"Sparar…":"Spara och fortsätt till Schema →"}</button></div>
+      </fieldset>
+      <div className="admin-timing-preview" aria-live="polite"><strong>{data.halves} × {data.minutes_per_half} min{timing.pauseCount>0?` + ${timing.pauseCount} × ${data.halftime_minutes} min paus`:""} = {timing.duration} min</strong><span>Planen behöver {timing.slot} min inklusive {data.pitch_break_minutes} min mellan matcher.</span></div>
+      <AdminDraftStatus dirty={dirty} busy={busy} error={error}/>
+      <div className="admin-form-footer"><span>{data.scheduled_count?`${data.scheduled_count} matcher är redan schemalagda. Ändrade tidsregler kräver ny schemakontroll.`:"Inga matcher är schemalagda ännu."}</span><button data-admin-save-next type="submit" disabled={busy}>{busy?"Sparar…":"Spara och fortsätt till Schema →"}</button></div>
     </form>
   </section>;
 }

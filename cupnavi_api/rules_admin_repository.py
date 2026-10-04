@@ -1,6 +1,10 @@
 """Organizer-scoped competition and scheduling rules for CupNavi."""
 from __future__ import annotations
 
+import hashlib
+import json
+from datetime import datetime, timezone
+
 from .admin_repository import _has_tournament_access
 from .repository import connect, one
 
@@ -17,6 +21,12 @@ SCHEDULE_FIELDS = (
 
 
 def _ensure_schedule_rules(tournament_id: int):
+    with connect() as con:
+        con.execute("""CREATE TABLE IF NOT EXISTS admin_rule_reviews (
+            tournament_id INTEGER PRIMARY KEY REFERENCES tournaments(id) ON DELETE CASCADE,
+            fingerprint TEXT NOT NULL, reviewed_at TEXT NOT NULL
+        )""")
+        con.commit()
     row = one("SELECT * FROM schedule_rules WHERE tournament_id=?", (int(tournament_id),))
     if row:
         return row
@@ -26,6 +36,14 @@ def _ensure_schedule_rules(tournament_id: int):
         if callable(commit):
             commit()
     return one("SELECT * FROM schedule_rules WHERE tournament_id=?", (int(tournament_id),)) or {}
+
+
+def _rule_fingerprint(values: dict) -> str:
+    fields = (*SCHEDULE_FIELDS, "points_win", "points_draw", "points_loss", "table_tiebreak", "sport", "arrangement_type")
+    normalized = {key: values.get(key) for key in fields}
+    normalized["avoid_consecutive_matches"] = bool(normalized["avoid_consecutive_matches"])
+    content = json.dumps(normalized, sort_keys=True, ensure_ascii=False)
+    return hashlib.sha256(content.encode("utf-8")).hexdigest()
 
 
 def admin_rules(account_id: int, tournament_id: int):
@@ -47,8 +65,8 @@ def admin_rules(account_id: int, tournament_id: int):
     ) or {}
     halves = int(rules.get("halves") or 2)
     minutes_per_half = int(rules.get("minutes_per_half") or 20)
-    halftime_minutes = int(rules.get("halftime_minutes") or 5)
-    return {
+    halftime_minutes = int(rules["halftime_minutes"] if rules.get("halftime_minutes") is not None else 5)
+    result = {
         "sport": tournament.get("sport") or "Fotboll",
         "arrangement_type": tournament.get("arrangement_type") or "tournament",
         "points_win": int(tournament.get("points_win") or 0),
@@ -67,6 +85,10 @@ def admin_rules(account_id: int, tournament_id: int):
         "completed_count": int(state.get("completed_count") or 0),
         "schedule_dirty": bool(tournament.get("schedule_dirty") or 0),
     }
+    review = one("SELECT fingerprint,reviewed_at FROM admin_rule_reviews WHERE tournament_id=?", (int(tournament_id),)) or {}
+    result["rules_reviewed"] = review.get("fingerprint") == _rule_fingerprint(result)
+    result["rules_reviewed_at"] = review.get("reviewed_at") if result["rules_reviewed"] else None
+    return result
 
 
 def _integer(values: dict, field: str, current: int, low: int, high: int, label: str) -> int:
@@ -134,6 +156,11 @@ def update_rules(account_id: int, tournament_id: int, values: dict):
         )
         if timing_changed and int(current.get("scheduled_count") or 0) > 0:
             con.execute("UPDATE tournaments SET schedule_dirty=1 WHERE id=?", (int(tournament_id),))
+        con.execute(
+            """INSERT INTO admin_rule_reviews(tournament_id,fingerprint,reviewed_at) VALUES(?,?,?)
+               ON CONFLICT(tournament_id) DO UPDATE SET fingerprint=excluded.fingerprint,reviewed_at=excluded.reviewed_at""",
+            (int(tournament_id), _rule_fingerprint({**current, **clean}), datetime.now(timezone.utc).isoformat()),
+        )
         commit = getattr(con, "commit", None)
         if callable(commit):
             commit()
