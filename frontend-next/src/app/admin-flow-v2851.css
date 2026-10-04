@@ -20,6 +20,50 @@
   align-content: center;
   cursor: pointer;
 }
+/* The active-cup card has one title and consistent control typography. */
+.cn-admin .admin-active-cup-card .admin-sidebar__cup {
+  grid-template-columns: minmax(0, 1fr) !important;
+}
+.cn-admin .admin-active-cup-card .admin-sidebar__cup strong {
+  font-size: 22px !important;
+  font-weight: 700;
+  line-height: 1.25 !important;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.cn-admin .admin-active-cup-card .admin-sidebar__cup small {
+  grid-column: 1;
+  justify-self: start;
+  text-align: left;
+  font-size: 13px !important;
+  font-weight: 400;
+  line-height: 1.4;
+}
+.cn-admin .admin-active-cup-card .admin-cup-switcher > span {
+  font-size: 14px !important;
+  font-weight: 500;
+  line-height: 1.4;
+}
+.cn-admin .admin-active-cup-card .admin-cup-switcher select {
+  min-height: 46px !important;
+  font-family: inherit;
+  font-size: 16px !important;
+  font-weight: 400;
+  line-height: 1.4;
+  letter-spacing: normal;
+  text-transform: none;
+}
+.cn-admin .admin-active-cup-card .cn-cup-management summary,
+.cn-admin .admin-active-cup-card .admin-account-details summary {
+  min-height: 44px;
+  font-family: inherit;
+  font-size: 15px;
+  font-weight: 500;
+  line-height: 1.4;
+  letter-spacing: normal;
+  text-transform: none;
+  color: var(--cn-muted);
+}
 .cn-admin .admin-account-details p {
   margin: 0 0 6px;
   line-height: 1.5;
