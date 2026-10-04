@@ -116,7 +116,7 @@ export default function PitchWindowImportReview() {
   if (!review?.available || !rows.length) return null;
 
   return <>
-    <section className="admin-panel pitch-review-callout" style={{maxWidth:1120,margin:"12px auto",borderWidth:2}}>
+    <section className="admin-panel pitch-review-callout admin-review-surface" style={{maxWidth:1120,margin:"12px auto",borderWidth:2}}>
       <div className="admin-panel__top"><span>GÖR DETTA FÖRST</span><strong>{rows.length} PLANTIDER ATT BEKRÄFTA</strong></div>
       <div style={{display:"flex",justifyContent:"space-between",gap:16,alignItems:"center",flexWrap:"wrap"}}>
         <div>

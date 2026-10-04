@@ -184,13 +184,13 @@ export default function PlayoffImportReview() {
     } finally { saving.current = false; setBusy(false); }
   }
 
-  if (loading) return <section className="admin-panel" role="status">Hämtar slutspelsunderlaget…</section>;
-  if (!review && error) return <section className="admin-panel"><p role="alert">{error}</p><button type="button" onClick={()=>cupId&&void load(cupId)}>Försök igen</button></section>;
-  if (requested && !review?.available) return <section className="admin-panel" role="status">Inget importerat slutspel finns att granska för den här cupen.</section>;
+  if (loading) return <section className="admin-panel admin-review-surface" role="status">Hämtar slutspelsunderlaget…</section>;
+  if (!review && error) return <section className="admin-panel admin-review-surface"><p role="alert">{error}</p><button type="button" onClick={()=>cupId&&void load(cupId)}>Försök igen</button></section>;
+  if (requested && !review?.available) return <section className="admin-panel admin-review-surface" role="status">Inget importerat slutspel finns att granska för den här cupen.</section>;
   if (!review?.available || review.existing_brackets > 0 || review.existing_playoff_matches > 0) return null;
 
   return <>
-    <section className="admin-panel" style={{maxWidth:1120,margin:"12px auto",borderWidth:2}}>
+    <section className="admin-panel admin-review-surface" style={{maxWidth:1120,margin:"12px auto",borderWidth:2}}>
       <div className="admin-panel__top"><span>IMPORT · SLUTSPEL</span><strong>{rows.length} MATCHER HITTADES</strong></div>
       <div style={{display:"flex",justifyContent:"space-between",gap:16,alignItems:"center",flexWrap:"wrap"}}>
         <div>
@@ -202,7 +202,7 @@ export default function PlayoffImportReview() {
     </section>
 
     {open && <div className={styles.backdrop} role="presentation" onMouseDown={event=>{if(event.target===event.currentTarget&&!busy)setOpen(false);}}>
-      <section className={styles.dialog} role="dialog" aria-modal="true" aria-labelledby="playoff-import-title" aria-busy={busy}>
+      <section className={`${styles.dialog} admin-review-surface`} role="dialog" aria-modal="true" aria-labelledby="playoff-import-title" aria-busy={busy}>
         <div className={styles.header}>
           <div><span>SLUTSPELSIMPORT</span><h2 id="playoff-import-title">Granska slutspelet</h2></div>
           <button type="button" className={styles.close} disabled={busy} onClick={()=>setOpen(false)} aria-label="Stäng">×</button>

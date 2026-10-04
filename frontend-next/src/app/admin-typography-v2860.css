@@ -1,0 +1,180 @@
+/* Admin text roles own their typography across the older component styles.
+   Overview contains setup steps; operations contains publication and tools. */
+.cn-admin,
+.cn-step-guide,
+.cup-create-dialog {
+  --admin-text-title: 26px;
+  --admin-text-section: 20px;
+  --admin-text-body: 15px;
+  --admin-text-control: 14px;
+  --admin-text-input: 16px;
+  --admin-text-help: 13px;
+  --admin-text-meta: 12px;
+}
+
+.cn-admin :is(#overview, .admin-operations-flow, .admin-review-surface) h2,
+.cup-create-dialog h2 {
+  font-size: var(--admin-text-title) !important;
+  font-weight: 700 !important;
+  line-height: 1.25 !important;
+  letter-spacing: -.025em !important;
+  overflow-wrap: anywhere;
+}
+.cn-admin :is(#overview, .admin-operations-flow, .admin-review-surface) h3,
+.cup-create-dialog h3 {
+  font-size: var(--admin-text-section) !important;
+  font-weight: 650 !important;
+  line-height: 1.3 !important;
+  overflow-wrap: anywhere;
+}
+.cn-admin :is(#overview, .admin-operations-flow, .admin-review-surface) p,
+.cup-create-dialog p,
+.cn-step-guide p {
+  font-size: var(--admin-text-body) !important;
+  line-height: 1.5 !important;
+}
+
+.cn-admin :is(#overview, .admin-operations-flow, .admin-review-surface) :is(label, legend),
+.cup-create-dialog :is(label, legend) {
+  font-size: var(--admin-text-control) !important;
+  font-weight: 500 !important;
+  line-height: 1.45 !important;
+}
+.cn-admin :is(#overview, .admin-operations-flow, .admin-review-surface) label > :is(span, strong) {
+  font-size: inherit;
+  font-weight: inherit;
+}
+.cn-admin :is(#overview, .admin-operations-flow, .admin-review-surface) :is(input, select, textarea):where(:not([type=checkbox]):not([type=radio]):not([type=color])),
+.cup-create-dialog :is(input, select, textarea):where(:not([type=checkbox]):not([type=radio]):not([type=color])) {
+  font-family: inherit;
+  font-size: var(--admin-text-input) !important;
+  font-weight: 400 !important;
+  line-height: 1.4 !important;
+  letter-spacing: normal;
+  text-transform: none;
+}
+.cn-admin :is(#overview, .admin-operations-flow, .admin-review-surface) :is(input, select):where(:not([type=checkbox]):not([type=radio]):not([type=color])),
+.cup-create-dialog :is(input, select):where(:not([type=checkbox]):not([type=radio]):not([type=color])) {
+  min-height: 46px !important;
+}
+
+.cn-admin :is(#overview, .admin-operations-flow, .admin-review-surface) :is(.admin-form-footer, .admin-team-actions, .admin-window-actions, .admin-next-step, .admin-kit-search, .admin-kit-result, .admin-kit-candidates, .admin-kit-editor, .admin-logo-editor, .admin-public-options, .admin-cupinfo__head, .admin-organizer-logos, .admin-bulk-assets, .publication-console__actions, .schedule-empty-guide__actions, .schedule-ready-card, .admin-import-welcome__actions, .cn-partner-actions, .cn-partner-logo-preview, .cn-partner-error, .reporting-match__score, .import-file-picker, .pitch-review-callout, .admin-kit-issues) :is(button, a),
+.cn-admin .admin-review-surface :is(button:not([aria-label="Stäng"]), a),
+.cn-admin .admin-sidebar :is(button, .cn-admin-nav a),
+.cn-step-guide :is(.cn-phases, .cn-step-guide__actions) button,
+.cup-create-dialog :is(button:not(.cup-create-close), .cup-create-actions a) {
+  font-family: inherit;
+  font-size: var(--admin-text-control) !important;
+  font-weight: 600 !important;
+  line-height: 1.4 !important;
+  min-height: 44px !important;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.cn-admin :is(#overview, .admin-operations-flow, .admin-review-surface) summary,
+.cn-admin .admin-sidebar summary,
+.cn-step-guide summary,
+.cup-create-dialog summary {
+  font-family: inherit;
+  font-size: var(--admin-text-body) !important;
+  font-weight: 500 !important;
+  line-height: 1.4 !important;
+  min-height: 44px;
+  letter-spacing: normal;
+  text-transform: none;
+}
+
+.cn-admin :is(#overview, .admin-operations-flow, .admin-review-surface) small,
+.cn-admin :is(#overview, .admin-operations-flow, .admin-review-surface) :is(.admin-form-footer > span, .admin-code-placeholder, .admin-next-step span, .admin-save-status, .admin-kit-help, .admin-kit-search > div > span, .admin-kit-evidence, .admin-public-options__intro, .admin-import-welcome__steps span, .publication-console__actions > span, .publication-console__error > span),
+.cup-create-dialog small {
+  font-size: var(--admin-text-help) !important;
+  font-weight: 400 !important;
+  line-height: 1.45 !important;
+}
+.cn-admin :is(#overview, .admin-operations-flow, .admin-review-surface) .admin-code-placeholder > :is(b, strong) {
+  font-family: inherit !important;
+  font-size: inherit !important;
+  font-weight: 600 !important;
+  letter-spacing: normal !important;
+}
+.cn-admin :is(#overview, .admin-operations-flow, .admin-review-surface) summary > :is(span, strong, b) {
+  font-size: inherit !important;
+  font-weight: inherit;
+}
+.cn-admin :is(#overview, .admin-operations-flow, .admin-review-surface) :is(.admin-panel__top, .publication-console__eyebrow, .admin-section-heading > span, .admin-lock, .publication-console__kicker, .kicker),
+.cn-admin :is(#overview, .admin-operations-flow, .admin-review-surface) :is(.admin-panel__top, .publication-console__eyebrow) > :is(span, strong),
+.cn-admin .admin-sidebar__cup > span {
+  font-size: var(--admin-text-meta) !important;
+  font-weight: 500 !important;
+  line-height: 1.4 !important;
+  letter-spacing: .06em !important;
+  overflow-wrap: anywhere;
+}
+.cn-admin :is(#overview, .admin-operations-flow, .admin-review-surface) :is(.publication-ready-steps, .publication-checklist__item) strong {
+  font-size: var(--admin-text-body) !important;
+  font-weight: 600;
+  line-height: 1.4;
+}
+.cn-admin :is(#overview, .admin-operations-flow, .admin-review-surface) .admin-next-task strong,
+.cn-step-guide__body > div > strong {
+  font-size: var(--admin-text-section) !important;
+  font-weight: 650;
+  line-height: 1.3;
+}
+.cn-admin :is(#overview, .admin-operations-flow, .admin-review-surface) .admin-next-task > span {
+  font-size: var(--admin-text-meta) !important;
+  font-weight: 500;
+  line-height: 1.4;
+}
+.cn-admin .cn-admin-nav > strong {
+  font-size: var(--admin-text-control);
+  font-weight: 500;
+}
+.cn-admin .cn-admin-mobile-nav {
+  font-size: var(--admin-text-control);
+  font-weight: 500;
+}
+.cn-admin .cn-admin-mobile-nav select {
+  font-family: inherit;
+  font-size: var(--admin-text-input) !important;
+  font-weight: 400;
+  line-height: 1.4;
+}
+
+/* Remove the rounded internal divider; the active-cup card owns its frame. */
+.cn-admin .admin-active-cup-card .admin-sidebar__cup {
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: none !important;
+  box-shadow: none !important;
+}
+.cn-admin .admin-active-cup-card .admin-sidebar__cup small {
+  border: 0;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+  padding: 0;
+  text-decoration: none;
+}
+
+/* Scores are data, not ordinary form text. Code displays retain their own size. */
+.cn-admin :is(#overview, .admin-operations-flow, .admin-review-surface) .reporting-match__score input {
+  font-size: 22px !important;
+  font-weight: 700 !important;
+}
+
+body:has(.cn-admin) .cup-create-toolbar__actions :is(a, button) {
+  font-size: 14px !important;
+  font-weight: 600;
+  line-height: 1.35;
+  white-space: normal;
+  text-align: center;
+}
+
+@media (max-width: 760px) {
+  .cn-admin :is(#overview, .admin-operations-flow, .admin-review-surface) .admin-panel__top,
+  .cn-admin :is(#overview, .admin-operations-flow, .admin-review-surface) .publication-console__eyebrow {
+    flex-wrap: wrap;
+  }
+}

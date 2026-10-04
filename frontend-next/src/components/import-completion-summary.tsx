@@ -74,7 +74,7 @@ export default function ImportCompletionSummary() {
   const expected=summary.expected, actual=summary.actual;
   const playoffPending=summary.pending?.includes("playoff_matches")&&expected.playoff_matches>actual.playoff_matches;
 
-  return <section className="admin-panel" style={{maxWidth:1120,margin:"12px auto",borderWidth:2}} aria-label={summary.complete?"Import klar":"Import behöver slutföras"}>
+  return <section className="admin-panel admin-review-surface" style={{maxWidth:1120,margin:"12px auto",borderWidth:2}} aria-label={summary.complete?"Import klar":"Import behöver slutföras"}>
     <div className="admin-panel__top"><span>IMPORT · {summary.complete?"KLAR":"ÅTGÄRD KRÄVS"}</span><strong>{summary.complete?"✓ GRANSKNINGSKEDJAN ÄR FÄRDIG":"! DELAR VÄNTAR PÅ GRANSKNING"}</strong></div>
     <div>
       <h2 style={{marginBottom:5}}>{summary.complete?"Import klar":"Importen är inte färdig"}</h2>
