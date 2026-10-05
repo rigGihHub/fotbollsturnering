@@ -4,6 +4,7 @@ import { belongsToTeam, cupMatches, hasPlayoffs, matchdayOrder } from "@/lib/mat
 import { useMatchWeather } from "@/lib/use-match-weather";
 import { PlacementTables } from "./PlacementTables";
 import { PublicOffers } from "./PublicOffers";
+import { publicTabSettings, visiblePublicTab, type PublicTab } from "../lib/public-tab-settings";
 import { PublicSponsors } from "./PublicSponsors";
 
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -18,7 +19,7 @@ import { placementStandingsPresentation } from "@/lib/placement-standings";
 import { MIN_REFRESH_BACKOFF_MS, nextPublicRefreshBackoff, nextPublicRefreshDelay } from "@/lib/public-refresh";
 
 type StandingsGroup={group:{id:number;name:string};rows:StandingRow[]};
-type Tab="matches"|"table"|"stats"|"playoff"|"info"|"offers";
+type Tab=PublicTab;
 type MatchView="upcoming"|"results"|"all";
 const normalizeCup=(snapshot:CupSnapshot):CupSnapshot=>({
   tournament:{...(snapshot?.tournament||{}),id:Number(snapshot?.tournament?.id)||0,name:snapshot?.tournament?.name?.trim()||"Ny cup"},
@@ -40,7 +41,9 @@ export function PublicCupView({ publicKey, initialCup, initialStandings, reporte
   const [cup,setCup]=useState(()=>normalizeCup(initialCup)); const cupRef=useRef(cup); const [standings,setStandings]=useState(Array.isArray(initialStandings)?initialStandings:[]);
   const nextAllowedRefreshRef=useRef(0); const publicRefreshBackoffMs=useRef(0); const missingRefreshesRef=useRef(0);
   const [standingsLoaded,setStandingsLoaded]=useState(initialStandings.length>0); const [standingsLoading,setStandingsLoading]=useState(false);
-  const [tab,setTab]=useState<Tab>("matches");
+  const [selectedTab,setTab]=useState<Tab>("matches");
+  const tabSettings=publicTabSettings(cup.tournament);
+  const tab=visiblePublicTab(selectedTab,tabSettings);
   const [matchView,setMatchView]=useState<MatchView>("all");
   const [teamFilter,setTeamFilter]=useState("");
   const [dataError,setDataError]=useState("");
@@ -67,6 +70,7 @@ export function PublicCupView({ publicKey, initialCup, initialStandings, reporte
   const halftimeMinutes=Number(cup.tournament.halftime_minutes||0);
   const hasMatchDuration=matchMinutesPerHalf>0;
 
+  useEffect(()=>{if(selectedTab!==tab)setTab(tab);},[selectedTab,tab]);
   useEffect(()=>{cupRef.current=cup},[cup]);
   useEffect(()=>{
     try {
@@ -168,7 +172,7 @@ export function PublicCupView({ publicKey, initialCup, initialStandings, reporte
   const placementMatchIds=new Set(placementGroups.flatMap(group=>group.match_ids||[]));
   const remainingBrackets=cup.brackets.map(bracket=>({...bracket,matches:(bracket.matches||[]).filter(match=>!placementMatchIds.has(match.id))})).filter(bracket=>bracket.matches.length||!hasPlacementGroups);
   const renderMatch=(match:CupSnapshot["matches"][number],index:number)=><MatchCard key={match.id} weather={matchWeather(match)} match={match} teams={cup.teams} groups={cup.groups} pitches={cup.pitches||[]} index={matchNumberById.get(match.id)??index} showKits={showPublicKits} showAwayKits={showPublicAwayKits} showLogos={showPublicLogos} showGoalMinutes={showGoalMinutes}/>;
-  const navItems:Array<[Tab,string]>=[["matches",isSingleMatch?"Matchen":"Matcher"],...(showTables?[["table","Tabeller"] as [Tab,string]]:[]),...(statsEnabled?[["stats","Topplistor"] as [Tab,string]]:[]),...(showPlayoffs?[["playoff","Slutspel"] as [Tab,string]]:[]),["info","Info"],["offers","Erbjudanden"]];
+  const navItems:Array<[Tab,string]>=[["matches",isSingleMatch?"Matchen":"Matcher"],...(showTables?[["table","Tabeller"] as [Tab,string]]:[]),...(statsEnabled?[["stats","Topplistor"] as [Tab,string]]:[]),...(showPlayoffs?[["playoff","Slutspel"] as [Tab,string]]:[]),...(tabSettings.info?[["info","Info"] as [Tab,string]]:[]),...(tabSettings.offers?[["offers","Erbjudanden"] as [Tab,string]]:[])];
 
 
   if(unavailable)return <main className="page-shell page-shell--matchday"><article className="empty-state"><strong>Cupen är inte längre publicerad.</strong><p>Den kan ha flyttats till papperskorgen eller fått en ny publik adress.</p><a href="/">Till CupNavi</a></article></main>;

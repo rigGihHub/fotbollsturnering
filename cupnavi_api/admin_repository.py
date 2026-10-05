@@ -24,7 +24,7 @@ CUPINFO_FIELDS = (
     "feedback_email",
     "public_information",
     "arrangement_type",
-    "show_public_weather", "show_public_weather_configured", "show_public_kits", "show_public_away_kits", "show_public_logos", "show_public_goal_minutes",
+    "show_public_weather", "show_public_weather_configured", "show_public_kits", "show_public_away_kits", "show_public_logos", "show_public_goal_minutes", "show_public_info", "show_public_offers",
 )
 CUPINFO_OPTIONAL_TEXT_FIELDS = (
     "organizer",
@@ -152,7 +152,7 @@ def _ensure_cupinfo_columns() -> set[str]:
     if not columns:
         return columns
     missing = [field for field in CUPINFO_OPTIONAL_TEXT_FIELDS if field not in columns]
-    boolean_defaults={"show_public_weather":1,"show_public_weather_configured":0,"show_public_kits":1,"show_public_away_kits":1,"show_public_logos":1,"show_public_goal_minutes":0}
+    boolean_defaults={"show_public_weather":1,"show_public_weather_configured":0,"show_public_kits":1,"show_public_away_kits":1,"show_public_logos":1,"show_public_goal_minutes":0,"show_public_info":1,"show_public_offers":1}
     with connect() as con:
         for field,default in boolean_defaults.items():
             if field not in columns:
@@ -347,7 +347,7 @@ def admin_cupinfo(account_id: int, tournament_id: int):
     missing_required = [field for field in required if field not in columns]
     if missing_required:
         raise RuntimeError(f"Tournament schema missing required columns: {','.join(missing_required)}")
-    fields = ",".join((*required, *CUPINFO_OPTIONAL_TEXT_FIELDS, "organizer_logos_json", "show_public_weather", "show_public_weather_configured", "show_public_kits", "show_public_away_kits", "show_public_logos", "show_public_goal_minutes"))
+    fields = ",".join((*required, *CUPINFO_OPTIONAL_TEXT_FIELDS, "organizer_logos_json", "show_public_weather", "show_public_weather_configured", "show_public_kits", "show_public_away_kits", "show_public_logos", "show_public_goal_minutes", "show_public_info", "show_public_offers"))
     row = with_imported_location(one(f"SELECT {fields} FROM tournaments WHERE id=?", (int(tournament_id),)))
     if row:
         row["organizer_logos"] = json.loads(row.pop("organizer_logos_json") or "[]")
@@ -375,7 +375,7 @@ def update_cupinfo(account_id: int, tournament_id: int, values: dict):
         return None
     columns = _ensure_cupinfo_columns()
     clean = {}
-    boolean_fields={"show_public_weather","show_public_weather_configured","show_public_kits","show_public_away_kits","show_public_logos","show_public_goal_minutes"}
+    boolean_fields={"show_public_weather","show_public_weather_configured","show_public_kits","show_public_away_kits","show_public_logos","show_public_goal_minutes","show_public_info","show_public_offers"}
     for field in CUPINFO_FIELDS:
         if field not in values or field not in columns:
             continue

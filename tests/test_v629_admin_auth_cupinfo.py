@@ -3,6 +3,7 @@ import sqlite3
 import pytest
 
 from cupnavi_api.admin_auth import issue_session, password_hash, verify_session
+from cupnavi_api.repository import public_tournament
 from cupnavi_api.admin_repository import (
     admin_cupinfo,
     authenticate_organizer,
@@ -113,6 +114,34 @@ def test_cupinfo_update_is_whitelisted_and_requires_membership(admin_database):
 def test_cupinfo_rejects_blank_name(admin_database):
     with pytest.raises(ValueError, match="Cupnamn krävs"):
         update_cupinfo(1, 10, {"name": "   "})
+
+
+def test_public_tab_settings_default_visible_for_older_cups(admin_database):
+    current = admin_cupinfo(1, 10)
+    assert current["show_public_info"] == current["show_public_offers"] == 1
+    assert public_tournament("testcup")["show_public_info"] == 1
+    assert public_tournament("testcup")["show_public_offers"] == 1
+
+
+@pytest.mark.parametrize("info,offers", [(False, True), (True, False), (False, False), (True, True)])
+def test_public_tab_settings_are_independent_and_persisted(admin_database, info, offers):
+    current = admin_cupinfo(1, 10)
+    saved = update_cupinfo(1, 10, {"show_public_info": info, "show_public_offers": offers, "expected_revision": current["admin_revision"]})
+    assert saved["show_public_info"] == int(info)
+    assert saved["show_public_offers"] == int(offers)
+    assert saved["is_published"] == 1
+    assert admin_cupinfo(1, 10)["show_public_info"] == int(info)
+    public = public_tournament("testcup")
+    assert public["show_public_info"] == int(info)
+    assert public["show_public_offers"] == int(offers)
+    assert update_cupinfo(2, 10, {"show_public_info": not info}) is None
+    assert admin_cupinfo(1, 10)["show_public_info"] == int(info)
+
+
+def test_partial_cupinfo_save_preserves_public_tab_settings(admin_database):
+    update_cupinfo(1, 10, {"show_public_info": False, "show_public_offers": False})
+    saved = update_cupinfo(1, 10, {"name": "Uppdaterad cup"})
+    assert saved["show_public_info"] == saved["show_public_offers"] == 0
 
 
 def test_arrangement_type_is_persisted_and_validated(admin_database):

@@ -4,6 +4,7 @@ import { readAdminDraft, writeAdminDraft, clearAdminDrafts } from "../lib/admin-
 import { useUnsavedWork, usePendingAdminDrafts } from "../lib/use-admin-draft";
 import AdminDraftStatus from "./admin-draft-status";
 import AdminNavLink from "./admin-nav-link";
+import { publicTabSettings } from "../lib/public-tab-settings";
 import { APP_VERSION } from "@/lib/version";
 import { openPlayoffReview } from "../lib/open-playoff-review";
 
@@ -41,7 +42,7 @@ type CupInfo = {
   public_information?:string|null;
   arrangement_type?:"single_match"|"matchcamp"|"tournament"|"tournament_playoffs"|"custom"|null;
   show_public_weather?:number|boolean; show_public_weather_configured?:number|boolean; show_public_kits?:number|boolean; show_public_away_kits?:number|boolean; show_public_logos?:number|boolean;
-  show_public_goal_minutes?:number|boolean;
+  show_public_goal_minutes?:number|boolean; show_public_info?:number|boolean; show_public_offers?:number|boolean;
   admin_revision:number;
 };
 type SessionPayload = { account:Account; cups:Cup[]; token?:string };
@@ -429,7 +430,7 @@ export default function AdminWorkspace({verifiedSession=null,children=null}:{ver
     try {
       const saved = await request<CupInfo>(`/api/admin/cups/${cupId}/cupinfo`,{
         method:"PUT",
-        body:JSON.stringify({name:cupinfo.name,start_date:cupinfo.start_date || null,end_date:cupinfo.end_date || null,organizer:cupinfo.organizer || null,organizer_logos:cupinfo.organizer_logos||[],arena_address:cupinfo.arena_address || null,organizer_phone:cupinfo.organizer_phone || null,feedback_email:cupinfo.feedback_email || null,public_information:cupinfo.public_information || null,arrangement_type:cupinfo.arrangement_type || "tournament",show_public_weather:publicWeatherEnabled(cupinfo),show_public_weather_configured:true,show_public_kits:cupinfo.show_public_kits!==false&&cupinfo.show_public_kits!==0,show_public_away_kits:cupinfo.show_public_away_kits!==false&&cupinfo.show_public_away_kits!==0,show_public_logos:cupinfo.show_public_logos!==false&&cupinfo.show_public_logos!==0,show_public_goal_minutes:cupinfo.show_public_goal_minutes===true||cupinfo.show_public_goal_minutes===1,expected_revision:cupinfo.admin_revision})
+        body:JSON.stringify({name:cupinfo.name,start_date:cupinfo.start_date || null,end_date:cupinfo.end_date || null,organizer:cupinfo.organizer || null,organizer_logos:cupinfo.organizer_logos||[],arena_address:cupinfo.arena_address || null,organizer_phone:cupinfo.organizer_phone || null,feedback_email:cupinfo.feedback_email || null,public_information:cupinfo.public_information || null,arrangement_type:cupinfo.arrangement_type || "tournament",show_public_weather:publicWeatherEnabled(cupinfo),show_public_weather_configured:true,show_public_kits:cupinfo.show_public_kits!==false&&cupinfo.show_public_kits!==0,show_public_away_kits:cupinfo.show_public_away_kits!==false&&cupinfo.show_public_away_kits!==0,show_public_logos:cupinfo.show_public_logos!==false&&cupinfo.show_public_logos!==0,show_public_goal_minutes:cupinfo.show_public_goal_minutes===true||cupinfo.show_public_goal_minutes===1,show_public_info:publicTabSettings(cupinfo).info,show_public_offers:publicTabSettings(cupinfo).offers,expected_revision:cupinfo.admin_revision})
       },token);
       const normalized = cleanCupInfo(saved);
       writeAdminDraft(`${cupId}:cupinfo`,normalized,normalized);
@@ -797,7 +798,7 @@ export default function AdminWorkspace({verifiedSession=null,children=null}:{ver
             <label>Anläggning / adress<input value={cupinfo.arena_address || ""} onChange={e=>setCupinfo({...cupinfo,arena_address:e.target.value})} /></label>
             <label>Telefon<input value={cupinfo.organizer_phone || ""} onChange={e=>setCupinfo({...cupinfo,organizer_phone:e.target.value})} /></label>
             <label>Kontakt-e-post<input type="email" value={cupinfo.feedback_email || ""} onChange={e=>setCupinfo({...cupinfo,feedback_email:e.target.value})} /></label>
-            <label style={{gridColumn:"1 / -1"}}>Publik information<textarea rows={5} value={cupinfo.public_information || ""} onChange={e=>setCupinfo({...cupinfo,public_information:e.target.value})} /></label><fieldset className="admin-public-options" style={{gridColumn:"1 / -1"}}><legend>Publik matchvy</legend><label><input type="checkbox" checked={publicWeatherEnabled(cupinfo)} onChange={e=>setCupinfo({...cupinfo,show_public_weather:e.target.checked,show_public_weather_configured:true})}/> Visa väder</label><a href="#teams">Matchställ och klubbmärken ställs in under Lag →</a><label><input type="checkbox" checked={cupinfo.show_public_goal_minutes===true||cupinfo.show_public_goal_minutes===1} onChange={e=>setCupinfo({...cupinfo,show_public_goal_minutes:e.target.checked})}/> Visa målminuter i turneringsvyn</label><small>Målminuter visas bara för mål som rapporteras med matchklockan. Tidigare resultat saknar minuter.</small></fieldset>
+            <label style={{gridColumn:"1 / -1"}}>Publik information<textarea rows={5} value={cupinfo.public_information || ""} onChange={e=>setCupinfo({...cupinfo,public_information:e.target.value})} /></label><fieldset className="admin-public-options" style={{gridColumn:"1 / -1"}}><legend>Publik turneringsvy</legend><label className="admin-public-options__checkbox" style={{minHeight:44}}><input type="checkbox" checked={publicTabSettings(cupinfo).info} onChange={e=>setCupinfo({...cupinfo,show_public_info:e.target.checked})}/> Visa Info-fliken</label><label className="admin-public-options__checkbox" style={{minHeight:44}}><input type="checkbox" checked={publicTabSettings(cupinfo).offers} onChange={e=>setCupinfo({...cupinfo,show_public_offers:e.target.checked})}/> Visa Erbjudanden-fliken</label><small>Avmarkerade flikar döljs för besökarna. Innehållet finns kvar och kan visas igen. Info innehåller cupinformation och sponsorer.</small><label className="admin-public-options__checkbox" style={{minHeight:44}}><input type="checkbox" checked={publicWeatherEnabled(cupinfo)} onChange={e=>setCupinfo({...cupinfo,show_public_weather:e.target.checked,show_public_weather_configured:true})}/> Visa väder</label><a href="#teams">Matchställ och klubbmärken ställs in under Lag →</a><label className="admin-public-options__checkbox" style={{minHeight:44}}><input type="checkbox" checked={cupinfo.show_public_goal_minutes===true||cupinfo.show_public_goal_minutes===1} onChange={e=>setCupinfo({...cupinfo,show_public_goal_minutes:e.target.checked})}/> Visa målminuter i turneringsvyn</label><small>Målminuter visas bara för mål som rapporteras med matchklockan. Tidigare resultat saknar minuter.</small></fieldset>
           </div>
           <fieldset className="admin-organizer-logos"><legend>Arrangörslogotyper i bannern</legend>
             <p>Visa upp till tre klubbmärken överst på den publika cupsidan. Välj ett lag, ladda upp en bild eller ange en bildadress.</p>

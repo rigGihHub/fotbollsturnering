@@ -18,6 +18,8 @@ TOURNAMENT_RUNTIME_COLUMNS = {
     "trashed_at": "TEXT",
     "admin_revision": "INTEGER NOT NULL DEFAULT 1",
     "show_public_goal_minutes": "INTEGER NOT NULL DEFAULT 0",
+    "show_public_info": "INTEGER NOT NULL DEFAULT 1",
+    "show_public_offers": "INTEGER NOT NULL DEFAULT 1",
     "organizer_logos_json": "TEXT NOT NULL DEFAULT '[]'",
 }
 

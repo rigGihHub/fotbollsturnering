@@ -91,6 +91,9 @@ jobs:
       - name: Existing cup PDF update regression
         run: npm run test:pdf-cup-update
 
+      - name: Public tab visibility regression
+        run: npm run test:public-tab-settings
+
       - name: Production build
         env:
           CUPNAVI_API_BASE: https://cupnavi-api.onrender.com
