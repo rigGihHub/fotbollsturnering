@@ -3,6 +3,7 @@ import { adminFlowSteps, adminToolSteps, parseAdminStep, type AdminStep } from "
 import { readAdminDraft, writeAdminDraft, clearAdminDrafts } from "../lib/admin-draft";
 import { useUnsavedWork, usePendingAdminDrafts } from "../lib/use-admin-draft";
 import AdminDraftStatus from "./admin-draft-status";
+import AdminNavLink from "./admin-nav-link";
 import { APP_VERSION } from "@/lib/version";
 import { openPlayoffReview } from "../lib/open-playoff-review";
 
@@ -757,10 +758,10 @@ export default function AdminWorkspace({verifiedSession=null,children=null}:{ver
       </>}
       <nav className="cn-admin-nav" aria-label="Cupadministration">
         <strong>Förbered cupen</strong>
-        {visibleSetupNav.map(([item,href])=><a key={item} aria-current={href===`#${activeStep}`?"page":undefined} href={href}>{item}</a>)}
-        <a aria-current={activeStep==="partners"?"page":undefined} href="#partners">Sponsorer & erbjudanden</a>
+        {visibleSetupNav.map(([item,href])=><AdminNavLink key={href} href={href} label={item} active={href===`#${activeStep}`}/>)}
+        <AdminNavLink href="#partners" label="Sponsorer & erbjudanden" active={activeStep==="partners"}/>
         <strong>Verktyg & cupdag</strong>
-        {toolNav.map(([item,href])=><a key={item} aria-current={href===`#${activeStep}`?"page":undefined} href={href}>{item}</a>)}
+        {toolNav.map(([item,href])=><AdminNavLink key={href} href={href} label={item} active={href===`#${activeStep}`}/>)}
       </nav>
       <button className="admin-public-link" type="button" onClick={logout}>Logga ut</button>
     </aside>
