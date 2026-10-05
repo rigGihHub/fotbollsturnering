@@ -1,10 +1,10 @@
 export type ImportedMatch={time?:string|null;venue?:string|null;group_name?:string|null;home_team?:string|null;away_team?:string|null};
-export type RevisionProposal={matches?:ImportedMatch[];source_name?:string|null;warnings?:string[]};
+export type RevisionProposal={matches?:ImportedMatch[];source_name?:string|null;warnings?:string[];unread_rows?:string[];extraction_method?:string};
 export type RevisionMatch={id:number;home_label:string;away_label:string;group_name?:string|null;scheduled_start?:string|null;pitch_number?:number|null;schedule_locked:boolean;played:boolean};
 export type RevisionSchedule={matches:RevisionMatch[];start_date?:string|null;end_date?:string|null};
 export type RevisionPitch={pitch_number:number;name:string};
 export type RevisionChange={match:RevisionMatch;nextStart:string;nextPitch:number;selected:boolean;matchingNote?:string};
-export type RevisionReview={changes:RevisionChange[];unchanged:number;unmatched:string[];warnings:string[];preserved:string[]};
+export type RevisionReview={changes:RevisionChange[];unchanged:number;unmatched:string[];warnings:string[];preserved:string[];extractionMethod?:string};
 
 function norm(value?:string|null){return (value||"").normalize("NFKC").trim().toLocaleLowerCase("sv").replace(/[‐‑‒–—−]/g,"-").replace(/\s+/g," ");}
 function groupKey(value?:string|null){return norm(value).replace(/^(?:grupp|group)\s*[:.-]?\s*([a-zåäö]|\d+)$/u,"$1");}
@@ -24,7 +24,7 @@ function startValue(raw:string|undefined|null,schedule:RevisionSchedule){
 }
 
 export function reviewScheduleRevision(proposal:RevisionProposal,schedule:RevisionSchedule,pitches:RevisionPitch[]):RevisionReview {
-  const changes:RevisionChange[]=[],unmatched:string[]=[],preserved:string[]=[];
+  const changes:RevisionChange[]=[],unmatched:string[]=[...(proposal.unread_rows||[])],preserved:string[]=[];
   let unchanged=0;
   // A compact spelling is usable only when it identifies one distinct label in this cup.
   const teamLabels=new Set(schedule.matches.flatMap(match=>[norm(match.home_label),norm(match.away_label)]));
@@ -59,5 +59,5 @@ export function reviewScheduleRevision(proposal:RevisionProposal,schedule:Revisi
     if((match.scheduled_start||"").replace(" ","T").slice(0,16)===nextStart&&Number(match.pitch_number||0)===nextPitch){unchanged++;continue;}
     changes.push({match,nextStart,nextPitch,selected:true,matchingNote});
   }
-  return {changes,unchanged,unmatched,preserved,warnings:proposal.warnings||[]};
+  return {changes,unchanged,unmatched,preserved,warnings:proposal.warnings||[],extractionMethod:proposal.extraction_method};
 }

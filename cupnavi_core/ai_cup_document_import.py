@@ -3,8 +3,32 @@ import json
 import re
 from io import BytesIO
 from datetime import date
-from urllib.error import HTTPError
+from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
+from time import monotonic, sleep
+
+
+def _request_payload(request, timeout_seconds, opener, *, pause=sleep, clock=monotonic):
+    """Retry only temporary transport failures, within the original time budget."""
+    deadline = clock() + timeout_seconds
+    for attempt in range(3):
+        try:
+            with opener(request, timeout=max(1, deadline - clock())) as response:
+                return json.loads(response.read().decode('utf-8'))
+        except HTTPError as exc:
+            temporary = exc.code in (429, 500, 502, 503, 504)
+            retry_after = str(exc.headers.get('Retry-After', '') if exc.headers else '')
+            delay = int(retry_after) if retry_after.isdigit() else attempt + 1
+            if not temporary or attempt == 2 or clock() + delay >= deadline:
+                raise _runtime_from_http_error(exc) from exc
+            exc.close()
+        except (URLError, TimeoutError, ConnectionError, OSError) as exc:
+            delay = attempt + 1
+            if attempt == 2 or clock() + delay >= deadline:
+                raise RuntimeError('AI-tjänsten kunde inte nås just nu. Försök igen om en stund.') from exc
+        except Exception as exc:
+            raise RuntimeError('AI-tjänstens svar kunde inte läsas. Försök igen.') from exc
+        pause(delay)
 
 
 def _output_text(payload):
@@ -62,6 +86,8 @@ def _runtime_from_http_error(exc):
         if detail:
             message += f' Teknisk detalj: {detail}'
         return RuntimeError(message)
+    if exc.code in (429, 500, 502, 503, 504):
+        return RuntimeError('AI-tjänsten är tillfälligt otillgänglig. Försök jämföra igen om en stund. Ingenting har ändrats i cupen.')
     message = f'AI-avläsningen misslyckades: AI-tjänsten svarade med HTTP {exc.code}'
     if detail:
         message += f': {detail}'
@@ -189,13 +215,7 @@ def extract_cup_setup_from_document(raw, filename, mime_type, api_key, *, model=
     }
     request = Request('https://api.openai.com/v1/responses', data=json.dumps(body).encode('utf-8'), headers={
         'Authorization': f'Bearer {api_key}', 'Content-Type': 'application/json'}, method='POST')
-    try:
-        with opener(request, timeout=timeout_seconds) as response:
-            payload = json.loads(response.read().decode('utf-8'))
-    except HTTPError as exc:
-        raise _runtime_from_http_error(exc) from exc
-    except Exception as exc:
-        raise RuntimeError(f'AI-avläsningen misslyckades: {exc}') from exc
+    payload = _request_payload(request, timeout_seconds, opener)
     if payload.get('error'):
         err = payload['error']
         raise RuntimeError(f"AI-avläsningen misslyckades: {err.get('message') if isinstance(err, dict) else err}")
@@ -319,13 +339,7 @@ def extract_cup_setup_from_documents(documents, api_key, *, model='gpt-5.6-luna'
     }
     request = Request('https://api.openai.com/v1/responses', data=json.dumps(body).encode('utf-8'), headers={
         'Authorization': f'Bearer {api_key}', 'Content-Type': 'application/json'}, method='POST')
-    try:
-        with opener(request, timeout=timeout_seconds) as response:
-            payload = json.loads(response.read().decode('utf-8'))
-    except HTTPError as exc:
-        raise _runtime_from_http_error(exc) from exc
-    except Exception as exc:
-        raise RuntimeError(f'AI-avläsningen misslyckades: {exc}') from exc
+    payload = _request_payload(request, timeout_seconds, opener)
     if payload.get('error'):
         err = payload['error']
         raise RuntimeError(f"AI-avläsningen misslyckades: {err.get('message') if isinstance(err, dict) else err}")

@@ -1,6 +1,6 @@
 {
   "name": "cupnavi-web",
-  "version": "2.8.67",
+  "version": "2.8.68",
   "private": true,
   "scripts": {
     "test:public-tab-settings": "node scripts/test-public-tab-settings.cjs",

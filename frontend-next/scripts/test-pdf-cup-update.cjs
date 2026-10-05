@@ -65,6 +65,18 @@ for(const flag of ["played","schedule_locked"]){
  assert.equal(preserved.changes.length,0);
  assert.equal(preserved.preserved.length,1);
 }
+assert.equal(reviewScheduleRevision({matches:[row],unread_rows:["En rad kunde inte läsas"]},schedule,pitches).unmatched.length,1);
+const {revisionCommitRows,revisionIsSaved}=load("lib/schedule-revision-commit.ts");
+const selectedChanges=recovered.changes;
+const committedRows=revisionCommitRows(selectedChanges);
+assert.equal(committedRows.length,9);
+assert.equal(committedRows[0].expected_scheduled_start,"2026-10-24T09:00:00");
+const savedSchedule={...actualCup,matches:selectedChanges.map(row=>({...row.match,scheduled_start:row.nextStart,pitch_number:row.nextPitch}))};
+assert.equal(revisionIsSaved(selectedChanges,savedSchedule),true);
+assert.equal(revisionIsSaved(selectedChanges,actualCup),false,"A successful HTTP response alone is not proof that the new schedule was saved");
+assert.equal(revisionIsSaved(selectedChanges,{...savedSchedule,matches:savedSchedule.matches.slice(1)}),false);
+assert.equal(revisionIsSaved(selectedChanges,{...savedSchedule,matches:savedSchedule.matches.map((m,i)=>i?m:{...m,pitch_number:1})}),false);
+assert.equal(revisionIsSaved(selectedChanges,null),false);
 const {documentFilesError}=load("components/document-dropzone.tsx");
 assert.equal(documentFilesError([{name:"schema.pdf",size:1024}]),"");
 assert.match(documentFilesError([{name:"schema.exe",size:1024}]),/Välj PDF/);
