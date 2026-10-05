@@ -87,6 +87,8 @@ def apply_schedule_revision(account_id: int, tournament_id: int, changes: list[d
             "match_id": match_id,
             "scheduled_start": scheduled_start,
             "pitch_number": pitch_number,
+            "expected_scheduled_start": expected_start,
+            "expected_pitch_number": expected_pitch,
         })
 
     # Reject a revision that introduces additional hard schedule conflicts.
@@ -114,12 +116,18 @@ def apply_schedule_revision(account_id: int, tournament_id: int, changes: list[d
     with connect() as con:
         try:
             for row in clean:
-                con.execute(
+                cursor = con.execute(
                     """UPDATE matches
                        SET scheduled_start=?,pitch_number=?,schedule_published=0
-                       WHERE id=? AND tournament_id=?""",
-                    (row["scheduled_start"], row["pitch_number"], row["match_id"], int(tournament_id)),
+                       WHERE id=? AND tournament_id=?
+                         AND scheduled_start IS ? AND pitch_number IS ?
+                         AND COALESCE(schedule_locked,0)=0
+                         AND (home_score IS NULL OR away_score IS NULL)""",
+                    (row["scheduled_start"], row["pitch_number"], row["match_id"], int(tournament_id),
+                     row["expected_scheduled_start"], row["expected_pitch_number"]),
                 )
+                if cursor.rowcount == 0:
+                    raise ValueError("Schemat eller matchstatus har ändrats sedan granskningen. Läs in PDF:en igen innan du sparar.")
             con.execute(
                 "UPDATE tournaments SET schedule_dirty=1,is_published=0 WHERE id=?",
                 (int(tournament_id),),

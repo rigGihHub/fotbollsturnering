@@ -88,6 +88,9 @@ jobs:
       - name: Public partners regression
         run: npm run test:public-partners
 
+      - name: Existing cup PDF update regression
+        run: npm run test:pdf-cup-update
+
       - name: Production build
         env:
           CUPNAVI_API_BASE: https://cupnavi-api.onrender.com

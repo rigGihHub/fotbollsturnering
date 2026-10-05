@@ -87,7 +87,7 @@ export default function AdminOperations() {
     return <section className="admin-main admin-operations-flow" aria-label="Import">
       <div className="admin-flow-group">
         <div className="admin-flow-group__label"><span>↗</span><div><strong>Uppdatera från fil</strong><small>Frivilligt verktyg när ett redan sparat underlag faktiskt har ändrats.</small></div></div>
-        <ImportAdmin token={token} cupId={cupId}/>
+        <ImportAdmin key={cupId} token={token} cupId={cupId} cupName={activeCup?.name}/>
       </div>
     </section>;
   }
