@@ -2,6 +2,7 @@
 
 import { usePathname } from "next/navigation";
 import { useState } from "react";
+import { publicCupUrl } from "../lib/public-site-url";
 
 export function HeaderShareAction(){
   const pathname=usePathname();
@@ -9,7 +10,7 @@ export function HeaderShareAction(){
   if(!pathname.startsWith("/cup/"))return null;
 
   const share=async()=>{
-    const url=new URL(pathname,window.location.origin).toString();
+    const url=publicCupUrl(pathname);
     try{
       if(navigator.share){await navigator.share({title:document.title,url});setLabel("Delad ✓");return;}
       await navigator.clipboard.writeText(url);setLabel("Länk kopierad ✓");

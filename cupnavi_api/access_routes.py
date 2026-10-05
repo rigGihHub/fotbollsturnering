@@ -52,7 +52,7 @@ def _send_member_invitation(tournament_id: int, member: dict, temporary_password
         ])
     else:
         lines.append("Logga in med ditt befintliga CupNavi-lösenord.")
-    lines.extend(["", "Logga in: https://cupnavi-web.onrender.com/admin"])
+    lines.extend(["", "Logga in: https://www.cup-navi.com/admin"])
     sent, error = send_notification_email(
         str(member["email"]),
         f"CupNavi · lokal admin för {cup_name}",

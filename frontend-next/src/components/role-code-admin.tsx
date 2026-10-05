@@ -1,6 +1,7 @@
 "use client";
 import {useCallback,useEffect,useState} from "react";
 import {CLIENT_API_BASE} from "../lib/client-api";
+import {publicSiteUrl} from "../lib/public-site-url";
 const API=CLIENT_API_BASE;
 type Status={active:boolean;created_at?:string|null;rotated_at?:string|null;expires_at?:string|null;valid_hours?:number;code?:string|null};
 async function req<T>(path:string,token:string,init:RequestInit={}):Promise<T>{const h=new Headers(init.headers);h.set("Authorization",`Bearer ${token}`);if(init.body)h.set("Content-Type","application/json");const r=await fetch(`${API}${path}`,{...init,headers:h,cache:"no-store"});const p=await r.json().catch(()=>null);if(!r.ok)throw new Error(p?.detail||`API-fel ${r.status}`);return p as T;}
@@ -11,7 +12,7 @@ export default function RoleCodeAdmin({token,cupId,publicSlug}:{token:string;cup
  async function rotate(){if(data?.active&&!window.confirm("Skapa en ny matchrapportörskod? Den gamla koden och alla aktiva rapportörssessioner slutar fungera direkt."))return;setBusy(true);setError("");try{const r=await req<Status>(`/api/admin/cups/${cupId}/role-codes/reporter/rotate`,token,{method:"POST",body:JSON.stringify({valid_hours:validHours})});setData(r);setNewCode(r.code||"")}catch(e){setError(e instanceof Error?e.message:"Koden kunde inte skapas.")}finally{setBusy(false)}}
  async function copyCode(){try{if(!data?.active||!newCode)return;await navigator.clipboard.writeText(newCode);setCopied("code");window.setTimeout(()=>setCopied(null),2000)}catch{setError("Koden kunde inte kopieras. Markera och kopiera den manuellt.")}}
  const reporterLink=`/reporter?cup=${encodeURIComponent(publicSlug||String(cupId))}`;
- async function copyLink(){try{await navigator.clipboard.writeText(new URL(reporterLink,window.location.origin).toString());setCopied("link");window.setTimeout(()=>setCopied(null),2000)}catch{setError("Länken kunde inte kopieras. Öppna rapportörsvyn och kopiera adressen manuellt.")}}
+ async function copyLink(){try{await navigator.clipboard.writeText(publicSiteUrl(reporterLink));setCopied("link");window.setTimeout(()=>setCopied(null),2000)}catch{setError("Länken kunde inte kopieras. Öppna rapportörsvyn och kopiera adressen manuellt.")}}
  const [now,setNow]=useState(Date.now());
  useEffect(()=>{const timer=window.setInterval(()=>setNow(Date.now()),1000);return()=>window.clearInterval(timer)},[]);
  const remaining=data?.expires_at?Math.max(0,new Date(data.expires_at).getTime()-now):0;

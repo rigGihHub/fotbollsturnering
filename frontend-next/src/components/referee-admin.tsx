@@ -2,6 +2,7 @@
 
 import { FormEvent, useCallback, useEffect, useState } from "react";
 import { CLIENT_API_BASE } from "../lib/client-api";
+import { publicSiteUrl } from "../lib/public-site-url";
 
 const API_BASE=CLIENT_API_BASE;
 type Referee={id:number;name:string;email?:string|null;phone?:string|null;notes?:string|null;active?:number|boolean;assignment_count:number};
@@ -23,7 +24,7 @@ export default function RefereeAdmin({token,cupId,publicSlug}:{token:string;cupI
  async function remove(r:Referee){if(!window.confirm(`Ta bort ${r.name}?`))return;setBusy(true);setError("");try{await api(`/api/admin/cups/${cupId}/referees/${r.id}`,{method:"DELETE"},token);await load();setMessage(`${r.name} har tagits bort.`);}catch(err){setError(err instanceof Error?err.message:"Domaren kunde inte tas bort.");}finally{setBusy(false);}}
  async function assign(match:Match,refereeId:number|null){setBusy(true);setError("");try{setData(await api<Payload>(`/api/admin/cups/${cupId}/referees/matches/${match.id}`,{method:"PUT",body:JSON.stringify({referee_id:refereeId})},token));setMessage("Domartilldelningen är sparad.");}catch(err){setError(err instanceof Error?err.message:"Domaren kunde inte tilldelas.");}finally{setBusy(false);}}
  async function rotateCode(r:Referee){if(codeByReferee.get(r.id)?.code_active&&!window.confirm(`Skapa ny domarkod för ${r.name}? Den gamla koden slutar fungera direkt.`))return;setBusy(true);setError("");try{const result=await api<{code:string;referee_id:number}>(`/api/admin/cups/${cupId}/role-codes/referees/${r.id}/rotate`,{method:"POST"},token);setNewCodes(current=>({...current,[r.id]:result.code}));setMessage(`Ny domarkod skapad för ${r.name}.`);await loadCodes();}catch(err){setError(err instanceof Error?err.message:"Domarkoden kunde inte skapas.");}finally{setBusy(false);}}
- async function copyLink(r:Referee){const href=`/referee?cup=${base}&referee=${r.id}`;try{await navigator.clipboard.writeText(new URL(href,window.location.origin).toString());setCopied(r.id);window.setTimeout(()=>setCopied(null),2000)}catch{setError("Domarlänken kunde inte kopieras. Öppna domarvyn och kopiera adressen manuellt.")}}
+ async function copyLink(r:Referee){const href=`/referee?cup=${base}&referee=${r.id}`;try{await navigator.clipboard.writeText(publicSiteUrl(href));setCopied(r.id);window.setTimeout(()=>setCopied(null),2000)}catch{setError("Domarlänken kunde inte kopieras. Öppna domarvyn och kopiera adressen manuellt.")}}
  if(!data)return <section className="admin-panel admin-teams" id="referees"><div className="admin-panel__top"><span>VERKTYG / DOMARE</span><strong>{busy?"HÄMTAR":"SAKNAS"}</strong></div><h2>Domare</h2><p>{error||"Hämtar domardata…"}</p></section>;
  if(!data.available)return <section className="admin-panel admin-teams" id="referees"><div className="admin-panel__top"><span>VERKTYG / DOMARE</span><strong>SCHEMAKONTROLL</strong></div><h2>Domare</h2><p>{data.reason||"Domarmodellen är inte tillgänglig i denna databas."}</p></section>;
  const supports=(name:string)=>data.supported_fields.includes(name);

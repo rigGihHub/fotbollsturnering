@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { usePathname } from "next/navigation";
 import QRCode from "qrcode";
+import { publicCupUrl } from "../lib/public-site-url";
 
 type Forecast = {
   date: string;
@@ -35,12 +37,13 @@ export function WeatherShareCard({
   cupName,
   showShare=true,
 }:{address?:string|null;startDate?:string|null;endDate?:string|null;cupName:string;showShare?:boolean}){
+  const pathname=usePathname();
   const [forecast,setForecast] = useState<Forecast[]>([]);
   const [weatherState,setWeatherState] = useState<"idle"|"loading"|"ready"|"too-early"|"missing"|"error">("idle");
   const [pageUrl,setPageUrl] = useState("");
   const [qrSrc,setQrSrc] = useState("");
 
-  useEffect(()=>{ setPageUrl(window.location.href); },[]);
+  useEffect(()=>{ setPageUrl(publicCupUrl(pathname||window.location.pathname)); },[pathname]);
 
   useEffect(()=>{
     if(!address || !startDate){ setWeatherState("missing"); return; }
