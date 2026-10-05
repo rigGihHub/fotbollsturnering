@@ -62,10 +62,10 @@ html = renderSchedule({ ...base, pitch_window_readiness: { ready: false, issues:
 assert.match(html, /Rätta angivna avsparkar och planer i matchlistan/);
 assert.doesNotMatch(html, /href="#venues"|Godkänn schemat/);
 
-const venueData = { rules: { pitch_count: 1, synchronized_pitch_times: false }, dates: ["2026-10-24"], pitches: [{ pitch_number: 1, name: "Sörbyvallen" }], windows: [{ pitch_number: 1, play_date: "2026-10-24", start_time: "08:00", end_time: "17:00", confirmed: false }], scheduled_count: 18, schedule_dirty: true, schedule_requirements: [requirement] };
+let venueData = { rules: { pitch_count: 1, synchronized_pitch_times: false }, dates: ["2026-10-24"], pitches: [{ pitch_number: 1, name: "Sörbyvallen" }], windows: [{ pitch_number: 1, play_date: "2026-10-24", start_time: "08:00", end_time: "17:00", confirmed: false }], scheduled_count: 18, schedule_dirty: true, schedule_requirements: [requirement] };
 const VenueAdmin = load("components/venue-admin.tsx", name => {
   if (name === "../lib/use-admin-draft") return { useAdminDraft: () => ({ data: venueData, dirty: false, setData() {}, accept() {} }) };
-  if (name === "../lib/admin-draft") return {};
+  if (name === "../lib/admin-draft") return load("lib/admin-draft.ts");
   if (name === "./admin-draft-status") return { default: () => null, __esModule: true };
   if (name === "../lib/pitch-window-readiness") return readiness;
   if (name === "../lib/venue-return-navigation") return navigation;
@@ -108,15 +108,16 @@ assert.equal(allNodes(publicTree).find(node => node.type === "button" && node.pr
 
 // Exercise the actual saving callback, including failed verification. Navigation
 // must follow a verified save, and the return request must survive an error.
-async function saveVenue({ cupId = 45, fails = false, verifies = true } = {}) {
+async function saveVenue({ cupId = 45, fails = false, verifies = true, draft = venueData, current = venueData, windowFailure = false } = {}) {
   let done;
   const finished = new Promise(resolve => { done = resolve; });
   const browser = { location: { hash: "#venues" }, dispatchEvent() {} };
   const calls = [];
+  let edited; let error = ""; let hookIndex = 0;
   const ActualVenue = load("components/venue-admin.tsx", name => {
-    if (name === "react") return { ...React, useCallback: callback => callback, useEffect() {}, useState: value => [typeof value === "function" ? value() : value, next => { if (next === false) done(); }] };
-    if (name === "../lib/use-admin-draft") return { useAdminDraft: () => ({ data: venueData, dirty: false, setData() {}, accept() {} }) };
-    if (name === "../lib/admin-draft") return {};
+    if (name === "react") return { ...React, useCallback: callback => callback, useEffect() {}, useState: value => { const index = hookIndex++; return [typeof value === "function" ? value() : value, next => { if(index === 2) error = next; if (next === false) done(); }]; } };
+    if (name === "../lib/use-admin-draft") return { useAdminDraft: () => ({ data: draft, dirty: false, setData(next) { edited = next; }, accept() {} }) };
+    if (name === "../lib/admin-draft") return load("lib/admin-draft.ts");
     if (name === "./admin-draft-status") return { default: () => null, __esModule: true };
     if (name === "../lib/pitch-window-readiness") return readiness;
     if (name === "../lib/venue-return-navigation") return navigation;
@@ -126,7 +127,9 @@ async function saveVenue({ cupId = 45, fails = false, verifies = true } = {}) {
   }, { window: browser, Headers, Event, fetch: async (url, options) => {
     calls.push({ url, options });
     if (fails) throw new Error("Unavailable");
-    const data = { ...venueData, windows: venueData.windows.map(row => ({ ...row, confirmed: verifies })) };
+    if (windowFailure && url.includes("/windows/")) return { ok: false, json: async () => ({ detail: "Tidsfönstren överlappar varandra" }) };
+    const source = options.method ? draft : current;
+    const data = { ...source, windows: source.windows.map(row => ({ ...row, confirmed: verifies })) };
     return { ok: true, json: async () => data };
   } }).default;
   function findSave(node) {
@@ -137,19 +140,88 @@ async function saveVenue({ cupId = 45, fails = false, verifies = true } = {}) {
   findSave(ActualVenue({ token: "test", cupId })).props.onClick();
   await finished;
   assert.ok(calls.every(call => !call.url.includes("/schedule")), "Saving venues must not rewrite match times");
-  return browser.location.hash;
+  return { hash: browser.location.hash, calls, edited, error };
 }
 (async () => {
   navigation.consumeScheduleReturn(45);
-  assert.equal(await saveVenue(), "rules");
+  assert.equal((await saveVenue()).hash, "rules");
   navigation.requestScheduleReturn(45);
-  assert.equal(await saveVenue({ fails: true }), "#venues");
+  assert.equal((await saveVenue({ fails: true })).hash, "#venues");
   assert.equal(navigation.hasScheduleReturn(45), true);
-  assert.equal(await saveVenue({ verifies: false }), "#venues");
+  assert.equal((await saveVenue({ verifies: false })).hash, "#venues");
   assert.equal(navigation.hasScheduleReturn(45), true);
-  assert.equal(await saveVenue(), "schedule");
+  assert.equal((await saveVenue()).hash, "schedule");
   assert.equal(navigation.hasScheduleReturn(45), false);
   navigation.requestScheduleReturn(45);
-  assert.equal(await saveVenue({ cupId: 46 }), "rules");
+  assert.equal((await saveVenue({ cupId: 46 })).hash, "rules");
+  const oldWindow = { ...venueData.windows[0], play_date: "2026-10-25", start_time: "10:00" };
+  const stale = { ...venueData, windows: [...venueData.windows, oldWindow] };
+  let attempt = await saveVenue({ draft: stale });
+  assert.equal(attempt.hash, "#venues");
+  assert.equal(attempt.calls.length, 1);
+  assert.ok(attempt.calls.every(call => !call.options.method), "An out-of-date draft must stop before any mutation");
+  assert.match(attempt.error, /Sörbyvallen.*2026-10-25/);
+  assert.match(attempt.error, /2026-10-24.*Cupinfo/);
+  attempt = await saveVenue({ draft: { ...stale, dates: ["2026-10-24", "2026-10-25"] } });
+  assert.equal(attempt.hash, "#venues");
+  assert.equal(attempt.calls.length, 1);
+  assert.deepEqual(Array.from(attempt.edited.dates), ["2026-10-24"]);
+  assert.equal(attempt.edited.windows.length, 2, "Both current edits and the out-of-date draft must survive");
+  assert.equal(attempt.edited.windows.find(row => row.play_date === "2026-10-25").start_time, "10:00");
+  assert.match(attempt.error, /Cupens datum har ändrats.*Cupinfo/);
+  // restoreDraft can leave only the old day's rows even though current dates
+  // already came from the server. That must not verify an empty save as success.
+  attempt = await saveVenue({ draft: { ...venueData, windows: [oldWindow] } });
+  assert.equal(attempt.hash, "#venues");
+  assert.equal(attempt.calls.length, 1);
+  assert.equal(attempt.edited.windows.length, 2);
+  assert.equal(attempt.edited.windows.find(row => row.play_date === "2026-10-24").start_time, "08:00");
+  assert.match(attempt.error, /Plantider saknades.*Kontrollera dagarna/);
+  attempt = await saveVenue({ windowFailure: true });
+  assert.match(attempt.error, /Sörbyvallen, 2026-10-24: Tidsfönstren överlappar/);
+  assert.equal(attempt.hash, "#venues");
+  const original = venueData;
+  venueData = stale;
+  html = renderVenue(45);
+  assert.match(html, /Plantider för andra datum/);
+  assert.match(html, /2026-10-25.*10:00/);
+  assert.match(html, /Uteslut dessa tider från sparningen/);
+  assert.match(html, /href="#cupinfo"/);
+  assert.match(html, /data-admin-save-next="true"[^>]*disabled/);
+  venueData = { ...original, preserved_window_dates: ["2026-10-25"] };
+  html = renderVenue(45);
+  assert.match(html, /Plantider för tidigare cupdatum/);
+  assert.match(html, /De ingår inte i cupens aktuella dagar/);
+  venueData = original;
+  // Click the real exclusion and undo handlers across a simulated step remount.
+  const archiveRows = new Map();
+  const sessionStorage = { getItem: key => archiveRows.get(key) || null, setItem: (key, value) => archiveRows.set(key, value), removeItem: key => archiveRows.delete(key) };
+  const drafts = load("lib/admin-draft.ts", require, { sessionStorage });
+  let editorData = stale; let hooks = []; let hookCursor = 0;
+  const ArchiveVenue = load("components/venue-admin.tsx", name => {
+    if (name === "react") return { ...React, useCallback: callback => callback, useEffect() {}, useState: value => { const index = hookCursor++; if (!(index in hooks)) hooks[index] = typeof value === "function" ? value() : value; return [hooks[index], next => { hooks[index] = next; }]; } };
+    if (name === "../lib/use-admin-draft") return { useAdminDraft: () => ({ data: editorData, dirty: true, setData: next => { editorData = next; }, accept() {} }) };
+    if (name === "../lib/admin-draft") return drafts;
+    if (name === "./admin-draft-status") return { default: () => null, __esModule: true };
+    if (name === "../lib/pitch-window-readiness") return readiness;
+    if (name === "../lib/venue-return-navigation") return navigation;
+    if (name === "../lib/client-api") return { CLIENT_API_BASE: "" };
+    if (name.endsWith(".module.css")) return { default: css, __esModule: true };
+    return require(name);
+  }).default;
+  function editorTree() { hookCursor = 0; return ArchiveVenue({ token: "test", cupId: 45 }); }
+  let tree = editorTree();
+  allNodes(tree).find(node => node.type === "button" && node.props.children === "Uteslut dessa tider från sparningen").props.onClick();
+  assert.equal(editorData.windows.length, 1);
+  assert.equal(drafts.readVenueWindowArchive(45).length, 1);
+  assert.equal(drafts.readVenueWindowArchive(46).length, 0);
+  editorData = { ...editorData, dates: ["2026-10-24", "2026-10-25"], windows: [...editorData.windows, { ...oldWindow, start_time: "09:00" }] };
+  hooks = []; // Remount after Cupinfo makes the excluded date active again.
+  tree = editorTree();
+  allNodes(tree).find(node => node.type === "button" && node.props.children === "Ångra uteslutning").props.onClick();
+  assert.equal(editorData.windows.length, 2);
+  assert.equal(editorData.windows.filter(row => row.play_date === "2026-10-25").length, 1, "Undo replaces the same plan/day, avoiding duplicate intervals");
+  assert.equal(editorData.windows.find(row => row.play_date === "2026-10-25").start_time, "10:00");
+  assert.equal(drafts.readVenueWindowArchive(45).length, 0);
   console.log("Pitch-window readiness: prerequisite UI, required hours, verified save and cup-scoped return passed.");
 })().catch(error => { console.error(error); process.exitCode = 1; });

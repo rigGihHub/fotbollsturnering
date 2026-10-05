@@ -25,6 +25,12 @@
   overflow-wrap: anywhere;
 }
 .error p { margin: 6px 0 0 !important; }
+.error a { display: inline-flex; align-items: center; min-height: 44px; color: inherit; font-weight: 600; }
+.history { margin: 0 0 16px; color: #445d64; }
+.history summary { cursor: pointer; padding: 8px 0; }
+.history p { line-height: 1.5; }
+.actions { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+.notice button { min-height: 44px; white-space: normal; }
 :global(.cn-admin) :global(#schedule) :global(.schedule-ready-card).pending {
   border-color: #b6c7ca !important;
   background: #f4f8f8 !important;

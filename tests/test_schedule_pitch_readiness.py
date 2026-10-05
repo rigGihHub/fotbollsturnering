@@ -112,6 +112,38 @@ def test_access_denial_does_not_reveal_readiness(cup_db,monkeypatch):
     assert venues.admin_venues(2,46) is None
 
 
+def test_shortened_cup_returns_only_current_windows_and_preserves_old_dates(cup_db):
+    with sqlite3.connect(cup_db) as con:
+        con.execute("INSERT INTO pitch_day_windows VALUES(46,1,'2026-10-25','10:00','16:00',1)")
+    payload = venues.admin_venues(1,46)
+    assert payload['dates'] == ['2026-10-24']
+    assert {row['play_date'] for row in payload['windows']} == {'2026-10-24'}
+    assert payload['preserved_window_dates'] == ['2026-10-25']
+    # The exact active editor payload can be saved without writing hidden days.
+    for row in payload['windows']:
+        venues.update_pitch_window(1,46,row['pitch_number'],row['play_date'],row)
+    with sqlite3.connect(cup_db) as con:
+        assert con.execute("SELECT start_time,end_time,confirmed FROM pitch_day_windows WHERE play_date='2026-10-25'").fetchone() == ('10:00','16:00',1)
+        assert con.execute("SELECT scheduled_start FROM matches WHERE id=1").fetchone()[0] == '2026-10-24T08:30'
+        con.execute("UPDATE tournaments SET end_date='2026-10-25' WHERE id=46")
+    restored = venues.admin_venues(1,46)
+    assert restored['preserved_window_dates'] == []
+    assert next(row for row in restored['windows'] if row['play_date']=='2026-10-25')['start_time'] == '10:00'
+
+
+def test_window_date_error_identifies_pitch_date_and_repair_step(cup_db):
+    from cupnavi_api.venue_admin_routes import register_venue_admin_routes
+    app = FastAPI()
+    register_venue_admin_routes(app,lambda _: {'id':1})
+    response = TestClient(app).put('/api/admin/cups/46/venues/pitches/1/windows/2026-10-25', json={'start_time':'08:00','end_time':'19:00'})
+    assert response.status_code == 422
+    detail = response.json()['detail']
+    for text in ('Sörbyvallen','2026-10-25','Cupens datum är 2026-10-24','Cupinfo'):
+        assert text in detail
+    with sqlite3.connect(cup_db) as con:
+        assert con.execute("SELECT COUNT(*) FROM pitch_day_windows WHERE play_date='2026-10-25'").fetchone()[0] == 0
+
+
 def test_api_rejects_then_approves_then_publishes_with_same_readiness(cup_db):
     from cupnavi_api.venue_admin_routes import register_venue_admin_routes
     from cupnavi_api.publish_reporting_routes import register_publish_reporting_routes

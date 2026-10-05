@@ -121,6 +121,10 @@ def admin_venues(account_id: int, tournament_id: int):
         (int(tournament_id), pitch_count),
     )
     windows = expand_pitch_windows(windows)
+    # Older dates remain stored, but must not become invisible writes in the
+    # current editor after the cup's date interval is shortened.
+    preserved_window_dates = sorted({row['play_date'] for row in windows if row['play_date'] not in dates})
+    windows = [row for row in windows if row['play_date'] in dates]
     schedule_state = one(
         """SELECT COUNT(*) AS scheduled_count,COALESCE(MAX(pitch_number),0) AS max_used_pitch
            FROM matches WHERE tournament_id=? AND scheduled_start IS NOT NULL""",
@@ -136,6 +140,7 @@ def admin_venues(account_id: int, tournament_id: int):
             "consider_pitch_travel": bool(rules.get("consider_pitch_travel") or 0),
         },
         "dates": dates,
+        "preserved_window_dates": preserved_window_dates,
         "pitches": pitches,
         "windows": windows,
         "scheduled_count": int(schedule_state.get("scheduled_count") or 0),
@@ -232,8 +237,16 @@ def update_pitch_window(account_id: int, tournament_id: int, pitch_number: int, 
     if pitch_number < 1 or pitch_number > pitch_count:
         raise ValueError("Planen ligger utanför cupens aktuella plankapacitet")
     play_date = str(play_date).strip()
-    if play_date not in _cup_dates(tournament):
-        raise ValueError("Datumet ligger utanför cupens datumintervall")
+    dates = _cup_dates(tournament)
+    if play_date not in dates:
+        pitch = one("SELECT name FROM pitches WHERE tournament_id=? AND pitch_number=?", (int(tournament_id), pitch_number)) or {}
+        name = pitch.get('name') or f"Plan {pitch_number}"
+        allowed = (dates[0] if len(dates) == 1 else f"{dates[0]}–{dates[-1]}") if dates else "inga cupdagar"
+        raise ValueError(
+            f"Öppettiderna för {name} den {play_date} ligger utanför cupens datumintervall och kan inte sparas. "
+            f"Cupens datum är {allowed}. Om dagen ska ingå, ändra start- eller slutdatum under Cupinfo. "
+            "Annars ska plantider för det datumet inte sparas."
+        )
     intervals = values.get("intervals")
     if intervals is None:
         current = one("SELECT * FROM pitch_day_windows WHERE tournament_id=? AND pitch_number=? AND play_date=?", (int(tournament_id), pitch_number, play_date))
