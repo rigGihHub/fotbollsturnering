@@ -35,8 +35,7 @@ function SponsorEditor({value,onSave,onDelete,busy}:{value?:Sponsor;onSave:(draf
   }
   return <form className="cn-partner-form" onSubmit={async(event:FormEvent)=>{event.preventDefault();if(await onSave(draft,value)&&!value)setDraft({...newSponsor});}}>
     <div className="cn-partner-fields">
-      <label>Sponsorns namn<input required maxLength={150} value={draft.name} onChange={e=>setDraft({...draft,name:e.target.value})}/></label>
-      <label>Nivå<select value={draft.level||""} onChange={e=>setDraft({...draft,level:e.target.value})}><option value="">Välj nivå</option>{["Huvudsponsor","Guldsponsor","Silversponsor","Partner"].map(item=><option key={item}>{item}</option>)}</select></label>
+      <label className="cn-partner-wide">Sponsorns namn<input required maxLength={150} value={draft.name} onChange={e=>setDraft({...draft,name:e.target.value})}/></label>
       <label>Webbplats<input type="text" placeholder="exempel.se" value={draft.website_url||""} onChange={e=>setDraft({...draft,website_url:e.target.value})}/></label>
       <label>Logotyp<input type="file" accept="image/png,image/jpeg,image/webp" onChange={e=>void logo(e.target.files?.[0])}/></label>
       {draft.logo_data_uri&&<div className="cn-partner-logo-preview"><img src={draft.logo_data_uri} alt="Förhandsvisning av logotyp"/><button type="button" onClick={()=>setDraft({...draft,logo_data_uri:""})}>Ta bort logotyp</button></div>}
