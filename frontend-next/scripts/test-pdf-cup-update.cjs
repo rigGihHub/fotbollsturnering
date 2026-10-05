@@ -21,7 +21,11 @@ assert.equal(review().changes[0].nextPitch,2);
 assert.equal(review([{...row,time:"09:00",venue:"Sörbyvallen"}]).unchanged,1);
 assert.equal(review([row,row]).changes.length,0,"Duplicated PDF rows must not create two conflicting writes");
 assert.equal(review([row,row]).unmatched.length,1);
-assert.equal(review([{...row,home_team:"AIK",away_team:"Örebro SK"}]).changes.length,0);
+const reversed=review([{...row,home_team:"AIK",away_team:"Örebro SK"}]);
+assert.equal(reversed.changes.length,1);
+assert.equal(reversed.changes[0].match.home_label,"Örebro SK","PDF ordering must never change the cup's home/away assignments");
+assert.match(reversed.changes[0].matchingNote,/hemma\/borta behålls/);
+assert.equal(review([row,{...row,home_team:"AIK",away_team:"Örebro SK"}]).changes.length,0,"Opposite ordering must still count as a duplicated PDF row");
 assert.equal(review([row],{...schedule,matches:[...schedule.matches,{...schedule.matches[0],id:8}]}).changes.length,0);
 assert.equal(review([row],{...schedule,end_date:"2026-10-25"}).changes.length,0);
 assert.equal(review([{...row,time:"2026-10-25T10:15"}],{...schedule,end_date:"2026-10-25"}).changes.length,1);
@@ -29,6 +33,33 @@ assert.equal(review([{...row,time:"2026-02-30T10:15"}],{...schedule,start_date:"
 assert.equal(review([{...row,time:"25:00"}]).changes.length,0);
 assert.equal(review([{...row,venue:"Okänd plan"}]).changes.length,0);
 assert.equal(review([row],schedule,[...pitches,{pitch_number:3,name:"Ekäng"}]).changes.length,0);
+// The nine team pairs in the reported PDF, compared with cup 45's public schedule.
+const existingPairs=[
+ [252,"Bromölla","Örebro SK","A"], [253,"Stångebro","Karlstad","C"],
+ [254,"Heming","Premium Barcelona","B"], [255,"BK Häcken","Bromölla","A"],
+ [256,"Karlstad","Hammarby","C"], [257,"Örebro SK","BK Häcken","A"],
+ [258,"AIK","Premium Barcelona","B"], [259,"Hammarby","Stångebro","C"], [260,"Heming","AIK","B"],
+];
+const reportedPairs=[
+ ["Örebro SK","Bromölla"], ["Stångebro","Karlstad"], ["Heming","PremiumBarcelona"],
+ ["Bromölla","BK Häcken"], ["Karlstad","Hammarby"], ["Örebro SK","BK Häcken"],
+ ["AIK","PremiumBarcelona"], ["Hammarby","Stångebro"], ["Heming","AIK"],
+];
+const actualCup={...schedule,matches:existingPairs.map(([id,home_label,away_label,group_name])=>({...schedule.matches[0],id,home_label,away_label,group_name}))};
+const reportedRows=reportedPairs.map(([home_team,away_team],i)=>({...row,home_team,away_team,group_name:`Grupp ${existingPairs[i][3]}`}));
+const recovered=review(reportedRows,actualCup);
+assert.equal(recovered.unmatched.length,0);
+assert.deepEqual(Array.from(recovered.changes,c=>c.match.id),existingPairs.map(p=>p[0]));
+assert.equal(review(reportedRows.map(r=>({...r,time:"09:00",venue:"Sörbyvallen"})),actualCup).unchanged,9);
+assert.equal(review([{...reportedRows[2],home_team:"HEMING",away_team:"Premium\u00a0Barcelona"}],actualCup).changes.length,1);
+assert.equal(review([{...reportedRows[2],home_team:"Heeming"}],actualCup).changes.length,0,"No fuzzy team-name guesses");
+assert.equal(review([{...reportedRows[2],group_name:"Grupp A"}],actualCup).changes.length,0,"A conflicting group must not be ignored");
+const similarNames={...actualCup,matches:[...actualCup.matches,{...actualCup.matches[2],id:999,away_label:"PremiumBar celona"}]};
+assert.equal(review([reportedRows[2]],similarNames).changes.length,0,"Compact spellings must be unique across the cup");
+assert.equal(review([{...row,away_team:"AIK1"}]).changes.length,0);
+const repeatPair={...schedule,matches:[{...schedule.matches[0],group_name:"A"},{...schedule.matches[0],id:8,home_label:"AIK",away_label:"Örebro SK",group_name:"B"}]};
+assert.equal(review([row],repeatPair).changes.length,0);
+assert.equal(review([{...row,group_name:"Grupp B"}],repeatPair).changes[0].match.id,8);
 for(const flag of ["played","schedule_locked"]){
  const preserved=review([row],{...schedule,matches:[{...schedule.matches[0],[flag]:true}]});
  assert.equal(preserved.changes.length,0);
