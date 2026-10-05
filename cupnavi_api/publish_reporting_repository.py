@@ -6,6 +6,7 @@ import json
 
 from cupnavi_core.admin_publication import build_publish_blockers
 from cupnavi_core.placement_playoffs import draw_match_ids, source_label
+from cupnavi_core.schedule_pitch_readiness import pitch_window_readiness
 from cupnavi_core.bracket_validation import validate_bracket_sources
 from cupnavi_core.playoff_dependency_safety import (
     build_dependency_guidance,
@@ -102,7 +103,10 @@ def _schedule_publication_analysis(tournament_id: int) -> dict:
     for match in matches:
         group_id = match.get("group_id")
         match["group_name"] = group_names.get(int(group_id)) if group_id is not None else None
-    return analyze_schedule_conflicts(matches, rules)
+    result = analyze_schedule_conflicts(matches, rules)
+    windows = all_rows("SELECT * FROM pitch_day_windows WHERE tournament_id=?", (int(tournament_id),))
+    result["pitch_window_readiness"] = pitch_window_readiness(matches, rules, windows)
+    return result
 
 
 def _bracket_publication_analysis(tournament_id: int) -> dict:
@@ -180,6 +184,12 @@ def _publication_payload(tournament_id: int):
         bracket_errors=bracket_errors,
         cupinfo_errors=(() if str(tournament.get("arena_address") or "").strip() else ("Spelplats eller adress måste anges under Cupinfo.",)),
     )
+    pitch_readiness = conflict_analysis.get("pitch_window_readiness")
+    if pitch_readiness and not pitch_readiness["ready"]:
+        # Show the actionable prerequisite instead of sending the user back
+        # to an approval button which the server will reject again.
+        blockers = [text for text in blockers if not text.startswith("Schemat behöver kontrolleras")]
+        blockers.extend(issue["message"] for issue in pitch_readiness["issues"])
     if tournament.get("arrangement_type") == "single_match":
         match_count = int((one("SELECT COUNT(*) AS count FROM matches WHERE tournament_id=?", (int(tournament_id),)) or {}).get("count") or 0)
         team_count = int((one("SELECT COUNT(*) AS count FROM teams WHERE tournament_id=?", (int(tournament_id),)) or {}).get("count") or 0)

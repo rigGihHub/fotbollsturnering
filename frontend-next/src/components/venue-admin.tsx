@@ -5,6 +5,9 @@ import { mergeVenueRows } from "../lib/admin-draft";
 import { useAdminDraft } from "../lib/use-admin-draft";
 import AdminDraftStatus from "./admin-draft-status";
 import { CLIENT_API_BASE } from "../lib/client-api";
+import { type SchedulePitchRequirement, requiredPitchHours } from "../lib/pitch-window-readiness";
+import { consumeScheduleReturn, hasScheduleReturn } from "../lib/venue-return-navigation";
+import readinessStyles from "./pitch-window-readiness.module.css";
 
 const API_BASE = CLIENT_API_BASE;
 const PITCH_WINDOWS_UPDATED_EVENT = "cupnavi:pitch-windows-updated";
@@ -26,6 +29,7 @@ type VenuePayload = {
   scheduled_count:number;
   max_used_pitch:number;
   schedule_dirty:boolean;
+  schedule_requirements?:SchedulePitchRequirement[];
 };
 
 async function api<T>(path:string, options:RequestInit, token:string):Promise<T> {
@@ -43,6 +47,7 @@ export default function VenueAdmin({token,cupId}:{token:string;cupId:number}) {
   const [busy,setBusy] = useState(false);
   const [message,setMessage] = useState("");
   const [error,setError] = useState("");
+  const [returnToSchedule] = useState(()=>hasScheduleReturn(cupId));
 
   const load = useCallback(async()=>{
     setBusy(true); setError("");
@@ -85,7 +90,7 @@ export default function VenueAdmin({token,cupId}:{token:string;cupId:number}) {
       const missing=snapshot.windows.some(expected=>!verified.windows.some(actual=>actual.pitch_number===expected.pitch_number&&actual.play_date===expected.play_date&&actual.start_time===expected.start_time&&actual.end_time===expected.end_time&&Boolean(actual.confirmed)));
       if(missing)throw new Error("Servern kunde inte verifiera alla plantider efter sparningen.");
       accept(verified); setMessage(`Alla ${verified.pitches.length} planer och ${verified.windows.length} plantider är sparade och verifierade.`); window.dispatchEvent(new Event(PITCH_WINDOWS_UPDATED_EVENT));
-      if(window.location.hash==="#venues")window.location.hash="rules";
+      if(window.location.hash==="#venues")window.location.hash=consumeScheduleReturn(cupId)?"schedule":"rules";
     } catch(err) { setError(err instanceof Error?err.message:"Planer och tider kunde inte sparas komplett."); }
     finally { setBusy(false); }
   }
@@ -104,7 +109,8 @@ export default function VenueAdmin({token,cupId}:{token:string;cupId:number}) {
   return <section className="admin-panel admin-teams" id="venues">
     <div className="admin-panel__top"><span>04 / PLANER & TIDER</span><strong>{data.rules.pitch_count} SPELYTOR · {data.dates.length} CUPDAGAR</strong></div>
     <div className="admin-cupinfo__head"><div><h2>Planer & tider</h2><p>Berätta vilka planer som kan användas och när varje plan är öppen. CupNavi använder detta när schemat skapas.</p></div><span className="admin-lock">STEG 1 AV 3</span></div>
-    {(error||message) && <div className="admin-code-placeholder" style={{marginBottom:16}}><b>{error?"Fel":"Sparat"}</b> · {error||message}</div>}
+    {error?<div className={readinessStyles.error} role="alert"><strong>Planupplägget kunde inte sparas komplett</strong><p>{error}</p></div>:message&&<div className="admin-code-placeholder" style={{marginBottom:16}} role="status"><b>Sparat</b> · {message}</div>}
+    {returnToSchedule&&<div className={readinessStyles.notice}><h3>Bekräfta öppettiderna för schemat</h3><p>Kontrollera att varje plan är öppen under sina matchtider, inklusive hela sista matchen. Tiderna som schemat använder visas vid planraderna. När du sparar kommer du tillbaka till Schema för att godkänna det.</p></div>}
     {data.scheduled_count>0 && <div className="admin-code-placeholder" style={{marginBottom:16}}><b>{data.scheduled_count} schemalagda matcher</b> · ändringar här flyttar aldrig matcher automatiskt. {data.schedule_dirty?"Schemat behöver redan kontrolleras.":"Vid ändring markeras schemat för kontroll."}</div>}
 
     <fieldset disabled={busy} className="admin-edit-fields">
@@ -140,8 +146,9 @@ export default function VenueAdmin({token,cupId}:{token:string;cupId:number}) {
           const pitch=data.pitches.find(p=>p.pitch_number===row.pitch_number);
           const pitchWindows=data.windows.filter(w=>w.pitch_number===row.pitch_number&&w.play_date===playDate);
           const isLastPitchWindow=pitchWindows[pitchWindows.length-1]===row;
+          const requirement=data.schedule_requirements?.find(item=>item.pitch_number===row.pitch_number&&item.play_date===playDate);
           return <article key={`${playDate}-${index}`}>
-            <div style={{minWidth:160}}><strong>{pitch?.name || `Plan ${row.pitch_number}`}</strong><small>{row.confirmed?"Bekräftad tid":"Standardtid – bekräfta vid sparning"}</small></div>
+            <div style={{minWidth:160}}><strong>{pitch?.name || `Plan ${row.pitch_number}`}</strong><small>{row.confirmed?"Bekräftad tid":"Inte bekräftad – bekräftas vid sparning"}</small>{requirement&&<span className={readinessStyles.requirement}>Schemat använder {requiredPitchHours(requirement)} ({requirement.match_count} matcher, inklusive sista matchens sluttid).</span>}</div>
             <label>Start<input type="time" value={row.start_time} onChange={e=>patchWindow(row,{start_time:e.target.value})} /></label>
             <label>Slut<input type="time" value={row.end_time} onChange={e=>patchWindow(row,{end_time:e.target.value})} /></label>
             <div className="admin-window-actions">
@@ -155,7 +162,7 @@ export default function VenueAdmin({token,cupId}:{token:string;cupId:number}) {
     </div>
     {data.rules.pitch_count!==data.pitches.length?<p className="admin-inline-guidance">Uppdatera antal planer ovan innan du fortsätter.</p>:data.pitches.some(p=>!p.name.trim())?<p className="admin-inline-guidance">Alla planer behöver namn innan du fortsätter.</p>:data.windows.some(w=>!w.start_time||!w.end_time||w.start_time>=w.end_time)?<p className="admin-inline-guidance">Fyll i start- och sluttid för alla pass. Sluttiden ska vara efter starttiden.</p>:null}
     <AdminDraftStatus dirty={dirty} busy={busy} error={error}/>
-    <div className="admin-next-step"><div><strong>Spara hela planupplägget</strong><span>Alla plannamn och tider sparas tillsammans innan du går vidare.</span></div><button data-admin-save-next type="button" disabled={busy||data.rules.pitch_count!==data.pitches.length||data.windows.some(row=>!row.start_time||!row.end_time||row.start_time>=row.end_time)||data.pitches.some(pitch=>!pitch.name.trim())} onClick={()=>void saveEverything()}>{busy?"Sparar och kontrollerar…":"Spara och fortsätt till Regler →"}</button></div>
+    <div className="admin-next-step"><div><strong>Spara hela planupplägget</strong><span>{returnToSchedule?"Öppettiderna bekräftas. Matcherna behåller sina tider och planer. Godkänn sedan schemat i nästa steg.":"Alla plannamn och tider sparas tillsammans innan du går vidare."}</span></div><button data-admin-save-next type="button" disabled={busy||data.rules.pitch_count!==data.pitches.length||data.windows.some(row=>!row.start_time||!row.end_time||row.start_time>=row.end_time)||data.pitches.some(pitch=>!pitch.name.trim())} onClick={()=>void saveEverything()}>{busy?"Sparar och kontrollerar…":returnToSchedule?"Spara och återgå till Schema →":"Spara och fortsätt till Regler →"}</button></div>
     </fieldset>
   </section>;
 }

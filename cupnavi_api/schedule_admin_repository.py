@@ -1,9 +1,9 @@
 """Organizer-scoped schedule administration for the new CupNavi admin."""
 from __future__ import annotations
 
-from cupnavi_core.pitch_availability import expand_pitch_windows
+from cupnavi_core.schedule_pitch_readiness import pitch_window_readiness
 
-from datetime import datetime, timedelta
+from datetime import datetime
 
 from .admin_repository import _has_tournament_access
 from .repository import all_rows, connect, one
@@ -89,6 +89,8 @@ def admin_schedule(account_id: int, tournament_id: int):
         row["schedule_published"] = bool(row.get("schedule_published") or 0)
     scheduled_count = sum(1 for row in rows if row.get("scheduled_start"))
     conflict_analysis = analyze_schedule_conflicts(rows, rules)
+    windows = all_rows("SELECT * FROM pitch_day_windows WHERE tournament_id=?", (int(tournament_id),))
+    pitch_readiness = pitch_window_readiness(rows, rules, windows)
     pitch_count = max(1, int(rules.get("pitch_count") or 1))
     return {
         "matches": rows,
@@ -105,6 +107,7 @@ def admin_schedule(account_id: int, tournament_id: int):
         "is_published": bool(tournament.get("is_published") or 0),
         "arrangement_type": tournament.get("arrangement_type") or "tournament",
         "conflict_analysis": conflict_analysis,
+        "pitch_window_readiness": pitch_readiness,
     }
 
 
@@ -123,30 +126,13 @@ def confirm_current_schedule(account_id: int, tournament_id: int):
         "SELECT halves,minutes_per_half,halftime_minutes FROM schedule_rules WHERE tournament_id=?",
         (int(tournament_id),),
     ) or {"halves": 2, "minutes_per_half": 20, "halftime_minutes": 5}
-    halves = max(1, int(rules.get("halves") or 2))
-    duration = halves * max(1, int(rules.get("minutes_per_half") or 20)) + max(0, halves - 1) * max(0, int(rules.get("halftime_minutes") or 0))
-    windows = all_rows(
+    windows = [{**row, "confirmed": True} for row in all_rows(
         "SELECT * FROM pitch_day_windows WHERE tournament_id=? AND confirmed=1",
         (int(tournament_id),),
-    )
-    available = {}
-    for row in expand_pitch_windows(windows):
-        available.setdefault((int(row["pitch_number"]), str(row["play_date"])), []).append((str(row["start_time"]), str(row["end_time"])))
-    if not available:
-        raise ValueError("Bekräfta planernas öppettider innan schemat godkänns")
-    for match in payload["matches"]:
-        start = datetime.fromisoformat(str(match["scheduled_start"]))
-        pitch = int(match["pitch_number"])
-        window = available.get((pitch, start.date().isoformat()))
-        match_ref = match.get("match_no") or match["id"]
-        if not window:
-            raise ValueError(f"Match {match_ref} ligger på en plan eller dag utan bekräftad öppettid")
-        if not any(
-            start >= datetime.fromisoformat(f"{start.date().isoformat()}T{opens}")
-            and start + timedelta(minutes=duration) <= datetime.fromisoformat(f"{start.date().isoformat()}T{closes}")
-            for opens, closes in window
-        ):
-            raise ValueError(f"Match {match_ref} ligger utanför planens bekräftade öppettid")
+    )]
+    readiness = pitch_window_readiness(payload["matches"], rules, windows)
+    if not readiness["ready"]:
+        raise ValueError(" ".join(issue["message"] for issue in readiness["issues"]))
     with connect() as con:
         con.execute("UPDATE tournaments SET schedule_dirty=0 WHERE id=?", (int(tournament_id),))
         commit = getattr(con, "commit", None)

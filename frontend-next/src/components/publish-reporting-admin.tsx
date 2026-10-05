@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { CLIENT_API_BASE } from "../lib/client-api";
 import MatchEventsAdmin from "./match-events-admin";
+import { requestScheduleReturn } from "../lib/venue-return-navigation";
 
 const API = CLIENT_API_BASE;
 
@@ -30,6 +31,8 @@ function compactRows(rows:string[]) {
 
 function blockerGuide(text:string, imported?:PublicationPayload["import_context"]){
   const lower=text.toLocaleLowerCase("sv-SE");
+  if(lower.includes("öppettid"))return {where:"Planer & tider",target:"#venues",action:"Kontrollera start, slut och eventuella stängda pass. Spara hela planupplägget. Du kommer tillbaka till Schema för att godkänna det innan publicering."};
+  if(lower.includes("saknar plan")||lower.includes("ogiltig avspark"))return {where:"Schema",target:"#schedule",action:"Rätta matchens avspark eller plan i matchlistan och spara matchen. Godkänn sedan schemat."};
   if(lower.includes("slutspelsmodell")||lower.includes("cupregler")){
     return imported?.playoff_imported
       ? {where:"Slutspel",target:"#playoffs",action:"Kontrollera den importerade modellen och tryck ”Spara slutspelsregler”. Uppgifterna finns redan i cupen; sparningen bekräftar att upplägget är rätt."}
@@ -131,13 +134,13 @@ export default function PublishReportingAdmin({token,cupId,mode,publicSlug}:{tok
       {error&&<div className="publication-console__error" role="alert"><strong>Något gick fel</strong><span>{error}</span></div>}
       {!isReady&&<div className="publication-checklist">
         <div className="publication-checklist__head"><div><span>CHECKLISTA</span><strong>Gör detta före publicering</strong></div><b>{issueCount}</b></div>
-        {otherBlockers.map(({text,count})=>{const guide=blockerGuide(text,publication?.import_context);return <div className="publication-checklist__item" key={text}><span className="publication-checklist__icon">!</span><div><strong>{text}</strong><small><b>Var:</b> {guide.where}. {guide.action}{guide.target&&<> <a href={guide.target}>Öppna steget →</a></>}</small></div>{count>1&&<b>×{count}</b>}</div>})}
+        {otherBlockers.map(({text,count})=>{const guide=blockerGuide(text,publication?.import_context);return <div className="publication-checklist__item" key={text}><span className="publication-checklist__icon">!</span><div><strong>{text}</strong><small><b>Var:</b> {guide.where}. {guide.action}{guide.target&&<> <a href={guide.target} onClick={()=>{if(guide.target==="#venues")requestScheduleReturn(cupId);}}>Öppna steget →</a></>}</small></div>{count>1&&<b>×{count}</b>}</div>})}
         {conflictGroups.map(({item,count})=><div className="publication-checklist__item is-blocking" key={`${item.type}:${item.message}`}><span className="publication-checklist__icon">!</span><div><strong>{item.message}</strong><small><b>Var:</b> Schema. {item.type==="round_order"?"Rätta rondordningen och godkänn sedan schemat.":"Öppna Schema, rätta konflikten och godkänn sedan schemat."}</small></div>{count>1&&<b>×{count}</b>}</div>)}
       </div>}
       {isReady&&<div className="publication-ready-steps"><div><b>1</b><span><strong>{isLive?"Kontrollerna är godkända":"Kontrollera sammanfattningen"}</strong><small>CupNavi har inte hittat några blockerande fel.</small></span></div><div><b>2</b><span><strong>{isLive?"Kontrollera turneringsvyn":"Förhandsgranska cupvyn"}</strong><small>Kontrollera hur tider, planer och lag visas för besökare.</small></span></div><div><b>3</b><span><strong>{isLive?"Genomför cupen":"Publicera cupen"}</strong><small>{isLive?"Rapportera resultat och följ uppdateringarna under cupdagen.":"Den publika länken blir tillgänglig för deltagarna."}</small></span></div></div>}
       <div className="publication-console__actions">
         <span>{isLive?"Ändringar visas direkt i turneringsvyn.":isReady?"En sista kontroll görs när du publicerar.":"Publiceringsknappen aktiveras när checklistan är klar."}</span>
-        <div>{otherBlockers.some(({text})=>/slutspelsmodell|cupregler/i.test(text))&&<a className="admin-action-secondary" href="#playoffs">Öppna Slutspel</a>}{otherBlockers.some(({text})=>/schema behöver|schema saknas|schemat behöver/i.test(text))||scheduleErrors.length>0?<a className="admin-action-secondary" href="#schedule">Öppna Schema</a>:null}{otherBlockers.some(({text})=>/spelplats|adress/i.test(text))&&<a className="admin-action-secondary" href="#cupinfo">Öppna Cupinfo</a>}{publicSlug&&<a className="admin-action-secondary" href={`/cup/${publicSlug}?preview=1&cup=${cupId}`} target="_blank" rel="noreferrer">Förhandsgranska</a>}<button className="admin-action-primary" disabled={busy||(!isLive&&!isReady)} onClick={togglePublication}>{busy?"Arbetar…":isLive?"Avpublicera":"Publicera cup"}</button></div>
+        <div>{otherBlockers.some(({text})=>/öppettid/i.test(text))&&<a className="admin-action-secondary" href="#venues" onClick={()=>requestScheduleReturn(cupId)}>Öppna Planer & tider</a>}{otherBlockers.some(({text})=>/slutspelsmodell|cupregler/i.test(text))&&<a className="admin-action-secondary" href="#playoffs">Öppna Slutspel</a>}{otherBlockers.some(({text})=>/schema behöver|schema saknas|schemat behöver|saknar plan|ogiltig avspark/i.test(text))||scheduleErrors.length>0?<a className="admin-action-secondary" href="#schedule">Öppna Schema</a>:null}{otherBlockers.some(({text})=>/spelplats|adress/i.test(text))&&<a className="admin-action-secondary" href="#cupinfo">Öppna Cupinfo</a>}{publicSlug&&<a className="admin-action-secondary" href={`/cup/${publicSlug}?preview=1&cup=${cupId}`} target="_blank" rel="noreferrer">Förhandsgranska</a>}<button className="admin-action-primary" disabled={busy||(!isLive&&!isReady)} onClick={togglePublication}>{busy?"Arbetar…":isLive?"Avpublicera":"Publicera cup"}</button></div>
       </div>
     </section>;
   }

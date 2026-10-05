@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from cupnavi_core.pitch_availability import expand_pitch_windows, validate_intervals, write_pitch_intervals
+from cupnavi_core.schedule_pitch_readiness import pitch_window_readiness
 
 from datetime import date, datetime, timedelta
 
@@ -126,6 +127,7 @@ def admin_venues(account_id: int, tournament_id: int):
         (int(tournament_id),),
     ) or {}
     return {
+        "schedule_requirements": pitch_window_readiness(all_rows("SELECT * FROM matches WHERE tournament_id=?", (int(tournament_id),)), rules, [])['requirements'],
         "rules": {
             "pitch_count": pitch_count,
             "first_match_time": first_time,

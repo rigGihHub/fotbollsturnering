@@ -1,0 +1,35 @@
+.notice {
+  display: block !important;
+  margin: 0 0 16px !important;
+  padding: 16px !important;
+  border: 1px solid #dac68c !important;
+  border-radius: 12px !important;
+  background: #fff8e7 !important;
+  color: #463b24 !important;
+  box-shadow: none !important;
+}
+.notice h3 { margin: 0 0 8px !important; }
+.notice p { margin: 8px 0 !important; }
+.notice ul { margin: 10px 0; padding-left: 22px; }
+.notice li { margin: 6px 0; overflow-wrap: anywhere; }
+.notice a { display: inline-flex; align-items: center; min-height: 44px; font-weight: 600; color: #175e67 !important; }
+.notice a:focus-visible { outline: 3px solid #238d95; outline-offset: 3px; }
+.error {
+  display: block !important;
+  padding: 16px !important;
+  margin: 0 0 16px !important;
+  border: 1px solid #b45858 !important;
+  border-radius: 10px !important;
+  background: #fff0ef !important;
+  color: #792d2d !important;
+  overflow-wrap: anywhere;
+}
+.error p { margin: 6px 0 0 !important; }
+:global(.cn-admin) :global(#schedule) :global(.schedule-ready-card).pending {
+  border-color: #b6c7ca !important;
+  background: #f4f8f8 !important;
+  box-shadow: none !important;
+}
+:global(.cn-admin) :global(#schedule) .pending :global(.schedule-ready-card__check) { background: #536b72 !important; }
+:global(.cn-admin) :global(#schedule) .pending small { color: #536b72 !important; }
+.requirement { display: block; margin-top: 6px; max-width: 330px; font-size: 13px; line-height: 1.5; color: #445d64; }
