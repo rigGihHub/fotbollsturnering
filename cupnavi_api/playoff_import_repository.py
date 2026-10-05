@@ -7,7 +7,7 @@ from collections import Counter
 from datetime import date, datetime
 
 from cupnavi_core.bracket_validation import validate_bracket_sources
-from cupnavi_core.placement_playoffs import DRAW_RULE, all_placement_blocks
+from cupnavi_core.placement_playoffs import DRAW_RULE, GROUP_PLAYOFF_FORMAT, all_placement_blocks
 
 from .admin_repository import _has_tournament_access
 from .repository import connect, one
@@ -84,6 +84,10 @@ def playoff_import_review(account_id: int, tournament_id: int):
     }
 
 
+def _group_key(value):
+    return re.sub(r"^(?:grupp|group)\s+", "", " ".join(str(value or "").casefold().split()))
+
+
 def _resolve_source(raw_value, team_map, group_map, inserted_labels):
     raw = " ".join(str(raw_value or "").split())
     if not raw:
@@ -93,7 +97,8 @@ def _resolve_source(raw_value, team_map, group_map, inserted_labels):
         return f"team:{team_id}", None
     group_match = _GROUP_SOURCE.match(raw)
     if group_match:
-        group_id = group_map.get(group_match.group(2).strip().casefold())
+        possible = {gid for name, gid in group_map.items() if _group_key(name) == _group_key(group_match.group(2))}
+        group_id = next(iter(possible)) if len(possible) == 1 else None
         if group_id is None:
             return None, f"gruppen '{group_match.group(2).strip()}' finns inte"
         return f"group:{group_id}:{int(group_match.group(1))}", None
@@ -113,7 +118,7 @@ def _bracket_size(match_count: int) -> int:
     return size
 
 
-def commit_playoff_import(account_id: int, tournament_id: int, playoff_matches: list[dict], playoff_rule_values: dict | None = None):
+def commit_playoff_import(account_id: int, tournament_id: int, playoff_matches: list[dict], playoff_rule_values: dict | None = None, *, replace_revision: str | None = None, format_override: str | None = None):
     if not _has_tournament_access(account_id, tournament_id):
         return None
     rows = [dict(row) for row in (playoff_matches or []) if isinstance(row, dict)]
@@ -132,6 +137,17 @@ def commit_playoff_import(account_id: int, tournament_id: int, playoff_matches: 
 
     with connect() as con:
         try:
+            backup = None
+            if replace_revision:
+                from .playoff_plan_state import capture_plan_state, plan_hash, archive_playoffs, assert_replaceable
+                con.execute("BEGIN")
+                state = capture_plan_state(con, tournament_id)
+                if plan_hash(state) != replace_revision:
+                    raise ValueError("Cupen har ändrats sedan förhandsgranskningen. Förhandsgranska igen.")
+                assert_replaceable(state)
+                backup = archive_playoffs(con, tournament_id, state)
+                con.execute("DELETE FROM matches WHERE tournament_id=? AND bracket_id IS NOT NULL", (int(tournament_id),))
+                con.execute("DELETE FROM brackets WHERE tournament_id=?", (int(tournament_id),))
             if con.execute("SELECT COUNT(*) FROM brackets WHERE tournament_id=?", (int(tournament_id),)).fetchone()[0]:
                 raise ValueError("Cupen har redan ett slutspelsträd. Importen avbryts utan att ändra något.")
 
@@ -245,7 +261,7 @@ def commit_playoff_import(account_id: int, tournament_id: int, playoff_matches: 
                 con.execute("UPDATE brackets SET size=?,bronze_match=0 WHERE id=? AND tournament_id=?", (len(sources), bracket_id, int(tournament_id)))
             tournament_columns = {str(row[1]) for row in con.execute("PRAGMA table_info(tournaments)").fetchall()}
             updates = ["playoff_format=?", "bronze_match=?", "schedule_dirty=0", "is_published=0", "arrangement_type='tournament_playoffs'", "admin_revision=COALESCE(admin_revision,0)+1"]
-            values: list[object] = ["Manuellt slutspel", 1 if bronze else 0]
+            values: list[object] = [format_override or (GROUP_PLAYOFF_FORMAT if explicit_draw else "Manuellt slutspel"), 1 if bronze else 0]
             if "playoff_model_confirmed" in tournament_columns:
                 updates.insert(2, "playoff_model_confirmed=1")
             if tie_rule in {"Straffar direkt", "Förlängning + straffar", DRAW_RULE}:
@@ -260,6 +276,12 @@ def commit_playoff_import(account_id: int, tournament_id: int, playoff_matches: 
                         updates.append(f"{field}=?")
                         values.append(extra_minutes)
             con.execute(f"UPDATE tournaments SET {','.join(updates)} WHERE id=?", (*values, int(tournament_id)))
+            if format_override == GROUP_PLAYOFF_FORMAT:
+                con.execute("UPDATE tournaments SET schedule_dirty=1 WHERE id=?", (int(tournament_id),))
+            if backup is not None:
+                from .playoff_plan_state import capture_plan_state, plan_hash
+                backup["after_hash"] = plan_hash(capture_plan_state(con, tournament_id, playoffs_only=True))
+                con.execute("INSERT INTO tournament_setup_imports(tournament_id,import_kind,payload_json,source_name) VALUES(?,'playoff_format_backup',?,?)", (int(tournament_id), json.dumps(backup, ensure_ascii=False), "Före byte av slutspelsformat"))
             commit = getattr(con, "commit", None)
             if callable(commit):
                 commit()

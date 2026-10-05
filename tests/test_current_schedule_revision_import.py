@@ -233,3 +233,23 @@ def test_ai_retries_temporary_503_but_not_bad_requests():
         assert len(attempts) == (1 if status == 400 else 3)
         if status == 503:
             assert "upstream" not in str(error.value)
+
+
+def test_pdf_table_cells_and_last_placement_row_are_not_lost_to_footer():
+    from cupnavi_core.schedule_revision_text import extract_schedule_revision_text
+    text='''TID PLAN GRP HEMMA BORTA RESULTAT
+13:45 Sörbyvallen B
+Heming
+AIK –
+GRUPP A OCH C FÖRST KLARA
+Grupp B slutar 14:23 och kliver in först 16:05.
+SLUTSPEL
+TID PLAN SERIE MATCH TID/H RESULTAT
+17:50 Sörbyvallen GULDGRUPPEN 1:a grupp A – 1:a grupp B 2×20 –
+SÅ AVGÖRS PLACERINGARNA
+'''+'fotnot '*150+'\n17:50 även silvergruppens sista match.'
+    proposal=extract_schedule_revision_text([(text.encode(),'schema.txt','text/plain')],{'matches':[{'home_label':'Heming','away_label':'AIK'}],'pitch_names':{'1':'Sörbyvallen'}})
+    assert len(proposal['matches'])==1 and proposal['matches'][0]['group_name']=='B'
+    assert len(proposal['playoff_matches'])==1
+    assert proposal['playoff_matches'][0]['away_source']=='1:a grupp B'
+    assert proposal['unread_rows']==[]

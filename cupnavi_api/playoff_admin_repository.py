@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from cupnavi_core.bracket_validation import validate_bracket_sources
-from cupnavi_core.placement_playoffs import DRAW_RULE, all_placement_blocks, placement_tables, source_label
+from cupnavi_core.placement_playoffs import DRAW_RULE, GROUP_PLAYOFF_FORMAT, all_placement_blocks, placement_tables, source_label
 from cupnavi_core.participant_resolution import (
     ParticipantResolver,
     enrich_match_participants,
@@ -18,6 +18,7 @@ PLAYOFF_FORMATS = {
     "A- och B-slutspel",
     "Placeringsslutspel – ettor mot ettor osv.",
     "Manuellt slutspel",
+    GROUP_PLAYOFF_FORMAT,
 }
 TIE_RULES = {"Straffar direkt", "Förlängning + straffar", DRAW_RULE}
 
@@ -115,6 +116,7 @@ def admin_playoffs(account_id: int, tournament_id: int):
         groups = all_rows("SELECT id,name FROM groups WHERE tournament_id=?", (int(tournament_id),))
         tables = placement_tables(tournament, matches, {int(g["id"]): g["name"] for g in groups}, resolver)
     return {
+        "cup_name": tournament.get("name"),
         "placement_mode": placement_mode,
         "placement_eligible": bool(blocks),
         "placement_groups": tables,
@@ -131,7 +133,24 @@ def admin_playoffs(account_id: int, tournament_id: int):
         "structure_locked": bool(brackets or matches),
         "bracket_validation": validation,
         "bracket_ready": bool(validation.get("ready", True)),
+        "restore_available": _restore_available(tournament_id),
     }
+
+
+def _restore_available(tournament_id):
+    import json
+    from .playoff_plan_state import latest_backup, capture_plan_state, plan_hash, assert_replaceable, assert_no_match_events
+    with connect() as con:
+        backup = latest_backup(con, tournament_id)
+        if not backup:
+            return False
+        state = capture_plan_state(con, tournament_id)
+        try:
+            assert_replaceable(state)
+            assert_no_match_events(con, state)
+        except ValueError:
+            return False
+        return plan_hash(capture_plan_state(con, tournament_id, playoffs_only=True)) == json.loads(backup["payload_json"])["after_hash"]
 
 
 def update_playoff_settings(account_id: int, tournament_id: int, values: dict):
@@ -154,7 +173,17 @@ def update_playoff_settings(account_id: int, tournament_id: int, values: dict):
     if tie_rule != "Förlängning + straffar":
         extra_minutes = 0
 
+    if current["rules_locked"] and (tie_rule != current["playoff_tie_rule"] or extra_minutes != current["playoff_extra_time_minutes"]):
+        raise ValueError("Regler för avgörande kan inte ändras efter att slutspelsmatcher har startats eller spelats")
+
     structure_change = playoff_format != current["playoff_format"] or bronze_match != current["bronze_match"]
+    if playoff_format == GROUP_PLAYOFF_FORMAT:
+        if not current["placement_eligible"]:
+            raise ValueError("Förhandsgranska och skapa det nya gruppspelet via Byt slutspelsformat först.")
+        tie_rule = DRAW_RULE
+        bronze_match = False
+        extra_minutes = 0
+        structure_change = False  # Existing participant pairs and times remain intact.
     if structure_change and current["structure_locked"]:
         raise ValueError(
             "Slutspelsstrukturen kan inte ändras när slutspelsträd eller slutspelsmatcher redan finns. Hantera det befintliga slutspelet först"

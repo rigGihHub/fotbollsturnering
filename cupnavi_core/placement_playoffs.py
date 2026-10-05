@@ -6,6 +6,7 @@ from .participant_sources import parse_participant_source
 from .public_competition import calculate_group_table
 
 DRAW_RULE = "Oavgjort tillåtet – tabell avgör"
+GROUP_PLAYOFF_FORMAT = "Nytt gruppspel – lag med samma placering"
 
 
 def placement_blocks(matches):

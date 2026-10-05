@@ -9,4 +9,11 @@
 .matchDetails strong { font-size: 16px; line-height: 1.45; }
 .score { flex: 0 0 auto; font-size: 22px; font-variant-numeric: tabular-nums; }
 .explanation { margin: 16px 0; font-size: 15px; line-height: 1.55; }
+.plan { margin: 20px 0; padding: 16px; border: 1px solid #c5cbc8; border-radius: 16px; min-width: 0; }
+.plan label { display: grid; gap: 8px; margin: 12px 0; }
+.plan p { line-height: 1.55; overflow-wrap: anywhere; }
+.plan button, .plan select { min-height: 44px; }
 @media (max-width: 480px) { .bracket { padding: 12px; } .match { gap: 8px; } }
+
+.secondary.secondary { background: #fffdf7 !important; color: #142d37 !important; border: 1px solid #a7b4b7; box-shadow: none; }
+.secondary.secondary:hover { background: #edf4f3 !important; }

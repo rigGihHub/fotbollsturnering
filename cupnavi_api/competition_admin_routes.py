@@ -7,6 +7,7 @@ from .playoff_import_routes import register_playoff_import_routes
 from .pitch_window_import_routes import register_pitch_window_import_routes
 from .import_summary_routes import register_import_summary_routes
 from .schedule_revision_routes import register_schedule_revision_routes
+from .playoff_group_plan_routes import register_playoff_group_plan_routes
 from .referee_admin_repository import admin_referees,assign_referee,create_referee,delete_referee,update_referee
 from .referee_access_routes import register_referee_access_routes
 from .team_access_routes import register_team_access_routes
@@ -101,6 +102,7 @@ def register_competition_admin_routes(app,admin_identity):
  register_pitch_window_import_routes(app,admin_identity)
  register_import_summary_routes(app,admin_identity)
  register_schedule_revision_routes(app,admin_identity)
+ register_playoff_group_plan_routes(app,admin_identity)
  register_publish_reporting_routes(app,admin_identity)
  register_role_access_routes(app,admin_identity)
  register_referee_access_routes(app,admin_identity)

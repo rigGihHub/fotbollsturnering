@@ -895,7 +895,7 @@ export default function AdminWorkspace({verifiedSession=null,children=null}:{ver
       {activeStep==="rules" && token && cupId && <RulesAdmin key={cupId} token={token} cupId={cupId} />}
       {activeStep==="schedule" && token && cupId && <ScheduleAdmin token={token} cupId={cupId} />}
       {activeStep==="referees" && token && cupId && <RefereeAdmin token={token} cupId={cupId} publicSlug={activeCup?.public_slug} />}
-      {activeStep==="playoffs" && token && cupId && <PlayoffAdmin token={token} cupId={cupId} />}
+      {activeStep==="playoffs" && token && cupId && <PlayoffAdmin key={cupId} token={token} cupId={cupId} />}
       {activeStep==="access" && token && cupId && account && <AccessAdmin token={token} cupId={cupId} accountId={account.id} isPlatformOwner={isOwner}/>}
       {activeStep==="partners" && token && cupId && <PartnersAdmin token={token} cupId={cupId}/>}
 

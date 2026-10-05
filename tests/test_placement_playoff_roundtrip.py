@@ -243,3 +243,109 @@ def test_starting_match_locks_the_tie_rule_even_before_any_goal(cup):
     assert admin_playoffs(7,1)['rules_locked']
     with pytest.raises(ValueError,match='startats'):
         update_playoff_settings(7,1,{'playoff_tie_rule':DRAW_RULE})
+
+
+def knockout_rows():
+    return [
+        {'label':'Semi 1','home_source':'A1','away_source':'B1','time':'14:00','venue':'Sörbyvallen'},
+        {'label':'Semi 2','home_source':'C1','away_source':'A2','time':'15:00','venue':'Sörbyvallen'},
+        {'label':'Final','home_source':'Vinnare Semi 1','away_source':'Vinnare Semi 2','time':'16:00','venue':'Sörbyvallen'},
+    ]
+
+
+def test_preview_replace_and_restore_playoff_format_keeps_group_results(cup):
+    from cupnavi_api.playoff_group_plan_repository import preview_group_playoffs, apply_group_playoffs, restore_previous_playoffs
+    from cupnavi_core.placement_playoffs import GROUP_PLAYOFF_FORMAT
+    commit_playoff_import(7,1,knockout_rows())
+    before=db.all_rows('SELECT * FROM matches ORDER BY id')
+    group_before=[row for row in before if row['bracket_id'] is None]
+    preview=preview_group_playoffs(7,1,imported_rows(),'slottskampen.pdf')
+    assert preview['replaced_count']==3 and preview['match_count']==9 and preview['scheduled_count']==9
+    assert [g['name'] for g in preview['levels']]==['GULDGRUPPEN','SILVERGRUPPEN','BRONSGRUPPEN']
+    assert db.all_rows('SELECT * FROM matches ORDER BY id')==before
+    saved=apply_group_playoffs(7,1,preview['revision'],preview['matches'],preview['source_name'])
+    assert saved['imported']==9
+    state=admin_playoffs(7,1)
+    assert state['playoff_format']==GROUP_PLAYOFF_FORMAT and state['placement_mode']
+    assert state['restore_available']
+    assert state['playoff_tie_rule']==DRAW_RULE and state['playoff_extra_time_minutes']==0
+    assert db.all_rows('SELECT * FROM matches WHERE bracket_id IS NULL ORDER BY id')==group_before
+    assert db.one('SELECT is_published,schedule_dirty FROM tournaments WHERE id=1')=={'is_published':0,'schedule_dirty':1}
+    assert restore_previous_playoffs(7,1)['restored']
+    assert db.all_rows('SELECT * FROM matches ORDER BY id')==before
+    assert not admin_playoffs(7,1)['restore_available']
+
+
+def test_group_plan_stale_preview_started_match_and_wrong_pdf_are_blocked(cup):
+    from cupnavi_api.playoff_group_plan_repository import preview_group_playoffs, apply_group_playoffs
+    commit_playoff_import(7,1,knockout_rows())
+    preview=preview_group_playoffs(7,1,imported_rows())
+    with sqlite3.connect(cup) as con:
+        con.execute("UPDATE matches SET scheduled_start='2026-10-24T13:00' WHERE bracket_id IS NOT NULL AND stage='Semi 1'")
+    with pytest.raises(ValueError,match='ändrats sedan'):
+        apply_group_playoffs(7,1,preview['revision'],preview['matches'])
+    assert admin_playoffs(7,1)['match_count']==3
+    with pytest.raises(ValueError,match='underlaget|Underlaget'):
+        preview_group_playoffs(7,1,[{**imported_rows()[0],'home_source':'1:a grupp D'}])
+    with sqlite3.connect(cup) as con:
+        con.execute("UPDATE matches SET match_status='live' WHERE bracket_id IS NOT NULL AND stage='Semi 1'")
+    with pytest.raises(ValueError,match='startats'):
+        preview_group_playoffs(7,1,imported_rows())
+    assert preview_group_playoffs(7,2,[]) is None
+
+
+def test_group_plan_uses_existing_rank_pairs_without_moving_times(cup):
+    from cupnavi_api.playoff_group_plan_repository import preview_group_playoffs
+    import_groups()
+    before=db.all_rows('SELECT * FROM matches WHERE bracket_id IS NOT NULL ORDER BY id')
+    preview=preview_group_playoffs(7,1)
+    expected={tuple(sorted((row['home_source'],row['away_source']))):row['scheduled_start'] for row in before}
+    assert preview['source_name']=='Befintligt placeringsgruppspel'
+    for row in preview['matches']:
+        from cupnavi_api.playoff_import_repository import _resolve_source
+        group_map={'a':54,'b':55,'c':56}
+        home,_=_resolve_source(row['home_source'],{},group_map,{})
+        away,_=_resolve_source(row['away_source'],{},group_map,{})
+        assert row['time']==expected[tuple(sorted((home,away)))]
+
+
+def test_group_plan_api_returns_real_new_format_and_scope(cup):
+    app=FastAPI();register_competition_admin_routes(app,lambda _: {'id':7});client=TestClient(app)
+    preview=client.post('/api/admin/cups/1/playoffs/group-plan/preview',json={'source_rows':[]})
+    assert preview.status_code==200
+    assert preview.json()['scheduled_count']==0
+    result=client.post('/api/admin/cups/1/playoffs/group-plan/apply',json={'revision':preview.json()['revision'],'source_rows':preview.json()['matches']})
+    assert result.status_code==200,result.text
+    assert result.json()['placement_mode'] and result.json()['match_count']==9
+    assert client.post('/api/admin/cups/2/playoffs/group-plan/preview',json={}).status_code==404
+    assert client.post('/api/admin/cups/1/playoffs/group-plan/restore').status_code==200
+
+@pytest.mark.parametrize('table', ['match_events', 'player_match_stats', 'match_goal_minutes'])
+def test_group_plan_events_without_score_block_preview_and_restore(cup, table):
+    from cupnavi_api.playoff_group_plan_repository import preview_group_playoffs, apply_group_playoffs, restore_previous_playoffs
+    commit_playoff_import(7,1,knockout_rows())
+    proposal=preview_group_playoffs(7,1,imported_rows())
+    apply_group_playoffs(7,1,proposal['revision'],proposal['matches'])
+    match_id=db.one('SELECT id FROM matches WHERE bracket_id IS NOT NULL')['id']
+    with sqlite3.connect(cup) as con:
+        con.execute(f'CREATE TABLE IF NOT EXISTS {table}(match_id INTEGER)')
+        columns={row[1] for row in con.execute(f'PRAGMA table_info({table})')}
+        if table=='match_goal_minutes' and 'side' in columns:
+            con.execute(f"INSERT INTO {table}(match_id,side,minute) VALUES(?,'home',1)", (match_id,))
+        else:
+            con.execute(f'INSERT INTO {table}(match_id) VALUES(?)', (match_id,))
+    before=db.all_rows('SELECT * FROM matches ORDER BY id')
+    with pytest.raises(ValueError,match='matchhändelser'):
+        preview_group_playoffs(7,1,[])
+    with pytest.raises(ValueError,match='matchhändelser'):
+        restore_previous_playoffs(7,1)
+    assert db.all_rows('SELECT * FROM matches ORDER BY id')==before
+    assert not admin_playoffs(7,1)['restore_available']
+
+
+def test_group_plan_rejects_ambiguous_pitch_names(cup):
+    from cupnavi_api.playoff_group_plan_repository import preview_group_playoffs
+    with sqlite3.connect(cup) as con:
+        con.executemany('INSERT INTO pitches VALUES(1,?,?)', [(1,'Sörbyvallen'),(2,'Sörbyvallen')])
+    with pytest.raises(ValueError,match='unika namn'):
+        preview_group_playoffs(7,1,imported_rows())
