@@ -177,12 +177,10 @@ html:has(.cn-public) body {background:var(--cn-canvas)!important;background-imag
 .cn-step-guide__actions .cn-primary {background:var(--cn-primary);border-color:var(--cn-primary);color:white;font-weight:750}
 .cn-step-guide details {margin-top:8px;font-size:13px}
 .cn-step-guide summary,.cn-cup-management summary {cursor:pointer;min-height:44px;align-content:center;color:var(--cn-muted)}
-.cn-admin-mobile-nav {display:none}
 .cn-admin-nav {display:grid;gap:4px;margin:16px 0}
 .cn-admin-nav>strong {font-size:12px;color:var(--cn-muted);padding:8px}
 .cn-admin-nav a {display:block;min-height:44px;padding:12px!important;border:0!important;border-radius:8px!important;box-shadow:none!important;color:var(--cn-ink)!important;background:transparent!important;font-size:14px!important;text-decoration:none}
 .cn-admin-nav a[aria-current] {background:var(--cn-ink)!important;color:#fff!important}
-.cn-admin-nav summary {font-size:13px;font-weight:750;min-height:44px;align-content:center;cursor:pointer}
 .cn-admin .admin-team-list:not(.admin-team-roster)>article {display:grid;grid-template-columns:minmax(0,1fr);gap:12px;padding:16px}
 .cn-admin .admin-team-list:not(.admin-team-roster)>article>div {min-width:0;overflow-wrap:anywhere}
 .cn-admin .admin-active-cup-card {box-shadow:none!important;border:1px solid var(--cn-line)!important;border-radius:12px!important;padding:16px!important;background:#fff!important}
@@ -212,9 +210,6 @@ body:has(.cn-admin) .view-mode-switch.is-admin {position:static!important;justif
  .cn-step-guide__actions {margin-top:12px;flex-wrap:wrap}
  .cn-step-guide__actions button {flex:1}
  .cn-admin .admin-sidebar {position:static!important;top:auto!important;padding:0 12px!important;display:block!important}
- .cn-admin .cn-admin-nav {display:none!important}
- .cn-admin-mobile-nav {display:grid;gap:6px;font-size:13px;font-weight:750;margin:12px 0}
- .cn-admin-mobile-nav select {min-height:48px;padding:10px;width:100%;background:#fff;border:1px solid #87999f;border-radius:8px;font-size:16px;color:var(--cn-ink)}
  .cn-admin .admin-main {padding:12px!important}
  .cn-admin .admin-panel {padding:16px!important}
  .cn-admin .admin-sidebar>.admin-public-link {display:inline-flex!important;align-items:center;min-height:44px!important;width:auto!important;padding:8px!important;font-size:13px!important;margin:0 6px 8px 0!important;border-radius:8px!important;box-shadow:none!important}

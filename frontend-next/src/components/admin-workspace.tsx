@@ -755,12 +755,12 @@ export default function AdminWorkspace({verifiedSession=null,children=null}:{ver
           </> : <p className="admin-trash-empty">Papperskorgen är tom.</p>}
         </section>}
       </>}
-      <label className="cn-admin-mobile-nav">Gå till steg<select value={`#${activeStep}`} onChange={event=>{window.location.hash=event.target.value}}>{[...visibleSetupNav,partnerNav,...toolNav].map(([label,href])=><option key={href} value={href}>{label}</option>)}</select></label>
       <nav className="cn-admin-nav" aria-label="Cupadministration">
         <strong>Förbered cupen</strong>
         {visibleSetupNav.map(([item,href])=><a key={item} aria-current={href===`#${activeStep}`?"page":undefined} href={href}>{item}</a>)}
         <a aria-current={activeStep==="partners"?"page":undefined} href="#partners">Sponsorer & erbjudanden</a>
-        <details open={toolNav.some(([,href])=>href===`#${activeStep}`)}><summary>Verktyg & cupdag</summary>{toolNav.map(([item,href])=><a key={item} aria-current={href===`#${activeStep}`?"page":undefined} href={href}>{item}</a>)}</details>
+        <strong>Verktyg & cupdag</strong>
+        {toolNav.map(([item,href])=><a key={item} aria-current={href===`#${activeStep}`?"page":undefined} href={href}>{item}</a>)}
       </nav>
       <button className="admin-public-link" type="button" onClick={logout}>Logga ut</button>
     </aside>

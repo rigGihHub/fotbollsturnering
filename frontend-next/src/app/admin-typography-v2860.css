@@ -130,16 +130,6 @@
   font-size: var(--admin-text-control);
   font-weight: 500;
 }
-.cn-admin .cn-admin-mobile-nav {
-  font-size: var(--admin-text-control);
-  font-weight: 500;
-}
-.cn-admin .cn-admin-mobile-nav select {
-  font-family: inherit;
-  font-size: var(--admin-text-input) !important;
-  font-weight: 400;
-  line-height: 1.4;
-}
 
 /* Remove the rounded internal divider; the active-cup card owns its frame. */
 .cn-admin .admin-active-cup-card .admin-sidebar__cup {
