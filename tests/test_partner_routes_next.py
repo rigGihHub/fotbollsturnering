@@ -1,6 +1,9 @@
 """The restored Next.js partner flow must keep cup and publication boundaries."""
 import base64
 import sqlite3
+from contextlib import contextmanager
+
+import pytest
 
 from fastapi import FastAPI, HTTPException
 from fastapi.testclient import TestClient
@@ -72,3 +75,56 @@ def test_partner_crud_and_public_visibility_are_cup_scoped(monkeypatch, tmp_path
     assert client.delete(f"/api/admin/cups/2/offers/{offer.json()['id']}", headers=headers).status_code == 404
     assert client.delete(f"/api/admin/cups/1/offers/{offer.json()['id']}", headers=headers).json()["deleted"]
     assert client.get("/api/public/cups/cup-one/partners").json()["offers"] == []
+
+
+def test_public_partner_read_uses_one_connection_without_schema_writes(monkeypatch, tmp_path):
+    path = tmp_path / "read.db"
+    monkeypatch.setenv("CUPNAVI_API_SQLITE_PATH", str(path))
+    monkeypatch.delenv("TURSO_DATABASE_URL", raising=False)
+    monkeypatch.delenv("TURSO_AUTH_TOKEN", raising=False)
+    partner_routes._ensure_tables()
+    with sqlite3.connect(path) as con:
+        con.executemany("INSERT INTO sponsors (tournament_id,name,active,sort_order) VALUES (?,?,?,?)",
+                        [(1, "Second", 1, 2), (1, "First", 1, 1), (1, "Hidden", 0, 0), (2, "Other cup", 1, 0)])
+        con.execute("INSERT INTO offers (tournament_id,title) VALUES (1,'Cup offer')")
+    connections, statements = [], []
+
+    @contextmanager
+    def traced_connect():
+        with sqlite3.connect(path) as con:
+            connections.append(con)
+            con.row_factory = sqlite3.Row
+            con.set_trace_callback(statements.append)
+            yield con
+
+    monkeypatch.setattr(partner_routes, "connect", traced_connect)
+    result = partner_routes._list(1, public=True)
+    assert [row["name"] for row in result["sponsors"]] == ["First", "Second"]
+    assert result["offers"][0]["title"] == "Cup offer"
+    assert len(connections) == 1
+    assert len(statements) == 2
+    assert all(sql.startswith("SELECT ") for sql in statements)
+
+
+def test_public_partner_read_does_not_create_missing_tables(monkeypatch, tmp_path):
+    path = tmp_path / "legacy.db"
+    monkeypatch.setenv("CUPNAVI_API_SQLITE_PATH", str(path))
+    monkeypatch.delenv("TURSO_DATABASE_URL", raising=False)
+    monkeypatch.delenv("TURSO_AUTH_TOKEN", raising=False)
+    assert partner_routes._list(1, public=True) == {"sponsors": [], "offers": []}
+    with sqlite3.connect(path) as con:
+        assert con.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall() == []
+
+
+def test_public_partner_read_surfaces_database_failures(monkeypatch):
+    class BrokenConnection:
+        def execute(self, *args):
+            raise RuntimeError("database unavailable")
+
+    @contextmanager
+    def broken_connect():
+        yield BrokenConnection()
+
+    monkeypatch.setattr(partner_routes, "connect", broken_connect)
+    with pytest.raises(RuntimeError, match="database unavailable"):
+        partner_routes._list(1, public=True)

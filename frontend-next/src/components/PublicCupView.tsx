@@ -4,6 +4,7 @@ import { belongsToTeam, cupMatches, hasPlayoffs, matchdayOrder } from "@/lib/mat
 import { useMatchWeather } from "@/lib/use-match-weather";
 import { PlacementTables } from "./PlacementTables";
 import { PublicOffers } from "./PublicOffers";
+import { PublicSponsors } from "./PublicSponsors";
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { CupSnapshot, PublicStatistics, StandingRow } from "@/lib/types";
@@ -48,6 +49,7 @@ export function PublicCupView({ publicKey, initialCup, initialStandings, reporte
   const [unavailable,setUnavailable]=useState(false); const [refreshProblem,setRefreshProblem]=useState(false);
   const [statistics,setStatistics]=useState<PublicStatistics|null>(null); const [statisticsLoading,setStatisticsLoading]=useState(false);
   const [partners,setPartners]=useState<PublicPartners|null>(null); const [partnersError,setPartnersError]=useState(false);
+  const [partnersLoading,setPartnersLoading]=useState(false); const partnersCupRef=useRef(publicKey);
   const statsEnabled=Boolean(cup.tournament.show_scorer_stats||cup.tournament.show_assist_stats||cup.tournament.show_card_stats||cup.tournament.show_fairness);
   const isSingleMatch=cup.tournament.arrangement_type==="single_match";
   const isMatchcamp=["single_match","matchcamp"].includes(cup.tournament.arrangement_type||"");
@@ -82,11 +84,12 @@ export function PublicCupView({ publicKey, initialCup, initialStandings, reporte
     return()=>{cancelled=true};
   },[tab,publicKey,statsEnabled,dataRetry]);
   useEffect(()=>{
-    if(tab!=="offers")return;
+    if(tab!=="offers"&&tab!=="info")return;
     let cancelled=false;
     setPartnersError(false);
-    setPartners(null);
-    getPartners(publicKey).then(data=>{if(!cancelled)setPartners(data)}).catch(()=>{if(!cancelled)setPartnersError(true)});
+    setPartnersLoading(true);
+    if(partnersCupRef.current!==publicKey){setPartners(null);partnersCupRef.current=publicKey;}
+    getPartners(publicKey).then(data=>{if(!cancelled)setPartners(data)}).catch(()=>{if(!cancelled)setPartnersError(true)}).finally(()=>{if(!cancelled)setPartnersLoading(false)});
     return()=>{cancelled=true};
   },[tab,publicKey,dataRetry]);
   useEffect(()=>{
@@ -192,7 +195,7 @@ export function PublicCupView({ publicKey, initialCup, initialStandings, reporte
       {remainingBrackets.length>0&&<div className="table-stack">{remainingBrackets.map(bracket=><section key={bracket.id}><div className="subsection-label"><span>SLUTSPEL</span><strong>{bracket.name}</strong></div>{bracket.matches.length?<div className="cn-match-list">{bracket.matches.map(renderMatch)}</div>:<article className="empty-state"><strong>Inga matcher publicerade i detta slutspel ännu.</strong></article>}</section>)}</div>}
     </section>}
 
-    {tab==="offers"&&<PublicOffers partners={partners} loading={!partners&&!partnersError} error={partnersError} onRetry={()=>setDataRetry(value=>value+1)}/>}
+    {tab==="offers"&&<PublicOffers partners={partners} loading={partnersLoading||!partners&&!partnersError} error={partnersError} onRetry={()=>setDataRetry(value=>value+1)}/>}
     {tab==="info"&&<section className="public-info-v3"><div className="public-info-hero public-info-hero--visitor"><div><span>Cupinfo</span><h2>{cup.tournament.name}</h2><p>{visitorInfoText||"Här finns det viktigaste för publik, spelare och ledare under cupdagen."}</p></div><div className="public-info-hero__facts"><b>{cup.teams.length}<small>Lag</small></b><b>{orderedMatches.length}<small>Matcher</small></b><b>{scheduledPitchCount}<small>Planer</small></b></div></div><div className="public-info-grid public-info-grid--visitor">
       <article className="public-info-card public-info-card--rules"><span className="public-info-card__eyebrow">Regler</span><h3>{isMatchcamp?"Så spelas matcherna":"Så avgörs cupen"}</h3><div className="public-rule-list">
         {hasMatchDuration&&<div><span>Matchtid</span><b>{matchHalves} × {matchMinutesPerHalf} min</b></div>}
@@ -203,6 +206,7 @@ export function PublicCupView({ publicKey, initialCup, initialStandings, reporte
       <article className="public-info-card public-info-card--contact"><span className="public-info-card__eyebrow">Kontakt</span><h3>Behöver du fråga något?</h3><div className="public-info-details">{cup.tournament.organizer_phone&&<div><span>Telefon</span><b><a href={`tel:${cup.tournament.organizer_phone}`}>{cup.tournament.organizer_phone}</a></b></div>}{cup.tournament.feedback_email&&<div><span>E-post</span><b><a href={`mailto:${cup.tournament.feedback_email}`}>{cup.tournament.feedback_email}</a></b></div>}{!cup.tournament.organizer_phone&&!cup.tournament.feedback_email&&<div><span>Kontakt</span><b>Fråga arrangören på plats</b></div>}</div></article>
       {(cup.pitches||[]).length>0&&<article className="public-info-card"><span className="public-info-card__eyebrow">Planer</span><h3>Spelområdet</h3><div className="public-pitch-list">{(cup.pitches||[]).map(pitch=>{const start=pitch.opens_at||pitch.start_time||pitch.available_from;const end=pitch.closes_at||pitch.end_time||pitch.available_to;return <div key={pitch.pitch_number}><span><b>{pitch.name||`Plan ${pitch.pitch_number}`}</b><small>Plan {pitch.pitch_number}</small></span>{(start||end)&&<strong>{start||"-"}{end?`-${end}`:""}</strong>}</div>})}</div></article>}
       {practicalPoints.map(point=><article className="public-info-card" key={point.id}><span className="public-info-card__eyebrow">{(point.kind||"Praktiskt").toUpperCase()}</span><h3>{point.label||"Bra att veta"}</h3>{point.detail&&<p>{point.detail}</p>}{point.url&&<a href={point.url} target="_blank" rel="noreferrer">Öppna karta / länk →</a>}</article>)}
+      <PublicSponsors partners={partners} loading={partnersLoading||!partners&&!partnersError} error={partnersError} onRetry={()=>setDataRetry(value=>value+1)}/>
       {showPublicWeather&&<WeatherShareCard address={cup.tournament.arena_address} startDate={cup.tournament.start_date} endDate={cup.tournament.end_date} cupName={cup.tournament.name}/>}
     </div></section>}
 

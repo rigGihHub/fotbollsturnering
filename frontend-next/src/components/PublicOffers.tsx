@@ -12,8 +12,8 @@ export function PublicOffers({partners,loading,error,onRetry}:{partners:PublicPa
       <p>Här hittar du erbjudanden från företag och föreningar som samarbetar med cupen.</p>
     </header>
 
-    {loading&&<div className="cn-offers-empty" role="status">Hämtar erbjudanden…</div>}
-    {error&&<div className="cn-offers-empty" role="alert"><strong>Erbjudandena kunde inte hämtas.</strong><button type="button" onClick={onRetry}>Försök igen</button></div>}
+    {loading&&!partners&&<div className="cn-offers-empty" role="status">Hämtar erbjudanden…</div>}
+    {error&&<div className="cn-offers-empty" role="alert"><strong>{partners?"Erbjudandena kunde inte uppdateras. Visar senast hämtade uppgifter.":"Erbjudandena kunde inte hämtas."}</strong><button type="button" onClick={onRetry}>Försök igen</button></div>}
     {partners&&<>
       {offers.length>0?<div className="cn-offers-grid">{offers.map(offer=>{
         const sponsor=sponsorByName.get((offer.business_name||"").trim().toLocaleLowerCase("sv"));
@@ -28,13 +28,6 @@ export function PublicOffers({partners,loading,error,onRetry}:{partners:PublicPa
         </article>;
       })}</div>:<div className="cn-offers-empty"><strong>Inga erbjudanden publicerade ännu</strong><p>Arrangören kan lägga till erbjudanden inför cupen.</p></div>}
 
-      {sponsors.length>0&&<section className="cn-offers-sponsors" aria-labelledby="cn-sponsors-title">
-        <div className="cn-offers-sponsors__heading"><span>CUPENS PARTNERS</span><h3 id="cn-sponsors-title">Sponsorer</h3></div>
-        <div className="cn-offers-sponsors__grid">{sponsors.map(sponsor=><article key={sponsor.id} className="cn-sponsor-card">
-          {sponsor.logo_data_uri&&<img src={sponsor.logo_data_uri} alt={`${sponsor.name} logotyp`} loading="lazy"/>}
-          <div>{sponsor.level&&<small>{sponsor.level}</small>}<h4>{sponsor.name}</h4>{sponsor.description&&<p>{sponsor.description}</p>}{sponsor.website_url&&<a href={sponsor.website_url} target="_blank" rel="noopener noreferrer">Besök webbplats ↗</a>}</div>
-        </article>)}</div>
-      </section>}
     </>}
   </section>;
 }

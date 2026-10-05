@@ -1,8 +1,9 @@
 {
   "name": "cupnavi-web",
-  "version": "2.8.63",
+  "version": "2.8.64",
   "private": true,
   "scripts": {
+    "test:public-partners": "node scripts/test-public-partners.cjs",
     "test:team-assets": "node scripts/test-team-assets.cjs",
     "test:match-weather": "node scripts/test-match-weather.cjs",
     "test:placement-playoffs": "node scripts/test-placement-playoffs.cjs",

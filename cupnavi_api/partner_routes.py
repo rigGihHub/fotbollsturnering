@@ -9,7 +9,7 @@ from fastapi import Header, HTTPException
 from pydantic import BaseModel
 
 from .admin_repository import admin_cupinfo
-from .repository import all_rows, connect, one, public_tournament
+from .repository import _dict_rows, connect, one, public_tournament
 
 
 class PartnerWrite(BaseModel):
@@ -130,16 +130,24 @@ def _access(account_id, cup_id):
 
 
 def _list(cup_id, public=False):
-    _ensure_tables()
+    # Public reads must not run schema writes or open one remote connection
+    # per table. Creating a sponsor or opening admin initializes the tables.
+    if not public:
+        _ensure_tables()
     condition = " AND active=1" if public else ""
-    return {
-        "sponsors": all_rows(
-            f"SELECT * FROM sponsors WHERE tournament_id=?{condition} ORDER BY sort_order,id", (cup_id,)
-        ),
-        "offers": all_rows(
-            f"SELECT * FROM offers WHERE tournament_id=?{condition} ORDER BY sort_order,id", (cup_id,)
-        ),
-    }
+    result = {}
+    with connect() as con:
+        for kind in ("sponsors", "offers"):
+            try:
+                result[kind] = _dict_rows(con.execute(
+                    f"SELECT * FROM {kind} WHERE tournament_id=?{condition} ORDER BY sort_order,id", (cup_id,)
+                ))
+            except Exception as exc:
+                if public and f"no such table: {kind}" in str(exc).lower():
+                    result[kind] = []
+                else:
+                    raise
+    return result
 
 
 def _write(kind, cup_id, payload, item_id=None):

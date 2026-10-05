@@ -85,6 +85,9 @@ jobs:
       - name: Match weather regression
         run: npm run test:match-weather
 
+      - name: Public partners regression
+        run: npm run test:public-partners
+
       - name: Production build
         env:
           CUPNAVI_API_BASE: https://cupnavi-api.onrender.com

@@ -22,18 +22,18 @@ function retryAfterMs(response:Response):number|undefined {
   return undefined;
 }
 
-async function apiGet<T>(path: string, options?:{serverRevalidate?:number}): Promise<T> {
+async function apiGet<T>(path: string, options?:{serverRevalidate?:number;requestTimeoutMs?:number;maxRetries?:number}): Promise<T> {
   let lastError:unknown;
   const isServer=typeof window==="undefined";
   // A server render must not amplify an upstream 429 into four immediate
   // requests. The browser can recover in the background after hydration.
-  const maxAttempt=isServer?1:RETRY_DELAYS_MS.length;
+  const maxAttempt=options?.maxRetries??(isServer?1:RETRY_DELAYS_MS.length);
   for(let attempt=0;attempt<=maxAttempt;attempt+=1){
     try{
       const cacheOptions=isServer&&options?.serverRevalidate
         ? {next:{revalidate:options.serverRevalidate}}
         : {cache:"no-store" as const};
-      const response = await fetch(`${API_BASE}${path}`,{...cacheOptions,signal:AbortSignal.timeout(REQUEST_TIMEOUT_MS)});
+      const response = await fetch(`${API_BASE}${path}`,{...cacheOptions,signal:AbortSignal.timeout(options?.requestTimeoutMs??REQUEST_TIMEOUT_MS)});
       if(response.ok)return response.json() as Promise<T>;
       const error=new CupNaviApiError(response.status,`CupNavi API svarade ${response.status}`,retryAfterMs(response));
       const retryable=response.status===429||response.status>=500;
@@ -84,7 +84,7 @@ export type PublicPartners = {
 };
 
 export function getPartners(publicKey:string) {
-  return apiGet<PublicPartners>(`/api/public/cups/${encodeURIComponent(publicKey)}/partners`);
+  return apiGet<PublicPartners>(`/api/public/cups/${encodeURIComponent(publicKey)}/partners`,{requestTimeoutMs:20000,maxRetries:1});
 }
 
 export function getTeamSummary(publicKey: string, teamId: number) {
