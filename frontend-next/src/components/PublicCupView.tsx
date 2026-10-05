@@ -192,10 +192,10 @@ export function PublicCupView({ publicKey, initialCup, initialStandings, reporte
     {tab==="stats"&&statsEnabled&&<section><div className="section-heading"><span>STATISTIK</span><h2>Topplistor</h2><p>Registrerade matchhändelser direkt från CupNavi.</p></div>{statisticsLoading&&!statistics?<article className="empty-state"><strong>Hämtar topplistor…</strong></article>:statistics?<div className="table-stack">{statistics.enabled.scorers&&<StatisticsTable title="Målskyttar" metric="Mål" rows={statistics.scorers}/>} {statistics.enabled.assists&&<StatisticsTable title="Assistliga" metric="Assist" rows={statistics.assists}/>} {statistics.enabled.cards&&<StatisticsTable title="Spelarkort" metric="Gula/Röda" rows={statistics.cards}/>} {statistics.enabled.fairness&&<DisciplineTable stats={statistics}/>}</div>:<article className="empty-state"><strong>Topplistor kunde inte hämtas just nu.</strong></article>}</section>}
 
     {tab==="playoff"&&showPlayoffs&&<section>
-      <div className="section-heading"><span>SLUTSPEL</span><h2>{hasPlacementGroups?"Slutspel i nivågrupper":"Slutspel"}</h2>{hasPlacementGroups?<p>Lag med samma placering i grundspelet möts i nya grupper. Alla möter alla, oavgjort är tillåtet och tabell avgör.</p>:<p>Slutspelet match för match.</p>}</div>
-      <PlacementTables groups={placementGroups} renderMatches={group=>{
+      <div className="section-heading"><span>SLUTSPEL</span><h2>{hasPlacementGroups?"Placeringsgruppspel":"Slutspel"}</h2>{!hasPlacementGroups&&<p>Slutspelet match för match.</p>}</div>
+      <PlacementTables groups={placementGroups} showStatus={false} renderMatches={group=>{
         const groupMatches=orderedMatches.filter(match=>(group.match_ids||[]).includes(match.id));
-        return groupMatches.length?<details className="cn-placement-matches" open><summary>Matcher i {group.name} ({groupMatches.length})</summary><div className="cn-match-list">{groupMatches.map(renderMatch)}</div></details>:null;
+        return groupMatches.length?<details className="cn-placement-matches"><summary>Matcher i {group.name} ({groupMatches.length})</summary><div className="cn-match-list">{groupMatches.map(renderMatch)}</div></details>:null;
       }}/>
       {remainingBrackets.length>0&&<div className="table-stack">{remainingBrackets.map(bracket=><section key={bracket.id}><div className="subsection-label"><span>SLUTSPEL</span><strong>{bracket.name}</strong></div>{bracket.matches.length?<div className="cn-match-list">{bracket.matches.map(renderMatch)}</div>:<article className="empty-state"><strong>Inga matcher publicerade i detta slutspel ännu.</strong></article>}</section>)}</div>}
     </section>}
