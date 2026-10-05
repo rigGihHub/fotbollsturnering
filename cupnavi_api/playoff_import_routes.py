@@ -10,6 +10,7 @@ from .playoff_import_repository import commit_playoff_import, playoff_import_rev
 class PlayoffImportWrite(BaseModel):
     playoff_matches: list[dict]
     playoff_rule_values: dict | None = None
+    reviewed_retry: bool = False
 
 
 def register_playoff_import_routes(app, admin_identity):
@@ -34,6 +35,7 @@ def register_playoff_import_routes(app, admin_identity):
                 tournament_id,
                 payload.playoff_matches,
                 payload.playoff_rule_values,
+                reviewed_retry=payload.reviewed_retry,
             )
         except ValueError as exc:
             raise HTTPException(status_code=422, detail=str(exc)) from exc

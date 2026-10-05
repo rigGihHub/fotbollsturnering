@@ -37,7 +37,7 @@ function DisciplineTable({stats}:{stats:PublicStatistics}){
   return <section className="texttv"><div className="texttv__header"><span>STATISTIK</span><strong>Fair play</strong><span>LAG</span></div><div className="texttv__scroll"><table><thead><tr><th>#</th><th>Lag</th><th>Gula</th><th>Röda</th></tr></thead><tbody>{stats.discipline.length?stats.discipline.map((row,index)=><tr key={row.team_id}><td>{index+1}</td><td>{row.team_name}</td><td>{row.yellow_cards}</td><td><strong>{row.red_cards}</strong></td></tr>):<tr><td colSpan={4}>Ingen registrerad disciplinstatistik ännu.</td></tr>}</tbody></table></div></section>;
 }
 
-export function PublicCupView({ publicKey, initialCup, initialStandings, reporterReturn=false }:{publicKey:string;initialCup:CupSnapshot;initialStandings:StandingsGroup[];reporterReturn?:boolean}){
+export function PublicCupView({ publicKey, initialCup, initialStandings, reporterReturn=false, previewMode=false }:{publicKey:string;initialCup:CupSnapshot;initialStandings:StandingsGroup[];reporterReturn?:boolean;previewMode?:boolean}){
   const [cup,setCup]=useState(()=>normalizeCup(initialCup)); const cupRef=useRef(cup); const [standings,setStandings]=useState(Array.isArray(initialStandings)?initialStandings:[]);
   const nextAllowedRefreshRef=useRef(0); const publicRefreshBackoffMs=useRef(0); const missingRefreshesRef=useRef(0);
   const [standingsLoaded,setStandingsLoaded]=useState(initialStandings.length>0); const [standingsLoading,setStandingsLoading]=useState(false);
@@ -97,12 +97,13 @@ export function PublicCupView({ publicKey, initialCup, initialStandings, reporte
     return()=>{cancelled=true};
   },[tab,publicKey,dataRetry]);
   useEffect(()=>{
-    if(tab!=="table" || !showTables)return;
+    if(previewMode||tab!=="table" || !showTables)return;
     let cancelled=false;setStandingsLoading(true);setDataError("");
     getStandings(publicKey).then(data=>{if(!cancelled){setStandings(Array.isArray(data.groups)?data.groups:[]);setStandingsLoaded(true)}}).catch(()=>{if(!cancelled)setDataError("Tabellerna kunde inte uppdateras. Försök igen.")}).finally(()=>{if(!cancelled)setStandingsLoading(false)});
     return()=>{cancelled=true};
-  },[publicKey,showTables,tab,dataRetry]);
+  },[publicKey,showTables,tab,dataRetry,previewMode]);
   useEffect(()=>{
+    if(previewMode)return;
     let busy=false;
     let cancelled=false;
     const refresh=async()=>{
@@ -151,7 +152,7 @@ export function PublicCupView({ publicKey, initialCup, initialStandings, reporte
     const onVisibility=()=>{if(document.visibilityState==="visible")void refresh()};
     document.addEventListener("visibilitychange",onVisibility);
     return()=>{cancelled=true;window.clearTimeout(timer);document.removeEventListener("visibilitychange",onVisibility)};
-  },[publicKey,showTables,tab,statsEnabled]);
+  },[publicKey,showTables,tab,statsEnabled,previewMode]);
   useEffect(()=>{if((tab==="table"&&!showTables)||(tab==="playoff"&&!showPlayoffs))setTab("matches")},[tab,showTables,showPlayoffs]);
 
   const orderedMatches=useMemo(()=>cupMatches(cup),[cup]);
@@ -191,10 +192,10 @@ export function PublicCupView({ publicKey, initialCup, initialStandings, reporte
     {tab==="stats"&&statsEnabled&&<section><div className="section-heading"><span>STATISTIK</span><h2>Topplistor</h2><p>Registrerade matchhändelser direkt från CupNavi.</p></div>{statisticsLoading&&!statistics?<article className="empty-state"><strong>Hämtar topplistor…</strong></article>:statistics?<div className="table-stack">{statistics.enabled.scorers&&<StatisticsTable title="Målskyttar" metric="Mål" rows={statistics.scorers}/>} {statistics.enabled.assists&&<StatisticsTable title="Assistliga" metric="Assist" rows={statistics.assists}/>} {statistics.enabled.cards&&<StatisticsTable title="Spelarkort" metric="Gula/Röda" rows={statistics.cards}/>} {statistics.enabled.fairness&&<DisciplineTable stats={statistics}/>}</div>:<article className="empty-state"><strong>Topplistor kunde inte hämtas just nu.</strong></article>}</section>}
 
     {tab==="playoff"&&showPlayoffs&&<section>
-      <div className="section-heading"><span>SLUTSPEL</span><h2>{hasPlacementGroups?"Placeringsgruppspel":"Slutspel"}</h2>{!hasPlacementGroups&&<p>Slutspelet match för match.</p>}</div>
+      <div className="section-heading"><span>SLUTSPEL</span><h2>{hasPlacementGroups?"Slutspel i nivågrupper":"Slutspel"}</h2>{hasPlacementGroups?<p>Lag med samma placering i grundspelet möts i nya grupper. Alla möter alla, oavgjort är tillåtet och tabell avgör.</p>:<p>Slutspelet match för match.</p>}</div>
       <PlacementTables groups={placementGroups} renderMatches={group=>{
         const groupMatches=orderedMatches.filter(match=>(group.match_ids||[]).includes(match.id));
-        return groupMatches.length?<details className="cn-placement-matches"><summary>Matcher i {group.name} ({groupMatches.length})</summary><div className="cn-match-list">{groupMatches.map(renderMatch)}</div></details>:null;
+        return groupMatches.length?<details className="cn-placement-matches" open><summary>Matcher i {group.name} ({groupMatches.length})</summary><div className="cn-match-list">{groupMatches.map(renderMatch)}</div></details>:null;
       }}/>
       {remainingBrackets.length>0&&<div className="table-stack">{remainingBrackets.map(bracket=><section key={bracket.id}><div className="subsection-label"><span>SLUTSPEL</span><strong>{bracket.name}</strong></div>{bracket.matches.length?<div className="cn-match-list">{bracket.matches.map(renderMatch)}</div>:<article className="empty-state"><strong>Inga matcher publicerade i detta slutspel ännu.</strong></article>}</section>)}</div>}
     </section>}

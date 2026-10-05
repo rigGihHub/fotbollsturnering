@@ -363,11 +363,12 @@ def public_snapshot(public_key, *, include_unpublished=False):
         teams=many(f"SELECT id,name,group_id,age_class,primary_color,secondary_color,{kit_projection},{logo_projection} FROM teams WHERE tournament_id=? ORDER BY name", (tid,))
         groups=many("SELECT id,name,age_class FROM groups WHERE tournament_id=? ORDER BY name", (tid,))
         match_publish_filter="" if include_unpublished else " AND schedule_published=1"
+        match_time_filter="" if include_unpublished else " AND scheduled_start IS NOT NULL"
         matches=many(f"""SELECT id,stage,group_id,bracket_id,round_no,match_no,home_source,away_source,
                               scheduled_start,pitch_number,home_score,away_score,home_penalties,away_penalties,
                               decided_winner_id,schedule_published,match_status,status_updated_at,
                               actual_started_at,actual_finished_at
-                       FROM matches WHERE tournament_id=?{match_publish_filter} AND scheduled_start IS NOT NULL
+                       FROM matches WHERE tournament_id=?{match_publish_filter}{match_time_filter}
                        ORDER BY scheduled_start,pitch_number,id""", (tid,))
         if tournament.get("show_public_goal_minutes") and matches and many("PRAGMA table_info(match_goal_minutes)"):
             goal_rows=many("""SELECT g.match_id,g.side,g.minute FROM match_goal_minutes g

@@ -6,11 +6,12 @@ const ts=require('typescript');
 const React=require('react');
 const {renderToStaticMarkup}=require('react-dom/server');
 const root=path.resolve(__dirname,'../src');
+let forcePlayoffTab=false;
 function load(file){
  if(file.endsWith('.css'))return {default:new Proxy({}, {get:(_,key)=>String(key)})};
  if(!path.extname(file))file+=fs.existsSync(file+'.tsx')?'.tsx':'.ts';
  const module={exports:{}};
- const requireModule=name=>name==='react'&&file.endsWith('admin-workspace.tsx')?{...React,useState:value=>React.useState(value==='checking'?'offline':value)}:name.startsWith('.')?load(path.resolve(path.dirname(file),name)):name.startsWith('@/')?load(path.join(root,name.slice(2))):require(name);
+ const requireModule=name=>name==='react'&&file.endsWith('PublicCupView.tsx')?{...React,useState:value=>React.useState(forcePlayoffTab&&value==='matches'?'playoff':value)}:name==='react'&&file.endsWith('admin-workspace.tsx')?{...React,useState:value=>React.useState(value==='checking'?'offline':value)}:name.startsWith('.')?load(path.resolve(path.dirname(file),name)):name.startsWith('@/')?load(path.join(root,name.slice(2))):require(name);
  vm.runInNewContext(ts.transpileModule(fs.readFileSync(file,'utf8'),{compilerOptions:{target:ts.ScriptTarget.ES2020,module:ts.ModuleKind.CommonJS,jsx:ts.JsxEmit.ReactJSX}}).outputText,{exports:module.exports,module,require:requireModule,process,console});
  return module.exports;
 }
@@ -91,3 +92,13 @@ const wakeSource=fs.readFileSync(path.join(root,'components/api-wake-guard.tsx')
 const recoverySource=fs.readFileSync(path.join(root,'components/public-cup-recovery.tsx'),'utf8');
 assert(!/Render|gratisserver|startar servern/i.test(wakeSource+recoverySource),'Visitors must not see hosting or cold-start details');
 console.log('PASS login remains available after health timeout');
+
+forcePlayoffTab=true;
+const placementMatch={id:10,home_source:'group:1:1',away_source:'group:2:1',scheduled_start:null};
+const playoffMarkup=renderToStaticMarkup(React.createElement(PublicCupView,{publicKey:'draft-cup',previewMode:true,initialStandings:[],initialCup:{tournament:{id:43,name:'Ny cup',arrangement_type:'tournament_playoffs',show_public_weather_configured:true,show_public_weather:false},teams:[],groups:[{id:1,name:'A'},{id:2,name:'B'}],matches:[placementMatch],brackets:[{id:7,name:'Importerat slutspel',matches:[placementMatch]}],placement_groups:[{bracket_id:7,name:'GULDGRUPPEN',placement:1,rows:[],match_ids:[10],complete:false}],pitches:[],venue_points:[]}}));
+assert(playoffMarkup.includes('Slutspel i nivågrupper'));
+assert.match(playoffMarkup,/<details class="cn-placement-matches" open="">/);
+assert(playoffMarkup.includes('1:a A')&&playoffMarkup.includes('1:a B'),'Unresolved qualifiers must be visible before group results');
+assert.equal((playoffMarkup.match(/cn-match-card cn-match-card--/g)||[]).length,1,'Placement match must not also render as a knockout match');
+assert(playoffMarkup.includes('Datum kommer'),'Draft playoffs without times must remain visible');
+console.log('PASS draft placement groups, visible matches and no knockout duplication');

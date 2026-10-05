@@ -633,7 +633,10 @@ def admin_cup_preview(tournament_id:int,authorization:str|None=Header(default=No
     if not snapshot:
         raise HTTPException(status_code=404,detail="Cupen kunde inte förhandsgranskas")
     resolved=resolve_public_snapshot(snapshot)
-    return {"cup":resolved,"standings":_standings_payload(resolved["tournament"])}
+    from .playoff_import_repository import playoff_import_review
+    pending = playoff_import_review(int(account["id"]), tournament_id) or {}
+    pending_count = len(pending.get("playoff_matches") or []) if not pending.get("existing_playoff_matches") and not pending.get("existing_brackets") else 0
+    return {"cup":resolved,"standings":_standings_payload(resolved["tournament"]), "pending_playoff_count": pending_count}
 
 
 @app.get("/api/public/cups/{public_key}/standings")

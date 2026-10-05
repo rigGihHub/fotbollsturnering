@@ -172,9 +172,13 @@ export default function PlayoffImportReview() {
     try {
       const result = await request<CommitPayload>(`/api/admin/cups/${cupId}/import/playoffs`,token,{
         method:"POST",
-        body:JSON.stringify({playoff_matches:rows,playoff_rule_values:review.playoff_rule_values || {}}),
+        body:JSON.stringify({playoff_matches:rows,playoff_rule_values:review.playoff_rule_values || {},reviewed_retry:true}),
       });
       if (!result.imported) throw new Error("Inga slutspelsmatcher importerades.");
+      try {
+        const welcome=JSON.parse(localStorage.getItem("cupnavi_import_welcome_v1")||"null");
+        if(welcome?.cupId===cupId)localStorage.setItem("cupnavi_import_welcome_v1",JSON.stringify({...welcome,playoffsCreated:true}));
+      }catch{}
       setOpen(false);
       if (activeCupId() !== cupId) return;
       window.location.hash="playoffs";

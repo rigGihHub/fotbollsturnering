@@ -349,3 +349,68 @@ def test_group_plan_rejects_ambiguous_pitch_names(cup):
         con.executemany('INSERT INTO pitches VALUES(1,?,?)', [(1,'Sörbyvallen'),(2,'Sörbyvallen')])
     with pytest.raises(ValueError,match='unika namn'):
         preview_group_playoffs(7,1,imported_rows())
+
+
+def test_reviewed_initial_playoffs_retry_does_not_duplicate_or_overwrite(cup):
+    app=FastAPI();register_competition_admin_routes(app,lambda _: {'id':7});client=TestClient(app)
+    payload={'playoff_matches':imported_rows(),'playoff_rule_values':{'tie_rule':DRAW_RULE},'reviewed_retry':True}
+    first=client.post('/api/admin/cups/1/import/playoffs',json=payload)
+    assert first.status_code==200,first.text
+    before=db.all_rows('SELECT * FROM matches ORDER BY id')
+    replay=client.post('/api/admin/cups/1/import/playoffs',json=payload)
+    assert replay.status_code==200 and replay.json()['idempotent_replay']
+    assert db.all_rows('SELECT * FROM matches ORDER BY id')==before
+    assert admin_playoffs(7,1)['placement_mode']
+    assert client.post('/api/admin/cups/2/import/playoffs',json=payload).status_code==404
+    changed={**payload,'playoff_matches':[{**row,'time':'19:00'} for row in imported_rows()]}
+    assert client.post('/api/admin/cups/1/import/playoffs',json=changed).status_code==422
+    assert db.all_rows('SELECT * FROM matches ORDER BY id')==before
+    with sqlite3.connect(cup) as con:
+        con.execute("UPDATE matches SET scheduled_start='2026-10-24T19:00' WHERE bracket_id IS NOT NULL")
+    edited=db.all_rows('SELECT * FROM matches ORDER BY id')
+    assert client.post('/api/admin/cups/1/import/playoffs',json=payload).status_code==422
+    assert db.all_rows('SELECT * FROM matches ORDER BY id')==edited
+
+
+def test_preview_keeps_unscheduled_playoff_groups_without_public_leak(cup, monkeypatch):
+    import cupnavi_api.main as main
+    from cupnavi_api.repository import public_snapshot
+    from cupnavi_api.playoff_group_plan_repository import preview_group_playoffs, apply_group_playoffs
+    with sqlite3.connect(cup) as con:
+        for field in ('age_class','primary_color','secondary_color'):
+            con.execute(f'ALTER TABLE teams ADD COLUMN {field} TEXT')
+        con.execute('CREATE TABLE venue_points(id INTEGER,tournament_id INTEGER,kind TEXT,label TEXT,detail TEXT,url TEXT)')
+    preview=preview_group_playoffs(7,1,[])
+    apply_group_playoffs(7,1,preview['revision'],preview['matches'])
+    monkeypatch.setattr(main,'_admin_identity',lambda _: {'id':7})
+    monkeypatch.setattr(main,'admin_cupinfo',lambda account,tid: {'id':tid} if tid==1 else None)
+    result=main.admin_cup_preview(1,None)
+    assert len(result['cup']['matches'])==18
+    assert len(result['cup']['placement_groups'])==3
+    assert sum(len(b['matches']) for b in result['cup']['brackets'])==9
+    assert result['pending_playoff_count']==0
+    assert public_snapshot('cup-1') is None
+    with sqlite3.connect(cup) as con:
+        con.execute('UPDATE tournaments SET is_published=1 WHERE id=1')
+        con.execute('UPDATE matches SET schedule_published=1 WHERE tournament_id=1')
+    public=resolve_public_snapshot(public_snapshot('cup-1'))
+    assert len(public['matches'])==9
+    assert all(not bracket['matches'] for bracket in public['brackets'])
+    assert public['placement_groups']==[]
+
+
+def test_preview_explains_staged_playoffs_instead_of_silently_hiding_them(cup, monkeypatch):
+    import json
+    import cupnavi_api.main as main
+    from cupnavi_core.migrations import ensure_v35_schema_compat
+    with sqlite3.connect(cup) as con:
+        for field in ('age_class','primary_color','secondary_color'):
+            con.execute(f'ALTER TABLE teams ADD COLUMN {field} TEXT')
+        con.execute('CREATE TABLE venue_points(id INTEGER,tournament_id INTEGER,kind TEXT,label TEXT,detail TEXT,url TEXT)')
+        ensure_v35_schema_compat(con)
+        con.execute("INSERT INTO tournament_setup_imports(tournament_id,import_kind,payload_json) VALUES(1,'initial_setup',?)",(json.dumps({'playoff_matches':imported_rows()}),))
+    monkeypatch.setattr(main,'_admin_identity',lambda _: {'id':7})
+    monkeypatch.setattr(main,'admin_cupinfo',lambda account,tid: {'id':tid} if tid==1 else None)
+    assert main.admin_cup_preview(1,None)['pending_playoff_count']==9
+    import_groups()
+    assert main.admin_cup_preview(1,None)['pending_playoff_count']==0

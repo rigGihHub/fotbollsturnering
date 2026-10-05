@@ -171,7 +171,7 @@ function matchLabel(match: ImportedMatch, index: number) {
   );
 }
 function playoffNeedsReview(match: ImportedPlayoffMatch) {
-  return !match.label?.trim() || !match.time?.trim() || !match.venue?.trim();
+  return !match.label?.trim() || !match.time?.trim() || !match.venue?.trim() || !match.home_source?.trim() || !match.away_source?.trim() || normalize(match.home_source)===normalize(match.away_source);
 }
 function playoffLabel(match: ImportedPlayoffMatch, index: number) {
   return match.label?.trim() || `Slutspelsmatch ${index + 1}`;
@@ -291,6 +291,7 @@ export default function CupCreateLauncherV6({cups}:{cups:Array<{id:number;name:s
       }, []),
     [playoffMatches],
   );
+  const createReviewedPlayoffs=importSchedule&&playoffMatches.length>0&&playoffsToReview.length===0;
   const blockers = useMemo(() => {
     const rows: string[] = [];
     if (!name.trim()) rows.push("Cupnamn saknas");
@@ -660,6 +661,12 @@ export default function CupCreateLauncherV6({cups}:{cups:Array<{id:number;name:s
           token,
         );
       }
+      if(createReviewedPlayoffs){
+        stage="spara granskade slutspelsmatcher";
+        await request(`/api/admin/cups/${cup.id}/import/playoffs`,{
+          method:"POST",body:JSON.stringify({playoff_matches:playoffMatches,playoff_rule_values:proposal.playoff_rule_values||{},reviewed_retry:true}),
+        },token);
+      }
       clearResume();
       localStorage.setItem(IMPORT_WELCOME_KEY,JSON.stringify({
         cupId:cup.id,
@@ -669,6 +676,7 @@ export default function CupCreateLauncherV6({cups}:{cups:Array<{id:number;name:s
         matches:importSchedule?matches.length:0,
         venues:(proposal.venues||[]).length,
         playoffs:playoffMatches.length,
+        playoffsCreated:createReviewedPlayoffs,
       }));
       goToCup(cup,playoffMatches.length?"playoffs":"overview");
     } catch (err) {
@@ -1247,10 +1255,9 @@ export default function CupCreateLauncherV6({cups}:{cups:Array<{id:number;name:s
                           })}
                         </div>
                         <section className="cup-import-ungrouped">
-                          <strong>Slutspel sparas som granskningsunderlag</strong>
+                          <strong>{createReviewedPlayoffs?"Granskade slutspelsmatcher skapas med cupen":"Slutspel väntar på komplettering"}</strong>
                           <span>
-                            När cupen är skapad öppnas Slutspel så att format,
-                            källor och tider kan godkännas innan trädet skapas.
+                            {createReviewedPlayoffs?"När du skapar cupen sparas även dessa slutspelsmatcher, källor, tider och planer. Cupen är ett utkast tills schemat har kontrollerats och publicerats.":"Ofullständiga slutspelsmatcher sparas för separat granskning under Slutspel."}
                           </span>
                         </section>
                       </>
@@ -1338,7 +1345,7 @@ export default function CupCreateLauncherV6({cups}:{cups:Array<{id:number;name:s
                         </strong>
                         <span>
                           {playoffMatches.length
-                            ? `${playoffMatches.length} slutspelsmatcher · sparas för separat granskning`
+                            ? `${playoffMatches.length} slutspelsmatcher · ${createReviewedPlayoffs?"skapas med cupen":"sparas för separat granskning"}`
                             : "inget slutspel hittat"}
                         </span>
                       </div>

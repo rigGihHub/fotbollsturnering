@@ -118,7 +118,7 @@ def _bracket_size(match_count: int) -> int:
     return size
 
 
-def commit_playoff_import(account_id: int, tournament_id: int, playoff_matches: list[dict], playoff_rule_values: dict | None = None, *, replace_revision: str | None = None, format_override: str | None = None):
+def commit_playoff_import(account_id: int, tournament_id: int, playoff_matches: list[dict], playoff_rule_values: dict | None = None, *, replace_revision: str | None = None, format_override: str | None = None, reviewed_retry: bool = False):
     if not _has_tournament_access(account_id, tournament_id):
         return None
     rows = [dict(row) for row in (playoff_matches or []) if isinstance(row, dict)]
@@ -138,6 +138,21 @@ def commit_playoff_import(account_id: int, tournament_id: int, playoff_matches: 
     with connect() as con:
         try:
             backup = None
+            import_key = None
+            if reviewed_retry:
+                from cupnavi_core.migrations import ensure_v35_schema_compat
+                from .playoff_plan_state import capture_plan_state, plan_hash
+                con.execute("BEGIN")
+                ensure_v35_schema_compat(con)
+                import_key = plan_hash({"matches": rows, "rules": playoff_rule_values or {}})
+                previous = _dict_rows(con.execute("SELECT payload_json FROM tournament_setup_imports WHERE tournament_id=? AND import_kind='playoff_import_commit' ORDER BY id DESC", (int(tournament_id),)))
+                for entry in previous:
+                    saved = json.loads(entry["payload_json"])
+                    if saved.get("import_key") == import_key:
+                        if saved.get("after_hash") != plan_hash(capture_plan_state(con, tournament_id, playoffs_only=True)):
+                            raise ValueError("Det importerade slutspelet har ändrats efter sparningen. Befintliga matcher behålls; kontrollera dem under Slutspel.")
+                        con.commit()
+                        return {**saved["result"], "idempotent_replay": True}
             if replace_revision:
                 from .playoff_plan_state import capture_plan_state, plan_hash, archive_playoffs, assert_replaceable
                 con.execute("BEGIN")
@@ -282,6 +297,10 @@ def commit_playoff_import(account_id: int, tournament_id: int, playoff_matches: 
                 from .playoff_plan_state import capture_plan_state, plan_hash
                 backup["after_hash"] = plan_hash(capture_plan_state(con, tournament_id, playoffs_only=True))
                 con.execute("INSERT INTO tournament_setup_imports(tournament_id,import_kind,payload_json,source_name) VALUES(?,'playoff_format_backup',?,?)", (int(tournament_id), json.dumps(backup, ensure_ascii=False), "Före byte av slutspelsformat"))
+            if import_key:
+                from .playoff_plan_state import capture_plan_state, plan_hash
+                receipt = {"import_key": import_key, "after_hash": plan_hash(capture_plan_state(con, tournament_id, playoffs_only=True)), "result": {"imported": len(inserted_rounds), "bracket_id": bracket_id, "validation": validation}}
+                con.execute("INSERT INTO tournament_setup_imports(tournament_id,import_kind,payload_json,source_name) VALUES(?,'playoff_import_commit',?,?)", (int(tournament_id), json.dumps(receipt, ensure_ascii=False), "Granskat slutspel vid cupimport"))
             commit = getattr(con, "commit", None)
             if callable(commit):
                 commit()

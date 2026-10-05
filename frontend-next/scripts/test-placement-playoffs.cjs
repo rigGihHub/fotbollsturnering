@@ -8,7 +8,7 @@ const {renderToStaticMarkup} = require('react-dom/server');
 const root = path.join(__dirname,'../src');
 const DRAW='Oavgjort tillåtet – tabell avgör';
 let adminData;
-let firstState;
+let stateIndex;
 function load(file) {
   if(file.endsWith('.css'))return {default:new Proxy({}, {get:(_,key)=>String(key)})};
   if(!path.extname(file))file+=fs.existsSync(file+'.tsx')?'.tsx':'.ts';
@@ -16,7 +16,7 @@ function load(file) {
   const output=ts.transpileModule(source,{compilerOptions:{module:ts.ModuleKind.CommonJS,jsx:ts.JsxEmit.ReactJSX,esModuleInterop:true}}).outputText;
   const module={exports:{}};
   const requireModule=name=>{
-    if(name==='react' && file.endsWith('playoff-admin.tsx'))return {...React,useState:value=>{const state=firstState?adminData:value;firstState=false;return [state,()=>{}]},useEffect:()=>{},useCallback:fn=>fn};
+    if(name==='react' && file.endsWith('playoff-admin.tsx'))return {...React,useState:value=>{const state=stateIndex++===1?adminData:value;return [state,()=>{}]},useEffect:()=>{},useCallback:fn=>fn};
     if(name.startsWith('.'))return load(path.resolve(path.dirname(file),name));
     if(name.startsWith('@/'))return load(path.join(root,name.slice(2)));
     return require(name);
@@ -26,7 +26,7 @@ function load(file) {
 }
 const {default:PlayoffAdmin}=load(path.join(root,'components/playoff-admin.tsx'));
 function render(rule){
-  firstState=true;
+  stateIndex=0;
   adminData={playoff_format:'Manuellt slutspel',playoff_tie_rule:rule,playoff_extra_time_minutes:0,
     placement_mode:rule===DRAW,placement_eligible:true,placement_groups:[],structure_locked:true,played_count:0,
     bronze_match:rule!==DRAW,bracket_ready:true,bracket_validation:{ready:true,issue_count:0,issues:[]},
@@ -40,10 +40,10 @@ const old=render('Straffar direkt');
 assert.ok(old.includes(`<option>${DRAW}</option>`), 'Existing imported cups must offer the draw option');
 const selected=render(DRAW);
 assert.ok(selected.includes(`<option selected="">${DRAW}</option>`));
-assert.ok(selected.includes('Placeringsgruppspel'));
+assert.ok(selected.includes('Nytt gruppspel – lag med samma placering'));
 assert.ok(selected.includes('1:a i grupp A'));
 assert.ok(!selected.includes('grupp 54'));
-assert.ok(!selected.includes('type="checkbox"'), 'No bronze checkbox in placement mode');
+assert.ok(!selected.includes('Bronsmatch'), 'No bronze checkbox in placement mode');
 assert.ok(!selected.includes('16 platser'));
 assert.match(selected,/<strong>1:a i grupp A.*?<\/strong><span>GULDGRUPPEN<\/span><small>/);
 const {PlacementTables}=load(path.join(root,'components/PlacementTables.tsx'));
