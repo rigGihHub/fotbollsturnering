@@ -19,6 +19,7 @@ import PartnersAdmin from "./partners-admin";
 import { TeamKit } from "./TeamKit";
 import { CLIENT_API_BASE } from "../lib/client-api";
 import AccessAdmin from "./access-admin";
+import PdfUpdateEntry from "./pdf-update-entry";
 import { searchAndSaveTeamAssets } from "../lib/team-asset-search";
 
 const API_BASE = CLIENT_API_BASE;
@@ -28,7 +29,7 @@ const IMPORT_WELCOME_KEY = "cupnavi_import_welcome_v1";
 
 const setupNav = adminFlowSteps.map(([id,label])=>[label,`#${id}`]);
 const partnerNav = ["Sponsorer & erbjudanden", "#partners"];
-const toolNav = adminToolSteps.filter(([id])=>id!=="partners").map(([id,label])=>[label,`#${id}`]);
+const toolNav = adminToolSteps.filter(([id])=>id!=="partners"&&id!=="import").map(([id,label])=>[label,`#${id}`]);
 const nav=[...setupNav,partnerNav,...toolNav];
 
 type Account = { id:number; email:string; display_name?:string|null; role?:string|null; is_owner?:boolean };
@@ -758,6 +759,7 @@ export default function AdminWorkspace({verifiedSession=null,children=null}:{ver
         </section>}
       </>}
       <nav className="cn-admin-nav" aria-label="Cupadministration">
+        <AdminNavLink href="#import" label="Uppdatera med ny PDF" active={activeStep==="import"}/>
         <strong>Förbered cupen</strong>
         {visibleSetupNav.map(([item,href])=><AdminNavLink key={href} href={href} label={item} active={href===`#${activeStep}`}/>)}
         <AdminNavLink href="#partners" label="Sponsorer & erbjudanden" active={activeStep==="partners"}/>
@@ -769,6 +771,7 @@ export default function AdminWorkspace({verifiedSession=null,children=null}:{ver
 
     <section className="admin-main" id="overview">
       <header className="admin-pagehead"><div><h1>Cupöversikt</h1></div><div className="admin-pagehead__actions"><span className="admin-draft">{activeCup?.is_published?"PUBLICERAD":"UTKAST"}</span>{activeCup&&<a href={`/reporter?cup=${encodeURIComponent(activeCup.public_slug || String(activeCup.id))}`} target="_blank" rel="noreferrer">Rapportering <span aria-hidden="true">↗</span></a>}</div></header>
+      {activeStep==="overview"&&activeCup&&<PdfUpdateEntry cupId={activeCup.id} cupName={activeCup.name}/>}
       {activeStep==="overview"&&publishedTwin&&<section className="admin-cup-identity-warning" role="alert"><div><span>LIKANDE CUP FINNS REDAN LIVE</span><strong>Du arbetar i utkastet “{activeCup?.name}”</strong><p>Den publicerade cupen “{publishedTwin.name}” är en annan post. Byt cup för att undvika att bygga ett nytt schema ovanpå en dubblett.</p></div><button type="button" disabled={busy} onClick={()=>void changeCup(publishedTwin.id)}>Öppna publicerad cup →</button></section>}
       {activeStep==="overview"&&importWelcome&&!isPublished&&<section className="admin-import-welcome" aria-labelledby="import-welcome-title">
         <div className="admin-import-welcome__top"><span>IMPORTEN ÄR KLAR</span><button type="button" onClick={dismissImportWelcome} aria-label="Dölj introduktionen">×</button></div>
@@ -778,7 +781,6 @@ export default function AdminWorkspace({verifiedSession=null,children=null}:{ver
         <div className="admin-import-welcome__actions">{importWelcome.playoffs?<a className="is-primary" href="#playoffs" onClick={event=>{if(!importWelcome.playoffsCreated){event.preventDefault();openPlayoffReview(importWelcome.cupId);}}}>Granska slutspelet →</a>:<a className="is-primary" href="#cupinfo">Börja med Cupinfo →</a>}<a href="#schedule">Kontrollera schemat</a></div>
       </section>}
       {activeStep==="overview"&&!activeCup?.is_published&&<a className="admin-next-task" href={nextTask.href}><span>NÄSTA UPPGIFT</span><strong>{nextTask.label} →</strong><small>{nextTask.detail}</small></a>}
-      {activeStep==="overview"&&activeCup&&<a className="admin-next-task" href="#import"><span>NY VERSION AV UNDERLAGET</span><strong>Uppdatera med ny PDF →</strong><small>Jämför matchtider och planer för {activeCup.name} innan du sparar.</small></a>}
       {(error||message) && <section className={`cn-notice${error?" cn-notice--error":""}`} role={error?"alert":"status"}><strong>{error?"Kunde inte slutföra":"Sparat"}</strong><p>{error||message}</p></section>}
       <section className="admin-dashboard-grid">
         <article className="admin-panel admin-panel--status"><div className="admin-panel__top"><span>STATUS</span><strong>{activeCup?.is_published?"LIVE":"ARBETE PÅGÅR"}</strong></div><h2>{activeCup?.is_published?"Cupen är publicerad":"Vägen till publicering"}</h2><div className="admin-checks">{checks.map(check=><a href={check.href} className={`is-${check.state}`} key={check.name}><span>{check.state==="done"?"✓":check.state==="next"?"→":"○"}</span><strong>{check.name}</strong><small>{check.status}</small></a>)}</div></article>

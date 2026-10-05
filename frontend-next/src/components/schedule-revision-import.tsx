@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { takePdfUpdateFiles } from "../lib/pdf-update-handoff";
 import { CLIENT_API_BASE } from "../lib/client-api";
 import DocumentDropzone from "./document-dropzone";
 import { reviewScheduleRevision, type RevisionProposal, type RevisionSchedule, type RevisionPitch, type RevisionReview } from "../lib/schedule-revision-review";
@@ -17,10 +18,12 @@ async function json<T>(url:string,token:string,options:RequestInit={}):Promise<T
 }
 
 export default function ScheduleRevisionImport({token,cupId,cupName,onImported}:{token:string;cupId:number;cupName?:string;onImported?:()=>void|Promise<void>}){
+ const titleRef=useRef<HTMLHeadingElement>(null);
  const[files,setFiles]=useState<File[]>([]);const[review,setReview]=useState<RevisionReview|null>(null);const[pitches,setPitches]=useState<RevisionPitch[]>([]);const[operation,setOperation]=useState<"idle"|"compare"|"save">("idle");const[error,setError]=useState("");const[message,setMessage]=useState("");const[compareFailed,setCompareFailed]=useState(false);
  const busy=operation!=="idle";
  const selected=useMemo(()=>review?.changes.filter(row=>row.selected)||[],[review]);
  function choose(next:File[]){setFiles(next);setReview(null);setError("");setMessage("");setCompareFailed(false);}
+ useEffect(()=>{const next=takePdfUpdateFiles(cupId);if(next.length){choose(next);titleRef.current?.focus();}},[cupId]);
  const pitchName=(number?:number|null)=>pitches.find(p=>p.pitch_number===number)?.name||`Plan ${number||"–"}`;
  async function readRevision(){
    if(!files.length)return;setOperation("compare");setError("");setMessage("");setCompareFailed(false);
@@ -55,8 +58,8 @@ export default function ScheduleRevisionImport({token,cupId,cupName,onImported}:
  }
  return <section className="admin-panel import-update-card" id="pdf-cup-update" aria-busy={busy}>
    <div className="admin-panel__top"><span>UPPDATERA BEFINTLIG CUP</span><strong>PDF · BILD</strong></div>
-   <h2>Uppdatera med ny PDF</h2><p>Jämför nya matchtider och planer med <strong>{cupName||"aktiv cup"}</strong>. Granska ändringarna och genomför dem för att uppdatera cupens schema.</p>
-   <DocumentDropzone files={files} onFiles={choose} disabled={busy}/>
+   <h2 ref={titleRef} tabIndex={-1}>Uppdatera med ny PDF</h2><p>Jämför nya matchtider och planer med <strong>{cupName||"aktiv cup"}</strong>. Granska ändringarna och genomför dem för att uppdatera cupens schema.</p>
+   <DocumentDropzone files={files} onFiles={choose} disabled={busy} buttonLabel="Välj PDF"/>
    <div className="admin-form-footer"><span>{operation==="save"?"Sparar valda ändringar…":busy?"Läser filen och jämför med schemat…":"1. Välj fil · 2. Jämför · 3. Genomför valda ändringar"}</span><button type="button" onClick={()=>void readRevision()} style={review?{background:"white",color:"#16333b"}:undefined} disabled={busy||!files.length}>{operation==="save"?"Sparar…":busy?"Jämför…":compareFailed?"Försök jämföra igen":"Jämför med aktuellt schema"}</button></div>
    {(error||message)&&<div className="admin-code-placeholder" style={{marginTop:12,display:"block"}} role={error?"alert":"status"}><b>{error?"Kunde inte slutföra":"Granskning"}</b> · {error||message}{message&&!review&&<p><a href="#schedule">Kontrollera schemat →</a></p>}</div>}
    {error&&<p><a href="#schedule">Öppna schemat och kontrollera aktuella tider →</a></p>}

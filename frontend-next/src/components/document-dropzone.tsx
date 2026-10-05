@@ -12,7 +12,7 @@ export function documentFilesError(files:File[]):string {
   return "";
 }
 
-export default function DocumentDropzone({files,onFiles,disabled=false}:{files:File[];onFiles:(files:File[])=>void;disabled?:boolean}) {
+export default function DocumentDropzone({files,onFiles,disabled=false,buttonLabel="Välj fil"}:{files:File[];onFiles:(files:File[])=>void;disabled?:boolean;buttonLabel?:string}) {
   const input=useRef<HTMLInputElement>(null);
   const [dragging,setDragging]=useState(false);
   const [error,setError]=useState("");
@@ -30,7 +30,7 @@ export default function DocumentDropzone({files,onFiles,disabled=false}:{files:F
       <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true"><path d="M7 3h7l4 4v14H7zM14 3v5h4M10 13h5M10 17h5"/></svg>
       <strong>Dra in en ny PDF här</strong>
       <span>eller välj fil från din enhet</span>
-      <button type="button" disabled={disabled} onClick={()=>input.current?.click()}>{files.length?"Byt filer":"Välj fil"}</button>
+      <button type="button" disabled={disabled} onClick={()=>input.current?.click()}>{files.length?"Byt filer":buttonLabel}</button>
       <input ref={input} type="file" multiple hidden accept=".pdf,.txt,.png,.jpg,.jpeg,.webp" aria-label="Nytt cupunderlag" disabled={disabled} onChange={event=>{choose(Array.from(event.target.files||[]));event.target.value="";}}/>
       <small>PDF, bild eller text · högst 25 MB per fil</small>
     </div>

@@ -21,7 +21,7 @@ const STEP_GUIDE:Record<string,{goal:string;action:string;done:string}> = {
   playoffs:{goal:"Koppla slutspelet till gruppresultaten.",action:"Kontrollera kvalvägar, slutspelsmatcher och tider.",done:"Varje slutspelsplats går att härleda korrekt."},
   publish:{goal:"Släpp bara en cup som besökare kan lita på.",action:"Åtgärda blockerare, förhandsgranska publikvyn och publicera.",done:"Cupen är publicerad och publikvyn är kontrollerad."},
   reporting:{goal:"Förbered snabb rapportering under cupdagen.",action:"Kontrollera rapportörsåtkomst och hur resultat ska registreras.",done:"Rätt personer kan rapportera utan adminåtkomst."},
-  import:{goal:"Läs in ändringar utan att förstöra befintligt arbete.",action:"Förhandsgranska filen, kontrollera skillnader och bekräfta först därefter.",done:"Importerade uppgifter är granskade och sparade."},
+  import:{goal:"Uppdatera cupens schema med en ny PDF.",action:"Välj eller släpp den nya PDF:en. Jämför med aktuellt schema och genomför sedan de ändringar du har granskat.",done:"Valda schemaändringar är granskade och sparade."},
   export:{goal:"Ta ut material för funktionärer och reservrutiner.",action:"Välj PDF eller export och kontrollera innehållet före utskrift.",done:"Rätt underlag är hämtat och går att använda."},
 };
 

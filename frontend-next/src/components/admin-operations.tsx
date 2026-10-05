@@ -84,9 +84,9 @@ export default function AdminOperations() {
   const activeCup=cups.find(cup=>cup.id===cupId)||null;
 
   if(step==="import") {
-    return <section className="admin-main admin-operations-flow" aria-label="Import">
+    return <section className="admin-main admin-operations-flow" id="import" aria-label="PDF-uppdatering">
       <div className="admin-flow-group">
-        <div className="admin-flow-group__label"><span>↗</span><div><strong>Uppdatera från fil</strong><small>Frivilligt verktyg när ett redan sparat underlag faktiskt har ändrats.</small></div></div>
+        <div className="admin-flow-group__label"><span>↗</span><div><strong>Uppdatera med ny PDF</strong><small>Jämför den nya filen med den valda cupens schema och granska ändringarna innan du sparar.</small></div></div>
         <ImportAdmin key={cupId} token={token} cupId={cupId} cupName={activeCup?.name}/>
       </div>
     </section>;

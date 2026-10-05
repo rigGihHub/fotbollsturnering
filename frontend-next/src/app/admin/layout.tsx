@@ -26,6 +26,7 @@ import "../admin-teams-v2674.css";
 import "../admin-beginner-v2858.css";
 import "../admin-typography-v2860.css";
 import "../admin-navigation.css";
+import "../admin-pdf-update.css";
 
 export default function AdminLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return children;

@@ -3,11 +3,11 @@ const fs=require("node:fs");
 const path=require("node:path");
 const vm=require("node:vm");
 const ts=require("typescript");
-function load(file){
+function load(file,dependencies={},globals={}){
  const moduleRef={exports:{}};
  const source=fs.readFileSync(path.join(__dirname,"../src",file),"utf8");
  const code=ts.transpileModule(source,{compilerOptions:{target:ts.ScriptTarget.ES2020,module:ts.ModuleKind.CommonJS,jsx:ts.JsxEmit.ReactJSX}}).outputText;
- vm.runInNewContext(code,{exports:moduleRef.exports,module:moduleRef,Date,require:name=>name.endsWith(".css")?{default:{}}:require(name)});
+ vm.runInNewContext(code,{exports:moduleRef.exports,module:moduleRef,Date,...globals,require:name=>dependencies[name]||(name.endsWith(".css")?{default:{}}:require(name))});
  return moduleRef.exports;
 }
 const {reviewScheduleRevision}=load("lib/schedule-revision-review.ts");
@@ -83,4 +83,25 @@ assert.match(documentFilesError([{name:"schema.exe",size:1024}]),/Välj PDF/);
 assert.match(documentFilesError([{name:"schema.pdf",size:0}]),/tom/);
 assert.match(documentFilesError([{name:"schema.pdf",size:26*1024*1024}]),/25 MB/);
 assert.match(documentFilesError(Array.from({length:13},()=>({name:"schema.pdf",size:1}))),/12 filer/);
+const {preparePdfUpdate,takePdfUpdateFiles}=load("lib/pdf-update-handoff.ts");
+const dropped=[{name:"nytt-schema.pdf",size:1024}];
+preparePdfUpdate(45,dropped);
+assert.equal(takePdfUpdateFiles(46).length,0,"Files must never be handed to a different cup");
+assert.equal(takePdfUpdateFiles(45),dropped,"The review must receive the selected files without a second upload");
+assert.equal(takePdfUpdateFiles(45).length,0,"The handoff must be consumed only once, including React Strict Mode remounts");
+preparePdfUpdate(45,dropped);
+preparePdfUpdate(46,[{name:"annan-cup.pdf",size:512}]);
+assert.equal(takePdfUpdateFiles(45).length,0,"A newer selection must replace the pending handoff");
+assert.equal(takePdfUpdateFiles(46)[0].name,"annan-cup.pdf");
+const Dropzone=()=>null;
+const reviewWindow={location:{hash:"overview"}};
+const {default:PdfUpdateEntry}=load("components/pdf-update-entry.tsx",{
+ "./document-dropzone":{default:Dropzone},
+ "../lib/pdf-update-handoff":{preparePdfUpdate},
+},{window:reviewWindow});
+const entry=PdfUpdateEntry({cupId:45,cupName:"Slottskampen"});
+const picker=entry.props.children.find(child=>child.type===Dropzone);
+picker.props.onFiles(dropped);
+assert.equal(reviewWindow.location.hash,"import","Dropping on the overview must open the existing review screen");
+assert.equal(takePdfUpdateFiles(45),dropped,"The same selected file must arrive at the active cup's review");
 console.log("PDF cup update: matching, duplicate rows, dates, protected matches and upload validation PASS");

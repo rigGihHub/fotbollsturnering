@@ -243,7 +243,7 @@ export default function DocumentImportAdmin({token,cupId,onImported}:{token:stri
     }
   }
 
-  return <section className="admin-panel admin-teams import-update-card" id="import">
+  return <section className="admin-panel admin-teams import-update-card" id="document-import-supplement">
     <div className="admin-panel__top"><span>FOTO/PDF · EFTERHANDSIMPORT</span><strong>GRANSKA FÖRST</strong></div>
     <div className="admin-cupinfo__head"><div><h2>Läs in foto/PDF till aktiv cup</h2><p>För cuper som skapats manuellt men där underlaget ska läsas in i efterhand. CupNavi fyller luckor och sparar originalunderlaget för slutspel, plantider och fortsatt granskning.</p></div><span className="admin-lock">SKRIVER INTE ÖVER</span></div>
     <div className="admin-team-editor import-file-picker">
