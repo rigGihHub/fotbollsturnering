@@ -79,11 +79,11 @@ export default function PartnersAdmin({token,cupId}:{token:string;cupId:number})
   }
   async function saveSponsor(draft:typeof newSponsor,existing?:Sponsor) {
     return mutate(`/api/admin/cups/${cupId}/sponsors${existing?`/${existing.id}`:""}`,
-      {method:existing?"PUT":"POST",body:JSON.stringify({...draft,expected:existing})},"Sponsorn är sparad.");
+      {method:existing?"PUT":"POST",body:JSON.stringify({...draft,expected:existing})},draft.active?"Sponsorn är sparad och visas under Info när cupen är publicerad.":"Sponsorn är sparad som dold och visas inte publikt.");
   }
   async function saveOffer(draft:typeof newOffer,existing?:Offer) {
     return mutate(`/api/admin/cups/${cupId}/offers${existing?`/${existing.id}`:""}`,
-      {method:existing?"PUT":"POST",body:JSON.stringify({...draft,expected:existing})},"Erbjudandet är sparat.");
+      {method:existing?"PUT":"POST",body:JSON.stringify({...draft,expected:existing})},draft.active?"Erbjudandet är sparat och visas under Erbjudanden när cupen är publicerad.":"Erbjudandet är sparat som dolt och visas inte publikt.");
   }
   async function remove(kind:"sponsors"|"offers",item:Sponsor|Offer) {
     if(!window.confirm("Vill du ta bort posten permanent?"))return;
@@ -91,7 +91,7 @@ export default function PartnersAdmin({token,cupId}:{token:string;cupId:number})
   }
   return <section className="admin-panel cn-partners-admin" id="partners">
     <div className="admin-panel__top"><span>VERKTYG / PARTNERS</span><strong>VALFRITT</strong></div>
-    <h2>Sponsorer & erbjudanden</h2><p>Lägg till samarbeten som ska synas under Erbjudanden i den publika turneringsvyn. Dolda poster visas bara här.</p>
+    <h2>Sponsorer & erbjudanden</h2><p>Sponsorer visas under Info och erbjudanden under Erbjudanden i den publika turneringsvyn. Dolda poster visas bara här.</p>
     {error&&<p className="cn-partner-error" role="alert">{error} <button type="button" onClick={()=>void load().catch(()=>{})}>Ladda om</button></p>}
     {message&&<p role="status">{message}</p>}
     {!data?<p>Hämtar partners…</p>:<>
