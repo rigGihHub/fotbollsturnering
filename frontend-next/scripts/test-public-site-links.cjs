@@ -14,6 +14,9 @@ function load(file, requireFn = require, globals = {}) {
 }
 
 const links = load("lib/public-site-url.ts");
+const titles = load("lib/cup-share-title.ts");
+assert.equal(titles.cupShareTitle(" Slottskampen  2026 "), "CupNavi - Slottskampen 2026");
+assert.equal(titles.cupShareTitle(" "), "CupNavi");
 const expected = "https://www.cup-navi.com/cup/slottskampen-6";
 for (const host of ["https://cupnavi-web.onrender.com", "https://cup-navi.com", "https://www.cup-navi.com"]) {
   assert.equal(links.publicCupUrl(`${host}/cup/slottskampen-6?preview=1&cup=45&token=synthetic#info`), expected);
@@ -22,7 +25,7 @@ assert.equal(links.publicSiteUrl("/reporter?cup=slottskampen-6"), "https://www.c
 assert.equal(links.publicSiteUrl("/referee?cup=slottskampen-6&referee=12"), "https://www.cup-navi.com/referee?cup=slottskampen-6&referee=12");
 assert.equal(links.publicSiteUrl("/admin"), "https://www.cup-navi.com/admin");
 
-async function checkShare(nativeShare) {
+async function checkShare(nativeShare, cupName = "Slottskampen 2026") {
   let copied; let shared;
   const navigator = { clipboard: { writeText: async value => { copied = value; } } };
   if (nativeShare) navigator.share = async value => { shared = value; };
@@ -30,11 +33,14 @@ async function checkShare(nativeShare) {
     if (name === "react") return { ...React, useState: value => [value, () => {}] };
     if (name === "next/navigation") return { usePathname: () => "/cup/slottskampen-6" };
     if (name === "../lib/public-site-url") return links;
+    if (name === "../lib/cup-share-title") return titles;
     return require(name);
-  }, { navigator, document: { title: "Slottskampen" }, window: { location: { origin: "https://cupnavi-web.onrender.com" } } });
+  }, { navigator, document: { title: "CupNavi v2.8.76", getElementById: id => id === "cup-title" && cupName ? { textContent: cupName } : null }, window: { location: { origin: "https://cupnavi-web.onrender.com" } } });
   HeaderShareAction().props.onClick();
   await new Promise(setImmediate);
-  assert.equal(nativeShare ? shared.url : copied, expected);
+  const title = titles.cupShareTitle(cupName);
+  if (nativeShare) assert.deepEqual({ ...shared }, { title, text: title, url: expected });
+  else assert.equal(copied, `${title}\n${expected}`);
 }
 
 // Exercise the QR card's real page-URL effect while visiting a Render preview.
@@ -56,5 +62,7 @@ assert.equal(pageUrl,"https://www.cup-navi.com/cup/another-cup");
 (async () => {
   await checkShare(false);
   await checkShare(true);
+  await checkShare(false, null);
+  await checkShare(true, null);
   console.log("Public links: custom domain, reporter/referee parameters, native sharing, clipboard and clean preview QR passed.");
 })().catch(error => { console.error(error); process.exitCode = 1; });

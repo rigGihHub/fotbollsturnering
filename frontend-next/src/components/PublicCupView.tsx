@@ -5,6 +5,7 @@ import { useMatchWeather } from "@/lib/use-match-weather";
 import { PlacementTables } from "./PlacementTables";
 import { PublicOffers } from "./PublicOffers";
 import { publicTabSettings, visiblePublicTab, type PublicTab } from "../lib/public-tab-settings";
+import { cupShareTitle } from "../lib/cup-share-title";
 import { PublicSponsors } from "./PublicSponsors";
 
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -71,6 +72,7 @@ export function PublicCupView({ publicKey, initialCup, initialStandings, reporte
   const hasMatchDuration=matchMinutesPerHalf>0;
 
   useEffect(()=>{if(selectedTab!==tab)setTab(tab);},[selectedTab,tab]);
+  useEffect(()=>{document.title=cupShareTitle(cup.tournament.name);},[cup.tournament.name]);
   useEffect(()=>{cupRef.current=cup},[cup]);
   useEffect(()=>{
     try {
