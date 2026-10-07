@@ -15,6 +15,7 @@ const stepIcons: Record<AdminStep, ReactNode> = {
   access: <><path d="M12 3l8 3v6c0 5-8 9-8 9s-8-4-8-9V6zM8 12l3 3 5-6"/></>,
   referees: <><path d="M5 21V3M5 4h14l-3 4 3 4H5"/></>,
   reporting: <><rect x="3" y="5" width="18" height="15" rx="2"/><path d="M3 10h18M12 10v10M7 14h1v3M16 14h1v3M8 3v2M16 3v2"/></>,
+  analytics: <><path d="M4 3v18h17M8 17v-5M13 17V7M18 17V4"/></>,
   import: <><path d="M12 16V3M7 8l5-5 5 5M4 15v5h16v-5"/></>,
   export: <><path d="M12 3v13M7 11l5 5 5-5M4 15v5h16v-5"/></>,
 };

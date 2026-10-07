@@ -20,6 +20,10 @@ def tournament_participant_resolver(tournament: dict) -> ParticipantResolver:
            FROM matches WHERE tournament_id=? ORDER BY id""",
         (tournament_id,),
     )
+    return participant_resolver_from_rows(tournament, teams, matches)
+
+
+def participant_resolver_from_rows(tournament, teams, matches):
     standings = finalized_group_standings(
         teams,
         matches,
@@ -31,7 +35,7 @@ def tournament_participant_resolver(tournament: dict) -> ParticipantResolver:
     return ParticipantResolver(teams=teams, matches=matches, standings_by_group=standings)
 
 
-def participant_resolution_payload(tournament: dict, matches: list[dict]) -> dict[str, dict]:
+def participant_resolution_payload(tournament: dict, matches: list[dict], *, resolver=None) -> dict[str, dict]:
     """Return additive resolved participant data keyed by public match id.
 
     Existing public ``matches`` and ``brackets`` are contractual parity surfaces
@@ -40,7 +44,7 @@ def participant_resolution_payload(tournament: dict, matches: list[dict]) -> dic
     """
     if not tournament or not matches:
         return {}
-    resolver = tournament_participant_resolver(tournament)
+    resolver = resolver or tournament_participant_resolver(tournament)
     result: dict[str, dict] = {}
     for match in matches:
         match_id = match.get("id")
@@ -61,21 +65,34 @@ def resolve_public_snapshot(snapshot: dict) -> dict:
         return snapshot
     result = dict(snapshot)
     public_matches = list(snapshot.get("matches") or [])
+    # The snapshot already contains every team and group. Read the complete
+    # match schedule once: hidden/unscheduled group games must still prevent
+    # premature qualification, but must never leak into the public rows.
+    resolver = None
+    if public_matches:
+        if "teams" in snapshot:
+            all_matches = all_rows("SELECT * FROM matches WHERE tournament_id=? ORDER BY id", (int(snapshot["tournament"]["id"]),))
+            resolver = participant_resolver_from_rows(snapshot["tournament"], snapshot["teams"], all_matches)
+        else:
+            resolver = tournament_participant_resolver(snapshot["tournament"])
     result["participant_resolution"] = participant_resolution_payload(
-        snapshot["tournament"], public_matches
+        snapshot["tournament"], public_matches, resolver=resolver
     )
-    result["placement_groups"] = public_placement_tables(snapshot["tournament"], public_matches)
+    result["placement_groups"] = public_placement_tables(snapshot["tournament"], public_matches, resolver=resolver, groups=snapshot.get("groups"))
     return result
 
 
-def public_placement_tables(tournament, matches=None):
+def public_placement_tables(tournament, matches=None, *, resolver=None, groups=None):
     if tournament.get("playoff_tie_rule") != DRAW_RULE:
         return []
     if matches is None:
         from .repository import public_matches
         matches = public_matches(int(tournament["id"]))
-    groups = all_rows("SELECT id,name FROM groups WHERE tournament_id=?", (int(tournament["id"]),))
-    resolver = tournament_participant_resolver(tournament)
+    if not matches:
+        return []
+    if groups is None:
+        groups = all_rows("SELECT id,name FROM groups WHERE tournament_id=?", (int(tournament["id"]),))
+    resolver = resolver or tournament_participant_resolver(tournament)
     return placement_tables(tournament, matches, {int(g["id"]): g["name"] for g in groups}, resolver)
 
 

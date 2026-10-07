@@ -1,8 +1,9 @@
 {
   "name": "cupnavi-web",
-  "version": "2.8.76",
+  "version": "2.8.77",
   "private": true,
   "scripts": {
+    "test:visitor-presence": "node scripts/test-visitor-presence.cjs",
     "test:public-site-links": "node scripts/test-public-site-links.cjs",
     "test:public-tab-settings": "node scripts/test-public-tab-settings.cjs",
     "test:pdf-cup-update": "node scripts/test-pdf-cup-update.cjs",

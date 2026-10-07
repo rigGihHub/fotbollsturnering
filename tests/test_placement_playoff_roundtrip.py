@@ -60,6 +60,41 @@ def imported_rows():
             for h,a in combinations(('A','B','C'),2)]
 
 
+def test_public_snapshot_reuses_resolver_and_schema_reads_without_hidden_match_leak(cup, monkeypatch):
+    from contextlib import contextmanager
+    from cupnavi_api import participant_resolution_repository as resolution
+    import_groups()
+    with sqlite3.connect(cup) as con:
+        for field in ('age_class','primary_color','secondary_color'):
+            con.execute(f'ALTER TABLE teams ADD COLUMN {field} TEXT')
+        con.execute("ALTER TABLE tournaments ADD COLUMN arena_address TEXT DEFAULT 'Örebro'")
+        con.execute('CREATE TABLE venue_points(id INTEGER,tournament_id INTEGER,kind TEXT,label TEXT,detail TEXT,url TEXT)')
+        con.execute("INSERT INTO matches(tournament_id,group_id,stage,home_source,away_source,schedule_published) VALUES(1,54,'Gruppspel','team:1','team:2',0)")
+        con.execute('UPDATE tournaments SET is_published=1 WHERE id=1')
+    connections,statements=[],[]
+    @contextmanager
+    def traced_connect():
+        with sqlite3.connect(cup) as con:
+            connections.append(con)
+            con.row_factory=sqlite3.Row
+            con.set_trace_callback(statements.append)
+            yield con
+    monkeypatch.setattr(db,'connect',traced_connect)
+    result=resolution.resolve_public_snapshot(db.public_snapshot('1'))
+    assert len(result['matches'])==18
+    assert len(result['placement_groups'])==3
+    assert all(m['schedule_published']==1 and m['scheduled_start'] for m in result['matches'])
+    first_playoff=next(m for m in result['matches'] if m['bracket_id'])
+    # The extra unpublished group game keeps group A unresolved even though it
+    # is excluded from the public schedule; the faster path preserves parity.
+    sidecar=result['participant_resolution'][str(first_playoff['id'])]
+    assert not sidecar['home']['resolved'] or not sidecar['away']['resolved']
+    assert len(connections)==2
+    # SQLite's trace includes five internal PRAGMA comments; only nine SQL
+    # statements are sent over the database connection.
+    assert len([sql for sql in statements if not sql.startswith('--')])==9
+
+
 def import_groups(draw=True):
     return commit_playoff_import(7,1,imported_rows(),{'tie_rule':'Alla matcher får sluta oavgjort. Ingen förlängning eller straffar.'} if draw else {})
 

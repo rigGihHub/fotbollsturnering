@@ -9,6 +9,7 @@ const TOOL_STEPS = adminToolSteps;
 
 const STEP_GUIDE:Record<string,{goal:string;action:string;done:string}> = {
   partners:{goal:"Lägg till cupens sponsorer.",action:"Lägg till sponsorer och erbjudanden. Detta är valfritt och påverkar inte schemat.",done:"De erbjudanden du vill visa är sparade."},
+  analytics:{goal:"Följ hur många som använder cupens turneringsvy.",action:"Se besökare per dag, totalt och rekordet för samtidiga besökare.",done:"Du ser statistiken för den valda cupen."},
   access:{goal:"Ge rätt personer adminåtkomst.",action:"Bjud in den som ska hjälpa till att administrera cupen.",done:"Rätt personer har åtkomst till rätt cup."},
   overview:{goal:"Se vad som redan är klart och var du bör börja.",action:"Fortsätt med nästa uppgift på översikten. Den anpassas efter cupens innehåll.",done:"Du vet vilken uppgift som står på tur."},
   cupinfo:{goal:"Säkerställ att besökare får rätt grundinformation.",action:"Kontrollera namn, datum, arrangör, plats och kontaktuppgifter. Spara sedan.",done:"Uppgifterna är korrekta och sparade."},

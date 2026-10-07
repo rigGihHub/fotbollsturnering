@@ -333,17 +333,27 @@ def public_snapshot(public_key, *, include_unpublished=False):
             return rows[0] if rows else None
 
         publish_filter="" if include_unpublished else " AND is_published=1"
-        row=first(f"SELECT * FROM tournaments WHERE public_slug=?{publish_filter}", (str(public_key),))
-        if not row:
-            try:
-                row=first(f"SELECT * FROM tournaments WHERE id=?{publish_filter}", (int(public_key),))
-            except (TypeError,ValueError):
-                row=None
+        try:
+            numeric_id=int(public_key)
+        except (TypeError,ValueError):
+            numeric_id=-1
+        row=first(f"""SELECT * FROM tournaments WHERE (public_slug=? OR id=?){publish_filter}
+            ORDER BY CASE WHEN public_slug=? THEN 0 ELSE 1 END LIMIT 1""",
+            (str(public_key),numeric_id,str(public_key)))
         tournament=_public_tournament_projection(row)
         if not tournament:
             return None
         tid=int(tournament["id"])
-        schedule_rule_columns={str(item.get("name")) for item in many("PRAGMA table_info(schedule_rules)")}
+        # Table-valued PRAGMAs work on SQLite and Turso. One round trip replaces
+        # five sequential schema reads on every uncached match-day snapshot.
+        schema=many("""SELECT 'schedule_rules' AS table_name,name FROM pragma_table_info('schedule_rules')
+            UNION ALL SELECT 'teams',name FROM pragma_table_info('teams')
+            UNION ALL SELECT 'pitches',name FROM pragma_table_info('pitches')
+            UNION ALL SELECT 'brackets',name FROM pragma_table_info('brackets')
+            UNION ALL SELECT 'match_goal_minutes',name FROM pragma_table_info('match_goal_minutes')""")
+        def columns(table):
+            return {str(item['name']) for item in schema if item['table_name']==table}
+        schedule_rule_columns=columns('schedule_rules')
         if schedule_rule_columns:
             rule_fields=[name for name in (
                 "halves","minutes_per_half","halftime_minutes","pitch_break_minutes",
@@ -352,7 +362,7 @@ def public_snapshot(public_key, *, include_unpublished=False):
             if rule_fields:
                 rules=first(f"SELECT {','.join(rule_fields)} FROM schedule_rules WHERE tournament_id=?", (tid,))
                 tournament=_merge_public_schedule_rules(tournament,rules)
-        team_columns={str(item.get("name")) for item in many("PRAGMA table_info(teams)")}
+        team_columns=columns('teams')
         kit_projection=("home_pattern,home_color_2,away_pattern,away_color_2" if
                         {"home_pattern","home_color_2","away_pattern","away_color_2"}.issubset(team_columns) else
                         "'Helfärgad' AS home_pattern,'#FFFFFF' AS home_color_2,'Helfärgad' AS away_pattern,'#111827' AS away_color_2")
@@ -370,7 +380,7 @@ def public_snapshot(public_key, *, include_unpublished=False):
                               actual_started_at,actual_finished_at
                        FROM matches WHERE tournament_id=?{match_publish_filter}{match_time_filter}
                        ORDER BY scheduled_start,pitch_number,id""", (tid,))
-        if tournament.get("show_public_goal_minutes") and matches and many("PRAGMA table_info(match_goal_minutes)"):
+        if tournament.get("show_public_goal_minutes") and matches and columns('match_goal_minutes'):
             goal_rows=many("""SELECT g.match_id,g.side,g.minute FROM match_goal_minutes g
                               JOIN matches m ON m.id=g.match_id
                               WHERE m.tournament_id=? AND m.schedule_published=1
@@ -381,11 +391,11 @@ def public_snapshot(public_key, *, include_unpublished=False):
             for match in matches:
                 match["goal_minutes"]=by_match.get(int(match["id"]),[])
         venue_points=many("SELECT id,kind,label,detail,url FROM venue_points WHERE tournament_id=? ORDER BY label,id", (tid,))
-        pitch_columns={str(item.get("name")) for item in many("PRAGMA table_info(pitches)")}
+        pitch_columns=columns('pitches')
         pitch_optional=[name for name in ("address","opens_at","closes_at","start_time","end_time","available_from","available_to") if name in pitch_columns]
         pitch_select="pitch_number,name"+(" ,"+",".join(pitch_optional) if pitch_optional else "")
         pitches=many(f"SELECT {pitch_select} FROM pitches WHERE tournament_id=? ORDER BY pitch_number", (tid,))
-        bracket_columns={str(item.get("name")) for item in many("PRAGMA table_info(brackets)")}
+        bracket_columns=columns('brackets')
         bracket_extra=[name for name in ("qualification_rule","source_rule","group_positions","qualifying_positions") if name in bracket_columns]
         bracket_select="id,name,size,bronze_match"+(" ,"+",".join(bracket_extra) if bracket_extra else "")
         brackets=many(f"SELECT {bracket_select} FROM brackets WHERE tournament_id=? ORDER BY id", (tid,))

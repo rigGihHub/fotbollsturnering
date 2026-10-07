@@ -17,7 +17,7 @@ export const adminFlowSteps = [
 ] as const;
 export const adminToolSteps = [
  ['partners','Sponsorer & erbjudanden'], ['access','Lokal admin'], ['referees','Domare'],
- ['reporting','Matchrapportering'], ['import','Uppdatera med ny PDF'], ['export','PDF & export'],
+ ['reporting','Matchrapportering'], ['analytics','Statistik'], ['import','Uppdatera med ny PDF'], ['export','PDF & export'],
 ] as const;
 export type AdminStep = (typeof adminFlowSteps)[number][0] | (typeof adminToolSteps)[number][0];
 export function parseAdminStep(hash:string):AdminStep {

@@ -45,6 +45,7 @@ from .participant_resolution_repository import public_bracket_resolution, resolv
 from .venue_admin_routes import register_venue_admin_routes
 from .access_routes import register_access_routes
 from .partner_routes import register_partner_routes
+from .visitor_routes import register_visitor_routes
 from .repository import (
     public_tournament, public_teams, public_groups, public_matches, public_venue_points,
     public_notifications, public_brackets, public_snapshot, public_statistics,
@@ -242,6 +243,7 @@ def _admin_identity(authorization: str | None):
 register_venue_admin_routes(app, _admin_identity)
 register_access_routes(app, _admin_identity)
 register_partner_routes(app, _admin_identity)
+register_visitor_routes(app, _admin_identity)
 
 
 @app.get("/")

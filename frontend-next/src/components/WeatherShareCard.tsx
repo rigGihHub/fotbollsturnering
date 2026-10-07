@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
-import QRCode from "qrcode";
 import { publicCupUrl } from "../lib/public-site-url";
 
 type Forecast = {
@@ -89,12 +88,12 @@ export function WeatherShareCard({
 
   useEffect(()=>{
     let cancelled=false;
-    if(!pageUrl){setQrSrc("");return;}
-    QRCode.toDataURL(pageUrl,{width:220,margin:1,errorCorrectionLevel:"M"})
+    if(!pageUrl||!showShare){setQrSrc("");return;}
+    import("qrcode").then(({default:QRCode})=>QRCode.toDataURL(pageUrl,{width:220,margin:1,errorCorrectionLevel:"M"}))
       .then(value=>{if(!cancelled)setQrSrc(value)})
       .catch(()=>{if(!cancelled)setQrSrc("")});
     return()=>{cancelled=true};
-  },[pageUrl]);
+  },[pageUrl,showShare]);
 
   return <>
     <article className="feature-card">

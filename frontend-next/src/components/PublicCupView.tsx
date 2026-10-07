@@ -2,24 +2,25 @@
 
 import { belongsToTeam, cupMatches, hasPlayoffs, matchdayOrder } from "@/lib/matchday";
 import { useMatchWeather } from "@/lib/use-match-weather";
+import dynamic from "next/dynamic";
 import { PlacementTables } from "./PlacementTables";
-import { PublicOffers } from "./PublicOffers";
+import { TextTvStandings } from "./TextTvStandings";
 import { publicTabSettings, visiblePublicTab, type PublicTab } from "../lib/public-tab-settings";
 import { cupShareTitle } from "../lib/cup-share-title";
-import { PublicSponsors } from "./PublicSponsors";
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { CupSnapshot, PublicStatistics, StandingRow } from "@/lib/types";
 import { CupNaviApiError, getCup, getStandings, getStatistics, getPartners, PublicPartners } from "@/lib/api";
 import { CupCover } from "./CupCover";
 import { MatchCard } from "./MatchCard";
-import { TextTvStandings } from "./TextTvStandings";
-import { WeatherShareCard } from "./WeatherShareCard";
 import { matchStatus } from "@/lib/format";
 import { placementStandingsPresentation } from "@/lib/placement-standings";
 import { MIN_REFRESH_BACKOFF_MS, nextPublicRefreshBackoff, nextPublicRefreshDelay } from "@/lib/public-refresh";
 
 type StandingsGroup={group:{id:number;name:string};rows:StandingRow[]};
+const PublicOffers=dynamic(()=>import("./PublicOffers").then(module=>module.PublicOffers));
+const PublicSponsors=dynamic(()=>import("./PublicSponsors").then(module=>module.PublicSponsors));
+const WeatherShareCard=dynamic(()=>import("./WeatherShareCard").then(module=>module.WeatherShareCard));
 type Tab=PublicTab;
 type MatchView="upcoming"|"results"|"all";
 const normalizeCup=(snapshot:CupSnapshot):CupSnapshot=>({
@@ -183,7 +184,7 @@ export function PublicCupView({ publicKey, initialCup, initialStandings, reporte
   return <main className="page-shell page-shell--matchday page-shell--public-v3 cn-public">
     {reporterReturn&&<div className="public-role-return"><span>Du granskar den publika turneringsvyn</span><a href={`/reporter?cup=${encodeURIComponent(publicKey)}`}>← Till matchrapportering</a></div>}
     <div className="cn-public-overview">
-      <CupCover tournament={cup.tournament} teamCount={cup.teams.length} matchCount={orderedMatches.length} groupCount={cup.groups.length} publicKey={publicKey}/>
+      <CupCover tournament={cup.tournament} teamCount={cup.teams.length} matchCount={orderedMatches.length} groupCount={cup.groups.length} publicKey={publicKey} previewMode={previewMode}/>
       <nav className="cn-cup-nav" aria-label="Cupens innehåll">{navItems.map(([key,label])=><button key={key} className={tab===key?"is-active":""} aria-current={tab===key?"page":undefined} onClick={()=>openTab(key)}>{label}</button>)}</nav>
     </div>
 

@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { Tournament } from "@/lib/types";
 import { dateLabel } from "@/lib/format";
+import { VisitorPresence } from "./VisitorPresence";
 
 function OrganizerLogo({name,url}:{name:string;url:string}){
   const [failed,setFailed]=useState(false);
@@ -10,7 +11,7 @@ function OrganizerLogo({name,url}:{name:string;url:string}){
   </span>;
 }
 
-export function CupCover({ tournament, teamCount, matchCount, groupCount, publicKey }: { tournament: Tournament; teamCount: number; matchCount:number; groupCount:number; publicKey:string }) {
+export function CupCover({ tournament, teamCount, matchCount, groupCount, publicKey, previewMode=false }: { tournament: Tournament; teamCount: number; matchCount:number; groupCount:number; publicKey:string; previewMode?:boolean }) {
   const [pdfBusy,setPdfBusy]=useState(false);
   const [pdfError,setPdfError]=useState("");
 
@@ -33,7 +34,7 @@ export function CupCover({ tournament, teamCount, matchCount, groupCount, public
   return (
     <header className="cn-cup-cover" aria-labelledby="cup-title">
       <div className="cn-cup-cover__main">
-        <p className="cn-cup-cover__label">{tournament.arrangement_type==="single_match"?"Enskild match":tournament.arrangement_type==="matchcamp"?"Matchcamp":"Turnering"}</p>
+        <div className="cn-cup-cover__topline"><p className="cn-cup-cover__label">{tournament.arrangement_type==="single_match"?"Enskild match":tournament.arrangement_type==="matchcamp"?"Matchcamp":"Turnering"}</p><VisitorPresence key={publicKey} publicKey={publicKey} enabled={!previewMode}/></div>
         <h1 id="cup-title">{tournament.name}</h1>
         <p className="cn-cup-cover__meta"><span>{dateLabel(tournament.start_date)}</span><span>{tournament.arena_address||"Plats kommer"}</span></p>
         {Boolean(tournament.organizer_logos?.length)&&<div className="cn-cup-cover__logos" aria-label="Arrangerande klubbar">{tournament.organizer_logos?.map((logo,index)=><OrganizerLogo key={`${index}-${logo.url}`} name={logo.name} url={logo.url}/>)}</div>}

@@ -20,12 +20,14 @@ import { TeamKit } from "./TeamKit";
 import { CLIENT_API_BASE } from "../lib/client-api";
 import AccessAdmin from "./access-admin";
 import PdfUpdateEntry from "./pdf-update-entry";
+import dynamic from "next/dynamic";
 import { searchAndSaveTeamAssets } from "../lib/team-asset-search";
 
 const API_BASE = CLIENT_API_BASE;
 const TOKEN_KEY = "cupnavi_admin_session_v629";
 const CUP_KEY = "cupnavi_admin_active_cup_v651";
 const IMPORT_WELCOME_KEY = "cupnavi_import_welcome_v1";
+const VisitorStatisticsAdmin=dynamic(()=>import("./visitor-statistics-admin"),{loading:()=> <section className="admin-panel"><p>Hämtar besöksstatistik…</p></section>});
 
 const setupNav = adminFlowSteps.map(([id,label])=>[label,`#${id}`]);
 const partnerNav = ["Sponsorer & erbjudanden", "#partners"];
@@ -900,6 +902,7 @@ export default function AdminWorkspace({verifiedSession=null,children=null}:{ver
       {activeStep==="playoffs" && token && cupId && <PlayoffAdmin key={cupId} token={token} cupId={cupId} />}
       {activeStep==="access" && token && cupId && account && <AccessAdmin token={token} cupId={cupId} accountId={account.id} isPlatformOwner={isOwner}/>}
       {activeStep==="partners" && token && cupId && <PartnersAdmin token={token} cupId={cupId}/>}
+      {activeStep==="analytics" && token && cupId && <VisitorStatisticsAdmin key={cupId} token={token} cupId={cupId} cupName={activeCup?.name||"Cupen"}/>}
 
       {activeStep==="export" && token && cupId && <ExportAdmin token={token} cupId={cupId}/>}
     </section>
