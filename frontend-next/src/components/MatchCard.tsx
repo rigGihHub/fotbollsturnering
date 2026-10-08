@@ -41,8 +41,10 @@ export function MatchCard({match,teams,groups=[],pitches=[],index,weather,showKi
   const date=compactDateLabel(match.scheduled_start);
   const time=timeLabel(match.scheduled_start);
   const context=`Match ${index+1} · ${pitchLabel(match.pitch_number==null?null:Number(match.pitch_number),pitchNames)}`;
+  const groupName=match.group_id==null?"":groups.find(group=>group.id===match.group_id)?.name.trim()||"";
+  const groupLabel=/^[A-ZÅÄÖ]$/i.test(groupName)?`Grupp ${groupName.toUpperCase()}`:groupName;
   return <article className={`cn-match-card cn-match-card--${status}`}>
-    <header className="cn-match-card__meta"><span className="cn-match-card__kickoff"><span>{date}</span><strong>{time}</strong></span><span className="cn-match-card__context">{context}</span><b>{state}</b></header>
+    <header className={`cn-match-card__meta${groupLabel?" cn-match-card__meta--with-group":""}`}><span className="cn-match-card__kickoff"><span>{date}</span><strong>{time}</strong></span><span className="cn-match-card__context">{context}</span><b>{state}</b>{groupLabel&&<span className="cn-match-card__group">{groupLabel}</span>}</header>
     <div className="cn-match-card__teams">
       <Side team={home} label={homeLabel} showKits={showKits} showAwayKits={showAwayKits} showLogos={showLogos}/>
       <div className="cn-match-card__score"><strong>{score||"vs"}</strong></div>
