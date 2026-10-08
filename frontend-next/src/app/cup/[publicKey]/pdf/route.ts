@@ -1,6 +1,6 @@
-const API_BASE = (
-  process.env.CUPNAVI_API_BASE || process.env.NEXT_PUBLIC_CUPNAVI_API_BASE || "http://localhost:8000"
-).replace(/\/$/, "");
+import { CLIENT_API_BASE } from "@/lib/client-api";
+
+const API_BASE = (process.env.CUPNAVI_API_BASE || CLIENT_API_BASE).replace(/\/$/, "");
 
 export async function GET(_request: Request, { params }: { params: Promise<{ publicKey: string }> }) {
   const { publicKey } = await params;
@@ -10,7 +10,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ pub
       signal: AbortSignal.timeout(60_000),
     });
     if (!upstream.ok) {
-      return new Response(upstream.status === 404 ? "Cupen är inte publicerad." : "PDF kunde inte skapas just nu.", {
+      return new Response("PDF kunde inte hämtas just nu. Försök igen.", {
         status: upstream.status === 404 ? 404 : 503,
         headers: { "Cache-Control": "no-store" },
       });

@@ -46,7 +46,7 @@ export function CupCover({ tournament, teamCount, matchCount, groupCount, public
           {groupCount>0&&<span className="cn-cup-cover__group"><b>{groupCount}</b><small>grupper</small></span>}
         </div>
         <div className="cn-cup-cover__extras">
-          <button className="cn-cup-cover__pdf" type="button" onClick={()=>void downloadPdf()} disabled={pdfBusy} aria-label={`Skapa och ladda ner PDF för ${tournament.name}`}>{pdfBusy?"Skapar PDF…":"PDF ↓"}</button>
+          <button className="cn-cup-cover__pdf" type="button" onClick={()=>void downloadPdf()} disabled={pdfBusy} aria-busy={pdfBusy} aria-label={`${pdfBusy?"Skapar PDF":"Skapa och ladda ner PDF"} för ${tournament.name}`}>{pdfBusy?"Skapar PDF…":"PDF ↓"}</button>
           <nav className="cn-staff-nav" aria-label="Funktionärer"><a href={`/reporter?cup=${encodeURIComponent(publicKey)}`}>Rapportering</a><a href={`/admin?cup=${tournament.id}`}>Admin</a></nav>
         </div>
       </div>

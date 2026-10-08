@@ -53,24 +53,30 @@ def export_snapshot(account_id: int, tournament_id: int):
 
 
 def public_export_snapshot(public_key: str):
+    try:
+        numeric_id = int(public_key)
+    except (TypeError, ValueError):
+        numeric_id = -1
     tournament = one(
-        """SELECT * FROM tournaments WHERE public_slug=? AND is_published=1
-           AND COALESCE(lifecycle_status,'draft') NOT IN ('trashed','purged')""",
-        (public_key,),
+        """SELECT * FROM tournaments WHERE (public_slug=? OR id=?) AND is_published=1
+           AND COALESCE(lifecycle_status,'draft') NOT IN ('trashed','purged')
+           ORDER BY CASE WHEN public_slug=? THEN 0 ELSE 1 END LIMIT 1""",
+        (str(public_key), numeric_id, str(public_key)),
     )
     if not tournament:
         return None
-    return _snapshot_for_tournament(tournament)
+    return _snapshot_for_tournament(tournament, public_only=True)
 
 
-def _snapshot_for_tournament(tournament: dict):
+def _snapshot_for_tournament(tournament: dict, *, public_only: bool = False):
     tournament_id = int(tournament["id"])
     groups = all_rows("SELECT id,name,age_class FROM groups WHERE tournament_id=? ORDER BY name,id", (int(tournament_id),))
     teams = all_rows("SELECT id,name,group_id,age_class FROM teams WHERE tournament_id=? ORDER BY name,id", (int(tournament_id),))
     # Optional export fields differ between older CupNavi databases. Reading the
     # complete rows lets the renderer safely use dict.get() instead of crashing.
+    published_filter = " AND schedule_published=1 AND scheduled_start IS NOT NULL" if public_only else ""
     matches = all_rows(
-        "SELECT * FROM matches WHERE tournament_id=? ORDER BY COALESCE(scheduled_start,''),id",
+        f"SELECT * FROM matches WHERE tournament_id=?{published_filter} ORDER BY COALESCE(scheduled_start,''),id",
         (int(tournament_id),),
     )
     pitches = all_rows(
