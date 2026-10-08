@@ -16,7 +16,8 @@ def test_publish_is_blocked_on_invalid_schedule_or_playoff():
     assert "if published and state[\"blockers\"]" in PUBLISH
 
 def test_public_snapshot_only_returns_published_schedule():
-    assert 'match_publish_filter="" if include_unpublished else " AND schedule_published=1"' in PUBLIC
+    # Resolver inputs may contain hidden games; public output must filter them.
+    assert 'match.get("schedule_published")==1' in PUBLIC
     assert "scheduled_start IS NOT NULL" in PUBLIC
 
 def test_public_snapshot_roundtrips_core_setup():

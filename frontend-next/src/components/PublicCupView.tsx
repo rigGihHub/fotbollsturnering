@@ -26,6 +26,7 @@ type MatchView="upcoming"|"results"|"all";
 const normalizeCup=(snapshot:CupSnapshot):CupSnapshot=>({
   tournament:{...(snapshot?.tournament||{}),id:Number(snapshot?.tournament?.id)||0,name:snapshot?.tournament?.name?.trim()||"Ny cup"},
   placement_groups:Array.isArray(snapshot?.placement_groups)?snapshot.placement_groups:[],
+  standings:Array.isArray(snapshot?.standings)?snapshot.standings:undefined,
   teams:Array.isArray(snapshot?.teams)?snapshot.teams:[],groups:Array.isArray(snapshot?.groups)?snapshot.groups:[],
   matches:Array.isArray(snapshot?.matches)?snapshot.matches:[],brackets:Array.isArray(snapshot?.brackets)?snapshot.brackets:[],
   pitches:Array.isArray(snapshot?.pitches)?snapshot.pitches:[],venue_points:Array.isArray(snapshot?.venue_points)?snapshot.venue_points:[],participant_resolution:snapshot?.participant_resolution||{},
@@ -40,15 +41,20 @@ function DisciplineTable({stats}:{stats:PublicStatistics}){
 }
 
 export function PublicCupView({ publicKey, initialCup, initialStandings, reporterReturn=false, previewMode=false }:{publicKey:string;initialCup:CupSnapshot;initialStandings:StandingsGroup[];reporterReturn?:boolean;previewMode?:boolean}){
-  const [cup,setCup]=useState(()=>normalizeCup(initialCup)); const cupRef=useRef(cup); const [standings,setStandings]=useState(Array.isArray(initialStandings)?initialStandings:[]);
+  const [cup,setCup]=useState(()=>normalizeCup(initialCup)); const cupRef=useRef(cup); const [fallbackStandings,setStandings]=useState(Array.isArray(initialStandings)?initialStandings:[]);
   const nextAllowedRefreshRef=useRef(0); const publicRefreshBackoffMs=useRef(0); const missingRefreshesRef=useRef(0);
-  const [standingsLoaded,setStandingsLoaded]=useState(initialStandings.length>0); const [standingsLoading,setStandingsLoading]=useState(false);
+  const lastCupRefreshRef=useRef(Date.now());
+  const [fallbackLoaded,setStandingsLoaded]=useState(initialStandings.length>0);
+  const standings=cup.standings??fallbackStandings;
+  const standingsLoaded=Array.isArray(cup.standings)||fallbackLoaded;
   const [selectedTab,setTab]=useState<Tab>("matches");
   const tabSettings=publicTabSettings(cup.tournament);
   const tab=visiblePublicTab(selectedTab,tabSettings);
   const [matchView,setMatchView]=useState<MatchView>("all");
   const [teamFilter,setTeamFilter]=useState("");
-  const [dataError,setDataError]=useState("");
+  const [tableError,setTableError]=useState("");
+  const [statisticsError,setStatisticsError]=useState("");
+  const dataError=tab==="table"?tableError:statisticsError;
   const [dataRetry,setDataRetry]=useState(0);
   const [visibleCount,setVisibleCount]=useState(18); const loadMoreRef=useRef<HTMLDivElement|null>(null);
   const [unavailable,setUnavailable]=useState(false); const [refreshProblem,setRefreshProblem]=useState(false);
@@ -66,7 +72,8 @@ export function PublicCupView({ publicKey, initialCup, initialStandings, reporte
   const showGoalMinutes=cup.tournament.show_public_goal_minutes===true||cup.tournament.show_public_goal_minutes===1;
   const weatherConfigured=cup.tournament.show_public_weather_configured===true||cup.tournament.show_public_weather_configured===1;
   const showPublicWeather=!weatherConfigured||Boolean(cup.tournament.show_public_weather);
-  const matchWeather=useMatchWeather(showPublicWeather&&(tab==="matches"||tab==="playoff"),[...cup.matches,...cup.brackets.flatMap(b=>b.matches||[])],cup.pitches||[],cup.tournament.arena_address);
+  const weatherMatches=useMemo(()=>[...cup.matches,...cup.brackets.flatMap(b=>b.matches||[])],[cup.matches,cup.brackets]);
+  const matchWeather=useMatchWeather(showPublicWeather&&(tab==="matches"||tab==="playoff"),weatherMatches,cup.pitches||[],cup.tournament.arena_address);
   const matchHalves=Number(cup.tournament.halves||0)>0?Number(cup.tournament.halves):2;
   const matchMinutesPerHalf=Number(cup.tournament.minutes_per_half||0)>0?Number(cup.tournament.minutes_per_half):20;
   const halftimeMinutes=Number(cup.tournament.halftime_minutes||0);
@@ -86,8 +93,8 @@ export function PublicCupView({ publicKey, initialCup, initialStandings, reporte
   },[teamFilter,cup.teams]);
   useEffect(()=>{
     if(tab!=="stats" || !statsEnabled)return;
-    let cancelled=false;setStatisticsLoading(true);setDataError("");
-    getStatistics(publicKey).then(data=>{if(!cancelled)setStatistics(data)}).catch(()=>{if(!cancelled)setDataError("Topplistorna kunde inte hämtas. Försök igen.")}).finally(()=>{if(!cancelled)setStatisticsLoading(false)});
+    let cancelled=false;setStatisticsLoading(true);setStatisticsError("");
+    getStatistics(publicKey).then(data=>{if(!cancelled)setStatistics(data)}).catch(()=>{if(!cancelled)setStatisticsError("Topplistorna kunde inte hämtas. Försök igen.")}).finally(()=>{if(!cancelled)setStatisticsLoading(false)});
     return()=>{cancelled=true};
   },[tab,publicKey,statsEnabled,dataRetry]);
   useEffect(()=>{
@@ -100,11 +107,16 @@ export function PublicCupView({ publicKey, initialCup, initialStandings, reporte
     return()=>{cancelled=true};
   },[tab,publicKey,dataRetry]);
   useEffect(()=>{
-    if(previewMode||tab!=="table" || !showTables)return;
-    let cancelled=false;setStandingsLoading(true);setDataError("");
-    getStandings(publicKey).then(data=>{if(!cancelled){setStandings(Array.isArray(data.groups)?data.groups:[]);setStandingsLoaded(true)}}).catch(()=>{if(!cancelled)setDataError("Tabellerna kunde inte uppdateras. Försök igen.")}).finally(()=>{if(!cancelled)setStandingsLoading(false)});
-    return()=>{cancelled=true};
-  },[publicKey,showTables,tab,dataRetry,previewMode]);
+    // Compatibility with an older API during rollout. Current snapshots already
+    // include tables; switching tabs must never start or wait for another fetch.
+    if(previewMode||standingsLoaded||!showTables)return;
+    let cancelled=false;
+    const timer=window.setTimeout(()=>{
+      setTableError("");
+      getStandings(publicKey).then(data=>{if(!cancelled){setStandings(Array.isArray(data.groups)?data.groups:[]);setStandingsLoaded(true)}}).catch(()=>{if(!cancelled)setTableError("Tabellerna kunde inte hämtas. Försök igen.")});
+    },700);
+    return()=>{cancelled=true;window.clearTimeout(timer)};
+  },[publicKey,showTables,standingsLoaded,dataRetry,previewMode]);
   useEffect(()=>{
     if(previewMode)return;
     let busy=false;
@@ -120,10 +132,12 @@ export function PublicCupView({ publicKey, initialCup, initialStandings, reporte
         missingRefreshesRef.current=0;
         setUnavailable(false);
         setRefreshProblem(false);
+        lastCupRefreshRef.current=Date.now();
         const normalized=normalizeCup(freshCup);
         cupRef.current=normalized;
         setCup(normalized);
-        if(tab==="table"&&showTables){
+        if(Array.isArray(freshCup.standings))setTableError("");
+        if(tab==="table"&&showTables&&!Array.isArray(freshCup.standings)){
           try{
             const freshStandings=await getStandings(publicKey);
             if(!cancelled){setStandings(Array.isArray(freshStandings.groups)?freshStandings.groups:[]);setStandingsLoaded(true)}
@@ -154,6 +168,9 @@ export function PublicCupView({ publicKey, initialCup, initialStandings, reporte
     },nextDelay());
     const onVisibility=()=>{if(document.visibilityState==="visible")void refresh()};
     document.addEventListener("visibilitychange",onVisibility);
+    // Show existing rows immediately; refresh older data in the background on
+    // entering Tables so a quiet cup does not wait for the two-minute poll.
+    if(tab==="table"&&Date.now()-lastCupRefreshRef.current>15000)void refresh();
     return()=>{cancelled=true;window.clearTimeout(timer);document.removeEventListener("visibilitychange",onVisibility)};
   },[publicKey,showTables,tab,statsEnabled,previewMode]);
   useEffect(()=>{if((tab==="table"&&!showTables)||(tab==="playoff"&&!showPlayoffs))setTab("matches")},[tab,showTables,showPlayoffs]);
@@ -165,16 +182,19 @@ export function PublicCupView({ publicKey, initialCup, initialStandings, reporte
   const visitorInfoText=String(cup.tournament.public_information||"").trim();
   const upcoming=useMemo(()=>teamMatches.filter(m=>matchStatus(m)!=="done"),[teamMatches]);
   const results=useMemo(()=>teamMatches.filter(m=>matchStatus(m)==="done").reverse(),[teamMatches]);
-  const filteredMatches=matchView==="upcoming"?upcoming:matchView==="results"?results:matchdayOrder(teamMatches);
+  const dayMatches=useMemo(()=>matchdayOrder(teamMatches),[teamMatches]);
+  const filteredMatches=matchView==="upcoming"?upcoming:matchView==="results"?results:dayMatches;
   const visibleMatches=filteredMatches.slice(0,visibleCount);
   useEffect(()=>{setVisibleCount(18)},[matchView,teamFilter]);
   useEffect(()=>{const node=loadMoreRef.current;if(!node||visibleCount>=filteredMatches.length)return;const observer=new IntersectionObserver(entries=>{if(entries.some(entry=>entry.isIntersecting))setVisibleCount(count=>Math.min(count+18,filteredMatches.length))},{rootMargin:"500px"});observer.observe(node);return()=>observer.disconnect()},[filteredMatches.length,visibleCount]);
   const matchNumberById=useMemo(()=>new Map(orderedMatches.map((match,index)=>[match.id,index])),[orderedMatches]);
-  const openTab=(next:Tab)=>{setTab(next);window.scrollTo({top:0,behavior:window.matchMedia("(prefers-reduced-motion: reduce)").matches?"instant":"smooth"});};
+  const openTab=(next:Tab)=>{setTab(next);};
   const placementGroups=cup.placement_groups||[];
   const hasPlacementGroups=placementGroups.length>0;
-  const placementMatchIds=new Set(placementGroups.flatMap(group=>group.match_ids||[]));
-  const remainingBrackets=cup.brackets.map(bracket=>({...bracket,matches:(bracket.matches||[]).filter(match=>!placementMatchIds.has(match.id))})).filter(bracket=>bracket.matches.length||!hasPlacementGroups);
+  const remainingBrackets=useMemo(()=>{
+    const placementMatchIds=new Set(placementGroups.flatMap(group=>group.match_ids||[]));
+    return cup.brackets.map(bracket=>({...bracket,matches:(bracket.matches||[]).filter(match=>!placementMatchIds.has(match.id))})).filter(bracket=>bracket.matches.length||!hasPlacementGroups);
+  },[cup.brackets,placementGroups,hasPlacementGroups]);
   const renderMatch=(match:CupSnapshot["matches"][number],index:number)=><MatchCard key={match.id} weather={matchWeather(match)} match={match} teams={cup.teams} groups={cup.groups} pitches={cup.pitches||[]} index={matchNumberById.get(match.id)??index} showKits={showPublicKits} showAwayKits={showPublicAwayKits} showLogos={showPublicLogos} showGoalMinutes={showGoalMinutes}/>;
   const navItems:Array<[Tab,string]>=[["matches",isSingleMatch?"Matchen":"Matcher"],...(showTables?[["table","Tabeller"] as [Tab,string]]:[]),...(statsEnabled?[["stats","Topplistor"] as [Tab,string]]:[]),...(showPlayoffs?[["playoff","Slutspel"] as [Tab,string]]:[]),...(tabSettings.info?[["info","Info"] as [Tab,string]]:[]),...(tabSettings.offers?[["offers","Erbjudanden"] as [Tab,string]]:[])];
 
@@ -185,13 +205,13 @@ export function PublicCupView({ publicKey, initialCup, initialStandings, reporte
     {reporterReturn&&<div className="public-role-return"><span>Du granskar den publika turneringsvyn</span><a href={`/reporter?cup=${encodeURIComponent(publicKey)}`}>← Till matchrapportering</a></div>}
     <div className="cn-public-overview">
       <CupCover tournament={cup.tournament} teamCount={cup.teams.length} matchCount={orderedMatches.length} groupCount={cup.groups.length} publicKey={publicKey} previewMode={previewMode}/>
-      <nav className="cn-cup-nav" aria-label="Cupens innehåll">{navItems.map(([key,label])=><button key={key} className={tab===key?"is-active":""} aria-current={tab===key?"page":undefined} onClick={()=>openTab(key)}>{label}</button>)}</nav>
+      <nav className="cn-cup-nav" aria-label="Cupens innehåll">{navItems.map(([key,label])=><button key={key} className={tab===key?"is-active":""} aria-current={tab===key?"page":undefined} aria-controls={key==="table"&&tab===key?"cn-public-tables":undefined} onClick={()=>openTab(key)}>{label}</button>)}</nav>
     </div>
 
 
     {dataError&&(tab==="table"||tab==="stats")&&<div className="cn-notice cn-notice--error" role="alert">{dataError}<button type="button" onClick={()=>setDataRetry(value=>value+1)}>Försök igen</button></div>}
     {tab==="matches"&&<section className="public-matches-v3"><div className="public-section-head"><div><span>{isSingleMatch?"Matchdag":"Matchprogram"}</span><h2>{isSingleMatch?"Matchen":"Matcher"}</h2></div><p>{isSingleMatch?"Avspark och resultat":"Kommande matcher och resultat"}</p></div>{refreshProblem&&<div className="public-live-status is-stale" role="status"><span className="public-live-status__dot"/>Anslutningen svajar · visar senast hämtade data</div>}<label className="cn-team-filter">Hitta ditt lag<select value={teamFilter} onChange={event=>{const value=event.target.value;setTeamFilter(value);setMatchView("all");try{if(value)localStorage.setItem(`cupnavi:team:${publicKey}`,value);else localStorage.removeItem(`cupnavi:team:${publicKey}`)}catch{}}}><option value="">Alla lag</option>{cup.teams.map(team=><option key={team.id} value={team.id}>{team.name}</option>)}</select></label><div className="match-view-filter" role="group" aria-label="Filtrera matcher"><button className={matchView==="all"?"is-active":""} aria-pressed={matchView==="all"} onClick={()=>setMatchView("all")}>Matchdag <b>{teamMatches.length}</b></button><button className={matchView==="upcoming"?"is-active":""} aria-pressed={matchView==="upcoming"} onClick={()=>setMatchView("upcoming")}>Kommande <b>{upcoming.length}</b></button><button className={matchView==="results"?"is-active":""} aria-pressed={matchView==="results"} onClick={()=>setMatchView("results")}>Resultat <b>{results.length}</b></button></div>{visibleMatches.length?<><div className="cn-match-list">{visibleMatches.map(match=><MatchCard key={match.id} weather={matchWeather(match)} match={match} teams={cup.teams} groups={cup.groups} pitches={cup.pitches||[]} index={matchNumberById.get(match.id)??0} showKits={showPublicKits} showAwayKits={showPublicAwayKits} showLogos={showPublicLogos} showGoalMinutes={showGoalMinutes}/>)}</div>{visibleCount<filteredMatches.length&&<div className="public-lazy-sentinel" ref={loadMoreRef} role="status"><span>Visar {visibleCount} av {filteredMatches.length} matcher</span><button type="button" onClick={()=>setVisibleCount(count=>Math.min(count+18,filteredMatches.length))}>Visa fler</button></div>}</>:<article className="empty-state"><strong>{matchView==="results"?"Inga resultat rapporterade ännu.":teamFilter?"Inga matcher för det valda laget.":"Inga kommande matcher publicerade."}</strong></article>}</section>}
-    {tab==="table"&&showTables&&<section><div className="section-heading"><h2>Tabeller</h2></div>{standingsLoading?<article className="empty-state"><strong>Hämtar tabeller…</strong></article>:standings.length?<div className="table-stack">{standings.map(item=><TextTvStandings key={item.group.id} name={item.group.name} rows={item.rows} {...(placementStandingsPresentation(item.rows.length,placementGroups)||{})} showRowDestinations={false}/>)}</div>:<article className="empty-state"><strong>Inga tabeller ännu</strong><p>Tabeller visas när grupper och matcher har skapats.</p></article>}</section>}
+    {tab==="table"&&showTables&&<section id="cn-public-tables" aria-busy={!standingsLoaded&&!dataError}><div className="section-heading"><h2>Tabeller</h2></div>{refreshProblem&&<div className="public-live-status is-stale" role="status"><span className="public-live-status__dot"/>Anslutningen svajar · visar senast hämtade data</div>}{!standingsLoaded?<article className="empty-state" role="status"><strong>{dataError?"Tabellerna kunde inte hämtas.":"Hämtar tabeller…"}</strong></article>:standings.length?<div className="table-stack">{standings.map(item=><TextTvStandings key={item.group.id} name={item.group.name} rows={item.rows} {...(placementStandingsPresentation(item.rows.length,placementGroups)||{})} showRowDestinations={false}/>)}</div>:<article className="empty-state"><strong>Inga tabeller ännu</strong><p>Tabeller visas när grupper och matcher har skapats.</p></article>}</section>}
     {tab==="stats"&&statsEnabled&&<section><div className="section-heading"><span>STATISTIK</span><h2>Topplistor</h2><p>Registrerade matchhändelser direkt från CupNavi.</p></div>{statisticsLoading&&!statistics?<article className="empty-state"><strong>Hämtar topplistor…</strong></article>:statistics?<div className="table-stack">{statistics.enabled.scorers&&<StatisticsTable title="Målskyttar" metric="Mål" rows={statistics.scorers}/>} {statistics.enabled.assists&&<StatisticsTable title="Assistliga" metric="Assist" rows={statistics.assists}/>} {statistics.enabled.cards&&<StatisticsTable title="Spelarkort" metric="Gula/Röda" rows={statistics.cards}/>} {statistics.enabled.fairness&&<DisciplineTable stats={statistics}/>}</div>:<article className="empty-state"><strong>Topplistor kunde inte hämtas just nu.</strong></article>}</section>}
 
     {tab==="playoff"&&showPlayoffs&&<section>

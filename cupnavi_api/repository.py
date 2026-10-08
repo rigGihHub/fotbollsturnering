@@ -319,7 +319,7 @@ def public_brackets(tournament_id):
         bracket["matches"]=by_bracket.get(int(bracket["id"]),[])
     return brackets
 
-def public_snapshot(public_key, *, include_unpublished=False):
+def public_snapshot(public_key, *, include_unpublished=False, resolve=False):
     """Hydrate the public PWA snapshot with one database connection.
 
     This is intentionally uncached so live scores stay fresh; the optimization is
@@ -363,23 +363,42 @@ def public_snapshot(public_key, *, include_unpublished=False):
                 rules=first(f"SELECT {','.join(rule_fields)} FROM schedule_rules WHERE tournament_id=?", (tid,))
                 tournament=_merge_public_schedule_rules(tournament,rules)
         team_columns=columns('teams')
-        kit_projection=("home_pattern,home_color_2,away_pattern,away_color_2" if
-                        {"home_pattern","home_color_2","away_pattern","away_color_2"}.issubset(team_columns) else
-                        "'Helfärgad' AS home_pattern,'#FFFFFF' AS home_color_2,'Helfärgad' AS away_pattern,'#111827' AS away_color_2")
         # Only include crest fields when the public presentation actually uses
         # them. Large external URLs are otherwise dead payload on every matchday load.
         wants_logos=bool(tournament.get("show_public_logos"))
-        logo_projection=("logo_url,logo_source_url" if wants_logos and {"logo_url","logo_source_url"}.issubset(team_columns) else "NULL AS logo_url,NULL AS logo_source_url")
-        teams=many(f"SELECT id,name,group_id,age_class,primary_color,secondary_color,{kit_projection},{logo_projection} FROM teams WHERE tournament_id=? ORDER BY name", (tid,))
-        groups=many("SELECT id,name,age_class FROM groups WHERE tournament_id=? ORDER BY name", (tid,))
-        match_publish_filter="" if include_unpublished else " AND schedule_published=1"
-        match_time_filter="" if include_unpublished else " AND scheduled_start IS NOT NULL"
+        # Independent small collections share one database round trip. JSON is
+        # decoded here, so the public rows retain the existing types and shape.
+        team_fields=[(name,name) for name in ('id','name','group_id','age_class','primary_color','secondary_color')]
+        kit_defaults={'home_pattern':"'Helfärgad'",'home_color_2':"'#FFFFFF'",'away_pattern':"'Helfärgad'",'away_color_2':"'#111827'"}
+        has_kit_fields=set(kit_defaults).issubset(team_columns)
+        team_fields.extend((name,name if has_kit_fields else default) for name,default in kit_defaults.items())
+        team_fields.extend((name,name if wants_logos and {'logo_url','logo_source_url'}.issubset(team_columns) else 'NULL') for name in ('logo_url','logo_source_url'))
+        pitch_optional=[name for name in ('address','opens_at','closes_at','start_time','end_time','available_from','available_to') if name in columns('pitches')]
+        bracket_extra=[name for name in ('qualification_rule','source_rule','group_positions','qualifying_positions') if name in columns('brackets')]
+        collections=[
+            ('teams',team_fields,'name'),
+            ('groups',[(name,name) for name in ('id','name','age_class')],'name'),
+            ('venue_points',[(name,name) for name in ('id','kind','label','detail','url')],'label,id'),
+            ('pitches',[(name,name) for name in ('pitch_number','name',*pitch_optional)],'pitch_number'),
+            ('brackets',[(name,name) for name in ('id','name','size','bronze_match',*bracket_extra)],'id'),
+        ]
+        collection_queries=[]
+        for table,fields,order in collections:
+            properties=','.join(f"'{name}',{expression}" for name,expression in fields)
+            collection_queries.append(f"SELECT '{table}' AS collection,json_group_array(json(payload)) AS rows_json FROM (SELECT json_object({properties}) AS payload FROM {table} WHERE tournament_id=? ORDER BY {order})")
+        bundle={row['collection']:json.loads(row['rows_json']) for row in many(' UNION ALL '.join(collection_queries),tuple(tid for _ in collections))}
+        teams,groups,venue_points,pitches,brackets=(bundle[name] for name in ('teams','groups','venue_points','pitches','brackets'))
+        match_publish_filter="" if include_unpublished or resolve else " AND schedule_published=1"
+        match_time_filter="" if include_unpublished or resolve else " AND scheduled_start IS NOT NULL"
         matches=many(f"""SELECT id,stage,group_id,bracket_id,round_no,match_no,home_source,away_source,
                               scheduled_start,pitch_number,home_score,away_score,home_penalties,away_penalties,
                               decided_winner_id,schedule_published,match_status,status_updated_at,
                               actual_started_at,actual_finished_at
                        FROM matches WHERE tournament_id=?{match_publish_filter}{match_time_filter}
                        ORDER BY scheduled_start,pitch_number,id""", (tid,))
+        all_matches=matches
+        if resolve and not include_unpublished:
+            matches=[match for match in all_matches if match.get("schedule_published")==1 and match.get("scheduled_start") is not None]
         if tournament.get("show_public_goal_minutes") and matches and columns('match_goal_minutes'):
             goal_rows=many("""SELECT g.match_id,g.side,g.minute FROM match_goal_minutes g
                               JOIN matches m ON m.id=g.match_id
@@ -390,15 +409,6 @@ def public_snapshot(public_key, *, include_unpublished=False):
                 by_match.setdefault(int(goal["match_id"]),[]).append({"side":goal["side"],"minute":int(goal["minute"])})
             for match in matches:
                 match["goal_minutes"]=by_match.get(int(match["id"]),[])
-        venue_points=many("SELECT id,kind,label,detail,url FROM venue_points WHERE tournament_id=? ORDER BY label,id", (tid,))
-        pitch_columns=columns('pitches')
-        pitch_optional=[name for name in ("address","opens_at","closes_at","start_time","end_time","available_from","available_to") if name in pitch_columns]
-        pitch_select="pitch_number,name"+(" ,"+",".join(pitch_optional) if pitch_optional else "")
-        pitches=many(f"SELECT {pitch_select} FROM pitches WHERE tournament_id=? ORDER BY pitch_number", (tid,))
-        bracket_columns=columns('brackets')
-        bracket_extra=[name for name in ("qualification_rule","source_rule","group_positions","qualifying_positions") if name in bracket_columns]
-        bracket_select="id,name,size,bronze_match"+(" ,"+",".join(bracket_extra) if bracket_extra else "")
-        brackets=many(f"SELECT {bracket_select} FROM brackets WHERE tournament_id=? ORDER BY id", (tid,))
         if brackets:
             # Reuse the already-loaded public match rows instead of querying the
             # matches table a second time. This keeps first paint to one match query.
@@ -408,7 +418,7 @@ def public_snapshot(public_key, *, include_unpublished=False):
                     by_bracket.setdefault(int(match["bracket_id"]),[]).append(dict(match))
             for bracket in brackets:
                 bracket["matches"]=sorted(by_bracket.get(int(bracket["id"]),[]),key=lambda item:(int(item.get("round_no") or 0),int(item.get("match_no") or 0),int(item.get("id") or 0)))
-        return {
+        snapshot = {
             "tournament":tournament,
             "teams":teams,
             "groups":groups,
@@ -417,3 +427,7 @@ def public_snapshot(public_key, *, include_unpublished=False):
             "venue_points":venue_points,
             "pitches":pitches,
         }
+        if resolve:
+            from .participant_resolution_repository import resolve_public_snapshot
+            return resolve_public_snapshot(snapshot, all_matches=all_matches)
+        return snapshot

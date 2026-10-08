@@ -90,9 +90,28 @@ def test_public_snapshot_reuses_resolver_and_schema_reads_without_hidden_match_l
     sidecar=result['participant_resolution'][str(first_playoff['id'])]
     assert not sidecar['home']['resolved'] or not sidecar['away']['resolved']
     assert len(connections)==2
-    # SQLite's trace includes five internal PRAGMA comments; only nine SQL
-    # statements are sent over the database connection.
-    assert len([sql for sql in statements if not sql.startswith('--')])==9
+    # SQLite's trace includes five internal PRAGMA comments; independent public
+    # collections now share a single statement sent over the connection.
+    assert len([sql for sql in statements if not sql.startswith('--')])==5
+    connections.clear();statements.clear()
+    fast=db.public_snapshot('1',resolve=True)
+    assert {key:value for key,value in fast.items() if key!='standings'}=={key:value for key,value in result.items() if key!='standings'}
+    assert len(connections)==1
+    assert len([sql for sql in statements if not sql.startswith('--')])==4
+    assert fast['standings']==standings('1')['groups']
+    assert fast['standings'][0]['rows'][0]['S']==2
+    assert all('tournament_id' not in row for row in fast['teams'])
+    # Production uses the libsql row adapter and JSON functions, not sqlite.Row.
+    import libsql
+    @contextmanager
+    def libsql_connect():
+        con=libsql.connect(str(cup))
+        try:
+            yield con
+        finally:
+            con.close()
+    monkeypatch.setattr(db,'connect',libsql_connect)
+    assert db.public_snapshot('1',resolve=True)==fast
 
 
 def import_groups(draw=True):

@@ -1,11 +1,11 @@
 "use client";
-import {useEffect,useState} from "react";
+import {useEffect,useMemo,useState} from "react";
 import {Match,Pitch} from "./types";
 import {forecastAvailability,HourlyForecast,loadHourlyForecast,MatchWeather,weatherForKickoff} from "./match-weather";
 
 export function useMatchWeather(enabled:boolean,matches:Match[],pitches:Pitch[],address?:string|null) {
   const location=(match:Match)=>pitches.find(p=>p.pitch_number===Number(match.pitch_number))?.address?.trim()||address?.trim()||"";
-  const requestKey=JSON.stringify(matches.map(m=>[location(m),m.scheduled_start]));
+  const requestKey=useMemo(()=>JSON.stringify(matches.map(m=>[pitches.find(p=>p.pitch_number===Number(m.pitch_number))?.address?.trim()||address?.trim()||"",m.scheduled_start])),[matches,pitches,address]);
   const [state,setState]=useState<{key:string;forecasts:Record<string,HourlyForecast>;now:number}>({key:"",forecasts:{},now:0});
   useEffect(()=>{
     if(!enabled)return;

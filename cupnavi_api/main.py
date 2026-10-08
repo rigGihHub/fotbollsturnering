@@ -602,10 +602,10 @@ def put_admin_team_group(tournament_id:int,team_id:int,payload:TeamGroupWrite,au
 
 @app.get("/api/public/cups/{public_key}")
 def cup(public_key:str):
-    snapshot=public_snapshot(public_key)
+    snapshot=public_snapshot(public_key,resolve=True)
     if not snapshot:
         raise HTTPException(status_code=404,detail="Cup not found or not published")
-    return resolve_public_snapshot(snapshot)
+    return snapshot
 
 
 def _standings_payload(tournament):

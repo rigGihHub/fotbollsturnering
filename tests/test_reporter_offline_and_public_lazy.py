@@ -67,7 +67,7 @@ def test_public_first_paint_defers_nonessential_work_and_long_lists():
     assert "getStandings" not in page
     assert "filteredMatches.slice(0,visibleCount)" in public_view
     assert "IntersectionObserver" in public_view
-    assert 'tab!=="table"' in public_view
+    assert 'tab!=="stats"' in public_view
     assert "Visa fler" in public_view
 
 

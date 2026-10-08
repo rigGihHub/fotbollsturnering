@@ -8,6 +8,8 @@ import PublicCupPreview from "@/components/public-cup-preview";
 import PublicCupRecovery from "@/components/public-cup-recovery";
 
 export const revalidate=15;
+// Keep the server render close to the production API in Frankfurt.
+export const preferredRegion="fra1";
 const readCup=cache(getCup);
 type Props={params:Promise<{publicKey:string}>;searchParams:Promise<{preview?:string;cup?:string;from?:string}>};
 
@@ -39,7 +41,7 @@ export default async function CupPage({params,searchParams}:Props){
   if(query.preview==="1"&&Number(query.cup)>0)return <PublicCupPreview publicKey={publicKey} cupId={Number(query.cup)}/>;
   try {
     const cup=await readCup(publicKey);
-    return <PublicCupView publicKey={publicKey} initialCup={cup} initialStandings={[]} reporterReturn={query.from==="reporter"}/>;
+    return <PublicCupView key={publicKey} publicKey={publicKey} initialCup={cup} initialStandings={cup.standings??[]} reporterReturn={query.from==="reporter"}/>;
   } catch(error) {
     if(error instanceof CupNaviApiError&&(error.status===404||error.status===429||error.status>=500)||error instanceof Error&&["TimeoutError","AbortError","TypeError"].includes(error.name)){
       return <PublicCupRecovery publicKey={publicKey} reporterReturn={query.from==="reporter"}/>;

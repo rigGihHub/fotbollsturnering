@@ -13,7 +13,8 @@ MAIN=(ROOT/"cupnavi_api/main.py").read_text(encoding="utf-8")
 REPO=(ROOT/"cupnavi_api/repository.py").read_text(encoding="utf-8")
 
 def test_public_mobile_defers_heavy_secondary_data():
-    assert 'tab!=="table"' in PUBLIC
+    # Tables now share the initial snapshot; heavy optional data stays deferred.
+    assert 'tab!=="stats"' in PUBLIC
     assert "IntersectionObserver" in PUBLIC
     assert "filteredMatches.slice(0,visibleCount)" in PUBLIC
 

@@ -1,0 +1,66 @@
+/* Admin statistics. Public cover/presence styles remain in visitor-statistics.css. */
+.cn-admin #analytics.cn-visitor-statistics { min-width: 0; }
+.cn-admin .cn-visitor-statistics__heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 14px; }
+.cn-admin .cn-visitor-statistics__heading h2 { margin: 0 0 6px !important; }
+.cn-admin .cn-visitor-statistics__heading p { margin: 0; overflow-wrap: anywhere; }
+.cn-admin .cn-visitor-statistics__controls { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px; }
+.cn-admin .cn-visitor-statistics__controls label { display: grid; gap: 6px; font-size: 14px; }
+.cn-admin .cn-visitor-statistics__controls select { min-height: 46px; padding: 8px 10px; border: 1px solid #aec3c7; border-radius: 8px; background: #fff; font-family: inherit; font-size: 16px; color: #16333b; }
+.cn-admin .cn-visitor-statistics .cn-visitor-statistics__refresh {
+  flex: 0 0 auto;
+  min-height: 44px !important;
+  padding: 10px 14px !important;
+  border: 1px solid #aec3c7 !important;
+  border-radius: 8px !important;
+  background: #fff !important;
+  color: #16333b !important;
+  font-family: inherit;
+  font-size: 14px !important;
+  font-weight: 600 !important;
+  line-height: 1.4;
+  cursor: pointer;
+  box-shadow: none !important;
+}
+.cn-admin .cn-visitor-statistics .cn-visitor-statistics__refresh:hover:not(:disabled) { background: #eef7f5 !important; }
+.cn-admin .cn-visitor-statistics__refresh:focus-visible { outline: 3px solid #238d95; outline-offset: 3px; }
+.cn-admin .cn-visitor-statistics__refresh:disabled { cursor: wait; opacity: .6; }
+.cn-admin .cn-visitor-statistics__metrics { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin: 20px 0 12px; }
+.cn-admin .cn-visitor-statistics__metrics > div { min-width: 0; padding: 16px; border: 1px solid #dce5e6; border-radius: 10px; background: #f6f9f9; }
+.cn-admin .cn-visitor-statistics__metrics dt { font-size: 14px; font-weight: 600; line-height: 1.4; }
+.cn-admin .cn-visitor-statistics__metrics .cn-visitor-statistics__metric-value { margin: 8px 0; font-size: 30px; font-weight: 700; line-height: 1.2; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; color: #16333b; }
+.cn-admin #analytics.cn-visitor-statistics .cn-visitor-statistics__metric-help,
+.cn-admin #analytics.cn-visitor-statistics .cn-visitor-statistics__help,
+.cn-admin #analytics.cn-visitor-statistics .cn-visitor-statistics__measurement p { font-size: 13px !important; line-height: 1.5 !important; color: #445d64; }
+.cn-admin .cn-visitor-statistics__metric-help { margin: 0; }
+.cn-admin .cn-visitor-statistics__measurement { margin: 14px 0 24px; }
+.cn-admin .cn-visitor-statistics__measurement p { margin: 4px 0; }
+.cn-admin .cn-visitor-statistics__error { padding: 14px 16px; margin: 16px 0; border: 1px solid #c6807a; border-radius: 10px; background: #fff2f0; color: #792d2d; }
+.cn-admin .cn-visitor-statistics__error p { margin: 6px 0 0; }
+.cn-admin .cn-visitor-statistics__trend { margin: 20px 0; }
+.cn-admin .cn-visitor-statistics__bars { display: flex; align-items: stretch; gap: 4px; height: 120px; padding-bottom: 1px; border-bottom: 1px solid #c8d8db; }
+.cn-admin .cn-visitor-statistics__bars > div { display: flex; flex: 1; align-items: flex-end; min-width: 0; }
+.cn-admin .cn-visitor-statistics__bars span { display: block; width: 100%; border-radius: 3px 3px 0 0; background: #247783; }
+.cn-admin .cn-visitor-statistics__trend figcaption { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 6px 12px; margin-top: 8px; font-size: 12px; color: #445d64; }
+.cn-admin .cn-visitor-statistics__table-wrap { max-width: 100%; overflow-x: auto; }
+.cn-admin .cn-visitor-statistics table { width: 100%; border-collapse: collapse; font-size: 14px; font-variant-numeric: tabular-nums; }
+.cn-admin .cn-visitor-statistics caption { text-align: left; padding: 0 0 12px; font-size: 13px; color: #445d64; }
+.cn-admin .cn-visitor-statistics th,
+.cn-admin .cn-visitor-statistics td { padding: 11px 12px; border-bottom: 1px solid #e2e9ea; line-height: 1.4; }
+.cn-admin .cn-visitor-statistics thead th { background: #f2f7f7; font-weight: 600; }
+.cn-admin .cn-visitor-statistics th:first-child { text-align: left; }
+.cn-admin .cn-visitor-statistics td,
+.cn-admin .cn-visitor-statistics th:not(:first-child) { text-align: right; }
+.cn-admin .cn-visitor-statistics tbody th { font-weight: 400; }
+.cn-admin .cn-visitor-statistics__empty { padding: 18px; margin-top: 18px; border: 1px solid #dce5e6; border-radius: 10px; background: #f6f9f9; }
+.cn-admin .cn-visitor-statistics__empty p { margin-bottom: 0; }
+@media (max-width: 760px) {
+  .cn-admin .cn-visitor-statistics__heading { flex-direction: column; gap: 12px; }
+  .cn-admin .cn-visitor-statistics__controls { width: 100%; }
+  .cn-admin .cn-visitor-statistics__controls label { flex: 1; min-width: 0; }
+  .cn-admin .cn-visitor-statistics__refresh { width: 100%; }
+  .cn-admin .cn-visitor-statistics__metrics { grid-template-columns: 1fr; gap: 8px; }
+  .cn-admin .cn-visitor-statistics__metrics > div { padding: 14px; }
+  .cn-admin .cn-visitor-statistics__bars { gap: 3px; height: 100px; }
+  .cn-admin .cn-visitor-statistics th,
+  .cn-admin .cn-visitor-statistics td { padding: 10px 6px; font-size: 13px; }
+}

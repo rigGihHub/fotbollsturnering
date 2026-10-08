@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from cupnavi_core.participant_resolution import ParticipantResolver, finalized_group_standings
 from cupnavi_core.placement_playoffs import DRAW_RULE, placement_tables
+from cupnavi_core.public_competition import calculate_group_table
 
 from .repository import all_rows
 
@@ -59,7 +60,7 @@ def participant_resolution_payload(tournament: dict, matches: list[dict], *, res
     return result
 
 
-def resolve_public_snapshot(snapshot: dict) -> dict:
+def resolve_public_snapshot(snapshot: dict, *, all_matches=None) -> dict:
     """Add a sidecar participant-resolution map without changing public rows."""
     if not snapshot or not snapshot.get("tournament"):
         return snapshot
@@ -71,7 +72,8 @@ def resolve_public_snapshot(snapshot: dict) -> dict:
     resolver = None
     if public_matches:
         if "teams" in snapshot:
-            all_matches = all_rows("SELECT * FROM matches WHERE tournament_id=? ORDER BY id", (int(snapshot["tournament"]["id"]),))
+            if all_matches is None:
+                all_matches = all_rows("SELECT * FROM matches WHERE tournament_id=? ORDER BY id", (int(snapshot["tournament"]["id"]),))
             resolver = participant_resolver_from_rows(snapshot["tournament"], snapshot["teams"], all_matches)
         else:
             resolver = tournament_participant_resolver(snapshot["tournament"])
@@ -79,6 +81,23 @@ def resolve_public_snapshot(snapshot: dict) -> dict:
         snapshot["tournament"], public_matches, resolver=resolver
     )
     result["placement_groups"] = public_placement_tables(snapshot["tournament"], public_matches, resolver=resolver, groups=snapshot.get("groups"))
+    if all_matches is not None and "teams" in snapshot and "groups" in snapshot:
+        # The same authoritative inputs serve the initial tables and playoff
+        # resolution. No second HTTP request or database scan is needed.
+        tournament = snapshot["tournament"]
+        teams_by_group, matches_by_group = {}, {}
+        for team in snapshot["teams"]:
+            teams_by_group.setdefault(team.get("group_id"), []).append(team)
+        for match in all_matches:
+            if match.get("stage") == "Gruppspel":
+                matches_by_group.setdefault(match.get("group_id"), []).append(match)
+        result["standings"] = [{"group": group, "rows": calculate_group_table(
+            teams_by_group.get(group["id"], []), matches_by_group.get(group["id"], []),
+            points_win=int(tournament.get("points_win") or 0),
+            points_draw=int(tournament.get("points_draw") or 0),
+            points_loss=int(tournament.get("points_loss") or 0),
+            table_tiebreak=str(tournament.get("table_tiebreak") or "Målskillnad först"),
+        )} for group in snapshot["groups"]]
     return result
 
 

@@ -16,7 +16,10 @@ export function PwaBoot() {
       return;
     }
 
-    navigator.serviceWorker.register("/sw.js").catch(() => undefined);
+    // Installing the offline shell also fetches several pages. Let the actual
+    // cup and its controls load first instead of competing for the connection.
+    const timer=window.setTimeout(()=>navigator.serviceWorker.register("/sw.js").catch(()=>undefined),2000);
+    return()=>window.clearTimeout(timer);
   }, []);
 
   return null;
