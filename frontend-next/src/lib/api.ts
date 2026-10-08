@@ -66,7 +66,9 @@ function hydrateParticipants(cup:CupSnapshot):CupSnapshot {
 }
 
 export async function getCup(publicKey: string) {
-  const cup=await apiGet<CupSnapshot>(`/api/public/cups/${encodeURIComponent(publicKey)}`,{serverRevalidate:15});
+  // Next's data cache survives deployments. A stable contract version avoids
+  // reusing older cached snapshots that did not contain authoritative tables.
+  const cup=await apiGet<CupSnapshot>(`/api/public/cups/${encodeURIComponent(publicKey)}?snapshot=2`,{serverRevalidate:15});
   return hydrateParticipants(cup);
 }
 

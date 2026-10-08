@@ -8,8 +8,6 @@ import PublicCupPreview from "@/components/public-cup-preview";
 import PublicCupRecovery from "@/components/public-cup-recovery";
 
 export const revalidate=15;
-// Keep the server render close to the production API in Frankfurt.
-export const preferredRegion="fra1";
 const readCup=cache(getCup);
 type Props={params:Promise<{publicKey:string}>;searchParams:Promise<{preview?:string;cup?:string;from?:string}>};
 
