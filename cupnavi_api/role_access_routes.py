@@ -8,6 +8,7 @@ import json
 import os
 import re
 import time
+import threading
 from datetime import datetime, timezone
 from functools import lru_cache
 
@@ -25,6 +26,7 @@ from .repository import connect, one, all_rows, _dict_rows
 
 MAX_REPORTER_SESSION_SECONDS = 60 * 60 * 24 * 3
 _REPORTER_SCHEMA_READY = False
+_REPORTER_SCHEMA_LOCK = threading.Lock()
 
 
 class ReporterLogin(BaseModel):
@@ -83,31 +85,46 @@ def _ensure_reporter_table():
     global _REPORTER_SCHEMA_READY
     if _REPORTER_SCHEMA_READY:
         return
-    with connect() as con:
-        con.execute("BEGIN IMMEDIATE")
-        con.execute(
-            """CREATE TABLE IF NOT EXISTS match_reporter_credentials (
-                tournament_id INTEGER PRIMARY KEY REFERENCES tournaments(id) ON DELETE CASCADE,
-                code_salt TEXT NOT NULL,
-                code_hash TEXT NOT NULL,
-                created_at TEXT NOT NULL,
-                rotated_at TEXT,
-                valid_hours INTEGER NOT NULL DEFAULT 48,
-                expires_at TEXT
-            )"""
-        )
-        columns = {str(row[1]) for row in con.execute("PRAGMA table_info(match_reporter_credentials)").fetchall()}
-        if "valid_hours" not in columns:
-            con.execute("ALTER TABLE match_reporter_credentials ADD COLUMN valid_hours INTEGER NOT NULL DEFAULT 48")
-        if "code_lookup" not in columns:
-            con.execute("ALTER TABLE match_reporter_credentials ADD COLUMN code_lookup TEXT")
-        if "expires_at" not in columns:
-            con.execute("ALTER TABLE match_reporter_credentials ADD COLUMN expires_at TEXT")
-        con.execute("CREATE UNIQUE INDEX IF NOT EXISTS reporter_code_lookup_unique ON match_reporter_credentials(code_lookup)")
-        commit = getattr(con, "commit", None)
-        if callable(commit):
-            commit()
-    _REPORTER_SCHEMA_READY = True
+    with _REPORTER_SCHEMA_LOCK:
+        if _REPORTER_SCHEMA_READY:
+            return
+        with connect() as con:
+            # Schema inspection must not hold an interactive remote write
+            # transaction across network round trips. Turso can expire that
+            # transaction before the following PRAGMA, breaking status GETs.
+            columns = {str(row[1]) for row in con.execute("PRAGMA table_info(match_reporter_credentials)").fetchall()}
+            if not columns:
+                con.execute(
+                    """CREATE TABLE IF NOT EXISTS match_reporter_credentials (
+                        tournament_id INTEGER PRIMARY KEY REFERENCES tournaments(id) ON DELETE CASCADE,
+                        code_salt TEXT NOT NULL,
+                        code_hash TEXT NOT NULL,
+                        created_at TEXT NOT NULL,
+                        rotated_at TEXT,
+                        valid_hours INTEGER NOT NULL DEFAULT 48,
+                        code_lookup TEXT,
+                        expires_at TEXT
+                    )"""
+                )
+                columns = {str(row[1]) for row in con.execute("PRAGMA table_info(match_reporter_credentials)").fetchall()}
+            for name, definition in (
+                ("valid_hours", "INTEGER NOT NULL DEFAULT 48"),
+                ("code_lookup", "TEXT"),
+                ("expires_at", "TEXT"),
+            ):
+                if name not in columns:
+                    try:
+                        con.execute(f"ALTER TABLE match_reporter_credentials ADD COLUMN {name} {definition}")
+                    except Exception as exc:
+                        # Another API worker may have completed this additive
+                        # migration. Do not swallow unrelated database errors.
+                        if "duplicate column name" not in str(exc).lower():
+                            raise
+            con.execute("CREATE UNIQUE INDEX IF NOT EXISTS reporter_code_lookup_unique ON match_reporter_credentials(code_lookup)")
+            commit = getattr(con, "commit", None)
+            if callable(commit):
+                commit()
+        _REPORTER_SCHEMA_READY = True
 
 
 def _credential(tournament_id: int):

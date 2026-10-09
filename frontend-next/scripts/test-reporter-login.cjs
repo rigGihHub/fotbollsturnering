@@ -7,7 +7,7 @@ const {renderToStaticMarkup} = require('react-dom/server');
 function load(path, mocks={}, globals={}) {
   const code=ts.transpileModule(fs.readFileSync(path,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,jsx:ts.JsxEmit.ReactJSX,esModuleInterop:true}}).outputText;
   const module={exports:{}};
-  vm.runInNewContext(code,{module,exports:module.exports,atob,require:name=>mocks[name]??require(name),...globals});
+  vm.runInNewContext(code,{module,exports:module.exports,atob,URL,require:name=>mocks[name]??(name==='../lib/public-site-url'?load('src/lib/public-site-url.ts'):require(name)),...globals});
   return module.exports;
 }
 const {reporterSessionDeadline}=load('src/lib/reporter-session.ts');

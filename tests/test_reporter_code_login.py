@@ -1,4 +1,5 @@
 from concurrent.futures import ThreadPoolExecutor
+from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from types import SimpleNamespace
@@ -75,6 +76,76 @@ def test_admin_can_reopen_code_without_rotating_or_revoking_reporters(client, mo
         assert response.headers["Cache-Control"] == "no-store"
     assert roles._credential(2) == before
     assert roles._verify_reporter_session(token) is not None
+
+
+def test_status_initialization_never_opens_remote_write_transaction(client, monkeypatch):
+    result = roles.rotate_reporter_code(1, 2)
+    token = login(client, result["code"]).json()["token"]
+    before = roles._credential(2)
+    statements = []
+    original_connect = roles.connect
+
+    class NoInteractiveSchemaTransaction:
+        def __init__(self, connection):
+            self.connection = connection
+
+        def execute(self, sql, params=()):
+            statements.append(sql)
+            if sql.strip().upper().startswith("BEGIN"):
+                raise ValueError("Hrana: interactive transaction was rolled back because the stream was idle for too long; SQLITE_BUSY")
+            return self.connection.execute(sql, params)
+
+        def commit(self):
+            self.connection.commit()
+
+    @contextmanager
+    def remote_connection():
+        with original_connect() as connection:
+            yield NoInteractiveSchemaTransaction(connection)
+
+    monkeypatch.setattr(roles, "connect", remote_connection)
+    monkeypatch.setattr(roles, "_REPORTER_SCHEMA_READY", False)
+    for _ in range(2):
+        response = client.get("/api/admin/cups/2/role-codes/reporter")
+        assert response.status_code == 200
+        assert response.json()["code"] == result["code"]
+    assert len(statements) == 2  # Existing schema inspected once; no needless CREATE/ALTER.
+    assert statements[0].startswith("PRAGMA")
+    assert roles._credential(2) == before
+    assert roles._verify_reporter_session(token) is not None
+
+
+def test_libsql_schema_migration_generation_and_status(client, monkeypatch):
+    import libsql
+    import os
+
+    @contextmanager
+    def libsql_connection():
+        connection = libsql.connect(os.environ["CUPNAVI_API_SQLITE_PATH"])
+        try:
+            yield connection
+        finally:
+            connection.close()
+
+    monkeypatch.setattr(roles, "connect", libsql_connection)
+    response = client.get("/api/admin/cups/2/role-codes/reporter")
+    assert response.status_code == 200 and response.json()["active"] is False
+    created = client.post("/api/admin/cups/2/role-codes/reporter/rotate", json={"valid_hours": 48})
+    assert created.status_code == 200 and created.json()["active"]
+    code = created.json()["code"]
+    assert len(code) == 4 and code.isdigit()
+    assert client.get("/api/admin/cups/2/role-codes/reporter").json()["code"] == code
+    assert login(client, code).status_code == 200
+
+
+def test_fresh_reporter_schema_is_ready_without_followup_alters(client):
+    with connect() as con:
+        con.execute("DROP TABLE match_reporter_credentials")
+        con.commit()
+    assert client.get("/api/admin/cups/2/role-codes/reporter").status_code == 200
+    with connect() as con:
+        columns = {row[1] for row in con.execute("PRAGMA table_info(match_reporter_credentials)")}
+    assert {"valid_hours", "code_lookup", "expires_at"}.issubset(columns)
 
 
 def test_code_reveal_requires_cup_access_and_active_credential(client, monkeypatch):

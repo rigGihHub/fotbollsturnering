@@ -100,7 +100,7 @@ export default function AdminOperations() {
     {step==="reporting" && <>
       <div id="access-flow" className="admin-flow-group">
         <div className="admin-flow-group__label"><span>A</span><div><strong>Behörighet</strong><small>En gemensam rapportörskod för resultat och separata lagkoder för trupper.</small></div></div>
-        <RoleCodeAdmin token={token} cupId={cupId} publicSlug={activeCup?.public_slug}/>
+        <RoleCodeAdmin key={cupId} token={token} cupId={cupId} publicSlug={activeCup?.public_slug}/>
         <details className="admin-reporting-extra"><summary>Lagportal · koder och inställningar</summary><TeamRoleCodeAdmin token={token} cupId={cupId} publicSlug={activeCup?.public_slug}/></details>
       </div>
       <div id="roster-flow" className="admin-flow-group">
