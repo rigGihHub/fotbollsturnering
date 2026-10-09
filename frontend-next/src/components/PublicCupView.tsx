@@ -256,7 +256,7 @@ export function PublicCupView({ publicKey, initialCup, initialStandings, reporte
 
     <aside className="cn-cup-contact" aria-labelledby="cup-contact-title">
       <div>
-        <h2 id="cup-contact-title">Din nästa matchcamp eller cup?</h2>
+        <h2 id="cup-contact-title">Vill du också använda CupNavi?</h2>
         <p>Samla spelschema, resultat och tabeller i CupNavi – enkelt för lagen, smidigt för dig. Hör av dig för att komma igång.</p>
       </div>
       <a href="mailto:rikardekstrom@yahoo.com?subject=Intresse%20f%C3%B6r%20CupNavi">
