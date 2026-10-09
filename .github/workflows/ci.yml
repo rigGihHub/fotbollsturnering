@@ -85,6 +85,9 @@ jobs:
       - name: Placement playoff regression
         run: npm run test:placement-playoffs
 
+      - name: Public matchday regression
+        run: npm run test:matchday
+
       - name: Match weather regression
         run: npm run test:match-weather
 

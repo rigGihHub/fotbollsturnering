@@ -7,6 +7,7 @@ import { Group, Match, Pitch, Team } from "@/lib/types";
 import { pitchLabel } from "@/lib/pitch-label";
 import { matchStatus, participantLabel, timeLabel } from "@/lib/format";
 import { TeamKit } from "./TeamKit";
+import { matchCompetitionLabel } from "@/lib/match-competition-label";
 
 function compactDateLabel(value?:string|null):string {
   if(!value)return "Datum kommer";
@@ -28,7 +29,7 @@ function Side({team,label,away=false,showKits=true,showAwayKits=true,showLogos=t
   </div>;
 }
 
-export function MatchCard({match,teams,groups=[],pitches=[],index,weather,showKits=true,showAwayKits=true,showLogos=true,showGoalMinutes=false}:{match:Match;teams:Team[];groups?:Group[];pitches?:Pitch[];index:number;weather?:Forecast;showKits?:boolean;showAwayKits?:boolean;showLogos?:boolean;showGoalMinutes?:boolean}){
+export function MatchCard({match,teams,groups=[],competitionLabel,pitches=[],index,weather,showKits=true,showAwayKits=true,showLogos=true,showGoalMinutes=false}:{match:Match;teams:Team[];groups?:Group[];competitionLabel?:string;pitches?:Pitch[];index:number;weather?:Forecast;showKits?:boolean;showAwayKits?:boolean;showLogos?:boolean;showGoalMinutes?:boolean}){
   const homeId=match.home_participant?.resolved?match.home_participant.team_id??null:match.home_source?.startsWith("team:")?Number(match.home_source.split(":")[1]):null;
   const awayId=match.away_participant?.resolved?match.away_participant.team_id??null:match.away_source?.startsWith("team:")?Number(match.away_source.split(":")[1]):null;
   const home=teams.find(team=>team.id===homeId); const away=teams.find(team=>team.id===awayId);
@@ -41,8 +42,7 @@ export function MatchCard({match,teams,groups=[],pitches=[],index,weather,showKi
   const date=compactDateLabel(match.scheduled_start);
   const time=timeLabel(match.scheduled_start);
   const context=`Match ${index+1} · ${pitchLabel(match.pitch_number==null?null:Number(match.pitch_number),pitchNames)}`;
-  const groupName=match.group_id==null?"":groups.find(group=>group.id===match.group_id)?.name.trim()||"";
-  const groupLabel=/^[A-ZÅÄÖ]$/i.test(groupName)?`Grupp ${groupName.toUpperCase()}`:groupName;
+  const groupLabel=competitionLabel??matchCompetitionLabel(match,groups);
   return <article className={`cn-match-card cn-match-card--${status}`}>
     <header className={`cn-match-card__meta${groupLabel?" cn-match-card__meta--with-group":""}`}><span className="cn-match-card__kickoff"><span>{date}</span><strong>{time}</strong></span><span className="cn-match-card__context">{context}</span><b>{state}</b>{groupLabel&&<span className="cn-match-card__group">{groupLabel}</span>}</header>
     <div className="cn-match-card__teams">

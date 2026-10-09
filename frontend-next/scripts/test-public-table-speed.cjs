@@ -32,6 +32,7 @@ function harness(initialCup){
   if(name==='@/lib/matchday')return {cupMatches:cup=>cup.matches,hasPlayoffs:()=>false,matchdayOrder:rows=>rows,belongsToTeam:()=>true};
   if(name==='@/lib/use-match-weather')return {useMatchWeather:()=>()=>undefined};
   if(name==='@/lib/format')return {matchStatus:m=>m.match_status==='finished'?'done':'upcoming'};
+  if(name==='@/lib/match-competition-label')return library('lib/match-competition-label.ts');
   if(name==='@/lib/placement-standings')return {placementStandingsPresentation:()=>undefined};
   if(name==='@/lib/public-refresh')return refreshPolicy;
   if(name==='@/lib/api')return {CupNaviApiError:class extends Error{},getStandings:async()=>{tableCalls++;return {groups:[{group,rows:rows(0)}]};},getCup:async()=>{cupCalls++;if(fail)throw Error('offline');const result=fresh;if(hold){const pending=hold;hold=null;await pending;}return result;}};
