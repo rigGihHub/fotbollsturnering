@@ -147,7 +147,7 @@ export default function ReporterClient(){
    if(!window.confirm(`Avsluta ${match.home_team} – ${match.away_team}?`))return;
    if((match.home_score==null||match.away_score==null)&&!save(match,String(match.home_score??0),String(match.away_score??0),"",""))return;
   }
-  const mutation={id:`status-${cupInfo.id}-${match.id}-${Date.now()}-${next}`,kind:"status" as const,cupId:cupInfo.id,matchId:match.id,createdAt:nextReporterMutationTime(),state:"queued" as const,payload:{status:next,expected_status:current}};
+  const mutation={id:`status-${cupInfo.id}-${match.id}-${Date.now()}-${next}`,kind:"status" as const,cupId:cupInfo.id,matchId:match.id,createdAt:nextReporterMutationTime(),state:"queued" as const,payload:{status:next,expected_status:current,elapsed_seconds:reporterElapsedSeconds(match)}};
   try{appendReporterMutation(mutation)}catch(reason){setError(reason instanceof Error?reason.message:"Ändringen kunde inte sparas lokalt.");return}
   setMatches(rows=>{const updated=rows.map(item=>item.id===match.id?reporterStatusProjection(item,next,mutation.createdAt):item);remember(cupInfo,updated);return updated});setError("");setMessage(navigator.onLine?"Matchstatus uppdaterad – synkroniserar.":"Matchstatus sparad lokalt och skickas när nätet är tillbaka.");
  }

@@ -2,7 +2,7 @@ export type EventValues={goals:number;assists:number;yellow_cards:number;red_car
 
 export type ReporterMutation=
  | {id:string;kind:"result";cupId:number;matchId:number;createdAt:number;state:"queued"|"uncertain"|"conflict";payload:{home_score:number;away_score:number;home_penalties:number|null;away_penalties:number|null;expected_home_score:number|null;expected_away_score:number|null;expected_home_penalties:number|null;expected_away_penalties:number|null;goal_minutes_home?:number[];goal_minutes_away?:number[]}}
- | {id:string;kind:"status";cupId:number;matchId:number;createdAt:number;state:"queued"|"uncertain"|"conflict";payload:{status:"not_started"|"live"|"halftime"|"finished";expected_status:"not_started"|"live"|"halftime"|"finished"}}
+ | {id:string;kind:"status";cupId:number;matchId:number;createdAt:number;state:"queued"|"uncertain"|"conflict";payload:{status:"not_started"|"live"|"halftime"|"finished";expected_status:"not_started"|"live"|"halftime"|"finished";elapsed_seconds?:number}}
  | {id:string;kind:"event";cupId:number;matchId:number;playerId:number;createdAt:number;state:"queued"|"uncertain"|"conflict";payload:EventValues&{expected:EventValues}};
 export type ResultMutation=Extract<ReporterMutation,{kind:"result"}>;
 export type StatusMutation=Extract<ReporterMutation,{kind:"status"}>;

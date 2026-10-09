@@ -123,3 +123,16 @@ def test_reporter_event_write_cannot_race_a_finished_status(match_client, monkey
           'expected': {'goals': 0, 'assists': 0, 'yellow_cards': 0, 'red_cards': 0}}, reporter_edit=True)
     saved = one('SELECT * FROM player_match_stats WHERE match_id=10 AND player_id=5')
     assert saved is None or saved['yellow_cards'] == 0
+
+
+def test_offline_pause_resume_and_finish_keep_time_from_button_press(match_client):
+    url = '/api/reporter/reporting/matches/10/status'
+    assert match_client.put(url, json={'status': 'live', 'expected_status': 'finished', 'elapsed_seconds': 16}).status_code == 200
+    paused = match_client.put(url, json={'status': 'halftime', 'expected_status': 'live', 'elapsed_seconds': 76})
+    assert paused.status_code == 200
+    assert paused.json()['actual_elapsed_seconds'] == 76
+    assert match_client.put(url, json={'status': 'live', 'expected_status': 'halftime', 'elapsed_seconds': 76}).status_code == 200
+    finished = match_client.put(url, json={'status': 'finished', 'expected_status': 'live', 'elapsed_seconds': 136})
+    assert finished.status_code == 200
+    assert finished.json()['actual_elapsed_seconds'] == 136
+    assert match_client.put(url, json={'status': 'live', 'expected_status': 'finished', 'elapsed_seconds': -1}).status_code == 422

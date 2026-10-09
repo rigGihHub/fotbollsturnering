@@ -333,6 +333,8 @@ def set_reporter_match_status(
     match_id: int,
     new_status: str,
     expected_status: str,
+    *,
+    elapsed_seconds: int | None = None,
 ):
     """Move a reporter match through its explicit lifecycle with compare-and-swap safety."""
     if not _has_tournament_access(account_id, tournament_id):
@@ -341,6 +343,8 @@ def set_reporter_match_status(
     expected_raw = str(expected_status or "").strip().lower()
     if wanted_raw not in MATCH_STATUSES or expected_raw not in MATCH_STATUSES:
         raise ValueError("Ogiltig matchstatus.")
+    if elapsed_seconds is not None and (type(elapsed_seconds) is not int or not 0 <= elapsed_seconds <= 86400):
+        raise ValueError("Ogiltig matchtid.")
     row = one("SELECT * FROM matches WHERE id=? AND tournament_id=?", (int(match_id), int(tournament_id)))
     if not row:
         return None
@@ -370,12 +374,17 @@ def set_reporter_match_status(
     started_at = row.get("actual_started_at")
     finished_at = row.get("actual_finished_at")
     paused_at = row.get("actual_paused_at")
+    reported_elapsed = elapsed_seconds
     elapsed_seconds = int(row.get("actual_elapsed_seconds") or 0)
     if current == MATCH_LIVE and wanted in {MATCH_HALFTIME, MATCH_FINISHED} and started_at:
         try:
             elapsed_seconds += max(0, int((datetime.fromisoformat(now)-datetime.fromisoformat(str(started_at))).total_seconds()))
         except (TypeError,ValueError):
             pass
+    if reported_elapsed is not None:
+        # Offline actions carry the playing time at the actual button press.
+        # Time waiting for connectivity must not become additional playing time.
+        elapsed_seconds = max(int(row.get("actual_elapsed_seconds") or 0), reported_elapsed)
     if wanted in {MATCH_LIVE, MATCH_HALFTIME}:
         if wanted == MATCH_LIVE:
             started_at = now

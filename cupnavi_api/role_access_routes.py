@@ -13,7 +13,7 @@ from datetime import datetime, timezone
 from functools import lru_cache
 
 from fastapi import Header, HTTPException, Request, Response
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from cupnavi_core.rate_limit import consume_rate_limit
 from cupnavi_core.team_portal import generate_short_numeric_code, new_code_hash, verify_access_code
@@ -74,6 +74,7 @@ class ReporterEventWrite(BaseModel):
 class ReporterStatusWrite(BaseModel):
     status: str
     expected_status: str
+    elapsed_seconds: int | None = Field(default=None, ge=0, le=86400)
 
 
 def _model_values(model):
@@ -450,6 +451,7 @@ def register_role_access_routes(app, admin_identity):
                 match_id,
                 payload.status,
                 payload.expected_status,
+                elapsed_seconds=payload.elapsed_seconds,
             )
             if result is None:
                 raise HTTPException(404, "Match saknas eller åtkomst nekas")

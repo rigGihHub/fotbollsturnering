@@ -20,7 +20,7 @@
     "start": "next start",
     "lint": "next lint",
     "test:admin-drafts": "node scripts/test-admin-drafts.cjs",
-    "test:reporter-reliability": "node scripts/test-reporter-reliability.cjs",
+    "test:reporter-reliability": "node scripts/test-reporter-reliability.cjs && node scripts/test-reporter-service-worker.cjs",
     "test:reporter-login": "node scripts/test-reporter-login.cjs"
   },
   "dependencies": {

@@ -39,6 +39,7 @@ class ReporterAPI:
                 if match['match_status'] != payload['expected_status']:
                     route.fulfill(status=409, json={'detail': 'Nyare matchstatus'})
                     return
+                match['clock_elapsed_seconds'] = payload.get('elapsed_seconds', match['clock_elapsed_seconds'])
                 match['match_status'] = payload['status']
                 match['status'] = 'played' if payload['status'] == 'finished' else payload['status']
                 match['clock_synced_at'] = datetime.now(timezone.utc).isoformat()
