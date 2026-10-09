@@ -1,6 +1,6 @@
 {
   "name": "cupnavi-web",
-  "version": "2.8.82",
+  "version": "2.8.83",
   "private": true,
   "scripts": {
     "test:public-pdf": "node scripts/test-public-pdf.cjs",

@@ -238,5 +238,15 @@ export function PublicCupView({ publicKey, initialCup, initialStandings, reporte
       {showPublicWeather&&<WeatherShareCard address={cup.tournament.arena_address} startDate={cup.tournament.start_date} endDate={cup.tournament.end_date} cupName={cup.tournament.name}/>}
     </div></section>}
 
+    <aside className="cn-cup-contact" aria-labelledby="cup-contact-title">
+      <div>
+        <h2 id="cup-contact-title">Din nästa matchcamp eller cup?</h2>
+        <p>Samla spelschema, resultat och tabeller i CupNavi – enkelt för lagen, smidigt för dig. Hör av dig för att komma igång.</p>
+      </div>
+      <a href="mailto:rikardekstrom@yahoo.com?subject=Intresse%20f%C3%B6r%20CupNavi">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 6 9 7 9-7"/></svg>
+        <span>rikardekstrom@yahoo.com</span>
+      </a>
+    </aside>
   </main>;
 }
