@@ -1,4 +1,4 @@
-const CACHE="cupnavi-next-v2889";
+const CACHE="cupnavi-next-v2890";
 const SHELL=["/","/reporter","/manifest.webmanifest","/cupnavi-emblem-v2642.png","/cupnavi-maskable-v2832.svg"];
 self.addEventListener("install",event=>event.waitUntil(caches.open(CACHE).then(async cache=>{
   await cache.addAll(SHELL);
