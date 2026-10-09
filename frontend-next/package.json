@@ -1,8 +1,9 @@
 {
   "name": "cupnavi-web",
-  "version": "2.8.85",
+  "version": "2.8.86",
   "private": true,
   "scripts": {
+    "test:matchday": "node scripts/test-matchday.cjs",
     "test:public-pdf": "node scripts/test-public-pdf.cjs",
     "test:public-table-speed": "node scripts/test-public-table-speed.cjs",
     "test:visitor-presence": "node scripts/test-visitor-presence.cjs",

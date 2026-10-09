@@ -36,6 +36,25 @@ assert(none.includes(team.name));
 const compactCard=renderToStaticMarkup(React.createElement(MatchCard,{...props,match:{...props.match,scheduled_start:'2026-10-24T09:15',pitch_number:1},pitches:[{pitch_number:1,name:'Sörbyvallen'}]}));
 assert(compactCard.includes('24 okt'));assert(compactCard.includes('Match 1 · Sörbyvallen'));
 assert(!compactCard.includes('cn-match-card__pitch'),'Match context must not consume a separate footer row');
+const groups=[{id:54,name:'A'},{id:55,name:'B'}];
+const importedBracket={id:27,name:'Importerat slutspel'};
+const {matchCompetitionLabel}=load(path.join(root,'lib/match-competition-label.ts'));
+assert.equal(matchCompetitionLabel({id:1,stage:'Gruppspel',group_id:54},groups),'Grupp A');
+for(const stage of ['GULDGRUPPEN','SILVERGRUPPEN','BRONSGRUPPEN']){
+ const match={...props.match,stage,bracket_id:27,group_id:null};
+ const label=matchCompetitionLabel(match,groups,[importedBracket]);
+ assert.equal(label,`Slutspel · ${stage[0]+stage.slice(1).toLowerCase()}`);
+ const card=renderToStaticMarkup(React.createElement(MatchCard,{...props,match,groups,competitionLabel:label}));
+ assert(card.includes(`>${label}</span>`),'Every placement match must identify its playoff group');
+ assert(!card.includes('Grupp A')&&!card.includes('Grupp B'),'Playoff matches must not inherit an original group label');
+}
+assert.equal(matchCompetitionLabel({id:1,stage:'Semifinal',bracket_id:27,group_id:54},groups,[importedBracket]),'Slutspel · Semifinal');
+assert.equal(matchCompetitionLabel({id:1,stage:'Final',bracket_id:28},groups,[{id:28,name:'A-slutspel'}]),'Slutspel · A-slutspel · Final');
+assert.equal(matchCompetitionLabel({id:1,bracket_id:27},groups,[importedBracket]),'Slutspel','Missing round metadata must not invent a group or round');
+assert.equal(matchCompetitionLabel({id:1},groups,[{id:27,name:'Importerat slutspel',matches:[{id:1,stage:'Slutspel'}]}],[{bracket_id:27,name:'GULDGRUPPEN',match_ids:[1]}]),'Slutspel · Guldgruppen');
+assert.equal(matchCompetitionLabel({id:2,stage:'Matchcamp'},groups), '');
+assert.equal(matchCompetitionLabel({id:1,stage:'Slutspel · Final',bracket_id:27},groups),'Slutspel · Final');
+console.log('PASS group-stage and playoff labels, placement groups, knockout rounds and missing metadata');
 const {TextTvStandings}=load(path.join(root,'components/TextTvStandings.tsx'));
 const html=renderToStaticMarkup(React.createElement(TextTvStandings,{name:'Grupp A',rows:[{position:1,team_id:9,Lag:team.name,S:9,V:4,O:3,F:2,MS:'+12',P:15}]}));
 assert.equal((html.match(/scope="col"/g)||[]).length,8);
@@ -102,4 +121,5 @@ assert(!playoffMarkup.includes("Tabellen är preliminär"),"Public placement tab
 assert(playoffMarkup.includes('1:a A')&&playoffMarkup.includes('1:a B'),'Unresolved qualifiers must be visible before group results');
 assert.equal((playoffMarkup.match(/cn-match-card cn-match-card--/g)||[]).length,1,'Placement match must not also render as a knockout match');
 assert(playoffMarkup.includes('Datum kommer'),'Draft playoffs without times must remain visible');
+assert(playoffMarkup.includes('>Slutspel · Guldgruppen</span>'),'Collapsed playoff cards must use their placement group');
 console.log('PASS draft placement groups, collapsed matches, no status paragraph and no knockout duplication');
