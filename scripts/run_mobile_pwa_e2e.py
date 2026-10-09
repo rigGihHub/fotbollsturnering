@@ -11,7 +11,7 @@ except ImportError:
 
 # Check if Chromium is installed. Playwright itself gives a clear actionable error if not.
 result=subprocess.run(
-    [sys.executable,"-m","pytest","-q","e2e/test_mobile_pwa.py"],
+    [sys.executable,"-m","pytest","-q","e2e/test_mobile_pwa.py","e2e/test_reporter_reliability.py"],
     cwd=ROOT,text=True,
 )
 raise SystemExit(result.returncode)

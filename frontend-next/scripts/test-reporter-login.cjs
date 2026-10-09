@@ -18,7 +18,8 @@ assert.equal(reporterSessionDeadline(token('2026-09-22T14:00:00+02:00',issued+8*
 assert.equal(reporterSessionDeadline('bad-token'),0);
 const Navigation=load('src/components/reporter-navigation.tsx',{'../lib/reporter-offline':{readReporterCache:()=>null}}).default;
 const ReporterModule=load('src/components/reporter-client.tsx',{
-  '../lib/client-api':{CLIENT_API_BASE:''},
+  '../lib/reporter-api':{},
+  '../lib/reporter-match':load('src/lib/reporter-match.ts',{'./reporter-offline':{readReporterQueue:()=>[]}}),
   '../lib/reporter-session':{reporterSessionDeadline},
   '../lib/reporter-offline':{readReporterQueue:()=>[],isResultMutation:()=>false,isStatusMutation:()=>false},
   './reporter-match-events':{default:()=>null},

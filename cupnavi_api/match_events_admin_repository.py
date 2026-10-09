@@ -143,7 +143,7 @@ def admin_match_events(account_id: int, tournament_id: int, match_id: int):
     }
 
 
-def update_player_match_events(account_id: int, tournament_id: int, match_id: int, player_id: int, values: dict):
+def update_player_match_events(account_id: int, tournament_id: int, match_id: int, player_id: int, values: dict, *, reporter_edit=False):
     if not _has_tournament_access(account_id, tournament_id):
         return None
     detail = admin_match_events(account_id, tournament_id, match_id)
@@ -178,31 +178,35 @@ def update_player_match_events(account_id: int, tournament_id: int, match_id: in
     if not validation["ok"]:
         raise ValueError(" ".join(validation["errors"]))
 
+    reporter_guard = " AND EXISTS (SELECT 1 FROM matches WHERE id=? AND tournament_id=? AND COALESCE(match_status,'not_started')!='finished')" if reporter_edit else ""
+    reporter_params = (int(match_id), int(tournament_id)) if reporter_edit else ()
     with connect() as con:
         if current:
             cursor = con.execute(
-                """UPDATE player_match_stats
+                f"""UPDATE player_match_stats
                    SET goals=?,assists=?,yellow_cards=?,red_cards=?
                    WHERE match_id=? AND player_id=?
-                     AND goals=? AND assists=? AND yellow_cards=? AND red_cards=?""",
+                     AND goals=? AND assists=? AND yellow_cards=? AND red_cards=?{reporter_guard}""",
                 (
                     next_values["goals"], next_values["assists"],
                     next_values["yellow_cards"], next_values["red_cards"],
                     int(match_id), int(player_id),
                     current_values["goals"], current_values["assists"],
                     current_values["yellow_cards"], current_values["red_cards"],
+                    *reporter_params,
                 ),
             )
             if getattr(cursor, "rowcount", 1) == 0:
                 raise RuntimeError("Matchhändelsen har ändrats av någon annan. Ladda om matchen och försök igen.")
         else:
             try:
-                con.execute(
-                    """INSERT INTO player_match_stats(match_id,player_id,goals,assists,yellow_cards,red_cards)
-                       VALUES(?,?,?,?,?,?)""",
+                cursor = con.execute(
+                    """INSERT INTO player_match_stats(match_id,player_id,goals,assists,yellow_cards,red_cards) """
+                    + ("SELECT ?,?,?,?,?,? WHERE EXISTS (SELECT 1 FROM matches WHERE id=? AND tournament_id=? AND COALESCE(match_status,'not_started')!='finished')" if reporter_edit else "VALUES(?,?,?,?,?,?)"),
                     (
                         int(match_id), int(player_id), next_values["goals"], next_values["assists"],
                         next_values["yellow_cards"], next_values["red_cards"],
+                        *reporter_params,
                     ),
                 )
             except Exception as exc:
@@ -214,6 +218,8 @@ def update_player_match_events(account_id: int, tournament_id: int, match_id: in
                 if latest is not None:
                     raise RuntimeError("Matchhändelsen har ändrats av någon annan. Ladda om matchen och försök igen.") from exc
                 raise
+            if getattr(cursor, "rowcount", 1) == 0:
+                raise RuntimeError("Matchen har slutmarkerats. Öppna den för rättning innan händelser ändras.")
         commit = getattr(con, "commit", None)
         if callable(commit):
             commit()
