@@ -30,6 +30,7 @@ const {PublicCupView}=load("components/PublicCupView.tsx",name=>{
  if(name==="@/lib/matchday")return {belongsToTeam:()=>false,cupMatches:()=>[],hasPlayoffs:()=>false,matchdayOrder:rows=>rows};
  if(name==="@/lib/use-match-weather")return {useMatchWeather:()=>()=>undefined};
  if(name==="@/lib/format")return {matchStatus:()=>"upcoming"};
+ if(name==="@/lib/match-competition-label")return load("lib/match-competition-label.ts");
  if(name==="@/lib/api"||name==="@/lib/placement-standings"||name==="@/lib/public-refresh")return {};
  if(name.startsWith("./"))return new Proxy({},{get:(_,key)=>()=>React.createElement("div",null,`fixture-${String(key)}`)});
  throw Error(`Unexpected import: ${name}`);
