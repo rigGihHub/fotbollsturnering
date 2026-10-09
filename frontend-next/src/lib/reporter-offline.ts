@@ -34,6 +34,7 @@ export function upsertReporterMutation(mutation:ReporterMutation){
  const index=queue.findIndex(item=>item.id===mutation.id);
  if(index>=0){
   const current=queue[index];
+  mutation.createdAt=current.createdAt;
   if(current.kind===mutation.kind){
    // Behåll serverbaslinjen vid flera offline-tryck; endast önskat slutläge ändras.
    if(current.kind==="event"&&mutation.kind==="event")mutation.payload.expected=current.payload.expected;
@@ -57,13 +58,17 @@ export function upsertReporterMutation(mutation:ReporterMutation){
 
 export function appendReporterMutation(mutation:ReporterMutation){writeReporterQueue([...readReporterQueue(),mutation]);}
 
+export function nextReporterMutationTime(){
+ return Math.max(Date.now(),...readReporterQueue().map(item=>item.createdAt+1));
+}
+
 export function completeReporterResultMutation(processed:ResultMutation){
  const queue=readReporterQueue();
  const index=queue.findIndex(item=>item.id===processed.id);
  if(index<0)return;
  const current=queue[index];
  if(current.kind!=="result")return;
- if(current.createdAt===processed.createdAt){queue.splice(index,1);writeReporterQueue(queue);return}
+ if(JSON.stringify(current.payload)===JSON.stringify(processed.payload)){queue.splice(index,1);writeReporterQueue(queue);return}
  current.payload.expected_home_score=processed.payload.home_score;
  current.payload.expected_away_score=processed.payload.away_score;
  current.payload.expected_home_penalties=processed.payload.home_penalties;
@@ -75,6 +80,15 @@ export function completeReporterResultMutation(processed:ResultMutation){
 }
 
 export function removeReporterMutation(id:string){writeReporterQueue(readReporterQueue().filter(item=>item.id!==id));}
+export function completeReporterEventMutation(processed:EventMutation){
+ const queue=readReporterQueue(),index=queue.findIndex(item=>item.id===processed.id);
+ if(index<0)return;
+ const current=queue[index];if(current.kind!=="event")return;
+ const desired={goals:processed.payload.goals,assists:processed.payload.assists,yellow_cards:processed.payload.yellow_cards,red_cards:processed.payload.red_cards};
+ if(sameEventValues(current.payload,desired))queue.splice(index,1);
+ else current.payload.expected=desired;
+ writeReporterQueue(queue);
+}
 export function updateReporterMutation(id:string,patch:Partial<ReporterMutation>){writeReporterQueue(readReporterQueue().map(item=>item.id===id?({...item,...patch} as ReporterMutation):item));}
 export function reporterQueueSummary(cupId?:number){
  const relevant=readReporterQueue().filter(item=>cupId==null||item.cupId===cupId);
@@ -104,5 +118,8 @@ export function readReporterCache<T>(key:string):T|null{
  try{return JSON.parse(localStorage.getItem(CACHE_KEY)||"{}")[key]?.value??null}catch{return null}
 }
 
-export function isNetworkError(error:unknown){return error instanceof TypeError||(!navigator.onLine);}
+export function isNetworkError(error:unknown){
+ const status=(error as {status?:number})?.status;
+ return error instanceof TypeError||(!navigator.onLine)||status===408||status===429||(status!=null&&status>=500);
+}
 export const sameEventValues=(a:EventValues,b:EventValues)=>a.goals===b.goals&&a.assists===b.assists&&a.yellow_cards===b.yellow_cards&&a.red_cards===b.red_cards;

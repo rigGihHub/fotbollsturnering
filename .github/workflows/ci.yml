@@ -73,6 +73,9 @@ jobs:
       - name: Typecheck
         run: npx tsc --noEmit
 
+      - name: Reporter reliability regression
+        run: npm run test:reporter-login && npm run test:reporter-reliability
+
       - name: Import navigation regression
         run: npm run test:import-navigation
 

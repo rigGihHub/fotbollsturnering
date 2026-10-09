@@ -326,7 +326,7 @@ def _require_reporter_match(tournament_id: int, match_id: int):
 def _require_reporter_editable_match(tournament_id: int, match_id: int):
     row = _require_reporter_match(tournament_id, match_id)
     if normalize_match_status(row.get("match_status"), has_result=False) == MATCH_FINISHED:
-        raise HTTPException(409, "Matchen är slutmarkerad. Endast administratören kan korrigera den.")
+        raise HTTPException(409, "Matchen är slutmarkerad. Öppna den för rättning eller återuppta matchen först.")
     return row
 
 
@@ -432,6 +432,7 @@ def register_role_access_routes(app, admin_identity):
                 expected_away_penalties=payload.expected_away_penalties,
                 goal_minutes_home=payload.goal_minutes_home,
                 goal_minutes_away=payload.goal_minutes_away,
+                reporter_edit=True,
             )
         except ValueError as exc:
             raise HTTPException(422, str(exc)) from exc
@@ -475,7 +476,7 @@ def register_role_access_routes(app, admin_identity):
         _require_reporter_match(int(identity["tid"]), match_id)
         _require_reporter_editable_match(int(identity["tid"]), match_id)
         try:
-            return update_player_match_events(OWNER_ACCOUNT_ID, int(identity["tid"]), match_id, player_id, _model_values(payload))
+            return update_player_match_events(OWNER_ACCOUNT_ID, int(identity["tid"]), match_id, player_id, _model_values(payload), reporter_edit=True)
         except ValueError as exc:
             raise HTTPException(422, str(exc)) from exc
         except RuntimeError as exc:

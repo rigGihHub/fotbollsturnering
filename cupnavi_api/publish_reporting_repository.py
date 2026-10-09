@@ -1,7 +1,7 @@
 """Authenticated publication and match-result administration for the Next admin."""
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 import json
 
 from cupnavi_core.admin_publication import build_publish_blockers
@@ -55,7 +55,7 @@ _REPORTER_STATUS_TRANSITIONS = {
     MATCH_NOT_STARTED: {MATCH_LIVE},
     MATCH_LIVE: {MATCH_HALFTIME, MATCH_FINISHED},
     MATCH_HALFTIME: {MATCH_LIVE, MATCH_FINISHED},
-    MATCH_FINISHED: set(),
+    MATCH_FINISHED: {MATCH_LIVE, MATCH_HALFTIME},
 }
 
 
@@ -274,6 +274,7 @@ def admin_reporting(account_id: int, tournament_id: int):
     for match in matches:
         match["requires_winner"] = _match_requires_winner(match, draw_ids)
         match["clock_elapsed_seconds"] = _clock_elapsed_seconds(match)
+        match["clock_synced_at"] = datetime.now(timezone.utc).isoformat()
         home = resolver.resolve(match.get("home_source")) if resolver else None
         away = resolver.resolve(match.get("away_source")) if resolver else None
         match["home_team"] = home.team_name if home and home.resolved else (source_label(match.get("home_source"), group_names) if draw_ids else _team_name(match.get("home_source"), teams_by_id))
@@ -441,12 +442,15 @@ def save_result(
     expected_away_penalties=None,
     goal_minutes_home=None,
     goal_minutes_away=None,
+    reporter_edit=False,
 ):
     if not _has_tournament_access(account_id, tournament_id):
         return None
     row = one("SELECT * FROM matches WHERE id=? AND tournament_id=?", (int(match_id), int(tournament_id)))
     if not row:
         return None
+    if reporter_edit and normalize_match_status(row.get("match_status"), has_result=False) == MATCH_FINISHED:
+        raise RuntimeError("Matchen är slutmarkerad. Öppna den för rättning eller återuppta matchen först.")
     if (
         row.get("home_score") != expected_home
         or row.get("away_score") != expected_away
@@ -528,6 +532,7 @@ def save_result(
     # turn a stale penalty submission into a placement-group result.
     rule_guard = " AND (SELECT playoff_tie_rule FROM tournaments WHERE id=?) IS ?" if "playoff_tie_rule" in tournament else ""
     rule_params = (int(tournament_id), tournament.get("playoff_tie_rule")) if rule_guard else ()
+    reporter_guard = " AND COALESCE(match_status,'not_started') != 'finished'" if reporter_edit else ""
     with connect() as conn:
         if any(incoming_minutes.values()) or any(
             new<old for old,new in ((int(row.get("home_score") or 0),prepared.home_score),(int(row.get("away_score") or 0),prepared.away_score))
@@ -541,7 +546,7 @@ def save_result(
                  AND home_score IS ?
                  AND away_score IS ?
                  AND home_penalties IS ?
-                 AND away_penalties IS ?{rule_guard}""",
+                 AND away_penalties IS ?{rule_guard}{reporter_guard}""",
             (
                 prepared.home_score,
                 prepared.away_score,

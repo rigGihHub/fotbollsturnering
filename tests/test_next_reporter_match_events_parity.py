@@ -12,7 +12,7 @@ assert 'update_player_match_events' in routes
 assert 'ReporterMatchEvents' in reporter
 assert 'målskyttar, assist och kort' in reporter.lower()
 assert '/api/reporter/reporting/events' in events
-assert '/api/reporter/reporting/matches/${detail.match.id}/events/${player.id}' in events
+assert '/api/reporter/reporting/matches/${mutation.matchId}/events/${mutation.playerId}' in events
 assert 'Målskyttar, assist & kort' in events
 assert 'registered_goals' in events
 assert 'expected:previous' in events

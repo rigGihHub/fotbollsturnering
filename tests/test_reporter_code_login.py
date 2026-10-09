@@ -222,7 +222,7 @@ def test_extension_never_pushes_code_beyond_three_days_from_now(client):
 
 def test_finished_match_is_locked_for_reporter_but_not_admin_result_api(monkeypatch):
     monkeypatch.setattr(roles, "_require_reporter_match", lambda *_: {"match_status": "finished"})
-    with pytest.raises(HTTPException, match="Endast administratören") as error:
+    with pytest.raises(HTTPException, match="Öppna den för rättning") as error:
         roles._require_reporter_editable_match(1, 20)
     assert error.value.status_code == 409
 

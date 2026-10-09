@@ -1,0 +1,35 @@
+const assert=require('node:assert/strict');
+const fs=require('node:fs'),path=require('node:path'),vm=require('node:vm'),ts=require('typescript');
+const storage=new Map(),cache=new Map();
+const globals={window:{dispatchEvent(){}},localStorage:{getItem:key=>storage.get(key)??null,setItem:(key,value)=>storage.set(key,value)},CustomEvent:class {},navigator:{onLine:true},Date,Error,TypeError,Number,JSON};
+function load(file){
+ file=path.resolve(file);if(!file.endsWith('.ts'))file+='.ts';if(cache.has(file))return cache.get(file);
+ const module={exports:{}};
+ vm.runInNewContext(ts.transpileModule(fs.readFileSync(file,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2020}}).outputText,{...globals,module,exports:module.exports,require:name=>load(path.resolve(path.dirname(file),name))});
+ cache.set(file,module.exports);return module.exports;
+}
+const queue=load('src/lib/reporter-offline.ts'),state=load('src/lib/reporter-match.ts');
+const result=(score,at)=>({id:'r',kind:'result',cupId:1,matchId:10,createdAt:at,state:'queued',payload:{home_score:score,away_score:0,home_penalties:null,away_penalties:null,expected_home_score:0,expected_away_score:0,expected_home_penalties:null,expected_away_penalties:null,goal_minutes_home:[1]}});
+queue.upsertReporterMutation(result(1,100));
+const inFlight=queue.readReporterQueue()[0];
+queue.upsertReporterMutation(result(2,100));
+queue.completeReporterResultMutation(inFlight);
+let next=queue.readReporterQueue()[0];
+assert(next,'An acknowledgement must preserve a newer click even in the same millisecond');
+assert.equal(next.payload.home_score,2);assert.equal(next.payload.expected_home_score,1);
+queue.completeReporterResultMutation(next);assert.equal(queue.readReporterQueue().length,0);
+const event=(cards,at)=>({id:'e',kind:'event',cupId:1,matchId:10,playerId:5,createdAt:at,state:'queued',payload:{goals:0,assists:0,yellow_cards:cards,red_cards:0,expected:{goals:0,assists:0,yellow_cards:0,red_cards:0}}});
+queue.upsertReporterMutation(event(1,200));const eventFlight=queue.readReporterQueue()[0];queue.upsertReporterMutation(event(2,201));queue.completeReporterEventMutation(eventFlight);
+next=queue.readReporterQueue()[0];assert.equal(next.payload.yellow_cards,2);assert.equal(next.payload.expected.yellow_cards,1);
+queue.completeReporterEventMutation(next);assert.equal(queue.readReporterQueue().length,0);
+const now=Date.parse('2026-10-09T08:00:30Z'),match={id:10,home_team:'A',away_team:'B',home_score:0,away_score:0,status:'live',match_status:'live',clock_elapsed_seconds:46,clock_synced_at:'2026-10-09T08:00:30Z',actual_started_at:'2026-10-09T08:00:00'};
+assert.equal(state.reporterElapsedSeconds(match,now+5000),51,'Do not count the live segment twice');
+const pause=state.reporterStatusProjection(match,'halftime',now+5000);assert.equal(state.reporterElapsedSeconds(pause,now+60000),51);
+const resume=state.reporterStatusProjection(pause,'live',now+65000);assert.equal(state.reporterElapsedSeconds(resume,now+70000),56);
+queue.upsertReporterMutation(result(3,now));queue.appendReporterMutation({id:'s',kind:'status',cupId:1,matchId:10,createdAt:now+1,state:'queued',payload:{status:'finished',expected_status:'live'}});
+let projected=state.overlayReporterMatches([match],1)[0];assert.equal(projected.home_score,3);assert.equal(projected.match_status,'finished');
+assert.equal(state.overlayReporterMatches([match],2)[0].home_score,0,'Queues are scoped to one cup');
+queue.updateReporterMutation('r',{state:'conflict'});assert.equal(state.overlayReporterMatches([match],1)[0].home_score,0,'Conflicts must never overwrite server data');
+assert(queue.isNetworkError({status:503}));assert(queue.isNetworkError({status:408}));assert(queue.isNetworkError({status:429}));assert(!queue.isNetworkError({status:422}));
+assert(queue.nextReporterMutationTime()>Math.max(...queue.readReporterQueue().map(item=>item.createdAt)));
+console.log('PASS reporter queue races, same-millisecond clicks, event rebasing, clock, reload projection, cup scoping and transient failures');
