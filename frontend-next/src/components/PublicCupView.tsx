@@ -5,7 +5,7 @@ import { useMatchWeather } from "@/lib/use-match-weather";
 import dynamic from "next/dynamic";
 import { PlacementTables } from "./PlacementTables";
 import { TextTvStandings } from "./TextTvStandings";
-import { publicTabSettings, visiblePublicTab, type PublicTab } from "../lib/public-tab-settings";
+import { publicTabSettings, visiblePublicTab, subscribePublicCupUpdates, type PublicTab } from "../lib/public-tab-settings";
 import { cupShareTitle } from "../lib/cup-share-title";
 
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -44,6 +44,7 @@ export function PublicCupView({ publicKey, initialCup, initialStandings, reporte
   const [cup,setCup]=useState(()=>normalizeCup(initialCup)); const cupRef=useRef(cup); const [fallbackStandings,setStandings]=useState(Array.isArray(initialStandings)?initialStandings:[]);
   const nextAllowedRefreshRef=useRef(0); const publicRefreshBackoffMs=useRef(0); const missingRefreshesRef=useRef(0);
   const lastCupRefreshRef=useRef(Date.now());
+  const openingSyncDoneRef=useRef(false);
   const [fallbackLoaded,setStandingsLoaded]=useState(initialStandings.length>0);
   const standings=cup.standings??fallbackStandings;
   const standingsLoaded=Array.isArray(cup.standings)||fallbackLoaded;
@@ -121,6 +122,7 @@ export function PublicCupView({ publicKey, initialCup, initialStandings, reporte
     if(previewMode)return;
     let busy=false;
     let cancelled=false;
+    let savedUpdatePending=false;
     const refresh=async()=>{
       if(busy||document.visibilityState!=="visible"||Date.now()<nextAllowedRefreshRef.current)return;
       busy=true;
@@ -133,6 +135,7 @@ export function PublicCupView({ publicKey, initialCup, initialStandings, reporte
         setUnavailable(false);
         setRefreshProblem(false);
         lastCupRefreshRef.current=Date.now();
+        openingSyncDoneRef.current=true;
         const normalized=normalizeCup(freshCup);
         cupRef.current=normalized;
         setCup(normalized);
@@ -160,7 +163,10 @@ export function PublicCupView({ publicKey, initialCup, initialStandings, reporte
           setRefreshProblem(true);
         }
         nextAllowedRefreshRef.current=Date.now()+publicRefreshBackoffMs.current;
-      }finally{busy=false}
+      }finally{
+        busy=false;
+        if(savedUpdatePending&&!cancelled){savedUpdatePending=false;void refresh();}
+      }
     };
     const nextDelay=()=>nextPublicRefreshDelay(cupRef.current.matches,nextAllowedRefreshRef.current,Date.now(),publicRefreshBackoffMs.current>0);
     let timer=window.setTimeout(function tick(){
@@ -168,11 +174,20 @@ export function PublicCupView({ publicKey, initialCup, initialStandings, reporte
     },nextDelay());
     const onVisibility=()=>{if(document.visibilityState==="visible")void refresh()};
     document.addEventListener("visibilitychange",onVisibility);
+    const unsubscribe=subscribePublicCupUpdates(cup.tournament.id,()=>{
+      if(busy)savedUpdatePending=true;
+      else void refresh();
+    });
+    // The first server snapshot may be cached for 15 seconds. Reconcile it
+    // soon after opening, rather than waiting for the quiet-cup polling cycle.
+    const openingSync=window.setTimeout(()=>{
+      if(!openingSyncDoneRef.current){openingSyncDoneRef.current=true;void refresh();}
+    },1500);
     // Show existing rows immediately; refresh older data in the background on
     // entering Tables so a quiet cup does not wait for the two-minute poll.
     if(tab==="table"&&Date.now()-lastCupRefreshRef.current>15000)void refresh();
-    return()=>{cancelled=true;window.clearTimeout(timer);document.removeEventListener("visibilitychange",onVisibility)};
-  },[publicKey,showTables,tab,statsEnabled,previewMode]);
+    return()=>{cancelled=true;window.clearTimeout(timer);window.clearTimeout(openingSync);unsubscribe();document.removeEventListener("visibilitychange",onVisibility)};
+  },[publicKey,cup.tournament.id,showTables,tab,statsEnabled,previewMode]);
   useEffect(()=>{if((tab==="table"&&!showTables)||(tab==="playoff"&&!showPlayoffs))setTab("matches")},[tab,showTables,showPlayoffs]);
 
   const orderedMatches=useMemo(()=>cupMatches(cup),[cup]);

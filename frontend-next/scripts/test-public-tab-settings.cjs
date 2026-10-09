@@ -5,10 +5,10 @@ const vm=require("node:vm");
 const ts=require("typescript");
 const React=require("react");
 const {renderToStaticMarkup}=require("react-dom/server");
-function load(file,requireFn=require){
+function load(file,requireFn=require,globals={}){
  const moduleRef={exports:{}};
  const code=ts.transpileModule(fs.readFileSync(path.join(__dirname,"../src",file),"utf8"),{compilerOptions:{target:ts.ScriptTarget.ES2020,module:ts.ModuleKind.CommonJS,jsx:ts.JsxEmit.ReactJSX}}).outputText;
- vm.runInNewContext(code,{module:moduleRef,exports:moduleRef.exports,require:requireFn});
+ vm.runInNewContext(code,{module:moduleRef,exports:moduleRef.exports,require:requireFn,...globals});
  return moduleRef.exports;
 }
 const settings=load("lib/public-tab-settings.ts");
@@ -52,4 +52,30 @@ assert.match(render(true,false,"offers"),/<h2>Matcher<\/h2>/);
 assert.doesNotMatch(render(true,false,"offers"),/fixture-lazy-content/);
 assert.match(render(true,false,"info"),/public-info-v3/);
 assert.match(render(false,true,"offers"),/fixture-lazy-content/);
+
+// An admin save signals only its cup; public tabs reread authoritative data.
+const listeners=new Map(),writes=[];
+const windowMock={
+ addEventListener:(name,fn)=>{if(!listeners.has(name))listeners.set(name,new Set());listeners.get(name).add(fn);},
+ removeEventListener:(name,fn)=>listeners.get(name)?.delete(fn),
+ dispatchEvent:event=>{for(const fn of listeners.get(event.type)||[])fn(event);},
+};
+const updates=load("lib/public-tab-settings.ts",require,{
+ window:windowMock,localStorage:{setItem:(key,value)=>writes.push([key,value])},
+ CustomEvent:class{constructor(type,{detail}){this.type=type;this.detail=detail;}},
+});
+let refreshes=0;
+const unsubscribe=updates.subscribePublicCupUpdates(46,()=>refreshes++);
+updates.notifyPublicCupUpdate(45);assert.equal(refreshes,0);
+updates.notifyPublicCupUpdate(46);assert.equal(refreshes,1);
+assert.deepEqual(Object.keys(JSON.parse(writes[1][1])).sort(),["changedAt","cupId","nonce"]);
+windowMock.dispatchEvent({type:"storage",key:writes[1][0],newValue:writes[1][1]});
+assert.equal(refreshes,2,"another tab's saved update refreshes the right cup");
+windowMock.dispatchEvent({type:"storage",key:writes[0][0],newValue:writes[0][1]});
+windowMock.dispatchEvent({type:"storage",key:writes[1][0],newValue:"broken json"});
+windowMock.dispatchEvent({type:"storage",key:"other key",newValue:writes[1][1]});
+assert.equal(refreshes,2);
+unsubscribe();updates.notifyPublicCupUpdate(46);
+windowMock.dispatchEvent({type:"storage",key:writes[1][0],newValue:writes[1][1]});
+assert.equal(refreshes,2,"unmount removes local and cross-tab listeners");
 console.log("Public tab settings: persistence policy, independent buttons and immediate content fallback PASS");

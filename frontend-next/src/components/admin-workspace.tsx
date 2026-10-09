@@ -4,7 +4,7 @@ import { readAdminDraft, writeAdminDraft, clearAdminDrafts } from "../lib/admin-
 import { useUnsavedWork, usePendingAdminDrafts } from "../lib/use-admin-draft";
 import AdminDraftStatus from "./admin-draft-status";
 import AdminNavLink from "./admin-nav-link";
-import { publicTabSettings } from "../lib/public-tab-settings";
+import { notifyPublicCupUpdate, publicTabSettings } from "../lib/public-tab-settings";
 import { APP_VERSION } from "@/lib/version";
 import { openPlayoffReview } from "../lib/open-playoff-review";
 
@@ -205,6 +205,13 @@ export default function AdminWorkspace({verifiedSession=null,children=null}:{ver
   const [bulkKitProgress,setBulkKitProgress] = useState("");
   const [bulkKitResult,setBulkKitResult] = useState("");
   const [bulkKitIssues,setBulkKitIssues] = useState<Array<{teamId:number;teamName:string;reason:string}>>([]);
+  const cupInfoLoadSequence=useRef(0);
+  const cupInfoMounted=useRef(true);
+
+  useEffect(()=>{
+    cupInfoMounted.current=true;
+    return()=>{cupInfoMounted.current=false;cupInfoLoadSequence.current+=1;};
+  },[]);
 
   const activeCup = useMemo(() => cups.find(cup => cup.id === cupId) || null,[cups,cupId]);
   useEffect(()=>{
@@ -218,13 +225,19 @@ export default function AdminWorkspace({verifiedSession=null,children=null}:{ver
   const isOwnerAccount = account?.role === "owner" || account?.is_owner === true || activeCup?.role === "owner";
 
   const logout = useCallback(() => {
+    cupInfoLoadSequence.current+=1;
     clearAdminDrafts();
     localStorage.removeItem(TOKEN_KEY);
     setToken(null); setAccount(null); setCups([]); setTrashedCups([]); setTrashOpen(false); setCupId(null); setCupinfo(null); setSavedCupinfo(null); setTeams([]); setGroups([]);
-    setPassword(""); setMessage(""); setError(""); setRestoringSession(false);
+    setPassword(""); setMessage(""); setError(""); setRestoringSession(false); setBusy(false);
   },[]);
 
   const loadCupInfo = useCallback(async (nextToken:string, nextCupId:number) => {
+    if(!cupInfoMounted.current)return;
+    const sequence=++cupInfoLoadSequence.current;
+    setCupinfo(null);setSavedCupinfo(null);setTeams([]);setGroups([]);setScheduleOverview(null);setRulesOverview(null);
+    setEditingTeam(null);setTeamFormOpen(false);setTeamDraft(emptyTeam);setEditingGroup(null);setGroupDraft(emptyGroup);
+    try{
     const [data,teamData,groupData,scheduleData,ruleData] = await Promise.all([
       request<CupInfo>(`/api/admin/cups/${nextCupId}/cupinfo`,{},nextToken),
       request<{teams:Team[]}>(`/api/admin/cups/${nextCupId}/teams`,{},nextToken),
@@ -232,10 +245,18 @@ export default function AdminWorkspace({verifiedSession=null,children=null}:{ver
       request<ScheduleOverview>(`/api/admin/cups/${nextCupId}/schedule`,{},nextToken),
       request<{rules_reviewed:boolean;schedule_dirty:boolean}>(`/api/admin/cups/${nextCupId}/rules`,{},nextToken),
     ]);
-    const normalized=cleanCupInfo(data); const restored=readAdminDraft(`${nextCupId}:cupinfo`,normalized); setCupinfo(restored); setSavedCupinfo(normalized); setRulesOverview(ruleData); setTeams(teamData.teams || []); setGroups(groupData.groups || []); setScheduleOverview(scheduleData);
+    if(!cupInfoMounted.current||sequence!==cupInfoLoadSequence.current)return;
+    if(data.id!==nextCupId)throw new Error("Cupinfo tillhör inte den valda cupen. Välj cupen igen för att hämta rätt uppgifter.");
+    const normalized=cleanCupInfo(data);
+    const draft=readAdminDraft(`${nextCupId}:cupinfo`,normalized);
+    const restored=draft.id===nextCupId?draft:normalized;
+    setCupinfo(restored); setSavedCupinfo(normalized); setRulesOverview(ruleData); setTeams(teamData.teams || []); setGroups(groupData.groups || []); setScheduleOverview(scheduleData);
     document.documentElement.dataset.arrangementType=restored.arrangement_type || "tournament";
     window.dispatchEvent(new CustomEvent("cupnavi:arrangement-type",{detail:restored.arrangement_type || "tournament"}));
-    setEditingTeam(null); setTeamFormOpen(false); setTeamDraft(emptyTeam); setEditingGroup(null); setGroupDraft(emptyGroup);
+    }catch(err){
+      if(!cupInfoMounted.current||sequence!==cupInfoLoadSequence.current)return;
+      throw err;
+    }
   },[]);
 
   const refreshScheduleOverview = useCallback(async () => {
@@ -428,26 +449,40 @@ export default function AdminWorkspace({verifiedSession=null,children=null}:{ver
 
   async function saveCupInfo(event:FormEvent) {
     event.preventDefault();
-    if (!token || !cupId || !cupinfo) return;
+    if (!token || !cupId || !cupinfo || cupinfo.id!==cupId || busy) return;
+    let sequence=cupInfoLoadSequence.current;
     setBusy(true); setError(""); setMessage("");
     try {
       const saved = await request<CupInfo>(`/api/admin/cups/${cupId}/cupinfo`,{
         method:"PUT",
         body:JSON.stringify({name:cupinfo.name,start_date:cupinfo.start_date || null,end_date:cupinfo.end_date || null,organizer:cupinfo.organizer || null,organizer_logos:cupinfo.organizer_logos||[],arena_address:cupinfo.arena_address || null,organizer_phone:cupinfo.organizer_phone || null,feedback_email:cupinfo.feedback_email || null,public_information:cupinfo.public_information || null,arrangement_type:cupinfo.arrangement_type || "tournament",show_public_weather:publicWeatherEnabled(cupinfo),show_public_weather_configured:true,show_public_kits:cupinfo.show_public_kits!==false&&cupinfo.show_public_kits!==0,show_public_away_kits:cupinfo.show_public_away_kits!==false&&cupinfo.show_public_away_kits!==0,show_public_logos:cupinfo.show_public_logos!==false&&cupinfo.show_public_logos!==0,show_public_goal_minutes:cupinfo.show_public_goal_minutes===true||cupinfo.show_public_goal_minutes===1,show_public_info:publicTabSettings(cupinfo).info,show_public_offers:publicTabSettings(cupinfo).offers,expected_revision:cupinfo.admin_revision})
       },token);
+      if(!cupInfoMounted.current||sequence!==cupInfoLoadSequence.current)return;
       const normalized = cleanCupInfo(saved);
+      if(normalized.id!==cupId)throw new Error("Sparad Cupinfo kunde inte bekräftas för den valda cupen. Hämta cupen igen.");
       writeAdminDraft(`${cupId}:cupinfo`,normalized,normalized);
       setCupinfo(normalized); setSavedCupinfo(normalized);
       document.documentElement.dataset.arrangementType=normalized.arrangement_type || "tournament";
       window.dispatchEvent(new CustomEvent("cupnavi:arrangement-type",{detail:normalized.arrangement_type || "tournament"}));
       setCups(current => current.map(cup => cup.id === cupId ? {...cup,name:normalized.name,start_date:normalized.start_date,end_date:normalized.end_date,public_slug:normalized.public_slug,is_published:normalized.is_published} : cup));
-      setMessage("Cupinfo sparad.");
+      notifyPublicCupUpdate(normalized.id);
+      const tabs=publicTabSettings(normalized);
+      setMessage(`Cupinfo sparad. Info-fliken ${tabs.info?"visas":"är dold"} och Erbjudanden-fliken ${tabs.offers?"visas":"är dold"} i turneringsvyn.`);
       if(window.location.hash==="#cupinfo")window.location.hash="teams";
     } catch (err) {
-      if(err instanceof ApiError&&err.status===409){await loadCupInfo(token,cupId).catch(()=>undefined);setError("En annan administratör hann ändra Cupinfo. Den senaste versionen har hämtats; kontrollera uppgifterna innan du sparar igen.");}
+      if(!cupInfoMounted.current||sequence!==cupInfoLoadSequence.current)return;
+      if(err instanceof ApiError&&err.status===409){
+        sequence=cupInfoLoadSequence.current+1;
+        let reloadFailed=false;
+        await loadCupInfo(token,cupId).catch(()=>{reloadFailed=true;});
+        if(!cupInfoMounted.current||sequence!==cupInfoLoadSequence.current)return;
+        setError(reloadFailed
+          ? "En annan administratör hann ändra Cupinfo. Den senaste versionen kunde inte hämtas. Välj cupen igen innan du fortsätter."
+          : "En annan administratör hann ändra Cupinfo. Den senaste versionen har hämtats; kontrollera uppgifterna innan du sparar igen.");
+      }
       else setError(err instanceof Error ? err.message : "Cupinfo kunde inte sparas.");
     }
-    finally { setBusy(false); }
+    finally { if(cupInfoMounted.current&&sequence===cupInfoLoadSequence.current)setBusy(false); }
   }
 
   async function uploadOrganizerLogo(file:File,index:number) {
@@ -665,7 +700,7 @@ export default function AdminWorkspace({verifiedSession=null,children=null}:{ver
   const cupinfoDirty=Boolean(cupinfo&&savedCupinfo&&JSON.stringify(cupinfo)!==JSON.stringify(savedCupinfo));
   usePendingAdminDrafts();
   useUnsavedWork(cupinfoDirty||(teamFormOpen&&Boolean(teamDraft.name.trim()))||Boolean(groupDraft.name.trim()));
-  useEffect(()=>{if(cupId&&cupinfo&&savedCupinfo)writeAdminDraft(`${cupId}:cupinfo`,savedCupinfo,cupinfo);},[cupId,cupinfo,savedCupinfo]);
+  useEffect(()=>{if(cupId&&cupinfo?.id===cupId&&savedCupinfo?.id===cupId)writeAdminDraft(`${cupId}:cupinfo`,savedCupinfo,cupinfo);},[cupId,cupinfo,savedCupinfo]);
 
   if (!account && restoringSession) {
     return <main className="admin-main admin-starting" aria-live="polite"><section className="admin-panel"><div className="admin-panel__top"><span>CUPNAVI</span><strong>ÅTERANSLUTER</strong></div><h2>Återställer din session</h2><p>Din inloggning ligger kvar. CupNavi väntar på ett stabilt svar från servern.</p></section></main>;
@@ -802,7 +837,7 @@ export default function AdminWorkspace({verifiedSession=null,children=null}:{ver
             <label>Anläggning / adress<input value={cupinfo.arena_address || ""} onChange={e=>setCupinfo({...cupinfo,arena_address:e.target.value})} /></label>
             <label>Telefon<input value={cupinfo.organizer_phone || ""} onChange={e=>setCupinfo({...cupinfo,organizer_phone:e.target.value})} /></label>
             <label>Kontakt-e-post<input type="email" value={cupinfo.feedback_email || ""} onChange={e=>setCupinfo({...cupinfo,feedback_email:e.target.value})} /></label>
-            <label style={{gridColumn:"1 / -1"}}>Publik information<textarea rows={5} value={cupinfo.public_information || ""} onChange={e=>setCupinfo({...cupinfo,public_information:e.target.value})} /></label><fieldset className="admin-public-options" style={{gridColumn:"1 / -1"}}><legend>Publik turneringsvy</legend><label className="admin-public-options__checkbox" style={{minHeight:44}}><input type="checkbox" checked={publicTabSettings(cupinfo).info} onChange={e=>setCupinfo({...cupinfo,show_public_info:e.target.checked})}/> Visa Info-fliken</label><label className="admin-public-options__checkbox" style={{minHeight:44}}><input type="checkbox" checked={publicTabSettings(cupinfo).offers} onChange={e=>setCupinfo({...cupinfo,show_public_offers:e.target.checked})}/> Visa Erbjudanden-fliken</label><small>Avmarkerade flikar döljs för besökarna. Innehållet finns kvar och kan visas igen. Info innehåller cupinformation och sponsorer.</small><label className="admin-public-options__checkbox" style={{minHeight:44}}><input type="checkbox" checked={publicWeatherEnabled(cupinfo)} onChange={e=>setCupinfo({...cupinfo,show_public_weather:e.target.checked,show_public_weather_configured:true})}/> Visa väder</label><a href="#teams">Matchställ och klubbmärken ställs in under Lag →</a><label className="admin-public-options__checkbox" style={{minHeight:44}}><input type="checkbox" checked={cupinfo.show_public_goal_minutes===true||cupinfo.show_public_goal_minutes===1} onChange={e=>setCupinfo({...cupinfo,show_public_goal_minutes:e.target.checked})}/> Visa målminuter i turneringsvyn</label><small>Målminuter visas bara för mål som rapporteras med matchklockan. Tidigare resultat saknar minuter.</small></fieldset>
+            <label style={{gridColumn:"1 / -1"}}>Publik information<textarea rows={5} value={cupinfo.public_information || ""} onChange={e=>setCupinfo({...cupinfo,public_information:e.target.value})} /></label><fieldset className="admin-public-options" style={{gridColumn:"1 / -1"}}><legend>Publik turneringsvy</legend><label className="admin-public-options__checkbox" style={{minHeight:44}}><input type="checkbox" checked={publicTabSettings(cupinfo).info} onChange={e=>setCupinfo({...cupinfo,show_public_info:e.target.checked})}/> Visa Info-fliken</label><label className="admin-public-options__checkbox" style={{minHeight:44}}><input type="checkbox" checked={publicTabSettings(cupinfo).offers} onChange={e=>setCupinfo({...cupinfo,show_public_offers:e.target.checked})}/> Visa Erbjudanden-fliken</label><small>Spara Cupinfo för att ändra vilka flikar besökarna ser. Innehållet finns kvar och kan visas igen. Info innehåller cupinformation och sponsorer.</small><label className="admin-public-options__checkbox" style={{minHeight:44}}><input type="checkbox" checked={publicWeatherEnabled(cupinfo)} onChange={e=>setCupinfo({...cupinfo,show_public_weather:e.target.checked,show_public_weather_configured:true})}/> Visa väder</label><a href="#teams">Matchställ och klubbmärken ställs in under Lag →</a><label className="admin-public-options__checkbox" style={{minHeight:44}}><input type="checkbox" checked={cupinfo.show_public_goal_minutes===true||cupinfo.show_public_goal_minutes===1} onChange={e=>setCupinfo({...cupinfo,show_public_goal_minutes:e.target.checked})}/> Visa målminuter i turneringsvyn</label><small>Målminuter visas bara för mål som rapporteras med matchklockan. Tidigare resultat saknar minuter.</small></fieldset>
           </div>
           <fieldset className="admin-organizer-logos"><legend>Arrangörslogotyper i bannern</legend>
             <p>Visa upp till tre klubbmärken överst på den publika cupsidan. Välj ett lag, ladda upp en bild eller ange en bildadress.</p>
