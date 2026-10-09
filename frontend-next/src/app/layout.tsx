@@ -33,6 +33,7 @@ import "./ios-safe-area-v2684.css";
 import "./release-v2697.css";
 import "./admin-mobile-polish-v2712.css";
 import "./design-system.css";
+import "./reporting-reset.css";
 import "./public-standings-texttv.css";
 import "./organizer-banner.css";
 import "./partners.css";

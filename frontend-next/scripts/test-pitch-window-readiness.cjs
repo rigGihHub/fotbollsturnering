@@ -89,6 +89,7 @@ const PublishAdmin = load("components/publish-reporting-admin.tsx", name => {
   if (name === "../lib/client-api") return { CLIENT_API_BASE: "" };
   if (name === "../lib/venue-return-navigation") return navigation;
   if (name === "./match-events-admin") return { default: () => null, __esModule: true };
+  if (name === "../lib/public-tab-settings") return load("lib/public-tab-settings.ts");
   return require(name);
 }).default;
 function allNodes(node) {

@@ -1,6 +1,7 @@
 from fastapi import Header,HTTPException
-from pydantic import BaseModel
-from .publish_reporting_repository import admin_publication,set_publication,admin_reporting,reset_result,save_result
+from typing import Literal
+from pydantic import BaseModel, Field
+from .publish_reporting_repository import admin_publication,set_publication,admin_reporting,reset_all_results,reset_result,save_result
 from .match_events_admin_repository import admin_event_matches,admin_match_events,update_player_match_events
 from .result_correction_repository import playoff_result_correction_impact
 
@@ -20,6 +21,9 @@ class ResultReset(BaseModel):
     expected_home_penalties:int|None=None
     expected_away_penalties:int|None=None
     expected_status:str
+class AllResultsReset(BaseModel):
+    confirmed:Literal[True]
+    expected_match_count:int=Field(ge=0)
 class EventCounters(BaseModel):
     goals:int=0
     assists:int=0
@@ -76,6 +80,14 @@ def register_publish_reporting_routes(app,admin_identity):
         except ValueError as e:raise HTTPException(422,str(e)) from e
         except RuntimeError as e:raise HTTPException(409,str(e)) from e
         if r is None:raise HTTPException(404,'Match saknas eller åtkomst nekas')
+        return r
+
+    @app.post('/api/admin/cups/{tournament_id}/reporting/reset-all')
+    def post_all_results_reset(tournament_id:int,payload:AllResultsReset,authorization:str|None=Header(default=None)):
+        a=admin_identity(authorization)
+        try:r=reset_all_results(int(a['id']),tournament_id,payload.expected_match_count)
+        except RuntimeError as e:raise HTTPException(409,str(e)) from e
+        if r is None:raise HTTPException(404,'Cup not found or access denied')
         return r
 
     @app.post('/api/admin/cups/{tournament_id}/reporting/matches/{match_id}/reset')

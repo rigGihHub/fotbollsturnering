@@ -1,9 +1,10 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { CLIENT_API_BASE } from "../lib/client-api";
 import MatchEventsAdmin from "./match-events-admin";
 import { requestScheduleReturn } from "../lib/venue-return-navigation";
+import { notifyPublicCupUpdate } from "../lib/public-tab-settings";
 
 const API = CLIENT_API_BASE;
 
@@ -57,16 +58,37 @@ export default function PublishReportingAdmin({token,cupId,mode,publicSlug}:{tok
   const [selectedMatchId,setSelectedMatchId]=useState<number|null>(null);
   const [error,setError]=useState("");
   const [busy,setBusy]=useState(false);
+  const [confirmResetAll,setConfirmResetAll]=useState(false);
+  const [resetError,setResetError]=useState("");
+  const [message,setMessage]=useState("");
+  const [reportingRevision,setReportingRevision]=useState(0);
 
-  const load=useCallback(async()=>{
+  const load=useCallback(async(isCurrent:()=>boolean=()=>true)=>{
     try{
-      if(mode==="publish")setPublication(await req(`/api/admin/cups/${cupId}/publication`,token));
-      else {const data=await req(`/api/admin/cups/${cupId}/reporting`,token);setMatches(data.matches||[]);}
+      if(mode==="publish"){const data=await req(`/api/admin/cups/${cupId}/publication`,token);if(isCurrent())setPublication(data);}
+      else {const data=await req(`/api/admin/cups/${cupId}/reporting`,token);if(isCurrent())setMatches(data.matches||[]);}
+      if(!isCurrent())return;
       setError("");
-    }catch(reason){setError(reason instanceof Error?reason.message:"Kunde inte hämta data");}
+    }catch(reason){if(isCurrent())setError(reason instanceof Error?reason.message:"Kunde inte hämta data");}
   },[token,cupId,mode]);
 
-  useEffect(()=>{void load();},[load]);
+  useEffect(()=>{let current=true;setMatches([]);setSelectedMatchId(null);void load(()=>current);return()=>{current=false;};},[load]);
+  useEffect(()=>{setConfirmResetAll(false);setResetError("");setMessage("");},[cupId,token,mode]);
+
+  async function resetAll(){
+    if(busy)return;
+    setBusy(true);setResetError("");setError("");setMessage("");
+    try{
+      const data=await req(`/api/admin/cups/${cupId}/reporting/reset-all`,token,{method:"POST",signal:AbortSignal.timeout(20000),body:JSON.stringify({confirmed:true,expected_match_count:matches.length})});
+      setMatches(current=>current.map(match=>({...match,home_score:null,away_score:null,home_penalties:null,away_penalties:null,status:"scheduled",match_status:"not_started"})));
+      setReportingRevision(value=>value+1);
+      setConfirmResetAll(false);
+      setMessage(`Alla ${data.reset_count} matcher är återställda som ospelade.`);
+      notifyPublicCupUpdate(cupId);
+      await load();
+    }catch(reason){setResetError(reason instanceof Error&&reason.name!=="TimeoutError"?reason.message:"Återställningen kunde inte bekräftas. Uppdatera vyn och kontrollera matcherna innan du försöker igen.");}
+    finally{setBusy(false);}
+  }
 
   async function togglePublication(){
     setBusy(true);
@@ -78,7 +100,7 @@ export default function PublishReportingAdmin({token,cupId,mode,publicSlug}:{tok
   }
 
   async function save(match:Match,home:string,away:string,homePenalties:string,awayPenalties:string){
-    setBusy(true);
+    setBusy(true);setMessage("");
     try{
       setError("");
       const payload={home_score:Number(home),away_score:Number(away),home_penalties:homePenalties===""?null:Number(homePenalties),away_penalties:awayPenalties===""?null:Number(awayPenalties),expected_home_score:match.home_score,expected_away_score:match.away_score,expected_home_penalties:match.home_penalties??null,expected_away_penalties:match.away_penalties??null};
@@ -99,7 +121,7 @@ export default function PublishReportingAdmin({token,cupId,mode,publicSlug}:{tok
   async function reset(match:Match){
     if(match.home_score==null||match.away_score==null)return;
     if(!window.confirm(`Återställ ${match.home_team} – ${match.away_team} som ospelad?\n\nResultatet, matchstatusen, matchklockan och registrerade matchhändelser tas bort.`))return;
-    setBusy(true);
+    setBusy(true);setMessage("");
     try{
       setError("");
       await req(`/api/admin/cups/${cupId}/reporting/matches/${match.id}/reset`,token,{method:"POST",body:JSON.stringify({expected_home_score:match.home_score,expected_away_score:match.away_score,expected_home_penalties:match.home_penalties??null,expected_away_penalties:match.away_penalties??null,expected_status:match.match_status||"not_started"})});
@@ -150,11 +172,25 @@ export default function PublishReportingAdmin({token,cupId,mode,publicSlug}:{tok
       <div className="publication-console__eyebrow"><span>VERKTYG · MATCHRAPPORTERING</span><strong>{played}/{matches.length} KLARA</strong></div>
       <div className="reporting-console__head"><div><p className="publication-console__kicker">MATCHCENTRAL</p><h2>Rapportera resultat</h2><p>Välj en match, fyll i resultatet och spara. Admin kan korrigera även slutmarkerade matcher; rapportörsvyn låses efter slutmarkering.</p></div>{awaiting>0&&<span className="reporting-console__waiting">{awaiting} väntar på avgörande</span>}</div>
       {error&&<div className="publication-console__error" role="alert"><strong>Kunde inte spara</strong><span>{error}</span></div>}
+      {message&&<p className="reporting-console__message" role="status">{message}</p>}
       {matches.length>0&&<label className="reporting-match-picker">Välj match<select value={selectedMatch?.id??""} onChange={event=>setSelectedMatchId(Number(event.target.value))}>{matches.map(match=><option key={match.id} value={match.id}>{match.scheduled_start?String(match.scheduled_start).replace("T"," ").slice(0,16)+" · ":""}{match.home_team} – {match.away_team}{match.home_score!=null&&match.away_score!=null?` · ${match.home_score}–${match.away_score}`:""}</option>)}</select><small>{matches.length} matcher tillgängliga</small></label>}
-      <div className="reporting-match-list">{selectedMatch?<MatchRow key={selectedMatch.id} match={selectedMatch} busy={busy} save={save} reset={reset}/>:<div className="reporting-empty"><strong>Inga matcher att rapportera</strong><span>Matcher visas här när schemat är skapat.</span></div>}</div>
+      <div className="reporting-match-list">{selectedMatch?<MatchRow key={`${selectedMatch.id}-${reportingRevision}`} match={selectedMatch} busy={busy} save={save} reset={reset}/>:<div className="reporting-empty"><strong>Inga matcher att rapportera</strong><span>Matcher visas här när schemat är skapat.</span></div>}</div>
+      <div className="reporting-console__reset"><span>Gäller alla matcher i den här cupen, inklusive slutspel.</span><button type="button" disabled={busy||!matches.length} onClick={()=>{setResetError("");setConfirmResetAll(true);}}>Återställ alla matcher</button></div>
     </section>
-    <MatchEventsAdmin token={token} cupId={cupId}/>
+    <MatchEventsAdmin key={`${cupId}-${reportingRevision}`} token={token} cupId={cupId}/>
+    {confirmResetAll&&<ResetAllDialog count={matches.length} busy={busy} error={resetError} onNo={()=>setConfirmResetAll(false)} onYes={()=>void resetAll()}/>}
   </>;
+}
+
+function ResetAllDialog({count,busy,error,onNo,onYes}:{count:number;busy:boolean;error:string;onNo:()=>void;onYes:()=>void}){
+  const dialog=useRef<HTMLDialogElement>(null);
+  useEffect(()=>{const element=dialog.current;element?.showModal();return()=>element?.close();},[]);
+  return <dialog ref={dialog} className="reporting-reset-dialog" aria-labelledby="reset-all-title" aria-describedby="reset-all-description" aria-busy={busy} onCancel={event=>{event.preventDefault();if(!busy)onNo();}}>
+    <h2 id="reset-all-title">Är du säker?</h2>
+    <p id="reset-all-description">Alla {count} matcher i den här cupen blir ospelade, även slutspelsmatcher. Resultat, matchklockor och registrerade mål, assist och kort tas bort. Lag och spelschema behålls.</p>
+    {error&&<p className="reporting-reset-dialog__error" role="alert">{error}</p>}
+    <div className="reporting-reset-dialog__actions"><button type="button" autoFocus disabled={busy} onClick={onNo}>Nej</button><button className="reporting-reset-dialog__yes" type="button" disabled={busy} onClick={onYes}>{busy?"Återställer…":"Ja"}</button></div>
+  </dialog>;
 }
 
 function MatchRow({match,busy,save,reset}:{match:Match;busy:boolean;save:(match:Match,home:string,away:string,homePenalties:string,awayPenalties:string)=>void;reset:(match:Match)=>void}){
