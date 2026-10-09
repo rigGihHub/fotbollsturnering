@@ -10,7 +10,7 @@ from cupnavi_api import repository as db
 from cupnavi_api.competition_admin_routes import register_competition_admin_routes
 from cupnavi_api.playoff_import_repository import commit_playoff_import
 from cupnavi_api.playoff_admin_repository import admin_playoffs, update_playoff_settings
-from cupnavi_api.publish_reporting_repository import admin_reporting, reset_result, save_result, set_reporter_match_status
+from cupnavi_api.publish_reporting_repository import admin_reporting, reset_all_results, reset_result, save_result, set_reporter_match_status
 from cupnavi_api.participant_resolution_repository import resolve_public_snapshot
 from cupnavi_api.main import playoffs, standings
 from cupnavi_core.placement_playoffs import DRAW_RULE, all_placement_blocks
@@ -468,3 +468,86 @@ def test_preview_explains_staged_playoffs_instead_of_silently_hiding_them(cup, m
     assert main.admin_cup_preview(1,None)['pending_playoff_count']==9
     import_groups()
     assert main.admin_cup_preview(1,None)['pending_playoff_count']==0
+
+
+def test_reset_all_clears_group_and_playoff_results_and_events_but_preserves_other_cup(cup):
+    import_groups()
+    admin_reporting(7, 1)  # Existing databases acquire clock columns first.
+    with sqlite3.connect(cup) as con:
+        con.executescript('''
+        CREATE TABLE player_match_stats(id INTEGER PRIMARY KEY,match_id INTEGER,goals INTEGER,assists INTEGER,yellow_cards INTEGER,red_cards INTEGER);
+        CREATE TABLE match_goal_minutes(id INTEGER PRIMARY KEY,match_id INTEGER,side TEXT,minute INTEGER);
+        INSERT INTO matches(id,tournament_id,stage,home_score,away_score,match_status) VALUES(987,2,'Final',9,8,'finished');
+        INSERT INTO player_match_stats VALUES(1,1,2,1,1,1),(2,987,9,0,0,0);
+        INSERT INTO match_goal_minutes VALUES(1,1,'home',12),(2,987,'home',8);
+        UPDATE matches SET home_score=2,away_score=2,home_penalties=4,away_penalties=3,decided_winner_id=1,
+            match_status=CASE WHEN bracket_id IS NULL THEN 'finished' ELSE 'live' END,
+            actual_started_at='2026-10-09T12:00:00',actual_finished_at='2026-10-09T12:10:00',
+            actual_paused_at='2026-10-09T12:05:00',actual_elapsed_seconds=300 WHERE tournament_id=1;
+        ''')
+    structure_sql = 'SELECT id,tournament_id,group_id,bracket_id,stage,home_source,away_source,scheduled_start,pitch_number,schedule_published,schedule_locked FROM matches ORDER BY id'
+    before = db.all_rows(structure_sql)
+    tournament = db.one('SELECT * FROM tournaments WHERE id=1')
+    assert reset_all_results(7, 1, 18) == {'reset_count': 18}
+    matches = db.all_rows('SELECT * FROM matches WHERE tournament_id=1')
+    assert len(matches) == 18
+    for match in matches:
+        for field in ('home_score','away_score','home_penalties','away_penalties','decided_winner_id','actual_started_at','actual_finished_at','actual_paused_at'):
+            assert match[field] is None
+        assert match['match_status'] == 'not_started'
+        assert match['actual_elapsed_seconds'] == 0
+    assert db.all_rows(structure_sql) == before
+    assert db.one('SELECT * FROM tournaments WHERE id=1') == tournament
+    assert db.one('SELECT home_score,away_score,match_status FROM matches WHERE id=987') == {'home_score':9,'away_score':8,'match_status':'finished'}
+    assert [row['match_id'] for row in db.all_rows('SELECT * FROM player_match_stats')] == [987]
+    assert [row['match_id'] for row in db.all_rows('SELECT * FROM match_goal_minutes')] == [987]
+    assert all(match['status'] == 'scheduled' for match in admin_reporting(7,1)['matches'])
+    assert reset_all_results(7, 1, 18) == {'reset_count': 18}
+
+
+def test_reset_all_rejects_wrong_scope_or_changed_match_count(cup):
+    before = db.all_rows('SELECT * FROM matches ORDER BY id')
+    assert reset_all_results(7, 2, 0) is None
+    with pytest.raises(RuntimeError, match='Antalet matcher har ändrats'):
+        reset_all_results(7, 1, 8)
+    assert [(m['home_score'],m['away_score'],m['match_status']) for m in db.all_rows('SELECT * FROM matches ORDER BY id')] == [(m['home_score'],m['away_score'],m['match_status']) for m in before]
+
+
+def test_reset_all_rolls_back_entire_cup_if_event_cleanup_fails(cup):
+    admin_reporting(7, 1)
+    with sqlite3.connect(cup) as con:
+        con.executescript('''
+        CREATE TABLE player_match_stats(id INTEGER PRIMARY KEY,match_id INTEGER,goals INTEGER);
+        INSERT INTO player_match_stats VALUES(1,1,2);
+        CREATE TRIGGER reject_event_cleanup BEFORE DELETE ON player_match_stats BEGIN SELECT RAISE(ABORT,'test cleanup failure'); END;
+        ''')
+    before = db.all_rows('SELECT * FROM matches ORDER BY id')
+    with pytest.raises(sqlite3.IntegrityError, match='test cleanup failure'):
+        reset_all_results(7, 1, 9)
+    assert db.all_rows('SELECT * FROM matches ORDER BY id') == before
+    assert db.one('SELECT COUNT(*) AS n FROM player_match_stats')['n'] == 1
+
+
+def test_reset_all_route_requires_admin_confirmation_and_cup_access(cup):
+    from fastapi import HTTPException
+    from cupnavi_api.publish_reporting_routes import register_publish_reporting_routes
+    def identity(authorization):
+        if authorization != 'Bearer local-admin':
+            raise HTTPException(401, 'Admin session required')
+        return {'id':7}
+    app=FastAPI()
+    register_publish_reporting_routes(app,identity)
+    client=TestClient(app)
+    url='/api/admin/cups/1/reporting/reset-all'
+    payload={'confirmed':True,'expected_match_count':9}
+    headers={'Authorization':'Bearer local-admin'}
+    assert client.post(url,json=payload).status_code == 401
+    assert client.post(url,headers={'Authorization':'Bearer reporter'},json=payload).status_code == 401
+    assert client.post(url,headers=headers,json={**payload,'confirmed':False}).status_code == 422
+    assert client.post(url,headers=headers,json={'expected_match_count':9}).status_code == 422
+    assert client.post('/api/admin/cups/2/reporting/reset-all',headers=headers,json=payload).status_code == 404
+    assert client.post(url,headers=headers,json={**payload,'expected_match_count':8}).status_code == 409
+    assert db.one('SELECT COUNT(*) AS n FROM matches WHERE home_score IS NOT NULL')['n'] == 9
+    response=client.post(url,headers=headers,json=payload)
+    assert response.status_code == 200 and response.json() == {'reset_count':9}
+    assert db.one('SELECT COUNT(*) AS n FROM matches WHERE home_score IS NOT NULL')['n'] == 0

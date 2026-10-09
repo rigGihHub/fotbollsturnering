@@ -602,6 +602,38 @@ def save_result(
     return updated
 
 
+def reset_all_results(account_id: int, tournament_id: int, expected_match_count: int):
+    """Reset the whole cup atomically, including live and playoff matches."""
+    if not _has_tournament_access(account_id, tournament_id):
+        return None
+    _ensure_match_clock_columns()
+    has_player_events = bool(_table_columns("player_match_stats"))
+    has_goal_minutes = bool(_table_columns("match_goal_minutes"))
+    now = datetime.now(timezone.utc).isoformat()
+    with connect() as conn:
+        conn.execute("BEGIN IMMEDIATE")
+        try:
+            count = int(conn.execute("SELECT COUNT(*) FROM matches WHERE tournament_id=?", (int(tournament_id),)).fetchone()[0])
+            if count != expected_match_count:
+                raise RuntimeError("Antalet matcher har ändrats. Uppdatera vyn och bekräfta återställningen igen.")
+            conn.execute(
+                """UPDATE matches
+                   SET home_score=NULL,away_score=NULL,home_penalties=NULL,away_penalties=NULL,
+                       decided_winner_id=NULL,match_status=?,status_updated_at=?,
+                       actual_started_at=NULL,actual_finished_at=NULL,actual_elapsed_seconds=0,actual_paused_at=NULL
+                   WHERE tournament_id=?""",
+                (MATCH_NOT_STARTED, now, int(tournament_id)),
+            )
+            for table, available in (("player_match_stats", has_player_events), ("match_goal_minutes", has_goal_minutes)):
+                if available:
+                    conn.execute(f"DELETE FROM {table} WHERE match_id IN (SELECT id FROM matches WHERE tournament_id=?)", (int(tournament_id),))
+            conn.commit()
+        except Exception:
+            conn.rollback()
+            raise
+    return {"reset_count": count}
+
+
 def reset_result(
     account_id: int,
     tournament_id: int,
