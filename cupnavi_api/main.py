@@ -42,6 +42,7 @@ from .group_admin_repository import (
     update_group,
 )
 from .participant_resolution_repository import public_bracket_resolution, resolve_public_snapshot, public_placement_tables
+from .public_directory_repository import public_cup_directory
 from .venue_admin_routes import register_venue_admin_routes
 from .access_routes import register_access_routes
 from .partner_routes import register_partner_routes
@@ -598,6 +599,12 @@ def put_admin_team_group(tournament_id:int,team_id:int,payload:TeamGroupWrite,au
     if not team:
         raise HTTPException(status_code=404,detail="Lag saknas eller åtkomst nekas")
     return team
+
+
+@app.get("/api/public/cups")
+def cup_directory(response: Response):
+    response.headers["Cache-Control"] = "no-store"
+    return public_cup_directory()
 
 
 @app.get("/api/public/cups/{public_key}")

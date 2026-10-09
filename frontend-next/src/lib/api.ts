@@ -1,5 +1,9 @@
-import { CupSnapshot, Match, PublicStatistics, StandingRow } from "./types";
+import { CupSnapshot, Match, PublicCupDirectoryPayload, PublicStatistics, StandingRow } from "./types";
 import { CLIENT_API_BASE } from "./client-api";
+
+export function getPublicCups(): Promise<PublicCupDirectoryPayload> {
+  return apiGet<PublicCupDirectoryPayload>("/api/public/cups", {maxRetries: 1});
+}
 
 const API_BASE = typeof window === "undefined"
   ? (process.env.CUPNAVI_API_BASE || CLIENT_API_BASE).replace(/\/$/, "")
