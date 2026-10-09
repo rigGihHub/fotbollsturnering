@@ -1,4 +1,5 @@
 import styles from "./home.module.css";
+import PublicCupDirectory from "@/components/PublicCupDirectory";
 
 export default function Home() {
   return (
@@ -10,7 +11,7 @@ export default function Home() {
           <p className={styles.lead}>Skapa cupen, lägg schemat och ge alla en tydlig plats för matcher, tabeller och resultat.</p>
           <div className={styles.actions}>
             <a className={styles.primary} href="/admin">Skapa en cup <span aria-hidden="true">↗</span></a>
-            <a className={styles.secondary} href="/cup/slottskampen-6">Se en exempelcup <span aria-hidden="true">→</span></a>
+            <a className={styles.secondary} href="#public-cups">Hitta en cup <span aria-hidden="true">→</span></a>
           </div>
           <p className={styles.actionHint}>Arrangören planerar. Lag och publik följer samma cup i mobilen.</p>
         </div>
@@ -28,6 +29,8 @@ export default function Home() {
           </div>
         </div>
       </section>
+
+      <PublicCupDirectory />
 
       <section className={styles.how} aria-labelledby="how-title">
         <div className={styles.sectionTitle}>

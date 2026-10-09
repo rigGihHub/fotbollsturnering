@@ -1,3 +1,11 @@
+export type PublicCupStatus = "ongoing" | "upcoming" | "completed" | "undated";
+export type PublicCupListing = {
+  id: number; name: string; public_slug: string | null;
+  start_date: string | null; end_date: string | null;
+  arrangement_type: string | null; arena_address: string | null; status: PublicCupStatus;
+};
+export type PublicCupDirectoryPayload = { cups: PublicCupListing[]; as_of: string };
+
 export type Tournament = {
   id: number; name: string; public_slug?: string | null; sport?: string | null;
   start_date?: string | null; end_date?: string | null; organizer?: string | null;
